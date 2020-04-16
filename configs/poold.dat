@@ -1,0 +1,77 @@
+
+// ----------------------------------------------------------------
+// Table Samples
+// ----------------------------------------------------------------
+
+Table samples
+{
+   ADDRESS              ""  address              UInt         4 Primary,
+   TYPE                 ""  type                 Ascii        2 Primary,
+   AGGREGATE            ""  aggregate            Ascii        1 Primary,
+   TIME                 ""  time                 DateTime     0 Primary,
+
+   INSSP                ""  inssp                Int         10 Meta,
+   UPDSP                ""  updsp                Int         10 Meta,
+
+   VALUE                ""  value                Float      122 Data,
+   TEXT                 ""  text                 Ascii       50 Data,
+   SAMPLES              ""  samples              Int          3 Data,
+}
+
+// ----------------------------------------------------------------
+// Table peaks
+// ----------------------------------------------------------------
+
+Table peaks
+{
+   ADDRESS              ""  address              UInt         4 Primary,
+   TYPE                 ""  type                 Ascii        2 Primary,
+
+   INSSP                ""  inssp                Int         10 Meta,
+   UPDSP                ""  updsp                Int         10 Meta,
+
+   MIN                  ""  minv                 Float      122 Data,
+   MAX                  ""  maxv                 Float      122 Data,
+}
+
+// ----------------------------------------------------------------
+// Indices for Samples
+// ----------------------------------------------------------------
+
+Index samples
+{
+   time                 ""  TIME,
+   type                 ""  TYPE,
+}
+
+// ----------------------------------------------------------------
+// Table ValueFacts
+// ----------------------------------------------------------------
+
+Table valuefacts
+{
+   ADDRESS              ""  address              UInt         4 Primary,
+   TYPE                 ""  type                 Ascii        2 Primary,
+
+   INSSP                ""  inssp                Int         10 Meta,
+   UPDSP                ""  updsp                Int         10 Meta,
+
+   STATE                ""  state                Ascii        1 Data,
+   UNIT                 ""  unit                 Ascii        5 Data,
+   NAME                 ""  name                 Ascii      100 Data,
+   TITLE                ""  title                Ascii      100 Data,
+   MAXSCALE             ""  maxscale             Int          4 Data,
+}
+
+// ----------------------------------------------------------------
+// Table Config
+// ----------------------------------------------------------------
+
+Table config
+{
+   OWNER                ""  owner                Ascii       40 Primary,
+   NAME                 ""  name                 Ascii       40 Primary,
+   INSSP                ""  inssp                Int          0 Meta,
+   UPDSP                ""  updsp                Int          0 Meta,
+   VALUE                ""  value                Ascii      100 Data,
+}

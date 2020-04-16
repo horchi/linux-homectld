@@ -1,0 +1,12 @@
+*.so
+*.o
+*.a
+*.tgz
+*~
+p4
+p4d
+lib/t
+vg.log
+lib/tst
+dbchart
+mqt

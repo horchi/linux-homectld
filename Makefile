@@ -98,6 +98,36 @@ install-scripts:
 	fi
 	install -D ./scripts/poold-* $(BINDEST)/
 
+install-web:
+	if ! test -d $(WEBDEST); then \
+		mkdir -p "$(WEBDEST)"; \
+		chmod a+rx "$(WEBDEST)"; \
+	fi
+	if test -f "$(WEBDEST)/stylesheet.css"; then \
+		cp -Pp "$(WEBDEST)/stylesheet.css" "$(WEBDEST)/stylesheet.css.save"; \
+	fi
+	if test -f "$(WEBDEST)/config.php"; then \
+		cp -p "$(WEBDEST)/config.php" "$(WEBDEST)/config.php.save"; \
+	fi
+	cp -r ./htdocs/* $(WEBDEST)/
+	if test -f "$(WEBDEST)/config.php.save"; then \
+		cp -p "$(WEBDEST)/config.php" "$(WEBDEST)/config.php.dist"; \
+		cp -p "$(WEBDEST)/config.php.save" "$(WEBDEST)/config.php"; \
+	fi
+	if test -f "$(WEBDEST)/stylesheet.css.save"; then \
+		cp -Pp "$(WEBDEST)/stylesheet.css.save" "$(WEBDEST)/stylesheet.css"; \
+	fi
+	cat ./htdocs/header.php | sed s:"<VERSION>":"$(VERSION)":g > "$(WEBDEST)/header.php"; \
+	chmod -R a+r "$(WEBDEST)"; \
+	chown -R $(WEBOWNER):$(WEBOWNER) "$(WEBDEST)"
+
+install-apache-conf:
+	@mkdir -p $(APACHECFGDEST)/conf-available
+	@mkdir -p $(APACHECFGDEST)/conf-enabled
+	install --mode=644 -D apache2/pool.conf $(APACHECFGDEST)/conf-available/
+	rm -f $(APACHECFGDEST)/conf-enabled/pool.conf
+	ln -s ../conf-available/pool.conf $(APACHECFGDEST)/conf-enabled/pool.conf
+
 dist: clean
 	@-rm -rf $(TMPDIR)/$(ARCHIVE)
 	@mkdir $(TMPDIR)/$(ARCHIVE)

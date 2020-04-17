@@ -233,36 +233,6 @@ function readConfigItem($name, &$value, $default = "")
 }
 
 // ---------------------------------------------------------------------------
-// Schema Selection
-// ---------------------------------------------------------------------------
-
-function schemaItem($flow, $title, $schema)
-{
-   global $schema_path, $schema_pattern;
-   $actual = "schema-$schema.png";
-
-   $end = htmTags($flow);
-   echo "          <span>$title:</span>\n";
-   echo "          <span>\n";
-   echo "          <select class=\"rounded-border input\" name=\"schema\">\n";
-
-   $path  = $schema_path . $schema_pattern;
-
-   foreach (glob($path) as $filename)
-   {
-      $filename = basename($filename);
-
-      $sel = ($actual == $filename) ? "SELECTED" : "";
-      $tp  = substr(strstr($filename, ".", true), 7);
-      echo "            <option value=\"$tp\" " . $sel . ">$tp</option>\n";
-   }
-
-   echo "          </select>\n";
-   echo "          </span>\n";
-   echo $end;
-}
-
-// ---------------------------------------------------------------------------
 // Text Config items
 // ---------------------------------------------------------------------------
 

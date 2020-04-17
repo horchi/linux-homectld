@@ -57,7 +57,6 @@ else if ($action == "store")
             or die("<br/>Error" . $mysqli->error);
     }
 
-    // requestAction("update-schemacfg", 2, 0, "", $resonse);  // ist das noch nötig?
     echo "<div class=\"info\"><b><center>Einstellungen gespeichert</center></b></div>";
 }
 

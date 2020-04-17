@@ -54,18 +54,6 @@
     border-width: 1px;
 }
 
-.schemaValue
-{
-    color: var(--buttonFont);
-    padding: 3px;
-    text-decoration: none;
-
-    border-radius: var(--borderRadiusSchemaValue);
-    border-color: var(--borderColorSchemaValue);
-    border-style: var(--borderStyleSchemaValue);
-    border-width: 1px;
-}
-
 .tableButton
 {
     color: var(--buttonFont);

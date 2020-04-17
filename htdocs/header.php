@@ -65,9 +65,6 @@ include("functions.php");
      readConfigItem("maxTimeLeak", $_SESSION['maxTimeLeak']);
      readConfigItem("heatingType", $_SESSION['heatingType'], "p4");
      readConfigItem("stateAni", $_SESSION['stateAni']);
-     readConfigItem("schemaRange", $_SESSION['schemaRange']);
-     readConfigItem("schema", $_SESSION['schema'], "p4-2hk-puffer");
-     readConfigItem("schemaBez", $_SESSION['schemaBez']);
      readConfigItem("pumpON",  $_SESSION['pumpON'], "img/icon/pump-on.gif");
      readConfigItem("pumpOFF", $_SESSION['pumpOFF'], "img/icon/pump-off.gif");
      readConfigItem("ventON",  $_SESSION['ventON'], "img/icon/vent-on.gif");
@@ -128,10 +125,6 @@ function printHeader($refresh = 0)
 
    if ($_SESSION['chart34'] == "1")
       echo "      <a href=\"chart2.php\"><button class=\"rounded-border button1\">Charts...</button></a>\n";
-
-   echo "      <a href=\"schemadsp.php\"><button class=\"rounded-border button1\">Schema</button></a>\n";
-   echo "      <a href=\"menu.php\"><button class=\"rounded-border button1\">Menü</button></a>\n";
-   echo "      <a href=\"error.php\"><button class=\"rounded-border button1\">Fehler</button></a>\n";
 
    if (haveLogin())
    {

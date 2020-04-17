@@ -1,0 +1,671 @@
+
+.fixed-menu1
+{
+    z-index: 9999;
+    position: fixed;
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    padding-left: 5px;
+    box-sizing: border-box;
+    background-color: var(--menu);
+}
+
+.fixed-menu2
+{
+    z-index: 9999;
+    position: fixed;
+    top: 44px;
+    left: 0px;
+    width: 100%;
+    height: 32px;
+    white-space: nowrap;
+    padding-left: 5px;
+    box-sizing: border-box;
+    background-color: var(--menu);
+}
+
+.menu
+{
+    z-index: 9999;
+    position: fixed;
+    top: 76px;
+    left: 0px;
+    width: 100%;
+    height: 40px;
+    white-space: nowrap;
+    padding-left: 5px;
+    box-sizing: border-box;
+    background-color: var(--menu);
+}
+
+.content
+{
+    top: 44px;
+    position: relative;
+    margin: 0px 5px 0px 5px;
+}
+
+.rounded-border
+{
+    border-radius: var(--borderRadius);
+    border-color: var(--borderColor);
+    border-style: solid;
+    border-width: 1px;
+}
+
+.schemaValue
+{
+    color: var(--buttonFont);
+    padding: 3px;
+    text-decoration: none;
+
+    border-radius: var(--borderRadiusSchemaValue);
+    border-color: var(--borderColorSchemaValue);
+    border-style: var(--borderStyleSchemaValue);
+    border-width: 1px;
+}
+
+.tableButton
+{
+    color: var(--buttonFont);
+    padding: 2px;
+    text-decoration: none;
+    background-color: var(--colorTableButton);
+    border-radius: var(--borderRadiusTableButton);
+    border-color: var(--borderColorTableButton);
+    border-style: none;
+    border-width: 1px;
+}
+
+.tableButton:hover
+{
+    background-color: var(--buttonAction);
+    color: white;
+}
+
+.button1
+{
+    background-color: var(--caption1);
+    color: var(--buttonFont);
+    margin: 5px 1px 5px 1px;
+    display: inline-block;
+    padding: 6px 6px;
+    text-decoration: none;
+}
+
+.button1:hover
+{
+    background-color: var(--caption2);
+}
+
+.button2
+{
+    background-color: var(--caption2);
+    color: black;
+    padding: 3px 10px;
+    text-decoration: none;
+}
+
+.button2:hover
+{
+    color: white;
+}
+
+.button2sel
+{
+    background-color: var(--caption1);
+    color: black;
+    margin: 2px;
+    padding: 3px 10px;
+}
+
+.button2sel:hover
+{
+    color: white;
+}
+
+.button3
+{
+    background-color: var(--buttonAction);
+    padding: 3px 10px;
+    color: black;
+    margin-top: 10px;
+    text-decoration: none;
+}
+
+.button3:hover
+{
+    color: white;
+}
+
+.seperatorTitle1
+{
+    background-color: var(--caption1);
+    color: var(--light2);
+    margin-top: 0px;
+    padding: 5px 15px;
+    font-weight: bold;
+}
+
+.seperatorTitle2
+{
+    background-color: var(--caption2);
+    margin-top: 2px;
+    padding: 5px 15px;
+}
+
+.input
+{
+    background-color: var(--edit);
+    margin-top: 2px;
+    color: black;
+    padding: 3px;
+}
+
+.inputSetting
+{
+    width: 100%;
+    background-color: var(--edit);
+    margin-top: 2px;
+    color: black;
+    padding: 4px;
+    margin: 1px;
+}
+
+span > input
+{
+    display: inline-block;
+    width: 98%;
+}
+
+.inputComment
+{
+    font-size: 13px;
+}
+
+.info
+{
+    background-color: green;
+    color: white;
+    text-decoration: none;
+    font-size: 22px;
+    width: 95%;
+    padding: 15px;
+    border-radius: 5px;
+}
+
+.help
+{
+    cursor: pointer;
+    margin-left: 50px;
+}
+
+.infoWarn
+{
+    background-color: orange;
+    color: white;
+    text-decoration: none;
+    font-size: 22px;
+    width: 95%;
+    padding: 15px;
+    border-radius: 5px;
+}
+
+.infoError
+{
+    background-color: red;
+    color: white;
+    text-decoration: none;
+    font-size: 22px;
+    width: 95%;
+    padding: 15px;
+    border-radius: 5px;
+}
+
+.box
+{
+    background-color: var(--light1);
+    padding: 10px;
+    margin-top: 10px;
+}
+
+.imageBox
+{
+    background-color: var(--light1);
+    padding: 10px;
+    margin-top: 10px;
+    position: relative;
+}
+
+.inputTable
+{
+    background-color: var(--light1);
+    background: linear-gradient(to bottom right, var(--light3), var(--light1)); /* Standard syntax (must be last) */
+    margin-top: 2px;
+    color: black;
+    padding: 5px;
+}
+
+.inputTable > div > span
+{
+    width: 12%;
+    min-width: 100px;
+    display: inline-table;
+    text-align: left;
+}
+
+.inputTableConfig
+{
+    background-color: var(--light1);
+    background: linear-gradient(to bottom right, var(--light3), var(--light1)); /* Standard syntax (must be last) */
+    margin-top: 2px;
+    color: black;
+    padding: 5px;
+}
+
+.inputTableConfig > div > span
+{
+    width: 20%;
+    min-width: 100px;
+    display: inline-table;
+    text-align: left;
+}
+
+.inputTableConfig > div > span:nth-child(3)
+{
+    width: 50%;
+    min-width: 100px;
+    display: inline-table;
+    text-align: left;
+}
+
+.inputTableConfig > div > span > input
+{
+    width: 96%;
+}
+
+.table2Col
+{
+    background-color: var(--light1);
+    color: var(--buttonFont);
+    margin-top: 10px;
+    padding: 0;
+    font-size: 18px;
+}
+
+._table2Col > div:nth-child(even)
+{
+    background: linear-gradient(to bottom, var(--light1), var(--light3)); /* Standard syntax (must be last) */
+}
+
+.table2Col > div
+{
+    background-color: var(--light3);
+    background: linear-gradient(to bottom right, var(--light3), var(--light1)); /* Standard syntax (must be last) */
+}
+
+.table2Col > div > span
+{
+    width: 35%;
+    min-width: 280px;
+    padding: 6px 10px 6px 10px;
+    display: inline-block;
+    text-align: left;
+}
+
+.mainrow {
+    border-radius: var(--borderRadius);
+    border-color: var(--borderColor);
+    border-style: solid;
+    border-width: 1px;
+    margin: 2px;
+}
+
+.tableMultiCol
+{
+    width: 100%;
+    background-color: var(--light1);
+    color: var(--buttonFont);
+    margin-top: 5px;
+    padding: 0;
+    font-size: 17px;
+}
+
+.tableMultiCol > div:nth-child(even)
+{
+    background-color: var(--light3);
+    background: linear-gradient(to bottom, var(--light1), var(--light3)); /* Standard syntax (must be last) */
+}
+
+.tableMultiCol > div
+{
+    background-color: var(--light3);
+    background: linear-gradient(to bottom right, var(--light3), var(--light1)); /* Standard syntax (must be last) */
+}
+
+.tableMultiColCell
+{
+    padding-right: 12px;
+}
+
+table.tableMultiCol tr:nth-child(even)
+{
+    background-color: var(--light3);
+    background: linear-gradient(to bottom, var(--light1), var(--light3)); /* Standard syntax (must be last) */
+}
+
+table.tableMultiCol tr:nth-child(odd)
+{
+    background-color: var(--light1);
+    background: linear-gradient(to bottom right, var(--light1), var(--light3)); /* Standard syntax (must be last) */
+}
+
+.tableMultiCol > div > span
+{
+/*    width: 25%;*/
+    padding: 5px 10px 5px 10px;
+    display: inline-block;
+    text-align: left;
+}
+
+.stateInfo
+{
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.imageState
+{
+    margin: 12px;
+}
+
+.centerImage
+{
+    width: 100%;
+    background-color: var(--light1);
+}
+
+.heatingState
+{
+    background-color: var(--light1);
+    width: 40%;
+    padding: 15px;
+}
+
+.heatingState > div > span
+{
+    display: block;
+}
+
+.P4dInfo
+{
+    background-color: var(--light1);
+    float: right;
+    width: 42%;
+    padding: 15px;
+}
+
+.P4dInfo > div > span
+{
+    width: 10%;
+    min-width: 215px;
+    display: table-cell;
+    text-align: left;
+}
+
+#divP4dState
+{
+    display: block;
+}
+
+#aStateOk
+{
+    color: green;
+    font-size: 24px;
+}
+
+#aStateFail
+{
+    color: red;
+    text-decoration: blink;
+    font-size: 24px;
+}
+
+#aStateHeating
+{
+    color: red;
+    font-size: 24px;
+}
+
+#aStateOther
+{
+    color: blue;
+    font-size: 24px;
+}
+
+#aSelect
+{
+    background-color: var(--light1);
+    margin-top: 10px;
+    padding: 10px;
+}
+
+#aSelectChart
+{
+    background-color: var(--light1);
+    padding: 10px;
+}
+
+.tableTitle
+{
+    width: 100%;
+    background-color: var(--caption1);
+    color: black;
+    font-size: 20px;
+    padding: 20px;
+}
+
+.chart
+{
+    background-color: var(--light1);
+    padding: 10px;
+    margin-top: 10px;
+}
+
+.cellL0
+{
+    font-size: 16px;
+    background-color: var(--caption1);
+    color: black;
+}
+
+.cellL1
+{
+    font-size: 16px;
+    background-color: var(--light4);
+    color: black;
+}
+
+.cellL2
+{
+    font-size: 16px;
+    background-color: var(--light3);
+    color: black;
+}
+
+.cellL3
+{
+    font-size: 16px;
+    background-color: var(--light2);
+    color: black;
+}
+
+.cellL4
+{
+    background-color: var(--light1);
+    background: linear-gradient(to bottom right, var(--light3), var(--light1)); /* Standard syntax (must be last) */
+    font-size: 16px;
+    color: black;
+}
+
+div.redCircle
+{
+    width: 10px;
+    height: 10px;
+    border-radius: 5px;
+    background-color: red;
+}
+
+div.greenCircle
+{
+    width: 10px;
+    height: 10px;
+    border-radius: 5px;
+    background-color: green;
+}
+
+/* Dashboard Widgets */
+
+.widget-row
+{
+    padding: 1%;
+}
+
+/*
+.widget-row text
+{
+    font-family: "Lato", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+.widget-row.participation text
+{
+    fill: var(--buttonFont);
+}
+.widget-row.completion text
+{
+    fill: #27ae60;
+}
+.widget-row.blocked text
+{
+    fill: #e74c3c;
+}
+*/
+
+.widget-row path
+{
+    stroke-width: 75;
+    stroke: #ecf0f1;
+    fill: none;
+}
+
+.widget-row.participation path.data-peak
+{
+    stroke: red;
+}
+
+.widget-row.participation path.data-arc
+{
+    stroke: #3498db;
+}
+
+.widget-row.completion path.data-arc
+{
+    stroke: #27ae60;
+}
+
+.widget-row.blocked path.data-arc
+{
+    stroke: #e74c3c;
+}
+
+.container
+{
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.container > div
+{
+    justify-content: center;
+    display: grid;
+    overflow: hidden;
+    width: 330px;
+    height: 212px;
+    margin: 3px;
+    background-color: var(--light1);
+}
+
+.svg
+{
+    width: 100%;
+}
+
+.widget-title
+{
+    padding: 2px;
+    text-align: center;
+    font-size: 1.4em;
+}
+
+.widget-scale
+{
+    text-align: center;
+    font-size: 3.0em;
+}
+
+.widget-value
+{
+    padding: 8px;
+    text-align: center;
+    font-size: 2.1em;
+    font-weight: bold;
+    height: 82%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    word-break: break-word;
+}
+
+.widget-image
+{
+    max-width: 100%;
+    max-height: 100%;
+    /*min-height: 100%;*/   /*  geht solange die widgets in bezug auf die höhe und das IMG breit genug sind */
+    display: block;
+    background-color: var(--light1);
+    justify-self: center;
+}
+
+/* -------------- */
+/* Media specials*/
+
+@media only screen and (min-width: 900px)
+{
+}
+
+@media only screen and (min-width: 768px) and (max-width:1139px)
+{
+}
+
+@media only screen and (max-width: 740px)
+{
+    .content                   { padding: 0px; }
+    #divP4dState               { display: none; }
+    .table2Col > div > span    { padding: 3px 10px 3px 10px; }
+    .P4dInfo                   { font-size: 15px; margin-top: 3px; min-width: 91%; }
+    .P4dInfo > div > span      { min-width: 110px; }
+    .heatingState              { width: 52%; }
+    .centerImage               { margin: 0px 0px 0px 0px; }
+
+    .inputTableConfig > div > span:nth-child(3) { width: 95%; }
+    .inputTableConfig > div > span              { width: 95%; }
+
+    .container > div           { width: 185px; }
+}
+
+@media only screen and (max-width: 380px)
+{
+    .container > div           { width: 165px; }
+}

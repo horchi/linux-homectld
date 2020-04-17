@@ -1,0 +1,40 @@
+
+@import url("normalize.css");
+@import url("base.css");
+
+:root
+{
+    /* colors */
+
+    --menu: #fdfddf;
+
+    --light1: #fdfddf;
+    --light2: #ffffc6;
+    --light3old: #f6f694;
+    --light3: #cccc93;
+    --light4: #efef65;
+
+    --caption1: #F90;
+    --caption2: #ffc766;
+    --edit: #f9f9ef;
+
+    --borderColor: #f1caa4;
+    --borderRadius: 3px;
+
+    --borderColorSchemaValue: black;
+    --borderRadiusSchemaValue: 3px;
+    --borderStyleSchemaValue: solid;
+
+    --borderColorTableButton: blue;
+    --colorTableButton: beige;
+    --borderRadiusTableButton: 2px;
+
+    --buttonAction: #818382;
+    --buttonFont: black;
+}
+
+Body
+{
+    font-family: Helvetica,Arial,sans-serif;
+    font-size: 1.0em;
+}

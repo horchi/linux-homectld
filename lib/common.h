@@ -16,6 +16,7 @@
 
 #include <string>
 #include <map>
+#include <vector>
 
 #include <openssl/md5.h> // MD5_*
 
@@ -24,12 +25,12 @@ extern int loglevel;
 extern int logstdout;
 extern int logstamp;
 
-using namespace std;
-
-typedef unsigned char byte;
+typedef unsigned char BYTE;
 typedef unsigned short word;
 typedef short sword;
 typedef unsigned int dword;
+
+using namespace std;
 
 //***************************************************************************
 //
@@ -197,7 +198,7 @@ class cMyMutex
 
 double usNow();
 unsigned int getHostId();
-byte crc(const byte* data, int size);
+BYTE crc(const BYTE* data, int size);
 int toUTF8(char* out, int outMax, const char* in, const char* from_code = 0);
 
 void removeChars(std::string& str, const char* ignore);
@@ -227,6 +228,7 @@ int isLink(const char* path);
 int isEmpty(const char* str);
 int removeFile(const char* filename);
 int loadFromFile(const char* infile, MemoryStruct* data);
+int loadLinesFromFile(const char* infile, std::vector<std::string>& lines, int maxLine = 512);
 
 const char* getHostName();
 const char* getFirstIp();

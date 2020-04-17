@@ -7,6 +7,7 @@
 //***************************************************************************
 
 #include <dirent.h>
+#include <vector>
 
 #include "w1.h"
 
@@ -65,7 +66,15 @@ int W1::update()
 
 int W1::scan()
 {
-   DIR* dir;
+   std::vector<std::string> lines;
+
+   if (loadLinesFromFile("/sys/bus/w1/devices/w1_bus_master1/w1_master_slaves", lines) != success)
+      return fail;
+
+   for (auto it = lines.begin(); it != lines.end(); ++it)
+      sensors[it->c_str()] = 0;
+
+/*   DIR* dir;
    dirent* dp;
 
    if (!(dir = opendir(w1Path)))
@@ -81,8 +90,8 @@ int W1::scan()
    }
 
    closedir(dir);
-
-   return done;
+*/
+   return success;
 }
 
 //***************************************************************************

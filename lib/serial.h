@@ -43,7 +43,7 @@ class Serial
       virtual int close();
       virtual int reopen(const char* dev = 0);
       virtual int isOpen()              { return fdDevice != 0 && opened; }
-      virtual int look(byte& b, int timeout = 0);
+      virtual int look(BYTE& b, int timeout = 0);
       virtual int flush();
       virtual int write(void* line, int size = 0);
 

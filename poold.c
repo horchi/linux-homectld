@@ -61,6 +61,7 @@ Poold::~Poold()
 
 int Poold::init()
 {
+   int status {success};
    char* dictPath = 0;
 
    // initialize the dictionary
@@ -75,6 +76,12 @@ int Poold::init()
 
    tell(0, "Dictionary '%s' loaded", dictPath);
    free(dictPath);
+
+   if ((status = initDb()) != success)
+   {
+      exitDb();
+      return status;
+   }
 
    // ---------------------------------
    // prepare one wire sensors
@@ -110,11 +117,16 @@ int Poold::init()
          }
          else
          {
+            tableValueFacts->clearChanged();
+
             if (tableValueFacts->getValue("MAXSCALE")->isNull())
                tableValueFacts->setValue("MAXSCALE", 300);
 
-            tableValueFacts->store();
-            modified++;
+            if (tableValueFacts->getChanges())
+            {
+               tableValueFacts->store();
+               modified++;
+            }
          }
 
          count++;
@@ -123,17 +135,28 @@ int Poold::init()
       tell(eloAlways, "Found %d one wire sensors, added %d, modified %d", count, added, modified);
    }
 
-   // GPIO
+   // setup GPIO
 
-   wiringPiSetup();
-   // pinMode(pin, OUTPUT);
-   // digitalWrite(pin, state);
+   wiringPiSetupPhys();     // use the 'physical' PIN numbers
+   // wiringPiSetup();      // use the 'special' wiringPi PIN numbers
+   // wiringPiSetupGpio();  // use the 'GPIO' PIN numbers
+
+   pinMode(pinFilterPump, OUTPUT);
+   pinMode(pinSolarPump, OUTPUT);
+   pinMode(pinPoolLight, OUTPUT);
+   gpioWrite(pinFilterPump, stateFilterPump);
+   gpioWrite(pinSolarPump, stateSolarPump);
+   gpioWrite(pinPoolLight, statePoollight);
 
    return success;
 }
 
 int Poold::exit()
 {
+   gpioWrite(pinFilterPump, false);
+   gpioWrite(pinSolarPump, false);
+   gpioWrite(pinPoolLight, false);
+
    exitDb();
 
    return success;
@@ -415,6 +438,8 @@ int Poold::meanwhile()
    if (lastCleanup < time(0) - 6*tmeSecondsPerHour)
    {
       lastCleanup = time(0);
+
+      // do cleanup here ...
    }
 
    return done;
@@ -447,9 +472,8 @@ int Poold::loop()
       {
          if (initDb() == success)
             break;
-         else
-            exitDb();
 
+         exitDb();
          tell(eloAlways, "Retrying in 10 seconds");
          standby(10);
       }
@@ -503,7 +527,7 @@ int Poold::update()
 
    w1.update();
 
-   tell(eloDetail, "update ...");
+   tell(eloDetail, "Update ...");
 
    connection->startTransaction();
 
@@ -524,9 +548,76 @@ int Poold::update()
    }
 
    connection->commit();
-   tell(eloAlways, "Processed %d samples", count);
+   tell(eloAlways, "Updated %d samples", count);
 
    return success;
+}
+
+//***************************************************************************
+// Process
+//***************************************************************************
+
+int Poold::process()
+{
+   tPool = w1.valueOf(w1Pool);
+   tSolar = w1.valueOf(w1Solar);
+   tCurrentDelta = tSolar - tPool;
+
+   tell(0, "Process ...");
+   logReport();
+
+   if (isEmpty(w1Pool) || isEmpty(w1Solar))
+   {
+      tell(0, "Fatal: Missing configuration of 'w1Pool' and/or 'w1Solar'");
+      return done;
+   }
+
+   if (tPool > tPoolMax)
+   {
+      // switch OFF solar pump
+
+      if (stateSolarPump)
+      {
+         tell(0, "Configured pool maximum of %.2f°C reached, pool has is %.2f°C, stopping solar pump!", tPoolMax, tPool);
+         gpioWrite(pinSolarPump, stateSolarPump = false);
+      }
+   }
+   else if (tCurrentDelta > tSolarDelta)
+   {
+      // switch ON solar pump
+
+      if (!stateSolarPump)
+      {
+         tell(0, "Solar delta of %.2f°C reached, pool has %.2f°C, starting solar pump!", tSolarDelta, tPool);
+         gpioWrite(pinSolarPump, stateSolarPump = true);
+      }
+   }
+   else
+   {
+      // switch OFF solar pump
+
+      if (stateSolarPump)
+      {
+         tell(0, "Solar delta (%.2f°C) lower than %.2f°C, pool has %.2f°C, stopping solar pump!", tCurrentDelta, tSolarDelta, tPool);
+         gpioWrite(pinSolarPump, stateSolarPump = false);
+      }
+   }
+
+   logReport();
+
+   return success;
+}
+
+//***************************************************************************
+// Report to syslog
+//***************************************************************************
+
+void Poold::logReport()
+{
+   tell(0, "------------------------");
+   tell(0, "Pool has %.2f °C; Solar has %.2f °C; Current delta is %.2f°", tPool, tSolar, tCurrentDelta);
+   tell(0, "Solar pump is '%s'", stateSolarPump ? "running" : "stopped");
+   tell(0, "Filter pump is '%s'", stateFilterPump ? "running" : "stopped");
 }
 
 //***************************************************************************
@@ -546,46 +637,6 @@ void Poold::afterUpdate()
    }
 
    free(path);
-}
-
-//***************************************************************************
-// Process
-//***************************************************************************
-
-int Poold::process()
-{
-   if (isEmpty(w1Pool) || isEmpty(w1Solar))
-   {
-      tell(0, "Fatal: Missing configuration of 'w1Pool' and/or 'w1Solar'");
-      return done;
-   }
-
-   double tPool = w1.valueOf(w1Pool);
-   double tSolar = w1.valueOf(w1Solar);
-
-   if (tPool > tPoolMax)
-   {
-      // switch OFF soloar pump
-
-      tell(0, "Configured pool maximum of %.2f°C reached, pool has is %.2f°C, stopping soloar pump",
-           tPoolMax, tPool);
-   }
-   else if (tSolar - tPool > tSolarDelta)
-   {
-      // switch ON soloar pump
-
-      tell(0, "Solar delta of %.2f°C reached, pool has %.2f°C, starting soloar pump",
-           tSolarDelta, tPool);
-   }
-   else
-   {
-      // switch OFF soloar pump
-
-      tell(0, "Solar delta lower than %.2f°C, pool has %.2f°C, stopping soloar pump",
-           tSolarDelta, tPool);
-   }
-
-   return success;
 }
 
 //***************************************************************************
@@ -910,4 +961,11 @@ int Poold::setConfigItem(const char* name, double value)
    snprintf(txt, sizeof(txt), "%.2f", value);
 
    return setConfigItem(name, txt);
+}
+
+void Poold::gpioWrite(uint pin, bool state)
+{
+   // negate state until the relai board is active at 'false'
+
+   digitalWrite(pin, !state);
 }

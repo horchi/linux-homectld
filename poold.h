@@ -3,7 +3,7 @@
 // File poold.h
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
-// Date 16.04.2020  Jörg Wendel
+// Date 16.04.2020 - Jörg Wendel
 //***************************************************************************
 
 #pragma once
@@ -39,6 +39,14 @@ extern char* confDir;
 class Poold
 {
    public:
+
+      enum Pins  // we use the 'physical' PIN numbers here!
+      {
+         pinFilterPump = 11,     // GPIO17
+         pinSolarPump = 12,      // GPIO18
+         pinPoolLight = 13,      // GPIO27
+         pinW1 = 7               // GPIO4
+      };
 
       // object
 
@@ -89,6 +97,9 @@ class Poold
 
       int doShutDown() { return shutdown; }
 
+      void gpioWrite(uint pin, bool state);
+      void logReport();
+
       // data
 
       cDbConnection* connection {nullptr};
@@ -134,6 +145,16 @@ class Poold
 
       int gpioFilterPump {na};
       int gpioSolarPump {na};
+
+      // actual state and data
+
+      bool stateSolarPump {false};
+      bool stateFilterPump {false};
+      bool statePoollight {false};
+
+      double tPool {0.0};
+      double tSolar {0.0};
+      double tCurrentDelta {0.0};
 
       // statics
 

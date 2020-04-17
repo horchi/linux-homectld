@@ -24,7 +24,7 @@ int cCurl::curlInitialized = no;
 size_t collect_data(void *ptr, size_t size, size_t nmemb, void* stream)
 {
    std::string sTmp;
-   register size_t actualsize = size * nmemb;
+   size_t actualsize = size * nmemb;
 
    if ((FILE *)stream == NULL)
    {

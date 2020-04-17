@@ -1,10 +1,9 @@
-# Linux - P4 Daemon (p4d)
+# Linux - Pool Daemon (poold)
 
-This daemon is fetching data from the S 3200 and store it in a MySQL database. The data that should be fetched can be configured with a WEBIF or daemon. The collected data of the S 3200 will be displayed with the WEBIF, too.
+This daemon is ......
 
 Written by: *Jörg Wendel (linux at jwendel dot de)*
-Documentation and Testing: *Thomas Unsin*
-Homepage: https://github.com/horchi/linux-p4d
+Homepage: https://github.com/horchi/linux-poold
 
 ## License
 This code is distributed under the terms and conditions of the GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
@@ -12,21 +11,12 @@ This code is distributed under the terms and conditions of the GNU GENERAL PUBLI
 ## Disclaimer
 USE AT YOUR OWN RISK. No warranty.
 
-Die Software wurde für den Eigengebrauch erstellt. Sie wird kostenlos unter der
-GPLv2 veröffentlicht.
+Die Software wurde für den Eigengebrauch erstellt. Sie wird hier kostenlos unter der GPLv2 veröffentlicht.
 
-Es ist kein fertiges Produkt, die Software entstand als Studie was hinsichtlich der Kommunikation
-mit der s3200 Steuerung möglich ist und kann Bastlern als Basis und Anregung für eigene Projekte dienen.
+## Donation
+If this project help you, you can give me a cup of coffee :)
 
-Es besteht kein Anspruch auf Funktion, jeder der sie einsetzen möchte
-muss das Risiko selbst abschätzen können und wissen was er tut, insbesondere auch in
-Hinblick auf die Einstellungen der Heizungsparameter und den damit verbundenen Risiken
-hinsichtlich Fehlfunktion, Störung, Brand, etc. Falsche Einstellung können unter anderem
-durch Bedienfehler und Fehler in dieser Software ausgelöst werden!
-Die Vorgaben, Vorschriften und AGB des Herstellers der Heizung bleiben Maßgebend!
-Ich kann  nicht ausschließen das es zu Fehlfunktionen oder unerwartetem Verhalten,
-auch hinsichtlich der zur Heizung übertragenen Daten und damit verbundenen, mehr oder
-weniger kritischen Fehlfunktionen derselben kommen kann!
+[![paypal](https://www.paypalobjects.com/de_DE/DE/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=KUF9ZAQ5UTHUN)
 
 ## Prerequisits:
 - USB-Serial Converter based on FTDI chip
@@ -38,20 +28,20 @@ weniger kritischen Fehlfunktionen derselben kommen kann!
 
 ## install
 ```
-wget  www.jwendel.de/p4d/install-deb.sh -O /tmp/install-deb.sh
+wget  www.jwendel.de/poold/install-deb.sh -O /tmp/install-deb.sh
 sudo bash /tmp/install-deb.sh
 ```
 
 ## uninstall
-`dpkg --remove p4d`
+`dpkg --remove poold`
 
-## uninstall (with remove of all configurations, data and the p4d database)
-`dpkg --purge p4d`
+## uninstall (with remove of all configurations, data and the poold database)
+`dpkg --purge poold`
 
 # Installation by source (working for most linux plattforms)
 
 ## Prerequisits:
--  the described installation is tested with Raspbian buster, the p4d should work also with other Linux distributions and versions but the installation process should adapted to them, for example they use other init processes
+-  the described installation is tested with Raspbian buster, the poold should work also with other Linux distributions and versions but the installation process should adapted to them, for example they use other init processes
    or use different tools for the package management, other package names, ....
 - de_DE.UTF-8 is required as language package (Raspberry command: `dpkg-reconfigure locales`)
 
@@ -73,21 +63,23 @@ some distributions like raspbian buster switched to mariadb, in this case:
 (set database password for root user during installation)
 
 ### Local database setup:
-If the database server is located localy on same host as the p4d:
+If the database server is located localy on same host as the poold:
 
 ```
 > mysql -u root -Dmysql -p
-  CREATE DATABASE p4 charset utf8;
-  CREATE USER 'p4'@'localhost' IDENTIFIED BY 'p4';
-  GRANT ALL PRIVILEGES ON p4.* TO 'p4'@'localhost' IDENTIFIED BY 'p4';
+  CREATE DATABASE pool charset utf8;
+  CREATE USER 'pool'@'localhost' IDENTIFIED BY 'pool';
+  GRANT ALL PRIVILEGES ON pool.* TO 'pool'@'localhost' IDENTIFIED BY 'pool';
+  flush privileges;
 ```
 ### Remote database setup:
-if the database is running remote (on a other host):
+if the database is running remote (on a other host or you like to habe remote access):
 ```
 > mysql -u root -Dmysql -p
- CREATE DATABASE p4 charset utf8;
- CREATE USER 'p4'@'%' IDENTIFIED BY 'p4';
- GRANT ALL PRIVILEGES ON p4.* TO 'p4'@'%';
+ CREATE DATABASE pool charset utf8;
+ CREATE USER 'pool'@'%' IDENTIFIED BY 'pool';
+ GRANT ALL PRIVILEGES ON pool.* TO 'pool'@'%' IDENTIFIED BY 'pool';
+ flush privileges;
 ```
 
 ## Installation of the Apache Webserver:
@@ -99,7 +91,7 @@ apt install apache2 libapache2-mod-php php-mysql php-ds php-gd php-mbstring
 
 Check from a remote PC if connection works a webpage with the content `It Works!` will be displayed
 
-## Installation of the p4d daemon:
+## Installation of the poold daemon:
 ### install the build dependencies
 ```
 apt install build-essential libssl-dev libxml2-dev libcurl4-openssl-dev libssl-dev libmariadbclient-dev libmariadb-dev-compat wiringpi
@@ -117,11 +109,11 @@ sudo make install
 You can safely ignore this error message (may fixed once a day at paho.mqtt.c.git):
 ```install: Aufruf von stat für „build/output/doc/MQTTClient/man/man3/MQTTClient.h.3“ nicht möglich: Datei oder Verzeichnis nicht gefunden```
 
-### get the p4d and build it
+### get the poold and build it
 ```
 cd /usr/src/
-git clone https://github.com/horchi/linux-p4d/
-cd linux-p4d
+git clone https://github.com/horchi/linux-poold/
+cd linux-poold
 make clean all
 make install
 ```
@@ -131,28 +123,28 @@ make install INIT_SYSTEM=sysV
 ```
 #### If you like a other destination than '/usr/local' append PREFIX=your-destination (e.g. PREFIX=/usr) to all make calls above
 
-- Now P4 daemon is installed in folder `/usr/local/bin` and its config in /etc/p4d/
-- Check `/etc/p4d.conf` file for setting db-login, ttyDeviceSvc device (change device if required),
+- Now pool daemon is installed in folder `/usr/local/bin` and its config in /etc/poold/
+- Check `/etc/poold.conf` file for setting db-login, ttyDeviceSvc device (change device if required),
   check which `/dev/ttyUSB?` devices is used for USB-Serial converter (`/dev/ttyUSB0`, `/dev/ttyUSB1`, `/dev/ttyACM0`)
 
-## Time to first start of p4d
+## Time to first start of poold
 ```
-systemctl start p4d
+systemctl start poold
 ```
 ### to check it's state call
 ```
-systemctl status p4d
+systemctl status poold
 ```
 it should now 'enabled' and in state 'running'!
 
-### also check the syslog about errors of the p4d, this will show all its current log messages
+### also check the syslog about errors of the poold, this will show all its current log messages
 ```
-grep "p4d:" /var/log/syslog
+grep "poold:" /var/log/syslog
 ```
 
 ## Aggregation / Cleanup
-The samples will recorded in the configured interval (parameter interval in p4d.conf), the default is 60 Seconds.
-After a while the database will grow and the selects become slower. Therefore you can setup a automatic aggregation in the `p4d.conf` with this two parameters:
+The samples will recorded in the configured interval (parameter interval in poold.conf), the default is 60 Seconds.
+After a while the database will grow and the selects become slower. Therefore you can setup a automatic aggregation in the `poold.conf` with this two parameters:
 The `aggregateHistory` is the history for aggregation in days, the default is 0 days -> aggegation turned OFF
 The `aggregateInterval` is the aggregation interval in minutes - 'one sample per interval will be build' (default 15 minutes)
 
@@ -168,7 +160,7 @@ Maybe i implement it later ;)
 
 ## Install the WEB interface:
 ```
- cd /usr/src/linux-p4d
+ cd /usr/src/linux-poold
  make install-web
  make install-pcharts
  make install-apache-conf
@@ -176,8 +168,8 @@ Maybe i implement it later ;)
 ```
 
 The default username and password for the login is
-User: *p4*
-Pass: *p4-3200*
+User: *pool*
+Pass: *pool*
 
 ### PHP Settings:
 Modify the php.ini (/etc/php/*.*/apache2/php.ini) and append (or edit) this line ```set max_input_vars = 5000```
@@ -196,7 +188,7 @@ After this you can set up the schema configuration. The schema configuration see
 The next steps are an example to setup the sending of mails. If another tool is preferred it can be used as well. The config is based on GMX. If you have another provider please search in the Internet for the required config.
 - Install required components
   - `apt-get install ssmtp mailutils`
-- The mailscript `p4d-mail.sh` is copied during the `make install` to the folder `/usr/local/bin`. This script is used in our case to send mails
+- The mailscript `poold-mail.sh` is copied during the `make install` to the folder `/usr/local/bin`. This script is used in our case to send mails
 - Change revaliases file edit file /etc/ssmtp/revaliases and add line (gmx is used as an example)
   - `root:MyMailAddress@gmx.de:mail.gmx.net:25`
 - Change `ssmtp.conf` file. Edit file `/etc/ssmtp/ssmtp.conf` (gmx is used as an example)
@@ -211,7 +203,7 @@ AuthPass=MyPassword
 - Start the WEBIF and Login, go to the Setup page
 - Configure the "Mail Benachrichtigungen" options (status and Fehler Mail Empfänger)
 - If no Status options are set you will get a mail for each status change
-- Set the script option `/usr/local/bin/p4d-mail.sh`
+- Set the script option `/usr/local/bin/poold-mail.sh`
 
 If the heating values are added as attachment to the mail please check the next steps.
 - Check if `heirloom-mailx` is installed (`ls -lah /etc/alternatives/mail`)
@@ -219,8 +211,8 @@ If the heating values are added as attachment to the mail please check the next 
 - Remove `heirloom-mailx` (`apt remove heirloom-mailx`)
 
 ### Configure Time sync:
-With the next steps you can enable a time synchronization of the p4d and the heating:
-If you enable this feature you can set the max time difference between the p4d systemtime and the time of the heating. The p4d will set the time of the heating (once a day) to his the systemtime. Therefore it is recommended to hold your system time in sync, e.g. by running the `ntp` daemon or systemd-timesyncd.
+With the next steps you can enable a time synchronization of the poold and the heating:
+If you enable this feature you can set the max time difference between the poold systemtime and the time of the heating. The poold will set the time of the heating (once a day) to his the systemtime. Therefore it is recommended to hold your system time in sync, e.g. by running the `ntp` daemon or systemd-timesyncd.
 
 - Check if ntpd (openntpd, systemd-timesyncd, ...) is active and running. If not you have to install one of it.
 - Start the WEBIF and login, go to the Setup page
@@ -228,7 +220,7 @@ If you enable this feature you can set the max time difference between the p4d s
 - Save configuration
 
 ### One Wire Sensors:
-The p4d checks automatically if there are 'One Wire Sensors' connected, each detected sensor will be
+The poold checks automatically if there are 'One Wire Sensors' connected, each detected sensor will be
 configurable via the web interface after reading the sensor facts by clicking [init].
 
 To make the sensors availaspble to the raspi you have to load the `w1-gpio` module, this can be done by calling `modprobe w1-gpio` or automatically at boot by registering it in `/etc/modules`:
@@ -242,14 +234,14 @@ exit
 look also: http://www.netzmafia.de/skripten/hardware/RasPi/Projekt-Onewire/index.html
 
 ### Points to check
-- reboot the device to check if p4d is starting automatically during startup
+- reboot the device to check if poold is starting automatically during startup
 
 
 ## Backup
-Backup the data of the p4 database including all recorded values:
+Backup the data of the poold database including all recorded values:
 
 ```
-p4d-backup
+poold-backup
 ```
 
 This will create the following files:
@@ -272,7 +264,7 @@ scripts-dump.sql.gz
 To import the backup:
 ```
 gunzip NAME-dump.sql.gz
-mysql -u p4 -pp4 -Dp4 <  NAME-dump.sql
+mysql -u pool -ppool -Dpool <  NAME-dump.sql
 ```
 replace NAME with the name of the dump
 
@@ -290,17 +282,7 @@ use mysql
 SELECT host, user FROM user;
 ```
 
-## Alternative install by script of Philipp:
-
-```
-cd ..
-cd p4d
-wget http://hungerphilipp.de/files/p4d/install.sh
-chmod +x install.sh
-./install.sh" or "sudo ./install.sh/
-```
-
-## Donation
-If this project help you, you can give me a cup of coffee :)
-
-[![paypal](https://www.paypalobjects.com/de_DE/DE/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=KUF9ZAQ5UTHUN)
+## GPIO in general
+https://www.raspberrypi.org/documentation/usage/gpio/
+https://projects.drogon.net/raspberry-pi/wiringpi/pins/
+http://wiringpi.com/reference/setup/

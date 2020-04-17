@@ -10,12 +10,15 @@
 
 #include <stdio.h>
 #include <map>
+#include <limits>
 
 #include "lib/common.h"
 
 //***************************************************************************
 // Class W1
 //***************************************************************************
+
+#define W1_UDEF std::numeric_limits<double>::max()
 
 class W1
 {
@@ -31,7 +34,7 @@ class W1
       int update();
 
       SensorList* getList() { return &sensors; }
-      double valueOf(const char* id) { return sensors[id]; }
+      double valueOf(const char* id) { return !isEmpty(id) ? sensors[id] : 0; }
 
       static unsigned int toId(const char* name);
 

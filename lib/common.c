@@ -674,6 +674,38 @@ int loadFromFile(const char* infile, MemoryStruct* data)
    return success;
 }
 
+int loadLinesFromFile(const char* infile, std::vector<std::string>& lines, int maxLine)
+{
+   FILE* fp;
+
+   if (!fileExists(infile))
+   {
+      tell(0, "File '%s' not found'", infile);
+      return fail;
+   }
+
+   if ((fp = fopen(infile, "r")))
+   {
+      char* line = (char*)malloc(maxLine+TB);
+
+      while (fgets(line, maxLine, fp))
+      {
+         line[strlen(line)-1] = 0;
+         lines.push_back(line);
+      }
+
+      fclose(fp);
+      free(line);
+   }
+   else
+   {
+      tell(0, "Error, can't open '%s' for reading, error was '%s'", infile, strerror(errno));
+      return fail;
+   }
+
+   return success;
+}
+
 #ifdef WITH_GUNZIP
 
 //***************************************************************************
@@ -901,15 +933,15 @@ int toUTF8(char* out, int outMax, const char* in, const char* from_code)
 // CRC
 //***************************************************************************
 
-byte crc(const byte* data, int size)
+BYTE crc(const BYTE* data, int size)
 {
-   byte dummy;
-   byte crc = 0;
+   BYTE dummy;
+   BYTE crc = 0;
 
    for (int count = 0; count < size; count++)
    {
       dummy = data[count] * 2 & 0xFF;
-      crc = crc ^ (byte)(data[count] ^ dummy);
+      crc = crc ^ (BYTE)(data[count] ^ dummy);
    }
 
    return crc;

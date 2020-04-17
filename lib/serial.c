@@ -170,7 +170,7 @@ int Serial::reopen(const char* dev)
 // Read Value
 //***************************************************************************
 
-int Serial::look(byte& b, int timeout)
+int Serial::look(BYTE& b, int timeout)
 {
    int res;
    b = 0;
@@ -189,7 +189,7 @@ int Serial::look(byte& b, int timeout)
       if (errno == EINTR)
          continue;
 
-      tell(eloAlways, "Read failed, errno was %d '%s'", 
+      tell(eloAlways, "Read failed, errno was %d '%s'",
            errno, strerror(errno));
 
       return fail;
@@ -244,11 +244,10 @@ int Serial::read(void* buf, unsigned int count, int timeout)
    {
       for (int i = 0; i < res; i++)
       {
-         byte b = ((byte*)buf)[i];
+         BYTE b = ((BYTE*)buf)[i];
          tell(eloDebug3, "got %2.2X", b);
       }
    }
 
    return res;
 }
-

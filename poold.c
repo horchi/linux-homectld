@@ -305,6 +305,8 @@ int Poold::initDb()
 
    readConfiguration();
 
+   connection->query("%s", "truncate table jobs");
+
    return status;
 }
 
@@ -465,11 +467,12 @@ int Poold::meanwhile()
    if (mqttReader && mqttReader->isConnected()) mqttReader->yield();
    if (mqttWriter && mqttWriter->isConnected()) mqttWriter->yield();
 
+      performWebifRequests();
+
    if (lastCleanup < time(0) - 6*tmeSecondsPerHour)
    {
+      cleanupWebifRequests();
       lastCleanup = time(0);
-
-      // do cleanup here ...
    }
 
    return done;

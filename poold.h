@@ -103,9 +103,8 @@ class Poold
       // web
 
       int performWebifRequests();
-      int updateTimeRangeData();
       int cleanupWebifRequests();
-      int callScript(const char* scriptName, const char*& result);
+      // int callScript(const char* scriptName, const char*& result);
 
       // data
 

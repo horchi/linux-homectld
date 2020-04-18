@@ -3,8 +3,10 @@
 // File webif.c
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
-// Date 04.11.2010 - 10.02.2014  Jörg Wendel
+// Date 18.04.2020  Jörg Wendel
 //***************************************************************************
+
+#include "lib/common.h"
 
 #include "poold.h"
 
@@ -55,43 +57,6 @@ int Poold::performWebifRequests()
          }
       }
 
-      else if (strcasecmp(command, "test-alert-mail") == 0)
-      {
-         int id = atoi(data);
-
-         tell(eloDetail, "Test mail for alert (%d) requested", id);
-
-         if (isEmpty(mailScript))
-            tableJobs->setValue("RESULT", "fail:missing mailscript");
-         else if (!fileExists(mailScript))
-            tableJobs->setValue("RESULT", "fail:mail-script not found");
-         else
-         {
-            time_t last;
-
-            if (!selectMaxTime->find())
-               tell(eloAlways, "Warning: Got no result by 'select max(time) from samples'");
-
-            last = tableSamples->getTimeValue("TIME");
-            selectMaxTime->freeResult();
-
-            tableSensorAlert->clear();
-            tableSensorAlert->setValue("ID", id);
-
-            alertMailBody = "";
-            alertMailSubject = "";
-
-            if (!tableSensorAlert->find())
-               tableJobs->setValue("RESULT", "fail:requested alert ID '%d' not found", id);
-            else if (!performAlertCheck(tableSensorAlert->getRow(), last, 0, yes/*force*/))
-               tableJobs->setValue("RESULT", "fail:send failed");
-            else
-               tableJobs->setValue("RESULT", "success:mail sended");
-
-            tableSensorAlert->reset();
-         }
-      }
-
       else if (strcasecmp(command, "check-login") == 0)
       {
          char* webUser = 0;
@@ -123,7 +88,7 @@ int Poold::performWebifRequests()
          free(user);
       }
 
-      else if (strcasecmp(command, "call-script") == 0)
+/*      else if (strcasecmp(command, "call-script") == 0)
       {
          const char* result;
 
@@ -138,13 +103,7 @@ int Poold::performWebifRequests()
          {
             tableJobs->setValue("RESULT", "success:done");
          }
-      }
-
-      else if (strcasecmp(command, "update-schemacfg") == 0)
-      {
-         updateSchemaConfTable();
-         tableJobs->setValue("RESULT", "success:done");
-      }
+         }*/
 
       else if (strcasecmp(command, "write-config") == 0)
       {
@@ -190,220 +149,7 @@ int Poold::performWebifRequests()
          free(value);
       }
 
-      else if (strcasecmp(command, "getp") == 0)
-      {
-         tableMenu->clear();
-         tableMenu->setValue("ID", addr);
-
-         if (tableMenu->find())
-         {
-            int type = tableMenu->getIntValue("TYPE");
-            unsigned int paddr = tableMenu->getIntValue("ADDRESS");
-
-            ConfigParameter p(paddr);
-
-            if (request->getParameter(&p) == success)
-            {
-               char* buf = 0;
-               cRetBuf value = ConfigParameter::toNice(p.value, type);
-
-               // special for time min/max/default
-
-               if (type == mstParZeit)
-                  ;  // #TODO
-
-               asprintf(&buf, "success#%s#%s#%d#%d#%d#%d", *value, type == 0x0a ? "Uhr" : p.unit,
-                        p.def, p.min, p.max, p.digits);
-               tableJobs->setValue("RESULT", buf);
-
-               free(buf);
-            }
-         }
-      }
-
-      else if (strcasecmp(command, "setp") == 0)
-      {
-         int status;
-
-         tableMenu->clear();
-         tableMenu->setValue("ID", addr);
-
-         if (tableMenu->find())
-         {
-            int type = tableMenu->getIntValue("TYPE");
-            int paddr = tableMenu->getIntValue("ADDRESS");
-
-            ConfigParameter p(paddr);
-
-            // Set Value
-
-            if (ConfigParameter::toValue(data, type, p.value) == success)
-            {
-               tell(eloAlways, "Storing value '%s/%d' for parameter at address 0x%x", data, p.value, paddr);
-
-               if ((status = request->setParameter(&p)) == success)
-               {
-                  char* buf = 0;
-                  cRetBuf value = ConfigParameter::toNice(p.value, type);
-
-                  // store job result
-
-                  asprintf(&buf, "success#%s#%s#%d#%d#%d#%d", *value, p.unit,
-                           p.def, p.min, p.max, p.digits);
-                  tableJobs->setValue("RESULT", buf);
-                  free(buf);
-
-                  // update menu table
-
-                  tableMenu->setValue("VALUE", value);
-                  tableMenu->setValue("UNIT", p.unit);
-                  tableMenu->update();
-               }
-               else
-               {
-                  tell(eloAlways, "Set of parameter failed, error %d", status);
-
-                  if (status == P4Request::wrnNonUpdate)
-                     tableJobs->setValue("RESULT", "fail#no update");
-                  else if (status == P4Request::wrnOutOfRange)
-                     tableJobs->setValue("RESULT", "fail#out of range");
-                  else
-                     tableJobs->setValue("RESULT", "fail#communication error");
-               }
-            }
-            else
-            {
-               tell(eloAlways, "Set of parameter failed, wrong format");
-               tableJobs->setValue("RESULT", "fail#format error");
-            }
-         }
-         else
-         {
-            tell(eloAlways, "Set of parameter failed, id 0x%x not found", addr);
-            tableJobs->setValue("RESULT", "fail#id not found");
-         }
-      }
-
-      else if (strcasecmp(command, "gettrp") == 0)
-      {
-         // first update the time range data
-         //  s3200 support no single request of a time range parameter
-
-         // don't update since it takes to long (assume table is up to date)
-         // updateTimeRangeData();
-
-         // now read it from the table
-
-         tableTimeRanges->clear();
-         tableTimeRanges->setValue("ADDRESS", addr);
-
-         if (tableTimeRanges->find())
-         {
-            char* buf = 0;
-            char fName[10+TB];
-            char tName[10+TB];
-            int n = atoi(data);
-
-            sprintf(fName, "FROM%d", n);
-            sprintf(tName, "TO%d", n);
-
-            asprintf(&buf, "success#%s#%s#%s",
-                     tableTimeRanges->getStrValue(fName),
-                     tableTimeRanges->getStrValue(tName),
-                     "Zeitraum");
-            tableJobs->setValue("RESULT", buf);
-
-            free(buf);
-         }
-      }
-
-      else if (strcasecmp(command, "settrp") == 0)
-      {
-         int status = success;
-         Fs::TimeRanges t(addr);
-         char fName[10+TB];
-         char tName[10+TB];
-         int rangeNo;
-         char valueFrom[100+TB];
-         char valueTo[100+TB];
-
-         // parse rangeNo and value from data
-
-         if (sscanf(data, "%d#%[^#]#%[^#]", &rangeNo, valueFrom, valueTo) != 3)
-         {
-            tell(eloAlways, "Parsing of '%s' failed", data);
-            status = fail;
-         }
-
-         rangeNo--;
-
-         // get actual values from table
-
-         tableTimeRanges->clear();
-         tableTimeRanges->setValue("ADDRESS", addr);
-
-         if (status == success && tableTimeRanges->find())
-         {
-            for (int n = 0; n < 4; n++)
-            {
-               sprintf(fName, "FROM%d", n+1);
-               sprintf(tName, "TO%d", n+1);
-
-               status += t.setTimeRange(n, tableTimeRanges->getStrValue(fName), tableTimeRanges->getStrValue(tName));
-            }
-
-            // override the 'rangeNo' with new value
-
-            status += t.setTimeRange(rangeNo, valueFrom, valueTo);
-
-            if (status == success)
-            {
-               tell(eloAlways, "Storing '%s' for time range '%d' of parameter 0x%x", t.getTimeRange(rangeNo), rangeNo+1, t.address);
-
-               if ((status = request->setTimeRanges(&t)) == success)
-               {
-                  char* buf = 0;
-
-                  // store job result
-
-                  asprintf(&buf, "success#%s#%s#%s", t.getTimeRangeFrom(rangeNo), t.getTimeRangeTo(rangeNo), "Zeitbereich");
-                  tableJobs->setValue("RESULT", buf);
-                  free(buf);
-
-                  // update time range table
-
-                  sprintf(fName, "FROM%d", rangeNo+1);
-                  sprintf(tName, "TO%d", rangeNo+1);
-                  tableTimeRanges->setValue(fName, t.getTimeRangeFrom(rangeNo));
-                  tableTimeRanges->setValue(tName, t.getTimeRangeTo(rangeNo));
-                  tableTimeRanges->update();
-               }
-               else
-               {
-                  tell(eloAlways, "Set of time range parameter failed, error %d", status);
-
-                  if (status == P4Request::wrnNonUpdate)
-                     tableJobs->setValue("RESULT", "fail#no update");
-                  else if (status == P4Request::wrnOutOfRange)
-                     tableJobs->setValue("RESULT", "fail#out of range");
-                  else
-                     tableJobs->setValue("RESULT", "fail#communication error");
-               }
-            }
-            else
-            {
-               tell(eloAlways, "Set of time range parameter failed, wrong format");
-               tableJobs->setValue("RESULT", "fail#format error");
-            }
-         }
-         else
-         {
-            tell(eloAlways, "Set of time range parameter failed, addr 0x%x for '%s' not found", addr, data);
-            tableJobs->setValue("RESULT", "fail#id not found");
-         }
-      }
-
-      else if (strcasecmp(command, "getv") == 0)
+/*      else if (strcasecmp(command, "getv") == 0)
       {
          Value v(addr);
 
@@ -425,21 +171,7 @@ int Poold::performWebifRequests()
                free(buf);
             }
          }
-      }
-
-      else if (strcasecmp(command, "initmenu") == 0)
-      {
-         initMenu();
-         tableJobs->setValue("RESULT", "success:done");
-      }
-
-      else if (strcasecmp(command, "updatehm") == 0)
-      {
-         if (hmSyncSysVars() == success)
-            tableJobs->setValue("RESULT", "success:done");
-         else
-            tableJobs->setValue("RESULT", "fail:error");
-      }
+         }*/
 
       else if (strcasecmp(command, "p4d-state") == 0)
       {
@@ -464,153 +196,6 @@ int Poold::performWebifRequests()
          free(buf);
       }
 
-      else if (strcasecmp(command, "s3200-state") == 0)
-      {
-         struct tm tim = {0};
-         char date[100];
-         char* buf = 0;
-
-         localtime_r(&currentState.time, &tim);
-         strftime(date, 100, "%A, %d. %b. %G %H:%M:%S", &tim);
-
-         asprintf(&buf, "success:%s#%d#%s#%s", date,
-                  currentState.state, currentState.stateinfo,
-                  currentState.modeinfo);
-
-         tableJobs->setValue("RESULT", buf);
-         free(buf);
-      }
-
-      else if (strcasecmp(command, "initvaluefacts") == 0)
-      {
-         updateValueFacts();
-         tableJobs->setValue("RESULT", "success:done");
-      }
-
-      else if (strcasecmp(command, "updatemenu") == 0)
-      {
-         tableMenu->clear();
-
-         for (int f = selectAllMenuItems->find(); f; f = selectAllMenuItems->fetch())
-         {
-            int type = tableMenu->getIntValue("TYPE");
-            int paddr = tableMenu->getIntValue("ADDRESS");
-
-            if (type == 0x07 || type == 0x08 || type == 0x0a ||
-                type == 0x40 || type == 0x39 || type == 0x32)
-            {
-               Fs::ConfigParameter p(paddr);
-
-               if (request->getParameter(&p) == success)
-               {
-                  cRetBuf value = ConfigParameter::toNice(p.value, type);
-
-                  if (tableMenu->find())
-                  {
-                     tableMenu->setValue("VALUE", value);
-                     tableMenu->setValue("UNIT", p.unit);
-                     tableMenu->update();
-                  }
-               }
-            }
-
-            else if (type == mstFirmware)
-            {
-               Fs::Status s;
-
-               if (request->getStatus(&s) == success)
-               {
-                  if (tableMenu->find())
-                  {
-                     tableMenu->setValue("VALUE", s.version);
-                     tableMenu->setValue("UNIT", "");
-                     tableMenu->update();
-                  }
-               }
-            }
-
-            else if (type == mstDigOut || type == mstDigIn || type == mstAnlOut)
-            {
-               int status;
-               Fs::IoValue v(paddr);
-
-               if (type == mstDigOut)
-                  status = request->getDigitalOut(&v);
-               else if (type == mstDigIn)
-                  status = request->getDigitalIn(&v);
-               else
-                  status = request->getAnalogOut(&v);
-
-               if (status == success)
-               {
-                  char* buf = 0;
-
-                  if (type == mstAnlOut)
-                  {
-                     if (v.mode == 0xff)
-                        asprintf(&buf, "%d (A)", v.state);
-                     else
-                        asprintf(&buf, "%d (%d)", v.state, v.mode);
-                  }
-                  else
-                     asprintf(&buf, "%s (%c)", v.state ? "on" : "off", v.mode);
-
-                  if (tableMenu->find())
-                  {
-                     tableMenu->setValue("VALUE", buf);
-                     tableMenu->setValue("UNIT", "");
-                     tableMenu->update();
-                  }
-
-                  free(buf);
-               }
-            }
-
-            else if (type == mstMesswert || type == mstMesswert1)
-            {
-               int status;
-               Fs::Value v(paddr);
-
-               tableValueFacts->clear();
-               tableValueFacts->setValue("TYPE", "VA");
-               tableValueFacts->setValue("ADDRESS", paddr);
-
-               if (tableValueFacts->find())
-               {
-                  double factor = tableValueFacts->getIntValue("FACTOR");
-                  const char* unit = tableValueFacts->getStrValue("UNIT");
-
-                  status = request->getValue(&v);
-
-                  if (status == success)
-                  {
-                     char* buf = 0;
-                     asprintf(&buf, "%.2f", v.value / factor);
-
-                     if (tableMenu->find())
-                     {
-                        tableMenu->setValue("VALUE", buf);
-
-                        if (strcmp(unit, "°") == 0)
-                           tableMenu->setValue("UNIT", "°C");
-                        else
-                           tableMenu->setValue("UNIT", unit);
-
-                        tableMenu->update();
-                     }
-
-                     free(buf);
-                  }
-               }
-            }
-         }
-
-         selectAllMenuItems->freeResult();
-
-         updateTimeRangeData();
-
-         tableJobs->setValue("RESULT", "success:done");
-      }
 
       else
       {
@@ -628,39 +213,6 @@ int Poold::performWebifRequests()
    selectPendingJobs->freeResult();
 
    return success;
-}
-
-//***************************************************************************
-// Update Time Range Data
-//***************************************************************************
-
-int Poold::updateTimeRangeData()
-{
-   Fs::TimeRanges t;
-   int status;
-   char fName[10+TB];
-   char tName[10+TB];
-
-   // update / insert time ranges
-
-   for (status = request->getFirstTimeRanges(&t); status != Fs::wrnLast; status = request->getNextTimeRanges(&t))
-   {
-      tableTimeRanges->clear();
-      tableTimeRanges->setValue("ADDRESS", t.address);
-
-      for (int n = 0; n < 4; n++)
-      {
-         sprintf(fName, "FROM%d", n+1);
-         sprintf(tName, "TO%d", n+1);
-         tableTimeRanges->setValue(fName, t.getTimeRangeFrom(n));
-         tableTimeRanges->setValue(tName, t.getTimeRangeTo(n));
-      }
-
-      tableTimeRanges->store();
-      tableTimeRanges->reset();
-   }
-
-   return done;
 }
 
 //***************************************************************************
@@ -685,7 +237,7 @@ int Poold::cleanupWebifRequests()
 //***************************************************************************
 // Call Script
 //***************************************************************************
-
+/*
 int Poold::callScript(const char* scriptName, const char*& result)
 {
    int status;
@@ -724,3 +276,4 @@ int Poold::callScript(const char* scriptName, const char*& result)
 
    return success;
 }
+*/

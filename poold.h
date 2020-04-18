@@ -100,6 +100,13 @@ class Poold
       void gpioWrite(uint pin, bool state);
       void logReport();
 
+      // web
+
+      int performWebifRequests();
+      int updateTimeRangeData();
+      int cleanupWebifRequests();
+      int callScript(const char* scriptName, const char*& result);
+
       // data
 
       cDbConnection* connection {nullptr};

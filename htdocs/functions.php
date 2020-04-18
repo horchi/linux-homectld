@@ -26,6 +26,8 @@ function isMobile()
 
 function haveLogin()
 {
+   return true;
+
    if (isset($_SESSION['angemeldet']) && $_SESSION['angemeldet'])
       return true;
 
@@ -155,7 +157,7 @@ function requestAction($cmd, $timeout, $address, $data, &$response)
    $data = mysqli_real_escape_string($mysqli, $data);
    $cmd = mysqli_real_escape_string($mysqli, $cmd);
 
-   syslog(LOG_DEBUG, "p4: requesting ". $cmd . " with " . $address . ", '" . $data . "'");
+   syslog(LOG_DEBUG, "pool: requesting ". $cmd . " with " . $address . ", '" . $data . "'");
 
    $mysqli->query("insert into jobs set requestat = now(), state = 'P', command = '$cmd', address = '$address', data = '$data'")
       or die("Error" . $mysqli->error);
@@ -180,7 +182,7 @@ function requestAction($cmd, $timeout, $address, $data, &$response)
       }
    }
 
-   syslog(LOG_DEBUG, "p4: timeout on " . $cmd);
+   syslog(LOG_DEBUG, "pool: timeout on " . $cmd);
 
    return -1;
 }
@@ -221,7 +223,7 @@ function readConfigItem($name, &$value, $default = "")
 
    // new version - read direct from config table
 
-   $result = $mysqli->query("select value from config where owner = 'p4d' and name = '$name'")
+   $result = $mysqli->query("select value from config where owner = 'poold' and name = '$name'")
          or die("Error" . $mysqli->error);
 
    if ($result->num_rows > 0)
@@ -351,44 +353,6 @@ function htmTags($flow)
 }
 
 // ---------------------------------------------------------------------------
-// Get State Image
-// ---------------------------------------------------------------------------
-
-function getStateImage($state, $p4dstate)
-{
-  if ($state == 0 || $p4dstate != 0)
-     $img = "img/state/state-error.gif";
-  else if ($state == 1)
-     $img = ($_SESSION['stateAni'] && file_exists("img/state/ani/state-fireoff.gif")) ? "img/state/ani/state-fireoff.gif" : "img/state/state-fireoff.gif";
-  else if ($state == 2)
-     $img = ($_SESSION['stateAni'] && file_exists("img/state/ani/state-heatup.gif")) ? "img/state/ani/state-heatup.gif" : "img/state/state-heatup.gif";
-  else if ($state == 3)
-     $img = ($_SESSION['stateAni'] && file_exists("img/state/ani/state-fire.gif")) ? "img/state/ani/state-fire.gif" : "img/state/state-fire.gif";
-  else if ($state == 4)
-     $img = ($_SESSION['stateAni'] && file_exists("img/state/ani/state-firehold.gif")) ? "img/state/ani/state-firehold.gif" : "img/state/state-firehold.gif";
-  else if ($state == 5)
-     $img = ($_SESSION['stateAni'] && file_exists("img/state/ani/state-fireoff.gif")) ? "img/state/ani/state-fireoff.gif" : "img/state/state-fireoff.gif";
-  else if ($state == 6)
-     $img = ($_SESSION['stateAni'] && file_exists("img/state/ani/state-dooropen.gif")) ? "img/state/ani/state-dooropen.gif" : "img/state/state-dooropen.gif";
-  else if ($state == 7)
-     $img = ($_SESSION['stateAni'] && file_exists("img/state/ani/state-preparation.gif")) ? "img/state/ani/state-preparation.gif" : "img/state/state-preparation.gif";
-  else if ($state == 8)
-     $img = ($_SESSION['stateAni'] && file_exists("img/state/ani/state-warmup.gif")) ? "img/state/ani/state-warmup.gif" : "img/state/state-warmup.gif";
-  else if ($state == 9)
-     $img = ($_SESSION['stateAni'] && file_exists("img/state/ani/state-heatup.gif")) ? "img/state/ani/state-heatup.gif" : "img/state/state-heatup.gif";
-  else if ($state == 15 || $state == 70 || $state == 69)
-     $img = ($_SESSION['stateAni'] && file_exists("img/state/ani/state-clean.gif")) ? "img/state/ani/state-clean.gif" : "img/state/state-clean.gif";
-  else if (($state >= 10 && $state <= 14) || $state == 35 || $state == 16)
-     $img = ($_SESSION['stateAni'] && file_exists("img/state/ani/state-wait.gif")) ? "img/state/ani/state-wait.gif" : "img/state/state-wait.gif";
-  else if ($state == 60 || $state == 61  || $state == 72)
-     $img = ($_SESSION['stateAni'] && file_exists("img/state/ani/state-shfire.gif")) ? "img/state/ani/state-shfire.gif" : "img/state/state-shfire.gif";
-  else
-     $img = "img/type/heating-" . $_SESSION['heatingType'] . ".png";
-
-  return $img;
-}
-
-// ---------------------------------------------------------------------------
 // Pretty Unit
 // ---------------------------------------------------------------------------
 
@@ -433,7 +397,7 @@ function buildIdList($tuples, &$sensors, &$addrWhere, &$ids)
                 $addrWhere = $addrWhere." or ";
 
             if (count($sensor) < 2)
-                $sensor[1] = "VA";
+                $sensor[1] = "W1";
 
             $addrWhere = $addrWhere."(s.address = $sensor[0] and s.type = '$sensor[1]')";
             $hex = dechex(intval($sensor[0], 0));

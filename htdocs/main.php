@@ -1,10 +1,10 @@
 <?php
 
 //***************************************************************************
-// WEB Interface of p4d / Linux - Heizungs Manager
+// WEB Interface of poold / Linux - Heizungs Manager
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
-// Date 04.11.2010 - 07.01.2014  Jörg Wendel
+// Date 17.04.2020 - Jörg Wendel
 //***************************************************************************
 
 include("header.php");
@@ -67,37 +67,11 @@ printHeader(60);
      $script = substr($action, 7);
 
      if (requestAction("call-script", 5, 0, "$script", $resonse) != 0)
-        echo "      <div class=\"infoError\"><b><center>Calling Skript failed '$resonse' - p4d/syslog log for further details</center></div></br>\n";
-  }
-
-  if (haveLogin())
-  {
-    $result = $mysqli->query("select * from scripts where visible = 'Y'")
-       or die("Error" . $mysqli->error);
-
-    $count = $result->num_rows;
-
-    if ($count > 0)
-    {
-       $i = 0;
-
-       echo "      <form action=\"" . htmlspecialchars($_SERVER["PHP_SELF"]) . "\" method=\"post\">\n";
-       echo "        <div class=\"menu\">\n";
-
-       while ($i < $count)
-       {
-          $name = mysqli_result($result, $i, "name");
-          echo "          <button class=\"rounded-border button2\" type=\"submit\" name=\"action\" value=\"script-$name\"" . $name . "\">$name</button>\n";
-          $i++;
-       }
-
-       echo "        </div>\n";
-       echo "      </form>\n";
-    }
+        echo "      <div class=\"infoError\"><b><center>Calling Skript failed '$resonse' - poold/syslog log for further details</center></div></br>\n";
   }
 
   // ------------------
-  // State of P4 Daemon
+  // State of pool Daemon
 
   $p4dstate = requestAction("p4d-state", 3, 0, "", $response);
   $load = "";
@@ -109,56 +83,10 @@ printHeader(60);
      or die("Error" . $mysqli->error);
   $p4dCountDay = $result->num_rows;
 
-  // ------------------
-  // State of S 3200
-
-  $status = "";
-  $mode = "";
-  $time = "";
-
-  $state = requestAction("s3200-state", 3, 0, "", $response);
-
-  if ($state == 0)
-     list($time, $state, $status, $mode) = explode("#", $response, 4);
-
-  $time = str_replace($wd_value, $wd_disp, $time);
-  list($day, $time) = explode(",", $time, 2);
-  $heatingType = $_SESSION['heatingType'];
-  $stateImg = getStateImage($state, $p4dstate);
-
-   if ($state == 19)
-      $stateStyle = "aStateOk";
-   elseif ($state == 0)
-      $stateStyle = "aStateFail";
-   elseif ($state == 3)
-      $stateStyle = "aStateHeating";
-   else
-      $stateStyle = "aStateOther";
-
   // -----------------
   // State 'flex' Box
 
   echo "      <div class=\"stateInfo\">\n";
-
-  // -----------------
-  // Heating State
-  {
-      echo "        <div class=\"rounded-border heatingState\">\n";
-      echo "          <div><span id=\"" . $stateStyle . "\">$status</span></div>\n";
-      echo "          <div><span>" . $day . "</span><span>" . $time . "</span></div>\n";
-      echo "          <div><span>Betriebsmodus:</span><span>" . $mode ."</span></div>\n";
-      echo "        </div>\n";
-  }
-
-  // -----------------
-  // State Image
-  {
-      echo "        <div class=\"imageState\">\n";
-      echo "          <a href=\"\" onclick=\"javascript:showHide('divP4dState'); return false\">\n";
-      echo "            <img class=\"centerImage\" src=\"$stateImg\">\n";
-      echo "          </a>\n";
-      echo "        </div>\n";
-  }
 
   // -----------------
   // p4d State
@@ -167,7 +95,7 @@ printHeader(60);
 
      if ($p4dstate == 0)
      {
-        echo  "              <div id=\"aStateOk\"><span>$heatingType Daemon ONLINE</span>   </div>\n";
+        echo  "              <div id=\"aStateOk\"><span>Pool Control Daemon ONLINE</span>   </div>\n";
         echo  "              <div><span>Läuft seit:</span>            <span>$p4dSince</span>       </div>\n";
         echo  "              <div><span>Messungen heute:</span>       <span>$p4dCountDay</span>    </div>\n";
         echo  "              <div><span>Letzte Messung:</span>        <span>$maxPrettyShort</span> </div>\n";
@@ -177,7 +105,7 @@ printHeader(60);
      }
      else
      {
-        echo  "          <div id=\"aStateFail\">ACHTUNG:<br/>$heatingType Daemon OFFLINE</div>\n";
+        echo  "          <div id=\"aStateFail\">ACHTUNG:<br/>Pool Control Daemon OFFLINE</div>\n";
      }
 
      echo "        </div>\n"; // P4dInfo
@@ -194,7 +122,7 @@ printHeader(60);
 
      $strQueryBase = sprintf("select p.minv as p_min, p.maxv as p_max, s.address as s_address, s.type as s_type,
                              s.time as s_time, s.value as s_value, s.text as s_text,
-                             f.usrtitle as f_usrtitle, f.title as f_title, f.unit as f_unit
+                             f.title as f_title, f.unit as f_unit
                              from samples s left join peaks p on p.address = s.address and p.type = s.type
                              join valuefacts f on f.address = s.address and f.type = s.type");
 
@@ -236,7 +164,7 @@ printHeader(60);
 
          $value = $row['s_value'];
          $text = $row['s_text'];
-         $title = (preg_replace("/($pumpDir)/i","",$row['f_usrtitle']) != "") ? preg_replace("/($pumpDir)/i","",$row['f_usrtitle']) : $row['f_title'];
+         $title = $row['f_title'];
          $unit = prettyUnit($row['f_unit']);
          $address = $row['s_address'];
          $type = $row['s_type'];

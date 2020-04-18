@@ -45,13 +45,12 @@ else if ($action == "store")
         $addr = $mysqli->real_escape_string($addr);
         $type = $mysqli->real_escape_string($type);
 
-        $usrtitle = htmlspecialchars($_POST["usrtitle"][$key]);
         $state = in_array($value, $_POST["selected"]) || $type == 'UD' ? 'A' : 'D';
         $maxscale = intval(htmlspecialchars($_POST["maxscale"][$key]));
 
-        // echo "<div>$key / $value / $addr / $type / $usrtitle / $maxscale / $state</div>";
+        // echo "<div>$key / $value / $addr / $type / $maxscale / $state</div>";
 
-        $sql = "UPDATE valuefacts set usrtitle = '$usrtitle', maxscale = '$maxscale', state = '$state' where address = '$addr' and type = '$type'";
+        $sql = "UPDATE valuefacts set maxscale = '$maxscale', state = '$state' where address = '$addr' and type = '$type'";
 
         $mysqli->query($sql)
             or die("<br/>Error" . $mysqli->error);
@@ -100,7 +99,6 @@ function showTable($type, $tableTitle)
    echo "          <tbody>\n";
    echo "            <tr>\n";
    echo "              <td>Name</td>\n";
-   echo "              <td style=\"width:32%;\">Bezeichnung</td>\n";
    if ($type == "VA" || $type == "W1")
        echo "              <td style=\"width:6%;\">Skala max</td>\n";
    else
@@ -119,14 +117,12 @@ function showTable($type, $tableTitle)
       $title    = mysqli_result($result, $i, "title");
       $unit     = mysqli_result($result, $i, "unit");
       $state    = mysqli_result($result, $i, "state");
-      $usrtitle = mysqli_result($result, $i, "usrtitle");
       $maxscale = mysqli_result($result, $i, "maxscale");
       $txtaddr  = sprintf("0x%04x", $address);
       $checked  = ($state == "A") ? " checked" : "";
 
       echo "            <tr>\n";
       echo "              <td>$title</td>\n";
-      echo "              <td class=\"tableMultiColCell\"><input class=\"rounded-border inputSetting\" name=\"usrtitle[]\" type=\"text\" value=\"$usrtitle\"/></td>\n";
 
       if (($type == "VA" || $type == "W1") && ($unit == '°' || $unit == '%'))
       {

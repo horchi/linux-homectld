@@ -108,10 +108,13 @@ class Poold
       cDbTable* tablePeaks {nullptr};
       cDbTable* tableValueFacts {nullptr};
       cDbTable* tableConfig {nullptr};
+      cDbTable* tableJobs {nullptr};
 
       cDbStatement* selectActiveValueFacts {nullptr};
       cDbStatement* selectAllValueFacts {nullptr};
       cDbStatement* selectMaxTime {nullptr};
+      cDbStatement* selectPendingJobs {nullptr};
+      cDbStatement* cleanupJobs {nullptr};
 
       time_t nextAt {0};
       time_t startedAt {0};

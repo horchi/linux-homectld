@@ -14,6 +14,9 @@ $fontText = $chart_fontpath . "/Forgotte.ttf";
 $fontScale = $chart_fontpath . "/Forgotte.ttf";
 // date_default_timezone_set('Europe/Berlin');
 
+
+// http://gate/pool/detail.php?width=1200&height=600&address=90680919&type=W1&from=1586469600&range=7&chartXLines=1&chartDiv=25
+
 // -----------------------------
 // db connection
 
@@ -48,7 +51,7 @@ else
    if (isset($_GET['type']))
       $sensorCond .= " and type = '" .  $mysqli->real_escape_string(htmlspecialchars($_GET['type'])) . "'";
    else
-      $sensorCond .= " and type = 'VA'";
+      $sensorCond .= " and type = 'W1'";
 }
 
 if (isset($_GET['width']) && is_numeric($_GET['width']))
@@ -78,13 +81,13 @@ if ($to > time())
 
 $range = ($to - $from) / (24*60*60);
 
-syslog(LOG_DEBUG, "p4: ---------");
+syslog(LOG_DEBUG, "pool: ---------");
 
 // ------------------------------
 // get data from db
 
-$factsQuery = "select address, type, name, usrtitle, title, unit from valuefacts where " . $sensorCond;
-syslog(LOG_DEBUG, "p4: range $range; from '" . strftime("%d. %b %Y  %H:%M", $from)
+$factsQuery = "select address, type, name, title, unit from valuefacts where " . $sensorCond;
+syslog(LOG_DEBUG, "pool: range $range; from '" . strftime("%d. %b %Y  %H:%M", $from)
        . "' to '" . strftime("%d. %b %Y %H:%M", $to) . " [$factsQuery]");
 
 $factResult = $mysqli->query($factsQuery)
@@ -108,7 +111,7 @@ while ($fact = $factResult->fetch_assoc())
 {
    $address = $fact['address'];
    $type = $fact['type'];
-   $title = (preg_replace("/($pumpDir)/i","",$fact['usrtitle']) != "") ? preg_replace("/($pumpDir)/i","",$fact['usrtitle']) : $fact['title'];
+   $title = $fact['title'];
    $unit = $fact['unit'];
    $name = $fact['name'];
 
@@ -122,12 +125,12 @@ while ($fact = $factResult->fetch_assoc())
       . "   date(time), ((60/" . $groupMinutes . ") * hour(time) + floor(minute(time)/" . $groupMinutes . "))"
       . " order by time";
 
-   syslog(LOG_DEBUG, "p4: $query");
+   syslog(LOG_DEBUG, "pool: $query");
 
    $result = $mysqli->query($query)
       or die("Error: " . $mysqli->error . ", query: [" . $query . "]");
 
-   syslog(LOG_DEBUG, "p4: " . $result->num_rows . " for $title ($address) $name");
+   syslog(LOG_DEBUG, "pool: " . $result->num_rows . " for $title ($address) $name");
 
    $lastLabel = "";
 
@@ -175,7 +178,7 @@ $mysqli->close();
 
 if (!$count)
 {
-   syslog(LOG_DEBUG, "p4: No data in range " . strftime("%d. %b %Y  %H:%M", $from)
+   syslog(LOG_DEBUG, "pool: No data in range " . strftime("%d. %b %Y  %H:%M", $from)
           . "  -  " . strftime("%d. %b %Y %H:%M", $to) . " aborting");
    return;
 }
@@ -200,7 +203,7 @@ $chartHash = $cache->getHash($data);
 
 if ($cache->isInCache($chartHash))
 {
-   syslog(LOG_DEBUG, "p4: got from cache");
+   syslog(LOG_DEBUG, "pool: got from cache");
    $cache->strokeFromCache($chartHash);
 }
 else
@@ -265,7 +268,7 @@ else
 }
 
 $dd = time() - $start;
-syslog(LOG_DEBUG, "p4: --------- done in $dd seconds");
+syslog(LOG_DEBUG, "pool: --------- done in $dd seconds");
 
 
 //***************************************************************************
@@ -278,7 +281,7 @@ function buildAddrCondition($tuples)
 
    foreach (explode(",", $tuples) as $tuple)
    {
-      $type = "VA";
+      $type = "W1";
       $tup = explode("/", $tuple);
       $addr = $tup[0];
 

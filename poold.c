@@ -239,6 +239,9 @@ int Poold::initDb()
    tableConfig = new cDbTable(connection, "config");
    if (tableConfig->open() != success) return fail;
 
+   tableJobs = new cDbTable(connection, "jobs");
+   if (tableJobs->open() != success) return fail;
+
    // prepare statements
 
    selectActiveValueFacts = new cDbStatement(tableValueFacts);
@@ -273,6 +276,30 @@ int Poold::initDb()
 
    // ------------------
 
+   selectPendingJobs = new cDbStatement(tableJobs);
+
+   selectPendingJobs->build("select ");
+   selectPendingJobs->bind("ID", cDBS::bndOut);
+   selectPendingJobs->bind("REQAT", cDBS::bndOut, ", ");
+   selectPendingJobs->bind("STATE", cDBS::bndOut, ", ");
+   selectPendingJobs->bind("COMMAND", cDBS::bndOut, ", ");
+   selectPendingJobs->bind("ADDRESS", cDBS::bndOut, ", ");
+   selectPendingJobs->bind("DATA", cDBS::bndOut, ", ");
+   selectPendingJobs->build(" from %s where state = 'P'", tableJobs->TableName());
+
+   status += selectPendingJobs->prepare();
+
+   // ------------------
+
+   cleanupJobs = new cDbStatement(tableJobs);
+
+   cleanupJobs->build("delete from %s where ", tableJobs->TableName());
+   cleanupJobs->bindCmp(0, "REQAT", 0, "<");
+
+   status += cleanupJobs->prepare();
+
+   // ------------------
+
    if (status == success)
       tell(eloAlways, "Connection to database established");
 
@@ -287,10 +314,13 @@ int Poold::exitDb()
    delete tablePeaks;              tablePeaks = 0;
    delete tableValueFacts;         tableValueFacts = 0;
    delete tableConfig;             tableConfig = 0;
+   delete tableJobs;               tableJobs = 0;
 
    delete selectActiveValueFacts;  selectActiveValueFacts = 0;
    delete selectAllValueFacts;     selectAllValueFacts = 0;
    delete selectMaxTime;           selectMaxTime = 0;
+   delete selectPendingJobs;       selectPendingJobs = 0;
+   delete cleanupJobs;             cleanupJobs = 0;
 
    delete connection;              connection = 0;
 

@@ -40,18 +40,13 @@ if ($action == "mailtest")
    if (sendTestMail("Test Mail", "test", $resonse))
       echo "      <br/><div class=\"info\"><b><center>Mail Test succeeded</center></div><br/>\n";
    else
-      echo "      <br/><div class=\"infoError\"><b><center>Sending Mail failed '$resonse' - p4d/syslog log for further details</center></div><br/>\n";
+      echo "      <br/><div class=\"infoError\"><b><center>Sending Mail failed '$resonse' - poold/syslog log for further details</center></div><br/>\n";
 }
 
 else if ($action == "store")
 {
    // ------------------
    // store settings
-
-   if (isset($_POST["heatingType"]))
-      $_SESSION['heatingType'] = htmlspecialchars($_POST["heatingType"]);
-
-   $_SESSION['stateAni'] = isset($_POST['stateAni']);
 
    if (isset($_POST["style"]))
       $style = htmlspecialchars($_POST["style"]);
@@ -126,9 +121,6 @@ else if ($action == "store")
    if (isset($_POST["webUrl"]))
       $_SESSION['webUrl'] = (substr($_SESSION['webUrl'],0,7) == "http://") ?  htmlspecialchars($_POST["webUrl"]) : htmlspecialchars("http://" . $_POST["webUrl"]);
 
-   if (isset($_POST["haUrl"]))
-      $_SESSION['haUrl'] = (substr($_SESSION['haUrl'],0,7) == "http://") ?  htmlspecialchars($_POST["haUrl"]) : htmlspecialchars("http://" . $_POST["haUrl"]);
-
    if (isset($_POST["hmHost"]))
       $_SESSION['hmHost'] = htmlspecialchars($_POST["hmHost"]);
 
@@ -158,10 +150,7 @@ else if ($action == "store")
    writeConfigItem("mailScript", $_SESSION['mailScript']);
    writeConfigItem("tsync", $_SESSION['tsync']);
    writeConfigItem("maxTimeLeak", $_SESSION['maxTimeLeak']);
-   writeConfigItem("heatingType", $_SESSION['heatingType']);
-   writeConfigItem("stateAni", $_SESSION['stateAni']);
    writeConfigItem("webUrl", $_SESSION['webUrl']);
-   writeConfigItem("haUrl", $_SESSION['haUrl']);
    writeConfigItem("hmHost", $_SESSION['hmHost']);
 
    if ($_POST["passwd2"] != "")
@@ -195,8 +184,6 @@ echo "      </div>\n";
 echo "        <div class=\"rounded-border inputTableConfig\">\n";
 seperator("Web Interface", 0);
 colorSchemeItem(3, "Farbschema");
-heatingTypeItem(3, "Heizung", $_SESSION['heatingType']);
-configBoolItem(3, "Status Gif animiert?", "stateAni", $_SESSION['stateAni'], "");
 echo "       </div>\n";
 
 echo "      <div class=\"rounded-border inputTableConfig\">\n";
@@ -240,7 +227,7 @@ echo "       </div>\n";
 // --------------------
 
 echo "      <div class=\"rounded-border inputTableConfig\">\n";
-seperator("p4d Konfiguration", 0);
+seperator("poold Konfiguration", 0);
 seperator("Mail Benachrichtigungen", 0, "seperatorTitle2");
 $ro = ($_SESSION['mail']) ? "\"" : "; background-color:#ddd;\" readOnly=\"true\"";
 configBoolItem(3, "Mail Benachrichtigung", "mail\" onClick=\"disableContent('htM',this); readonlyContent('Mail',this)", $_SESSION['mail'], "Mail Benachrichtigungen aktivieren/deaktivieren");
@@ -248,9 +235,8 @@ configBoolItem(3, "HTML-Mail", "htmlMail\" id=\"htM", $_SESSION['htmlMail'], "gi
 configStrItem(3, "Status Mail Empfänger", "stateMailTo\" id=\"Mail1", $_SESSION['stateMailTo'], "Komma separierte Empängerliste", 500, $ro);
 configStrItem(3, "Fehler Mail Empfänger", "errorMailTo\" id=\"Mail2", $_SESSION['errorMailTo'], "Komma separierte Empängerliste", 500, $ro);
 configStrItem(3, "Status Mail für folgende Status", "stateMailStates\" id=\"Mail3", $_SESSION['stateMailStates'], "Komma separierte Liste der Stati", 400, $ro);
-configStrItem(3, "p4d sendet Mails über das Skript", "mailScript\" id=\"Mail4", $_SESSION['mailScript'], "", 400, $ro);
+configStrItem(3, "poold sendet Mails über das Skript", "mailScript\" id=\"Mail4", $_SESSION['mailScript'], "", 400, $ro);
 configStrItem(3, "URL deiner Visualisierung", "webUrl\" id=\"Mail5", $_SESSION['webUrl'], "kann mit %weburl% in die Mails eingefügt werden", 350, $ro);
-configStrItem(3, "URL der Hausautomatisierung", "haUrl\" id=\"Mail5", $_SESSION['haUrl'], "", 350, $ro);
 echo "        <button class=\"rounded-border button3\" type=submit name=action value=mailtest>Test Mail</button>\n";
 echo "       </div>\n";
 
@@ -312,35 +298,6 @@ function applyColorScheme($style)
       else
          echo '<script>parent.window.location.reload();</script>';
    }
-}
-
-// ---------------------------------------------------------------------------
-// Heating Type - p4/s4/...
-// ---------------------------------------------------------------------------
-
-function heatingTypeItem($new, $title, $type)
-{
-   $actual = "heating-$type.png";
-
-   $end = htmTags($new);
-   echo "          <span>$title:</span>\n";
-   echo "          <span>\n";
-   echo "            <select class=\"rounded-border input\" name=\"heatingType\">\n";
-
-   $path = "img/type/";
-
-   foreach (glob($path . "heating-*.png") as $filename)
-   {
-      $filename = basename($filename);
-
-      $sel = $actual == $filename ? "SELECTED" : "";
-      $tp = substr(strstr($filename, ".", true), 8);
-      echo "              <option value='$tp' " . $sel . ">$tp</option>\n";
-   }
-
-   echo "            </select>\n";
-   echo "          </span>\n";
-   echo $end;
 }
 
 ?>

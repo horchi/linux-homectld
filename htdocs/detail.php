@@ -14,9 +14,6 @@ $fontText = $chart_fontpath . "/Forgotte.ttf";
 $fontScale = $chart_fontpath . "/Forgotte.ttf";
 // date_default_timezone_set('Europe/Berlin');
 
-
-// http://gate/pool/detail.php?width=1200&height=600&address=90680919&type=W1&from=1586469600&range=7&chartXLines=1&chartDiv=25
-
 // -----------------------------
 // db connection
 
@@ -132,7 +129,7 @@ while ($fact = $factResult->fetch_assoc())
 
    syslog(LOG_DEBUG, "pool: " . $result->num_rows . " for $title ($address) $name");
 
-   $lastLabel = "";
+   $lastLabel = "xx";
 
    while ($row = $result->fetch_assoc())
    {

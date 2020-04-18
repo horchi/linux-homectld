@@ -63,7 +63,6 @@ include("functions.php");
 
      readConfigItem("tsync", $_SESSION['tsync']);
      readConfigItem("maxTimeLeak", $_SESSION['maxTimeLeak']);
-     readConfigItem("heatingType", $_SESSION['heatingType'], "p4");
      readConfigItem("stateAni", $_SESSION['stateAni']);
      readConfigItem("pumpON",  $_SESSION['pumpON'], "img/icon/pump-on.gif");
      readConfigItem("pumpOFF", $_SESSION['pumpOFF'], "img/icon/pump-off.gif");
@@ -88,7 +87,7 @@ include("functions.php");
 
 function printHeader($refresh = 0)
 {
-   $img = "img/type/heating-" . $_SESSION['heatingType'] . ".png";
+   $img = "img/logo.png";
 
    // ----------------
    // HTML Head
@@ -104,14 +103,14 @@ function printHeader($refresh = 0)
    echo "    <meta name=\"author\" content=\"Jörg Wendel\"/>\n";
    echo "    <meta name=\"copyright\" content=\"Jörg Wendel\"/>\n";
    echo "    <meta name=\"viewport\" content=\"initial-scale=1.0, width=device-width, user-scalable=no, maximum-scale=1, minimum-scale=1\"/>\n";
-   echo "    <link rel=\"shortcut icon\" href=\"img/type/heating-" . $_SESSION['heatingType'] . ".png\" type=\"image/png\"/>\n";
-   echo "    <link rel=\"icon\" href=\"img/type/heating-" . $_SESSION['heatingType'] . ".png\" type=\"image/png\"/>\n";
-   echo "    <link rel=\"apple-touch-icon-precomposed\" sizes=\"144x144\" href=\"img/type/heating-" . $_SESSION['heatingType'] . ".png\" type=\"image/png\"/>\n";
+   echo "    <link rel=\"shortcut icon\" href=\"$img\" type=\"image/png\"/>\n";
+   echo "    <link rel=\"icon\" href=\"$img\" type=\"image/png\"/>\n";
+   echo "    <link rel=\"apple-touch-icon-precomposed\" sizes=\"144x144\" href=\"$img\" type=\"image/png\"/>\n";
    echo "    <link rel=\"stylesheet\" type=\"text/css\" href=\"stylesheet.css\"/>\n";
    echo "    <script src=\"https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js\"></script>\n";
    echo "    <script src=\"https://cdnjs.cloudflare.com/ajax/libs/snap.svg/0.4.1/snap.svg-min.js\"></script>\n";
    echo "    <script type=\"text/JavaScript\" src=\"jfunctions.js\"></script>\n";
-   echo "    <title>Fröling " . $_SESSION['heatingType'] . "</title>\n";
+   echo "    <title>Pool Control</title>\n";
    echo "  </head>\n";
    echo "  <body>\n";
 

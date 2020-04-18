@@ -2,6 +2,8 @@
 
 if (!function_exists("functions_once"))
 {
+    define("tmeSecondsPerDay", 86400);
+
     function functions_once()
     {
     }
@@ -26,8 +28,6 @@ function isMobile()
 
 function haveLogin()
 {
-   return true;
-
    if (isset($_SESSION['angemeldet']) && $_SESSION['angemeldet'])
       return true;
 

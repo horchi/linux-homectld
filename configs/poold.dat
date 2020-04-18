@@ -60,6 +60,7 @@ Table valuefacts
    UNIT                 ""  unit                 Ascii        5 Data,
    NAME                 ""  name                 Ascii      100 Data,
    TITLE                ""  title                Ascii      100 Data,
+   USRTITLE             ""  usrtitle             Ascii      100 Data,
    MAXSCALE             ""  maxscale             Int          4 Data,
 }
 

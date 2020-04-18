@@ -133,7 +133,7 @@ printHeader(60);
          $type = $row['s_type'];
          $peak = $row['p_max'];
 
-         if ($u == '°' || $unit == '%'|| $unit == 'V' || $unit == 'A')       // 'Volt/Ampere/Prozent/°C' als  Gauge
+         if ($u == '°C' || $unit == '%'|| $unit == 'V' || $unit == 'A')       // 'Volt/Ampere/Prozent/°C' als  Gauge
          {
              $scaleMax = $unit == '%' ? 100 : $scaleMax;
              $ratio = $value / $scaleMax;
@@ -147,7 +147,7 @@ printHeader(60);
              echo "            <text class='widget-scale' text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"50\" y=\"550\">0</text>\n";
              echo "            <text class='widget-scale' text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"950\" y=\"550\">$scaleMax</text>\n";
              echo "          </svg>\n";
-              echo "        </div>\n";
+             echo "        </div>\n";
          }
          else if ($text != '')                                                    // 'text' als Text anzeigen
          {

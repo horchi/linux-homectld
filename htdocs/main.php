@@ -39,13 +39,18 @@ printHeader(60);
   // ----------------
   // init
 
-  $sday   = isset($_GET['sday'])   ? $_GET['sday']    : (int)date("d",time()-86400*$_SESSION['chartStart']);
-  $smonth = isset($_GET['smonth']) ? $_GET['smonth']  : (int)date("m",time()-86400*$_SESSION['chartStart']);
-  $syear  = isset($_GET['syear'])  ? $_GET['syear']   : (int)date("Y",time()-86400*$_SESSION['chartStart']);
+  $days = $_SESSION['chartStart'];
+
+  $sday   = isset($_GET['sday'])   ? $_GET['sday']    : (int)date("d", time() - tmeSecondsPerDay * $days);
+  $smonth = isset($_GET['smonth']) ? $_GET['smonth']  : (int)date("m", time() - tmeSecondsPerDay * $days);
+  $syear  = isset($_GET['syear'])  ? $_GET['syear']   : (int)date("Y", time() - tmeSecondsPerDay * $days);
   $srange = isset($_GET['srange'])  ? $_GET['srange'] : $_SESSION['chartStart'];
+  $hour  = date("H", time());
+  $min   = date("i", time());
+  $sec   = date("s", time());
 
   $range = ($srange > 7) ? 31 : (($srange > 1) ? 7 : 1);
-  $from = date_create_from_format('!Y-m-d', $syear.'-'.$smonth.'-'.$sday)->getTimestamp();
+  $from = date_create_from_format('!Y-m-d H:i:s', $syear.'-'.$smonth.'-'.$sday." ".$hour.":".$min.":".$sec)->getTimestamp();
 
   // ------------------
   // Script Buttons

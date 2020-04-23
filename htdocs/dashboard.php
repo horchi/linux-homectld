@@ -2,7 +2,7 @@
 
 include("header.php");
 
-printHeader(60);
+printHeader($_SESSION['refreshWeb']);
 
   // -------------------------
   // establish db connection
@@ -17,6 +17,49 @@ printHeader(60);
 
   $mysqli->query("set names 'utf8'");
   $mysqli->query("SET lc_time_names = 'de_DE'");
+
+
+  $action = "";
+
+  // ------------------
+  // get post
+
+  if (isset($_POST["action"]))
+  {
+     if (!haveLogin())
+     {
+        echo "<br/><div class=\"infoError\"><b><center>Login erforderlich!</center></b></div><br/>\n";
+     }
+     else
+     {
+        $action = htmlspecialchars($_POST["action"]);
+
+        if (strpos($action, "switch") == 1)
+        {
+           $resonse = "";
+           list($cmd, $pin) = explode(":", $action, 2);
+
+           if (strpos($action, "switch_next") == 1)
+           {
+              $state = requestAction("getio", 3, $pin, "", $response);
+
+              if ($state == 0)
+              {
+                 list($pin, $value) = explode("#", $response, 2);
+
+                 if ($value == 0)
+                    requestAction("setio", 3, $pin, "1", $response);
+                 else
+                    requestAction("toggleio2", 3, $pin, "", $response);
+              }
+           }
+           else
+           {
+              requestAction("toggleio", 3, $pin, "", $response);
+           }
+        }
+     }
+  }
 
   // -------------------------
   // get last time stamp
@@ -77,13 +120,13 @@ printHeader(60);
   // widgets
 
   {
-      // select s.address as s_address, s.type as s_type, s.time as s_time, f.title from samples s left join peaks p on p.address = s.address and p.type = s.type join valuefacts f on f.address = s.address and f.type = s.type where f.state = 'A' and s.time = '2020-03-27 12:19:00'
+      // select s.address as s_address, s.type as s_type, s.time as s_time, f.title, f.usrtitle from samples s left join peaks p on p.address = s.address and p.type = s.type join valuefacts f on f.address = s.address and f.type = s.type where f.state = 'A' and s.time = '2020-03-27 12:19:00'
 
       buildIdList($_SESSION['addrsDashboard'], $sensors, $addrWhere, $ids);
 
       $strQueryBase = sprintf("select p.minv as p_min, p.maxv as p_max,
                               s.address as s_address, s.type as s_type, s.time as s_time, s.value as s_value, s.text as s_text,
-                              f.name as f_name, f.title as f_title, f.unit as f_unit, f.maxscale as f_maxscale
+                              f.name as f_name, f.title as f_title, f.usrtitle as f_usrtitle, f.unit as f_unit, f.maxscale as f_maxscale
                               from samples s left join peaks p on p.address = s.address and p.type = s.type
                               join valuefacts f on f.address = s.address and f.type = s.type");
 
@@ -97,8 +140,6 @@ printHeader(60);
       $result = $mysqli->query($strQuery)
           or die("Error" . $mysqli->error);
 
-      echo "      <div class=\"container\">\n";
-
       $map = new \Ds\Map();
       $i = 0;
 
@@ -110,6 +151,9 @@ printHeader(60);
           if ($addrWhere == "")
               $ids[$i++] = $id;
       }
+
+      echo "  <form action=" . htmlspecialchars($_SERVER["PHP_SELF"]) . " method=post>\n";
+      echo "    <div class=\"widgetContainer\">\n";
 
       for ($i = 0; $i < count($ids); $i++)
       {
@@ -125,7 +169,7 @@ printHeader(60);
          $name = $row['f_name'];
          $value = $row['s_value'];
          $text = $row['s_text'];
-         $title = $row['f_title'];
+         $title = $row['f_usrtitle'] != "" ? $row['f_usrtitle'] : $row['f_title'];
          $unit = prettyUnit($row['f_unit']);
          $u = $row['f_unit'];
          $scaleMax = $row['f_maxscale'];
@@ -133,19 +177,37 @@ printHeader(60);
          $type = $row['s_type'];
          $peak = $row['p_max'];
 
-         if ($u == '°C' || $unit == '%'|| $unit == 'V' || $unit == 'A')       // 'Volt/Ampere/Prozent/°C' als  Gauge
+         // case of DO request the actual state instead of the last stored value
+
+         if ($type == 'DO')
+         {
+             $state = requestAction("getio", 3, $address, "", $response);
+
+             if ($state == 0)
+                 list($pin, $value) = explode("#", $response, 2);
+         }
+
+         if ($unit == '°C' || $unit == '%'|| $unit == 'V' || $unit == 'A')       // 'Volt/Ampere/Prozent/°C' als  Gauge
          {
              $scaleMax = $unit == '%' ? 100 : $scaleMax;
              $ratio = $value / $scaleMax;
              $peak = $peak / $scaleMax;
 
-             echo "        <div class=\"widget-row rounded-border participation\" data-y=\"500\" data-unit=\"$unit\" data-value=\"$value\" data-peak=\"$peak\" data-ratio=\"$ratio\">\n";
+             $range = 1;
+             $from = strtotime("today", time());
+
+             $url = "href=\"#\" onclick=\"window.open('detail.php?width=1200&height=600&address=$address&type=$type&from="
+                . $from . "&range=" . $range . "&chartXLines=" . $_SESSION['chartXLines'] . "&chartDiv="
+                . $_SESSION['chartDiv'] . " ','_blank',"
+                . "'scrollbars=yes,width=1200,height=600,resizable=yes,left=120,top=120')\"";
+
+             echo "        <div $url class=\"widget rounded-border participation\" data-y=\"500\" data-unit=\"$unit\" data-value=\"$value\" data-peak=\"$peak\" data-ratio=\"$ratio\">\n";
              echo "          <div class=\"widget-title\">$title</div>";
-             echo "          <svg class=\"svg\" viewBox=\"0 0 1000 600\" preserveAspectRatio=\"xMidYMin slice\">\n";
+             echo "          <svg class=\"widget-svg\" viewBox=\"0 0 1000 600\" preserveAspectRatio=\"xMidYMin slice\">\n";
              echo "            <path d=\"M 950 500 A 450 450 0 0 0 50 500\"></path>\n";
              echo "            <text class='_content' text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"500\" y=\"450\" font-size=\"140\" font-weight=\"bold\">$unit</text>\n";
-             echo "            <text class='widget-scale' text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"50\" y=\"550\">0</text>\n";
-             echo "            <text class='widget-scale' text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"950\" y=\"550\">$scaleMax</text>\n";
+             echo "            <text class='scale-text' text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"50\" y=\"550\">0</text>\n";
+             echo "            <text class='scale-text' text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"950\" y=\"550\">$scaleMax</text>\n";
              echo "          </svg>\n";
              echo "        </div>\n";
          }
@@ -153,7 +215,7 @@ printHeader(60);
          {
              $value = str_replace($wd_value, $wd_disp, $text);
 
-             echo "        <div class=\"widget-row rounded-border\">\n";
+             echo "        <div class=\"widget rounded-border\">\n";
              echo "          <div class=\"widget-title\">$title</div>";
              echo "          <div class=\"widget-value\">$value</div>";
              echo "        </div>\n";
@@ -162,26 +224,56 @@ printHeader(60);
          {
              $value = round($value, 0);
 
-             echo "        <div class=\"widget-row rounded-border\">\n";
+             echo "        <div class=\"widget rounded-border\">\n";
              echo "          <div class=\"widget-title\">$title</div>";
              echo "          <div class=\"widget-value\">$value $unit</div>";
              echo "        </div>\n";
          }
          else if ($type == 'DI' || $type == 'DO' || $u == '')                     // 'boolean' als symbol anzeigen
          {
-             if (strpos($name, "umpe") != FALSE)
-                 $imagePath = $value == "1.00" ? "img/icon/pump-on-1.gif" : $imagePath = "img/icon/pump-off-1.png";
-             else
-                 $imagePath = $value == "1.00" ? "img/icon/boolean-on.png" : $imagePath = "img/icon/boolean-off.png";
+            $ctrlButtons = $name == "Pool Light" && $_SESSION['poolLightColorToggle'];
+            $modImage = "img/icon/dot-blue.png";
 
-             echo "        <div class=\"widget-row rounded-border\">\n";
-             echo "          <div class=\"widget-title\">$title</div>";
-             echo "          <img class=\"widget-image\" src=\"$imagePath\">\n";
-             echo "        </div>\n";
+            if (strpos($name, "Pump") != FALSE)
+               $imagePath = $value == "1.00" ? "img/icon/pump-on.gif" : $imagePath = "img/icon/pump-off.png";
+            else if (strpos($name, "Light") != FALSE)
+               $imagePath = $value == "1.00" ? "img/icon/light-on.png" : $imagePath = "img/icon/light-off.png";
+            else
+               $imagePath = $value == "1.00" ? "img/icon/boolean-on.png" : $imagePath = "img/icon/boolean-off.png";
+
+            if (!$ctrlButtons)
+               echo "        <div class=\"widget rounded-border\">\n";
+            else
+               echo "        <div class=\"widgetCtrl rounded-border\">\n";
+
+            echo "          <div class=\"widget-title\">";
+            echo "            <img class=\"widget-mode\" src=\"$modImage\"/>\n";
+            echo "            $title";
+            echo "          </div>";
+            echo "          <button class=\"widget-main\" type=submit name=action value=\"_switch:$address\">\n";
+            echo "            <img src=\"$imagePath\"/>\n";
+            echo "          </button>\n";
+
+            if ($ctrlButtons)
+            {
+               /* echo "            <div class=\"widget-ctrl1\">\n"; */
+               /* echo "              <button type=submit name=action value=\"_switch_prev:$address\">\n"; */
+               /* echo "                <img src=\"img/icon/left.png\" />\n"; */
+               /* echo "              </button>\n"; */
+               /* echo "            </div>\n"; */
+               echo "            <div class=\"widget-ctrl2\">\n";
+               echo "              <button type=submit name=action value=\"_switch_next:$address\">\n";
+               echo "                <img src=\"img/icon/right.png\" />\n";
+               echo "              </button>\n";
+               echo "            </div>\n";
+
+            }
+            echo "        </div>\n";
          }
       }
 
-      echo "      </div>\n";
+      echo "    </form>\n";
+      echo "  </div>\n";  // container
   }
 
   $mysqli->close();

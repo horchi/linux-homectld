@@ -1,9 +1,3 @@
-/*
-  JavaScript-File for the p4d Web-InterFace
-  Copyright by Stefan Doering and Joerg Wendel
-  used for different functions in all pages
-  please do not modify unless you know what you are doing!
-*/
 
 function confirmSubmit(msg)
 {
@@ -96,6 +90,9 @@ function showHide(id)
     }
 }
 
+//----------------------------------------------
+// gauge
+
 $(function()
 {
     var polar_to_cartesian, svg_circle_arc_path, animate_arc;
@@ -154,7 +151,7 @@ $(function()
         }), Math.round(2000 * peak), mina.easeinout);
     };
 
-    $('.widget-row').each(function()
+    $('.widget').each(function()
     {
         var ratio, svg, perc, unit, value, peak, y;
 

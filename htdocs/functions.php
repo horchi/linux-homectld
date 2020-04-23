@@ -2,11 +2,11 @@
 
 if (!function_exists("functions_once"))
 {
-    define("tmeSecondsPerDay", 86400);
-
     function functions_once()
     {
     }
+
+    define("tmeSecondsPerDay", 86400);
 
 // ---------------------------------------------------------------------------
 // Check for mobile browser
@@ -256,6 +256,88 @@ function configStrItem($flow, $title, $name, $value, $comment = "", $width = 200
 }
 
 // ---------------------------------------------------------------------------
+// Number Config items
+// ---------------------------------------------------------------------------
+
+function configNumItem($flow, $title, $name, $value, $comment = "", $min = 0, $max = 100)
+{
+   $end = htmTags($flow);
+
+   echo "          <span>$title:</span>\n";
+   echo "          <span><input class=\"rounded-border inputNum\" type=\"number\" min=\"$min\" max=\"$max\" name=\"$name\" value=\"$value\"/></span>\n";
+
+   if ($comment != "")
+      echo "          <span class=\"inputComment\">($comment)</span>\n";
+
+   echo $end;
+}
+
+// ---------------------------------------------------------------------------
+// Float Config items
+// ---------------------------------------------------------------------------
+
+function configFloatItem($flow, $title, $name, $value, $comment = "", $min = 0, $max = 100)
+{
+   $step = 0.1;
+   $end = htmTags($flow);
+
+   echo "          <span>$title:</span>\n";
+   echo "          <span><input class=\"rounded-border inputFloat\" type=\"number\" step=\"$step\" min=\"$min\" max=\"$max\" name=\"$name\" value=\"$value\"/></span>\n";
+
+   if ($comment != "")
+      echo "          <span class=\"inputComment\">($comment)</span>\n";
+
+   echo $end;
+}
+
+// ---------------------------------------------------------------------------
+// Time Range Config Item
+// ---------------------------------------------------------------------------
+
+function configTimeRangesItem($flow, $title, $name, $ranges, $comment = "")
+{
+    $end = htmTags($flow);
+    $title = $title != "" ? $title.":" : "";
+    $aRanges = explode(",", $ranges);
+
+    $i = 0;
+
+    for ( ; $i < count($aRanges); $i++)
+    {
+       echo "          <span>$title</span>\n";
+
+       list($from, $to) = explode("-", $aRanges[$i], 2);
+
+       $nameFrom = $name.$i."From";
+       $nameTo = $name.$i."To";
+
+       echo "          <span>\n";
+       echo "            <input type=\"text\" class=\"rounded-border inputTime\" name=\"$nameFrom\" value=\"$from\"/> -";
+       echo "            <input type=\"text\" class=\"rounded-border inputTime\" name=\"$nameTo\" value=\"$to\"/>\n";
+       echo "          </span>\n";
+       echo "          <span></span>\n";
+
+       $title = "";
+    }
+
+    $nameFrom = $name.$i."From";
+    $nameTo = $name.$i."To";
+
+    echo "          <span>$title</span>\n";
+    echo "          <span>\n";
+    echo "            <input type=\"text\" class=\"rounded-border inputTime\" name=\"$nameFrom\" value=\"\"/> -";
+    echo "            <input type=\"text\" class=\"rounded-border inputTime\" name=\"$nameTo\" value=\"\"/>\n";
+    echo "          </span>\n";
+
+    if ($comment != "")
+        echo "          <span class=\"inputComment\">($comment)</span>\n";
+    else
+        echo "          <span class=\"inputComment\"></span>\n";
+
+    echo $end;
+}
+
+// ---------------------------------------------------------------------------
 // Checkbox Config items
 // ---------------------------------------------------------------------------
 
@@ -406,6 +488,12 @@ function buildIdList($tuples, &$sensors, &$addrWhere, &$ids)
     }
 
     return 0;
+}
+
+function doSwitch($id)
+{
+    syslog(LOG_DEBUG, "pool: doSwitch called with id $id " . $cmd);
+    return "fooobar $id";
 }
 
 }  // "functions_once"

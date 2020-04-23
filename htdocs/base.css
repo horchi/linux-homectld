@@ -151,6 +151,35 @@
     padding: 3px;
 }
 
+.inputTime
+{
+    background-color: var(--edit);
+    margin-top: 2px;
+    color: black;
+    padding: 3px;
+    width: 45px;
+}
+
+.inputNum
+{
+    background-color: var(--edit);
+    margin-top: 2px;
+    color: black;
+    padding: 3px;
+    width: 45px;
+    height: 21px;
+}
+
+.inputFloat
+{
+    background-color: var(--edit);
+    margin-top: 2px;
+    color: black;
+    padding: 3px;
+    width: 65px;
+    height: 21px;
+}
+
 .inputSetting
 {
     width: 100%;
@@ -260,7 +289,7 @@ span > input
     text-align: left;
 }
 
-.inputTableConfig > div > span:nth-child(3)
+.inputTableConfig > div > span:nth-child(3n)
 {
     width: 50%;
     min-width: 100px;
@@ -270,7 +299,7 @@ span > input
 
 .inputTableConfig > div > span > input
 {
-    width: 96%;
+/*    width: 96%;*/
 }
 
 .table2Col
@@ -393,6 +422,7 @@ table.tableMultiCol tr:nth-child(odd)
     float: right;
     width: 42%;
     padding: 15px;
+    margin: 3px;
 }
 
 .P4dInfo > div > span
@@ -514,117 +544,153 @@ div.greenCircle
     background-color: green;
 }
 
+/* ----------------------- */
 /* Dashboard Widgets */
 
-.widget-row
-{
-    padding: 1%;
-}
-
-/*
-.widget-row text
-{
-    font-family: "Lato", "Helvetica Neue", Helvetica, Arial, sans-serif;
-}
-.widget-row.participation text
-{
-    fill: var(--buttonFont);
-}
-.widget-row.completion text
-{
-    fill: #27ae60;
-}
-.widget-row.blocked text
-{
-    fill: #e74c3c;
-}
-*/
-
-.widget-row path
-{
-    stroke-width: 75;
-    stroke: #ecf0f1;
-    fill: none;
-}
-
-.widget-row.participation path.data-peak
-{
-    stroke: red;
-}
-
-.widget-row.participation path.data-arc
-{
-    stroke: #3498db;
-}
-
-.widget-row.completion path.data-arc
-{
-    stroke: #27ae60;
-}
-
-.widget-row.blocked path.data-arc
-{
-    stroke: #e74c3c;
-}
-
-.container
+.widgetContainer
 {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
 }
 
-.container > div
+.widgetContainer > div
 {
     justify-content: center;
-    display: grid;
     overflow: hidden;
     width: 330px;
     height: 212px;
     margin: 3px;
     background-color: var(--light1);
+    padding: 1%;
 }
 
-.svg
+.widget
 {
-    width: 100%;
+  display: grid;
+  grid-template-areas:
+      'title'
+      'main';
+  grid-template-rows: 17% 80%;
+  grid-gap: 5px;
+}
+
+.widgetCtrl
+{
+    display: grid;
+    grid-template-areas:
+      'mode title'
+      'main main'
+      'ctrl1 ctrl2';
+    grid-template-rows: 17% 50% 25%;
+    grid-gap: 5px;
 }
 
 .widget-title
 {
+    grid-area: title;
     padding: 2px;
     text-align: center;
     font-size: 1.4em;
+    overflow: hidden;
 }
 
-.widget-scale
+.widget-mode
 {
-    text-align: center;
-    font-size: 3.0em;
+    grid-area: mode;
+}
+
+.widget-main
+{
+    grid-area: main;
+    background-color: Transparent;
+    border: none;
+    overflow: hidden;
+    outline: none;
+    cursor: pointer;
 }
 
 .widget-value
 {
+    grid-area: main;
     padding: 8px;
     text-align: center;
     font-size: 2.1em;
     font-weight: bold;
     height: 82%;
-    display: flex;
     align-items: center;
     justify-content: center;
     word-break: break-word;
 }
 
-.widget-image
+.widget-ctrl1 { grid-area: ctrl1; }
+.widget-ctrl2 { grid-area: ctrl2; }
+
+.widgetCtrl > div > button > img
+{
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.widgetCtrl > div > button
+{
+    height: 100%;
+    background-color: Transparent;
+    border: none;
+    overflow: hidden;
+    outline: none;
+    cursor: pointer;
+}
+
+.widget-svg
+{
+    grid-area: main;
+    width: 100%;
+}
+
+.widget > button > img
 {
     max-width: 100%;
     max-height: 100%;
-    /*min-height: 100%;*/   /*  geht solange die widgets in bezug auf die höhe und das IMG breit genug sind */
-    display: block;
+*/    display: block;*/
     background-color: var(--light1);
     justify-self: center;
 }
+
+.scale-text
+{
+    text-align: center;
+    font-size: 3.0em;
+}
+
+.widget path
+{
+    stroke-width: 75;
+    stroke: #ecf0f1;
+    fill: none;
+}
+
+.widget.participation path.data-peak
+{
+    stroke: red;
+}
+
+.widget.participation path.data-arc
+{
+    stroke: #3498db;
+}
+
+.widget.completion path.data-arc
+{
+    stroke: #27ae60;
+}
+
+.widget.blocked path.data-arc
+{
+    stroke: #e74c3c;
+}
+
 
 /* -------------- */
 /* Media specials*/
@@ -650,10 +716,10 @@ div.greenCircle
     .inputTableConfig > div > span:nth-child(3) { width: 95%; }
     .inputTableConfig > div > span              { width: 95%; }
 
-    .container > div           { width: 185px; }
+    .widgetContainer > div           { width: 185px; }
 }
 
 @media only screen and (max-width: 380px)
 {
-    .container > div           { width: 165px; }
+    .widgetContainer > div           { width: 165px; }
 }

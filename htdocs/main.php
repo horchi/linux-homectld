@@ -9,7 +9,7 @@
 
 include("header.php");
 
-printHeader(60);
+printHeader($_SESSION['refreshWeb']);
 
   // -------------------------
   // establish db connection
@@ -53,7 +53,7 @@ printHeader(60);
   $from = date_create_from_format('!Y-m-d H:i:s', $syear.'-'.$smonth.'-'.$sday." ".$hour.":".$min.":".$sec)->getTimestamp();
 
   // ------------------
-  // Script Buttons
+  // Buttons
 
   $action = "";
 
@@ -66,13 +66,6 @@ printHeader(60);
           or die("<br/>Error" . $mysqli->error);
 
       echo "      <br/><div class=\"info\"><b><center>Peaks cleared</center></b></div><br/>\n";
-  }
-  else if (substr($action, 0, 6) == "script")
-  {
-     $script = substr($action, 7);
-
-     if (requestAction("call-script", 5, 0, "$script", $resonse) != 0)
-        echo "      <div class=\"infoError\"><b><center>Calling Skript failed '$resonse' - poold/syslog log for further details</center></div></br>\n";
   }
 
   // ------------------
@@ -123,11 +116,11 @@ printHeader(60);
   {
      buildIdList(!isMobile() ? $_SESSION['addrsMain'] : $_SESSION['addrsMainMobile'], $sensors, $addrWhere, $ids);
 
-     // select s.address as s_address, s.type as s_type, s.time as s_time, f.title from samples s left join peaks p on p.address = s.address and p.type = s.type join valuefacts f on f.address = s.address and f.type = s.type where f.state = 'A' and s.time = '2020-03-27 12:19:00'
+      // select s.address as s_address, s.type as s_type, s.time as s_time, f.title, f.usrtitle from samples s left join peaks p on p.address = s.address and p.type = s.type join valuefacts f on f.address = s.address and f.type = s.type where f.state = 'A' and s.time = '2020-03-27 12:19:00'
 
      $strQueryBase = sprintf("select p.minv as p_min, p.maxv as p_max, s.address as s_address, s.type as s_type,
                              s.time as s_time, s.value as s_value, s.text as s_text,
-                             f.title as f_title, f.unit as f_unit
+                             f.title as f_title, f.usrtitle as f_usrtitle, f.unit as f_unit
                              from samples s left join peaks p on p.address = s.address and p.type = s.type
                              join valuefacts f on f.address = s.address and f.type = s.type");
 
@@ -169,7 +162,7 @@ printHeader(60);
 
          $value = $row['s_value'];
          $text = $row['s_text'];
-         $title = $row['f_title'];
+         $title = $row['f_usrtitle'] != "" ? $row['f_usrtitle'] : $row['f_title'];
          $unit = prettyUnit($row['f_unit']);
          $address = $row['s_address'];
          $type = $row['s_type'];
@@ -193,13 +186,13 @@ printHeader(60);
          else if ($row['f_unit'] == 'zst')
              $value = $text;
 
-         $url = "<a class=\"tableButton\" href=\"#\" onclick=\"window.open('detail.php?width=1200&height=600&address=$address&type=$type&from="
+         $url = "class=\"tableButton\" href=\"#\" onclick=\"window.open('detail.php?width=1200&height=600&address=$address&type=$type&from="
              . $from . "&range=" . $srange . "&chartXLines=" . $_SESSION['chartXLines'] . "&chartDiv="
              . $_SESSION['chartDiv'] . " ','_blank',"
-             . "'scrollbars=yes,width=1200,height=600,resizable=yes,left=120,top=120')\">";
+             . "'scrollbars=yes,width=1200,height=600,resizable=yes,left=120,top=120')\"";
 
          echo "         <div class=\"mainrow\">\n";
-         echo "           <span>$url $title</a></span>\n";
+         echo "           <span><a $url>$title</a></span>\n";
          echo "           <span>$value&nbsp;$unit &nbsp; <p style = \"display:inline;font-size:12px;font-style:italic;\">$peak</p></span>\n";
          echo "         </div>\n";
      }

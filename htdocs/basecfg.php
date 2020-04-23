@@ -48,6 +48,9 @@ else if ($action == "store")
    // ------------------
    // store settings
 
+   if (isset($_POST["refreshWeb"]))
+      $_SESSION['refreshWeb'] = htmlspecialchars($_POST["refreshWeb"]);
+
    if (isset($_POST["style"]))
       $style = htmlspecialchars($_POST["style"]);
 
@@ -74,26 +77,15 @@ else if ($action == "store")
    if (isset($_POST["chart2"]))
       $_SESSION['chart2'] = htmlspecialchars($_POST["chart2"]);
 
-   // optional charts for HK2
-
-   $_SESSION['chart34'] = isset($_POST["chart34"]);
-
-   if (isset($_POST["chart3"]))
-      $_SESSION['chart3'] = htmlspecialchars($_POST["chart3"]);
-
-   if (isset($_POST["chart4"]))
-      $_SESSION['chart4'] = htmlspecialchars($_POST["chart4"]);
-
    // ---
 
+   if (isset($_POST["interval"]))
+      $_SESSION['interval'] = htmlspecialchars($_POST["interval"]);
+
    $_SESSION['mail'] = isset($_POST["mail"]);
-   $_SESSION['htmlMail'] = isset($_POST["htmlMail"]);
 
    if (isset($_POST["stateMailTo"]))
       $_SESSION['stateMailTo'] = htmlspecialchars($_POST["stateMailTo"]);
-
-   if (isset($_POST["stateMailStates"]))
-      $_SESSION['stateMailStates'] = htmlspecialchars($_POST["stateMailStates"]);
 
    if (isset($_POST["errorMailTo"]))
       $_SESSION['errorMailTo'] = htmlspecialchars($_POST["errorMailTo"]);
@@ -110,25 +102,92 @@ else if ($action == "store")
    if (isset($_POST["passwd2"]) && $_POST["passwd2"] != "")
       $_SESSION['passwd2'] = md5(htmlspecialchars($_POST["passwd2"]));
 
-   if (isset($_POST["tsync"]))
-      $_SESSION['tsync'] = true;
-   else
-      $_SESSION['tsync'] = false;
-
-   if (isset($_POST["maxTimeLeak"]))
-      $_SESSION['maxTimeLeak'] = htmlspecialchars($_POST["maxTimeLeak"]);
-
    if (isset($_POST["webUrl"]))
       $_SESSION['webUrl'] = (substr($_SESSION['webUrl'],0,7) == "http://") ?  htmlspecialchars($_POST["webUrl"]) : htmlspecialchars("http://" . $_POST["webUrl"]);
 
-   if (isset($_POST["hmHost"]))
-      $_SESSION['hmHost'] = htmlspecialchars($_POST["hmHost"]);
+   if (isset($_POST["tPoolMax"]))
+      $_SESSION['tPoolMax'] = htmlspecialchars($_POST["tPoolMax"]);
+
+   if (isset($_POST["tSolarDelta"]))
+       $_SESSION['tSolarDelta'] = htmlspecialchars($_POST["tSolarDelta"]);
+
+   if (isset($_POST["w1AddrPool"]))
+       $_SESSION['w1AddrPool'] = htmlspecialchars($_POST["w1AddrPool"]);
+
+   if (isset($_POST["w1AddrSolar"]))
+       $_SESSION['w1AddrSolar'] = htmlspecialchars($_POST["w1AddrSolar"]);
+
+   if (isset($_POST["w1AddrSuctionTube"]))
+       $_SESSION['w1AddrSuctionTube'] = htmlspecialchars($_POST["w1AddrSuctionTube"]);
+
+   if (isset($_POST["w1AddrAir"]))
+       $_SESSION['w1AddrAir'] = htmlspecialchars($_POST["w1AddrAir"]);
+
+   $_SESSION['poolLightColorToggle'] = isset($_POST["poolLightColorToggle"]);
+
+   $_SESSION['invertDO'] = isset($_POST["invertDO"]);
+
+   if (isset($_POST["aggregateHistory"]))
+       $_SESSION['aggregateHistory'] = htmlspecialchars($_POST["aggregateHistory"]);
+
+   if (isset($_POST["aggregateInterval"]))
+      $_SESSION['aggregateInterval'] = htmlspecialchars($_POST["aggregateInterval"]);
+
+   if (isset($_POST["hassMqttUrl"]))
+      $_SESSION['hassMqttUrl'] = htmlspecialchars($_POST["hassMqttUrl"]);
+
+   {
+      $times = "";
+
+      for ($i = 0; $i < 10; $i++)
+      {
+         $idName = "FilterPumpTimes".$i;
+
+         if (isset($_POST[$idName."From"]) && $_POST[$idName."From"] != "" &&
+             isset($_POST[$idName."To"]) && $_POST[$idName."To"] != "")
+         {
+            $from = htmlspecialchars($_POST[$idName."From"]);
+            $to = htmlspecialchars($_POST[$idName."To"]);
+
+            if ($times != "")
+               $times = $times.",";
+
+            $times = $times.$from."-".$to;
+         }
+      }
+
+      $_SESSION['filterPumpTimes'] = $times;
+   }
+
+   {
+      $times = "";
+
+      for ($i = 0; $i < 10; $i++)
+      {
+         $idName = "UvcLightTimes".$i;
+
+         if (isset($_POST[$idName."From"]) && $_POST[$idName."From"] != "" &&
+             isset($_POST[$idName."To"]) && $_POST[$idName."To"] != "")
+         {
+            $from = htmlspecialchars($_POST[$idName."From"]);
+            $to = htmlspecialchars($_POST[$idName."To"]);
+
+            if ($times != "")
+               $times = $times.",";
+
+            $times = $times.$from."-".$to;
+         }
+      }
+
+      $_SESSION['uvcLightTimes'] = $times;
+   }
 
    // ------------------
-   // store settings
+   // write settings to config
 
    applyColorScheme($style);
 
+   writeConfigItem("refreshWeb", $_SESSION['refreshWeb']);
    writeConfigItem("addrsMain", $_SESSION['addrsMain']);
    writeConfigItem("addrsMainMobile", $_SESSION['addrsMainMobile']);
    writeConfigItem("addrsDashboard", $_SESSION['addrsDashboard']);
@@ -138,20 +197,17 @@ else if ($action == "store")
    writeConfigItem("chartXLines", $_SESSION['chartXLines']);
    writeConfigItem("chart1", $_SESSION['chart1']);
    writeConfigItem("chart2", $_SESSION['chart2']);
-   writeConfigItem("chart34", $_SESSION['chart34']);              // HK2
-   writeConfigItem("chart3", $_SESSION['chart3']);
-   writeConfigItem("chart4", $_SESSION['chart4']);
 
+   writeConfigItem("interval", $_SESSION['interval']);
    writeConfigItem("mail", $_SESSION['mail']);
-   writeConfigItem("htmlMail", $_SESSION['htmlMail']);
    writeConfigItem("stateMailTo", $_SESSION['stateMailTo']);
-   writeConfigItem("stateMailStates", $_SESSION['stateMailStates']);
    writeConfigItem("errorMailTo", $_SESSION['errorMailTo']);
    writeConfigItem("mailScript", $_SESSION['mailScript']);
-   writeConfigItem("tsync", $_SESSION['tsync']);
-   writeConfigItem("maxTimeLeak", $_SESSION['maxTimeLeak']);
    writeConfigItem("webUrl", $_SESSION['webUrl']);
-   writeConfigItem("hmHost", $_SESSION['hmHost']);
+
+   writeConfigItem("aggregateHistory", $_SESSION['aggregateHistory']);
+   writeConfigItem("aggregateInterval", $_SESSION['aggregateInterval']);
+   writeConfigItem("hassMqttUrl", $_SESSION['hassMqttUrl']);
 
    if ($_POST["passwd2"] != "")
    {
@@ -166,6 +222,20 @@ else if ($action == "store")
          echo "      <br/><div class=\"infoError\"><b><center>Passwort stimmt nicht überein</center></div><br/>\n";
       }
    }
+
+   writeConfigItem("filterPumpTimes", $_SESSION['filterPumpTimes']);
+   writeConfigItem("uvcLightTimes", $_SESSION['uvcLightTimes']);
+
+   writeConfigItem("tPoolMax", $_SESSION['tPoolMax']);
+   writeConfigItem("tSolarDelta", $_SESSION['tSolarDelta']);
+   writeConfigItem("w1AddrPool", $_SESSION['w1AddrPool']);
+   writeConfigItem("w1AddrSolar", $_SESSION['w1AddrSolar']);
+   writeConfigItem("w1AddrSuctionTube", $_SESSION['w1AddrSuctionTube']);
+   writeConfigItem("w1AddrAir", $_SESSION['w1AddrAir']);
+   writeConfigItem("poolLightColorToggle", $_SESSION['poolLightColorToggle']);
+   writeConfigItem("invertDO", $_SESSION['invertDO']);
+
+   requestAction("apply-config", 3, 0, "", $res);
 }
 
 // ------------------
@@ -183,31 +253,27 @@ echo "      </div>\n";
 
 echo "        <div class=\"rounded-border inputTableConfig\">\n";
 seperator("Web Interface", 0);
+echo "       </div>\n";
+echo "        <div class=\"rounded-border inputTableConfig\">\n";
+seperator("Allgemein", 0, "seperatorTitle2");
 colorSchemeItem(3, "Farbschema");
 echo "       </div>\n";
 
 echo "      <div class=\"rounded-border inputTableConfig\">\n";
-seperator("Ansicht 'Aktuell'", 0, "seperatorTitle2");
+seperator("Ansicht 'Aktuell/Dashboard'", 0, "seperatorTitle2");
+configNumItem(3, "Seite aktualisieren", "refreshWeb", $_SESSION['refreshWeb'], "", 0, 7200);
 configStrItem(3, "Sensoren", "addrsMain", $_SESSION['addrsMain'], "", 250);
 configStrItem(3, "Sensoren Mobile Device", "addrsMainMobile", $_SESSION['addrsMainMobile'], "", 250);
 configStrItem(3, "Sensoren Dashboard", "addrsDashboard", $_SESSION['addrsDashboard'], "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'", 250);
-
 echo "       </div>\n";
 
 echo "      <div class=\"rounded-border inputTableConfig\">\n";
 seperator("Charts", 0, "seperatorTitle2");
-configStrItem(3, "Chart Zeitraum (Tage)", "chartStart", $_SESSION['chartStart'], "Standardzeitraum der Chartanzeige (seit x Tagen bis heute)", 50);
+configNumItem(3, "Chart Zeitraum (Tage)", "chartStart", $_SESSION['chartStart'], "Standardzeitraum der Chartanzeige (seit x Tagen bis heute)", 1, 7);
 configBoolItem(3, "Senkrechte Hilfslinien", "chartXLines", $_SESSION['chartXLines'], "");
 configOptionItem(3, "Linien-Abstand der Y-Achse", "chartDiv", $_SESSION['chartDiv'], "klein:15 mittel:25 groß:45", "");
-configBoolItem(3, "Chart 3+4", "chart34", $_SESSION['chart34'], "aktivieren?");
 configStrItem(3, "Chart 1", "chart1", $_SESSION['chart1'], "", 250);
 configStrItem(3, "Chart 2", "chart2", $_SESSION['chart2'], "", 250);
-
-if ($_SESSION['chart34'] == "1")
-{
-   configStrItem(3, "Chart 3", "chart3", $_SESSION['chart3'], "", 250);
-   configStrItem(3, "Chart 4", "chart4", $_SESSION['chart4'], "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'", 250);
-}
 echo "       </div>\n";
 
 echo "      <div class=\"rounded-border inputTableConfig\">\n";
@@ -217,34 +283,51 @@ configStrItem(3, "Passwort", "passwd1", "", "", 350, "", true);
 configStrItem(3, "Wiederholen", "passwd2", "", "", 350, "", true);
 echo "       </div>\n";
 
-// --------------------
-
-echo "      <div class=\"rounded-border inputTableConfig\">\n";
-seperator("HomeMatic Interface", 0);
-configStrItem(3, "HomeMatic Host/IP", "hmHost", $_SESSION['hmHost'], "", 150);
-echo "       </div>\n";
-
-// --------------------
-
 echo "      <div class=\"rounded-border inputTableConfig\">\n";
 seperator("poold Konfiguration", 0);
+echo "       </div>\n";
+echo "      <div class=\"rounded-border inputTableConfig\">\n";
 seperator("Mail Benachrichtigungen", 0, "seperatorTitle2");
 $ro = ($_SESSION['mail']) ? "\"" : "; background-color:#ddd;\" readOnly=\"true\"";
 configBoolItem(3, "Mail Benachrichtigung", "mail\" onClick=\"disableContent('htM',this); readonlyContent('Mail',this)", $_SESSION['mail'], "Mail Benachrichtigungen aktivieren/deaktivieren");
-configBoolItem(3, "HTML-Mail", "htmlMail\" id=\"htM", $_SESSION['htmlMail'], "gilt für alle Mails", $_SESSION['mail'] ? "" : "disabled=\"true\"");
-configStrItem(3, "Status Mail Empfänger", "stateMailTo\" id=\"Mail1", $_SESSION['stateMailTo'], "Komma separierte Empängerliste", 500, $ro);
-configStrItem(3, "Fehler Mail Empfänger", "errorMailTo\" id=\"Mail2", $_SESSION['errorMailTo'], "Komma separierte Empängerliste", 500, $ro);
-configStrItem(3, "Status Mail für folgende Status", "stateMailStates\" id=\"Mail3", $_SESSION['stateMailStates'], "Komma separierte Liste der Stati", 400, $ro);
+configStrItem(3, "Status Mail Empfänger", "stateMailTo\" id=\"Mail1", $_SESSION['stateMailTo'], "Komma separierte Empfängerliste", 500, $ro);
+configStrItem(3, "Fehler Mail Empfänger", "errorMailTo\" id=\"Mail2", $_SESSION['errorMailTo'], "Komma separierte Empfängerliste", 500, $ro);
 configStrItem(3, "poold sendet Mails über das Skript", "mailScript\" id=\"Mail4", $_SESSION['mailScript'], "", 400, $ro);
-configStrItem(3, "URL deiner Visualisierung", "webUrl\" id=\"Mail5", $_SESSION['webUrl'], "kann mit %weburl% in die Mails eingefügt werden", 350, $ro);
+configStrItem(3, "URL der Visualisierung", "webUrl\" id=\"Mail5", $_SESSION['webUrl'], "kann mit %weburl% in die Mails eingefügt werden", 350, $ro);
 echo "        <button class=\"rounded-border button3\" type=submit name=action value=mailtest>Test Mail</button>\n";
 echo "       </div>\n";
 
 echo "      <div class=\"rounded-border inputTableConfig\">\n";
+seperator("Steuerung", 0, "seperatorTitle2");
+configFloatItem(3, "Pool max Temperatur", "tPoolMax", $_SESSION['tPoolMax'], "", 15, 35);
+configFloatItem(3, "Einschaltdifferenz Solarpumpe", "tSolarDelta", $_SESSION['tSolarDelta'], "", 0, 10);
+echo "       <br/>\n";
+configTimeRangesItem(3, "Zeiten der Filter Pumpe", "FilterPumpTimes", $_SESSION['filterPumpTimes'], "[hh:mm] - [hh:mm]");
+echo "       <br/>\n";
+configTimeRangesItem(3, "Zeiten UV-C Licht", "UvcLightTimes", $_SESSION['uvcLightTimes'], "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!");
+echo "       </div>\n";
+
+echo "      <div class=\"rounded-border inputTableConfig\">\n";
+seperator("IO Setup", 0, "seperatorTitle2");
+configBoolItem(3, "Digitalaugänge invertieren", "invertDO", $_SESSION['invertDO'], "");
+configStrItem(3, "Adresse Fühler Temperatur Pool", "w1AddrPool", $_SESSION['w1AddrPool'], "");
+configStrItem(3, "Adresse Fühler Temperatur Kollektor", "w1AddrSolar", $_SESSION['w1AddrSolar'], "");
+configStrItem(3, "Adresse Fühler Temperatur Saugleitung", "w1AddrSuctionTube", $_SESSION['w1AddrSuctionTube'], "");
+configStrItem(3, "Adresse Fühler Temperatur Luft", "w1AddrAir", $_SESSION['w1AddrAir'], "");
+configBoolItem(3, "Pool Licht Farb-Toggel", "poolLightColorToggle", $_SESSION['poolLightColorToggle'], "");
+echo "       </div>\n";
+
+echo "      <div class=\"rounded-border inputTableConfig\">\n";
 seperator("Sonstiges", 0, "seperatorTitle2");
-$ro = ($_SESSION['tsync']) ? "\"" : "; background-color:#ddd;\" readOnly=\"true\"";
-configBoolItem(3, "Zeitsynchronisation", "tsync\" onClick=\"readonlyContent('timeLeak',this)", $_SESSION['tsync'], "tägl. 23:00Uhr");
-configStrItem(3, "Mind. Abweichung [s]", "maxTimeLeak\" id=\"timeLeak", $_SESSION['maxTimeLeak'], "Mindestabweichung für Synchronisation", 45, $ro);
+configNumItem(3, "Intervall der Aufzeichung", "interval", $_SESSION['interval'], "Datenbank Aufzeichung [s]");
+configStrItem(3, "Home Assistant MQTT Url ", "hassMqttUrl", $_SESSION['hassMqttUrl'], "Optional. Beispiel: 'tcp://127.0.0.1:1883'");
+echo "       </div>\n";
+
+echo "      <div class=\"rounded-border inputTableConfig\">\n";
+seperator("Aggregation", 0, "seperatorTitle2");
+configNumItem(3, "Historie [Tage]", "aggregateHistory", $_SESSION['aggregateHistory'], "history for aggregation in days (default 0 days -> aggegation turned OFF)", 0, 3650);
+configNumItem(3, "Intervall [m]", "aggregateInterval", $_SESSION['aggregateInterval'], "aggregation interval in minutes - 'one sample per interval will be build'", 5, 60);
+echo "       </div>\n";
 
 echo "      </form>\n";
 
@@ -274,7 +357,6 @@ function colorSchemeItem($new, $title)
    echo "          </span>\n";
    echo $end;
 }
-
 
 function applyColorScheme($style)
 {

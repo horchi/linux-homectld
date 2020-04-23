@@ -83,7 +83,7 @@ syslog(LOG_DEBUG, "pool: ---------");
 // ------------------------------
 // get data from db
 
-$factsQuery = "select address, type, name, title, unit from valuefacts where " . $sensorCond;
+$factsQuery = "select address, type, name, title, usrtitle, unit from valuefacts where " . $sensorCond;
 syslog(LOG_DEBUG, "pool: range $range; from '" . strftime("%d. %b %Y  %H:%M", $from)
        . "' to '" . strftime("%d. %b %Y %H:%M", $to) . " [$factsQuery]");
 
@@ -108,7 +108,8 @@ while ($fact = $factResult->fetch_assoc())
 {
    $address = $fact['address'];
    $type = $fact['type'];
-   $title = $fact['title'];
+   $title = $fact['usrtitle'] != "" ? $fact['usrtitle'] : $fact['title'];
+   // $title = $fact['title'];
    $unit = $fact['unit'];
    $name = $fact['name'];
 
@@ -129,7 +130,7 @@ while ($fact = $factResult->fetch_assoc())
 
    syslog(LOG_DEBUG, "pool: " . $result->num_rows . " for $title ($address) $name");
 
-   $lastLabel = "xx";
+   $lastLabel = "";
 
    while ($row = $result->fetch_assoc())
    {

@@ -36,7 +36,6 @@ else if ($action == "store")
 {
     $sAddr = count($_POST["addr"]);
     $sMax = count($_POST["maxscale"]);
-    // echo "<br/><br/><div>$sAddr / $sMax</div>";
 
     foreach ($_POST['addr'] as $key => $value)
     {
@@ -127,7 +126,7 @@ function showTable($type, $tableTitle)
       echo "              <td>$title</td>\n";
       echo "              <td class=\"tableMultiColCell\"><input class=\"rounded-border inputSetting\" name=\"usrtitle[]\" type=\"text\" value=\"$usrtitle\"/></td>\n";
 
-      if (($type == "VA" || $type == "W1") && ($unit == '°' || $unit == '%'))
+      if (($type == "VA" || $type == "W1") && ($unit == '°C' || $unit == '%'))
       {
           echo "              <td class=\"tableMultiColCell\"><input class=\"rounded-border inputSetting\" name=\"maxscale[]\" type=\"number\" value=\"$maxscale\"/></td>\n";
       }

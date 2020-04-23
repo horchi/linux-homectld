@@ -22,14 +22,10 @@
 
 extern char dbHost[];
 extern int  dbPort;
-extern char hassMqttUrl[];
 extern char dbName[];
 extern char dbUser[];
 extern char dbPass[];
 
-extern int interval;
-extern int aggregateInterval;        // aggregate interval in minutes
-extern int aggregateHistory;         // history in days
 extern char* confDir;
 
 //***************************************************************************
@@ -42,10 +38,12 @@ class Poold
 
       enum Pins  // we use the 'physical' PIN numbers here!
       {
+         pinW1 = 7,              // GPIO4
+
          pinFilterPump = 11,     // GPIO17
          pinSolarPump = 12,      // GPIO18
          pinPoolLight = 13,      // GPIO27
-         pinW1 = 7               // GPIO4
+         pinUVC = 15             // GPIO22
       };
 
       // object
@@ -60,10 +58,15 @@ class Poold
 
    protected:
 
+      // moved here for debugging !!
+
+      std::map<uint,bool> digitalOutputStates;
+
       int exit();
       int initDb();
       int exitDb();
       int readConfiguration();
+      int addValueFact(int addr, const char* type, const char* name, const char* unit);
 
       int standby(int t);
       int standbyUntil(time_t until);
@@ -72,8 +75,7 @@ class Poold
       int update();
       int process();
 
-      int store(time_t now, const char* name, const char* title, const char* unit, const char* type, int address, double value,
-                unsigned int factor, const char* text = 0);
+      int store(time_t now, const char* name, const char* title, const char* unit, const char* type, int address, double value, const char* text = 0);
 
       int hassPush(const char* name, const char* title, const char* unit, double theValue, const char* text = 0, bool forceConfig = false);
       int hassCheckConnection();
@@ -104,10 +106,11 @@ class Poold
 
       int performWebifRequests();
       int cleanupWebifRequests();
-      // int callScript(const char* scriptName, const char*& result);
+      int toggleIo(uint pin);
 
       // data
 
+      bool initialized {false};
       cDbConnection* connection {nullptr};
 
       cDbTable* tableSamples {nullptr};
@@ -126,10 +129,10 @@ class Poold
       time_t startedAt {0};
       time_t nextAggregateAt {0};
 
-      W1 w1;                       // for one wire sensors
+      W1 w1;
 
-      string mailBody {""};
-      string mailBodyHtml {""};
+      string mailBody;
+      string mailBodyHtml;
       bool initialRun {true};
 
       // Home Assistant stuff
@@ -137,29 +140,43 @@ class Poold
       MqTTPublishClient* mqttWriter {nullptr};
       MqTTSubscribeClient* mqttReader {nullptr};
 
+      struct Range
+      {
+         uint from;
+         uint to;
+
+         bool inRange(uint t)      { return (from <= t && to >= t); }
+      };
+
       // config
 
+      int interval {60};
+      int aggregateInterval {15};         // aggregate interval in minutes
+      int aggregateHistory {0};           // history in days
+      char* hassMqttUrl {0};
+
       int mail {no};
-      int htmlMail {no};
       char* mailScript {nullptr};
-      char* stateMailAtStates {nullptr};
       char* stateMailTo {nullptr};
       MemoryStruct htmlHeader;
 
-      char* w1Pool {nullptr};
-      char* w1Solar {nullptr};
+      int invertDO {no};
+      int poolLightColorToggle {no};
+      char* w1AddrPool {nullptr};
+      char* w1AddrSolar {nullptr};
+      char* w1AddrSuctionTube {nullptr};
+      char* w1AddrAir {nullptr};
 
       double tPoolMax {28.0};
       double tSolarDelta {5.0};
 
-      int gpioFilterPump {na};
-      int gpioSolarPump {na};
+      std::vector<Range> filterPumpTimes;
+      std::vector<Range> uvcLightTimes;
+
+      // int gpioFilterPump {na};
+      // int gpioSolarPump {na};
 
       // actual state and data
-
-      bool stateSolarPump {false};
-      bool stateFilterPump {false};
-      bool statePoollight {false};
 
       double tPool {0.0};
       double tSolar {0.0};

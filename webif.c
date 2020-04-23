@@ -20,7 +20,7 @@ int Poold::performWebifRequests()
 
    for (int f = selectPendingJobs->find(); f; f = selectPendingJobs->fetch())
    {
-      int start = time(0);
+      uint64_t start = cTimeMs::Now();
       int addr = tableJobs->getIntValue("ADDRESS");
       const char* command = tableJobs->getStrValue("COMMAND");
       const char* data = tableJobs->getStrValue("DATA");
@@ -88,23 +88,6 @@ int Poold::performWebifRequests()
          free(user);
       }
 
-/*      else if (strcasecmp(command, "call-script") == 0)
-      {
-         const char* result;
-
-         if (callScript(data, result) != success)
-         {
-            char* responce;
-            asprintf(&responce, "fail:%s", result);
-            tableJobs->setValue("RESULT", responce);
-            free(responce);
-         }
-         else
-         {
-            tableJobs->setValue("RESULT", "success:done");
-         }
-         }*/
-
       else if (strcasecmp(command, "write-config") == 0)
       {
          char* name = strdup(data);
@@ -113,17 +96,18 @@ int Poold::performWebifRequests()
          if ((value = strchr(name, ':')))
          {
             *value = 0; value++;
-
             setConfigItem(name, value);
-
             tableJobs->setValue("RESULT", "success:stored");
          }
 
          free(name);
+      }
 
-         // read the config from table to apply changes
-
+      else if (strcasecmp(command, "apply-config") == 0)
+      {
          readConfiguration();
+         process();
+         tableJobs->setValue("RESULT", "success:apply-config");
       }
 
       else if (strcasecmp(command, "read-config") == 0)
@@ -149,29 +133,40 @@ int Poold::performWebifRequests()
          free(value);
       }
 
-/*      else if (strcasecmp(command, "getv") == 0)
+      else if (strcasecmp(command, "setio") == 0)
       {
-         Value v(addr);
+         int v = atoi(data);
+         gpioWrite(addr, v);
+         tableJobs->setValue("RESULT", "success:setio");
+      }
 
-         tableValueFacts->clear();
-         tableValueFacts->setValue("TYPE", "VA");
-         tableValueFacts->setValue("ADDRESS", addr);
+      else if (strcasecmp(command, "toggleio") == 0)
+      {
+         toggleIo(addr);
+         tableJobs->setValue("RESULT", "success:toggled");
+      }
 
-         if (tableValueFacts->find())
-         {
-            double factor = tableValueFacts->getIntValue("FACTOR");
-            const char* unit = tableValueFacts->getStrValue("UNIT");
+      else if (strcasecmp(command, "toggleio2") == 0)
+      {
+         toggleIo(addr);
+         usleep(300000);
+         toggleIo(addr);
+         tableJobs->setValue("RESULT", "success:toggled2");
+      }
 
-            if (request->getValue(&v) == success)
-            {
-               char* buf = 0;
+      else if (strcasecmp(command, "getio") == 0)
+      {
+         char* buf {nullptr};
 
-               asprintf(&buf, "success:%.2f%s", v.value / factor, unit);
-               tableJobs->setValue("RESULT", buf);
-               free(buf);
-            }
-         }
-         }*/
+         tell(0, "DEBUG: reading digitalOutputStates '%d'", addr);
+         for (auto it = digitalOutputStates.begin(); it != digitalOutputStates.end(); ++it)
+            tell(0, "DEBUG: %d -> %d", it->first, it->second);
+
+         bool v = digitalOutputStates[addr];
+         asprintf(&buf, "success:%d#%d", addr, v);
+         tableJobs->setValue("RESULT", buf);
+         free(buf);
+      }
 
       else if (strcasecmp(command, "p4d-state") == 0)
       {
@@ -196,7 +191,6 @@ int Poold::performWebifRequests()
          free(buf);
       }
 
-
       else
       {
          tell(eloAlways, "Warning: Ignoring unknown job '%s'", command);
@@ -205,9 +199,9 @@ int Poold::performWebifRequests()
 
       tableJobs->store();
 
-      tell(eloAlways, "Processing WEBIF job %d done with '%s' after %ld seconds",
+      tell(eloAlways, "Processing WEBIF job %d done with '%s' after %llu ms",
            jobId, tableJobs->getStrValue("RESULT"),
-           time(0) - start);
+           cTimeMs::Now() - start);
    }
 
    selectPendingJobs->freeResult();
@@ -233,47 +227,3 @@ int Poold::cleanupWebifRequests()
 
    return status;
 }
-
-//***************************************************************************
-// Call Script
-//***************************************************************************
-/*
-int Poold::callScript(const char* scriptName, const char*& result)
-{
-   int status;
-   const char* path;
-
-   result = "";
-
-   tableScripts->clear();
-   tableScripts->setValue("NAME", scriptName);
-
-   if (!selectScriptByName->find())
-   {
-      selectScriptByName->freeResult();
-      tell(eloAlways, "Script '%s' not found in database", scriptName);
-      result = "script name not found";
-      return fail;
-   }
-
-   selectScriptByName->freeResult();
-   path = tableScripts->getStrValue("PATH");
-
-   if (!fileExists(path))
-   {
-      tell(eloAlways, "Path '%s' not found", path);
-      result = "path not found";
-      return fail;
-   }
-
-   if ((status = system(path)) == -1)
-   {
-      tell(eloAlways, "Called script '%s' failed", path);
-      return fail;
-   }
-
-   tell(eloAlways, "Called script '%s' at path '%s', exit status was (%d)", scriptName, path, status);
-
-   return success;
-}
-*/

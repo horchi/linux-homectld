@@ -197,6 +197,7 @@ class cMyMutex
 //***************************************************************************
 
 double usNow();
+int l2hhmm(time_t t);
 unsigned int getHostId();
 BYTE crc(const BYTE* data, int size);
 int toUTF8(char* out, int outMax, const char* in, const char* from_code = 0);

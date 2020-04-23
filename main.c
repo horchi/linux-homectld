@@ -24,11 +24,6 @@ char dbName[100+TB] = "pool";
 char dbUser[100+TB] = "pool";
 char dbPass[100+TB] = "pool";
 
-char hassMqttUrl[255+TB] = ""; // "tcp://127.0.0.1:1883";
-int  interval = 120;
-int  aggregateInterval = 15;     // aggregate interval in minutes
-int  aggregateHistory = 0;       // history in days
-
 //***************************************************************************
 // Configuration
 //***************************************************************************
@@ -42,11 +37,7 @@ int atConfigItem(const char* Name, const char* Value)
    else if (!strcasecmp(Name, "dbName"))      sstrcpy(dbName, Value, sizeof(dbName));
    else if (!strcasecmp(Name, "dbUser"))      sstrcpy(dbUser, Value, sizeof(dbUser));
    else if (!strcasecmp(Name, "dbPass"))      sstrcpy(dbPass, Value, sizeof(dbPass));
-
    else if (!strcasecmp(Name, "logLevel"))    loglevel = atoi(Value);
-   else if (!strcasecmp(Name, "interval"))    interval = atoi(Value);
-
-   else if (!strcasecmp(Name, "hassMqttUrl")) sstrcpy(hassMqttUrl, Value, sizeof(hassMqttUrl));
 
    return success;
 }

@@ -47,10 +47,11 @@ Poold::~Poold()
    delete mqttReader;
 
    free(mailScript);
-   free(stateMailAtStates);
    free(stateMailTo);
-   free(w1Pool);
-   free(w1Solar);
+   free(w1AddrPool);
+   free(w1AddrSolar);
+   free(w1AddrSuctionTube);
+   free(w1AddrAir);
 
    cDbConnection::exit();
 }
@@ -98,37 +99,12 @@ int Poold::init()
 
       for (auto it = list->begin(); it != list->end(); ++it)
       {
-         // update table
+         int res = addValueFact((int)W1::toId(it->first.c_str()), "W1", it->first.c_str(), "°C");
 
-         tableValueFacts->clear();
-         tableValueFacts->setValue("ADDRESS", (int)W1::toId(it->first.c_str()));
-         tableValueFacts->setValue("TYPE", "W1");
-
-         if (!tableValueFacts->find())
-         {
-            tableValueFacts->setValue("NAME", it->first.c_str());
-            tableValueFacts->setValue("STATE", "D");
-            tableValueFacts->setValue("UNIT", "°C");
-            tableValueFacts->setValue("TITLE", it->first.c_str());
-            tableValueFacts->setValue("MAXSCALE", 300);
-
-            tableValueFacts->store();
+         if (res == 1)
             added++;
-         }
-         else
-         {
-            tableValueFacts->clearChanged();
-
-            if (tableValueFacts->getValue("MAXSCALE")->isNull())
-               tableValueFacts->setValue("MAXSCALE", 300);
-
-            if (tableValueFacts->getChanges())
-            {
-               tableValueFacts->store();
-               modified++;
-            }
-         }
-
+         else if (res == 2)
+            modified++;
          count++;
       }
 
@@ -144,9 +120,19 @@ int Poold::init()
    pinMode(pinFilterPump, OUTPUT);
    pinMode(pinSolarPump, OUTPUT);
    pinMode(pinPoolLight, OUTPUT);
-   gpioWrite(pinFilterPump, stateFilterPump);
-   gpioWrite(pinSolarPump, stateSolarPump);
-   gpioWrite(pinPoolLight, statePoollight);
+   pinMode(pinUVC, OUTPUT);
+
+   gpioWrite(pinFilterPump, false);
+   gpioWrite(pinSolarPump, false);
+   gpioWrite(pinPoolLight, false);
+   gpioWrite(pinUVC, false);
+
+   addValueFact(pinFilterPump, "DO", "Filter Pump", "");
+   addValueFact(pinSolarPump, "DO", "Solar Pump", "");
+   addValueFact(pinPoolLight, "DO", "Pool Light", "");
+   addValueFact(pinUVC, "DO", "UV-C Light", "");
+
+   initialized = true;
 
    return success;
 }
@@ -156,6 +142,7 @@ int Poold::exit()
    gpioWrite(pinFilterPump, false);
    gpioWrite(pinSolarPump, false);
    gpioWrite(pinPoolLight, false);
+   gpioWrite(pinUVC, false);
 
    exitDb();
 
@@ -350,22 +337,88 @@ int Poold::readConfiguration()
 
    // init configuration
 
+   getConfigItem("interval", interval, interval);
+
    getConfigItem("mail", mail, no);
-   getConfigItem("htmlMail", htmlMail, no);
    getConfigItem("mailScript", mailScript, BIN_PATH "/poold-mail.sh");
-   getConfigItem("stateMailStates", stateMailAtStates, "0,1,3,19");
    getConfigItem("stateMailTo", stateMailTo);
+
+   getConfigItem("aggregateInterval", aggregateInterval, 15);
+   getConfigItem("aggregateHistory", aggregateHistory, 0);
+   getConfigItem("hassMqttUrl", hassMqttUrl, "");
 
    // more special
 
-   getConfigItem("w1AddrPool", w1Pool, "");
-   getConfigItem("w1AddrSolar", w1Solar, "");
+   getConfigItem("poolLightColorToggle", poolLightColorToggle, no);
+
+   getConfigItem("w1AddrPool", w1AddrPool, "");
+   getConfigItem("w1AddrSolar", w1AddrSolar, "");
+   getConfigItem("w1AddrSuctionTube", w1AddrSuctionTube, "");
+   getConfigItem("w1AddrAir", w1AddrAir, "");
 
    getConfigItem("tPoolMax", tPoolMax, tPoolMax);
    getConfigItem("tSolarDelta", tSolarDelta, tSolarDelta);
 
+   getConfigItem("invertDO", invertDO, no);
+
+   /*
+   // config of GPIO pins
+
    getConfigItem("gpioFilterPump", gpioFilterPump, gpioFilterPump);
    getConfigItem("gpioSolarPump", gpioSolarPump, gpioSolarPump);
+   */
+
+   // Filter Pump Time ranges
+
+   char* tmp {nullptr};
+
+   getConfigItem("filterPumpTimes", tmp, "8:00-13:00,16:00-20:00");
+   filterPumpTimes.clear();
+
+   for (const char* range = strtok(tmp, ","); range; range = strtok(0, ","))
+   {
+      uint fromHH, fromMM, toHH, toMM;
+
+      if (sscanf(range, "%u:%u-%u:%u", &fromHH, &fromMM, &toHH, &toMM) == 4)
+      {
+         uint from = fromHH*100 + fromMM;
+         uint to = toHH*100 + toMM;
+
+         filterPumpTimes.push_back({from, to});
+         tell(3, "range: %d - %d", from, to);
+      }
+      else
+      {
+         tell(0, "Error: Unexpected time range '%s' for 'Filter Pump Times'", range);
+      }
+   }
+
+   free(tmp);
+
+   // UV-C Light Time ranges
+
+   tmp = nullptr;
+
+   getConfigItem("uvcLightTimes", tmp, "");
+   uvcLightTimes.clear();
+
+   for (const char* range = strtok(tmp, ","); range; range = strtok(0, ","))
+   {
+      uint fromHH, fromMM, toHH, toMM;
+
+      if (sscanf(range, "%u:%u-%u:%u", &fromHH, &fromMM, &toHH, &toMM) == 4)
+      {
+         uint from = fromHH*100 + fromMM;
+         uint to = toHH*100 + toMM;
+
+         uvcLightTimes.push_back({from, to});
+         tell(3, "range: %d - %d", from, to);
+      }
+      else
+      {
+         tell(0, "Error: Unexpected time range '%s' for 'UV-C Light Times'", range);
+      }
+   }
 
    return done;
 }
@@ -375,11 +428,8 @@ int Poold::readConfiguration()
 //***************************************************************************
 
 int Poold::store(time_t now, const char* name, const char* title, const char* unit,
-               const char* type, int address, double value,
-               unsigned int factor, const char* text)
+               const char* type, int address, double value, const char* text)
 {
-   double theValue = value / (double)factor;
-
    tableSamples->clear();
 
    tableSamples->setValue("TIME", now);
@@ -387,7 +437,7 @@ int Poold::store(time_t now, const char* name, const char* title, const char* un
    tableSamples->setValue("TYPE", type);
    tableSamples->setValue("AGGREGATE", "S");
 
-   tableSamples->setValue("VALUE", theValue);
+   tableSamples->setValue("VALUE", value);
    tableSamples->setValue("TEXT", text);
    tableSamples->setValue("SAMPLES", 1);
 
@@ -402,17 +452,17 @@ int Poold::store(time_t now, const char* name, const char* title, const char* un
 
    if (!tablePeaks->find())
    {
-      tablePeaks->setValue("MIN", theValue);
-      tablePeaks->setValue("MAX", theValue);
+      tablePeaks->setValue("MIN", value);
+      tablePeaks->setValue("MAX", value);
       tablePeaks->store();
    }
    else
    {
-      if (theValue > tablePeaks->getFloatValue("MAX"))
-         tablePeaks->setValue("MAX", theValue);
+      if (value > tablePeaks->getFloatValue("MAX"))
+         tablePeaks->setValue("MAX", value);
 
-      if (theValue < tablePeaks->getFloatValue("MIN"))
-         tablePeaks->setValue("MIN", theValue);
+      if (value < tablePeaks->getFloatValue("MIN"))
+         tablePeaks->setValue("MIN", value);
 
       tablePeaks->store();
    }
@@ -420,7 +470,7 @@ int Poold::store(time_t now, const char* name, const char* title, const char* un
    // Home Assistant
 
    if (!isEmpty(hassMqttUrl))
-      hassPush(name, title, unit, theValue, text, initialRun /*forceConfig*/);
+      hassPush(name, title, unit, value, text, initialRun /*forceConfig*/);
 
    return success;
 }
@@ -461,13 +511,16 @@ int Poold::meanwhile()
 {
    static time_t lastCleanup = time(0);
 
+   if (!initialized)
+      return done;
+
    if (!connection || !connection->isConnected())
       return fail;
 
    if (mqttReader && mqttReader->isConnected()) mqttReader->yield();
    if (mqttWriter && mqttWriter->isConnected()) mqttWriter->yield();
 
-      performWebifRequests();
+   performWebifRequests();
 
    if (lastCleanup < time(0) - 6*tmeSecondsPerHour)
    {
@@ -484,13 +537,6 @@ int Poold::meanwhile()
 
 int Poold::loop()
 {
-   time_t nextStateAt {0};
-
-   // info
-
-   if (mail && !isEmpty(stateMailTo))
-      tell(eloAlways, "Mail at states '%s' to '%s'", stateMailAtStates, stateMailTo);
-
    // init
 
    scheduleAggregate();
@@ -515,7 +561,7 @@ int Poold::loop()
          break;
 
       meanwhile();
-      standbyUntil(min(nextStateAt, nextAt));
+      standbyUntil(nextAt);
 
       // aggregate
 
@@ -562,6 +608,9 @@ int Poold::update()
 
    tell(eloDetail, "Update ...");
 
+   tableValueFacts->clear();
+   tableValueFacts->setValue("STATE", "A");
+
    connection->startTransaction();
 
    for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
@@ -573,14 +622,16 @@ int Poold::update()
       const char* name = tableValueFacts->getStrValue("NAME");
 
       if (tableValueFacts->hasValue("TYPE", "W1"))
-      {
-         store(now, name, title, unit, type, addr, w1.valueOf(name), 1);
-      }
+         store(now, name, title, unit, type, addr, w1.valueOf(name));
+
+      else if (tableValueFacts->hasValue("TYPE", "DO"))
+         store(now, name, title, unit, type, addr, digitalOutputStates[addr]);
 
       count++;
    }
 
    connection->commit();
+
    tell(eloAlways, "Updated %d samples", count);
 
    return success;
@@ -592,16 +643,16 @@ int Poold::update()
 
 int Poold::process()
 {
-   tPool = w1.valueOf(w1Pool);
-   tSolar = w1.valueOf(w1Solar);
+   tPool = w1.valueOf(w1AddrPool);
+   tSolar = w1.valueOf(w1AddrSolar);
    tCurrentDelta = tSolar - tPool;
 
    tell(0, "Process ...");
    logReport();
 
-   if (isEmpty(w1Pool) || isEmpty(w1Solar))
+   if (isEmpty(w1AddrPool) || isEmpty(w1AddrSolar))
    {
-      tell(0, "Fatal: Missing configuration of 'w1Pool' and/or 'w1Solar'");
+      tell(0, "Fatal: Missing configuration of 'w1AddrPool' and/or 'w1AddrSolar'");
       return done;
    }
 
@@ -609,32 +660,71 @@ int Poold::process()
    {
       // switch OFF solar pump
 
-      if (stateSolarPump)
+      if (digitalOutputStates[pinSolarPump])
       {
          tell(0, "Configured pool maximum of %.2f°C reached, pool has is %.2f°C, stopping solar pump!", tPoolMax, tPool);
-         gpioWrite(pinSolarPump, stateSolarPump = false);
+         gpioWrite(pinSolarPump, false);
       }
    }
    else if (tCurrentDelta > tSolarDelta)
    {
       // switch ON solar pump
 
-      if (!stateSolarPump)
+      if (!digitalOutputStates[pinSolarPump])
       {
          tell(0, "Solar delta of %.2f°C reached, pool has %.2f°C, starting solar pump!", tSolarDelta, tPool);
-         gpioWrite(pinSolarPump, stateSolarPump = true);
+         gpioWrite(pinSolarPump, true);
       }
    }
    else
    {
       // switch OFF solar pump
 
-      if (stateSolarPump)
+      if (digitalOutputStates[pinSolarPump])
       {
          tell(0, "Solar delta (%.2f°C) lower than %.2f°C, pool has %.2f°C, stopping solar pump!", tCurrentDelta, tSolarDelta, tPool);
-         gpioWrite(pinSolarPump, stateSolarPump = false);
+         gpioWrite(pinSolarPump, false);
       }
    }
+
+   // Filter Pump
+
+   bool activate {false};
+
+   for (auto it = filterPumpTimes.begin(); it != filterPumpTimes.end(); ++it)
+   {
+      if (it->inRange(l2hhmm(time(0))))
+      {
+         activate = true;
+
+         if (!digitalOutputStates[pinFilterPump])
+            tell(0, "Activate filter pump due to range '%d-%d'", it->from, it->to);
+      }
+   }
+
+   if (digitalOutputStates[pinFilterPump] != activate)
+      gpioWrite(pinFilterPump, activate);
+
+   // UV-C Light (only if Filter Pump is running)
+
+   activate = false;
+
+   if (digitalOutputStates[pinFilterPump])
+   {
+      for (auto it = uvcLightTimes.begin(); it != uvcLightTimes.end(); ++it)
+      {
+         if (it->inRange(l2hhmm(time(0))))
+         {
+            activate = true;
+
+            if (!digitalOutputStates[pinUVC])
+               tell(0, "Activate UV-C light due to range '%d-%d'", it->from, it->to);
+         }
+      }
+   }
+
+   if (digitalOutputStates[pinUVC] != activate)
+      gpioWrite(pinUVC, activate);
 
    logReport();
 
@@ -648,9 +738,11 @@ int Poold::process()
 void Poold::logReport()
 {
    tell(0, "------------------------");
-   tell(0, "Pool has %.2f °C; Solar has %.2f °C; Current delta is %.2f°", tPool, tSolar, tCurrentDelta);
-   tell(0, "Solar pump is '%s'", stateSolarPump ? "running" : "stopped");
-   tell(0, "Filter pump is '%s'", stateFilterPump ? "running" : "stopped");
+   tell(0, "Pool has %.2f °C; Solar has %.2f °C; Current delta is %.2f° (%.2f° configured)",
+        tPool, tSolar, tCurrentDelta, tSolarDelta);
+   tell(0, "Solar pump is '%s'", digitalOutputStates[pinSolarPump] ? "running" : "stopped");
+   tell(0, "Filter pump is '%s'", digitalOutputStates[pinFilterPump] ? "running" : "stopped");
+   tell(0, "UV-C light is '%s'", digitalOutputStates[pinUVC] ? "on" : "off");
 }
 
 //***************************************************************************
@@ -782,14 +874,9 @@ int Poold::sendStateMail()
 
    getConfigItem("webUrl", webUrl, "http://to-be-configured");
 
-   // send mail ...
-
-   if (!htmlMail)
-      return sendMail(stateMailTo, subject.c_str(), mailBody.c_str(), "text/plain");
-
    // HTML mail
 
-   char* html = 0;
+   char* html {nullptr};
 
    loadHtmlHeader();
 
@@ -996,9 +1083,53 @@ int Poold::setConfigItem(const char* name, double value)
    return setConfigItem(name, txt);
 }
 
+int Poold::toggleIo(uint pin)
+{
+   gpioWrite(pin, !digitalOutputStates[pin]);
+   tell(0, "Set %d to %d", pin, digitalOutputStates[pin]);
+   return success;
+}
+
 void Poold::gpioWrite(uint pin, bool state)
 {
    // negate state until the relai board is active at 'false'
 
-   digitalWrite(pin, !state);
+   digitalOutputStates[pin] = state;
+   digitalWrite(pin, invertDO ? !state : state);
+}
+
+int Poold::addValueFact(int addr, const char* type, const char* name, const char* unit)
+{
+   int maxScale = unit[0] == '%' ? 100 : 45;
+
+   tableValueFacts->clear();
+   tableValueFacts->setValue("ADDRESS", addr);
+   tableValueFacts->setValue("TYPE", type);
+
+   if (!tableValueFacts->find())
+   {
+      tableValueFacts->setValue("NAME", name);
+      tableValueFacts->setValue("STATE", "D");
+      tableValueFacts->setValue("UNIT", unit);
+      tableValueFacts->setValue("TITLE", name);
+      tableValueFacts->setValue("MAXSCALE", maxScale);
+
+      tableValueFacts->store();
+      return 1;  // 1 for 'added'
+   }
+   else
+   {
+      tableValueFacts->clearChanged();
+
+      if (tableValueFacts->getValue("MAXSCALE")->isNull())
+         tableValueFacts->setValue("MAXSCALE", maxScale);
+
+      if (tableValueFacts->getChanges())
+      {
+         tableValueFacts->store();
+         return 2;  // 2 for 'modified'
+      }
+   }
+
+   return fail;
 }

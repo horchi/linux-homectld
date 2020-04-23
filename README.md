@@ -286,3 +286,9 @@ SELECT host, user FROM user;
 https://www.raspberrypi.org/documentation/usage/gpio/
 https://projects.drogon.net/raspberry-pi/wiringpi/pins/
 http://wiringpi.com/reference/setup/
+
+Overview of IO pins
+```
+apt install python3-gpiozero
+pinout
+```

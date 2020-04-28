@@ -560,7 +560,7 @@ div.greenCircle
     overflow: hidden;
     width: 330px;
     height: 212px;
-    margin: 3px;
+    margin: 2px;
     background-color: var(--light1);
     padding: 1%;
 }
@@ -571,7 +571,17 @@ div.greenCircle
   grid-template-areas:
       'title'
       'main';
-  grid-template-rows: 17% 80%;
+  grid-template-rows: 25% 69%;
+  grid-gap: 5px;
+}
+
+.widgetGauge
+{
+  display: grid;
+  grid-template-areas:
+      'title'
+      'main';
+/*  grid-template-rows: 17% 80%;*/
   grid-gap: 5px;
 }
 
@@ -579,7 +589,7 @@ div.greenCircle
 {
     display: grid;
     grid-template-areas:
-      'mode title'
+      'title title'
       'main main'
       'ctrl1 ctrl2';
     grid-template-rows: 17% 50% 25%;
@@ -589,15 +599,19 @@ div.greenCircle
 .widget-title
 {
     grid-area: title;
-    padding: 2px;
+/*    padding: 14px; */
     text-align: center;
     font-size: 1.4em;
     overflow: hidden;
+    background-color: Transparent;
+    cursor: pointer;
+    border: none;
+    color: white;
 }
 
 .widget-mode
 {
-    grid-area: mode;
+    font-size: 0.6em;
 }
 
 .widget-main
@@ -653,7 +667,14 @@ div.greenCircle
 {
     max-width: 100%;
     max-height: 100%;
-*/    display: block;*/
+    background-color: var(--light1);
+    justify-self: center;
+}
+
+.widgetGauge > button > img
+{
+    max-width: 100%;
+    max-height: 100%;
     background-color: var(--light1);
     justify-self: center;
 }
@@ -664,29 +685,29 @@ div.greenCircle
     font-size: 3.0em;
 }
 
-.widget path
+.widgetGauge path
 {
     stroke-width: 75;
     stroke: #ecf0f1;
     fill: none;
 }
 
-.widget.participation path.data-peak
+.widgetGauge.participation path.data-peak
 {
     stroke: red;
 }
 
-.widget.participation path.data-arc
+.widgetGauge.participation path.data-arc
 {
     stroke: #3498db;
 }
 
-.widget.completion path.data-arc
+.widgetGauge.completion path.data-arc
 {
     stroke: #27ae60;
 }
 
-.widget.blocked path.data-arc
+.widgetGauge.blocked path.data-arc
 {
     stroke: #e74c3c;
 }

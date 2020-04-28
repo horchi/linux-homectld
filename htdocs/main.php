@@ -166,12 +166,24 @@ printHeader($_SESSION['refreshWeb']);
          $unit = prettyUnit($row['f_unit']);
          $address = $row['s_address'];
          $type = $row['s_type'];
-
          $peak = "";
          $min = $row['p_min'];
          $max = $row['p_max'];
-
          $txtaddr = sprintf("0x%x", $address);
+         $mode = 'auto';
+
+         // case of DO request the actual state instead of the last stored value
+
+         if ($type == 'DO')
+         {
+             $state = requestAction("getio", 3, $address, "", $response);
+
+             if ($state == 0)
+             {
+                 list($pin, $data) = explode("#", $response, 2);
+                 list($value, $mode) = explode(":", $data, 2);
+             }
+         }
 
          if ($type != 'DI' && $type != 'DO' && $unit != '' && $unit != 'h' && $unit != 'Stunden')
              $peak = sprintf("(%s/%s)", $min, $max);

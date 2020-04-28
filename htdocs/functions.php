@@ -143,6 +143,35 @@ function mysqli_result($res, $row=0, $col=0)
 }
 
 // ---------------------------------------------------------------------------
+// To Time Ranges String
+// ---------------------------------------------------------------------------
+
+function toTimeRangesString($idNameBase, array $post)
+{
+   $times = "";
+
+   for ($i = 0; $i < 10; $i++)
+   {
+      $idName = $idNameBase.$i;
+
+      if (isset($post[$idName."From"]) && $post[$idName."From"] != "" &&
+          isset($post[$idName."To"]) && $post[$idName."To"] != "")
+      {
+         $from = htmlspecialchars($post[$idName."From"]);
+         $to = htmlspecialchars($post[$idName."To"]);
+
+         if ($times != "")
+            $times = $times.",";
+
+         $times = $times.$from."-".$to;
+      }
+   }
+
+   return $times;
+}
+
+
+// ---------------------------------------------------------------------------
 // Request Action
 // ---------------------------------------------------------------------------
 

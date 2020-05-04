@@ -26,13 +26,13 @@ if (isset($_POST["action"]))
 // -----------------------
 //
 
-if ($action == "init")
-{
-   requestAction("initvaluefacts", 20, 0, "", $resonse);
-   echo "<br/><div class=\"info\"><b><center>Initialisierung abgeschlossen</center></b></div><br/><br/>";
-}
+//if ($action == "init")
+//{
+//   requestAction("initvaluefacts", 20, 0, "", $resonse);
+//   echo "<br/><div class=\"info\"><b><center>Initialisierung abgeschlossen</center></b></div><br/><br/>";
+//}
 
-else if ($action == "store")
+if ($action == "store")
 {
     $sAddr = count($_POST["addr"]);
     $sMax = count($_POST["maxscale"]);
@@ -79,7 +79,7 @@ include("footer.php");
 function showButtons()
 {
    echo "        <div class=\"menu\">\n";
-   echo "          <button class=\"rounded-border button3\" type=submit name=action value=init onclick=\"return confirmSubmit('Stammdaten der Messwerte initialisieren/aktualisieren')\">Init</button>\n";
+//   echo "          <button class=\"rounded-border button3\" type=submit name=action value=init onclick=\"return confirmSubmit('Stammdaten der Messwerte initialisieren/aktualisieren')\">Init</button>\n";
    echo "          <button class=\"rounded-border button3\" type=submit name=action value=store>Speichern</button>\n";
    echo "        </div>\n";
 }

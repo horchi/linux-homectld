@@ -66,7 +66,7 @@ else if ($action == "store")
    if (isset($_POST["chartStart"]))
       $_SESSION['chartStart'] = htmlspecialchars($_POST["chartStart"]);
 
-   $_SESSION['chartXLines'] = isset($_POST["chartXLines"]);
+   $_SESSION['chartXLines'] = isset($_POST["chartXLines"]) ? "1" : "0";
 
    if (isset($_POST["chartDiv"]))
       $_SESSION['chartDiv'] = htmlspecialchars($_POST["chartDiv"]);
@@ -82,7 +82,7 @@ else if ($action == "store")
    if (isset($_POST["interval"]))
       $_SESSION['interval'] = htmlspecialchars($_POST["interval"]);
 
-   $_SESSION['mail'] = isset($_POST["mail"]);
+   $_SESSION['mail'] = isset($_POST["mail"]) ? "1" : "0";
 
    if (isset($_POST["stateMailTo"]))
       $_SESSION['stateMailTo'] = htmlspecialchars($_POST["stateMailTo"]);
@@ -123,9 +123,8 @@ else if ($action == "store")
    if (isset($_POST["w1AddrAir"]))
        $_SESSION['w1AddrAir'] = htmlspecialchars($_POST["w1AddrAir"]);
 
-   $_SESSION['poolLightColorToggle'] = isset($_POST["poolLightColorToggle"]);
-
-   $_SESSION['invertDO'] = isset($_POST["invertDO"]);
+   $_SESSION['poolLightColorToggle'] = isset($_POST["poolLightColorToggle"]) ? "1" : "0";
+   $_SESSION['invertDO'] = isset($_POST["invertDO"]) ? "1" : "0";
 
    if (isset($_POST["aggregateHistory"]))
        $_SESSION['aggregateHistory'] = htmlspecialchars($_POST["aggregateHistory"]);
@@ -136,51 +135,8 @@ else if ($action == "store")
    if (isset($_POST["hassMqttUrl"]))
       $_SESSION['hassMqttUrl'] = htmlspecialchars($_POST["hassMqttUrl"]);
 
-   {
-      $times = "";
-
-      for ($i = 0; $i < 10; $i++)
-      {
-         $idName = "FilterPumpTimes".$i;
-
-         if (isset($_POST[$idName."From"]) && $_POST[$idName."From"] != "" &&
-             isset($_POST[$idName."To"]) && $_POST[$idName."To"] != "")
-         {
-            $from = htmlspecialchars($_POST[$idName."From"]);
-            $to = htmlspecialchars($_POST[$idName."To"]);
-
-            if ($times != "")
-               $times = $times.",";
-
-            $times = $times.$from."-".$to;
-         }
-      }
-
-      $_SESSION['filterPumpTimes'] = $times;
-   }
-
-   {
-      $times = "";
-
-      for ($i = 0; $i < 10; $i++)
-      {
-         $idName = "UvcLightTimes".$i;
-
-         if (isset($_POST[$idName."From"]) && $_POST[$idName."From"] != "" &&
-             isset($_POST[$idName."To"]) && $_POST[$idName."To"] != "")
-         {
-            $from = htmlspecialchars($_POST[$idName."From"]);
-            $to = htmlspecialchars($_POST[$idName."To"]);
-
-            if ($times != "")
-               $times = $times.",";
-
-            $times = $times.$from."-".$to;
-         }
-      }
-
-      $_SESSION['uvcLightTimes'] = $times;
-   }
+   $_SESSION['filterPumpTimes'] = toTimeRangesString("FilterPumpTimes", $_POST);
+   $_SESSION['uvcLightTimes'] = toTimeRangesString("UvcLightTimes", $_POST);
 
    // ------------------
    // write settings to config
@@ -273,7 +229,7 @@ configNumItem(3, "Chart Zeitraum (Tage)", "chartStart", $_SESSION['chartStart'],
 configBoolItem(3, "Senkrechte Hilfslinien", "chartXLines", $_SESSION['chartXLines'], "");
 configOptionItem(3, "Linien-Abstand der Y-Achse", "chartDiv", $_SESSION['chartDiv'], "klein:15 mittel:25 groß:45", "");
 configStrItem(3, "Chart 1", "chart1", $_SESSION['chart1'], "", 250);
-configStrItem(3, "Chart 2", "chart2", $_SESSION['chart2'], "", 250);
+configStrItem(3, "Chart 2", "chart2", $_SESSION['chart2'], "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'", 250);
 echo "       </div>\n";
 
 echo "      <div class=\"rounded-border inputTableConfig\">\n";

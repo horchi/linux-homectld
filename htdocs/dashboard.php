@@ -39,13 +39,27 @@ printHeader($_SESSION['refreshWeb']);
            $resonse = "";
            list($cmd, $pin) = explode(":", $action, 2);
 
-           if (strpos($action, "switch_next") == 1)
+           if (strpos($action, "switch_mode") == 1)
            {
               $state = requestAction("getio", 3, $pin, "", $response);
 
               if ($state == 0)
               {
-                 list($pin, $value) = explode("#", $response, 2);
+                 list($pin, $data) = explode("#", $response, 2);
+                 list($value, $mode, $opt) = explode(":", $data, 3);
+
+                 if ($opt == 3)
+                    requestAction("toggle-output-mode", 3, $pin, $mode == 'auto' ? "manual" : "auto", $response);
+              }
+           }
+           else if (strpos($action, "switch_next") == 1)
+           {
+              $state = requestAction("getio", 3, $pin, "", $response);
+
+              if ($state == 0)
+              {
+                 list($pin, $data) = explode("#", $response, 2);
+                 list($value, $mode, $opt) = explode(":", $data, 3);
 
                  if ($value == 0)
                     requestAction("setio", 3, $pin, "1", $response);
@@ -176,6 +190,8 @@ printHeader($_SESSION['refreshWeb']);
          $address = $row['s_address'];
          $type = $row['s_type'];
          $peak = $row['p_max'];
+         $mode = '';
+         $opt = 0;
 
          // case of DO request the actual state instead of the last stored value
 
@@ -184,7 +200,18 @@ printHeader($_SESSION['refreshWeb']);
              $state = requestAction("getio", 3, $address, "", $response);
 
              if ($state == 0)
-                 list($pin, $value) = explode("#", $response, 2);
+             {
+                 list($pin, $data) = explode("#", $response, 2);
+                 list($value, $mode, $opt) = explode(":", $data, 3);
+
+                 if ($opt == 3)
+                 {
+                    $modeStyle = $mode == 'auto' ? "color:darkblue;" : "color:red;";
+                    $mode = $mode == 'auto' ? "" : "&nbsp;&nbsp;&nbsp;&nbsp;(manuell)";
+                 }
+                 else
+                    $mode = "";
+             }
          }
 
          if ($unit == '°C' || $unit == '%'|| $unit == 'V' || $unit == 'A')       // 'Volt/Ampere/Prozent/°C' als  Gauge
@@ -201,7 +228,7 @@ printHeader($_SESSION['refreshWeb']);
                 . $_SESSION['chartDiv'] . " ','_blank',"
                 . "'scrollbars=yes,width=1200,height=600,resizable=yes,left=120,top=120')\"";
 
-             echo "        <div $url class=\"widget rounded-border participation\" data-y=\"500\" data-unit=\"$unit\" data-value=\"$value\" data-peak=\"$peak\" data-ratio=\"$ratio\">\n";
+             echo "        <div $url class=\"widgetGauge rounded-border participation\" data-y=\"500\" data-unit=\"$unit\" data-value=\"$value\" data-peak=\"$peak\" data-ratio=\"$ratio\">\n";
              echo "          <div class=\"widget-title\">$title</div>";
              echo "          <svg class=\"widget-svg\" viewBox=\"0 0 1000 600\" preserveAspectRatio=\"xMidYMin slice\">\n";
              echo "            <path d=\"M 950 500 A 450 450 0 0 0 50 500\"></path>\n";
@@ -231,25 +258,28 @@ printHeader($_SESSION['refreshWeb']);
          }
          else if ($type == 'DI' || $type == 'DO' || $u == '')                     // 'boolean' als symbol anzeigen
          {
-            $ctrlButtons = $name == "Pool Light" && $_SESSION['poolLightColorToggle'];
-            $modImage = "img/icon/dot-blue.png";
-
-            if (strpos($name, "Pump") != FALSE)
+            if (stripos($name, "Pump") !== FALSE)
                $imagePath = $value == "1.00" ? "img/icon/pump-on.gif" : $imagePath = "img/icon/pump-off.png";
-            else if (strpos($name, "Light") != FALSE)
+            else if (stripos($name, "UV-C") !== FALSE)
+               $imagePath = $value == "1.00" ? "img/icon/uvc-on.png" : $imagePath = "img/icon/uvc-off.png";
+            else if (stripos($name, "Light") !== FALSE || stripos($title, "Licht") !== FALSE)
                $imagePath = $value == "1.00" ? "img/icon/light-on.png" : $imagePath = "img/icon/light-off.png";
             else
                $imagePath = $value == "1.00" ? "img/icon/boolean-on.png" : $imagePath = "img/icon/boolean-off.png";
+
+            $ctrlButtons = $name == "Pool Light" && $_SESSION['poolLightColorToggle'];
 
             if (!$ctrlButtons)
                echo "        <div class=\"widget rounded-border\">\n";
             else
                echo "        <div class=\"widgetCtrl rounded-border\">\n";
 
-            echo "          <div class=\"widget-title\">";
-            echo "            <img class=\"widget-mode\" src=\"$modImage\"/>\n";
+            $element = $opt == 3 ? "button type=submit name=action value=\"_switch_mode:$address\"" : "div";
+
+            echo "          <$element class=\"widget-title\">\n";
             echo "            $title";
-            echo "          </div>";
+            echo "            <span style=\"$modeStyle\" class=\"widget-mode\">$mode</span>";
+            echo "          </$element>\n";
             echo "          <button class=\"widget-main\" type=submit name=action value=\"_switch:$address\">\n";
             echo "            <img src=\"$imagePath\"/>\n";
             echo "          </button>\n";

@@ -280,7 +280,7 @@ function buildAddrCondition($tuples)
    foreach (explode(",", $tuples) as $tuple)
    {
       $type = "W1";
-      $tup = explode("/", $tuple);
+      $tup = explode(":", $tuple);
       $addr = $tup[0];
 
       if (count($tup) > 1)

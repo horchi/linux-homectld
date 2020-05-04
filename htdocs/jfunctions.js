@@ -151,7 +151,7 @@ $(function()
         }), Math.round(2000 * peak), mina.easeinout);
     };
 
-    $('.widget').each(function()
+    $('.widgetGauge').each(function()
     {
         var ratio, svg, perc, unit, value, peak, y;
 

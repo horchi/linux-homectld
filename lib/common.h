@@ -221,7 +221,7 @@ string num2Str(double num);
 string l2pTime(time_t t, const char* fmt = "%d.%m.%Y %T");
 char* eos(char* s);
 const char* toElapsed(int seconds, char* buf);
-
+// #to-be-implemented: splitToInts(const char* string, char c, int& i1, int& i2);
 int fileExists(const char* path);
 const char* suffixOf(const char* path);
 int createLink(const char* link, const char* dest, int force);

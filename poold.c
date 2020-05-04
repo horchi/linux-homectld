@@ -117,20 +117,13 @@ int Poold::init()
    // wiringPiSetup();      // use the 'special' wiringPi PIN numbers
    // wiringPiSetupGpio();  // use the 'GPIO' PIN numbers
 
-   pinMode(pinFilterPump, OUTPUT);
-   pinMode(pinSolarPump, OUTPUT);
-   pinMode(pinPoolLight, OUTPUT);
-   pinMode(pinUVC, OUTPUT);
-
-   gpioWrite(pinFilterPump, false);
-   gpioWrite(pinSolarPump, false);
-   gpioWrite(pinPoolLight, false);
-   gpioWrite(pinUVC, false);
-
-   addValueFact(pinFilterPump, "DO", "Filter Pump", "");
-   addValueFact(pinSolarPump, "DO", "Solar Pump", "");
-   addValueFact(pinPoolLight, "DO", "Pool Light", "");
-   addValueFact(pinUVC, "DO", "UV-C Light", "");
+   initOutput(pinFilterPump, ooAuto|ooUser, omAuto, "Filter Pump");
+   initOutput(pinSolarPump, ooAuto|ooUser, omAuto, "Solar Pump");
+   initOutput(pinPoolLight, ooUser, omManual, "Pool Light");
+   initOutput(pinUVC, ooAuto|ooUser, omAuto, "UV-C Light");
+   initOutput(pinUser1, ooUser, omManual, "User 1");
+   initOutput(pinUser2, ooUser, omManual, "User 2");
+   initOutput(pinUser3, ooUser, omManual, "User 3");
 
    initialized = true;
 
@@ -139,14 +132,28 @@ int Poold::init()
 
 int Poold::exit()
 {
-   gpioWrite(pinFilterPump, false);
-   gpioWrite(pinSolarPump, false);
-   gpioWrite(pinPoolLight, false);
-   gpioWrite(pinUVC, false);
+   for (auto it = digitalOutputStates.begin(); it != digitalOutputStates.end(); ++it)
+      gpioWrite(it->first, false);
 
    exitDb();
 
    return success;
+}
+
+//***************************************************************************
+// Init Output Settings
+//***************************************************************************
+
+int Poold::initOutput(uint pin, int opt, OutputMode mode, const char* name)
+{
+   digitalOutputStates[pin].opt = opt;
+   digitalOutputStates[pin].mode = mode;
+
+   pinMode(pin, OUTPUT);
+   gpioWrite(pin, false);
+   addValueFact(pin, "DO", name, "");
+
+   return done;
 }
 
 //***************************************************************************
@@ -560,7 +567,6 @@ int Poold::loop()
       if (doShutDown())
          break;
 
-      meanwhile();
       standbyUntil(nextAt);
 
       // aggregate
@@ -622,10 +628,14 @@ int Poold::update()
       const char* name = tableValueFacts->getStrValue("NAME");
 
       if (tableValueFacts->hasValue("TYPE", "W1"))
-         store(now, name, title, unit, type, addr, w1.valueOf(name));
-
+      {
+         if (w1.exist(name))
+            store(now, name, title, unit, type, addr, w1.valueOf(name));
+      }
       else if (tableValueFacts->hasValue("TYPE", "DO"))
-         store(now, name, title, unit, type, addr, digitalOutputStates[addr]);
+      {
+         store(now, name, title, unit, type, addr, digitalOutputStates[addr].state);
+      }
 
       count++;
    }
@@ -650,81 +660,103 @@ int Poold::process()
    tell(0, "Process ...");
    logReport();
 
-   if (isEmpty(w1AddrPool) || isEmpty(w1AddrSolar))
-   {
-      tell(0, "Fatal: Missing configuration of 'w1AddrPool' and/or 'w1AddrSolar'");
-      return done;
-   }
+   // if (isEmpty(w1AddrPool) || isEmpty(w1AddrSolar))
+   // {
+   //    tell(0, "Info: Missing configuration of 'w1AddrPool' and/or 'w1AddrSolar'");
+   //    return done;
+   // }
 
-   if (tPool > tPoolMax)
-   {
-      // switch OFF solar pump
+   // -----------
+   // Solar Pump
 
-      if (digitalOutputStates[pinSolarPump])
+   if (digitalOutputStates[pinSolarPump].mode == omAuto)
+   {
+      if (!isEmpty(w1AddrPool) && !isEmpty(w1AddrSolar) && w1.exist(w1AddrPool) && w1.exist(w1AddrSolar))
       {
-         tell(0, "Configured pool maximum of %.2f°C reached, pool has is %.2f°C, stopping solar pump!", tPoolMax, tPool);
+         if (tPool > tPoolMax)
+         {
+            // switch OFF solar pump
+
+            if (digitalOutputStates[pinSolarPump].state)
+            {
+               tell(0, "Configured pool maximum of %.2f°C reached, pool has is %.2f°C, stopping solar pump!", tPoolMax, tPool);
+               gpioWrite(pinSolarPump, false);
+            }
+         }
+         else if (tCurrentDelta > tSolarDelta)
+         {
+            // switch ON solar pump
+
+            if (!digitalOutputStates[pinSolarPump].state)
+            {
+               tell(0, "Solar delta of %.2f°C reached, pool has %.2f°C, starting solar pump!", tSolarDelta, tPool);
+               gpioWrite(pinSolarPump, true);
+            }
+         }
+         else
+         {
+            // switch OFF solar pump
+
+            if (digitalOutputStates[pinSolarPump].state)
+            {
+               tell(0, "Solar delta (%.2f°C) lower than %.2f°C, pool has %.2f°C, stopping solar pump!", tCurrentDelta, tSolarDelta, tPool);
+               gpioWrite(pinSolarPump, false);
+            }
+         }
+      }
+      else
+      {
+         tell(0, "Missing at least one sensor, switching solar pump off");
          gpioWrite(pinSolarPump, false);
       }
    }
-   else if (tCurrentDelta > tSolarDelta)
-   {
-      // switch ON solar pump
 
-      if (!digitalOutputStates[pinSolarPump])
-      {
-         tell(0, "Solar delta of %.2f°C reached, pool has %.2f°C, starting solar pump!", tSolarDelta, tPool);
-         gpioWrite(pinSolarPump, true);
-      }
-   }
-   else
-   {
-      // switch OFF solar pump
-
-      if (digitalOutputStates[pinSolarPump])
-      {
-         tell(0, "Solar delta (%.2f°C) lower than %.2f°C, pool has %.2f°C, stopping solar pump!", tCurrentDelta, tSolarDelta, tPool);
-         gpioWrite(pinSolarPump, false);
-      }
-   }
-
+   // -----------
    // Filter Pump
 
-   bool activate {false};
-
-   for (auto it = filterPumpTimes.begin(); it != filterPumpTimes.end(); ++it)
+   if (digitalOutputStates[pinFilterPump].mode == omAuto)
    {
-      if (it->inRange(l2hhmm(time(0))))
-      {
-         activate = true;
+      bool activate {false};
 
-         if (!digitalOutputStates[pinFilterPump])
-            tell(0, "Activate filter pump due to range '%d-%d'", it->from, it->to);
-      }
-   }
-
-   if (digitalOutputStates[pinFilterPump] != activate)
-      gpioWrite(pinFilterPump, activate);
-
-   // UV-C Light (only if Filter Pump is running)
-
-   activate = false;
-
-   if (digitalOutputStates[pinFilterPump])
-   {
-      for (auto it = uvcLightTimes.begin(); it != uvcLightTimes.end(); ++it)
+      for (auto it = filterPumpTimes.begin(); it != filterPumpTimes.end(); ++it)
       {
          if (it->inRange(l2hhmm(time(0))))
          {
             activate = true;
 
-            if (!digitalOutputStates[pinUVC])
-               tell(0, "Activate UV-C light due to range '%d-%d'", it->from, it->to);
+            if (!digitalOutputStates[pinFilterPump].state)
+               tell(0, "Activate filter pump due to range '%d-%d'", it->from, it->to);
          }
       }
+
+      if (digitalOutputStates[pinFilterPump].state != activate)
+         gpioWrite(pinFilterPump, activate);
    }
 
-   if (digitalOutputStates[pinUVC] != activate)
-      gpioWrite(pinUVC, activate);
+   // -----------
+   // UV-C Light (only if Filter Pump is running)
+
+   if (digitalOutputStates[pinUVC].mode == omAuto)
+   {
+      bool activate {false};
+
+      if (digitalOutputStates[pinFilterPump].state)
+      {
+         for (auto it = uvcLightTimes.begin(); it != uvcLightTimes.end(); ++it)
+         {
+            if (it->inRange(l2hhmm(time(0))))
+            {
+               activate = true;
+
+               if (!digitalOutputStates[pinUVC].state)
+                  tell(0, "Activate UV-C light due to range '%d-%d'", it->from, it->to);
+            }
+         }
+      }
+
+      if (digitalOutputStates[pinUVC].state != activate)
+         gpioWrite(pinUVC, activate);
+   }
 
    logReport();
 
@@ -740,9 +772,9 @@ void Poold::logReport()
    tell(0, "------------------------");
    tell(0, "Pool has %.2f °C; Solar has %.2f °C; Current delta is %.2f° (%.2f° configured)",
         tPool, tSolar, tCurrentDelta, tSolarDelta);
-   tell(0, "Solar pump is '%s'", digitalOutputStates[pinSolarPump] ? "running" : "stopped");
-   tell(0, "Filter pump is '%s'", digitalOutputStates[pinFilterPump] ? "running" : "stopped");
-   tell(0, "UV-C light is '%s'", digitalOutputStates[pinUVC] ? "on" : "off");
+   tell(0, "Solar pump is '%s/%s'", digitalOutputStates[pinSolarPump].state ? "running" : "stopped", digitalOutputStates[pinSolarPump].mode == omAuto ? "auto" : "manual");
+   tell(0, "Filter pump is '%s/%s'", digitalOutputStates[pinFilterPump].state ? "running" : "stopped", digitalOutputStates[pinFilterPump].mode == omAuto ? "auto" : "manual");
+   tell(0, "UV-C light is '%s/%s'", digitalOutputStates[pinUVC].state ? "on" : "off", digitalOutputStates[pinUVC].mode == omAuto ? "auto" : "manual");
 }
 
 //***************************************************************************
@@ -1085,8 +1117,21 @@ int Poold::setConfigItem(const char* name, double value)
 
 int Poold::toggleIo(uint pin)
 {
-   gpioWrite(pin, !digitalOutputStates[pin]);
-   tell(0, "Set %d to %d", pin, digitalOutputStates[pin]);
+   gpioWrite(pin, !digitalOutputStates[pin].state);
+   tell(0, "Set %d to %d", pin, digitalOutputStates[pin].state);
+   return success;
+}
+
+int Poold::toggleOutputMode(uint pin, OutputMode mode)
+{
+   // allow mode toggle only if mor than one option is given
+
+   if (digitalOutputStates[pin].opt & ooAuto &&
+       digitalOutputStates[pin].opt & ooUser)
+   {
+      digitalOutputStates[pin].mode = mode;
+   }
+
    return success;
 }
 
@@ -1094,7 +1139,7 @@ void Poold::gpioWrite(uint pin, bool state)
 {
    // negate state until the relai board is active at 'false'
 
-   digitalOutputStates[pin] = state;
+   digitalOutputStates[pin].state = state;
    digitalWrite(pin, invertDO ? !state : state);
 }
 

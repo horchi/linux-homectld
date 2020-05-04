@@ -54,7 +54,7 @@ $(TARGET) : paho-mqtt $(OBJS)
 install: $(TARGET) install-poold
 
 install-poold: install-config # install-scripts
-	@cp -p $(TARGET) $(BINDEST)
+	install --mode=755 -D $(TARGET) $(BINDEST)
 	make install-systemd
    ifneq ($(DESTDIR),)
 	   @cp -r contrib/DEBIAN $(DESTDIR)

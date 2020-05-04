@@ -23,8 +23,45 @@ int W1::show()
    return done;
 }
 
+//***************************************************************************
+// Exist
+//***************************************************************************
+
+int W1::exist(const char* id)
+{
+   auto it = sensors.find(id);
+
+   return it != sensors.end();
+}
+
+//***************************************************************************
+// Scan
+//***************************************************************************
+
+int W1::scan()
+{
+   std::vector<std::string> lines;
+
+   if (loadLinesFromFile("/sys/bus/w1/devices/w1_bus_master1/w1_master_slaves", lines) != success)
+      return fail;
+
+   sensors.clear();
+
+   for (auto it = lines.begin(); it != lines.end(); ++it)
+      sensors[it->c_str()] = 0;
+
+   return success;
+}
+
+
+//***************************************************************************
+// Update
+//***************************************************************************
+
 int W1::update()
 {
+   scan();
+
    for (auto it = sensors.begin(); it != sensors.end(); ++it)
    {
       char line[100+TB];
@@ -58,40 +95,6 @@ int W1::update()
    }
 
    return done;
-}
-
-//***************************************************************************
-// Scan
-//***************************************************************************
-
-int W1::scan()
-{
-   std::vector<std::string> lines;
-
-   if (loadLinesFromFile("/sys/bus/w1/devices/w1_bus_master1/w1_master_slaves", lines) != success)
-      return fail;
-
-   for (auto it = lines.begin(); it != lines.end(); ++it)
-      sensors[it->c_str()] = 0;
-
-/*   DIR* dir;
-   dirent* dp;
-
-   if (!(dir = opendir(w1Path)))
-   {
-      tell(0, "Info: No One-Wire sensors found, path '%s' not exist (%s)", w1Path, strerror(errno));
-      return fail;
-   }
-
-   while ((dp = readdir(dir)))
-   {
-      if (strncmp(dp->d_name, "28-", 3) == 0 || strncasecmp(dp->d_name, "3b-", 3) == 0)
-         sensors[dp->d_name] = 0;
-   }
-
-   closedir(dir);
-*/
-   return success;
 }
 
 //***************************************************************************

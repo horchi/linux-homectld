@@ -41,9 +41,13 @@ class Poold
          pinW1 = 7,              // GPIO4
 
          pinFilterPump = 11,     // GPIO17
-         pinSolarPump = 12,      // GPIO18
-         pinPoolLight = 13,      // GPIO27
-         pinUVC = 15             // GPIO22
+         pinSolarPump  = 12,     // GPIO18
+         pinPoolLight  = 13,     // GPIO27
+         pinUVC        = 15,     // GPIO22
+         pinUser1      = 16,     // GPIO23
+         pinUser2      = 18,     // GPIO24
+         pinUser3      = 22,     // GPIO25
+         pinUser4      = 23      // GPIO11
       };
 
       // object
@@ -60,13 +64,33 @@ class Poold
 
       // moved here for debugging !!
 
-      std::map<uint,bool> digitalOutputStates;
+      enum OutputMode
+      {
+         omAuto,
+         omManual
+      };
+
+      enum OutputOptions
+      {
+         ooUser = 0x01,        // Output cna contolled by user
+         ooAuto = 0x02         // Output cna contolled by poold
+      };
+
+      struct OutputState
+      {
+         bool state {false};
+         OutputMode mode {omAuto};
+         uint opt {ooUser};
+      };
+
+      std::map<int,OutputState> digitalOutputStates;
 
       int exit();
       int initDb();
       int exitDb();
       int readConfiguration();
       int addValueFact(int addr, const char* type, const char* name, const char* unit);
+      int initOutput(uint pin, int opt, OutputMode mode, const char* name);
 
       int standby(int t);
       int standbyUntil(time_t until);
@@ -107,6 +131,7 @@ class Poold
       int performWebifRequests();
       int cleanupWebifRequests();
       int toggleIo(uint pin);
+      int toggleOutputMode(uint pin, OutputMode mode);
 
       // data
 

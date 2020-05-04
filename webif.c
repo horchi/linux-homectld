@@ -6,6 +6,8 @@
 // Date 18.04.2020  Jörg Wendel
 //***************************************************************************
 
+#include <inttypes.h>
+
 #include "lib/common.h"
 
 #include "poold.h"
@@ -30,7 +32,7 @@ int Poold::performWebifRequests()
       tableJobs->setValue("DONEAT", time(0));
       tableJobs->setValue("STATE", "D");
 
-      tell(eloAlways, "Processing WEBIF job %d '%s:0x%04x/%s'",
+      tell(eloDebug, "Processing WEBIF job %d '%s:0x%04x/%s'",
            jobId, command, addr, data);
 
       if (strcasecmp(command, "test-mail") == 0)
@@ -133,6 +135,12 @@ int Poold::performWebifRequests()
          free(value);
       }
 
+      else if (strcasecmp(command, "toggle-output-mode") == 0)
+      {
+         toggleOutputMode(addr, strcmp(data, "manual") == 0 ? omManual : omAuto);
+         tableJobs->setValue("RESULT", "success:toggle-output-mode");
+      }
+
       else if (strcasecmp(command, "setio") == 0)
       {
          int v = atoi(data);
@@ -158,12 +166,14 @@ int Poold::performWebifRequests()
       {
          char* buf {nullptr};
 
-         tell(0, "DEBUG: reading digitalOutputStates '%d'", addr);
-         for (auto it = digitalOutputStates.begin(); it != digitalOutputStates.end(); ++it)
-            tell(0, "DEBUG: %d -> %d", it->first, it->second);
+         // tell(0, "DEBUG: reading digitalOutputStates '%d'", addr);
+         // for (auto it = digitalOutputStates.begin(); it != digitalOutputStates.end(); ++it)
+         // tell(0, "DEBUG: %d -> %d/%d/%d", it->first, it->second.state, it->second.mode, it->second.opt);
 
-         bool v = digitalOutputStates[addr];
-         asprintf(&buf, "success:%d#%d", addr, v);
+         bool v = digitalOutputStates[addr].state;
+         OutputMode m = digitalOutputStates[addr].mode;
+         int o = digitalOutputStates[addr].opt;
+         asprintf(&buf, "success:%d#%d:%s:%d", addr, v, m == omManual ? "manual" : "auto", o);
          tableJobs->setValue("RESULT", buf);
          free(buf);
       }
@@ -199,9 +209,8 @@ int Poold::performWebifRequests()
 
       tableJobs->store();
 
-      tell(eloAlways, "Processing WEBIF job %d done with '%s' after %llu ms",
-           jobId, tableJobs->getStrValue("RESULT"),
-           cTimeMs::Now() - start);
+      tell(eloDebug, "Processing WEBIF job %d done with '%s' after %" PRIu64 " ms",
+           jobId, tableJobs->getStrValue("RESULT"), cTimeMs::Now() - start);
    }
 
    selectPendingJobs->freeResult();

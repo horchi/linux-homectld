@@ -29,12 +29,13 @@ class W1
       W1()  { w1Path = strdup("/sys/bus/w1/devices"); }
       ~W1() { free(w1Path); }
 
-      int scan();
       int show();
+      int scan();
+      int exist(const char* id);
       int update();
 
-      SensorList* getList() { return &sensors; }
-      double valueOf(const char* id) { return !isEmpty(id) ? sensors[id] : 0; }
+      SensorList* getList()          { return &sensors; }
+      double valueOf(const char* id) { return !isEmpty(id) && exist(id) ? sensors[id] : 0; }
 
       static unsigned int toId(const char* name);
 

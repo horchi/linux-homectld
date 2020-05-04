@@ -9,6 +9,15 @@ if (!function_exists("functions_once"))
     define("tmeSecondsPerDay", 86400);
 
 // ---------------------------------------------------------------------------
+// log to Syslog
+// ---------------------------------------------------------------------------
+
+function tell($message)
+{
+   syslog(LOG_DEBUG, "poold: " . $message);
+}
+
+// ---------------------------------------------------------------------------
 // Check for mobile browser
 // ---------------------------------------------------------------------------
 
@@ -186,7 +195,7 @@ function requestAction($cmd, $timeout, $address, $data, &$response)
    $data = mysqli_real_escape_string($mysqli, $data);
    $cmd = mysqli_real_escape_string($mysqli, $cmd);
 
-   syslog(LOG_DEBUG, "pool: requesting ". $cmd . " with " . $address . ", '" . $data . "'");
+   tell("requesting ". $cmd . " with " . $address . ", '" . $data . "'");
 
    $mysqli->query("insert into jobs set requestat = now(), state = 'P', command = '$cmd', address = '$address', data = '$data'")
       or die("Error" . $mysqli->error);
@@ -211,7 +220,7 @@ function requestAction($cmd, $timeout, $address, $data, &$response)
       }
    }
 
-   syslog(LOG_DEBUG, "pool: timeout on " . $cmd);
+   tell("timeout on " . $cmd);
 
    return -1;
 }

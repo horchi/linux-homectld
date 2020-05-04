@@ -4,7 +4,7 @@ session_start();
 
 $mysqlport = 3306;
 
-$p4WebVersion = "<VERSION>";
+$webVersion = "<VERSION>";
 
 include("config.php");
 include("functions.php");
@@ -55,7 +55,7 @@ include("functions.php");
      readConfigItem("errorMailTo", $_SESSION['errorMailTo']);
      readConfigItem("mailScript", $_SESSION['mailScript']);
 
-     readConfigItem("webUrl",  $_SESSION['webUrl'], "http://127.0.0.1/p4");
+     readConfigItem("webUrl",  $_SESSION['webUrl'], "http://127.0.0.1/pool");
      readConfigItem("haUrl", $_SESSION['haUrl']);
 
      readConfigItem("aggregateHistory", $_SESSION['aggregateHistory'], "365");
@@ -63,6 +63,7 @@ include("functions.php");
 
      readConfigItem("filterPumpTimes", $_SESSION['filterPumpTimes']);
      readConfigItem("uvcLightTimes", $_SESSION['uvcLightTimes']);
+     readConfigItem("poolLightTimes", $_SESSION['poolLightTimes']);
 
      readConfigItem("tPoolMax", $_SESSION['tPoolMax']);
      readConfigItem("tSolarDelta", $_SESSION['tSolarDelta']);

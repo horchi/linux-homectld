@@ -78,14 +78,14 @@ if ($to > time())
 
 $range = ($to - $from) / (24*60*60);
 
-syslog(LOG_DEBUG, "pool: ---------");
+tell("---------");
 
 // ------------------------------
 // get data from db
 
 $factsQuery = "select address, type, name, title, usrtitle, unit from valuefacts where " . $sensorCond;
-syslog(LOG_DEBUG, "pool: range $range; from '" . strftime("%d. %b %Y  %H:%M", $from)
-       . "' to '" . strftime("%d. %b %Y %H:%M", $to) . " [$factsQuery]");
+tell("range $range; from '" . strftime("%d. %b %Y  %H:%M", $from)
+    . "' to '" . strftime("%d. %b %Y %H:%M", $to) . " [$factsQuery]");
 
 $factResult = $mysqli->query($factsQuery)
    or die("Error" . $mysqli->error . "query [" . $factsQuery . "]");
@@ -123,12 +123,12 @@ while ($fact = $factResult->fetch_assoc())
       . "   date(time), ((60/" . $groupMinutes . ") * hour(time) + floor(minute(time)/" . $groupMinutes . "))"
       . " order by time";
 
-   syslog(LOG_DEBUG, "pool: $query");
+   tell("$query");
 
    $result = $mysqli->query($query)
       or die("Error: " . $mysqli->error . ", query: [" . $query . "]");
 
-   syslog(LOG_DEBUG, "pool: " . $result->num_rows . " for $title ($address) $name");
+   tell($result->num_rows . " for $title ($address) $name");
 
    $lastLabel = "";
 
@@ -176,8 +176,8 @@ $mysqli->close();
 
 if (!$count)
 {
-   syslog(LOG_DEBUG, "pool: No data in range " . strftime("%d. %b %Y  %H:%M", $from)
-          . "  -  " . strftime("%d. %b %Y %H:%M", $to) . " aborting");
+   tell("No data in range " . strftime("%d. %b %Y  %H:%M", $from)
+       . "  -  " . strftime("%d. %b %Y %H:%M", $to) . " aborting");
    return;
 }
 
@@ -185,7 +185,7 @@ if (!$count)
 // charting
 
 if (!chkDir($cache_dir))
-   syslog(LOG_DEBUG, "Can't create directory " . $cache_dir);
+   tell("Can't create directory " . $cache_dir);
 
 $data = new pData();
 $cache = new pCache(array("CacheFolder"=>$cache_dir));
@@ -201,7 +201,7 @@ $chartHash = $cache->getHash($data);
 
 if ($cache->isInCache($chartHash))
 {
-   syslog(LOG_DEBUG, "pool: got from cache");
+   tell("got from cache");
    $cache->strokeFromCache($chartHash);
 }
 else
@@ -266,7 +266,7 @@ else
 }
 
 $dd = time() - $start;
-syslog(LOG_DEBUG, "pool: --------- done in $dd seconds");
+tell("--------- done in $dd seconds");
 
 
 //***************************************************************************

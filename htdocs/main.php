@@ -1,7 +1,7 @@
 <?php
 
 //***************************************************************************
-// WEB Interface of poold / Linux - Heizungs Manager
+// WEB Interface of poold / Linux - Pool Control
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
 // Date 17.04.2020 - Jörg Wendel
@@ -71,15 +71,15 @@ printHeader($_SESSION['refreshWeb']);
   // ------------------
   // State of pool Daemon
 
-  $p4dstate = requestAction("p4d-state", 3, 0, "", $response);
+  $daemonState = requestAction("daemon-state", 3, 0, "", $response);
   $load = "";
 
-  if ($p4dstate == 0)
-    list($p4dNext, $p4dVersion, $p4dSince, $load) = explode("#", $response, 4);
+  if ($daemonState == 0)
+    list($dNext, $dVersion, $dSince, $load) = explode("#", $response, 4);
 
   $result = $mysqli->query("select * from samples where time >= CURDATE()")
      or die("Error" . $mysqli->error);
-  $p4dCountDay = $result->num_rows;
+  $dCountDay = $result->num_rows;
 
   // -----------------
   // State 'flex' Box
@@ -87,18 +87,18 @@ printHeader($_SESSION['refreshWeb']);
   echo "      <div class=\"stateInfo\">\n";
 
   // -----------------
-  // p4d State
+  // Daemon State
   {
-     echo "        <div class=\"rounded-border P4dInfo\" id=\"divP4dState\">\n";
+     echo "        <div class=\"rounded-border daemonInfo\" id=\"divDaemondState\">\n";
 
-     if ($p4dstate == 0)
+     if ($daemonState == 0)
      {
         echo  "              <div id=\"aStateOk\"><span>Pool Control Daemon ONLINE</span>   </div>\n";
-        echo  "              <div><span>Läuft seit:</span>            <span>$p4dSince</span>       </div>\n";
-        echo  "              <div><span>Messungen heute:</span>       <span>$p4dCountDay</span>    </div>\n";
+        echo  "              <div><span>Läuft seit:</span>            <span>$dSince</span>       </div>\n";
+        echo  "              <div><span>Messungen heute:</span>       <span>$dCountDay</span>    </div>\n";
         echo  "              <div><span>Letzte Messung:</span>        <span>$maxPrettyShort</span> </div>\n";
-        echo  "              <div><span>Nächste Messung:</span>       <span>$p4dNext</span>        </div>\n";
-        echo  "              <div><span>Version (p4d / webif):</span> <span>$p4dVersion / $p4WebVersion</span></div>\n";
+        echo  "              <div><span>Nächste Messung:</span>       <span>$dNext</span>        </div>\n";
+        echo  "              <div><span>Version (poold / webif):</span> <span>$dVersion / $webVersion</span></div>\n";
         echo  "              <div><span>CPU-Last:</span>              <span>$load</span>           </div>\n";
      }
      else
@@ -106,7 +106,7 @@ printHeader($_SESSION['refreshWeb']);
         echo  "          <div id=\"aStateFail\">ACHTUNG:<br/>Pool Control Daemon OFFLINE</div>\n";
      }
 
-     echo "        </div>\n"; // P4dInfo
+     echo "        </div>\n"; // Daemon Info
   }
 
   echo "      </div>\n";   // stateInfo
@@ -129,7 +129,7 @@ printHeader($_SESSION['refreshWeb']);
      else
          $strQuery = sprintf("%s where (%s) and s.time = '%s'", $strQueryBase, $addrWhere, $max);
 
-     // syslog(LOG_DEBUG, "p4: selecting " . " '" . $strQuery . "'");
+     // tell("selecting " . " '" . $strQuery . "'");
 
      $result = $mysqli->query($strQuery)
          or die("Error" . $mysqli->error);

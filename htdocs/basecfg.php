@@ -40,7 +40,7 @@ if ($action == "mailtest")
    if (sendTestMail("Test Mail", "test", $resonse))
       echo "      <br/><div class=\"info\"><b><center>Mail Test succeeded</center></div><br/>\n";
    else
-      echo "      <br/><div class=\"infoError\"><b><center>Sending Mail failed '$resonse' - poold/syslog log for further details</center></div><br/>\n";
+      echo "      <br/><div class=\"infoError\"><b><center>Sending Mail failed '$resonse' - syslog log for further details</center></div><br/>\n";
 }
 
 else if ($action == "store")
@@ -126,7 +126,8 @@ else if ($action == "store")
    $_SESSION['poolLightColorToggle'] = isset($_POST["poolLightColorToggle"]) ? "1" : "0";
    $_SESSION['invertDO'] = isset($_POST["invertDO"]) ? "1" : "0";
    $_SESSION['filterPumpTimes'] = toTimeRangesString("FilterPumpTimes", $_POST);
-   $_SESSION['uvcLightTimes'] = toTimeRangesString("UvcLightTimes", $_POST);
+   $_SESSION['uvcLightTimes'] = toTimeRangesString("uvcLightTimes", $_POST);
+   $_SESSION['poolLightTimes'] = toTimeRangesString("poolLightTimes", $_POST);
 
    if (isset($_POST["aggregateHistory"]))
        $_SESSION['aggregateHistory'] = htmlspecialchars($_POST["aggregateHistory"]);
@@ -180,6 +181,7 @@ else if ($action == "store")
 
    writeConfigItem("filterPumpTimes", $_SESSION['filterPumpTimes']);
    writeConfigItem("uvcLightTimes", $_SESSION['uvcLightTimes']);
+   writeConfigItem("poolLightTimes", $_SESSION['poolLightTimes']);
 
    writeConfigItem("tPoolMax", $_SESSION['tPoolMax']);
    writeConfigItem("tSolarDelta", $_SESSION['tSolarDelta']);
@@ -259,9 +261,11 @@ seperator("Steuerung", 0, "seperatorTitle2");
 configFloatItem(3, "Pool max Temperatur", "tPoolMax", $_SESSION['tPoolMax'], "", 15, 35);
 configFloatItem(3, "Einschaltdifferenz Solarpumpe", "tSolarDelta", $_SESSION['tSolarDelta'], "", 0, 10);
 echo "       <br/>\n";
-configTimeRangesItem(3, "Zeiten der Filter Pumpe", "FilterPumpTimes", $_SESSION['filterPumpTimes'], "[hh:mm] - [hh:mm]");
+configTimeRangesItem(3, "Zeiten Filter Pumpe", "FilterPumpTimes", $_SESSION['filterPumpTimes'], "[hh:mm] - [hh:mm]");
 echo "       <br/>\n";
-configTimeRangesItem(3, "Zeiten UV-C Licht", "UvcLightTimes", $_SESSION['uvcLightTimes'], "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!");
+configTimeRangesItem(3, "Zeiten UV-C Licht", "uvcLightTimes", $_SESSION['uvcLightTimes'], "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!");
+echo "       <br/>\n";
+configTimeRangesItem(3, "Zeiten Pool Licht", "poolLightTimes", $_SESSION['poolLightTimes'], "[hh:mm] - [hh:mm]");
 echo "       </div>\n";
 
 echo "      <div class=\"rounded-border inputTableConfig\">\n";
@@ -287,6 +291,9 @@ configNumItem(3, "Intervall [m]", "aggregateInterval", $_SESSION['aggregateInter
 echo "       </div>\n";
 
 echo "      </form>\n";
+
+//requestAction("syslog", 3, 0, "", $res);
+//echo "<br/><br/>Syslog: <br/><div>$res</div>\n";
 
 include("footer.php");
 

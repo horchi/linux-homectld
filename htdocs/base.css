@@ -428,7 +428,7 @@ table.tableMultiCol tr:nth-child(odd)
     display: block;
 }
 
-.P4dInfo
+.daemonInfo
 {
     background-color: var(--light1);
     float: right;
@@ -437,7 +437,7 @@ table.tableMultiCol tr:nth-child(odd)
     margin: 3px;
 }
 
-.P4dInfo > div > span
+.daemonInfo > div > span
 {
     width: 10%;
     min-width: 215px;
@@ -445,7 +445,7 @@ table.tableMultiCol tr:nth-child(odd)
     text-align: left;
 }
 
-#divP4dState
+#divDaemondState
 {
     display: block;
 }
@@ -739,10 +739,10 @@ div.greenCircle
 @media only screen and (max-width: 740px)
 {
     .content                   { padding: 0px; }
-    #divP4dState               { display: none; }
+    #divDaemondState           { display: none; }
     .table2Col > div > span    { padding: 3px 10px 3px 10px; }
-    .P4dInfo                   { font-size: 15px; margin-top: 3px; min-width: 91%; }
-    .P4dInfo > div > span      { min-width: 110px; }
+    .daemonInfo                   { font-size: 15px; margin-top: 3px; min-width: 91%; }
+    .daemonInfo > div > span      { min-width: 110px; }
     .heatingState              { width: 52%; }
     .centerImage               { margin: 0px 0px 0px 0px; }
 

@@ -34,7 +34,7 @@ class W1
       int exist(const char* id);
       int update();
 
-      SensorList* getList()          { return &sensors; }
+      const SensorList* getList()    { return &sensors; }
       double valueOf(const char* id) { return !isEmpty(id) && exist(id) ? sensors[id] : 0; }
 
       static unsigned int toId(const char* name);

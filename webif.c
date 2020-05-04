@@ -1,5 +1,5 @@
 //***************************************************************************
-// p4d / Linux - Heizungs Manager
+// poold / Linux - Heizungs Manager
 // File webif.c
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
@@ -65,9 +65,8 @@ int Poold::performWebifRequests()
          char* webPass = 0;
          md5Buf defaultPwd;
 
-         createMd5("p4-3200", defaultPwd);
-
-         getConfigItem("user", webUser, "p4");
+         createMd5("pool", defaultPwd);
+         getConfigItem("user", webUser, "pool");
          getConfigItem("passwd", webPass, defaultPwd);
 
          char* user = strdup(data);
@@ -108,6 +107,7 @@ int Poold::performWebifRequests()
       else if (strcasecmp(command, "apply-config") == 0)
       {
          readConfiguration();
+         applyConfigurationSpecials();
          process();
          tableJobs->setValue("RESULT", "success:apply-config");
       }
@@ -178,7 +178,7 @@ int Poold::performWebifRequests()
          free(buf);
       }
 
-      else if (strcasecmp(command, "p4d-state") == 0)
+      else if (strcasecmp(command, "daemon-state") == 0)
       {
          struct tm tim = {0};
 
@@ -200,10 +200,56 @@ int Poold::performWebifRequests()
          tableJobs->setValue("RESULT", buf);
          free(buf);
       }
+      else if (strcasecmp(command, "syslog") == 0)
+      {
+         FILE* fp;
+         char line[200+TB] {'\0'};
+         const char* name = "/var/log/syslog";
+
+         if ((fp = fopen(name, "r")))
+         {
+            std::string result;
+            int count {0};
+            int n {0};
+            char* buf;
+
+            while (fgets(line, 200, fp))
+            {
+               int len = strlen(line);
+
+               if (len && line[len-1] == '\n')
+                  count++;
+            }
+
+            fseek(fp, 0, SEEK_SET);
+
+            while (fgets(line, 200, fp))
+            {
+               int len = strlen(line);
+
+               if (len && line[len-1] == '\n')
+               {
+                  if (n++ > count - 100)
+                     result += line + std::string("<br/>");
+               }
+            }
+
+            fclose(fp);
+
+            asprintf(&buf, "success:%s", result.c_str());
+            tableJobs->setValue("RESULT", buf);
+            free(buf);
+         }
+         else
+         {
+            tell(eloAlways, "Error: Failed to open '%s', %s", name, strerror(errno));
+            tableJobs->setValue("RESULT", "fail:syslog");
+         }
+      }
 
       else
       {
-         tell(eloAlways, "Warning: Ignoring unknown job '%s'", command);
+         tell(eloAlways, "Warning: Ignoring unknown WEBIF job '%s'", command);
          tableJobs->setValue("RESULT", "fail:unknown command");
       }
 

@@ -85,11 +85,31 @@ int Poold::init()
    }
 
    // ---------------------------------
+   // Read configuration from config table
+
+   readConfiguration();
+
+   // ---------------------------------
+   // setup GPIO
+
+   wiringPiSetupPhys();     // use the 'physical' PIN numbers
+   // wiringPiSetup();      // use the 'special' wiringPi PIN numbers
+   // wiringPiSetupGpio();  // use the 'GPIO' PIN numbers
+
+   initOutput(pinFilterPump, ooAuto|ooUser, omAuto, "Filter Pump");
+   initOutput(pinSolarPump, ooAuto|ooUser, omAuto, "Solar Pump");
+   initOutput(pinPoolLight, ooUser, omManual, "Pool Light");
+   initOutput(pinUVC, ooAuto|ooUser, omAuto, "UV-C Light");
+   initOutput(pinUser1, ooUser, omManual, "User 1");
+   initOutput(pinUser2, ooUser, omManual, "User 2");
+   initOutput(pinUser3, ooUser, omManual, "User 3");
+
+   // ---------------------------------
    // prepare one wire sensors
 
    if (w1.scan() == success)
    {
-      W1::SensorList* list = w1.getList();
+      const W1::SensorList* list = w1.getList();
 
       // yes, we have one-wire sensors
 
@@ -111,19 +131,10 @@ int Poold::init()
       tell(eloAlways, "Found %d one wire sensors, added %d, modified %d", count, added, modified);
    }
 
-   // setup GPIO
+   // ---------------------------------
+   // apply some configuration specials
 
-   wiringPiSetupPhys();     // use the 'physical' PIN numbers
-   // wiringPiSetup();      // use the 'special' wiringPi PIN numbers
-   // wiringPiSetupGpio();  // use the 'GPIO' PIN numbers
-
-   initOutput(pinFilterPump, ooAuto|ooUser, omAuto, "Filter Pump");
-   initOutput(pinSolarPump, ooAuto|ooUser, omAuto, "Solar Pump");
-   initOutput(pinPoolLight, ooUser, omManual, "Pool Light");
-   initOutput(pinUVC, ooAuto|ooUser, omAuto, "UV-C Light");
-   initOutput(pinUser1, ooUser, omManual, "User 1");
-   initOutput(pinUser2, ooUser, omManual, "User 2");
-   initOutput(pinUser3, ooUser, omManual, "User 3");
+   applyConfigurationSpecials();
 
    initialized = true;
 
@@ -297,8 +308,6 @@ int Poold::initDb()
    if (status == success)
       tell(eloAlways, "Connection to database established");
 
-   readConfiguration();
-
    connection->query("%s", "truncate table jobs");
 
    return status;
@@ -375,56 +384,25 @@ int Poold::readConfiguration()
    getConfigItem("gpioSolarPump", gpioSolarPump, gpioSolarPump);
    */
 
-   // Filter Pump Time ranges
+   // Time ranges
 
-   char* tmp {nullptr};
+   getConfigTimeRangeItem("filterPumpTimes", filterPumpTimes);
+   getConfigTimeRangeItem("uvcLightTimes", uvcLightTimes);
+   getConfigTimeRangeItem("poolLightTimes", poolLightTimes);
+   return done;
+}
 
-   getConfigItem("filterPumpTimes", tmp, "8:00-13:00,16:00-20:00");
-   filterPumpTimes.clear();
+int Poold::applyConfigurationSpecials()
+{
+   uint opt = ooUser;
 
-   for (const char* range = strtok(tmp, ","); range; range = strtok(0, ","))
+   if (poolLightTimes.size() > 0)
+      opt |= ooAuto;
+
+   if (digitalOutputStates[pinPoolLight].opt != opt)
    {
-      uint fromHH, fromMM, toHH, toMM;
-
-      if (sscanf(range, "%u:%u-%u:%u", &fromHH, &fromMM, &toHH, &toMM) == 4)
-      {
-         uint from = fromHH*100 + fromMM;
-         uint to = toHH*100 + toMM;
-
-         filterPumpTimes.push_back({from, to});
-         tell(3, "range: %d - %d", from, to);
-      }
-      else
-      {
-         tell(0, "Error: Unexpected time range '%s' for 'Filter Pump Times'", range);
-      }
-   }
-
-   free(tmp);
-
-   // UV-C Light Time ranges
-
-   tmp = nullptr;
-
-   getConfigItem("uvcLightTimes", tmp, "");
-   uvcLightTimes.clear();
-
-   for (const char* range = strtok(tmp, ","); range; range = strtok(0, ","))
-   {
-      uint fromHH, fromMM, toHH, toMM;
-
-      if (sscanf(range, "%u:%u-%u:%u", &fromHH, &fromMM, &toHH, &toMM) == 4)
-      {
-         uint from = fromHH*100 + fromMM;
-         uint to = toHH*100 + toMM;
-
-         uvcLightTimes.push_back({from, to});
-         tell(3, "range: %d - %d", from, to);
-      }
-      else
-      {
-         tell(0, "Error: Unexpected time range '%s' for 'UV-C Light Times'", range);
-      }
+      digitalOutputStates[pinPoolLight].opt = opt;
+      digitalOutputStates[pinPoolLight].mode = opt & ooAuto ? omAuto : omManual;
    }
 
    return done;
@@ -660,12 +638,6 @@ int Poold::process()
    tell(0, "Process ...");
    logReport();
 
-   // if (isEmpty(w1AddrPool) || isEmpty(w1AddrSolar))
-   // {
-   //    tell(0, "Info: Missing configuration of 'w1AddrPool' and/or 'w1AddrSolar'");
-   //    return done;
-   // }
-
    // -----------
    // Solar Pump
 
@@ -716,18 +688,7 @@ int Poold::process()
 
    if (digitalOutputStates[pinFilterPump].mode == omAuto)
    {
-      bool activate {false};
-
-      for (auto it = filterPumpTimes.begin(); it != filterPumpTimes.end(); ++it)
-      {
-         if (it->inRange(l2hhmm(time(0))))
-         {
-            activate = true;
-
-            if (!digitalOutputStates[pinFilterPump].state)
-               tell(0, "Activate filter pump due to range '%d-%d'", it->from, it->to);
-         }
-      }
+      bool activate = isInTimeRange(&filterPumpTimes, time(0));
 
       if (digitalOutputStates[pinFilterPump].state != activate)
          gpioWrite(pinFilterPump, activate);
@@ -738,29 +699,44 @@ int Poold::process()
 
    if (digitalOutputStates[pinUVC].mode == omAuto)
    {
-      bool activate {false};
-
-      if (digitalOutputStates[pinFilterPump].state)
-      {
-         for (auto it = uvcLightTimes.begin(); it != uvcLightTimes.end(); ++it)
-         {
-            if (it->inRange(l2hhmm(time(0))))
-            {
-               activate = true;
-
-               if (!digitalOutputStates[pinUVC].state)
-                  tell(0, "Activate UV-C light due to range '%d-%d'", it->from, it->to);
-            }
-         }
-      }
+      bool activate = digitalOutputStates[pinFilterPump].state && isInTimeRange(&uvcLightTimes, time(0));
 
       if (digitalOutputStates[pinUVC].state != activate)
          gpioWrite(pinUVC, activate);
    }
 
+   // -----------
+   // Pool Light
+
+   if (digitalOutputStates[pinPoolLight].mode == omAuto)
+   {
+      bool activate = isInTimeRange(&poolLightTimes, time(0));
+
+      if (digitalOutputStates[pinPoolLight].state != activate)
+         gpioWrite(pinPoolLight, activate);
+   }
+
    logReport();
 
    return success;
+}
+
+//***************************************************************************
+// Is In Time Range
+//***************************************************************************
+
+bool Poold::isInTimeRange(const std::vector<Range>* ranges, time_t t)
+{
+   for (auto it = ranges->begin(); it != ranges->end(); ++it)
+   {
+      if (it->inRange(l2hhmm(t)))
+      {
+         tell(0, "%d in range '%d-%d'", l2hhmm(t), it->from, it->to);
+         return true;
+      }
+   }
+
+   return false;
 }
 
 //***************************************************************************
@@ -770,11 +746,11 @@ int Poold::process()
 void Poold::logReport()
 {
    tell(0, "------------------------");
-   tell(0, "Pool has %.2f °C; Solar has %.2f °C; Current delta is %.2f° (%.2f° configured)",
-        tPool, tSolar, tCurrentDelta, tSolarDelta);
+   tell(0, "Pool has %.2f °C; Solar has %.2f °C; Current delta is %.2f° (%.2f° configured)", tPool, tSolar, tCurrentDelta, tSolarDelta);
    tell(0, "Solar pump is '%s/%s'", digitalOutputStates[pinSolarPump].state ? "running" : "stopped", digitalOutputStates[pinSolarPump].mode == omAuto ? "auto" : "manual");
    tell(0, "Filter pump is '%s/%s'", digitalOutputStates[pinFilterPump].state ? "running" : "stopped", digitalOutputStates[pinFilterPump].mode == omAuto ? "auto" : "manual");
    tell(0, "UV-C light is '%s/%s'", digitalOutputStates[pinUVC].state ? "on" : "off", digitalOutputStates[pinUVC].mode == omAuto ? "auto" : "manual");
+   tell(0, "Pool light is '%s/%s'", digitalOutputStates[pinPoolLight].state ? "on" : "off", digitalOutputStates[pinPoolLight].mode == omAuto ? "auto" : "manual");
 }
 
 //***************************************************************************
@@ -1115,6 +1091,44 @@ int Poold::setConfigItem(const char* name, double value)
    return setConfigItem(name, txt);
 }
 
+//***************************************************************************
+// Get Config Time Range Item
+//***************************************************************************
+
+int Poold::getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges)
+{
+   char* tmp {nullptr};
+
+   getConfigItem(name, tmp, "");
+   ranges.clear();
+
+   for (const char* r = strtok(tmp, ","); r; r = strtok(0, ","))
+   {
+      uint fromHH, fromMM, toHH, toMM;
+
+      if (sscanf(r, "%u:%u-%u:%u", &fromHH, &fromMM, &toHH, &toMM) == 4)
+      {
+         uint from = fromHH*100 + fromMM;
+         uint to = toHH*100 + toMM;
+
+         ranges.push_back({from, to});
+         tell(3, "range: %d - %d", from, to);
+      }
+      else
+      {
+         tell(0, "Error: Unexpected range '%s' for '%s'", r, name);
+      }
+   }
+
+   free(tmp);
+
+   return success;
+}
+
+//***************************************************************************
+// Digital IO Stuff
+//***************************************************************************
+
 int Poold::toggleIo(uint pin)
 {
    gpioWrite(pin, !digitalOutputStates[pin].state);
@@ -1160,7 +1174,7 @@ int Poold::addValueFact(int addr, const char* type, const char* name, const char
       tableValueFacts->setValue("MAXSCALE", maxScale);
 
       tableValueFacts->store();
-      return 1;  // 1 for 'added'
+      return 1;    // 1 for 'added'
    }
    else
    {

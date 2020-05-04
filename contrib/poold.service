@@ -1,6 +1,6 @@
 [Unit]
 
-Description = Deamon to capture data of the P4 pellet heating
+Description = Pool Control Deamon
 After = network.target <AFTER>
 
 [Service]

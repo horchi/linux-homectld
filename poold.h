@@ -72,8 +72,8 @@ class Poold
 
       enum OutputOptions
       {
-         ooUser = 0x01,        // Output cna contolled by user
-         ooAuto = 0x02         // Output cna contolled by poold
+         ooUser = 0x01,        // Output can contolled by user
+         ooAuto = 0x02         // Output can contolled by poold
       };
 
       struct OutputState
@@ -83,12 +83,22 @@ class Poold
          uint opt {ooUser};
       };
 
+         struct Range
+      {
+         uint from;
+         uint to;
+
+         bool inRange(uint t)  const    { return (from <= t && to >= t); }
+      };
+
       std::map<int,OutputState> digitalOutputStates;
 
       int exit();
       int initDb();
       int exitDb();
       int readConfiguration();
+      int applyConfigurationSpecials();
+
       int addValueFact(int addr, const char* type, const char* name, const char* unit);
       int initOutput(uint pin, int opt, OutputMode mode, const char* name);
 
@@ -99,6 +109,7 @@ class Poold
       int update();
       int process();
 
+      bool isInTimeRange(const std::vector<Range>* ranges, time_t t);
       int store(time_t now, const char* name, const char* title, const char* unit, const char* type, int address, double value, const char* text = 0);
 
       int hassPush(const char* name, const char* title, const char* unit, double theValue, const char* text = 0, bool forceConfig = false);
@@ -117,9 +128,10 @@ class Poold
       int setConfigItem(const char* name, const char* value);
       int getConfigItem(const char* name, int& value, int def = na);
       int setConfigItem(const char* name, int value);
-
       int getConfigItem(const char* name, double& value, double def = na);
       int setConfigItem(const char* name, double value);
+
+      int getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges);
 
       int doShutDown() { return shutdown; }
 
@@ -165,14 +177,6 @@ class Poold
       MqTTPublishClient* mqttWriter {nullptr};
       MqTTSubscribeClient* mqttReader {nullptr};
 
-      struct Range
-      {
-         uint from;
-         uint to;
-
-         bool inRange(uint t)      { return (from <= t && to >= t); }
-      };
-
       // config
 
       int interval {60};
@@ -197,6 +201,7 @@ class Poold
 
       std::vector<Range> filterPumpTimes;
       std::vector<Range> uvcLightTimes;
+      std::vector<Range> poolLightTimes;
 
       // int gpioFilterPump {na};
       // int gpioSolarPump {na};

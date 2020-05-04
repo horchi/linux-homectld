@@ -18,12 +18,6 @@ If this project help you, you can give me a cup of coffee :)
 
 [![paypal](https://www.paypalobjects.com/de_DE/DE/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=KUF9ZAQ5UTHUN)
 
-## Prerequisits:
-- USB-Serial Converter based on FTDI chip
-- USB-Serial converter must be connected to COM1 on Fröling mainboard
-- A Linux based operating system is required
-
-
 # Installation by package (actually available for Raspian Buster)
 
 ## install
@@ -125,7 +119,6 @@ make install INIT_SYSTEM=sysV
 
 - Now pool daemon is installed in folder `/usr/local/bin` and its config in /etc/poold/
 - Check `/etc/poold.conf` file for setting db-login, ttyDeviceSvc device (change device if required),
-  check which `/dev/ttyUSB?` devices is used for USB-Serial converter (`/dev/ttyUSB0`, `/dev/ttyUSB1`, `/dev/ttyACM0`)
 
 ## Time to first start of poold
 ```
@@ -205,19 +198,9 @@ AuthPass=MyPassword
 - If no Status options are set you will get a mail for each status change
 - Set the script option `/usr/local/bin/poold-mail.sh`
 
-If the heating values are added as attachment to the mail please check the next steps.
 - Check if `heirloom-mailx` is installed (`ls -lah /etc/alternatives/mail`)
 - If output link is `/etc/alternatives/mail -> /usr/bin/mail.mailutils`
 - Remove `heirloom-mailx` (`apt remove heirloom-mailx`)
-
-### Configure Time sync:
-With the next steps you can enable a time synchronization of the poold and the heating:
-If you enable this feature you can set the max time difference between the poold systemtime and the time of the heating. The poold will set the time of the heating (once a day) to his the systemtime. Therefore it is recommended to hold your system time in sync, e.g. by running the `ntp` daemon or systemd-timesyncd.
-
-- Check if ntpd (openntpd, systemd-timesyncd, ...) is active and running. If not you have to install one of it.
-- Start the WEBIF and login, go to the Setup page
-- Enable "Tägliche Zeitsynchronisation" and set the max time difference in seconds in the line "Maximale Abweichung"
-- Save configuration
 
 ### One Wire Sensors:
 The poold checks automatically if there are 'One Wire Sensors' connected, each detected sensor will be

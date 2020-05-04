@@ -58,6 +58,9 @@ include("functions.php");
      readConfigItem("webUrl",  $_SESSION['webUrl'], "http://127.0.0.1/p4");
      readConfigItem("haUrl", $_SESSION['haUrl']);
 
+     readConfigItem("aggregateHistory", $_SESSION['aggregateHistory'], "365");
+     readConfigItem("aggregateInterval", $_SESSION['aggregateInterval'], "15");
+
      readConfigItem("filterPumpTimes", $_SESSION['filterPumpTimes']);
      readConfigItem("uvcLightTimes", $_SESSION['uvcLightTimes']);
 
@@ -71,8 +74,6 @@ include("functions.php");
      readConfigItem("poolLightColorToggle", $_SESSION['poolLightColorToggle'], "0");
      readConfigItem("invertDO", $_SESSION['invertDO'], "0");
 
-     readConfigItem("aggregateHistory", $_SESSION['aggregateHistory'], "365");
-     readConfigItem("aggregateInterval", $_SESSION['aggregateInterval'], "15");
 
      readConfigItem("hassMqttUrl", $_SESSION['hassMqttUrl']);
 

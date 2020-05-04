@@ -125,6 +125,8 @@ else if ($action == "store")
 
    $_SESSION['poolLightColorToggle'] = isset($_POST["poolLightColorToggle"]) ? "1" : "0";
    $_SESSION['invertDO'] = isset($_POST["invertDO"]) ? "1" : "0";
+   $_SESSION['filterPumpTimes'] = toTimeRangesString("FilterPumpTimes", $_POST);
+   $_SESSION['uvcLightTimes'] = toTimeRangesString("UvcLightTimes", $_POST);
 
    if (isset($_POST["aggregateHistory"]))
        $_SESSION['aggregateHistory'] = htmlspecialchars($_POST["aggregateHistory"]);
@@ -134,9 +136,6 @@ else if ($action == "store")
 
    if (isset($_POST["hassMqttUrl"]))
       $_SESSION['hassMqttUrl'] = htmlspecialchars($_POST["hassMqttUrl"]);
-
-   $_SESSION['filterPumpTimes'] = toTimeRangesString("FilterPumpTimes", $_POST);
-   $_SESSION['uvcLightTimes'] = toTimeRangesString("UvcLightTimes", $_POST);
 
    // ------------------
    // write settings to config
@@ -192,6 +191,7 @@ else if ($action == "store")
    writeConfigItem("invertDO", $_SESSION['invertDO']);
 
    requestAction("apply-config", 3, 0, "", $res);
+   echo "<div class=\"info\"><b><center>Einstellungen gespeichert</center></b></div>";
 }
 
 // ------------------
@@ -201,6 +201,7 @@ echo "      <form action=" . htmlspecialchars($_SERVER["PHP_SELF"]) . " method=p
 echo "      <div class=\"menu\">\n";
 echo "        <button class=\"rounded-border button3\" type=submit name=action value=store>Speichern</button>\n";
 echo "      </div>\n";
+echo "      <br/>\n";
 
 // ------------------------
 // setup items ...
@@ -265,11 +266,11 @@ echo "       </div>\n";
 
 echo "      <div class=\"rounded-border inputTableConfig\">\n";
 seperator("IO Setup", 0, "seperatorTitle2");
-configBoolItem(3, "Digitalaugänge invertieren", "invertDO", $_SESSION['invertDO'], "");
+configStrItem(3, "Adresse Fühler Temperatur Luft", "w1AddrAir", $_SESSION['w1AddrAir'], "");
 configStrItem(3, "Adresse Fühler Temperatur Pool", "w1AddrPool", $_SESSION['w1AddrPool'], "");
 configStrItem(3, "Adresse Fühler Temperatur Kollektor", "w1AddrSolar", $_SESSION['w1AddrSolar'], "");
 configStrItem(3, "Adresse Fühler Temperatur Saugleitung", "w1AddrSuctionTube", $_SESSION['w1AddrSuctionTube'], "");
-configStrItem(3, "Adresse Fühler Temperatur Luft", "w1AddrAir", $_SESSION['w1AddrAir'], "");
+configBoolItem(3, "Digitalaugänge invertieren", "invertDO", $_SESSION['invertDO'], "");
 configBoolItem(3, "Pool Licht Farb-Toggel", "poolLightColorToggle", $_SESSION['poolLightColorToggle'], "");
 echo "       </div>\n";
 

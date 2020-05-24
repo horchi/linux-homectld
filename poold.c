@@ -493,8 +493,10 @@ int Poold::store(time_t now, const char* name, const char* title, const char* un
 
    // Home Assistant
 
+   IoType iot = strcmp(type, "DO") == 0 ? iotLight : iotSensor;
+
    if (!isEmpty(hassMqttUrl))
-      hassPush(name, title, unit, value, text, initialRun /*forceConfig*/);
+      hassPush(iot, name, title, unit, value, text, initialRun /*forceConfig*/);
 
    return success;
 }
@@ -1256,7 +1258,7 @@ void Poold::gpioWrite(uint pin, bool state)
    digitalWrite(pin, invertDO ? !state : state);
 
    if (!isEmpty(hassMqttUrl))
-      hassPush(digitalOutputStates[pin].name, "", "", digitalOutputStates[pin].state, "", false /*forceConfig*/);
+      hassPush(iotLight, digitalOutputStates[pin].name, "", "", digitalOutputStates[pin].state, "", false /*forceConfig*/);
 }
 
 bool Poold::gpioRead(uint pin)

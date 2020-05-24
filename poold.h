@@ -65,6 +65,12 @@ class Poold
 
    protected:
 
+      enum IoType
+      {
+         iotSensor,
+         iotLight
+      };
+
       // moved here for debugging !!
 
       enum OutputMode
@@ -119,7 +125,7 @@ class Poold
       bool isInTimeRange(const std::vector<Range>* ranges, time_t t);
       int store(time_t now, const char* name, const char* title, const char* unit, const char* type, int address, double value, const char* text = 0);
 
-      int hassPush(const char* name, const char* title, const char* unit, double theValue, const char* text = 0, bool forceConfig = false);
+      int hassPush(IoType iot, const char* name, const char* title, const char* unit, double theValue, const char* text = 0, bool forceConfig = false);
       int hassCheckConnection();
 
       int scheduleAggregate();

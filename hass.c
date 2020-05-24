@@ -12,14 +12,10 @@
 // Push Value to Home Assistant
 //***************************************************************************
 
-int Poold::hassPush(const char* name, const char* title, const char* unit,
+int Poold::hassPush(IoType iot, const char* name, const char* title, const char* unit,
                   double value, const char* text, bool forceConfig)
 {
    int status = success;
-   bool light {false};
-
-   if (strcasestr(name, "licht") || strcasestr(name, "light"))  // #TODO - detect better even if title is deit to 'Licht' and title is empty ;)
-      light = true;
 
    // check/prepare reader/writer connection
 
@@ -38,7 +34,7 @@ int Poold::hassPush(const char* name, const char* title, const char* unit,
    sName = strReplace(" ", "_", sName);
 
    char* stateTopic = 0;
-   asprintf(&stateTopic, "poold2mqtt/%s/%s/state", light ? "light" : "sensor", sName.c_str());
+   asprintf(&stateTopic, "poold2mqtt/%s/%s/state", iot == iotLight ? "light" : "sensor", sName.c_str());
 
    if (!isEmpty(title))
    {
@@ -64,9 +60,9 @@ int Poold::hassPush(const char* name, const char* title, const char* unit,
 
          tell(1, "Info: Sensor '%s' not found at home assistants MQTT, sendig config message", sName.c_str());
 
-         asprintf(&configTopic, "homeassistant/%s/pool/%s/config", light ? "light" : "sensor", sName.c_str());
+         asprintf(&configTopic, "homeassistant/%s/pool/%s/config", iot == iotLight ? "light" : "sensor", sName.c_str());
 
-         if (light)
+         if (iot == iotLight)
          {
             asprintf(&configJson, "{"
                      "\"state_topic\"         : \"poold2mqtt/light/%s/state\","
@@ -103,7 +99,7 @@ int Poold::hassPush(const char* name, const char* title, const char* unit,
 
    char* valueJson = 0;
 
-   if (light)
+   if (iot == iotLight)
       asprintf(&valueJson, "{ \"state\" : \"%s\", \"brightness\": 255 }", value ? "ON" :"OFF");
    else if (!isEmpty(text))
       asprintf(&valueJson, "{ \"value\" : \"%s\" }", text);

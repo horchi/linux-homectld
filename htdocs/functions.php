@@ -37,6 +37,11 @@ function isMobile()
 
 function haveLogin()
 {
+   // $localIP = getHostByName(getHostName());
+
+   if (ipInRange(getClientIp(), $_SESSION['localLoginNetmask']))
+      return true;
+
    if (isset($_SESSION['angemeldet']) && $_SESSION['angemeldet'])
       return true;
 
@@ -54,6 +59,52 @@ function checkLogin($user, $passwd)
 
    return false;
 }
+
+// ---------------------------------------------------------------------------
+// IP In Range
+// ---------------------------------------------------------------------------
+
+function ipInRange($ip, $range)
+{
+   if ($range == "")
+      return false;
+
+	if (strpos($range, '/') == false)
+		$range .= '/32';
+
+	// $range is in IP/CIDR format eg 127.0.0.1/24
+
+	list($range, $netmask) = explode( '/', $range, 2);
+
+	$range_decimal = ip2long($range);
+	$ip_decimal = ip2long($ip);
+	$wildcard_decimal = pow(2, (32 - $netmask)) - 1;
+	$netmask_decimal = ~ $wildcard_decimal;
+
+	return ($ip_decimal & $netmask_decimal) == ($range_decimal & $netmask_decimal);
+}
+
+// ---------------------------------------------------------------------------
+// Get Client IP
+// ---------------------------------------------------------------------------
+
+function getClientIp()
+{
+   if (!empty($_SERVER['HTTP_CLIENT_IP']))
+      $ipAddress = $_SERVER['HTTP_CLIENT_IP'];
+
+   elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR']))     // whether ip is from proxy
+      $ipAddress = $_SERVER['HTTP_X_FORWARDED_FOR'];
+
+   else                                                  // whether ip is from remote address
+      $ipAddress = $_SERVER['REMOTE_ADDR'];
+
+   return $ipAddress;
+}
+
+// ---------------------------------------------------------------------------
+// Test Mail
+// ---------------------------------------------------------------------------
 
 function sendTestMail($subject, $body, &$resonse, $alertid = "")
 {
@@ -121,6 +172,60 @@ function datePicker($title, $name, $year, $day, $month)
    $html .= "  </select>\n";
 
    return $html;
+}
+
+// ---------------------------------------------------------------------------
+// HTML report of Daemon State
+// ---------------------------------------------------------------------------
+
+function printDaemonState()
+{
+   global $webVersion;
+   global $mysqli;
+   global $daemonTitle;
+
+   // -------------------------
+   // get last time stamp
+
+   $result = $mysqli->query("select DATE_FORMAT(max(time),'%d. %M %Y   %H:%i') as maxPretty, " .
+                            "DATE_FORMAT(max(time),'%H:%i:%S') as maxPrettyShort from samples;")
+      or die("Error" . $mysqli->error);
+
+   $row = $result->fetch_assoc();
+   $maxPretty = $row['maxPretty'];
+   $maxPrettyShort = $row['maxPrettyShort'];
+
+   // ------------------
+   // State of Daemon
+
+   $daemonState = requestAction("daemon-state", 3, 0, "", $response);
+   $load = "";
+
+   if ($daemonState == 0)
+      list($dNext, $dVersion, $dSince, $load) = explode("#", $response, 4);
+
+   $result = $mysqli->query("select * from samples where time >= CURDATE()")
+      or die("Error" . $mysqli->error);
+   $dCountDay = $result->num_rows;
+
+   echo "        <div class=\"rounded-border daemonInfo\" id=\"divDaemondState\">\n";
+
+   if ($daemonState == 0)
+   {
+      echo  "              <div id=\"aStateOk\"><span>$daemonTitle ONLINE</span>   </div>\n";
+      echo  "              <div><span>Läuft seit:</span>            <span>$dSince</span>       </div>\n";
+      echo  "              <div><span>Messungen heute:</span>       <span>$dCountDay</span>    </div>\n";
+      echo  "              <div><span>Letzte Messung:</span>        <span>$maxPrettyShort</span> </div>\n";
+      echo  "              <div><span>Nächste Messung:</span>       <span>$dNext</span>        </div>\n";
+      echo  "              <div><span>Version (poold / webif):</span> <span>$dVersion / $webVersion</span></div>\n";
+      echo  "              <div><span>CPU-Last:</span>              <span>$load</span>           </div>\n";
+   }
+   else
+   {
+      echo  "          <div id=\"aStateFail\">ACHTUNG:<br/>$daemonTitle OFFLINE</div>\n";
+   }
+
+   echo "        </div>\n"; // Deamon Info
 }
 
 // ---------------------------------------------------------------------------
@@ -215,6 +320,9 @@ function requestAction($cmd, $timeout, $address, $data, &$response)
 
          if ($state == "fail")
             return -2;
+
+         if ($response == "BDATA")
+            $response = mysqli_result($result, 0, "bdata");
 
          return 0;
       }

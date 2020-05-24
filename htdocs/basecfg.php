@@ -102,6 +102,9 @@ else if ($action == "store")
    if (isset($_POST["passwd2"]) && $_POST["passwd2"] != "")
       $_SESSION['passwd2'] = md5(htmlspecialchars($_POST["passwd2"]));
 
+   if (isset($_POST["localLoginNetmask"]))
+      $_SESSION['localLoginNetmask'] = htmlspecialchars($_POST["localLoginNetmask"]);
+
    if (isset($_POST["webUrl"]))
       $_SESSION['webUrl'] = (substr($_SESSION['webUrl'],0,7) == "http://") ?  htmlspecialchars($_POST["webUrl"]) : htmlspecialchars("http://" . $_POST["webUrl"]);
 
@@ -179,6 +182,8 @@ else if ($action == "store")
       }
    }
 
+   writeConfigItem("localLoginNetmask", $_SESSION['localLoginNetmask']);
+
    writeConfigItem("filterPumpTimes", $_SESSION['filterPumpTimes']);
    writeConfigItem("uvcLightTimes", $_SESSION['uvcLightTimes']);
    writeConfigItem("poolLightTimes", $_SESSION['poolLightTimes']);
@@ -240,6 +245,8 @@ seperator("Login", 0, "seperatorTitle2");
 configStrItem(3, "User", "user", $_SESSION['user'], "", 350);
 configStrItem(3, "Passwort", "passwd1", "", "", 350, "", true);
 configStrItem(3, "Wiederholen", "passwd2", "", "", 350, "", true);
+configStrItem(3, "Netzmaske für auto login", "localLoginNetmask", $_SESSION['localLoginNetmask'], "Beispiel: 192.168.200.0/24");
+
 echo "       </div>\n";
 
 echo "      <div class=\"rounded-border inputTableConfig\">\n";
@@ -280,7 +287,7 @@ echo "       </div>\n";
 
 echo "      <div class=\"rounded-border inputTableConfig\">\n";
 seperator("Sonstiges", 0, "seperatorTitle2");
-configNumItem(3, "Intervall der Aufzeichung", "interval", $_SESSION['interval'], "Datenbank Aufzeichung [s]");
+configNumItem(3, "Intervall der Aufzeichung", "interval", $_SESSION['interval'], "Datenbank Aufzeichung [s]", 15);
 configStrItem(3, "Home Assistant MQTT Url ", "hassMqttUrl", $_SESSION['hassMqttUrl'], "Optional. Beispiel: 'tcp://127.0.0.1:1883'");
 echo "       </div>\n";
 
@@ -291,9 +298,6 @@ configNumItem(3, "Intervall [m]", "aggregateInterval", $_SESSION['aggregateInter
 echo "       </div>\n";
 
 echo "      </form>\n";
-
-//requestAction("syslog", 3, 0, "", $res);
-//echo "<br/><br/>Syslog: <br/><div>$res</div>\n";
 
 include("footer.php");
 

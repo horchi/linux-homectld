@@ -4,7 +4,9 @@ session_start();
 
 $mysqlport = 3306;
 
-$webVersion = "<VERSION>";
+$webVersion  = "<VERSION>";
+$daemonTitle = "Pool Control Daemon";
+$daemonName  = "poold";
 
 include("config.php");
 include("functions.php");
@@ -47,6 +49,7 @@ include("functions.php");
 
      readConfigItem("user", $_SESSION['user']);
      readConfigItem("passwd", $_SESSION['passwd']);
+     readConfigItem("localLoginNetmask", $_SESSION['localLoginNetmask']);
 
      readConfigItem("interval", $_SESSION['interval']);
 
@@ -74,7 +77,6 @@ include("functions.php");
      readConfigItem("w1AddrAir", $_SESSION['w1AddrAir']);
      readConfigItem("poolLightColorToggle", $_SESSION['poolLightColorToggle'], "0");
      readConfigItem("invertDO", $_SESSION['invertDO'], "0");
-
 
      readConfigItem("hassMqttUrl", $_SESSION['hassMqttUrl']);
 
@@ -107,10 +109,16 @@ function printHeader($refresh = 0)
    echo "    <meta name=\"author\" content=\"Jörg Wendel\"/>\n";
    echo "    <meta name=\"copyright\" content=\"Jörg Wendel\"/>\n";
    echo "    <meta name=\"viewport\" content=\"initial-scale=1.0, width=device-width, user-scalable=no, maximum-scale=1, minimum-scale=1\"/>\n";
+
+   echo "    <meta name=\"mobile-web-app-capable\" content=\"yes\"/>\n";
+   echo "    <meta name=\"apple-mobile-web-app-capable\" content=\"yes\"/>\n";
+   echo "    <meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\"/>\n";
+
    echo "    <link rel=\"shortcut icon\" href=\"$img\" type=\"image/png\"/>\n";
    echo "    <link rel=\"icon\" href=\"$img\" type=\"image/png\"/>\n";
    echo "    <link rel=\"apple-touch-icon-precomposed\" sizes=\"144x144\" href=\"$img\" type=\"image/png\"/>\n";
    echo "    <link rel=\"stylesheet\" type=\"text/css\" href=\"stylesheet.css\"/>\n";
+
    echo "    <script src=\"https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js\"></script>\n";
    echo "    <script src=\"https://cdnjs.cloudflare.com/ajax/libs/snap.svg/0.4.1/snap.svg-min.js\"></script>\n";
    echo "    <script type=\"text/JavaScript\" src=\"jfunctions.js\"></script>\n";
@@ -121,26 +129,26 @@ function printHeader($refresh = 0)
    // menu button bar ...
 
    echo "    <nav class=\"fixed-menu1\">\n";
-   echo "      <a href=\"main.php\"><button class=\"rounded-border button1\">Aktuell</button></a>\n";
    echo "      <a href=\"dashboard.php\"><button class=\"rounded-border button1\">Dashboard</button></a>\n";
+   echo "      <a href=\"main.php\"><button class=\"rounded-border button1\">Liste</button></a>\n";
    echo "      <a href=\"chart.php\"><button class=\"rounded-border button1\">Charts</button></a>\n";
 
-   if (haveLogin())
+   if (ipInRange(getClientIp(), $_SESSION['localLoginNetmask']))
    {
       echo "      <a href=\"basecfg.php\"><button class=\"rounded-border button1\">Setup</button></a>\n";
-      echo "      <a href=\"logout.php\"><button class=\"rounded-border button1\">Logout</button></a>\n";
    }
    else
    {
-      echo "      <a href=\"login.php\"><button class=\"rounded-border button1\">Login</button></a>\n";
+      if (haveLogin())
+         echo "      <a href=\"logout.php\"><button class=\"rounded-border button1\">Logout</button></a>\n";
+      else
+         echo "      <a href=\"login.php\"><button class=\"rounded-border button1\">Login</button></a>\n";
    }
 
    if (isset($_SESSION['haUrl']) && $_SESSION['haUrl'] != "")
       echo "      <a href=\"" . $_SESSION['haUrl'] . "\"><button class=\"rounded-border button1\">HADashboard</button></a>\n";
 
    echo "    </nav>\n";
-   /* echo "    <div class=\"menu\">\n"; */
-   /* echo "    </div>\n"; */
    echo "    <div class=\"content\">\n";
 ?>
 <script>

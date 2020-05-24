@@ -24,13 +24,7 @@ if (isset($_POST["action"]))
    $action = htmlspecialchars($_POST["action"]);
 
 // -----------------------
-//
-
-//if ($action == "init")
-//{
-//   requestAction("initvaluefacts", 20, 0, "", $resonse);
-//   echo "<br/><div class=\"info\"><b><center>Initialisierung abgeschlossen</center></b></div><br/><br/>";
-//}
+// post
 
 if ($action == "store")
 {
@@ -66,6 +60,7 @@ showTable("DI", "Digitale Eingänge");
 showTable("DO", "Digitale Ausgänge");
 showTable("AO", "Analoge Ausgänge");
 showTable("W1", "One Wire Sensoren");
+showTable("SP", "Weitere Sensoren");
 echo "      </form>\n";
 
 $mysqli->close();
@@ -99,7 +94,7 @@ function showTable($type, $tableTitle)
    echo "            <tr>\n";
    echo "              <td>Name</td>\n";
    echo "              <td style=\"width:32%;\">Bezeichnung</td>\n";
-   if ($type == "W1")
+   if ($type == "VA" || $type == "W1" || $type == "SP")
        echo "              <td style=\"width:6%;\">Skala max</td>\n";
    else
        echo "              <td style=\"width:6%;\"></td>\n";
@@ -126,7 +121,7 @@ function showTable($type, $tableTitle)
       echo "              <td>$title</td>\n";
       echo "              <td class=\"tableMultiColCell\"><input class=\"rounded-border inputSetting\" name=\"usrtitle[]\" type=\"text\" value=\"$usrtitle\"/></td>\n";
 
-      if (($type == "VA" || $type == "W1") && ($unit == '°C' || $unit == '%'))
+      if (($type == "VA" || $type == "W1" || $type == "SP") && ($unit == '°C' || $unit == '%'))
       {
           echo "              <td class=\"tableMultiColCell\"><input class=\"rounded-border inputSetting\" name=\"maxscale[]\" type=\"number\" value=\"$maxscale\"/></td>\n";
       }

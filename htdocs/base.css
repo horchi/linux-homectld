@@ -252,6 +252,17 @@ span > input
     border-radius: 5px;
 }
 
+.log
+{
+    background-color: var(--light1);
+    color: black;
+    text-decoration: none;
+    font-size: 16px;
+    width: 95%;
+    padding: 5px;
+    border-radius: 5px;
+}
+
 .box
 {
     background-color: var(--light1);
@@ -416,18 +427,6 @@ table.tableMultiCol tr:nth-child(odd)
     background-color: var(--light1);
 }
 
-.heatingState
-{
-    background-color: var(--light1);
-    width: 40%;
-    padding: 15px;
-}
-
-.heatingState > div > span
-{
-    display: block;
-}
-
 .daemonInfo
 {
     background-color: var(--light1);
@@ -460,12 +459,6 @@ table.tableMultiCol tr:nth-child(odd)
 {
     color: red;
     text-decoration: blink;
-    font-size: 24px;
-}
-
-#aStateHeating
-{
-    color: red;
     font-size: 24px;
 }
 
@@ -587,6 +580,11 @@ div.greenCircle
   grid-gap: 5px;
 }
 
+.widgetManuel
+{
+    background-color: #a27373 !important;
+}
+
 .widgetGauge
 {
   display: grid;
@@ -618,7 +616,8 @@ div.greenCircle
     background-color: Transparent;
     cursor: pointer;
     border: none;
-    color: white;
+    width: inherit;
+    color: var(--buttonFont);
 }
 
 .widget-mode
@@ -679,7 +678,6 @@ div.greenCircle
 {
     max-width: 100%;
     max-height: 100%;
-    background-color: var(--light1);
     justify-self: center;
 }
 
@@ -699,7 +697,7 @@ div.greenCircle
 
 .widgetGauge path
 {
-    stroke-width: 75;
+    stroke-width: 55;
     stroke: #ecf0f1;
     fill: none;
 }
@@ -739,11 +737,9 @@ div.greenCircle
 @media only screen and (max-width: 740px)
 {
     .content                   { padding: 0px; }
-    #divDaemondState           { display: none; }
     .table2Col > div > span    { padding: 3px 10px 3px 10px; }
     .daemonInfo                   { font-size: 15px; margin-top: 3px; min-width: 91%; }
     .daemonInfo > div > span      { min-width: 110px; }
-    .heatingState              { width: 52%; }
     .centerImage               { margin: 0px 0px 0px 0px; }
 
     .inputTableConfig > div > span:nth-child(3) { width: 95%; }

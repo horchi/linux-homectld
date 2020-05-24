@@ -200,49 +200,34 @@ int Poold::performWebifRequests()
          tableJobs->setValue("RESULT", buf);
          free(buf);
       }
+
       else if (strcasecmp(command, "syslog") == 0)
       {
-         FILE* fp;
-         char line[200+TB] {'\0'};
          const char* name = "/var/log/syslog";
+         std::vector<std::string> lines;
 
-         if ((fp = fopen(name, "r")))
+         if (loadLinesFromFile(name, lines, false) == success)
          {
-            std::string result;
+            const int maxLines {150};
             int count {0};
-            int n {0};
-            char* buf;
+            std::string result;
 
-            while (fgets(line, 200, fp))
+            for (auto it = lines.rbegin(); it != lines.rend(); ++it)
             {
-               int len = strlen(line);
-
-               if (len && line[len-1] == '\n')
-                  count++;
-            }
-
-            fseek(fp, 0, SEEK_SET);
-
-            while (fgets(line, 200, fp))
-            {
-               int len = strlen(line);
-
-               if (len && line[len-1] == '\n')
+               if (count++ >= maxLines)
                {
-                  if (n++ > count - 100)
-                     result += line + std::string("<br/>");
+                  result += "...\n...\n";
+                  break;
                }
+
+               result += *it;
             }
 
-            fclose(fp);
-
-            asprintf(&buf, "success:%s", result.c_str());
-            tableJobs->setValue("RESULT", buf);
-            free(buf);
+            tableJobs->setValue("BDATA", result.c_str());
+            tableJobs->setValue("RESULT", "success:BDATA");
          }
          else
          {
-            tell(eloAlways, "Error: Failed to open '%s', %s", name, strerror(errno));
             tableJobs->setValue("RESULT", "fail:syslog");
          }
       }

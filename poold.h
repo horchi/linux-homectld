@@ -44,10 +44,13 @@ class Poold
          pinSolarPump  = 12,     // GPIO18
          pinPoolLight  = 13,     // GPIO27
          pinUVC        = 15,     // GPIO22
-         pinUser1      = 16,     // GPIO23
-         pinUser2      = 18,     // GPIO24
-         pinUser3      = 22,     // GPIO25
-         pinUser4      = 23      // GPIO11
+         pinUserOut1   = 16,     // GPIO23
+         pinUserOut2   = 18,     // GPIO24
+         pinUserOut3   = 22,     // GPIO25
+
+         pinLevel1     = 31,     // GPIO6
+         pinLevel2     = 32,     // GPIO12
+         pinLevel3     = 33      // GPIO13
       };
 
       // object
@@ -81,9 +84,10 @@ class Poold
          bool state {false};
          OutputMode mode {omAuto};
          uint opt {ooUser};
+         const char* name;
       };
 
-         struct Range
+      struct Range
       {
          uint from;
          uint to;
@@ -92,6 +96,7 @@ class Poold
       };
 
       std::map<int,OutputState> digitalOutputStates;
+      std::map<int,bool> digitalInputStates;
 
       int exit();
       int initDb();
@@ -101,6 +106,8 @@ class Poold
 
       int addValueFact(int addr, const char* type, const char* name, const char* unit);
       int initOutput(uint pin, int opt, OutputMode mode, const char* name);
+      int initInput(uint pin, const char* name);
+      int initW1();
 
       int standby(int t);
       int standbyUntil(time_t until);
@@ -135,7 +142,9 @@ class Poold
 
       int doShutDown() { return shutdown; }
 
+      int getWaterLevel();
       void gpioWrite(uint pin, bool state);
+      bool gpioRead(uint pin);
       void logReport();
 
       // web

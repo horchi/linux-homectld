@@ -45,10 +45,14 @@ int W1::scan()
    if (loadLinesFromFile("/sys/bus/w1/devices/w1_bus_master1/w1_master_slaves", lines) != success)
       return fail;
 
-   sensors.clear();
-
    for (auto it = lines.begin(); it != lines.end(); ++it)
-      sensors[it->c_str()] = 0;
+   {
+      if (sensors.find(it->c_str()) == sensors.end())
+      {
+         tell(eloAlways, "One Wire Sensor '%s' attached", it->c_str());
+         sensors[it->c_str()] = 0;
+      }
+   }
 
    return success;
 }

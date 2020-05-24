@@ -27,7 +27,7 @@ int Poold::shutdown = no;
 
 Poold::Poold()
 {
-   nextAt = time(0);           // intervall for 'reading values'
+   nextAt = time(0);
    startedAt = time(0);
 
    cDbConnection::init();
@@ -100,36 +100,25 @@ int Poold::init()
    initOutput(pinSolarPump, ooAuto|ooUser, omAuto, "Solar Pump");
    initOutput(pinPoolLight, ooUser, omManual, "Pool Light");
    initOutput(pinUVC, ooAuto|ooUser, omAuto, "UV-C Light");
-   initOutput(pinUser1, ooUser, omManual, "User 1");
-   initOutput(pinUser2, ooUser, omManual, "User 2");
-   initOutput(pinUser3, ooUser, omManual, "User 3");
+   initOutput(pinUserOut1, ooUser, omManual, "User 1");
+   initOutput(pinUserOut2, ooUser, omManual, "User 2");
+   initOutput(pinUserOut3, ooUser, omManual, "User 3");
 
-   // ---------------------------------
-   // prepare one wire sensors
+   // init water Level sensor
 
-   if (w1.scan() == success)
-   {
-      const W1::SensorList* list = w1.getList();
+   initInput(pinLevel1, 0);
+   initInput(pinLevel2, 0);
+   initInput(pinLevel3, 0);
 
-      // yes, we have one-wire sensors
+   addValueFact(1, "SP", "Water Level", "%");
 
-      int count {0};
-      int added {0};
-      int modified {0};
+   //
 
-      for (auto it = list->begin(); it != list->end(); ++it)
-      {
-         int res = addValueFact((int)W1::toId(it->first.c_str()), "W1", it->first.c_str(), "°C");
+   addValueFact(2, "SP", "Solar Delta", "°C");
 
-         if (res == 1)
-            added++;
-         else if (res == 2)
-            modified++;
-         count++;
-      }
+   //
 
-      tell(eloAlways, "Found %d one wire sensors, added %d, modified %d", count, added, modified);
-   }
+   initW1();
 
    // ---------------------------------
    // apply some configuration specials
@@ -152,17 +141,34 @@ int Poold::exit()
 }
 
 //***************************************************************************
-// Init Output Settings
+// Init digital Output
 //***************************************************************************
 
 int Poold::initOutput(uint pin, int opt, OutputMode mode, const char* name)
 {
    digitalOutputStates[pin].opt = opt;
    digitalOutputStates[pin].mode = mode;
+   digitalOutputStates[pin].name = name;
 
    pinMode(pin, OUTPUT);
    gpioWrite(pin, false);
    addValueFact(pin, "DO", name, "");
+
+   return done;
+}
+
+//***************************************************************************
+// Init digital Input
+//***************************************************************************
+
+int Poold::initInput(uint pin, const char* name)
+{
+   pinMode(pin, INPUT);
+
+   if (!isEmpty(name))
+      addValueFact(pin, "DI", name, "");
+
+   digitalInputStates[pin] = gpioRead(pin);
 
    return done;
 }
@@ -332,6 +338,39 @@ int Poold::exitDb()
    return done;
 }
 
+// ---------------------------------
+// Init one wire sensors
+// ---------------------------------
+
+int Poold::initW1()
+{
+   if (w1.scan() == success)
+   {
+      const W1::SensorList* list = w1.getList();
+
+      // yes, we have one-wire sensors
+
+      int count {0};
+      int added {0};
+      int modified {0};
+
+      for (auto it = list->begin(); it != list->end(); ++it)
+      {
+         int res = addValueFact((int)W1::toId(it->first.c_str()), "W1", it->first.c_str(), "°C");
+
+         if (res == 1)
+            added++;
+         else if (res == 2)
+            modified++;
+         count++;
+      }
+
+      tell(eloAlways, "Found %d one wire sensors, added %d, modified %d", count, added, modified);
+   }
+
+   return success;
+}
+
 //***************************************************************************
 // Read Configuration
 //***************************************************************************
@@ -413,7 +452,7 @@ int Poold::applyConfigurationSpecials()
 //***************************************************************************
 
 int Poold::store(time_t now, const char* name, const char* title, const char* unit,
-               const char* type, int address, double value, const char* text)
+                 const char* type, int address, double value, const char* text)
 {
    tableSamples->clear();
 
@@ -585,10 +624,17 @@ int Poold::loop()
 
 int Poold::update()
 {
+   size_t w1Count = w1.getCount();
    time_t now = time(0);
    int count {0};
 
    w1.update();
+
+   if (w1Count < w1.getCount())
+   {
+      tell(eloAlways, "New W1 sensor attached, inserting");
+      initW1();
+   }
 
    tell(eloDetail, "Update ...");
 
@@ -601,9 +647,13 @@ int Poold::update()
    {
       int addr = tableValueFacts->getIntValue("ADDRESS");
       const char* title = tableValueFacts->getStrValue("TITLE");
+      const char* usrtitle = tableValueFacts->getStrValue("USRTITLE");
       const char* type = tableValueFacts->getStrValue("TYPE");
       const char* unit = tableValueFacts->getStrValue("UNIT");
       const char* name = tableValueFacts->getStrValue("NAME");
+
+      if (!isEmpty(usrtitle))
+         title = usrtitle;
 
       if (tableValueFacts->hasValue("TYPE", "W1"))
       {
@@ -613,6 +663,23 @@ int Poold::update()
       else if (tableValueFacts->hasValue("TYPE", "DO"))
       {
          store(now, name, title, unit, type, addr, digitalOutputStates[addr].state);
+      }
+      else if (tableValueFacts->hasValue("TYPE", "SP"))
+      {
+         if (addr == 1)
+         {
+            int level = getWaterLevel();
+            char tmp[100];
+            sprintf(tmp, "ERROR:Sensor Fehler <br/>(%d/%d/%d)", digitalInputStates[pinLevel1], digitalInputStates[pinLevel2], digitalInputStates[pinLevel3]);
+            store(now, name, title, unit, type, addr, level, level == fail ? tmp : "");
+         }
+         else if (addr == 2)
+         {
+            tPool = w1.valueOf(w1AddrPool);
+            tSolar = w1.valueOf(w1AddrSolar);
+            tCurrentDelta = tSolar - tPool;
+            store(now, name, title, unit, type, addr, tCurrentDelta);
+         }
       }
 
       count++;
@@ -636,7 +703,6 @@ int Poold::process()
    tCurrentDelta = tSolar - tPool;
 
    tell(0, "Process ...");
-   logReport();
 
    // -----------
    // Solar Pump
@@ -731,7 +797,7 @@ bool Poold::isInTimeRange(const std::vector<Range>* ranges, time_t t)
    {
       if (it->inRange(l2hhmm(t)))
       {
-         tell(0, "%d in range '%d-%d'", l2hhmm(t), it->from, it->to);
+         tell(eloDebug, "Debug: %d in range '%d-%d'", l2hhmm(t), it->from, it->to);
          return true;
       }
    }
@@ -746,11 +812,17 @@ bool Poold::isInTimeRange(const std::vector<Range>* ranges, time_t t)
 void Poold::logReport()
 {
    tell(0, "------------------------");
-   tell(0, "Pool has %.2f °C; Solar has %.2f °C; Current delta is %.2f° (%.2f° configured)", tPool, tSolar, tCurrentDelta, tSolarDelta);
-   tell(0, "Solar pump is '%s/%s'", digitalOutputStates[pinSolarPump].state ? "running" : "stopped", digitalOutputStates[pinSolarPump].mode == omAuto ? "auto" : "manual");
-   tell(0, "Filter pump is '%s/%s'", digitalOutputStates[pinFilterPump].state ? "running" : "stopped", digitalOutputStates[pinFilterPump].mode == omAuto ? "auto" : "manual");
-   tell(0, "UV-C light is '%s/%s'", digitalOutputStates[pinUVC].state ? "on" : "off", digitalOutputStates[pinUVC].mode == omAuto ? "auto" : "manual");
-   tell(0, "Pool light is '%s/%s'", digitalOutputStates[pinPoolLight].state ? "on" : "off", digitalOutputStates[pinPoolLight].mode == omAuto ? "auto" : "manual");
+
+   tell(0, "Pool has %.2f °C; Solar has %.2f °C; Current delta is %.2f° (%.2f° configured)",
+        tPool, tSolar, tCurrentDelta, tSolarDelta);
+   tell(0, "Solar pump is '%s/%s'", digitalOutputStates[pinSolarPump].state ? "running" : "stopped",
+        digitalOutputStates[pinSolarPump].mode == omAuto ? "auto" : "manual");
+   tell(0, "Filter pump is '%s/%s'", digitalOutputStates[pinFilterPump].state ? "running" : "stopped",
+        digitalOutputStates[pinFilterPump].mode == omAuto ? "auto" : "manual");
+   tell(0, "UV-C light is '%s/%s'", digitalOutputStates[pinUVC].state ? "on" : "off",
+        digitalOutputStates[pinUVC].mode == omAuto ? "auto" : "manual");
+   tell(0, "Pool light is '%s/%s'", digitalOutputStates[pinPoolLight].state ? "on" : "off",
+        digitalOutputStates[pinPoolLight].mode == omAuto ? "auto" : "manual");
 }
 
 //***************************************************************************
@@ -995,7 +1067,7 @@ int Poold::loadHtmlHeader()
 }
 
 //***************************************************************************
-// Stored Parameters
+// Config Data
 //***************************************************************************
 
 int Poold::getConfigItem(const char* name, char*& value, const char* def)
@@ -1126,6 +1198,34 @@ int Poold::getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges)
 }
 
 //***************************************************************************
+// Get Water Level [%]
+//***************************************************************************
+
+int Poold::getWaterLevel()
+{
+   int level {0};
+
+   bool l1 = gpioRead(pinLevel1);
+   bool l2 = gpioRead(pinLevel2);
+   bool l3 = gpioRead(pinLevel3);
+
+   if (l1 && l2 && l3)
+      level = 100;
+   else if (l1 && l2 && !l3)
+      level = 66;
+   else if (l1 && !l2 && !l3)
+      level = 33;
+   else if (!l1 && !l2 && !l3)
+      level = 0;
+   else
+      level = fail;
+
+   tell(eloDetail, "Water level is %d (%d/%d/%d)", level, l1, l2, l3);
+
+   return level;
+}
+
+//***************************************************************************
 // Digital IO Stuff
 //***************************************************************************
 
@@ -1133,29 +1233,41 @@ int Poold::toggleIo(uint pin)
 {
    gpioWrite(pin, !digitalOutputStates[pin].state);
    tell(0, "Set %d to %d", pin, digitalOutputStates[pin].state);
+
    return success;
 }
 
 int Poold::toggleOutputMode(uint pin, OutputMode mode)
 {
-   // allow mode toggle only if mor than one option is given
+   // allow mode toggle only if more than one option is given
 
-   if (digitalOutputStates[pin].opt & ooAuto &&
-       digitalOutputStates[pin].opt & ooUser)
-   {
+   if (digitalOutputStates[pin].opt & ooAuto && digitalOutputStates[pin].opt & ooUser)
       digitalOutputStates[pin].mode = mode;
-   }
 
    return success;
 }
 
 void Poold::gpioWrite(uint pin, bool state)
 {
-   // negate state until the relai board is active at 'false'
-
    digitalOutputStates[pin].state = state;
+
+   // negate state until the relay board is active at 'false'
+
    digitalWrite(pin, invertDO ? !state : state);
+
+   if (!isEmpty(hassMqttUrl))
+      hassPush(digitalOutputStates[pin].name, "", "", digitalOutputStates[pin].state, "", false /*forceConfig*/);
 }
+
+bool Poold::gpioRead(uint pin)
+{
+   digitalInputStates[pin] = digitalRead(pin);
+   return digitalInputStates[pin];
+}
+
+//***************************************************************************
+// Add alue act
+//***************************************************************************
 
 int Poold::addValueFact(int addr, const char* type, const char* name, const char* unit)
 {

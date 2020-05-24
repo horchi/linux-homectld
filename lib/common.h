@@ -229,7 +229,7 @@ int isLink(const char* path);
 int isEmpty(const char* str);
 int removeFile(const char* filename);
 int loadFromFile(const char* infile, MemoryStruct* data);
-int loadLinesFromFile(const char* infile, std::vector<std::string>& lines, int maxLine = 512);
+int loadLinesFromFile(const char* infile, std::vector<std::string>& lines, bool removeLF = true);
 
 const char* getHostName();
 const char* getFirstIp();

@@ -32,8 +32,7 @@ int Poold::performWebifRequests()
       tableJobs->setValue("DONEAT", time(0));
       tableJobs->setValue("STATE", "D");
 
-      tell(eloDebug, "Processing WEBIF job %d '%s:0x%04x/%s'",
-           jobId, command, addr, data);
+      tell(eloAlways, "Processing WEBIF job %d '%s:0x%04x/%s'", jobId, command, addr, data);
 
       if (strcasecmp(command, "test-mail") == 0)
       {
@@ -156,9 +155,16 @@ int Poold::performWebifRequests()
 
       else if (strcasecmp(command, "toggleio2") == 0)
       {
-         toggleIo(addr);
-         usleep(300000);
-         toggleIo(addr);
+         if (!digitalOutputStates[addr].state)
+         {
+            gpioWrite(addr, true);
+         }
+         else
+         {
+            toggleIo(addr);
+            usleep(300000);
+            toggleIo(addr);
+         }
          tableJobs->setValue("RESULT", "success:toggled2");
       }
 
@@ -173,9 +179,29 @@ int Poold::performWebifRequests()
          bool v = digitalOutputStates[addr].state;
          OutputMode m = digitalOutputStates[addr].mode;
          int o = digitalOutputStates[addr].opt;
-         asprintf(&buf, "success:%d#%d:%s:%d", addr, v, m == omManual ? "manual" : "auto", o);
+         asprintf(&buf, "success:%d:%d:%s:%d", addr, v, m == omManual ? "manual" : "auto", o);
          tableJobs->setValue("RESULT", buf);
          free(buf);
+      }
+
+      else if (strcasecmp(command, "getallio") == 0)
+      {
+         std::string result = "success:";
+
+         for (auto it = digitalOutputStates.begin(); it != digitalOutputStates.end(); ++it)
+         {
+            char* buf {nullptr};
+            bool v = it->second.state;
+            OutputMode m = it->second.mode;
+            int o = it->second.opt;
+
+            asprintf(&buf, "%d:%d:%s:%d#", it->first, v, m == omManual ? "manual" : "auto", o);
+
+            result += buf;
+            free(buf);
+         }
+
+         tableJobs->setValue("RESULT", result.c_str());
       }
 
       else if (strcasecmp(command, "daemon-state") == 0)
@@ -240,7 +266,7 @@ int Poold::performWebifRequests()
 
       tableJobs->store();
 
-      tell(eloDebug, "Processing WEBIF job %d done with '%s' after %" PRIu64 " ms",
+      tell(eloAlways, "Processing WEBIF job %d done with '%s' after %" PRIu64 " ms",
            jobId, tableJobs->getStrValue("RESULT"), cTimeMs::Now() - start);
    }
 

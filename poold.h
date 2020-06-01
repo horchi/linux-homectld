@@ -46,7 +46,8 @@ class Poold
          pinUVC        = 15,     // GPIO22
          pinUserOut1   = 16,     // GPIO23
          pinUserOut2   = 18,     // GPIO24
-         pinUserOut3   = 22,     // GPIO25
+         pinShower     = 22,     // GPIO25
+         pinUserOut3   = 23,     // GPIO11
 
          pinLevel1     = 31,     // GPIO6
          pinLevel2     = 32,     // GPIO12
@@ -90,7 +91,8 @@ class Poold
          bool state {false};
          OutputMode mode {omAuto};
          uint opt {ooUser};
-         const char* name;
+         const char* name;     // crash on init with nullptr :o
+         time_t last {0};
       };
 
       struct Range
@@ -119,12 +121,14 @@ class Poold
       int standbyUntil(time_t until);
       int meanwhile();
 
-      int update();
-      int process();
+      int update();       // called each 'interval'
+      int process();      // called each 'interval'
+      int performJobs();  // called every loop (1 second)
 
       bool isInTimeRange(const std::vector<Range>* ranges, time_t t);
       int store(time_t now, const char* name, const char* title, const char* unit, const char* type, int address, double value, const char* text = 0);
 
+      int performHassRequests();
       int hassPush(IoType iot, const char* name, const char* title, const char* unit, double theValue, const char* text = 0, bool forceConfig = false);
       int hassCheckConnection();
 
@@ -191,6 +195,7 @@ class Poold
 
       MqTTPublishClient* mqttWriter {nullptr};
       MqTTSubscribeClient* mqttReader {nullptr};
+      MqTTSubscribeClient* mqttCommandReader {nullptr};
 
       // config
 
@@ -198,6 +203,7 @@ class Poold
       int aggregateInterval {15};         // aggregate interval in minutes
       int aggregateHistory {0};           // history in days
       char* hassMqttUrl {0};
+      std::map<std::string,std::string> hassCmdTopicMap; // <topic,name>
 
       int mail {no};
       char* mailScript {nullptr};

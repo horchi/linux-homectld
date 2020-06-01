@@ -6,6 +6,8 @@
 // Date 16.04.2020  Jörg Wendel
 //***************************************************************************
 
+#include <jansson.h>
+
 #include "poold.h"
 
 //***************************************************************************
@@ -25,6 +27,7 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
    // check if state topic already exists
 
    std::string message;
+   std::string tp;
    std::string sName = name;
 
    sName = strReplace("ß", "ss", sName);
@@ -39,7 +42,7 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
    if (!isEmpty(title))
    {
       mqttReader->subscribe(stateTopic);
-      status = mqttReader->read(&message);
+      status = mqttReader->read(&message, &tp);
 
       if (status != success && status != MqTTClient::wrnNoMessagePending)
          return fail;
@@ -64,15 +67,21 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
 
          if (iot == iotLight)
          {
+            char* cmdTopic;
+            asprintf(&cmdTopic, "poold2mqtt/light/%s/set", sName.c_str());
+
             asprintf(&configJson, "{"
                      "\"state_topic\"         : \"poold2mqtt/light/%s/state\","
-                     "\"command_topic\"       : \"poold2mqtt/light/%s/set\","
+                     "\"command_topic\"       : \"%s\","
                      "\"name\"                : \"Pool %s\","
                      "\"unique_id\"           : \"%s_poold2mqtt\","
                      "\"schema\"              : \"json\","
                      "\"brightness\"          : \"false\""
                      "}",
-                     sName.c_str(), sName.c_str(), title, sName.c_str());
+                     sName.c_str(), cmdTopic, title, sName.c_str());
+
+            hassCmdTopicMap[cmdTopic] = name;
+            free(cmdTopic);
          }
          else
          {
@@ -115,22 +124,109 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
 }
 
 //***************************************************************************
+// Perform Hass Requests
+//***************************************************************************
+
+const char* getStringFromJson(json_t* obj, const char* name, const char* def)
+{
+   json_t* o = json_object_get(obj, name);
+
+   if (!o)
+      return def;
+
+   return json_string_value(o);
+}
+
+int getIntFromJson(json_t* obj, const char* name, int def)
+{
+   json_t* o = json_object_get(obj, name);
+
+   if (!o)
+      return def;
+
+   return json_integer_value(o);
+}
+
+int Poold::performHassRequests()
+{
+   if (hassCheckConnection() != success)
+      return fail;
+
+   std::string message;
+   std::string topic;
+
+   if (mqttCommandReader->read(&message, &topic) != success)
+      return done;
+
+   // tell(0, "(%s) GOT [%s]", topic.c_str(), message.c_str());
+
+   json_error_t error;
+   json_t* jData = json_loads(message.c_str(), 0, &error);
+
+   if (!jData)
+   {
+      tell(0, "Error: Can't parse json in '%s'", message.c_str());
+      return fail;
+   }
+
+   tell(eloAlways, "<- (%s) [%s]", topic.c_str(), message.c_str());
+
+   auto it = hassCmdTopicMap.find(topic);
+
+   if (it != hassCmdTopicMap.end())
+   {
+      for (auto itOutput = digitalOutputStates.begin(); itOutput != digitalOutputStates.end(); ++itOutput)
+      {
+         const char* s = getStringFromJson(jData, "state", "");
+         int state = strcmp(s, "ON") == 0;
+
+         if (strcmp(it->second.c_str(), itOutput->second.name) == 0)
+         {
+            gpioWrite(itOutput->first, state);
+            break;
+         }
+      }
+   }
+
+   return success;
+}
+
+//***************************************************************************
 // Check MQTT Connection
 //***************************************************************************
 
 int Poold::hassCheckConnection()
 {
+   if (!mqttCommandReader)
+   {
+      mqttCommandReader = new MqTTSubscribeClient(hassMqttUrl, "poold_com");
+      mqttCommandReader->setConnectTimeout(15);   // seconds
+      mqttCommandReader->setTimeout(1000);        // milli seconds
+   }
+
    if (!mqttWriter)
    {
       mqttWriter = new MqTTPublishClient(hassMqttUrl, "poold_publisher");
-      mqttWriter->setConnectTimeout(15); // seconds
+      mqttWriter->setConnectTimeout(15);          // seconds
    }
 
    if (!mqttReader)
    {
       mqttReader = new MqTTSubscribeClient(hassMqttUrl, "poold_subscriber");
-      mqttReader->setConnectTimeout(15); // seconds
-      mqttReader->setTimeout(100);       // milli seconds
+      mqttReader->setConnectTimeout(15);          // seconds
+      mqttReader->setTimeout(100);                // milli seconds
+   }
+
+   if (!mqttCommandReader->isConnected())
+   {
+      if (mqttCommandReader->connect() != success)
+      {
+         tell(0, "Error: MQTT: Connecting subscriber to '%s' failed", hassMqttUrl);
+         return fail;
+      }
+
+      mqttCommandReader->subscribe("poold2mqtt/light/+/set/#");
+      tell(0, "MQTT: Connecting command subscriber to '%s' succeeded", hassMqttUrl);
    }
 
    if (!mqttWriter->isConnected())

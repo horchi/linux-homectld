@@ -28,7 +28,7 @@ GIT_REV      = $(shell git describe --always 2>/dev/null)
 
 # object files
 
-LOBJS        =  lib/db.o lib/dbdict.o lib/common.o lib/serial.o lib/curl.o
+LOBJS        = lib/db.o lib/dbdict.o lib/common.o lib/serial.o lib/curl.o
 OBJS         = $(LOBJS) main.o gpio.o webif.o w1.o hass.o
 MQTTBJS      = lib/mqtt.c
 

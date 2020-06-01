@@ -45,6 +45,7 @@ Poold::~Poold()
 
    delete mqttWriter;
    delete mqttReader;
+   delete mqttCommandReader;
 
    free(mailScript);
    free(stateMailTo);
@@ -100,6 +101,7 @@ int Poold::init()
    initOutput(pinSolarPump, ooAuto|ooUser, omAuto, "Solar Pump");
    initOutput(pinPoolLight, ooUser, omManual, "Pool Light");
    initOutput(pinUVC, ooAuto|ooUser, omAuto, "UV-C Light");
+   initOutput(pinShower, ooAuto|ooUser, omAuto, "Shower");
    initOutput(pinUserOut1, ooUser, omManual, "User 1");
    initOutput(pinUserOut2, ooUser, omManual, "User 2");
    initOutput(pinUserOut3, ooUser, omManual, "User 3");
@@ -110,10 +112,9 @@ int Poold::init()
    initInput(pinLevel2, 0);
    initInput(pinLevel3, 0);
 
+   // special values
+
    addValueFact(1, "SP", "Water Level", "%");
-
-   //
-
    addValueFact(2, "SP", "Solar Delta", "°C");
 
    //
@@ -428,6 +429,7 @@ int Poold::readConfiguration()
    getConfigTimeRangeItem("filterPumpTimes", filterPumpTimes);
    getConfigTimeRangeItem("uvcLightTimes", uvcLightTimes);
    getConfigTimeRangeItem("poolLightTimes", poolLightTimes);
+
    return done;
 }
 
@@ -512,7 +514,7 @@ int Poold::standby(int t)
    while (time(0) < end && !doShutDown())
    {
       meanwhile();
-      usleep(50000);
+      // usleep(50000);  sleep is don in meanwhile by mqttCommandReader
    }
 
    return done;
@@ -523,7 +525,8 @@ int Poold::standbyUntil(time_t until)
    while (time(0) < until && !doShutDown())
    {
       meanwhile();
-      usleep(50000);
+      tell(eloAlways, "standbyUntil: loop ...");
+      // usleep(50000);  sleep is don in meanwhile by mqttCommandReader
    }
 
    return done;
@@ -545,8 +548,11 @@ int Poold::meanwhile()
 
    if (mqttReader && mqttReader->isConnected()) mqttReader->yield();
    if (mqttWriter && mqttWriter->isConnected()) mqttWriter->yield();
+   if (mqttCommandReader && mqttCommandReader->isConnected()) mqttCommandReader->yield();
 
+   performHassRequests();
    performWebifRequests();
+   performJobs();
 
    if (lastCleanup < time(0) - 6*tmeSecondsPerHour)
    {
@@ -787,6 +793,23 @@ int Poold::process()
    logReport();
 
    return success;
+}
+
+//***************************************************************************
+// Perform Jobs
+//***************************************************************************
+
+int Poold::performJobs()
+{
+   // check timed shower duration
+
+   if (digitalOutputStates[pinShower].state && digitalOutputStates[pinShower].mode == omAuto)
+   {
+      if (digitalOutputStates[pinShower].last < time(0) + 30)
+         gpioWrite(pinShower, false);
+   }
+
+   return done;
 }
 
 //***************************************************************************
@@ -1234,7 +1257,7 @@ int Poold::getWaterLevel()
 int Poold::toggleIo(uint pin)
 {
    gpioWrite(pin, !digitalOutputStates[pin].state);
-   tell(0, "Set %d to %d", pin, digitalOutputStates[pin].state);
+   tell(eloDebug, "Debug: Set %d to %d", pin, digitalOutputStates[pin].state);
 
    return success;
 }
@@ -1252,6 +1275,7 @@ int Poold::toggleOutputMode(uint pin, OutputMode mode)
 void Poold::gpioWrite(uint pin, bool state)
 {
    digitalOutputStates[pin].state = state;
+   digitalOutputStates[pin].last = time(0);
 
    // negate state until the relay board is active at 'false'
 
@@ -1293,6 +1317,10 @@ int Poold::addValueFact(int addr, const char* type, const char* name, const char
    else
    {
       tableValueFacts->clearChanged();
+
+      tableValueFacts->setValue("NAME", name);
+      tableValueFacts->setValue("UNIT", unit);
+      tableValueFacts->setValue("TITLE", name);
 
       if (tableValueFacts->getValue("MAXSCALE")->isNull())
          tableValueFacts->setValue("MAXSCALE", maxScale);

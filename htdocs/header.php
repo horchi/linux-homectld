@@ -2,8 +2,6 @@
 
 session_start();
 
-$mysqlport = 3306;
-
 $webVersion  = "<VERSION>";
 $daemonTitle = "Pool Control Daemon";
 $daemonName  = "poold";
@@ -151,7 +149,10 @@ function printHeader($refresh = 0)
    echo "    </nav>\n";
    echo "    <div class=\"content\">\n";
 ?>
+
 <script>
+
+// -----------------------------------------
 
 function pageShow()
 {

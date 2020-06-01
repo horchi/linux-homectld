@@ -1,5 +1,7 @@
 <?php
 
+include("phpMQTT.php");
+
 if (!function_exists("functions_once"))
 {
     function functions_once()
@@ -58,6 +60,30 @@ function checkLogin($user, $passwd)
       return true;
 
    return false;
+}
+
+// ---------------------------------------------------------------------------
+// Get Image Path
+// ---------------------------------------------------------------------------
+
+function getImageOf($title, $value)
+{
+   $imagePath = "unknown.jpg";
+
+   if (mb_stripos($title, "Pump") !== FALSE)
+      $imagePath = $value == "1.00" ? "img/icon/pump-on.gif" : "img/icon/pump-off.png";
+   else if (mb_stripos($title, "Steckdose") !== FALSE)
+      $imagePath = $value == "1.00" ? "img/icon/plug-on.png" : "img/icon/plug-off.png";
+   else if (mb_stripos($title, "UV-C") !== FALSE)
+      $imagePath = $value == "1.00" ? "img/icon/uvc-on.png" : "img/icon/uvc-off.png";
+   else if (mb_stripos($title, "Licht") !== FALSE)
+      $imagePath = $value == "1.00" ? "img/icon/light-on.png" : "img/icon/light-off.png";
+   else if (mb_stripos($title, "Shower") !== FALSE || mb_stripos($title, "Dusche") !== FALSE)
+      $imagePath = $value == "1.00" ? "img/icon/shower-on.png" : "img/icon/shower-off.png";
+   else
+      $imagePath = $value == "1.00" ? "img/icon/boolean-on.png" : "img/icon/boolean-off.png";
+
+   return $imagePath;
 }
 
 // ---------------------------------------------------------------------------
@@ -289,6 +315,12 @@ function toTimeRangesString($idNameBase, array $post)
 // Request Action
 // ---------------------------------------------------------------------------
 
+function reqAction($cmd, $timeout, $address, $data)
+{
+   $response = "";
+   return requestAction($cmd, $timeout, $address, $data, $response);
+}
+
 function requestAction($cmd, $timeout, $address, $data, &$response)
 {
    global $mysqli;
@@ -305,6 +337,8 @@ function requestAction($cmd, $timeout, $address, $data, &$response)
    $mysqli->query("insert into jobs set requestat = now(), state = 'P', command = '$cmd', address = '$address', data = '$data'")
       or die("Error" . $mysqli->error);
    $id = $mysqli->insert_id;
+
+   wakeupFor($cmd);
 
    while (time() < $timeout)
    {
@@ -331,6 +365,23 @@ function requestAction($cmd, $timeout, $address, $data, &$response)
    tell("timeout on " . $cmd);
 
    return -1;
+}
+
+function wakeupFor($cmd)
+{
+   // MQTT client id to use for the device. "" will generate a client id automatically
+
+   $mqtt = new bluerhinos\phpMQTT("192.168.200.101", 1883, "poolPHP");
+
+   $message = "{ \"command\" : \"$cmd\" }";
+
+   if ($mqtt->connect(true, NULL, "", ""))
+   {
+      $topic = "poold2mqtt/light/wakeup/set";
+
+      $mqtt->publish($topic, $message, 0);
+      $mqtt->close();
+   }
 }
 
 // ---------------------------------------------------------------------------
@@ -481,6 +532,9 @@ function configTimeRangesItem($flow, $title, $name, $ranges, $comment = "")
     for ( ; $i < count($aRanges); $i++)
     {
        echo "          <span>$title</span>\n";
+
+       if ($aRanges[$i] == "")
+          continue;
 
        list($from, $to) = explode("-", $aRanges[$i], 2);
 

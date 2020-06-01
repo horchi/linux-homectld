@@ -5,8 +5,6 @@ include("pChart/class/pDraw.class.php");
 include("pChart/class/pImage.class.php");
 include("pChart/class/pCache.class.php");
 
-$mysqlport = 3306;
-
 include("config.php");
 include("functions.php");
 

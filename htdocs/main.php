@@ -114,6 +114,27 @@ printHeader($_SESSION['refreshWeb']);
              $ids[$i++] = $id;
      }
 
+     // get actual state of all 'DO'
+
+     $sensors = new \Ds\Map();
+     $state = requestAction("getallio", 3, 0, "", $response);
+
+     if ($state == 0)
+     {
+        $arr = explode("#", $response);
+
+        foreach ($arr as &$item)
+        {
+           if ($item != "")
+           {
+              list($pin, $data) = explode(":", $item, 2);
+              $sensors->put($pin, $data);
+           }
+        }
+     }
+
+     // process ...
+
      for ($i = 0; $i < count($ids); $i++)
      {
          try
@@ -141,13 +162,11 @@ printHeader($_SESSION['refreshWeb']);
 
          if ($type == 'DO')
          {
-             $state = requestAction("getio", 3, $address, "", $response);
-
-             if ($state == 0)
-             {
-                 list($pin, $data) = explode("#", $response, 2);
-                 list($value, $mode) = explode(":", $data, 2);
-             }
+            if ($sensors->hasKey($address))
+            {
+               $data = $sensors[$address];
+               list($value, $mode, $opt) = explode(":", $data, 3);
+            }
          }
 
          if ($type != 'DI' && $type != 'DO' && $unit != '' && $unit != 'h' && $unit != 'Stunden')

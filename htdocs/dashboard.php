@@ -18,62 +18,6 @@ if (mysqli_connect_error())
 $mysqli->query("set names 'utf8'");
 $mysqli->query("SET lc_time_names = 'de_DE'");
 
-// ------------------
-// get post
-
-$action = "";
-
-if (isset($_POST["action"]))
-{
-   if (!haveLogin())
-   {
-      echo "<br/><div class=\"infoError\"><b><center>Login erforderlich!</center></b></div><br/>\n";
-   }
-   else
-   {
-      $action = htmlspecialchars($_POST["action"]);
-
-      if (strpos($action, "switch") == 1)
-      {
-         $resonse = "";
-         list($cmd, $pin) = explode(":", $action, 2);
-
-         if (strpos($action, "switch_mode") == 1)
-         {
-            $state = requestAction("getio", 3, $pin, "", $response);
-
-            if ($state == 0)
-            {
-               list($pin, $data) = explode("#", $response, 2);
-               list($value, $mode, $opt) = explode(":", $data, 3);
-
-               if ($opt == 3)
-                  requestAction("toggle-output-mode", 3, $pin, $mode == 'auto' ? "manual" : "auto", $response);
-            }
-         }
-         else if (strpos($action, "switch_next") == 1)
-         {
-            $state = requestAction("getio", 3, $pin, "", $response);
-
-            if ($state == 0)
-            {
-               list($pin, $data) = explode("#", $response, 2);
-               list($value, $mode, $opt) = explode(":", $data, 3);
-
-               if ($value == 0)
-                  requestAction("setio", 3, $pin, "1", $response);
-               else
-                  requestAction("toggleio2", 3, $pin, "", $response);
-            }
-         }
-         else
-         {
-            requestAction("toggleio", 3, $pin, "", $response);
-         }
-      }
-   }
-}
-
 // -------------------------
 // get last time stamp
 
@@ -119,8 +63,29 @@ $max = $row['max(time)'];
          $ids[$i++] = $id;
    }
 
-   echo "  <form action=" . htmlspecialchars($_SERVER["PHP_SELF"]) . " method=post>\n";
+//   echo "  <form action=" . htmlspecialchars($_SERVER["PHP_SELF"]) . " method=post>\n";
    echo "    <div class=\"widgetContainer\">\n";
+
+   // get actual state of all 'DO'
+
+   $sensors = new \Ds\Map();
+   $state = requestAction("getallio", 3, 0, "", $response);
+
+   if ($state == 0)
+   {
+      $arr = explode("#", $response);
+
+      foreach ($arr as &$item)
+      {
+         if ($item != "")
+         {
+            list($pin, $data) = explode(":", $item, 2);
+            $sensors->put($pin, $data);
+         }
+      }
+   }
+
+   // process ...
 
    for ($i = 0; $i < count($ids); $i++)
    {
@@ -150,11 +115,10 @@ $max = $row['max(time)'];
 
       if ($type == 'DO')
       {
-         $state = requestAction("getio", 3, $address, "", $response);
-
-         if ($state == 0)
+         if ($sensors->hasKey($address))
          {
-            list($pin, $data) = explode("#", $response, 2);
+            $data = $sensors[$address];
+
             list($value, $mode, $opt) = explode(":", $data, 3);
 
             if ($opt == 3)
@@ -227,27 +191,26 @@ $max = $row['max(time)'];
 
       else if ($type == 'DI' || $type == 'DO' || $u == '')                     // 'boolean' als symbol anzeigen
       {
-         if (stripos($name, "Pump") !== FALSE)
-            $imagePath = $value == "1.00" ? "img/icon/pump-on.gif" : $imagePath = "img/icon/pump-off.png";
-         else if (stripos($name, "UV-C") !== FALSE)
-            $imagePath = $value == "1.00" ? "img/icon/uvc-on.png" : $imagePath = "img/icon/uvc-off.png";
-         else if (stripos($name, "Light") !== FALSE || stripos($title, "Licht") !== FALSE)
-            $imagePath = $value == "1.00" ? "img/icon/light-on.png" : $imagePath = "img/icon/light-off.png";
-         else
-            $imagePath = $value == "1.00" ? "img/icon/boolean-on.png" : $imagePath = "img/icon/boolean-off.png";
-
+         $imagePath = getImageOf($title, $value);
          $ctrlButtons = $name == "Pool Light" && $_SESSION['poolLightColorToggle'];
 
          if (!$ctrlButtons)
-            echo "        <div class=\"widget rounded-border\" style=\"$modeStyle\">\n";
+            echo "        <div id=\"div$address\" class=\"widget rounded-border\" style=\"$modeStyle\">\n";
          else
             echo "        <div class=\"widgetCtrl rounded-border\">\n";
 
-         $element = $opt == 3 ? "button type=submit name=action value=\"_switch_mode:$address\"" : "div";
+         if (!haveLogin())
+            $element = $opt == 3 ? "button type=\"button\" " : "div";
+         else
+            $element = $opt == 3 ? "button type=\"button\" onclick=\"toggleMode($address)\"" : "div";
 
-         echo "          <$element class=\"widget-title\">$title</$element>\n";
-         echo "          <button class=\"widget-main\" type=submit name=action value=\"_switch:$address\">\n";
-         echo "            <img src=\"$imagePath\"/>\n";
+         echo "          <$element id=\"title$address\" class=\"widget-title\">$title</$element>\n";
+
+         if (!haveLogin())
+            echo "          <button class=\"widget-main\" type=\"button\" >\n";
+         else
+            echo "          <button class=\"widget-main\" type=\"button\" onclick=\"toggleIo($address)\" >\n";
+         echo "            <img id=\"img$address\" src=\"$imagePath\" />\n";
          echo "          </button>\n";
 
          if ($ctrlButtons)
@@ -258,7 +221,10 @@ $max = $row['max(time)'];
             /* echo "              </button>\n"; */
             /* echo "            </div>\n"; */
             echo "            <div class=\"widget-ctrl2\">\n";
-            echo "              <button type=submit name=action value=\"_switch_next:$address\">\n";
+            if (!haveLogin())
+               echo "              <button type=\"button\">\n";
+            else
+               echo "              <button type=\"button\" onclick=\"toggleIoNext($address)\">\n";
             echo "                <img src=\"img/icon/right.png\" />\n";
             echo "              </button>\n";
             echo "            </div>\n";
@@ -268,7 +234,7 @@ $max = $row['max(time)'];
       }
    }
 
-   echo "    </form>\n";
+//   echo "    </form>\n";
    echo "  </div>\n";  // widgetContainer
 }
 

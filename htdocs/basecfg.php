@@ -141,6 +141,9 @@ else if ($action == "store")
    if (isset($_POST["hassMqttUrl"]))
       $_SESSION['hassMqttUrl'] = htmlspecialchars($_POST["hassMqttUrl"]);
 
+   if (isset($_POST["showerDuration"]))
+      $_SESSION['showerDuration'] = htmlspecialchars($_POST["showerDuration"]);
+
    // ------------------
    // write settings to config
 
@@ -196,6 +199,8 @@ else if ($action == "store")
    writeConfigItem("w1AddrAir", $_SESSION['w1AddrAir']);
    writeConfigItem("poolLightColorToggle", $_SESSION['poolLightColorToggle']);
    writeConfigItem("invertDO", $_SESSION['invertDO']);
+
+   writeConfigItem("showerDuration", $_SESSION['showerDuration']);
 
    requestAction("apply-config", 3, 0, "", $res);
    echo "<div class=\"info\"><b><center>Einstellungen gespeichert</center></b></div>";
@@ -273,6 +278,8 @@ echo "       <br/>\n";
 configTimeRangesItem(3, "Zeiten UV-C Licht", "uvcLightTimes", $_SESSION['uvcLightTimes'], "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!");
 echo "       <br/>\n";
 configTimeRangesItem(3, "Zeiten Pool Licht", "poolLightTimes", $_SESSION['poolLightTimes'], "[hh:mm] - [hh:mm]");
+echo "       <br/>\n";
+configNumItem(3, "Laufzeit der Dusche", "showerDuration", $_SESSION['showerDuration'], "Laufzeit [s]", 1, 120);
 echo "       </div>\n";
 
 echo "      <div class=\"rounded-border inputTableConfig\">\n";

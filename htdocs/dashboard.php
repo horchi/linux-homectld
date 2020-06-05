@@ -2,7 +2,8 @@
 
 include("header.php");
 
-printHeader($_SESSION['refreshWeb']);
+printHeader();
+// printHeader($_SESSION['refreshWeb']);
 
 // -------------------------
 // establish db connection
@@ -63,8 +64,12 @@ $max = $row['max(time)'];
          $ids[$i++] = $id;
    }
 
-//   echo "  <form action=" . htmlspecialchars($_SERVER["PHP_SELF"]) . " method=post>\n";
-   echo "    <div class=\"widgetContainer\">\n";
+   echo "    <div id=\"widgetContainer\" class=\"widgetContainer\">\n";
+
+   echo "        <div class=\"widget rounded-border\">\n";
+   echo "          <div class=\"widget-title\">Zeit</div>";
+   echo "          <div id=\"demo\" class=\"widget-value\"></div>";
+   echo "        </div>\n";
 
    // get actual state of all 'DO'
 
@@ -134,11 +139,11 @@ $max = $row['max(time)'];
          list($tmp, $text) = explode(":", $text, 2);
          echo "        <div class=\"widget rounded-border\">\n";
          echo "          <div class=\"widget-title\">$title</div>";
-         echo "          <div class=\"widget-value widget-error\">$text</div>";
+         echo "          <div id=\"widget$type$address\" class=\"widget-value widget-error\">$text</div>";
          echo "        </div>\n";
       }
 
-      else if ($unit == '°C' || $unit == '%'|| $unit == 'V' || $unit == 'A')       // 'Volt/Ampere/Prozent/°C' als  Gauge
+      else if ($unit == '°C' || $unit == '%'|| $unit == 'V' || $unit == 'A')       // 'Volt/Ampere/Prozent/°C' als Gauge
       {
          $scaleMax = $unit == '%' ? 100 : $scaleMax;
          $scaleMin = $value >= 0 ? "0" : ceil($value / 5) * 5 - 5;
@@ -158,7 +163,7 @@ $max = $row['max(time)'];
             . $_SESSION['chartDiv'] . " ','_blank',"
             . "'scrollbars=yes,width=1200,height=600,resizable=yes,left=120,top=120')\"";
 
-         echo "        <div $url class=\"widgetGauge rounded-border participation\" data-y=\"500\" data-unit=\"$unit\" data-value=\"$value\" data-peak=\"$peak\" data-ratio=\"$ratio\">\n";
+         echo "        <div $url id=\"widget$type$address\" class=\"widgetGauge rounded-border participation\" data-y=\"500\" data-unit=\"$unit\" data-value=\"$value\" data-peak=\"$peak\" data-ratio=\"$ratio\">\n";
          echo "          <div class=\"widget-title\">$title</div>";
          echo "          <svg class=\"widget-svg\" viewBox=\"0 0 1000 600\" preserveAspectRatio=\"xMidYMin slice\">\n";
          echo "            <path d=\"M 950 500 A 450 450 0 0 0 50 500\"></path>\n";
@@ -175,7 +180,7 @@ $max = $row['max(time)'];
 
          echo "        <div class=\"widget rounded-border\">\n";
          echo "          <div class=\"widget-title\">$title</div>";
-         echo "          <div class=\"widget-value\">$value</div>";
+         echo "          <div id=\"widget$type$address\" class=\"widget-value\">$value</div>";
          echo "        </div>\n";
       }
 
@@ -185,7 +190,7 @@ $max = $row['max(time)'];
 
          echo "        <div class=\"widget rounded-border\">\n";
          echo "          <div class=\"widget-title\">$title</div>";
-         echo "          <div class=\"widget-value\">$value $unit</div>";
+         echo "          <div id=\"widget$type$address\" class=\"widget-value\">$value $unit</div>";
          echo "        </div>\n";
       }
 
@@ -195,22 +200,22 @@ $max = $row['max(time)'];
          $ctrlButtons = $name == "Pool Light" && $_SESSION['poolLightColorToggle'];
 
          if (!$ctrlButtons)
-            echo "        <div id=\"div$address\" class=\"widget rounded-border\" style=\"$modeStyle\">\n";
+            echo "        <div id=\"div$type$address\" class=\"widget rounded-border\" style=\"$modeStyle\">\n";
          else
             echo "        <div class=\"widgetCtrl rounded-border\">\n";
 
          if (!haveLogin())
             $element = $opt == 3 ? "button type=\"button\" " : "div";
          else
-            $element = $opt == 3 ? "button type=\"button\" onclick=\"toggleMode($address)\"" : "div";
+            $element = $opt == 3 ? "button type=\"button\" onclick=\"toggleMode($address, '$type')\"" : "div";
 
-         echo "          <$element id=\"title$address\" class=\"widget-title\">$title</$element>\n";
+         echo "          <$element class=\"widget-title\">$title</$element>\n";
 
          if (!haveLogin())
             echo "          <button class=\"widget-main\" type=\"button\" >\n";
          else
-            echo "          <button class=\"widget-main\" type=\"button\" onclick=\"toggleIo($address)\" >\n";
-         echo "            <img id=\"img$address\" src=\"$imagePath\" />\n";
+            echo "          <button class=\"widget-main\" type=\"button\" onclick=\"toggleIo($address, '$type')\" >\n";
+         echo "            <img id=\"widget$type$address\" src=\"$imagePath\" />\n";
          echo "          </button>\n";
 
          if ($ctrlButtons)
@@ -224,7 +229,7 @@ $max = $row['max(time)'];
             if (!haveLogin())
                echo "              <button type=\"button\">\n";
             else
-               echo "              <button type=\"button\" onclick=\"toggleIoNext($address)\">\n";
+               echo "              <button type=\"button\" onclick=\"toggleIoNext($address, '$type')\">\n";
             echo "                <img src=\"img/icon/right.png\" />\n";
             echo "              </button>\n";
             echo "            </div>\n";

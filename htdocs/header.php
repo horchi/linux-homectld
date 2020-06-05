@@ -68,6 +68,7 @@ include("functions.php");
 
      readConfigItem("tPoolMax", $_SESSION['tPoolMax']);
      readConfigItem("tSolarDelta", $_SESSION['tSolarDelta']);
+     readConfigItem("showerDuration", $_SESSION['showerDuration']);
 
      readConfigItem("w1AddrPool", $_SESSION['w1AddrPool']);
      readConfigItem("w1AddrSolar", $_SESSION['w1AddrSolar']);
@@ -120,6 +121,7 @@ function printHeader($refresh = 0)
    echo "    <script src=\"https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js\"></script>\n";
    echo "    <script src=\"https://cdnjs.cloudflare.com/ajax/libs/snap.svg/0.4.1/snap.svg-min.js\"></script>\n";
    echo "    <script type=\"text/JavaScript\" src=\"jfunctions.js\"></script>\n";
+   echo "    <script type=\"module\" src=\"main.js\"></script>\n";
    echo "    <title>Pool Control</title>\n";
    echo "  </head>\n";
    echo "  <body>\n";

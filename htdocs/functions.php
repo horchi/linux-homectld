@@ -129,20 +129,140 @@ function getClientIp()
 }
 
 // ---------------------------------------------------------------------------
-// Test Mail
+// Check/Create Folder
 // ---------------------------------------------------------------------------
 
-function sendTestMail($subject, $body, &$resonse, $alertid = "")
+function chkDir($path, $rights = 0777)
+{
+   if (!(is_dir($path) OR is_file($path) OR is_link($path)))
+      return mkdir($path, $rights);
+   else
+      return true;
+}
+
+function mysqli_result($res, $row=0, $col=0)
+{
+   $numrows = mysqli_num_rows($res);
+
+   if ($numrows && $row <= ($numrows-1) && $row >=0)
+   {
+      mysqli_data_seek($res,$row);
+      $resrow = (is_numeric($col)) ? mysqli_fetch_row($res) : mysqli_fetch_assoc($res);
+
+       if (isset($resrow[$col]))
+         return $resrow[$col];
+   }
+
+   return false;
+}
+
+// ---------------------------------------------------------------------------
+// To Time Ranges String
+// ---------------------------------------------------------------------------
+
+function toTimeRangesString($idNameBase, array $post)
+{
+   $times = "";
+
+   for ($i = 0; $i < 10; $i++)
+   {
+      $idName = $idNameBase.$i;
+
+      if (isset($post[$idName."From"]) && $post[$idName."From"] != "" &&
+          isset($post[$idName."To"]) && $post[$idName."To"] != "")
+      {
+         $from = htmlspecialchars($post[$idName."From"]);
+         $to = htmlspecialchars($post[$idName."To"]);
+
+         if ($times != "")
+            $times = $times.",";
+
+         $times = $times.$from."-".$to;
+      }
+   }
+
+   return $times;
+}
+
+// ---------------------------------------------------------------------------
+// Request Action (for JS Interface)
+// ---------------------------------------------------------------------------
+
+function reqAction($cmd, $timeout, $address, $data)
+{
+   $response = "";
+   return requestAction($cmd, $timeout, $address, $data, $response);
+}
+
+// ---------------------------------------------------------------------------
+// Request Action
+// ---------------------------------------------------------------------------
+
+function requestAction($cmd, $timeout, $address, $data, &$response)
 {
    global $mysqli;
-   $state = 0;
 
-   if ($alertid != "")
-      $state = requestAction("test-alert-mail", 5, 0, "$alertid", $resonse);
-   else
-      $state = requestAction("test-mail", 5, 0, "$subject:$body", $resonse);
+   $timeout = time() + $timeout;
+   $response = "";
 
-   return $state == 0 ? true : false;
+   $address = mysqli_real_escape_string($mysqli, $address);
+   $data = mysqli_real_escape_string($mysqli, $data);
+   $cmd = mysqli_real_escape_string($mysqli, $cmd);
+
+   tell("requesting ". $cmd . " with " . $address . ", '" . $data . "'");
+
+   $mysqli->query("insert into jobs set requestat = now(), state = 'P', command = '$cmd', address = '$address', data = '$data'")
+      or die("Error" . $mysqli->error);
+   $id = $mysqli->insert_id;
+
+   wakeupFor($cmd);
+
+   while (time() < $timeout)
+   {
+      usleep(10000);
+
+      $result = $mysqli->query("select * from jobs where id = $id and state = 'D'")
+         or die("Error" . $mysqli->error);
+
+      if ($result->num_rows)
+      {
+         $buffer = mysqli_result($result, 0, "result");
+         list($state, $response) = explode(":", $buffer, 2);
+
+         if ($state == "fail")
+            return -2;
+
+         if ($response == "BDATA")
+            $response = mysqli_result($result, 0, "bdata");
+
+         return 0;
+      }
+   }
+
+   tell("timeout on " . $cmd);
+
+   return -1;
+}
+
+// ---------------------------------------------------------------------------
+// Wakeup For 'command'
+// ---------------------------------------------------------------------------
+
+function wakeupFor($cmd)
+{
+   // MQTT client id to use for the device. "" will generate a client id automatically
+
+   $mqtt = new bluerhinos\phpMQTT("192.168.200.101", 1883, "poolPHP");
+
+   $message = "{ \"command\" : \"$cmd\" }";
+
+   if ($mqtt->connect(true, NULL, "", ""))
+   {
+      $topic = "poold2mqtt/light/wakeup/set";
+
+      $mqtt->publish($topic, $message, 0);
+      $mqtt->close();
+   }
 }
 
 // ---------------------------------------------------------------------------
@@ -255,133 +375,20 @@ function printDaemonState()
 }
 
 // ---------------------------------------------------------------------------
-// Check/Create Folder
+// Test Mail
 // ---------------------------------------------------------------------------
 
-function chkDir($path, $rights = 0777)
-{
-   if (!(is_dir($path) OR is_file($path) OR is_link($path)))
-      return mkdir($path, $rights);
-   else
-      return true;
-}
-
-function mysqli_result($res, $row=0, $col=0)
-{
-   $numrows = mysqli_num_rows($res);
-
-   if ($numrows && $row <= ($numrows-1) && $row >=0)
-   {
-      mysqli_data_seek($res,$row);
-      $resrow = (is_numeric($col)) ? mysqli_fetch_row($res) : mysqli_fetch_assoc($res);
-
-       if (isset($resrow[$col]))
-         return $resrow[$col];
-   }
-
-   return false;
-}
-
-// ---------------------------------------------------------------------------
-// To Time Ranges String
-// ---------------------------------------------------------------------------
-
-function toTimeRangesString($idNameBase, array $post)
-{
-   $times = "";
-
-   for ($i = 0; $i < 10; $i++)
-   {
-      $idName = $idNameBase.$i;
-
-      if (isset($post[$idName."From"]) && $post[$idName."From"] != "" &&
-          isset($post[$idName."To"]) && $post[$idName."To"] != "")
-      {
-         $from = htmlspecialchars($post[$idName."From"]);
-         $to = htmlspecialchars($post[$idName."To"]);
-
-         if ($times != "")
-            $times = $times.",";
-
-         $times = $times.$from."-".$to;
-      }
-   }
-
-   return $times;
-}
-
-
-// ---------------------------------------------------------------------------
-// Request Action
-// ---------------------------------------------------------------------------
-
-function reqAction($cmd, $timeout, $address, $data)
-{
-   $response = "";
-   return requestAction($cmd, $timeout, $address, $data, $response);
-}
-
-function requestAction($cmd, $timeout, $address, $data, &$response)
+function sendTestMail($subject, $body, &$resonse, $alertid = "")
 {
    global $mysqli;
+   $state = 0;
 
-   $timeout = time() + $timeout;
-   $response = "";
+   if ($alertid != "")
+      $state = requestAction("test-alert-mail", 5, 0, "$alertid", $resonse);
+   else
+      $state = requestAction("test-mail", 5, 0, "$subject:$body", $resonse);
 
-   $address = mysqli_real_escape_string($mysqli, $address);
-   $data = mysqli_real_escape_string($mysqli, $data);
-   $cmd = mysqli_real_escape_string($mysqli, $cmd);
-
-   tell("requesting ". $cmd . " with " . $address . ", '" . $data . "'");
-
-   $mysqli->query("insert into jobs set requestat = now(), state = 'P', command = '$cmd', address = '$address', data = '$data'")
-      or die("Error" . $mysqli->error);
-   $id = $mysqli->insert_id;
-
-   wakeupFor($cmd);
-
-   while (time() < $timeout)
-   {
-      usleep(10000);
-
-      $result = $mysqli->query("select * from jobs where id = $id and state = 'D'")
-         or die("Error" . $mysqli->error);
-
-      if ($result->num_rows)
-      {
-         $buffer = mysqli_result($result, 0, "result");
-         list($state, $response) = explode(":", $buffer, 2);
-
-         if ($state == "fail")
-            return -2;
-
-         if ($response == "BDATA")
-            $response = mysqli_result($result, 0, "bdata");
-
-         return 0;
-      }
-   }
-
-   tell("timeout on " . $cmd);
-
-   return -1;
-}
-
-function wakeupFor($cmd)
-{
-   // MQTT client id to use for the device. "" will generate a client id automatically
-
-   $mqtt = new bluerhinos\phpMQTT("192.168.200.101", 1883, "poolPHP");
-
-   $message = "{ \"command\" : \"$cmd\" }";
-
-   if ($mqtt->connect(true, NULL, "", ""))
-   {
-      $topic = "poold2mqtt/light/wakeup/set";
-
-      $mqtt->publish($topic, $message, 0);
-      $mqtt->close();
-   }
+   return $state == 0 ? true : false;
 }
 
 // ---------------------------------------------------------------------------

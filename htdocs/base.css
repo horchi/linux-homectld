@@ -646,6 +646,7 @@ div.greenCircle
     align-items: center;
     justify-content: center;
     word-break: break-word;
+    color: black;
 }
 
 .widget-ctrl1 { grid-area: ctrl1; }

@@ -1,4 +1,100 @@
 
+function toggleMode(address)
+{
+    var divId = "#div" + address;
+
+    $.ajax( {
+        url : "interface.php",
+        type : "POST",
+        data : { "action" : 'togglemode', "addr" : address },
+        // dataType : "json",
+        success: function(response) {
+            var modeStyle = response == 'manual' ? "background-color: #a27373;" : "";
+
+            console.log("togglemode : " + response +  " : " + modeStyle);
+
+            $(divId).attr("style", modeStyle);
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            console.log(textStatus, errorThrown);
+        }
+    });
+2}
+
+function toggleIo(address)
+{
+    var imgId = "#img" + address;
+    var titleId = "#title" + address;
+
+    $.ajax( {
+        url : "interface.php",
+        type : "POST",
+        data : { "action" : 'toggleio', "addr" : address },
+        // dataType : "json",
+        success: function(response) {
+            var title = $(titleId).html();
+            var value = response;
+
+            console.log(value + " : " + title);
+
+            $.ajax( {
+                url : "interface.php",
+                type : "POST",
+                data : { "action" : 'getImageOf', "title" : title, "value" : value },
+                // dataType : "json",
+                success: function(response) {
+                    console.log(value + " : " + title + " : " + response);
+                    $(imgId).attr("src", response);
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.log(textStatus, errorThrown);
+                }
+            });
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            console.log(textStatus, errorThrown);
+        }
+    });
+
+    // data = toJson(response);
+}
+
+function toggleIoNext(address)
+{
+    var imgId = "#img" + address;
+    var titleId = "#title" + address;
+
+    $.ajax( {
+        url : "interface.php",
+        type : "POST",
+        data : { "action" : 'toggleioNext', "addr" : address },
+        // dataType : "json",
+        success: function(response) {
+            var title = $(titleId).html();
+            var value = response;
+
+            console.log(value + " : " + title);
+
+            $.ajax( {
+                url : "interface.php",
+                type : "POST",
+                data : { "action" : 'getImageOf', "title" : title, "value" : value },
+                // dataType : "json",
+                success: function(response) {
+                    console.log(value + " : " + title + " : " + response);
+                    $(imgId).attr("src", response);
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.log(textStatus, errorThrown);
+                }
+            });
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            console.log(textStatus, errorThrown);
+        }
+    });
+}
+
 function confirmSubmit(msg)
 {
     if (confirm(msg))
@@ -59,26 +155,6 @@ function disableContent(elm, chk)
 			   elm[i].disabled = true;
 		  }
 	 }
-}
-
-function displayCoords(e, id, elm)
-{
-	 if (!e)
-        e = window.event;
-
-    var mydiv = document.getElementById(id);
-	 var body = (window.document.compatMode && window.document.compatMode == "CSS1Compat")
-          ? window.document.documentElement : window.document.body;
-
-	 xpos = e.pageX ? e.pageX : e.clientX + mydiv.scrollLeft  - mydiv.clientLeft
-	 ypos = e.pageY ? e.pageY : e.clientY + mydiv.scrollTop - mydiv.clientTop,
-
-//    xpos = mydiv.clientLeft
-//    ypos = mydiv.clientTop,
-
-    txt = "Xpos="+xpos+"; Ypos="+ypos+"  ";
-
-    document.getElementById(elm).value = txt;
 }
 
 function showHide(id)

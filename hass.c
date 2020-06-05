@@ -8,6 +8,7 @@
 
 #include <jansson.h>
 
+#include "lib/json.h"
 #include "poold.h"
 
 //***************************************************************************
@@ -126,26 +127,6 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
 //***************************************************************************
 // Perform Hass Requests
 //***************************************************************************
-
-const char* getStringFromJson(json_t* obj, const char* name, const char* def)
-{
-   json_t* o = json_object_get(obj, name);
-
-   if (!o)
-      return def;
-
-   return json_string_value(o);
-}
-
-int getIntFromJson(json_t* obj, const char* name, int def)
-{
-   json_t* o = json_object_get(obj, name);
-
-   if (!o)
-      return def;
-
-   return json_integer_value(o);
-}
 
 int Poold::performHassRequests()
 {

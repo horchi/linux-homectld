@@ -28,8 +28,8 @@ GIT_REV      = $(shell git describe --always 2>/dev/null)
 
 # object files
 
-LOBJS        = lib/db.o lib/dbdict.o lib/common.o lib/serial.o lib/curl.o
-OBJS         = $(LOBJS) main.o gpio.o webif.o w1.o hass.o
+LOBJS        = lib/db.o lib/dbdict.o lib/common.o lib/serial.o lib/curl.o lib/thread.o lib/json.o
+OBJS         = $(LOBJS) main.o gpio.o webif.o w1.o hass.o websock.c
 MQTTBJS      = lib/mqtt.c
 
 CFLAGS    	+= $(shell mysql_config --include)

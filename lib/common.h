@@ -9,10 +9,12 @@
 #define __COMMON_H
 
 #include <stdint.h>   // uint_64_t
+#include <stdio.h>
 #include <stdlib.h>
 #include <iconv.h>
 #include <errno.h>
 #include <string.h>
+#include <zlib.h>
 
 #include <string>
 #include <map>
@@ -79,10 +81,19 @@ void __attribute__ ((format(printf, 2, 3))) tell(int eloquence, const char* form
 char* srealloc(void* ptr, size_t size);
 
 //***************************************************************************
+// Zip
+//***************************************************************************
+
+ulong gzipBound(ulong size);
+int gzip(Bytef* dest, uLongf* destLen, const Bytef* source, uLong sourceLen);
+void tellZipError(int errorCode, const char* op, const char* msg);
+int gunzip(MemoryStruct* zippedData, MemoryStruct* unzippedData);
+
+//***************************************************************************
 // MemoryStruct
 //***************************************************************************
 
-struct MemoryStruct
+class MemoryStruct
 {
    public:
 
@@ -107,9 +118,7 @@ struct MemoryStruct
 
       int append(const char* buf, int len = 0)
       {
-         if (!len)
-            len = strlen(buf) + TB;
-
+         if (!len) len = strlen(buf);
          memory = srealloc(memory, size+len);
          memcpy(memory+size, buf, len);
          size += len;
@@ -127,6 +136,31 @@ struct MemoryStruct
          headerOnly = o->headerOnly;
          modTime = o->modTime;
          expireAt = o->expireAt;
+      }
+
+      int toGzip()
+      {
+         free(zmemory);
+         zsize = 0;
+
+         if (isEmpty())
+            return fail;
+
+         zsize = gzipBound(size) + 512;  // the maximum calculated by the lib, will adusted at gzip() call
+         zmemory = (char*)malloc(zsize);
+
+         if (gzip((Bytef*)zmemory, &zsize, (Bytef*)memory, size) != success)
+         {
+            free(zmemory);
+            zsize = 0;
+            tell(0, "Error gzip failed!");
+
+            return fail;
+         }
+
+         sprintf(contentEncoding, "gzip");
+
+         return success;
       }
 
       void clear()
@@ -192,6 +226,20 @@ class cMyMutex
       int locked;
 };
 
+class cMyMutexLock
+{
+   public:
+
+      cMyMutexLock(cMyMutex* Mutex = NULL);
+      ~cMyMutexLock();
+      bool Lock(cMyMutex* Mutex);
+
+   private:
+
+      cMyMutex* mutex;
+      bool locked;
+};
+
 //***************************************************************************
 // Tools
 //***************************************************************************
@@ -240,17 +288,6 @@ const char* getFirstIp();
   int createMd5(const char* buf, md5* md5);
   int createMd5OfFile(const char* path, const char* name, md5* md5);
 #endif
-
-#ifdef WITH_GUNZIP
-
-//***************************************************************************
-// Zip
-//***************************************************************************
-
-int gunzip(MemoryStruct* zippedData, MemoryStruct* unzippedData);
-void tellZipError(int errorCode, const char* op, const char* msg);
-
-#endif // WITH_GUNZIP
 
 //***************************************************************************
 //

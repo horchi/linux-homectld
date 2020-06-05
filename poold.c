@@ -17,9 +17,44 @@
 
 #include <wiringPi.h>
 
+#include "lib/json.h"
 #include "poold.h"
 
 int Poold::shutdown = no;
+std::queue<std::string> Poold::messagesIn;
+
+//***************************************************************************
+// Web Service
+//***************************************************************************
+
+const char* cWebService::events[] =
+{
+   "unknown",
+   "login",
+   "logout",
+   "toggleio",
+   "toggleionext",
+   "togglemode",
+
+   0
+};
+
+const char* cWebService::toName(Event event)
+{
+   if (event >= evUnknown && event < evCount)
+      return events[event];
+
+   return events[evUnknown];
+}
+
+cWebService::Event cWebService::toEvent(const char* name)
+{
+   for (int e = evUnknown; e < evCount; e++)
+      if (strcasecmp(name, events[e]) == 0)
+         return (Event)e;
+
+   return evUnknown;
+}
 
 //***************************************************************************
 // Object
@@ -37,6 +72,8 @@ Poold::Poold()
    cDbConnection::setName(dbName);
    cDbConnection::setUser(dbUser);
    cDbConnection::setPass(dbPass);
+
+   webSock = new cWebSock("/var/lib/pool/");
 }
 
 Poold::~Poold()
@@ -46,6 +83,7 @@ Poold::~Poold()
    delete mqttWriter;
    delete mqttReader;
    delete mqttCommandReader;
+   delete webSock;
 
    free(mailScript);
    free(stateMailTo);
@@ -55,6 +93,77 @@ Poold::~Poold()
    free(w1AddrAir);
 
    cDbConnection::exit();
+}
+
+//***************************************************************************
+// Push Message
+//***************************************************************************
+
+int Poold::pushMessage(json_t* oContents, const char* title, long client)
+{
+   json_t* obj = json_object();
+
+   addToJson(obj, "event", title);
+   json_object_set_new(obj, "object", oContents);
+
+   char* p = json_dumps(obj, JSON_PRESERVE_ORDER);
+   json_decref(obj);
+
+   cWebSock::pushMessage(p, (lws*)client);
+
+   tell(4, "DEBUG: PushMessage [%s]", p);
+   free(p);
+
+   return done;
+}
+
+//***************************************************************************
+// Dispatch Client Data
+//***************************************************************************
+
+int Poold::dispatchClientRequest()
+{
+   int status = fail;
+   json_error_t error;
+   json_t *oData, *oObject;
+   Event event = evUnknown;
+
+   // #TODO loop here while (!messagesIn.empty()) ?
+
+   if (messagesIn.empty())
+      return done;
+
+   // { "event" : "toggleio", "object" : { "address" : "122", "type" : "DO" } }
+
+   tell(1, "DEBUG: Got '%s'", messagesIn.front().c_str());
+   oData = json_loads(messagesIn.front().c_str(), 0, &error);
+
+   // get the request
+
+   event = cWebService::toEvent(getStringFromJson(oData, "event", "<null>"));
+   oObject = json_object_get(oData, "object");
+
+   int addr = getIntFromJson(oObject, "address");
+   // const char* type = getStringFromJson(oObject, "type");
+
+   // dispatch client request
+
+   switch (event)
+   {
+      // case evLogin:      status = performLogin(oObject);  break;
+      case evToggleIo:      status = toggleIo(addr);            break;
+      case evToggleIoNext:  status = toggleIoNext(addr);        break;
+      case evToggleMode:    status = toggleOutputMode(addr);    break;
+
+      default:
+         tell(0, "Error: Received unexpected client request '%s' at [%s]",
+              toName(event), messagesIn.front().c_str());
+   }
+
+   json_decref(oData);      // free the json object
+   messagesIn.pop();
+
+   return status;
 }
 
 //***************************************************************************
@@ -126,6 +235,14 @@ int Poold::init()
 
    applyConfigurationSpecials();
 
+   // init web socket ...
+
+   while (webSock->init(61109, webSocketPingTime) != success)
+   {
+      tell(0, "Retrying in 2 seconds");
+      sleep(2);
+   }
+
    initialized = true;
 
    return success;
@@ -150,6 +267,25 @@ int Poold::initOutput(uint pin, int opt, OutputMode mode, const char* name)
    digitalOutputStates[pin].opt = opt;
    digitalOutputStates[pin].mode = mode;
    digitalOutputStates[pin].name = name;
+
+   tableValueFacts->clear();
+
+   tableValueFacts->setValue("ADDRESS", (int)pin);
+   tableValueFacts->setValue("TYPE", "DO");
+
+   if (tableValueFacts->find())
+   {
+      if (!tableValueFacts->getValue("USRTITLE")->isEmpty())
+         digitalOutputStates[pin].title = tableValueFacts->getStrValue("USRTITLE");
+      else
+         digitalOutputStates[pin].title = tableValueFacts->getStrValue("TITLE");
+   }
+   else
+   {
+      digitalOutputStates[pin].title = name;
+   }
+
+   tableValueFacts->reset();
 
    pinMode(pin, OUTPUT);
    gpioWrite(pin, false);
@@ -414,6 +550,7 @@ int Poold::readConfiguration()
 
    getConfigItem("tPoolMax", tPoolMax, tPoolMax);
    getConfigItem("tSolarDelta", tSolarDelta, tSolarDelta);
+   getConfigItem("showerDuration", showerDuration, 20);
 
    getConfigItem("invertDO", invertDO, no);
 
@@ -525,7 +662,7 @@ int Poold::standbyUntil(time_t until)
    while (time(0) < until && !doShutDown())
    {
       meanwhile();
-      tell(eloAlways, "standbyUntil: loop ...");
+      // tell(eloAlways, "standbyUntil: loop ...");
       // usleep(50000);  sleep is don in meanwhile by mqttCommandReader
    }
 
@@ -549,6 +686,11 @@ int Poold::meanwhile()
    if (mqttReader && mqttReader->isConnected()) mqttReader->yield();
    if (mqttWriter && mqttWriter->isConnected()) mqttWriter->yield();
    if (mqttCommandReader && mqttCommandReader->isConnected()) mqttCommandReader->yield();
+
+   webSock->service(100);
+   dispatchClientRequest();
+   webSock->performData(cWebSock::mtData);
+   performWebSocketPing();
 
    performHassRequests();
    performWebifRequests();
@@ -651,35 +793,82 @@ int Poold::update()
 
    connection->startTransaction();
 
+   json_t* oJson = json_array();
+
    for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
+      char text[1000];
+      double peak {0.0};
+
       int addr = tableValueFacts->getIntValue("ADDRESS");
+      const char* type = tableValueFacts->getStrValue("TYPE");
       const char* title = tableValueFacts->getStrValue("TITLE");
       const char* usrtitle = tableValueFacts->getStrValue("USRTITLE");
-      const char* type = tableValueFacts->getStrValue("TYPE");
       const char* unit = tableValueFacts->getStrValue("UNIT");
       const char* name = tableValueFacts->getStrValue("NAME");
+      int scaleMax = tableValueFacts->getIntValue("MAXSCALE");
+
+      tablePeaks->clear();
+      tablePeaks->setValue("ADDRESS", addr);
+      tablePeaks->setValue("TYPE", type);
+      if (tablePeaks->find())
+         peak = tablePeaks->getFloatValue("MAX");
+      tablePeaks->reset();
 
       if (!isEmpty(usrtitle))
          title = usrtitle;
 
+      json_t* ojData = json_object();
+      json_array_append_new(oJson, ojData);
+
+      json_object_set_new(ojData, "address", json_integer(addr));
+      json_object_set_new(ojData, "type", json_string(type));
+      json_object_set_new(ojData, "name", json_string(name));
+      json_object_set_new(ojData, "title", json_string(title));
+      json_object_set_new(ojData, "unit", json_string(unit));
+
       if (tableValueFacts->hasValue("TYPE", "W1"))
       {
-         if (w1.exist(name))
-            store(now, name, title, unit, type, addr, w1.valueOf(name));
+         if (!w1.exist(name))
+            continue;
+
+         store(now, name, title, unit, type, addr, w1.valueOf(name));
+         json_object_set_new(ojData, "value", json_real((w1.valueOf(name))));
+         json_object_set_new(ojData, "scalemax", json_integer(scaleMax));
+         json_object_set_new(ojData, "peak", json_real(peak));
+         json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
       }
       else if (tableValueFacts->hasValue("TYPE", "DO"))
       {
          store(now, name, title, unit, type, addr, digitalOutputStates[addr].state);
+         json_object_set_new(ojData, "mode", json_string(digitalOutputStates[addr].mode == omManual ? "manual" : "auto"));
+                  json_object_set_new(ojData, "options", json_integer(digitalOutputStates[addr].opt));
+         json_object_set_new(ojData, "image", json_string(getImageOf(title, digitalOutputStates[addr].state)));
+         json_object_set_new(ojData, "widgettype", json_integer(wtSymbol));
       }
       else if (tableValueFacts->hasValue("TYPE", "SP"))
       {
          if (addr == 1)
          {
-            int level = getWaterLevel();
-            char tmp[100];
-            sprintf(tmp, "ERROR:Sensor Fehler <br/>(%d/%d/%d)", digitalInputStates[pinLevel1], digitalInputStates[pinLevel2], digitalInputStates[pinLevel3]);
-            store(now, name, title, unit, type, addr, level, level == fail ? tmp : "");
+            getWaterLevel();
+
+            if (waterLevel == fail)
+            {
+               sprintf(text, "ERROR:Sensor Fehler <br/>(%d/%d/%d)", digitalInputStates[pinLevel1],
+                       digitalInputStates[pinLevel2], digitalInputStates[pinLevel3]);
+
+               store(now, name, title, unit, type, addr, waterLevel, text);
+               json_object_set_new(ojData, "text", json_string(text));
+               json_object_set_new(ojData, "widgettype", json_integer(wtText));
+            }
+            else
+            {
+               store(now, name, title, unit, type, addr, waterLevel);
+               json_object_set_new(ojData, "value", json_integer(waterLevel));
+               json_object_set_new(ojData, "scalemax", json_integer(scaleMax));
+               json_object_set_new(ojData, "peak", json_real(peak));
+               json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
+            }
          }
          else if (addr == 2)
          {
@@ -687,6 +876,11 @@ int Poold::update()
             tSolar = w1.valueOf(w1AddrSolar);
             tCurrentDelta = tSolar - tPool;
             store(now, name, title, unit, type, addr, tCurrentDelta);
+
+            json_object_set_new(ojData, "value", json_real(tCurrentDelta));
+            json_object_set_new(ojData, "scalemax", json_integer(scaleMax));
+            json_object_set_new(ojData, "peak", json_real(peak));
+            json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
          }
       }
 
@@ -694,6 +888,12 @@ int Poold::update()
    }
 
    connection->commit();
+
+   // send result to all connected WEBIF clients
+
+   Poold::pushMessage(oJson, "all");
+   webSock->performData(cWebSock::mtData);
+   // ?? json_decref(oJson);
 
    tell(eloAlways, "Updated %d samples", count);
 
@@ -796,6 +996,21 @@ int Poold::process()
 }
 
 //***************************************************************************
+// Poold Ping
+//***************************************************************************
+
+int Poold::performWebSocketPing()
+{
+   if (nextWebSocketPing < time(0))
+   {
+      webSock->performData(cWebSock::mtPing);
+      nextWebSocketPing = time(0) + webSocketPingTime-5;
+   }
+
+   return done;
+}
+
+//***************************************************************************
 // Perform Jobs
 //***************************************************************************
 
@@ -805,8 +1020,11 @@ int Poold::performJobs()
 
    if (digitalOutputStates[pinShower].state && digitalOutputStates[pinShower].mode == omAuto)
    {
-      if (digitalOutputStates[pinShower].last < time(0) + 30)
+      if (digitalOutputStates[pinShower].last < time(0) - showerDuration)
+      {
+         tell(eloAlways, "Shower of after %ld seconds", time(0)-digitalOutputStates[pinShower].last);
          gpioWrite(pinShower, false);
+      }
    }
 
    return done;
@@ -1092,6 +1310,50 @@ int Poold::loadHtmlHeader()
 }
 
 //***************************************************************************
+// Add Value Fact
+//***************************************************************************
+
+int Poold::addValueFact(int addr, const char* type, const char* name, const char* unit)
+{
+   int maxScale = unit[0] == '%' ? 100 : 45;
+
+   tableValueFacts->clear();
+   tableValueFacts->setValue("ADDRESS", addr);
+   tableValueFacts->setValue("TYPE", type);
+
+   if (!tableValueFacts->find())
+   {
+      tableValueFacts->setValue("NAME", name);
+      tableValueFacts->setValue("STATE", "D");
+      tableValueFacts->setValue("UNIT", unit);
+      tableValueFacts->setValue("TITLE", name);
+      tableValueFacts->setValue("MAXSCALE", maxScale);
+
+      tableValueFacts->store();
+      return 1;    // 1 for 'added'
+   }
+   else
+   {
+      tableValueFacts->clearChanged();
+
+      tableValueFacts->setValue("NAME", name);
+      tableValueFacts->setValue("UNIT", unit);
+      tableValueFacts->setValue("TITLE", name);
+
+      if (tableValueFacts->getValue("MAXSCALE")->isNull())
+         tableValueFacts->setValue("MAXSCALE", maxScale);
+
+      if (tableValueFacts->getChanges())
+      {
+         tableValueFacts->store();
+         return 2;  // 2 for 'modified'
+      }
+   }
+
+   return fail;
+}
+
+//***************************************************************************
 // Config Data
 //***************************************************************************
 
@@ -1228,26 +1490,24 @@ int Poold::getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges)
 
 int Poold::getWaterLevel()
 {
-   int level {0};
-
    bool l1 = gpioRead(pinLevel1);
    bool l2 = gpioRead(pinLevel2);
    bool l3 = gpioRead(pinLevel3);
 
    if (l1 && l2 && l3)
-      level = 100;
+      waterLevel = 100;
    else if (l1 && l2 && !l3)
-      level = 66;
+      waterLevel = 66;
    else if (l1 && !l2 && !l3)
-      level = 33;
+      waterLevel = 33;
    else if (!l1 && !l2 && !l3)
-      level = 0;
+      waterLevel = 0;
    else
-      level = fail;
+      waterLevel = fail;
 
-   tell(eloDetail, "Water level is %d (%d/%d/%d)", level, l1, l2, l3);
+   tell(eloDetail, "Water level is %d (%d/%d/%d)", waterLevel, l1, l2, l3);
 
-   return level;
+   return waterLevel;
 }
 
 //***************************************************************************
@@ -1262,12 +1522,47 @@ int Poold::toggleIo(uint pin)
    return success;
 }
 
-int Poold::toggleOutputMode(uint pin, OutputMode mode)
+int Poold::toggleIoNext(uint pin)
+{
+   if (digitalOutputStates[pin].state)
+   {
+      toggleIo(pin);
+      usleep(300000);
+      toggleIo(pin);
+      return success;
+   }
+
+   gpioWrite(pin, true);
+
+   return success;
+}
+
+int Poold::toggleOutputMode(uint pin)
 {
    // allow mode toggle only if more than one option is given
 
    if (digitalOutputStates[pin].opt & ooAuto && digitalOutputStates[pin].opt & ooUser)
+   {
+      OutputMode mode = digitalOutputStates[pin].mode == omAuto ? omManual : omAuto;
       digitalOutputStates[pin].mode = mode;
+
+      json_t* oJson = json_array();
+      json_t* ojData = json_object();
+      json_array_append_new(oJson, ojData);
+
+      json_object_set_new(ojData, "address", json_integer(pin));
+      json_object_set_new(ojData, "type", json_string("DO"));
+      json_object_set_new(ojData, "name", json_string(digitalOutputStates[pin].name));
+      json_object_set_new(ojData, "title", json_string(digitalOutputStates[pin].title.c_str()));
+      // json_object_set_new(ojData, "unit", json_string(""));
+      json_object_set_new(ojData, "mode", json_string(digitalOutputStates[pin].mode == omManual ? "manual" : "auto"));
+      json_object_set_new(ojData, "options", json_integer(digitalOutputStates[pin].opt));
+      json_object_set_new(ojData, "image", json_string(getImageOf(digitalOutputStates[pin].title.c_str(), digitalOutputStates[pin].state)));
+      json_object_set_new(ojData, "widgettype", json_integer(wtSymbol));
+
+      Poold::pushMessage(oJson, "update");
+      webSock->performData(cWebSock::mtData);
+   }
 
    return success;
 }
@@ -1283,54 +1578,27 @@ void Poold::gpioWrite(uint pin, bool state)
 
    if (!isEmpty(hassMqttUrl))
       hassPush(iotLight, digitalOutputStates[pin].name, "", "", digitalOutputStates[pin].state, "", false /*forceConfig*/);
+
+   json_t* oJson = json_array();
+   json_t* ojData = json_object();
+   json_array_append_new(oJson, ojData);
+
+   json_object_set_new(ojData, "address", json_integer(pin));
+   json_object_set_new(ojData, "type", json_string("DO"));
+   json_object_set_new(ojData, "name", json_string(digitalOutputStates[pin].name));
+   json_object_set_new(ojData, "title", json_string(digitalOutputStates[pin].title.c_str()));
+   // json_object_set_new(ojData, "unit", json_string(""));
+   json_object_set_new(ojData, "mode", json_string(digitalOutputStates[pin].mode == omManual ? "manual" : "auto"));
+   json_object_set_new(ojData, "options", json_integer(digitalOutputStates[pin].opt));
+   json_object_set_new(ojData, "image", json_string(getImageOf(digitalOutputStates[pin].title.c_str(), digitalOutputStates[pin].state)));
+   json_object_set_new(ojData, "widgettype", json_integer(wtSymbol));
+
+   Poold::pushMessage(oJson, "update");
+   webSock->performData(cWebSock::mtData);
 }
 
 bool Poold::gpioRead(uint pin)
 {
    digitalInputStates[pin] = digitalRead(pin);
    return digitalInputStates[pin];
-}
-
-//***************************************************************************
-// Add alue act
-//***************************************************************************
-
-int Poold::addValueFact(int addr, const char* type, const char* name, const char* unit)
-{
-   int maxScale = unit[0] == '%' ? 100 : 45;
-
-   tableValueFacts->clear();
-   tableValueFacts->setValue("ADDRESS", addr);
-   tableValueFacts->setValue("TYPE", type);
-
-   if (!tableValueFacts->find())
-   {
-      tableValueFacts->setValue("NAME", name);
-      tableValueFacts->setValue("STATE", "D");
-      tableValueFacts->setValue("UNIT", unit);
-      tableValueFacts->setValue("TITLE", name);
-      tableValueFacts->setValue("MAXSCALE", maxScale);
-
-      tableValueFacts->store();
-      return 1;    // 1 for 'added'
-   }
-   else
-   {
-      tableValueFacts->clearChanged();
-
-      tableValueFacts->setValue("NAME", name);
-      tableValueFacts->setValue("UNIT", unit);
-      tableValueFacts->setValue("TITLE", name);
-
-      if (tableValueFacts->getValue("MAXSCALE")->isNull())
-         tableValueFacts->setValue("MAXSCALE", maxScale);
-
-      if (tableValueFacts->getChanges())
-      {
-         tableValueFacts->store();
-         return 2;  // 2 for 'modified'
-      }
-   }
-
-   return fail;
 }

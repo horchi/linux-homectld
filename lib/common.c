@@ -722,8 +722,6 @@ int loadLinesFromFile(const char* infile, std::vector<std::string>& lines, bool 
    return success;
 }
 
-#ifdef WITH_GUNZIP
-
 //***************************************************************************
 // Gnu Unzip
 //***************************************************************************
@@ -802,6 +800,55 @@ int gunzip(MemoryStruct* zippedData, MemoryStruct* unzippedData)
    return success;
 }
 
+//***************************************************************************
+// gzip
+//***************************************************************************
+
+int gzip(Bytef* dest, uLongf* destLen, const Bytef* source, uLong sourceLen)
+{
+    z_stream stream;
+    int res;
+
+    stream.next_in = (Bytef *)source;
+    stream.avail_in = (uInt)sourceLen;
+    stream.next_out = dest;
+    stream.avail_out = (uInt)*destLen;
+    if ((uLong)stream.avail_out != *destLen) return Z_BUF_ERROR;
+
+    stream.zalloc = (alloc_func)0;
+    stream.zfree = (free_func)0;
+    stream.opaque = (voidpf)0;
+
+    res = deflateInit2(&stream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY);
+
+    if (res == Z_OK)
+    {
+       res = deflate(&stream, Z_FINISH);
+
+       if (res != Z_STREAM_END)
+       {
+          deflateEnd(&stream);
+          res = res == Z_OK ? Z_BUF_ERROR : res;
+       }
+    }
+
+    if (res == Z_STREAM_END)
+    {
+       *destLen = stream.total_out;
+       res = deflateEnd(&stream);
+    }
+
+    if (res !=  Z_OK)
+       tellZipError(res, " during compression", "");
+
+    return res == Z_OK ? success : fail;
+}
+
+ulong gzipBound(ulong size)
+{
+   return compressBound(size);
+}
+
 //*************************************************************************
 // tellZipError
 //*************************************************************************
@@ -822,8 +869,6 @@ void tellZipError(int errorCode, const char* op, const char* msg)
       default:             tell(0, "Error: Couldn't unzip data for unknown reason (%6d)%s!\n", errorCode, op); return;
    }
 }
-
-#endif  // WITH_GUNZIP
 
 //*************************************************************************
 // Host Data
@@ -1034,6 +1079,35 @@ void cMyMutex::Unlock(void)
     pthread_mutex_unlock(&mutex);
 }
 
+//***************************************************************************
+// cMyMutexLock
+//***************************************************************************
+
+cMyMutexLock::cMyMutexLock(cMyMutex* Mutex)
+{
+   mutex = NULL;
+   locked = false;
+   Lock(Mutex);
+}
+
+cMyMutexLock::~cMyMutexLock()
+{
+   if (mutex && locked)
+      mutex->Unlock();
+}
+
+bool cMyMutexLock::Lock(cMyMutex* Mutex)
+{
+   if (Mutex && !mutex)
+   {
+      mutex = Mutex;
+      Mutex->Lock();
+      locked = true;
+      return true;
+   }
+
+   return false;
+}
 
 //***************************************************************************
 // cTimeMs

@@ -12,8 +12,13 @@
 // Includes
 //***************************************************************************
 
+#include <queue>
+#include <jansson.h>
+#include <libwebsockets.h>
+
 #include "lib/db.h"
 #include "lib/mqtt.h"
+#include "lib/thread.h"
 
 #include "w1.h"
 #include "HISTORY.h"
@@ -29,10 +34,157 @@ extern char dbPass[];
 extern char* confDir;
 
 //***************************************************************************
+// Class Web Service
+//***************************************************************************
+
+class cWebService
+{
+   public:
+
+      enum Event
+      {
+         evUnknown,
+         evLogin,
+         evLogout,
+         evToggleIo,
+         evToggleIoNext,
+         evToggleMode,
+
+         evCount
+      };
+
+      enum ClientType
+      {
+         ctInactive = na,
+         ctActive
+      };
+
+      static const char* toName(Event event);
+      static Event toEvent(const char* name);
+
+      static const char* events[];
+};
+
+//***************************************************************************
+// Class cWebSock
+//***************************************************************************
+
+class cWebSock : public cWebService
+{
+   public:
+
+      enum MsgType
+      {
+         mtNone = na,
+         mtPing,    // 0
+         mtData     // 1
+      };
+
+      enum Protokoll
+      {
+         sizeLwsPreFrame  = LWS_SEND_BUFFER_PRE_PADDING,
+         sizeLwsPostFrame = LWS_SEND_BUFFER_POST_PADDING,
+         sizeLwsFrame     = sizeLwsPreFrame + sizeLwsPostFrame
+      };
+
+      struct SessionData
+      {
+         char* buffer;
+         int bufferSize;
+         int payloadSize;
+         int dataPending;
+      };
+
+      struct Client
+      {
+         ClientType type;
+         int tftprio;
+         std::queue<std::string> messagesOut;
+         cMyMutex messagesOutMutex;
+         void* wsi;
+
+         void pushMessage(const char* p)
+         {
+            cMyMutexLock lock(&messagesOutMutex);
+            messagesOut.push(p);
+         }
+
+         void cleanupMessageQueue()
+         {
+            cMyMutexLock lock(&messagesOutMutex);
+
+            // just in case client is not connected and wasted messages are pending
+
+            tell(0, "Info: Flushing (%d) old 'wasted' messages of client (%p)", messagesOut.size(), wsi);
+
+            while (!messagesOut.empty())
+               messagesOut.pop();
+         }
+      };
+
+      cWebSock(const char* aHttpPath);
+      virtual ~cWebSock();
+
+      int init(int aPort, int aTimeout);
+      int exit();
+
+      int service(int timeoutMs);
+      int performData(MsgType type);
+
+      // status callback methods
+
+      static int wsLogLevel;
+      static int callbackHttp(lws* wsi, lws_callback_reasons reason, void* user, void* in, size_t len);
+      static int callbackPool(lws* wsi, lws_callback_reasons reason, void* user, void* in, size_t len);
+
+      // static interface
+
+      static void activateAvailableClient();
+      static void atLogin(lws* wsi, const char* message, const char* clientInfo);
+      static void atLogout(lws* wsi, const char* message, const char* clientInfo);
+      static int getClientCount();
+
+      static void pushMessage(const char* p, lws* wsi = 0);
+
+      static void writeLog(int level, const char* line);
+
+   private:
+
+      static int serveFile(lws* wsi, const char* path);
+      static int dispatchDataRequest(lws* wsi, SessionData* sessionData, const char* url);
+
+      static const char* methodOf(const char* url);
+      static const char* getStrParameter(lws* wsi, const char* name, const char* def = 0);
+      static int getIntParameter(lws* wsi, const char* name, int def = na);
+
+      //
+
+      int port {na};
+      lws_protocols protocols[3];
+
+      // statics
+
+      static lws_context* context;
+
+      static char* httpPath;
+      static char* epgImagePath;
+      static int timeout;
+      static void* activeClient;
+      static std::map<void*,Client> clients;
+      static cMyMutex clientsMutex;
+      static MsgType msgType;
+
+      // only used in callback
+
+      static char* msgBuffer;
+      static int msgBufferSize;
+};
+
+//***************************************************************************
 // Class Pool Daemon
 //***************************************************************************
 
-class Poold
+class Poold : public cWebService
 {
    public:
 
@@ -64,7 +216,19 @@ class Poold
 
       static void downF(int aSignal) { shutdown = yes; }
 
+      // public static message interface to web thread
+
+      static int pushMessage(json_t* obj, const char* title, long client = 0);
+      static std::queue<std::string> messagesIn;
+
    protected:
+
+      enum WidgetType
+      {
+         wtSymbol,     // == 0
+         wtGauge,      // == 1
+         wtText        // == 2
+      };
 
       enum IoType
       {
@@ -92,6 +256,7 @@ class Poold
          OutputMode mode {omAuto};
          uint opt {ooUser};
          const char* name;     // crash on init with nullptr :o
+         std::string title;
          time_t last {0};
       };
 
@@ -124,6 +289,8 @@ class Poold
       int update();       // called each 'interval'
       int process();      // called each 'interval'
       int performJobs();  // called every loop (1 second)
+      int performWebSocketPing();
+      int dispatchClientRequest();
 
       bool isInTimeRange(const std::vector<Range>* ranges, time_t t);
       int store(time_t now, const char* name, const char* title, const char* unit, const char* type, int address, double value, const char* text = 0);
@@ -159,10 +326,12 @@ class Poold
 
       // web
 
+      const char* getImageOf(const char* title, int value);
       int performWebifRequests();
       int cleanupWebifRequests();
       int toggleIo(uint pin);
-      int toggleOutputMode(uint pin, OutputMode mode);
+      int toggleIoNext(uint pin);
+      int toggleOutputMode(uint pin);
 
       // data
 
@@ -190,6 +359,10 @@ class Poold
       string mailBody;
       string mailBodyHtml;
       bool initialRun {true};
+
+      cWebSock* webSock {nullptr};
+      time_t nextWebSocketPing {0};
+      int webSocketPingTime {60};
 
       // Home Assistant stuff
 
@@ -219,6 +392,8 @@ class Poold
 
       double tPoolMax {28.0};
       double tSolarDelta {5.0};
+      int waterLevel {0};
+      int showerDuration {20};
 
       std::vector<Range> filterPumpTimes;
       std::vector<Range> uvcLightTimes;

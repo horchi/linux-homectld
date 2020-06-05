@@ -7,9 +7,9 @@
 //***************************************************************************
 
 #include <inttypes.h>
+#include <jansson.h>
 
 #include "lib/common.h"
-
 #include "poold.h"
 
 //***************************************************************************
@@ -134,56 +134,6 @@ int Poold::performWebifRequests()
          free(value);
       }
 
-      else if (strcasecmp(command, "toggle-output-mode") == 0)
-      {
-         toggleOutputMode(addr, strcmp(data, "manual") == 0 ? omManual : omAuto);
-         tableJobs->setValue("RESULT", "success:toggle-output-mode");
-      }
-
-      else if (strcasecmp(command, "setio") == 0)
-      {
-         int v = atoi(data);
-         gpioWrite(addr, v);
-         tableJobs->setValue("RESULT", "success:setio");
-      }
-
-      else if (strcasecmp(command, "toggleio") == 0)
-      {
-         toggleIo(addr);
-         tableJobs->setValue("RESULT", "success:toggled");
-      }
-
-      else if (strcasecmp(command, "toggleio2") == 0)
-      {
-         if (!digitalOutputStates[addr].state)
-         {
-            gpioWrite(addr, true);
-         }
-         else
-         {
-            toggleIo(addr);
-            usleep(300000);
-            toggleIo(addr);
-         }
-         tableJobs->setValue("RESULT", "success:toggled2");
-      }
-
-      else if (strcasecmp(command, "getio") == 0)
-      {
-         char* buf {nullptr};
-
-         // tell(0, "DEBUG: reading digitalOutputStates '%d'", addr);
-         // for (auto it = digitalOutputStates.begin(); it != digitalOutputStates.end(); ++it)
-         // tell(0, "DEBUG: %d -> %d/%d/%d", it->first, it->second.state, it->second.mode, it->second.opt);
-
-         bool v = digitalOutputStates[addr].state;
-         OutputMode m = digitalOutputStates[addr].mode;
-         int o = digitalOutputStates[addr].opt;
-         asprintf(&buf, "success:%d:%d:%s:%d", addr, v, m == omManual ? "manual" : "auto", o);
-         tableJobs->setValue("RESULT", buf);
-         free(buf);
-      }
-
       else if (strcasecmp(command, "getallio") == 0)
       {
          std::string result = "success:";
@@ -195,13 +145,14 @@ int Poold::performWebifRequests()
             OutputMode m = it->second.mode;
             int o = it->second.opt;
 
+            // 11:0:auto:3 # 12:0:auto:3#13:0:manual:1#15:0:auto:3#16:0:manual:1#18:0:manual:1#22:0:auto:3#23
             asprintf(&buf, "%d:%d:%s:%d#", it->first, v, m == omManual ? "manual" : "auto", o);
-
             result += buf;
             free(buf);
          }
 
-         tableJobs->setValue("RESULT", result.c_str());
+         tableJobs->setValue("BDATA", result.c_str());
+         tableJobs->setValue("RESULT", "success:BDATA");
       }
 
       else if (strcasecmp(command, "daemon-state") == 0)
@@ -220,8 +171,7 @@ int Poold::performWebifRequests()
 
          getloadavg(averages, 3);
 
-         asprintf(&buf, "success:%s#%s#%s#%3.2f %3.2f %3.2f",
-                  dt, VERSION, d, averages[0], averages[1], averages[2]);
+         asprintf(&buf, "success:%s#%s#%s#%3.2f %3.2f %3.2f", dt, VERSION, d, averages[0], averages[1], averages[2]);
 
          tableJobs->setValue("RESULT", buf);
          free(buf);
@@ -273,6 +223,30 @@ int Poold::performWebifRequests()
    selectPendingJobs->freeResult();
 
    return success;
+}
+
+//***************************************************************************
+// getImageOf
+//***************************************************************************
+
+const char* Poold::getImageOf(const char* title, int value)
+{
+   const char* imagePath = "unknown.jpg";
+
+   if (strcasestr(title, "Pump"))
+      imagePath = value ? "img/icon/pump-on.gif" : "img/icon/pump-off.png";
+   else if (strcasestr(title, "Steckdose"))
+      imagePath = value ? "img/icon/plug-on.png" : "img/icon/plug-off.png";
+   else if (strcasestr(title, "UV-C"))
+      imagePath = value ? "img/icon/uvc-on.png" : "img/icon/uvc-off.png";
+   else if (strcasestr(title, "Licht"))
+      imagePath = value ? "img/icon/light-on.png" : "img/icon/light-off.png";
+   else if (strcasestr(title, "Shower") || strcasestr(title, "Dusche"))
+      imagePath = value ? "img/icon/shower-on.png" : "img/icon/shower-off.png";
+   else
+      imagePath = value ? "img/icon/boolean-on.png" : "img/icon/boolean-off.png";
+
+   return imagePath;
 }
 
 //***************************************************************************

@@ -58,9 +58,7 @@ std::map<std::string, Poold::ConfigItemDef> Poold::configuration
    { "w1AddrAir",             { ctString,  false, "Pool Daemon", "Adresse Fühler Temperatur Luft", "" } },
    { "w1AddrPool",            { ctString,  false, "Pool Daemon", "Adresse Fühler Temperatur Pool", "" } },
    { "w1AddrSolar",           { ctString,  false, "Pool Daemon", "Adresse Fühler Temperatur Kollektor", "" } },
-   { "w1AddrSuctionTube",     { ctString,  false, "Pool Daemon", "Adresse Fühler Temperatur Saugleitung", "" } }
-};
-/*
+   { "w1AddrSuctionTube",     { ctString,  false, "Pool Daemon", "Adresse Fühler Temperatur Saugleitung", "" } },
 
    { "aggregateHistory",      { ctInteger, false, "Pool Daemon", "Historie [Tage]", "history for aggregation in days (default 0 days -> aggegation turned OFF)" } },
    { "aggregateInterval",     { ctInteger, false, "Pool Daemon", "Intervall [m]", "aggregation interval in minutes - 'one sample per interval will be build'" } },
@@ -77,10 +75,9 @@ std::map<std::string, Poold::ConfigItemDef> Poold::configuration
 
    // sonstiges
 
-   { "localLoginNetmask",     { ctString,  false, "Sonstiges", "Netzmaske für auto login", "Beispiel: 192.168.200.0/24" } },
+   { "localLoginNetmask",     { ctString,  false, "Sonstiges", "Netzmaske für auto login", "Beispiel: 192" } },  // "Beispiel: 192.168.200.0/24"
    { "WSLoginToken",          { ctString,  true,  "Sonstiges", "", "" } }
 };
-*/
 
 //***************************************************************************
 // Web Service
@@ -856,7 +853,9 @@ int Poold::update(bool webOnly, long client)
 
    if (!webOnly)
    {
+      tell(0, "Update W1 sensors ...");
       w1.update();
+      tell(0, "... done");
 
       if (w1Count < w1.getCount())
       {

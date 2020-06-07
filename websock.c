@@ -20,12 +20,12 @@ int cWebSock::wsLogLevel = LLL_ERR | LLL_WARN; // LLL_INFO | LLL_NOTICE | LLL_WA
 lws_context* cWebSock::context = 0;
 char* cWebSock::msgBuffer = 0;
 int cWebSock::msgBufferSize = 0;
-void* cWebSock::activeClient = 0;
 int cWebSock::timeout = 0;
 cWebSock::MsgType cWebSock::msgType = mtNone;
 std::map<void*,cWebSock::Client> cWebSock::clients;
 cMyMutex cWebSock::clientsMutex;
 char* cWebSock::httpPath = 0;
+char* cWebSock::loginToken = 0;
 
 //***************************************************************************
 // Init
@@ -40,6 +40,7 @@ cWebSock::~cWebSock()
 {
    exit();
 
+   free(loginToken);
    free(httpPath);
    free(msgBuffer);
 }
@@ -139,7 +140,7 @@ int cWebSock::performData(MsgType type)
 
    for (auto it = clients.begin(); it != clients.end(); ++it)
    {
-      if (it->second.type != ctInactive && !it->second.messagesOut.empty())
+      if (!it->second.messagesOut.empty())
          count++;
    }
 
@@ -364,7 +365,7 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
 {
    std::string clientInfo = "unknown";
 
-   // tell(1, "DEBUG: 'callbackPool' got (%d)", reason);
+   tell(1, "DEBUG: 'callbackPool' got (%d)", reason);
 
    switch (reason)
    {
@@ -388,13 +389,10 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
       {
          if (msgType == mtPing)
          {
-            if (clients[wsi].type != ctInactive)
-            {
-               char buffer[sizeLwsFrame];
+            char buffer[sizeLwsFrame];
 
-               tell(1, "DEBUG: Write 'PING' to '%s' (%p)", clientInfo.c_str(), (void*)wsi);
+            tell(4, "DEBUG: Write 'PING' to '%s' (%p)", clientInfo.c_str(), (void*)wsi);
                lws_write(wsi, (unsigned char*)buffer + sizeLwsPreFrame, 0, LWS_WRITE_PING);
-            }
          }
 
          else if (msgType == mtData)
@@ -468,24 +466,28 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
 
          if (event == evLogin)                             // { "event" : "login", "object" : { "type" : "foo" } }
          {
-            // clients[wsi].type = (ClientType)getIntFromJson(oObject, "type", ctInteractive);
-            // atLogin(wsi, message, clientInfo.c_str());
+            const char* token = getStringFromJson(oObject, "token", "");
+
+            if (strcmp(token, loginToken) == 0)
+               clients[wsi].type = ctWithLogin;
+            else
+               clients[wsi].type = ctActive;
+
+            atLogin(wsi, message, clientInfo.c_str());
          }
-
-         else //  if (event == evToggleIo)
-            Poold::messagesIn.push(message);
-
-/*       else if (event == evLogout)                       // { "event" : "logout", "object" : { } }
+         else if (event == evLogout)                       // { "event" : "logout", "object" : { } }
          {
             tell(3, "DEBUG: Got '%s'", message);
-            clients[wsi].type = ctInactive;
-            activateAvailableClient();
             clients[wsi].cleanupMessageQueue();
          }
+         else if (clients[wsi].type == ctWithLogin)
+         {
+            Poold::messagesIn.push(message);
+         }
          else
-            tell(2, "Debug: Ignoring data of not 'active' client (%p) prio (%d) %s [%s]",
-                 (void*)wsi, clients[wsi].tftprio,
-                 activeClient ? "at least one active clinet is connected" : "", message); */
+         {
+            tell(1, "Debug: Ignoring data of client (%p) without login [%s]", (void*)wsi, message);
+         }
 
          json_decref(oData);
          free(message);
@@ -540,30 +542,6 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
 }
 
 //***************************************************************************
-// Check/Activate Available Client
-//***************************************************************************
-
-void cWebSock::activateAvailableClient()
-{
-   cMyMutexLock lock(&clientsMutex);
-
-   auto it = clients.find(activeClient);
-
-   if (!activeClient || it == clients.end() || it->second.type == ctInactive)
-   {
-      for (it = clients.begin(); it != clients.end(); ++it)
-      {
-         if (it->second.type == ctActive)
-         {
-            activeClient = it->first;
-            tell(1, "Set client (%p) to active", activeClient);
-            break;
-         }
-      }
-   }
-}
-
-//***************************************************************************
 // At Login / Logout
 //***************************************************************************
 
@@ -574,9 +552,7 @@ void cWebSock::atLogin(lws* wsi, const char* message, const char* clientInfo)
    tell(1, "Client login '%s' (%p) [%s]", clientInfo, (void*)wsi, message);
 
    addToJson(oContents, "type", clients[wsi].type);
-   addToJson(oContents, "tftprio", clients[wsi].tftprio);
    addToJson(oContents, "client", (long)wsi);
-   addToJson(oContents, "lastclient", (long)activeClient);
 
    json_t* obj = json_object();
    addToJson(obj, "event", "login");
@@ -596,12 +572,6 @@ void cWebSock::atLogout(lws* wsi, const char* message, const char* clientInfo)
    tell(1, "%s '%s' (%p)", clientInfo, message, (void*)wsi);
 
    clients.erase(wsi);
-
-   if (activeClient == wsi)
-      activeClient = 0;
-
-   if (!activeClient)
-      activateAvailableClient();
 }
 
 //***************************************************************************
@@ -616,7 +586,7 @@ int cWebSock::getClientCount()
 
    for (auto it = clients.begin(); it != clients.end(); ++it)
    {
-      if (it->second.type != ctInactive)
+//      if (it->second.type != ctInactive)
          count++;
    }
 
@@ -631,18 +601,18 @@ void cWebSock::pushMessage(const char* message, lws* wsi)
 {
    cMyMutexLock lock(&clientsMutex);
 
-   // push message only to connected, not inactiv clients
-
    if (wsi)
    {
       if (clients.find(wsi) != clients.end())
          clients[wsi].pushMessage(message);
+      else
+         tell(0, "client %ld not found!", wsi);
    }
    else
    {
       for (auto it = clients.begin(); it != clients.end(); ++it)
       {
-         if (it->second.type != ctInactive)
+         // if (it->second.type != ctInactive)
             it->second.pushMessage(message);
       }
    }

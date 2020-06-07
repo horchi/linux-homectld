@@ -1,0 +1,50 @@
+<?php
+include("config.php");
+?>
+
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="de" lang="de">
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+
+    <meta name="author" content="Jörg Wendel"/>
+    <meta name="copyright" content="Jörg Wendel"/>
+    <meta name="viewport" content="initial-scale=1.0, width=device-width, user-scalable=no, maximum-scale=1, minimum-scale=1"/>
+
+    <meta name="mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+
+    <link rel="shortcut icon" href="$img" type="image/png"/>
+    <link rel="icon" href="$img" type="image/png"/>
+    <link rel="apple-touch-icon-precomposed" sizes="144x144" href="$img" type="image/png"/>
+    <link rel="stylesheet" type="text/css" href="stylesheet.css"/>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/snap.svg/0.4.1/snap.svg-min.js"></script>
+    <script type="text/JavaScript" src="jfunctions.js"></script>
+    <script type="module" src="main.js"></script>
+    <title>Pool Control Dashboard</title>
+  </head>
+  <body>
+
+  <nav class="fixed-menu1">
+    <a href="dashboard.html"><button class="rounded-border button1">Dashboard</button></a>
+    <a href="main.php"><button class="rounded-border button1">Liste</button></a>
+    <a href="chart.php"><button class="rounded-border button1">Charts</button></a>
+    <a href="maincfg.html"><button class="rounded-border button1">Setup</button></a>
+  </nav>
+
+  <div class="content">
+    <div id="widgetContainer" class="widgetContainer">
+
+      <div class="widget rounded-border">
+        <div class="widget-title">Zeit</div>
+        <div id="refreshTime" class="widget-value"></div>
+      </div>
+
+    </div>
+  </div>
+
+  </body>
+</html>

@@ -121,7 +121,6 @@ function printHeader($refresh = 0)
    echo "    <script src=\"https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js\"></script>\n";
    echo "    <script src=\"https://cdnjs.cloudflare.com/ajax/libs/snap.svg/0.4.1/snap.svg-min.js\"></script>\n";
    echo "    <script type=\"text/JavaScript\" src=\"jfunctions.js\"></script>\n";
-   echo "    <script type=\"module\" src=\"main.js\"></script>\n";
    echo "    <title>Pool Control</title>\n";
    echo "  </head>\n";
    echo "  <body>\n";
@@ -129,9 +128,10 @@ function printHeader($refresh = 0)
    // menu button bar ...
 
    echo "    <nav class=\"fixed-menu1\">\n";
-   echo "      <a href=\"dashboard.php\"><button class=\"rounded-border button1\">Dashboard</button></a>\n";
+   echo "      <a href=\"dashboard.html\"><button class=\"rounded-border button1\">Dashboard</button></a>\n";
    echo "      <a href=\"main.php\"><button class=\"rounded-border button1\">Liste</button></a>\n";
    echo "      <a href=\"chart.php\"><button class=\"rounded-border button1\">Charts</button></a>\n";
+   echo "      <a href=\"dashboard.php\"><button class=\"rounded-border button1\">old</button></a>\n";
 
    if (ipInRange(getClientIp(), $_SESSION['localLoginNetmask']))
    {

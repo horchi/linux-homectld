@@ -15,7 +15,7 @@ export default function WebSocketClient(opt)
         return false;
 
     let client = this;
-    let queue= [];
+    let queue = [];
 
     this.onclose = function () {
         console.log("websocket connection closed");
@@ -43,11 +43,11 @@ export default function WebSocketClient(opt)
     this.open = function () {
         client.ws = new WebSocket(client.url, client.protocol);
         client.ws.onopen = function(e){
-            if (queue){
+            if (queue) {
                 let JSONobj;
-                while ( (JSONobj=queue.shift()))
+                while ((JSONobj=queue.shift()))
                     client.ws.send(JSON.stringify(JSONobj));
-                queue= null;
+                queue = null;
             }
             client.onopen && client.onopen(e);
         }

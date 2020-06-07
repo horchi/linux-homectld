@@ -16,6 +16,8 @@ $debug           = 1;
 $wd_value        = array("Monday", "Tuesday",  "Wednesday", "Thursday",   "Friday",  "Saturday", "Sunday");
 $wd_disp         = array("Montag", "Dienstag", "Mittwoch",  "Donnerstag", "Freitag", "Samstag",  "Sonntag");
 
+$secretLoginToken = "dein secret login token";
+
 // -----------------------------
 // don't touch below ;-)
 

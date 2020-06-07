@@ -3,7 +3,6 @@
 include("header.php");
 
 printHeader();
-// printHeader($_SESSION['refreshWeb']);
 
 // -------------------------
 // establish db connection
@@ -32,22 +31,22 @@ $max = $row['max(time)'];
 // widgets
 
 {
-   // select s.address as s_address, s.type as s_type, s.time as s_time, f.title, f.usrtitle from samples s left join peaks p on p.address = s.address and p.type = s.type join valuefacts f on f.address = s.address and f.type = s.type where f.state = 'A' and s.time = '2020-03-27 12:19:00'
+   echo "    <script type=\"module\" src=\"main.js\"></script>\n";
+
+   // select s.address as s_address, s.type as s_type, s.time as s_time, f.title, f.usrtitle from samples s left join valuefacts f on f.address = s.address and f.type = s.type where f.state = 'A' and s.time = '2020-03-27 12:19:00'
 
    buildIdList($_SESSION['addrsDashboard'], $sensors, $addrWhere, $ids);
 
-   $strQueryBase = sprintf("select p.minv as p_min, p.maxv as p_max,
+   $strQueryBase = sprintf("select
                               s.address as s_address, s.type as s_type, s.time as s_time, s.value as s_value, s.text as s_text,
-                              f.name as f_name, f.title as f_title, f.usrtitle as f_usrtitle, f.unit as f_unit, f.maxscale as f_maxscale
-                              from samples s left join peaks p on p.address = s.address and p.type = s.type
+                              f.name as f_name, f.title as f_title, f.usrtitle as f_usrtitle, f.unit as f_unit
+                              from samples s
                               join valuefacts f on f.address = s.address and f.type = s.type");
 
    if ($addrWhere == "")
       $strQuery = sprintf("%s where s.time = '%s'", $strQueryBase, $max);
    else
       $strQuery = sprintf("%s where (%s) and s.time = '%s'", $strQueryBase, $addrWhere, $max);
-
-   // tell("selecting " . " '" . $strQuery . "'");
 
    $result = $mysqli->query($strQuery)
       or die("Error" . $mysqli->error);
@@ -64,31 +63,12 @@ $max = $row['max(time)'];
          $ids[$i++] = $id;
    }
 
-   echo "    <div id=\"widgetContainer\" class=\"widgetContainer\">\n";
+   echo "    <div id=\"widgetContainerOld\" class=\"widgetContainer\">\n";
 
    echo "        <div class=\"widget rounded-border\">\n";
    echo "          <div class=\"widget-title\">Zeit</div>";
-   echo "          <div id=\"demo\" class=\"widget-value\"></div>";
+   echo "          <div id=\"refreshTime\" class=\"widget-value\"></div>";
    echo "        </div>\n";
-
-   // get actual state of all 'DO'
-
-   $sensors = new \Ds\Map();
-   $state = requestAction("getallio", 3, 0, "", $response);
-
-   if ($state == 0)
-   {
-      $arr = explode("#", $response);
-
-      foreach ($arr as &$item)
-      {
-         if ($item != "")
-         {
-            list($pin, $data) = explode(":", $item, 2);
-            $sensors->put($pin, $data);
-         }
-      }
-   }
 
    // process ...
 
@@ -109,27 +89,8 @@ $max = $row['max(time)'];
       $title = $row['f_usrtitle'] != "" ? $row['f_usrtitle'] : $row['f_title'];
       $unit = prettyUnit($row['f_unit']);
       $u = $row['f_unit'];
-      $scaleMax = $row['f_maxscale'];
       $address = $row['s_address'];
       $type = $row['s_type'];
-      $peak = $row['p_max'];
-      $opt = 0;
-      $modeStyle = "";
-
-      // case of DO request the actual state instead of the last stored value
-
-      if ($type == 'DO')
-      {
-         if ($sensors->hasKey($address))
-         {
-            $data = $sensors[$address];
-
-            list($value, $mode, $opt) = explode(":", $data, 3);
-
-            if ($opt == 3)
-               $modeStyle = $mode == 'auto' ? "" : "background-color: #a27373;";
-         }
-      }
 
       // ------------------
       // draw widgets
@@ -145,16 +106,6 @@ $max = $row['max(time)'];
 
       else if ($unit == '°C' || $unit == '%'|| $unit == 'V' || $unit == 'A')       // 'Volt/Ampere/Prozent/°C' als Gauge
       {
-         $scaleMax = $unit == '%' ? 100 : $scaleMax;
-         $scaleMin = $value >= 0 ? "0" : ceil($value / 5) * 5 - 5;
-
-         if ($scaleMax < $value)
-            $scaleMax = $value;
-         if ($scaleMax < $peak)
-            $scaleMax = $peak;
-
-         $ratio = ($value - $scaleMin) / ($scaleMax - $scaleMin);
-         $peak = ($peak - $scaleMin) / ($scaleMax - $scaleMin);
          $range = 1;
          $from = strtotime("today", time());
 
@@ -163,13 +114,15 @@ $max = $row['max(time)'];
             . $_SESSION['chartDiv'] . " ','_blank',"
             . "'scrollbars=yes,width=1200,height=600,resizable=yes,left=120,top=120')\"";
 
-         echo "        <div $url id=\"widget$type$address\" class=\"widgetGauge rounded-border participation\" data-y=\"500\" data-unit=\"$unit\" data-value=\"$value\" data-peak=\"$peak\" data-ratio=\"$ratio\">\n";
+         echo "        <div $url id=\"widget$type$address\" class=\"widgetGauge rounded-border participation\" >\n";
          echo "          <div class=\"widget-title\">$title</div>";
          echo "          <svg class=\"widget-svg\" viewBox=\"0 0 1000 600\" preserveAspectRatio=\"xMidYMin slice\">\n";
-         echo "            <path d=\"M 950 500 A 450 450 0 0 0 50 500\"></path>\n";
-         echo "            <text class='_content' text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"500\" y=\"450\" font-size=\"140\" font-weight=\"bold\">$unit</text>\n";
-         echo "            <text class='scale-text' text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"50\" y=\"550\">$scaleMin</text>\n";
-         echo "            <text class='scale-text' text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"950\" y=\"550\">$scaleMax</text>\n";
+         echo "            <path id=\"pb$type$address\"/>\n";
+         echo "            <path class=\"data-arc\" id=\"pv$type$address\"/>\n";
+         echo "            <path class=\"data-peak\" id=\"pb$type$address\"/>\n";
+         echo "            <text id=\"value$type$address\" text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"500\" y=\"450\" font-size=\"140\" font-weight=\"bold\"></text>\n";
+         echo "            <text id=\"sMin$type$address\" class='scale-text' text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"50\" y=\"550\"></text>\n";
+         echo "            <text id=\"sMax$type$address\" class='scale-text' text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"950\" y=\"550\"></text>\n";
          echo "          </svg>\n";
          echo "        </div>\n";
       }
@@ -190,24 +143,23 @@ $max = $row['max(time)'];
 
          echo "        <div class=\"widget rounded-border\">\n";
          echo "          <div class=\"widget-title\">$title</div>";
-         echo "          <div id=\"widget$type$address\" class=\"widget-value\">$value $unit</div>";
+         echo "          <div id=\"widget$type$address\" class=\"widget-value\"></div>";
          echo "        </div>\n";
       }
 
       else if ($type == 'DI' || $type == 'DO' || $u == '')                     // 'boolean' als symbol anzeigen
       {
-         $imagePath = getImageOf($title, $value);
          $ctrlButtons = $name == "Pool Light" && $_SESSION['poolLightColorToggle'];
 
          if (!$ctrlButtons)
-            echo "        <div id=\"div$type$address\" class=\"widget rounded-border\" style=\"$modeStyle\">\n";
+            echo "        <div id=\"div$type$address\" class=\"widget rounded-border\" >\n";
          else
             echo "        <div class=\"widgetCtrl rounded-border\">\n";
 
          if (!haveLogin())
-            $element = $opt == 3 ? "button type=\"button\" " : "div";
+            $element =  "button type=\"button\"";
          else
-            $element = $opt == 3 ? "button type=\"button\" onclick=\"toggleMode($address, '$type')\"" : "div";
+            $element = "button type=\"button\" onclick=\"toggleMode($address, '$type')\"";
 
          echo "          <$element class=\"widget-title\">$title</$element>\n";
 
@@ -215,7 +167,7 @@ $max = $row['max(time)'];
             echo "          <button class=\"widget-main\" type=\"button\" >\n";
          else
             echo "          <button class=\"widget-main\" type=\"button\" onclick=\"toggleIo($address, '$type')\" >\n";
-         echo "            <img id=\"widget$type$address\" src=\"$imagePath\" />\n";
+         echo "            <img id=\"widget$type$address\"  />\n";
          echo "          </button>\n";
 
          if ($ctrlButtons)
@@ -239,8 +191,7 @@ $max = $row['max(time)'];
       }
    }
 
-//   echo "    </form>\n";
-   echo "  </div>\n";  // widgetContainer
+   echo "  </div>\n";  // widgetContainerOld
 }
 
 $mysqli->close();

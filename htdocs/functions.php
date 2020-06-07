@@ -66,7 +66,7 @@ function checkLogin($user, $passwd)
 // Get Image Path
 // ---------------------------------------------------------------------------
 
-function getImageOf($title, $value)
+/*function getImageOf($title, $value)
 {
    $imagePath = "unknown.jpg";
 
@@ -84,7 +84,7 @@ function getImageOf($title, $value)
       $imagePath = $value == "1.00" ? "img/icon/boolean-on.png" : "img/icon/boolean-off.png";
 
    return $imagePath;
-}
+}*/
 
 // ---------------------------------------------------------------------------
 // IP In Range
@@ -439,36 +439,6 @@ function readConfigItem($name, &$value, $default = "")
 }
 
 // ---------------------------------------------------------------------------
-// Schema Selection
-// ---------------------------------------------------------------------------
-
-function schemaItem($flow, $title, $schema)
-{
-   global $schema_path, $schema_pattern;
-   $actual = "schema-$schema.png";
-
-   $end = htmTags($flow);
-   echo "          <span>$title:</span>\n";
-   echo "          <span>\n";
-   echo "          <select class=\"rounded-border input\" name=\"schema\">\n";
-
-   $path  = $schema_path . $schema_pattern;
-
-   foreach (glob($path) as $filename)
-   {
-      $filename = basename($filename);
-
-      $sel = ($actual == $filename) ? "SELECTED" : "";
-      $tp  = substr(strstr($filename, ".", true), 7);
-      echo "            <option value=\"$tp\" " . $sel . ">$tp</option>\n";
-   }
-
-   echo "          </select>\n";
-   echo "          </span>\n";
-   echo $end;
-}
-
-// ---------------------------------------------------------------------------
 // Text Config items
 // ---------------------------------------------------------------------------
 
@@ -620,16 +590,6 @@ function configOptionItem($flow, $title, $name, $value, $options, $comment = "",
       echo "          <span class=\"inputComment\">($comment)</span>\n";
 
    echo $end;
-}
-
-function lineS()
-{
-   echo   "        <div>\n";
-}
-
-function lineE()
-{
-   echo   "        </div>\n";
 }
 
 // ---------------------------------------------------------------------------

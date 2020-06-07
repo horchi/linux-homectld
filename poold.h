@@ -55,7 +55,7 @@ class cWebService
 
       enum ClientType
       {
-         ctInactive = na,
+         ctWithLogin = 0,
          ctActive
       };
 
@@ -125,6 +125,7 @@ class cWebSock : public cWebService
       cWebSock(const char* aHttpPath);
       virtual ~cWebSock();
 
+      void setLoginToken(const char* aLoginToken) {free(loginToken); loginToken = strdup(aLoginToken);}
       int init(int aPort, int aTimeout);
       int exit();
 
@@ -139,13 +140,10 @@ class cWebSock : public cWebService
 
       // static interface
 
-      static void activateAvailableClient();
       static void atLogin(lws* wsi, const char* message, const char* clientInfo);
       static void atLogout(lws* wsi, const char* message, const char* clientInfo);
       static int getClientCount();
-
       static void pushMessage(const char* p, lws* wsi = 0);
-
       static void writeLog(int level, const char* line);
 
    private:
@@ -166,10 +164,10 @@ class cWebSock : public cWebService
 
       static lws_context* context;
 
+      static char* loginToken;
       static char* httpPath;
       static char* epgImagePath;
       static int timeout;
-      static void* activeClient;
       static std::map<void*,Client> clients;
       static cMyMutex clientsMutex;
       static MsgType msgType;
@@ -218,7 +216,7 @@ class Poold : public cWebService
 
       // public static message interface to web thread
 
-      static int pushMessage(json_t* obj, const char* title, long client = 0);
+      int pushMessage(json_t* obj, const char* title, long client = 0);
       static std::queue<std::string> messagesIn;
 
    protected:
@@ -227,7 +225,8 @@ class Poold : public cWebService
       {
          wtSymbol,     // == 0
          wtGauge,      // == 1
-         wtText        // == 2
+         wtText,       // == 2
+         wtValue       // == 3
       };
 
       enum IoType
@@ -268,6 +267,24 @@ class Poold : public cWebService
          bool inRange(uint t)  const    { return (from <= t && to >= t); }
       };
 
+      enum ConfigItemType
+      {
+         ctInteger = 0,
+         ctNum,
+         ctString,
+         ctBool,
+         ctRange
+      };
+
+      struct ConfigItemDef
+      {
+         ConfigItemType type;
+         bool internal;
+         std::string category;
+         std::string title;
+         std::string description;
+      };
+
       std::map<int,OutputState> digitalOutputStates;
       std::map<int,bool> digitalInputStates;
 
@@ -286,9 +303,9 @@ class Poold : public cWebService
       int standbyUntil(time_t until);
       int meanwhile();
 
-      int update();       // called each 'interval'
-      int process();      // called each 'interval'
-      int performJobs();  // called every loop (1 second)
+      int update(bool webOnly = false, long client = 0);   // called each (at least) 'interval'
+      int process();                                       // called each 'interval'
+      int performJobs();                                   // called every loop (1 second)
       int performWebSocketPing();
       int dispatchClientRequest();
 
@@ -302,7 +319,6 @@ class Poold : public cWebService
       int scheduleAggregate();
       int aggregate();
 
-      void afterUpdate();
       int sendStateMail();
       int sendMail(const char* receiver, const char* subject, const char* body, const char* mimeType);
 
@@ -326,6 +342,12 @@ class Poold : public cWebService
 
       // web
 
+      int performLogin(json_t* oObject);
+      int config2Json(json_t* obj);
+      int configDetails2Json(json_t* obj);
+      int sensor2Json(json_t* obj, cDbTable* table);
+      void pin2Json(json_t* ojData, int pin);
+
       const char* getImageOf(const char* title, int value);
       int performWebifRequests();
       int cleanupWebifRequests();
@@ -346,6 +368,7 @@ class Poold : public cWebService
 
       cDbStatement* selectActiveValueFacts {nullptr};
       cDbStatement* selectAllValueFacts {nullptr};
+      cDbStatement* selectAllConfig {nullptr};
       cDbStatement* selectMaxTime {nullptr};
       cDbStatement* selectPendingJobs {nullptr};
       cDbStatement* cleanupJobs {nullptr};
@@ -376,6 +399,7 @@ class Poold : public cWebService
       int aggregateInterval {15};         // aggregate interval in minutes
       int aggregateHistory {0};           // history in days
       char* hassMqttUrl {0};
+      char* wsLoginToken {nullptr};
       std::map<std::string,std::string> hassCmdTopicMap; // <topic,name>
 
       int mail {no};
@@ -409,6 +433,8 @@ class Poold : public cWebService
       double tCurrentDelta {0.0};
 
       // statics
+
+      static std::map<std::string, ConfigItemDef> configuration;
 
       static int shutdown;
 };

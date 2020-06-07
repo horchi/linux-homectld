@@ -17,7 +17,8 @@ function showContent(elm)
 
 function readonlyContent(elm, chk)
 {
-    var elm = document.querySelectorAll('[id*=' + elm + ']');  var i;
+    var elm = document.querySelectorAll('[id*=' + elm + ']');
+    var i;
 
 	 if (chk.checked == 1)
     {
@@ -39,7 +40,8 @@ function readonlyContent(elm, chk)
 
 function disableContent(elm, chk)
 {
-    var elm = document.querySelectorAll('[id*=' + elm + ']');  var i;
+    var elm = document.querySelectorAll('[id*=' + elm + ']');
+    var i;
 
 	 if (chk.checked == 1)
     {

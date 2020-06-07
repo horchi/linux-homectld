@@ -23,12 +23,12 @@ int Poold::performWebifRequests()
    for (int f = selectPendingJobs->find(); f; f = selectPendingJobs->fetch())
    {
       uint64_t start = cTimeMs::Now();
+      int jobId = tableJobs->getIntValue("ID");
       int addr = tableJobs->getIntValue("ADDRESS");
       const char* command = tableJobs->getStrValue("COMMAND");
       const char* data = tableJobs->getStrValue("DATA");
-      int jobId = tableJobs->getIntValue("ID");
 
-      tableJobs->find();
+      // tableJobs->find();
       tableJobs->setValue("DONEAT", time(0));
       tableJobs->setValue("STATE", "D");
 

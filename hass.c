@@ -182,7 +182,7 @@ int Poold::hassCheckConnection()
    {
       mqttCommandReader = new MqTTSubscribeClient(hassMqttUrl, "poold_com");
       mqttCommandReader->setConnectTimeout(15);   // seconds
-      mqttCommandReader->setTimeout(1000);        // milli seconds
+      mqttCommandReader->setTimeout(15);          // milli seconds
    }
 
    if (!mqttWriter)

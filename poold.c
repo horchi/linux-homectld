@@ -27,56 +27,56 @@ std::map<std::string, Poold::ConfigItemDef> Poold::configuration
 {
    // web
 
-   { "refreshWeb",            { ctInteger, false, "WEB Interface", "Seite aktualisieren", "" } },
-   { "addrsDashboard",        { ctString,  false, "WEB Interface", "Sensoren Dashboard", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
-   { "addrsMain",             { ctString,  false, "WEB Interface", "Sensoren", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
-   { "addrsMainMobile",       { ctString,  false, "WEB Interface", "Sensoren Mobile Device", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
+   { "refreshWeb",            { ctInteger, false, "3 WEB Interface", "Seite aktualisieren", "" } },
+   { "addrsDashboard",        { ctString,  false, "3 WEB Interface", "Sensoren Dashboard", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
+   { "addrsMain",             { ctString,  false, "3 WEB Interface", "Sensoren", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
+   { "addrsMainMobile",       { ctString,  false, "3 WEB Interface", "Sensoren Mobile Device", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
 
-   { "chart1",                { ctString,  false, "WEB Interface", "Chart 1", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
-   { "chart2",                { ctString,  false, "WEB Interface", "Chart 2", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
-   { "chartDiv",              { ctInteger, false, "WEB Interface", "Linien-Abstand der Y-Achse", "klein:15 mittel:25 groß:45" } },
-   { "chartStart",            { ctInteger, false, "WEB Interface", "Chart Zeitraum (Tage)", "Standardzeitraum der Chartanzeige (seit x Tagen bis heute)" } },
-   { "chartXLines",           { ctBool,    false, "WEB Interface", "Senkrechte Hilfslinien", "" } },
+   { "chart1",                { ctString,  false, "3 WEB Interface", "Chart 1", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
+   { "chart2",                { ctString,  false, "3 WEB Interface", "Chart 2", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
+   { "chartDiv",              { ctInteger, false, "3 WEB Interface", "Linien-Abstand der Y-Achse", "klein:15 mittel:25 groß:45" } },
+   { "chartStart",            { ctInteger, false, "3 WEB Interface", "Chart Zeitraum (Tage)", "Standardzeitraum der Chartanzeige (seit x Tagen bis heute)" } },
+   { "chartXLines",           { ctBool,    false, "3 WEB Interface", "Senkrechte Hilfslinien", "" } },
 
-   { "user",                  { ctString,  false, "WEB Interface", "User", "" } },
-   { "passwd",                { ctString,  true,  "WEB Interface", "Passwort", "" } },
+   { "user",                  { ctString,  false, "3 WEB Interface", "User", "" } },
+   { "passwd",                { ctString,  true,  "3 WEB Interface", "Passwort", "" } },
 
    // poold
 
-   { "interval",              { ctInteger, false, "Pool Daemon", "Intervall der Aufzeichung", "Datenbank Aufzeichung [s]" } },
+   { "interval",              { ctInteger, false, "1 Pool Daemon", "Intervall der Aufzeichung", "Datenbank Aufzeichung [s]" } },
 
-   { "filterPumpTimes",       { ctRange,   false, "Pool Daemon", "Zeiten Filter Pumpe", "[hh:mm] - [hh:mm]" } },
-   { "uvcLightTimes",         { ctRange,   false, "Pool Daemon", "Zeiten UV-C Licht", "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!" } },
-   { "poolLightTimes",        { ctRange,   false, "Pool Daemon", "Zeiten Pool Licht", "[hh:mm] - [hh:mm]" } },
-   { "poolLightColorToggle",  { ctBool,    false, "Pool Daemon", "Pool Licht Farb-Toggel", "" } },
+   { "filterPumpTimes",       { ctRange,   false, "1 Pool Daemon", "Zeiten Filter Pumpe", "[hh:mm] - [hh:mm]" } },
+   { "uvcLightTimes",         { ctRange,   false, "1 Pool Daemon", "Zeiten UV-C Licht", "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!" } },
+   { "poolLightTimes",        { ctRange,   false, "1 Pool Daemon", "Zeiten Pool Licht", "[hh:mm] - [hh:mm]" } },
+   { "poolLightColorToggle",  { ctBool,    false, "1 Pool Daemon", "Pool Licht Farb-Toggel", "" } },
 
-   { "tPoolMax",              { ctNum,     false, "Pool Daemon", "Pool max Temperatur", "" } },
-   { "tSolarDelta",           { ctNum,     false, "Pool Daemon", "Einschaltdifferenz Solarpumpe", "" } },
-   { "showerDuration",        { ctInteger, false, "Pool Daemon", "Laufzeit der Dusche", "Laufzeit [s]" } },
+   { "tPoolMax",              { ctNum,     false, "1 Pool Daemon", "Pool max Temperatur", "" } },
+   { "tSolarDelta",           { ctNum,     false, "1 Pool Daemon", "Einschaltdifferenz Solarpumpe", "" } },
+   { "showerDuration",        { ctInteger, false, "1 Pool Daemon", "Laufzeit der Dusche", "Laufzeit [s]" } },
 
-   { "invertDO",              { ctBool,    false, "Pool Daemon", "Digitalaugänge invertieren", "" } },
-   { "w1AddrAir",             { ctString,  false, "Pool Daemon", "Adresse Fühler Temperatur Luft", "" } },
-   { "w1AddrPool",            { ctString,  false, "Pool Daemon", "Adresse Fühler Temperatur Pool", "" } },
-   { "w1AddrSolar",           { ctString,  false, "Pool Daemon", "Adresse Fühler Temperatur Kollektor", "" } },
-   { "w1AddrSuctionTube",     { ctString,  false, "Pool Daemon", "Adresse Fühler Temperatur Saugleitung", "" } },
+   { "invertDO",              { ctBool,    false, "1 Pool Daemon", "Digitalaugänge invertieren", "" } },
+   { "w1AddrAir",             { ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Luft", "" } },
+   { "w1AddrPool",            { ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Pool", "" } },
+   { "w1AddrSolar",           { ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Kollektor", "" } },
+   { "w1AddrSuctionTube",     { ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Saugleitung", "" } },
 
-   { "aggregateHistory",      { ctInteger, false, "Pool Daemon", "Historie [Tage]", "history for aggregation in days (default 0 days -> aggegation turned OFF)" } },
-   { "aggregateInterval",     { ctInteger, false, "Pool Daemon", "Intervall [m]", "aggregation interval in minutes - 'one sample per interval will be build'" } },
+   { "aggregateHistory",      { ctInteger, false, "1 Pool Daemon", "Historie [Tage]", "history for aggregation in days (default 0 days -> aggegation turned OFF)" } },
+   { "aggregateInterval",     { ctInteger, false, "1 Pool Daemon", "Intervall [m]", "aggregation interval in minutes - 'one sample per interval will be build'" } },
 
-   { "hassMqttUrl",           { ctString,  false, "Pool Daemon", "Home Assistant MQTT Url", "Optional. Beispiel: 'tcp://127.0.0.1:1883'" } },
+   { "hassMqttUrl",           { ctString,  false, "1 Pool Daemon", "Home Assistant MQTT Url", "Optional. Beispiel: 'tcp://127.0.0.1:1883'" } },
 
    // mail
 
-   { "mail",                  { ctBool,    false, "Mail", "Mail Benachrichtigung", "Mail Benachrichtigungen aktivieren/deaktivieren" } },
-   { "mailScript",            { ctString,  false, "Mail", "poold sendet Mails über das Skript", "" } },
-   { "stateMailTo",           { ctString,  false, "Mail", "Status Mail Empfänger", "Komma separierte Empfängerliste" } },
-   { "errorMailTo",           { ctString,  false, "Mail", "Fehler Mail Empfänger", "Komma separierte Empfängerliste" } },
-   { "webUrl",                { ctString,  false, "Mail", "URL der Visualisierung", "kann mit %weburl% in die Mails eingefügt werden" } },
+   { "mail",                  { ctBool,    false, "4 Mail", "Mail Benachrichtigung", "Mail Benachrichtigungen aktivieren/deaktivieren" } },
+   { "mailScript",            { ctString,  false, "4 Mail", "poold sendet Mails über das Skript", "" } },
+   { "stateMailTo",           { ctString,  false, "4 Mail", "Status Mail Empfänger", "Komma separierte Empfängerliste" } },
+   { "errorMailTo",           { ctString,  false, "4 Mail", "Fehler Mail Empfänger", "Komma separierte Empfängerliste" } },
+   { "webUrl",                { ctString,  false, "4 Mail", "URL der Visualisierung", "kann mit %weburl% in die Mails eingefügt werden" } },
 
    // sonstiges
 
-   { "localLoginNetmask",     { ctString,  false, "Sonstiges", "Netzmaske für auto login", "Beispiel: 192" } },  // "Beispiel: 192.168.200.0/24"
-   { "WSLoginToken",          { ctString,  true,  "Sonstiges", "", "" } }
+   { "localLoginNetmask",     { ctString,  false, "2 Sonstiges", "Netzmaske für auto login", "Beispiel: ..." } },  // "Beispiel: 192.168.200.0/24"
+   { "WSLoginToken",          { ctString,  true,  "2 Sonstiges", "", "" } }
 };
 
 //***************************************************************************
@@ -91,7 +91,7 @@ const char* cWebService::events[] =
    "toggleio",
    "toggleionext",
    "togglemode",
-
+   "storeconfig",
    0
 };
 
@@ -202,7 +202,6 @@ int Poold::dispatchClientRequest()
    oObject = json_object_get(oData, "object");
 
    int addr = getIntFromJson(oObject, "address");
-   // const char* type = getStringFromJson(oObject, "type");
 
    // dispatch client request
 
@@ -212,6 +211,7 @@ int Poold::dispatchClientRequest()
       case evToggleIo:      status = toggleIo(addr);          break;
       case evToggleIoNext:  status = toggleIoNext(addr);      break;
       case evToggleMode:    status = toggleOutputMode(addr);  break;
+      case evStoreConfig:   status = storeConfig(oObject);    break;
 
       default:
          tell(0, "Error: Received unexpected client request '%s' at [%s]", toName(event), messagesIn.front().c_str());
@@ -976,18 +976,33 @@ int Poold::update(bool webOnly, long client)
 
 int Poold::performLogin(json_t* oObject)
 {
-   // int type = getIntFromJson(oObject, "type");
+   int type = getIntFromJson(oObject, "type", na);
    long client = getLongFromJson(oObject, "client");
+
+   tell(0, "Login of client 0x%x; type is %d", (unsigned int)client, type);
 
    json_t* oJson = json_object();
    config2Json(oJson);
    pushMessage(oJson, "config", client);
 
-   oJson = json_array();
-   configDetails2Json(oJson);
-   pushMessage(oJson, "configdetails", client);
+   if (type == ctWithLogin)
+   {
+      oJson = json_array();
+      configDetails2Json(oJson);
+      pushMessage(oJson, "configdetails", client);
+   }
 
    update(true, client);
+
+   return done;
+}
+
+//***************************************************************************
+// Store Configuratiom
+//***************************************************************************
+
+int Poold::storeConfig(json_t* obj)
+{
 
    return done;
 }
@@ -1033,7 +1048,7 @@ int Poold::configDetails2Json(json_t* obj)
       json_object_set_new(oDetail, "name", json_string(tableConfig->getStrValue("NAME")));
       json_object_set_new(oDetail, "type", json_integer(def.type));
       json_object_set_new(oDetail, "value", json_string(tableConfig->getStrValue("VALUE")));
-      // json_object_set_new(oDetail, "category", json_string(def.category.c_str()));
+      json_object_set_new(oDetail, "category", json_string(def.category.c_str()));
       json_object_set_new(oDetail, "title", json_string(def.title.c_str()));
       json_object_set_new(oDetail, "descrtiption", json_string(def.description.c_str()));
    }

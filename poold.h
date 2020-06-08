@@ -49,6 +49,7 @@ class cWebService
          evToggleIo,
          evToggleIoNext,
          evToggleMode,
+         evStoreConfig,
 
          evCount
       };
@@ -347,6 +348,7 @@ class Poold : public cWebService
       int configDetails2Json(json_t* obj);
       int sensor2Json(json_t* obj, cDbTable* table);
       void pin2Json(json_t* ojData, int pin);
+      int storeConfig(json_t* obj);
 
       const char* getImageOf(const char* title, int value);
       int performWebifRequests();

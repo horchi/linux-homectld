@@ -365,7 +365,7 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
 {
    std::string clientInfo = "unknown";
 
-   tell(1, "DEBUG: 'callbackPool' got (%d)", reason);
+   tell(3, "DEBUG: 'callbackPool' got (%d)", reason);
 
    switch (reason)
    {

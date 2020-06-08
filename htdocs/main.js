@@ -79,76 +79,86 @@ function dispatchMessage(message)
 
 function updateConfig(aConfig)
 {
-    // console.log(JSON.stringify(aConfig, undefined, 4));
     config = aConfig;
 }
 
 function initConfig(configuration, root)
 {
+    var lastCat = "";
+
     // console.log(JSON.stringify(configuration, undefined, 4));
+
+    configuration.sort(function(a, b) {
+        return a.category.localeCompare(b.category);
+    });
 
     for (var i = 0; i < configuration.length; i++)
     {
         var item = configuration[i];
         var html = "";
 
+        if (lastCat != item.category)
+        {
+            if (i) html += "<br/>";
+            html += "<div class=\"rounded-border seperatorTitle1\">" + item.category + "</div>";
+            var elem = document.createElement("div");
+            elem.innerHTML = html;
+            root.appendChild(elem);
+            html = "";
+            lastCat = item.category;
+        }
+
+        html += "    <span>" + item.title + ":</span>\n";
+
         switch (item.type) {
         case 0:     // integer
-            html += "    <span>" + item.title + ":</span>\n";
-            html += "    <span><input class=\"rounded-border inputNum\" type=\"number\" value=\"" + item.value + "\"/></span>\n";
+            html += "    <span><input id=\"input_" + item.name + "\" class=\"rounded-border inputNum\" type=\"number\" value=\"" + item.value + "\"/></span>\n";
             html += "    <span class=\"inputComment\">" + item.descrtiption + "</span>\n";
             break;
 
         case 1:     // number (float)
-            html += "    <span>" + item.title + ":</span>\n";
-            html += "    <span><input class=\"rounded-border inputFloat\" type=\"number\" step=\"0.1\" value=\"" + item.value + "\"/></span>\n";
+            html += "    <span><input id=\"input_" + item.name + "\" class=\"rounded-border inputFloat\" type=\"number\" step=\"0.1\" value=\"" + item.value + "\"/></span>\n";
             html += "    <span class=\"inputComment\">" + item.descrtiption + "</span>\n";
             break;
 
         case 2:     // string
-            html += "    <span>" + item.title + ":</span>\n";
-            html += "    <span><input class=\"rounded-border input\" type=\"text\" value=\"" + item.value + "\"/></span>\n";
+
+            html += "    <span><input id=\"input_" + item.name + "\" class=\"rounded-border input\" type=\"text\" value=\"" + item.value + "\"/></span>\n";
             html += "    <span class=\"inputComment\">" + item.descrtiption + "</span>\n";
             break;
 
         case 3:     // boolean
-            html += "    <span>" + item.title + ":</span>\n";
-            html += "    <span><input class=\"rounded-border input\" type=\"checkbox\" " + (item.value == 1 ? "checked" : "") + "/></span>\n";
+            html += "    <span><input id=\"checkbox_" + item.name + "\" class=\"rounded-border input\" style=\"width:auto;\" type=\"checkbox\" " + (item.value == 1 ? "checked" : "") + "/></span>\n";
             html += "    <span class=\"inputComment\">" + item.descrtiption + "</span>\n";
             break;
 
         case 4:     // range
-            var title = item.title + ":";
-            var ranges = item.value.split(",");
             var n = 0;
 
-            console.log("found ranges: " + ranges.length + " in: " + item.value);
-
-            for (n = 0; n < ranges.length; n++)
+            if (item.value != "")
             {
-                if (!ranges[n])
-                    continue;
+                var ranges = item.value.split(",");
 
-                html += "    <span>" + title + "</span>\n";
-                title = "";
+                for (n = 0; n < ranges.length; n++)
+                {
+                    var range = ranges[n].split("-");
+                    var nameFrom = item.name + n + "From";
+                    var nameTo = item.name + n + "To";
 
-                var range = ranges[n].split("-");
-                var nameFrom = item.name + n + "From";
-                var nameTo = item.name + n + "To";
-
-                if (!range[1]) range[1] = "";
-
-                html += "   <span>\n";
-                html += "     <input type=\"text\" class=\"rounded-border inputTime\" name=\"" + nameFrom + "\" value=\"" + range[0] + "\"/> -";
-                html += "     <input type=\"text\" class=\"rounded-border inputTime\" name=\"" + nameTo + "\" value=\"" + range[1] + "\"/>\n";
-                html += "   </span>\n";
-                html += "   <span></span>\n";
+                    if (!range[1]) range[1] = "";
+                    if (n > 0) html += "  <span/>  </span>\n";
+                    html += "   <span>\n";
+                    html += "     <input type=\"text\" class=\"rounded-border inputTime\" name=\"" + nameFrom + "\" value=\"" + range[0] + "\"/> -";
+                    html += "     <input type=\"text\" class=\"rounded-border inputTime\" name=\"" + nameTo + "\" value=\"" + range[1] + "\"/>\n";
+                    html += "   </span>\n";
+                    html += "   <span></span>\n";
+                }
             }
 
             var nameFrom = item.name + n + "From";
             var nameTo = item.name + n + "To";
 
-            html += "  <span>" + title + "</span>\n";
+            if (n > 0) html += "  <span/>  </span>\n";
             html += "  <span>\n";
             html += "    <input type=\"text\" class=\"rounded-border inputTime\" name=\"" + nameFrom + "\" value=\"\"/> -";
             html += "    <input type=\"text\" class=\"rounded-border inputTime\" name=\"" + nameTo + "\" value=\"\"/>\n";
@@ -159,7 +169,6 @@ function initConfig(configuration, root)
         }
 
         var elem = document.createElement("div");
-        // elem.className = "widget rounded-border";
         elem.innerHTML = html;
         root.appendChild(elem);
     }
@@ -336,6 +345,39 @@ window.toggleIoNext = function(address, type)
                   { "address": address,
                     "type": type }
                 });
+}
+
+window.storeConfig = function()
+{
+    console.log("storeSettings");
+
+    var rootConfig = document.getElementById("configContainer");
+    var elements = rootConfig.querySelectorAll("[id^='input_']");
+    var jsonObj = {};
+
+    for (var e in elements) {
+        if (elements[e].tagName == "INPUT") {
+            var name = elements[e].id.substring(elements[e].id.indexOf("_") + 1);
+            jsonObj[name] = elements[e].value;
+        }
+    }
+
+    var elements = rootConfig.querySelectorAll("[id^='checkbox_']");
+
+    for (var e in elements) {
+        if (elements[e].tagName == "INPUT") {
+            var name = elements[e].id.substring(elements[e].id.indexOf("_") + 1);
+            jsonObj[name] = (elements[e].checked ? "1" : "0");
+        }
+    }
+
+    // console.log(JSON.stringify(jsonObj, undefined, 4));
+
+    socket.send({ "event" : "storeconfig", "object" : jsonObj });
+
+    var elem = document.createElement("div");
+    elem.innerHTML = "<br/><div class=\"info\"><b><center>Einstellungen gespeichert</center></b></div>";
+    document.getElementById("confirm").appendChild(elem);
 }
 
 // ---------------------------------

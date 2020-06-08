@@ -154,7 +154,7 @@ int cWebSock::performData(MsgType type)
 // Get Client Info of connection
 //***************************************************************************
 
-const char* getClientInfo(lws* wsi, std::string* clientInfo)
+void getClientInfo(lws* wsi, std::string* clientInfo)
 {
    char clientName[100+TB] = "unknown";
    char clientIp[50+TB] = "";
@@ -168,8 +168,6 @@ const char* getClientInfo(lws* wsi, std::string* clientInfo)
    }
 
    *clientInfo = clientName + std::string("/") + clientIp;
-
-   return clientInfo->c_str();
 }
 
 //***************************************************************************

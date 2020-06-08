@@ -211,6 +211,8 @@ void cThread::Cancel(int WaitSeconds)
 {
   running = false;
 
+  waitCondition.Broadcast();
+
   if (active && WaitSeconds > -1)
   {
      if (WaitSeconds > 0)

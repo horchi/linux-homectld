@@ -118,7 +118,7 @@ cWebService::Event cWebService::toEvent(const char* name)
 
 Poold::Poold()
 {
-   nextAt = time(0);
+   nextAt = time(0) + 5;
    startedAt = time(0);
 
    cDbConnection::init();
@@ -140,7 +140,6 @@ Poold::~Poold()
    delete mqttReader;
    delete mqttCommandReader;
    delete webSock;
-   delete w1;
 
    free(mailScript);
    free(stateMailTo);
@@ -293,10 +292,6 @@ int Poold::init()
    addValueFact(1, "SP", "Water Level", "%");
    addValueFact(2, "SP", "Solar Delta", "°C");
 
-   //
-
-   initW1();
-
    // ---------------------------------
    // apply some configuration specials
 
@@ -321,7 +316,6 @@ int Poold::exit()
       gpioWrite(it->first, false);
 
    exitDb();
-   w1->Cancel(3);
 
    return success;
 }
@@ -549,49 +543,29 @@ int Poold::exitDb()
    return done;
 }
 
-// ---------------------------------
+//***************************************************************************
 // Init one wire sensors
-// ---------------------------------
+//***************************************************************************
 
 int Poold::initW1()
 {
-   tell(0, "Init W1");
+   int count {0};
+   int added {0};
+   int modified {0};
 
-   w1 = new W1();
-
-   // at first scan for sensors
-
-   if (w1->scan() == success)
+   for (const auto& it : w1Sensors)
    {
-      // call w1->getList (ans use result) only if w1 thread is NOT running or w1->mutex is locked!!
+      int res = addValueFact((int)toW1Id(it.first.c_str()), "W1", it.first.c_str(), "°C");
 
-      const W1::SensorList* list = w1->getList();
+      if (res == 1)
+         added++;
+      else if (res == 2)
+         modified++;
 
-      // yes, we have one-wire sensors
-
-      int count {0};
-      int added {0};
-      int modified {0};
-
-      for (auto it = list->begin(); it != list->end(); ++it)
-      {
-         int res = addValueFact((int)W1::toId(it->first.c_str()), "W1", it->first.c_str(), "°C");
-
-         if (res == 1)
-            added++;
-         else if (res == 2)
-            modified++;
-         count++;
-      }
-
-      tell(eloAlways, "Found %d one wire sensors, added %d, modified %d", count, added, modified);
+      count++;
    }
 
-   // now start the thread
-
-   tell(0, "Start W1");
-   w1->Start(no, 100*1024);
-   tell(0, "...done ");
+   tell(eloAlways, "Found %d one wire sensors, added %d, modified %d", count, added, modified);
 
    return success;
 }
@@ -863,21 +837,14 @@ int Poold::loop()
 
 int Poold::update(bool webOnly, long client)
 {
-   static size_t w1Count = w1->getCount();
+   static size_t w1Count = w1Sensors.size();
    time_t now = time(0);
    int count {0};
 
    if (!webOnly)
    {
-      // tell(0, "Update W1 sensors ...");
-      // w1->update();
-      // tell(0, "... done");
-
-      if (w1Count < w1->getCount())
-      {
-         tell(eloAlways, "New W1 sensor attached, inserting ... to be implemented!");
-         // initW1();
-      }
+      if (w1Count < w1Sensors.size())
+         initW1();
    }
 
    tell(eloDetail, "Update ...");
@@ -911,11 +878,11 @@ int Poold::update(bool webOnly, long client)
 
       if (tableValueFacts->hasValue("TYPE", "W1"))
       {
-         json_object_set_new(ojData, "value", json_real(w1->exist(name) ? w1->valueOf(name) : na));
+         json_object_set_new(ojData, "value", json_real(valueOfW1(name)));
          json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
 
          if (!webOnly)
-            store(now, name, title, unit, type, addr, w1->valueOf(name));
+            store(now, name, title, unit, type, addr, valueOfW1(name));
       }
       else if (tableValueFacts->hasValue("TYPE", "DO"))
       {
@@ -954,8 +921,8 @@ int Poold::update(bool webOnly, long client)
          }
          else if (addr == 2)
          {
-            tPool = w1->valueOf(w1AddrPool);
-            tSolar = w1->valueOf(w1AddrSolar);
+            tPool = valueOfW1(w1AddrPool);
+            tSolar = valueOfW1(w1AddrSolar);
             tCurrentDelta = tSolar - tPool;
 
             json_object_set_new(ojData, "value", json_real(tCurrentDelta));
@@ -1113,8 +1080,8 @@ int Poold::sensor2Json(json_t* obj, cDbTable* table)
 
 int Poold::process()
 {
-   tPool = w1->valueOf(w1AddrPool);
-   tSolar = w1->valueOf(w1AddrSolar);
+   tPool = valueOfW1(w1AddrPool);
+   tSolar = valueOfW1(w1AddrSolar);
    tCurrentDelta = tSolar - tPool;
 
    tell(0, "Process ...");
@@ -1124,7 +1091,7 @@ int Poold::process()
 
    if (digitalOutputStates[pinSolarPump].mode == omAuto)
    {
-      if (!isEmpty(w1AddrPool) && !isEmpty(w1AddrSolar) && w1->exist(w1AddrPool) && w1->exist(w1AddrSolar))
+      if (!isEmpty(w1AddrPool) && !isEmpty(w1AddrSolar) && existW1(w1AddrPool) && existW1(w1AddrSolar))
       {
          if (tPool > tPoolMax)
          {
@@ -1782,4 +1749,74 @@ bool Poold::gpioRead(uint pin)
 {
    digitalInputStates[pin] = digitalRead(pin);
    return digitalInputStates[pin];
+}
+
+//***************************************************************************
+// W1 Sensor Stuff ...
+//***************************************************************************
+
+void Poold::updateW1(const char* id, double value)
+{
+   tell(2, "w1: %s : %0.2f", id, value);
+
+   w1Sensors[id] = value;
+
+   json_t* oJson = json_array();
+   json_t* ojData = json_object();
+   json_array_append_new(oJson, ojData);
+
+   tableValueFacts->clear();
+   tableValueFacts->setValue("ADDRESS", (int)toW1Id(id));
+   tableValueFacts->setValue("TYPE", "W1");
+
+   if (tableValueFacts->find())
+   {
+      sensor2Json(ojData, tableValueFacts);
+      json_object_set_new(ojData, "value", json_real(value));
+      json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
+
+      pushMessage(oJson, "update");
+   }
+   tableValueFacts->reset();
+}
+
+bool Poold::existW1(const char* id)
+{
+   if (isEmpty(id))
+      return false;
+
+   auto it = w1Sensors.find(id);
+
+   return it != w1Sensors.end();
+}
+
+double Poold::valueOfW1(const char* id)
+{
+   if (isEmpty(id))
+      return 0;
+
+   auto it = w1Sensors.find(id);
+
+   if (it == w1Sensors.end())
+      return 0;
+
+   return w1Sensors[id];
+}
+
+uint Poold::toW1Id(const char* name)
+{
+   const char* p;
+   int len = strlen(name);
+
+   // use 4 minor bytes as id
+
+   if (len <= 2)
+      return na;
+
+   if (len <= 8)
+      p = name;
+   else
+      p = name + (len - 8);
+
+   return strtoull(p, 0, 16);
 }

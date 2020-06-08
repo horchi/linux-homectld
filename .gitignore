@@ -4,6 +4,7 @@
 *.tgz
 *~
 poold
+w1mqtt
 lib/t
 vg.log
 lib/tst

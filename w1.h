@@ -13,7 +13,7 @@
 #include <limits>
 
 #include "lib/common.h"
-#include "lib/thread.h"
+#include "lib/mqtt.h"
 
 //***************************************************************************
 // Class W1
@@ -21,7 +21,7 @@
 
 #define W1_UDEF std::numeric_limits<double>::max()
 
-class W1 : public cThread
+class W1
 {
    public:
 
@@ -30,20 +30,27 @@ class W1 : public cThread
       W1();
       ~W1();
 
-      void action() override;
+      static void downF(int aSignal) { shutdown = yes; }
+
+      int init() { return success; }
+      int loop();
       int show();
       int scan();
-      int exist(const char* id);
       int update();
+      int doShutDown() { return shutdown; }
 
-      const SensorList* getList()    { return sensors; }
-      size_t getCount()              { return sensors->size(); }
-      double valueOf(const char* id);
-
-      static unsigned int toId(const char* name);
+      const SensorList* getList()    { return &sensors; }
+      size_t getCount()              { return sensors.size(); }
 
    protected:
 
+      int mqttConnection();
+
       char* w1Path {nullptr};
-      SensorList* sensors {nullptr};
+      SensorList sensors;
+      const char* mqttUrl {nullptr};
+      const char* mqttTopic {nullptr};
+      MqTTPublishClient* mqttWriter {nullptr};
+
+      static int shutdown;
 };

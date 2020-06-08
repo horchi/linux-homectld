@@ -220,6 +220,8 @@ class cMyMutex
       void Lock(void);
       void Unlock(void);
 
+      bool isLocked() const { return locked; }
+
    private:
 
       pthread_mutex_t mutex;

@@ -172,6 +172,17 @@ long getLongFromJson(json_t* obj, const char* name, long def)
    return json_integer_value(o);
 }
 
+double getDoubleFromJson(json_t* obj, const char* name, double def)
+{
+   json_t* o = json_object_get(obj, name);
+
+   if (!o)
+      return def;
+
+   return json_real_value(o);
+}
+
+
 int jStringValid(const char* s)
 {
    json_t* obj = json_string(s);

@@ -36,6 +36,7 @@ int jStringValid(const char* s);
 const char* getStringFromJson(json_t* obj, const char* name, const char* def = 0);
 int getIntFromJson(json_t* obj, const char* name, int def = na);
 long getLongFromJson(json_t* obj, const char* name, long def = na);
+double getDoubleFromJson(json_t* obj, const char* name, double def = na);
 
 int addToJson(json_t* obj, const char* name, const char* value, const char* def = "");
 int addToJson(json_t* obj, const char* name, long value);

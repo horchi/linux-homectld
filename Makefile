@@ -29,13 +29,13 @@ GIT_REV      = $(shell git describe --always 2>/dev/null)
 # object files
 
 LOBJS        = lib/db.o lib/dbdict.o lib/common.o lib/serial.o lib/curl.o lib/thread.o lib/json.o
-OBJS         = $(LOBJS) main.o gpio.o webif.o w1.o hass.o websock.c
+OBJS         = $(LOBJS) main.o gpio.o webif.o hass.o websock.c
 MQTTBJS      = lib/mqtt.c
 
 CFLAGS    	+= $(shell mysql_config --include)
 DEFINES   	+= -DDEAMON=Poold
 OBJS      	+= poold.o
-
+W1OBJS      = w1.o lib/common.o $(MQTTBJS)
 OBJS    += $(MQTTBJS)
 LIBS    += -lpaho-mqtt3cs
 FINES   += -DMQTT_HASS
@@ -46,10 +46,13 @@ endif
 
 # rules:
 
-all: $(TARGET)
+all: $(TARGET) w1mqtt
 
 $(TARGET) : paho-mqtt $(OBJS)
 	$(doLink) $(OBJS) $(LIBS) -o $@
+
+w1mqtt: $(W1OBJS)
+	$(doLink) $(W1OBJS) $(LIBS) -o $@
 
 install: $(TARGET) install-poold
 

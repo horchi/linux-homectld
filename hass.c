@@ -135,37 +135,61 @@ int Poold::performHassRequests()
 
    std::string message;
    std::string topic;
-
-   if (mqttCommandReader->read(&message, &topic) != success)
-      return done;
-
-   // tell(0, "(%s) GOT [%s]", topic.c_str(), message.c_str());
-
    json_error_t error;
-   json_t* jData = json_loads(message.c_str(), 0, &error);
 
-   if (!jData)
+   if (mqttCommandReader->read(&message, &topic) == success)
    {
-      tell(0, "Error: Can't parse json in '%s'", message.c_str());
-      return fail;
+      // tell(0, "(%s) GOT [%s]", topic.c_str(), message.c_str());
+
+      json_t* jData = json_loads(message.c_str(), 0, &error);
+
+      if (!jData)
+      {
+         tell(0, "Error: Can't parse json in '%s'", message.c_str());
+         return fail;
+      }
+
+      tell(eloAlways, "<- (%s) [%s]", topic.c_str(), message.c_str());
+
+      auto it = hassCmdTopicMap.find(topic);
+
+      if (it != hassCmdTopicMap.end())
+      {
+         for (auto itOutput = digitalOutputStates.begin(); itOutput != digitalOutputStates.end(); ++itOutput)
+         {
+            const char* s = getStringFromJson(jData, "state", "");
+            int state = strcmp(s, "ON") == 0;
+
+            if (strcmp(it->second.c_str(), itOutput->second.name) == 0)
+            {
+               gpioWrite(itOutput->first, state);
+               break;
+            }
+         }
+      }
    }
 
-   tell(eloAlways, "<- (%s) [%s]", topic.c_str(), message.c_str());
-
-   auto it = hassCmdTopicMap.find(topic);
-
-   if (it != hassCmdTopicMap.end())
+   while (mqttW1Reader->read(&message, &topic) == success)
    {
-      for (auto itOutput = digitalOutputStates.begin(); itOutput != digitalOutputStates.end(); ++itOutput)
-      {
-         const char* s = getStringFromJson(jData, "state", "");
-         int state = strcmp(s, "ON") == 0;
+      json_t* jArray = json_loads(message.c_str(), 0, &error);
 
-         if (strcmp(it->second.c_str(), itOutput->second.name) == 0)
-         {
-            gpioWrite(itOutput->first, state);
-            break;
-         }
+      if (!jArray)
+      {
+         tell(0, "Error: Can't parse json in '%s'", message.c_str());
+         return fail;
+      }
+
+      tell(eloAlways, "<- (%s) [%s]", topic.c_str(), message.c_str());
+
+      size_t index;
+      json_t* jValue;
+
+      json_array_foreach(jArray, index, jValue)
+      {
+         const char* name = getStringFromJson(jValue, "name");
+         double value = getDoubleFromJson(jValue, "value");
+
+         updateW1(name, value);
       }
    }
 
@@ -183,6 +207,13 @@ int Poold::hassCheckConnection()
       mqttCommandReader = new MqTTSubscribeClient(hassMqttUrl, "poold_com");
       mqttCommandReader->setConnectTimeout(15);   // seconds
       mqttCommandReader->setTimeout(15);          // milli seconds
+   }
+
+   if (!mqttW1Reader)
+   {
+      mqttW1Reader = new MqTTSubscribeClient(hassMqttUrl, "poold_w1_reader");
+      mqttW1Reader->setConnectTimeout(15);   // seconds
+      mqttW1Reader->setTimeout(15);          // milli seconds
    }
 
    if (!mqttWriter)
@@ -208,6 +239,18 @@ int Poold::hassCheckConnection()
 
       mqttCommandReader->subscribe("poold2mqtt/light/+/set/#");
       tell(0, "MQTT: Connecting command subscriber to '%s' succeeded", hassMqttUrl);
+   }
+
+   if (!mqttW1Reader->isConnected())
+   {
+      if (mqttW1Reader->connect() != success)
+      {
+         tell(0, "Error: MQTT: Connecting subscriber to '%s' failed", hassMqttUrl);
+         return fail;
+      }
+
+      mqttW1Reader->subscribe("poold2mqtt/w1");
+      tell(0, "MQTT: Connecting w1 subscriber to '%s' succeeded", hassMqttUrl);
    }
 
    if (!mqttWriter->isConnected())

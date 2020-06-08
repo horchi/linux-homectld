@@ -182,6 +182,16 @@ function initDashboard(widgets, root)
         return;
     }
 
+    // clean page content
+
+    root.innerHTML = "";
+    var elem = document.createElement("div");
+    elem.className = "widget rounded-border";
+    elem.innerHTML = "<div class=\"widget-title\">Zeit</div>\n<div id=\"refreshTime\" class=\"widget-value\"></div>";
+    root.appendChild(elem);
+
+    // build page content
+
     for (var i = 0; i < widgets.length; i++)
     {
         var widget = widgets[i];
@@ -355,20 +365,16 @@ window.storeConfig = function()
     var elements = rootConfig.querySelectorAll("[id^='input_']");
     var jsonObj = {};
 
-    for (var e in elements) {
-        if (elements[e].tagName == "INPUT") {
-            var name = elements[e].id.substring(elements[e].id.indexOf("_") + 1);
-            jsonObj[name] = elements[e].value;
-        }
+    for (var i = 0; i < elements.length; i++) {
+        var name = elements[i].id.substring(elements[i].id.indexOf("_") + 1);
+        jsonObj[name] = elements[i].value;
     }
 
     var elements = rootConfig.querySelectorAll("[id^='checkbox_']");
 
-    for (var e in elements) {
-        if (elements[e].tagName == "INPUT") {
-            var name = elements[e].id.substring(elements[e].id.indexOf("_") + 1);
-            jsonObj[name] = (elements[e].checked ? "1" : "0");
-        }
+    for (var i = 0; i < elements.length; i++) {
+        var name = elements[i].id.substring(elements[i].id.indexOf("_") + 1);
+        jsonObj[name] = (elements[i].checked ? "1" : "0");
     }
 
     // console.log(JSON.stringify(jsonObj, undefined, 4));

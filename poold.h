@@ -20,7 +20,6 @@
 #include "lib/mqtt.h"
 #include "lib/thread.h"
 
-#include "w1.h"
 #include "HISTORY.h"
 
 #define confDirDefault "/etc/poold"
@@ -298,7 +297,6 @@ class Poold : public cWebService
       int addValueFact(int addr, const char* type, const char* name, const char* unit);
       int initOutput(uint pin, int opt, OutputMode mode, const char* name);
       int initInput(uint pin, const char* name);
-      int initW1();
 
       int standby(int t);
       int standbyUntil(time_t until);
@@ -357,6 +355,12 @@ class Poold : public cWebService
       int toggleIoNext(uint pin);
       int toggleOutputMode(uint pin);
 
+      int initW1();
+      bool existW1(const char* id);
+      double valueOfW1(const char* id);
+      uint toW1Id(const char* name);
+      void updateW1(const char* id, double value);
+
       // data
 
       bool initialized {false};
@@ -379,8 +383,6 @@ class Poold : public cWebService
       time_t startedAt {0};
       time_t nextAggregateAt {0};
 
-      W1* w1 {nullptr};
-
       string mailBody;
       string mailBodyHtml;
       bool initialRun {true};
@@ -394,13 +396,14 @@ class Poold : public cWebService
       MqTTPublishClient* mqttWriter {nullptr};
       MqTTSubscribeClient* mqttReader {nullptr};
       MqTTSubscribeClient* mqttCommandReader {nullptr};
+      MqTTSubscribeClient* mqttW1Reader {nullptr};
 
       // config
 
       int interval {60};
       int aggregateInterval {15};         // aggregate interval in minutes
       int aggregateHistory {0};           // history in days
-      char* hassMqttUrl {0};
+      char* hassMqttUrl {nullptr};
       char* wsLoginToken {nullptr};
       std::map<std::string,std::string> hassCmdTopicMap; // <topic,name>
 
@@ -433,6 +436,8 @@ class Poold : public cWebService
       double tPool {0.0};
       double tSolar {0.0};
       double tCurrentDelta {0.0};
+
+      std::map<std::string, double> w1Sensors;
 
       // statics
 

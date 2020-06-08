@@ -379,7 +379,7 @@ class Poold : public cWebService
       time_t startedAt {0};
       time_t nextAggregateAt {0};
 
-      W1 w1;
+      W1* w1 {nullptr};
 
       string mailBody;
       string mailBodyHtml;

@@ -13,6 +13,7 @@
 #include <limits>
 
 #include "lib/common.h"
+#include "lib/thread.h"
 
 //***************************************************************************
 // Class W1
@@ -20,28 +21,29 @@
 
 #define W1_UDEF std::numeric_limits<double>::max()
 
-class W1
+class W1 : public cThread
 {
    public:
 
       typedef std::map<std::string, double> SensorList;
 
-      W1()  { w1Path = strdup("/sys/bus/w1/devices"); }
-      ~W1() { free(w1Path); }
+      W1();
+      ~W1();
 
+      void action() override;
       int show();
       int scan();
       int exist(const char* id);
       int update();
 
-      const SensorList* getList()    { return &sensors; }
-      size_t getCount()              { return sensors.size(); }
-      double valueOf(const char* id) { return !isEmpty(id) && exist(id) ? sensors[id] : 0; }
+      const SensorList* getList()    { return sensors; }
+      size_t getCount()              { return sensors->size(); }
+      double valueOf(const char* id);
 
       static unsigned int toId(const char* name);
 
    protected:
 
-      char* w1Path;
-      SensorList sensors;
+      char* w1Path {nullptr};
+      SensorList* sensors {nullptr};
 };

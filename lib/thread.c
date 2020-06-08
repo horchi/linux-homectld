@@ -63,12 +63,14 @@ cThread::cThread(const char* Description, bool LowPriority)
      SetDescription("%s", Description);
 
   lowPriority = LowPriority;
+  pthread_attr_init(&attr);
 }
 
 cThread::~cThread()
 {
   Cancel(); // just in case the derived class didn't call it
   free(description);
+  pthread_attr_destroy(&attr);
 }
 
 void cThread::SetDescription(const char *Description, ...)
@@ -137,7 +139,7 @@ void cThread::SetIOPriority(int priority)
 #define THREAD_STOP_TIMEOUT  3000 // ms to wait for a thread to stop before newly starting it
 #define THREAD_STOP_SLEEP      30 // ms to sleep while waiting for a thread to stop
 
-bool cThread::Start(int s)
+bool cThread::Start(int s, int stackSize)
 {
   silent = s;
 
@@ -155,9 +157,21 @@ bool cThread::Start(int s)
      }
      if (!active)
      {
+        int res;
+
         active = running = true;
 
-        if (pthread_create(&childTid, NULL, (void *(*) (void *))&StartThread, (void *)this) == 0)
+        if (stackSize == na)
+        {
+           res = pthread_create(&childTid, 0, (void*(*)(void*))&StartThread, (void*)this);
+        }
+        else
+        {
+           pthread_attr_setstacksize(&attr, stackSize);
+           res = pthread_create(&childTid, &attr, (void*(*)(void*))&StartThread, (void*)this);
+        }
+
+        if (res == 0)
         {
            pthread_detach(childTid); // auto-reap
         }

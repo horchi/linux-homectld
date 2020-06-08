@@ -11,13 +11,26 @@
 
 #include "w1.h"
 
+W1::W1()
+   : cThread("W1")
+{
+   w1Path = strdup("/sys/bus/w1/devices");
+   sensors = new SensorList;
+}
+
+W1::~W1()
+{
+   free(w1Path);
+   delete sensors;
+}
+
 //***************************************************************************
 // Show W1 Sensors
 //***************************************************************************
 
 int W1::show()
 {
-   for (auto it = sensors.begin(); it != sensors.end(); ++it)
+   for (auto it = sensors->begin(); it != sensors->end(); ++it)
       tell(0, "%s: %2.3f", it->first.c_str(), it->second);
 
    return done;
@@ -29,9 +42,21 @@ int W1::show()
 
 int W1::exist(const char* id)
 {
-   auto it = sensors.find(id);
+   cMyMutexLock lock(&mutex);
 
-   return it != sensors.end();
+   auto it = sensors->find(id);
+
+   return it != sensors->end();
+}
+
+double W1::valueOf(const char* id)
+{
+   if (isEmpty(id) && !exist(id))
+      return 0;
+
+   cMyMutexLock lock(&mutex);
+
+   return (*sensors)[id];
 }
 
 //***************************************************************************
@@ -40,6 +65,9 @@ int W1::exist(const char* id)
 
 int W1::scan()
 {
+   tell(0, "W1 scan ...");
+   cMyMutexLock lock(&mutex);
+
    std::vector<std::string> lines;
 
    if (loadLinesFromFile("/sys/bus/w1/devices/w1_bus_master1/w1_master_slaves", lines) != success)
@@ -47,16 +75,35 @@ int W1::scan()
 
    for (auto it = lines.begin(); it != lines.end(); ++it)
    {
-      if (sensors.find(it->c_str()) == sensors.end())
+      if (sensors->find(it->c_str()) == sensors->end())
       {
          tell(eloAlways, "One Wire Sensor '%s' attached", it->c_str());
-         sensors[it->c_str()] = 0;
+         (*sensors)[it->c_str()] = 0;
       }
    }
 
    return success;
 }
 
+//***************************************************************************
+// Action
+//***************************************************************************
+
+void W1::action()
+{
+   mutex.Lock();
+
+   while (running)
+   {
+      waitCondition.TimedWait(mutex, 60*1000);  // 1 minute
+      tell(0, "W1 loop ...");
+      update();
+   }
+
+   active = false;
+   tell(0, "Exit thread");
+   mutex.Unlock();
+}
 
 //***************************************************************************
 // Update
@@ -64,9 +111,16 @@ int W1::scan()
 
 int W1::update()
 {
-   scan();
+   tell(0, "W1: updating ...");
+   // scan();
 
-   for (auto it = sensors.begin(); it != sensors.end(); ++it)
+   // take a copy (to unlock mutex)
+
+//   SensorList temp = sensors;
+
+//   mutex.Unlock();
+
+   for (auto it = sensors->begin(); it != sensors->end(); ++it)
    {
       char line[100+TB];
       FILE* in;
@@ -89,8 +143,8 @@ int W1::update()
 
          if ((p = strstr(line, " t=")))
          {
-            double temp = atoi(p+3) / 1000.0;
-            sensors[it->first] = temp;
+            double value = atoi(p+3) / 1000.0;
+            (*sensors)[it->first] = value;
          }
       }
 
@@ -98,6 +152,12 @@ int W1::update()
       free(path);
    }
 
+   // mutex.Lock();
+
+   // for (auto it = temp.begin(); it != temp.end(); ++it)
+   //    sensors[it->first] = it->second;
+
+   tell(0, "W1: ... done");
    return done;
 }
 

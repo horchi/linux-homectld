@@ -140,6 +140,7 @@ Poold::~Poold()
    delete mqttReader;
    delete mqttCommandReader;
    delete webSock;
+   delete w1;
 
    free(mailScript);
    free(stateMailTo);
@@ -320,6 +321,7 @@ int Poold::exit()
       gpioWrite(it->first, false);
 
    exitDb();
+   w1->Cancel(3);
 
    return success;
 }
@@ -553,9 +555,17 @@ int Poold::exitDb()
 
 int Poold::initW1()
 {
-   if (w1.scan() == success)
+   tell(0, "Init W1");
+
+   w1 = new W1();
+
+   // at first scan for sensors
+
+   if (w1->scan() == success)
    {
-      const W1::SensorList* list = w1.getList();
+      // call w1->getList (ans use result) only if w1 thread is NOT running or w1->mutex is locked!!
+
+      const W1::SensorList* list = w1->getList();
 
       // yes, we have one-wire sensors
 
@@ -576,6 +586,12 @@ int Poold::initW1()
 
       tell(eloAlways, "Found %d one wire sensors, added %d, modified %d", count, added, modified);
    }
+
+   // now start the thread
+
+   tell(0, "Start W1");
+   w1->Start(no, 100*1024);
+   tell(0, "...done ");
 
    return success;
 }
@@ -847,20 +863,20 @@ int Poold::loop()
 
 int Poold::update(bool webOnly, long client)
 {
-   size_t w1Count = w1.getCount();
+   static size_t w1Count = w1->getCount();
    time_t now = time(0);
    int count {0};
 
    if (!webOnly)
    {
-      tell(0, "Update W1 sensors ...");
-      w1.update();
-      tell(0, "... done");
+      // tell(0, "Update W1 sensors ...");
+      // w1->update();
+      // tell(0, "... done");
 
-      if (w1Count < w1.getCount())
+      if (w1Count < w1->getCount())
       {
-         tell(eloAlways, "New W1 sensor attached, inserting");
-         initW1();
+         tell(eloAlways, "New W1 sensor attached, inserting ... to be implemented!");
+         // initW1();
       }
    }
 
@@ -895,11 +911,11 @@ int Poold::update(bool webOnly, long client)
 
       if (tableValueFacts->hasValue("TYPE", "W1"))
       {
-         json_object_set_new(ojData, "value", json_real(w1.exist(name) ? w1.valueOf(name) : na));
+         json_object_set_new(ojData, "value", json_real(w1->exist(name) ? w1->valueOf(name) : na));
          json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
 
          if (!webOnly)
-            store(now, name, title, unit, type, addr, w1.valueOf(name));
+            store(now, name, title, unit, type, addr, w1->valueOf(name));
       }
       else if (tableValueFacts->hasValue("TYPE", "DO"))
       {
@@ -938,8 +954,8 @@ int Poold::update(bool webOnly, long client)
          }
          else if (addr == 2)
          {
-            tPool = w1.valueOf(w1AddrPool);
-            tSolar = w1.valueOf(w1AddrSolar);
+            tPool = w1->valueOf(w1AddrPool);
+            tSolar = w1->valueOf(w1AddrSolar);
             tCurrentDelta = tSolar - tPool;
 
             json_object_set_new(ojData, "value", json_real(tCurrentDelta));
@@ -1097,8 +1113,8 @@ int Poold::sensor2Json(json_t* obj, cDbTable* table)
 
 int Poold::process()
 {
-   tPool = w1.valueOf(w1AddrPool);
-   tSolar = w1.valueOf(w1AddrSolar);
+   tPool = w1->valueOf(w1AddrPool);
+   tSolar = w1->valueOf(w1AddrSolar);
    tCurrentDelta = tSolar - tPool;
 
    tell(0, "Process ...");
@@ -1108,7 +1124,7 @@ int Poold::process()
 
    if (digitalOutputStates[pinSolarPump].mode == omAuto)
    {
-      if (!isEmpty(w1AddrPool) && !isEmpty(w1AddrSolar) && w1.exist(w1AddrPool) && w1.exist(w1AddrSolar))
+      if (!isEmpty(w1AddrPool) && !isEmpty(w1AddrSolar) && w1->exist(w1AddrPool) && w1->exist(w1AddrSolar))
       {
          if (tPool > tPoolMax)
          {

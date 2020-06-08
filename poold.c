@@ -986,6 +986,14 @@ int Poold::performLogin(json_t* oObject)
 
 int Poold::storeConfig(json_t* obj)
 {
+   const char* key;
+   json_t* jValue;
+
+   json_object_foreach(obj, key, jValue)
+   {
+      tell(0, "Storing config item '%s' with '%s'", key, json_string_value(jValue));
+      setConfigItem(key, json_string_value(jValue));
+   }
 
    return done;
 }

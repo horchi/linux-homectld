@@ -1,0 +1,17 @@
+[Unit]
+
+Description = W1 to MQTT service
+After = network.target 
+StartLimitInterval = 200
+StartLimitBurst = 5
+
+[Service]
+
+Type = forking
+ExecStart = /usr/local/bin/w1mqtt
+Restart = always
+RestartSec = 30
+
+[Install]
+
+WantedBy = multi-user.target

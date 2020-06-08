@@ -381,6 +381,7 @@ window.storeConfig = function()
 
     socket.send({ "event" : "storeconfig", "object" : jsonObj });
 
+    document.getElementById("confirm").innerHTML = "<button class=\"rounded-border\" onclick=\"storeConfig()\">Speichern</button>";
     var elem = document.createElement("div");
     elem.innerHTML = "<br/><div class=\"info\"><b><center>Einstellungen gespeichert</center></b></div>";
     document.getElementById("confirm").appendChild(elem);

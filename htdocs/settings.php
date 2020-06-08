@@ -6,8 +6,6 @@ printHeader();
 
 global $mysqli;
 
-include("setup.php");
-
 // -------------------------
 // check login
 

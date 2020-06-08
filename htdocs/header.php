@@ -130,171 +130,17 @@ function printHeader($refresh = 0)
    echo "      <a href=\"dashboard.html\"><button class=\"rounded-border button1\">Dashboard</button></a>\n";
    echo "      <a href=\"main.php\"><button class=\"rounded-border button1\">Liste</button></a>\n";
    echo "      <a href=\"chart.php\"><button class=\"rounded-border button1\">Charts</button></a>\n";
+   echo "      <a href=\"maincfg.html\"><button class=\"rounded-border button1\">Setup</button></a>\n";
 
-   if (ipInRange(getClientIp(), $_SESSION['localLoginNetmask']))
-   {
-      echo "      <a href=\"basecfg.php\"><button class=\"rounded-border button1\">Setup</button></a>\n";
-   }
+   if (haveLogin())
+      echo "      <a href=\"logout.php\"><button class=\"rounded-border button1\">Logout</button></a>\n";
    else
-   {
-      if (haveLogin())
-         echo "      <a href=\"logout.php\"><button class=\"rounded-border button1\">Logout</button></a>\n";
-      else
-         echo "      <a href=\"login.php\"><button class=\"rounded-border button1\">Login</button></a>\n";
-   }
+      echo "      <a href=\"login.php\"><button class=\"rounded-border button1\">Login</button></a>\n";
 
    if (isset($_SESSION['haUrl']) && $_SESSION['haUrl'] != "")
       echo "      <a href=\"" . $_SESSION['haUrl'] . "\"><button class=\"rounded-border button1\">HADashboard</button></a>\n";
 
    echo "    </nav>\n";
    echo "    <div class=\"content\">\n";
-?>
-
-<script>
-
-// -----------------------------------------
-
-function pageShow()
-{
-   'use strict';
-
-   var
-      content = 0,
-      nav1 = 0,
-      nav2 = 0,
-      nav3 = 0;
-
-   content = document.querySelector('.content');
-   nav1 = document.querySelector('.fixed-menu1');
-   nav2 = document.querySelector('.fixed-menu2');
-   nav3 = document.querySelector('.menu');
-
-   if (!content)
-      return true;
-
-   if (nav3)
-   {
-      content.style.top = nav1.clientHeight + nav2.clientHeight + nav3.clientHeight + 'px';
-      nav1.style.top = 0 + 'px';
-      nav2.style.top = nav1.clientHeight + 'px';
-      nav3.style.top = nav1.clientHeight + nav1.clientHeight + 'px';
-   }
-   else if (nav2)
-   {
-      content.style.top = nav1.clientHeight + nav2.clientHeight + 'px';
-      nav1.style.top = 0 + 'px';
-      nav2.style.top = nav1.clientHeight + 'px';
-   }
-   else if (nav1)
-   {
-      content.style.top = nav1.clientHeight + 'px';
-      nav1.style.top = 0 + 'px';
-   }
 }
-
-(function()
-{
-   'use strict';
-
-   var
-      navHeight = 0,
-      navTop = 0,
-      scrollCurr = 0,
-      scrollPrev = 0,
-      scrollDiff = 0,
-      content = 0,
-      nav1 = 0,
-      nav2 = 0,
-      nav3 = 0;
-
-   window.addEventListener('scroll', function()
-   {
-      nav1 = document.querySelector('.fixed-menu1');
-      content = document.querySelector('.content');
-
-      if (!nav1 || !content)
-         return true;
-
-      pageShow();
-
-      navHeight = nav1.clientHeight;
-      scrollCurr = window.pageYOffset;
-      scrollDiff = scrollPrev - scrollCurr;
-      navTop = parseInt(window.getComputedStyle(content).getPropertyValue('top')) - scrollCurr;
-
-      if (scrollCurr <= 0)              // Scroll to top: fix navbar to top
-         nav1.style.top = '0px';
-      else
-         nav1.style.top = navTop - nav1.clientHeight + 'px';
-
-      /* else if (scrollDiff > 0)          // Scroll up: show navbar */
-      /*    nav1.style.top = (navTop > 0 ? 0 : navTop) + 'px'; */
-      /* else if (scrollDiff < 0)          // Scroll down: hide navbar */
-      /*    nav1.style.top = (Math.abs(navTop) > navHeight ? -navHeight : navTop) + 'px'; */
-
-      nav2 = document.querySelector('.fixed-menu2');
-
-      if (nav2)
-      {
-         navHeight = nav2.clientHeight;
-         navTop = parseInt(window.getComputedStyle(nav2).getPropertyValue('top')) + scrollDiff;
-
-         if (scrollCurr <= 0)           // Scroll to top: fix navbar to top
-            nav2.style.top = nav1.clientHeight + 'px';
-         else if (scrollDiff > 0)       // Scroll up: show navbar
-            nav2.style.top = (navTop > 0 ? nav1.clientHeight : navTop) + 'px';
-         else if (scrollDiff < 0)       // Scroll down: hide navbar
-         {
-            if (scrollCurr <= nav1.clientHeight)
-               nav2.style.top = '0px';
-            else
-               nav2.style.top = (Math.abs(navTop) > navHeight ? -navHeight : navTop) + 'px';
-         }
-      }
-
-      nav3 = document.querySelector('.menu');
-
-      if (nav3)
-      {
-         navHeight = nav3.clientHeight;
-         navTop = parseInt(window.getComputedStyle(nav3).getPropertyValue('top')) + scrollDiff;
-
-         if (scrollCurr <= 0)           // Scroll to top: fix navbar to top
-            nav3.style.top = '76px';
-         else if (scrollDiff > 0)       // Scroll up: show navbar
-            nav3.style.top = (navTop > 0 ? 76 : navTop) + 'px';
-         else if (scrollDiff < 0)       // Scroll down: hide navbar
-         {
-            if (scrollCurr <= nav1.clientHeight)
-               nav3.style.top = '0px';
-            else
-               nav3.style.top = (Math.abs(navTop) > navHeight ? -navHeight : navTop) + 'px';
-         }
-      }
-
-      scrollPrev = scrollCurr;          // remember last scroll position
-   });
-
-}());
-
-(function()
-{
-   'use strict';
-
-   if (window.addEventListener)
-      window.addEventListener("load", pageShow, false);
-   else if (window.attachEvent)
-   {
-      window.attachEvent("onload", pageShow);
-      window.attachEvent('pageshow', pageShow);
-   }
-   else
-      window.onload = pageShow;
-
-}());
-
-</script>
-<?php
-}
-
 ?>

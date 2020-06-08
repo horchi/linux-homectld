@@ -94,8 +94,6 @@ printHeader($_SESSION['refreshWeb']);
      else
          $strQuery = sprintf("%s where (%s) and s.time = '%s'", $strQueryBase, $addrWhere, $max);
 
-     // tell("selecting " . " '" . $strQuery . "'");
-
      $result = $mysqli->query($strQuery)
          or die("Error" . $mysqli->error);
 
@@ -112,25 +110,6 @@ printHeader($_SESSION['refreshWeb']);
 
          if ($addrWhere == "")
              $ids[$i++] = $id;
-     }
-
-     // get actual state of all 'DO'
-
-     $sensors = new \Ds\Map();
-     $state = requestAction("getallio", 3, 0, "", $response);
-
-     if ($state == 0)
-     {
-        $arr = explode("#", $response);
-
-        foreach ($arr as &$item)
-        {
-           if ($item != "")
-           {
-              list($pin, $data) = explode(":", $item, 2);
-              $sensors->put($pin, $data);
-           }
-        }
      }
 
      // process ...
@@ -157,17 +136,6 @@ printHeader($_SESSION['refreshWeb']);
          $max = $row['p_max'];
          $txtaddr = sprintf("0x%x", $address);
          $mode = 'auto';
-
-         // case of DO request the actual state instead of the last stored value
-
-         if ($type == 'DO')
-         {
-            if ($sensors->hasKey($address))
-            {
-               $data = $sensors[$address];
-               list($value, $mode, $opt) = explode(":", $data, 3);
-            }
-         }
 
          if ($type != 'DI' && $type != 'DO' && $unit != '' && $unit != 'h' && $unit != 'Stunden')
              $peak = sprintf("(%s/%s)", $min, $max);

@@ -4,8 +4,6 @@ include("header.php");
 
 printHeader();
 
-include("setup.php");
-
 // -------------------------
 // chaeck login
 

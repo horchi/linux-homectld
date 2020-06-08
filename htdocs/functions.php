@@ -63,30 +63,6 @@ function checkLogin($user, $passwd)
 }
 
 // ---------------------------------------------------------------------------
-// Get Image Path
-// ---------------------------------------------------------------------------
-
-/*function getImageOf($title, $value)
-{
-   $imagePath = "unknown.jpg";
-
-   if (mb_stripos($title, "Pump") !== FALSE)
-      $imagePath = $value == "1.00" ? "img/icon/pump-on.gif" : "img/icon/pump-off.png";
-   else if (mb_stripos($title, "Steckdose") !== FALSE)
-      $imagePath = $value == "1.00" ? "img/icon/plug-on.png" : "img/icon/plug-off.png";
-   else if (mb_stripos($title, "UV-C") !== FALSE)
-      $imagePath = $value == "1.00" ? "img/icon/uvc-on.png" : "img/icon/uvc-off.png";
-   else if (mb_stripos($title, "Licht") !== FALSE)
-      $imagePath = $value == "1.00" ? "img/icon/light-on.png" : "img/icon/light-off.png";
-   else if (mb_stripos($title, "Shower") !== FALSE || mb_stripos($title, "Dusche") !== FALSE)
-      $imagePath = $value == "1.00" ? "img/icon/shower-on.png" : "img/icon/shower-off.png";
-   else
-      $imagePath = $value == "1.00" ? "img/icon/boolean-on.png" : "img/icon/boolean-off.png";
-
-   return $imagePath;
-}*/
-
-// ---------------------------------------------------------------------------
 // IP In Range
 // ---------------------------------------------------------------------------
 
@@ -398,23 +374,6 @@ function sendTestMail($subject, $body, &$resonse, $alertid = "")
 function seperator($title, $top = 0, $class = "seperatorTitle1")
 {
    echo "        <div class=\"rounded-border " . $class . "\">$title</div>\n";
-}
-
-// ---------------------------------------------------------------------------
-// Write Config Item
-// ---------------------------------------------------------------------------
-
-function writeConfigItem($name, $value)
-{
-   global $mysqli;
-
-   if (requestAction("write-config", 3, 0, "$name:$value", $res) != 0)
-   {
-      echo " <br/>failed to write config item $name\n";
-      return -1;
-   }
-
-   return 0;
 }
 
 // ---------------------------------------------------------------------------

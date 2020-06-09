@@ -6,6 +6,61 @@ include("pChart/class/pData.class.php");
 include("pChart/class/pDraw.class.php");
 include("pChart/class/pImage.class.php");
 
+// ---------------------------------------------------------------------------
+// Date Picker
+// ---------------------------------------------------------------------------
+
+function datePicker($title, $name, $year, $day, $month)
+{
+   $html = "";
+   $startyear = date("Y")-10;
+   $endyear = date("Y")+1;
+
+   $months = array('','Januar','Februar','März','April','Mai',
+                   'Juni','Juli','August', 'September','Oktober','November','Dezember');
+
+   if ($title != "")
+      $html = $title . ": ";
+
+   // day
+
+   $html .= "  <select name=\"" . $name . "day\">\n";
+
+   for ($i = 1; $i <= 31; $i++)
+   {
+      $sel = $i == $day  ? "SELECTED" : "";
+      $html .= "     <option value='$i' " . $sel . ">$i</option>\n";
+   }
+
+   $html .= "  </select>\n";
+
+   // month
+
+   $html .= "  <select name=\"" . $name . "month\">\n";
+
+   for ($i = 1; $i <= 12; $i++)
+   {
+      $sel = $i == $month ? "SELECTED" : "";
+      $html .= "     <option value='$i' " . $sel . ">$months[$i]</option>\n";
+   }
+
+   $html.="  </select>\n";
+
+   // year
+
+   $html .= "  <select name=\"" . $name . "year\">\n";
+
+   for ($i = $startyear; $i <= $endyear; $i++)
+   {
+      $sel = $i == $year  ? "SELECTED" : "";
+      $html .= "     <option value='$i' " . $sel . ">$i</option>\n";
+   }
+
+   $html .= "  </select>\n";
+
+   return $html;
+}
+
 {
     printHeader();
 
@@ -18,6 +73,8 @@ include("pChart/class/pImage.class.php");
 
     // ----------------
     // init
+
+    define("tmeSecondsPerDay", 86400);
 
     $days = $_SESSION['chartStart'];
 
@@ -52,16 +109,16 @@ include("pChart/class/pImage.class.php");
 
     echo "  <div id=\"imgDiv\" class=\"rounded-border chart\">\n";
     echo "    <img src='detail.php?from=" . $from . "&range=" . $range
-        . "&condition=" . $_SESSION['chart1'] . "&chartXLines=" . $_SESSION['chartXLines']
+        . "&condition=" . $_SESSION['chart1'] . "&chartXLines=1"
         . "&chartDiv=" . $_SESSION['chartDiv'] . "'/>\n";
     echo "  </div>\n";
 
     echo "  <div class=\"rounded-border chart\">\n";
     echo "    <img src='detail.php?from=" . $from . "&range=" . $range
-        . "&condition=" . $_SESSION['chart2'] . "&chartXLines=" . $_SESSION['chartXLines']
+        . "&condition=" . $_SESSION['chart2'] . "&chartXLines=1"
         . "&chartDiv=" . $_SESSION['chartDiv'] . "'/>\n";
     echo "  </div>\n";
 
-    include("footer.php");
+    echo "    </div>\n  </body>\n</html>";
 }
 ?>

@@ -14,18 +14,17 @@
 #include "lib/json.h"
 
 #include "poold.h"
-//#include "config.h"
 
-int cWebSock::wsLogLevel = LLL_ERR | LLL_WARN; // LLL_INFO | LLL_NOTICE | LLL_WARN | LLL_ERR
-lws_context* cWebSock::context = 0;
-char* cWebSock::msgBuffer = 0;
-int cWebSock::msgBufferSize = 0;
-int cWebSock::timeout = 0;
-cWebSock::MsgType cWebSock::msgType = mtNone;
+int cWebSock::wsLogLevel {LLL_ERR | LLL_WARN}; // LLL_INFO | LLL_NOTICE | LLL_WARN | LLL_ERR
+lws_context* cWebSock::context {nullptr};
+char* cWebSock::msgBuffer {nullptr};
+int cWebSock::msgBufferSize {0};
+int cWebSock::timeout {0};
+cWebSock::MsgType cWebSock::msgType {mtNone};
 std::map<void*,cWebSock::Client> cWebSock::clients;
 cMyMutex cWebSock::clientsMutex;
-char* cWebSock::httpPath = 0;
-char* cWebSock::loginToken = 0;
+char* cWebSock::httpPath {nullptr};
+char* cWebSock::loginToken {nullptr};
 
 //***************************************************************************
 // Init
@@ -48,9 +47,9 @@ cWebSock::~cWebSock()
 int cWebSock::init(int aPort, int aTimeout)
 {
    struct lws_context_creation_info info;
-   const char* interface = 0;
-   const char* certPath = 0;           // we're not using ssl
-   const char* keyPath = 0;
+   const char* interface {nullptr};
+   const char* certPath {nullptr};           // we're not using ssl
+   const char* keyPath {nullptr};
 
    lws_set_log_level(wsLogLevel, writeLog);
 
@@ -161,9 +160,9 @@ void getClientInfo(lws* wsi, std::string* clientInfo)
 
    if (wsi)
    {
-      int fd = lws_get_socket_fd(wsi);
+      int fd;
 
-      if (fd)
+      if ((fd = lws_get_socket_fd(wsi)))
          lws_get_peer_addresses(wsi, fd, clientName, sizeof(clientName), clientIp, sizeof(clientIp));
    }
 
@@ -174,8 +173,7 @@ void getClientInfo(lws* wsi, std::string* clientInfo)
 // HTTP Callback
 //***************************************************************************
 
-int cWebSock::callbackHttp(lws* wsi, lws_callback_reasons reason, void* user,
-                           void* in, size_t len)
+int cWebSock::callbackHttp(lws* wsi, lws_callback_reasons reason, void* user, void* in, size_t len)
 {
    SessionData* sessionData = (SessionData*)user;
    std::string clientInfo = "unknown";
@@ -480,7 +478,10 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
          }
          else if (clients[wsi].type == ctWithLogin)
          {
-            Poold::messagesIn.push(message);
+            addToJson(oData, "client", (long)wsi);
+            char* p = json_dumps(oData, JSON_PRESERVE_ORDER);
+            Poold::messagesIn.push(p);
+            free(p);
          }
          else
          {

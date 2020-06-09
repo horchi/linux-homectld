@@ -63,7 +63,7 @@ echo "      </form>\n";
 
 $mysqli->close();
 
-include("footer.php");
+echo "    </div>\n  </body>\n</html>";
 
 //***************************************************************************
 // Show Buttons
@@ -72,7 +72,6 @@ include("footer.php");
 function showButtons()
 {
    echo "        <div class=\"menu\">\n";
-//   echo "          <button class=\"rounded-border button3\" type=submit name=action value=init onclick=\"return confirmSubmit('Stammdaten der Messwerte initialisieren/aktualisieren')\">Init</button>\n";
    echo "          <button class=\"rounded-border button3\" type=submit name=action value=store>Speichern</button>\n";
    echo "        </div>\n";
 }
@@ -85,7 +84,7 @@ function showTable($type, $tableTitle)
 {
    global $mysqli;
 
-   seperator($tableTitle, 0);
+   echo "        <div class=\"rounded-border seperatorTitle1\">$tableTitle</div>\n";
 
    echo "        <table class=\"tableMultiCol\">\n";
    echo "          <tbody>\n";

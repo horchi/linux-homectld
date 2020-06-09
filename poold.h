@@ -49,6 +49,8 @@ class cWebService
          evToggleIoNext,
          evToggleMode,
          evStoreConfig,
+         evSyslog,
+         evConfigDetails,
 
          evCount
       };
@@ -342,15 +344,16 @@ class Poold : public cWebService
       // web
 
       int performLogin(json_t* oObject);
+      int performSyslog(json_t* oObject, long client);
+      int performConfigDetails(json_t* oObject, long client);
       int config2Json(json_t* obj);
       int configDetails2Json(json_t* obj);
+      int daemonState2Json(json_t* obj);
       int sensor2Json(json_t* obj, cDbTable* table);
       void pin2Json(json_t* ojData, int pin);
       int storeConfig(json_t* obj);
 
       const char* getImageOf(const char* title, int value);
-      int performWebifRequests();
-      int cleanupWebifRequests();
       int toggleIo(uint pin);
       int toggleIoNext(uint pin);
       int toggleOutputMode(uint pin);
@@ -370,14 +373,11 @@ class Poold : public cWebService
       cDbTable* tablePeaks {nullptr};
       cDbTable* tableValueFacts {nullptr};
       cDbTable* tableConfig {nullptr};
-      cDbTable* tableJobs {nullptr};
 
       cDbStatement* selectActiveValueFacts {nullptr};
       cDbStatement* selectAllValueFacts {nullptr};
       cDbStatement* selectAllConfig {nullptr};
       cDbStatement* selectMaxTime {nullptr};
-      cDbStatement* selectPendingJobs {nullptr};
-      cDbStatement* cleanupJobs {nullptr};
 
       time_t nextAt {0};
       time_t startedAt {0};

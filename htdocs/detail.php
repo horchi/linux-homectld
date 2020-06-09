@@ -8,9 +8,28 @@ include("pChart/class/pCache.class.php");
 include("config.php");
 include("functions.php");
 
+// ---------------------------------------------------------------------------
+// Check/Create Folder
+// ---------------------------------------------------------------------------
+
+function chkDir($path, $rights = 0777)
+{
+   if (!(is_dir($path) OR is_file($path) OR is_link($path)))
+      return mkdir($path, $rights);
+   else
+      return true;
+}
+
+function tell($message)
+{
+   syslog(LOG_DEBUG, "poold: " . $message);
+}
+
+$cache_dir       = "pChart/cache";
+$chart_fontpath  = "pChart/fonts";
+
 $fontText = $chart_fontpath . "/Forgotte.ttf";
 $fontScale = $chart_fontpath . "/Forgotte.ttf";
-// date_default_timezone_set('Europe/Berlin');
 
 // -----------------------------
 // db connection
@@ -20,17 +39,13 @@ $mysqli->query("set names 'utf8'");
 $mysqli->query("SET lc_time_names = 'de_DE'");
 
 // parameters
-// echo $Div.":".$_GET['chartDiv']." - ".$XLines.":".$_GET['chartXLines'];
 
 if (isset($_GET['chartDiv']) && is_numeric($_GET['chartDiv']))
    $Div = htmlspecialchars($_GET['chartDiv']);
 else
    $Div = 25;
 
-if (isset($_GET['chartXLines']) && $_GET['chartXLines'] == true)
-   $XLines = true;
-else
-   $XLines = false;
+$XLines = true;
 
 if (isset($_GET['condition']))
 {

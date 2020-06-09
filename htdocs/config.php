@@ -9,13 +9,6 @@ $mysqluser       = "pool";
 $mysqlpass       = "pool";
 $mysqldb         = "pool";
 
-$cache_dir       = "pChart/cache";
-$chart_fontpath  = "pChart/fonts";
-$debug           = 1;
-
-$wd_value        = array("Monday", "Tuesday",  "Wednesday", "Thursday",   "Friday",  "Saturday", "Sunday");
-$wd_disp         = array("Montag", "Dienstag", "Mittwoch",  "Donnerstag", "Freitag", "Samstag",  "Sonntag");
-
 $secretLoginToken = "dein secret login token";
 
 // -----------------------------

@@ -92,6 +92,8 @@ const char* cWebService::events[] =
    "toggleionext",
    "togglemode",
    "storeconfig",
+   "syslog",
+   "configdetails",
    0
 };
 
@@ -176,7 +178,7 @@ int Poold::pushMessage(json_t* oContents, const char* title, long client)
 }
 
 //***************************************************************************
-// Dispatch Client Data
+// Dispatch Client Requests
 //***************************************************************************
 
 int Poold::dispatchClientRequest()
@@ -184,7 +186,6 @@ int Poold::dispatchClientRequest()
    int status = fail;
    json_error_t error;
    json_t *oData, *oObject;
-   Event event = evUnknown;
 
    // #TODO loop here while (!messagesIn.empty()) ?
 
@@ -198,7 +199,8 @@ int Poold::dispatchClientRequest()
 
    // get the request
 
-   event = cWebService::toEvent(getStringFromJson(oData, "event", "<null>"));
+   Event event = cWebService::toEvent(getStringFromJson(oData, "event", "<null>"));
+   long client = getLongFromJson(oData, "client");
    oObject = json_object_get(oData, "object");
 
    int addr = getIntFromJson(oObject, "address");
@@ -207,12 +209,13 @@ int Poold::dispatchClientRequest()
 
    switch (event)
    {
-      case evLogin:         status = performLogin(oObject);   break;
-      case evToggleIo:      status = toggleIo(addr);          break;
-      case evToggleIoNext:  status = toggleIoNext(addr);      break;
-      case evToggleMode:    status = toggleOutputMode(addr);  break;
-      case evStoreConfig:   status = storeConfig(oObject);    break;
-
+      case evLogin:         status = performLogin(oObject);                  break;
+      case evToggleIo:      status = toggleIo(addr);                         break;
+      case evToggleIoNext:  status = toggleIoNext(addr);                     break;
+      case evToggleMode:    status = toggleOutputMode(addr);                 break;
+      case evStoreConfig:   status = storeConfig(oObject);                   break;
+      case evSyslog:        status = performSyslog(oObject, client);         break;
+      case evConfigDetails: status = performConfigDetails(oObject, client);  break;
       default:
          tell(0, "Error: Received unexpected client request '%s' at [%s]", toName(event), messagesIn.front().c_str());
    }
@@ -449,9 +452,6 @@ int Poold::initDb()
    tableConfig = new cDbTable(connection, "config");
    if (tableConfig->open() != success) return fail;
 
-   tableJobs = new cDbTable(connection, "jobs");
-   if (tableJobs->open() != success) return fail;
-
    // prepare statements
 
    selectActiveValueFacts = new cDbStatement(tableValueFacts);
@@ -497,28 +497,8 @@ int Poold::initDb()
 
    // ------------------
 
-   selectPendingJobs = new cDbStatement(tableJobs);
-
-   selectPendingJobs->build("select ");
-   selectPendingJobs->bindAllOut();
-   selectPendingJobs->build(" from %s where state = 'P'", tableJobs->TableName());
-   status += selectPendingJobs->prepare();
-
-   // ------------------
-
-   cleanupJobs = new cDbStatement(tableJobs);
-
-   cleanupJobs->build("delete from %s where ", tableJobs->TableName());
-   cleanupJobs->bindCmp(0, "REQAT", 0, "<");
-
-   status += cleanupJobs->prepare();
-
-   // ------------------
-
    if (status == success)
       tell(eloAlways, "Connection to database established");
-
-   connection->query("%s", "truncate table jobs");
 
    return status;
 }
@@ -529,14 +509,11 @@ int Poold::exitDb()
    delete tablePeaks;              tablePeaks = 0;
    delete tableValueFacts;         tableValueFacts = 0;
    delete tableConfig;             tableConfig = 0;
-   delete tableJobs;               tableJobs = 0;
 
    delete selectActiveValueFacts;  selectActiveValueFacts = 0;
    delete selectAllValueFacts;     selectAllValueFacts = 0;
    delete selectAllConfig;         selectAllConfig = 0;
    delete selectMaxTime;           selectMaxTime = 0;
-   delete selectPendingJobs;       selectPendingJobs = 0;
-   delete cleanupJobs;             cleanupJobs = 0;
 
    delete connection;              connection = 0;
 
@@ -740,8 +717,6 @@ int Poold::standbyUntil(time_t until)
 
 int Poold::meanwhile()
 {
-   static time_t lastCleanup = time(0);
-
    if (!initialized)
       return done;
 
@@ -760,14 +735,7 @@ int Poold::meanwhile()
    performWebSocketPing();
 
    performHassRequests();
-   performWebifRequests();
    performJobs();
-
-   if (lastCleanup < time(0) - 6*tmeSecondsPerHour)
-   {
-      cleanupWebifRequests();
-      lastCleanup = time(0);
-   }
 
    return done;
 }
@@ -889,6 +857,7 @@ int Poold::update(bool webOnly, long client)
          json_object_set_new(ojData, "mode", json_string(digitalOutputStates[addr].mode == omManual ? "manual" : "auto"));
          json_object_set_new(ojData, "options", json_integer(digitalOutputStates[addr].opt));
          json_object_set_new(ojData, "image", json_string(getImageOf(title, digitalOutputStates[addr].state)));
+         json_object_set_new(ojData, "value", json_integer(digitalOutputStates[addr].state));
          json_object_set_new(ojData, "widgettype", json_integer(wtSymbol));
 
          if (!webOnly)
@@ -968,14 +937,64 @@ int Poold::performLogin(json_t* oObject)
    config2Json(oJson);
    pushMessage(oJson, "config", client);
 
-   if (type == ctWithLogin)
-   {
-      oJson = json_array();
-      configDetails2Json(oJson);
-      pushMessage(oJson, "configdetails", client);
-   }
+   oJson = json_object();
+   daemonState2Json(oJson);
+   pushMessage(oJson, "daemonstate", client);
 
    update(true, client);
+
+   return done;
+}
+
+//***************************************************************************
+// Perform WS Syslog Request
+//***************************************************************************
+
+int Poold::performSyslog(json_t* oObject, long client)
+{
+   if (client <= 0)
+      return done;
+
+   json_t* oJson = json_object();
+   const char* name = "/var/log/syslog";
+   std::vector<std::string> lines;
+   std::string result;
+
+   if (loadLinesFromFile(name, lines, false) == success)
+   {
+      const int maxLines {150};
+      int count {0};
+
+      for (auto it = lines.rbegin(); it != lines.rend(); ++it)
+      {
+         if (count++ >= maxLines)
+         {
+            result += "...\n...\n";
+            break;
+         }
+
+         result += *it;
+      }
+   }
+
+   json_object_set_new(oJson, "lines", json_string(result.c_str()));
+   pushMessage(oJson, "syslog", client);
+
+   return done;
+}
+
+//***************************************************************************
+// Perform WS Config Data Request
+//***************************************************************************
+
+int Poold::performConfigDetails(json_t* oObject, long client)
+{
+   if (client <= 0)
+      return done;
+
+   json_t* oJson = json_array();
+   configDetails2Json(oJson);
+   pushMessage(oJson, "configdetails", client);
 
    return done;
 }
@@ -1045,6 +1064,28 @@ int Poold::configDetails2Json(json_t* obj)
    }
 
    selectAllConfig->freeResult();
+
+   return done;
+}
+
+//***************************************************************************
+// Daemon Stateus 2 Json
+//***************************************************************************
+
+int Poold::daemonState2Json(json_t* obj)
+{
+   double averages[3] {0.0, 0.0, 0.0};
+   char d[100];
+
+   toElapsed(time(0)-startedAt, d);
+   getloadavg(averages, 3);
+
+   json_object_set_new(obj, "state", json_integer(success));
+   json_object_set_new(obj, "version", json_string(VERSION));
+   json_object_set_new(obj, "runningsince", json_string(d));
+   json_object_set_new(obj, "average0", json_real(averages[0]));
+   json_object_set_new(obj, "average1", json_real(averages[1]));
+   json_object_set_new(obj, "average2", json_real(averages[2]));
 
    return done;
 }
@@ -1671,6 +1712,30 @@ int Poold::getWaterLevel()
    tell(eloDetail, "Water level is %d (%d/%d/%d)", waterLevel, l1, l2, l3);
 
    return waterLevel;
+}
+
+//***************************************************************************
+// getImageOf
+//***************************************************************************
+
+const char* Poold::getImageOf(const char* title, int value)
+{
+   const char* imagePath = "unknown.jpg";
+
+   if (strcasestr(title, "Pump"))
+      imagePath = value ? "img/icon/pump-on.gif" : "img/icon/pump-off.png";
+   else if (strcasestr(title, "Steckdose"))
+      imagePath = value ? "img/icon/plug-on.png" : "img/icon/plug-off.png";
+   else if (strcasestr(title, "UV-C"))
+      imagePath = value ? "img/icon/uvc-on.png" : "img/icon/uvc-off.png";
+   else if (strcasestr(title, "Licht"))
+      imagePath = value ? "img/icon/light-on.png" : "img/icon/light-off.png";
+   else if (strcasestr(title, "Shower") || strcasestr(title, "Dusche"))
+      imagePath = value ? "img/icon/shower-on.png" : "img/icon/shower-off.png";
+   else
+      imagePath = value ? "img/icon/boolean-on.png" : "img/icon/boolean-off.png";
+
+   return imagePath;
 }
 
 //***************************************************************************

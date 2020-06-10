@@ -22,33 +22,3 @@
                tableJobs->setValue("RESULT", "success:mail sended");
          }
       }
-
-      else if (strcasecmp(command, "check-login") == 0)
-      {
-         char* webUser = 0;
-         char* webPass = 0;
-         md5Buf defaultPwd;
-
-         createMd5("pool", defaultPwd);
-         getConfigItem("user", webUser, "pool");
-         getConfigItem("passwd", webPass, defaultPwd);
-
-         char* user = strdup(data);
-         char* pwd = 0;
-
-         if ((pwd = strchr(user, ':')))
-         {
-            *pwd = 0; pwd++;
-
-            tell(eloDetail, "%s/%s", pwd, webPass);
-
-            if (strcmp(webUser, user) == 0 && strcmp(pwd, webPass) == 0)
-               tableJobs->setValue("RESULT", "success:login-confirmed");
-            else
-               tableJobs->setValue("RESULT", "fail:login-denied");
-         }
-
-         free(webPass);
-         free(webUser);
-         free(user);
-      }

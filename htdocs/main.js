@@ -18,27 +18,27 @@ function connectWebSocket()
          console.log("socket opened :)");
          if (isActive === null)     // wurde beim Schliessen auf null gesetzt
          {
-            $.ajax({
-               url : "ajax_interface.php",
-               type : "POST",
-               data : { "action" : 'gettoken' },
-               success: function(response) {
-                  daemonState.state = -1;
-                  var token = response;
-                  socket.send({ "event" : "login", "object" :
-                                { "type" : "active",
-                                  "token" : token }
-                              });
+            var token = localStorage.getItem('token');
+            if (!token || token == null) token = "";
 
-                  if (document.getElementById("syslogContainer") != null)
-                     socket.send({ "event" : "syslog", "object" : "" });
-                  else if (document.getElementById("configContainer") != null)
-                     socket.send({ "event" : "configdetails", "object" : "" });
-               },
-               error: function(jqXHR, textStatus, errorThrown) {
-                  console.log(textStatus, errorThrown);
-               }
-            });
+            daemonState.state = -1;
+            // console.log("LOGIN: stored token is: " + localStorage.getItem('token'));
+
+            socket.send({ "event" : "login", "object" :
+                          { "type" : "active", "token" : token } });
+
+            // request some data after login
+
+            var rootChart = null;
+
+            if (document.getElementById("syslogContainer") != null)
+               socket.send({ "event" : "syslog", "object" : "" });
+            else if (document.getElementById("configContainer") != null)
+               socket.send({ "event" : "configdetails", "object" : "" });
+            else if (document.getElementById("ioSetupContainer") != null)
+               socket.send({ "event" : "iosettings", "object" : "" });
+            else if (rootChart = document.getElementById("chart").getContext("2d"))
+               drawCharts(rootChart);
          }
       }, onclose: () => {
          isActive = null;           // auf null setzen, dass ein neues login aufgerufen wird
@@ -58,6 +58,7 @@ function dispatchMessage(message)
    var rootList = document.getElementById("listContainer");
    var rootDashboard = document.getElementById("widgetContainer");
    var rootConfig = document.getElementById("configContainer");
+   var rootIoSetup = document.getElementById("ioSetupContainer");
 
    var d = new Date();
 
@@ -100,6 +101,16 @@ function dispatchMessage(message)
    else if (event == "syslog")
    {
       showSyslog(jMessage.object);
+   }
+   else if (event == "token")
+   {
+      // console.log("got token: " + jMessage.object.value);
+      localStorage.setItem('token', jMessage.object.value);
+      window.location.replace("index.html");
+   }
+   else if (event == "valuefacts" && rootIoSetup)
+   {
+      initIoSetup(jMessage.object, rootIoSetup);
    }
 
    // console.log("event: " + event + " dispatched");
@@ -182,8 +193,8 @@ function initConfig(configuration, root)
                if (!range[1]) range[1] = "";
                if (n > 0) html += "  <span/>  </span>\n";
                html += "   <span>\n";
-               html += "     <input type=\"text\" class=\"rounded-border inputTime\" name=\"" + nameFrom + "\" value=\"" + range[0] + "\"/> -";
-               html += "     <input type=\"text\" class=\"rounded-border inputTime\" name=\"" + nameTo + "\" value=\"" + range[1] + "\"/>\n";
+               html += "     <input id=\"range_" + nameFrom + "\" type=\"text\" class=\"rounded-border inputTime\" value=\"" + range[0] + "\"/> -";
+               html += "     <input id=\"range_" + nameTo + "\" type=\"text\" class=\"rounded-border inputTime\" value=\"" + range[1] + "\"/>\n";
                html += "   </span>\n";
                html += "   <span></span>\n";
             }
@@ -194,8 +205,8 @@ function initConfig(configuration, root)
 
          if (n > 0) html += "  <span/>  </span>\n";
          html += "  <span>\n";
-         html += "    <input type=\"text\" class=\"rounded-border inputTime\" name=\"" + nameFrom + "\" value=\"\"/> -";
-         html += "    <input type=\"text\" class=\"rounded-border inputTime\" name=\"" + nameTo + "\" value=\"\"/>\n";
+         html += "    <input id=\"range_" + nameFrom + "\" value=\"\" type=\"text\" class=\"rounded-border inputTime\" /> -";
+         html += "    <input id=\"range_" + nameTo + "\" value=\"\" type=\"text\" class=\"rounded-border inputTime\" />\n";
          html += "  </span>\n";
          html += "  <span class=\"inputComment\">" + item.descrtiption + "</span>\n";
 
@@ -205,6 +216,41 @@ function initConfig(configuration, root)
       var elem = document.createElement("div");
       elem.innerHTML = html;
       root.appendChild(elem);
+   }
+}
+
+function initIoSetup(valueFacts, root)
+{
+   // console.log(JSON.stringify(valueFacts, undefined, 4));
+
+   for (var i = 0; i < valueFacts.length; i++)
+   {
+      var item = valueFacts[i];
+      var root = null;
+
+      var usrtitle = item.usrtitle != null ? item.usrtitle : "";
+      var html = "<td>" + item.title + "</td>";
+      html += "<td class=\"tableMultiColCell\"><input class=\"rounded-border inputSetting\" type=\"text\" value=\"" + usrtitle + "\"/></td>";
+      if (item.type != "DO")
+         html += "<td class=\"tableMultiColCell\"><input class=\"rounded-border inputSetting\" type=\"number\" value=\"" + item.scalemax + "\"/></td>";
+      else
+         html += "<td class=\"tableMultiColCell\"></td>";
+      html += "<td style=\"text-align:center;\">" + item.unit + "</td>";
+      html += "<td><input class=\"rounded-border inputSetting\" type=\"checkbox\" value=\"1:SP\" checked /></td>";
+      html += "<td>0x" + item.address.toString(16) + ":" + item.type + "</td>";
+
+      switch (item.type) {
+         case 'DO': root = document.getElementById("ioDigitalOut"); break
+         case 'W1': root = document.getElementById("ioOneWire");    break
+         case 'SP': root = document.getElementById("ioOther");      break
+      }
+
+      if (root != null)
+      {
+         var elem = document.createElement("tr");
+         elem.innerHTML = html;
+         root.appendChild(elem);
+      }
    }
 }
 
@@ -312,7 +358,7 @@ function initDashboard(widgets, root)
    root.innerHTML = "";
    var elem = document.createElement("div");
    elem.className = "widget rounded-border";
-   elem.innerHTML = "<div class=\"widget-title\">Zeit</div>\n<div id=\"refreshTime\" class=\"widget-value\"></div>";
+   elem.innerHTML = "<div class=\"widget-title\">Aktualisiert</div>\n<div id=\"refreshTime\" class=\"widget-value\"></div>";
    root.appendChild(elem);
 
    // build page content
@@ -476,39 +522,33 @@ window.toggleIoNext = function(address, type)
                });
 }
 
-/*
-  function toTimeRangesString($idNameBase, array $post)
-  {
-  $times = "";
+function toTimeRangesString(base)
+{
+   var times = "";
 
-  for ($i = 0; $i < 10; $i++)
-  {
-  $idName = $idNameBase.$i;
+   for (var i = 0; i < 10; i++) {
+      var id = "#" + base + i;
 
-  if (isset($post[$idName."From"]) && $post[$idName."From"] != "" &&
-  isset($post[$idName."To"]) && $post[$idName."To"] != "")
-  {
-  $from = htmlspecialchars($post[$idName."From"]);
-  $to = htmlspecialchars($post[$idName."To"]);
+      if ($(id + "From") && $(id + "From").val() && $(id + "To") && $(id + "To").val()) {
+         if (times != "") times += ",";
+         times += $(id + "From").val() + "-" + $(id + "To").val();
+      }
+      else {
+         break;
+      }
+   }
 
-  if ($times != "")
-  $times = $times.",";
-
-  $times = $times.$from."-".$to;
-  }
-  }
-
-  return $times;
-  }
-*/
+   return times;
+}
 
 window.storeConfig = function()
 {
+   var jsonObj = {};
+   var rootConfig = document.getElementById("configContainer");
+
    console.log("storeSettings");
 
-   var rootConfig = document.getElementById("configContainer");
    var elements = rootConfig.querySelectorAll("[id^='input_']");
-   var jsonObj = {};
 
    for (var i = 0; i < elements.length; i++) {
       var name = elements[i].id.substring(elements[i].id.indexOf("_") + 1);
@@ -522,6 +562,17 @@ window.storeConfig = function()
       jsonObj[name] = (elements[i].checked ? "1" : "0");
    }
 
+   var elements = rootConfig.querySelectorAll("[id^='range_']");
+
+   for (var i = 0; i < elements.length; i++) {
+      var name = elements[i].id.substring(elements[i].id.indexOf("_") + 1);
+      if (name.match("0From$")) {
+         name = name.substring(0, name.indexOf("0From"));
+         jsonObj[name] = toTimeRangesString("range_" + name);
+         console.log("value: " + jsonObj[name]);
+      }
+   }
+
    // console.log(JSON.stringify(jsonObj, undefined, 4));
 
    socket.send({ "event" : "storeconfig", "object" : jsonObj });
@@ -530,6 +581,16 @@ window.storeConfig = function()
    var elem = document.createElement("div");
    elem.innerHTML = "<br/><div class=\"info\"><b><center>Einstellungen gespeichert</center></b></div>";
    document.getElementById("confirm").appendChild(elem);
+}
+
+window.doLogin = function()
+{
+   // console.log("login: " + $("#user").val() + " : " + $.md5($("#password").val()));
+
+   socket.send({ "event": "gettoken", "object":
+                 { "user": $("#user").val(),
+                   "password": $.md5($("#password").val()) }
+               });
 }
 
 // ---------------------------------
@@ -548,11 +609,69 @@ function svg_circle_arc_path(x, y, radius, start_angle, end_angle)
    return "M " + start_xy[0] + " " + start_xy[1] + " A " + radius + " " + radius + " 0 0 0 " + end_xy[0] + " " + end_xy[1];
 };
 
+function drawCharts(root)
+{
+      var data = {
+         type: 'line',
+         data: {
+            labels: ['12', '13', '14', '15', '16', '17', '18', '19', '20', 'rr'],
+            datasets: [{
+               label: 'Temperatur °C',
+               data: [5, 8, 7, 12, 19, 3, 5, 2, 3, 45],
+               borderColor: [ 'rgba(0, 0, 255, 1)' ],
+               borderWidth: 0.7
+            }]
+         },
+         options: {
+            scales: {
+               yAxes: [{
+                  ticks: {
+                     beginAtZero: true
+                  }
+               }]
+            }
+         }
+      };
+
+      var chart = new Chart(root, data);
+}
+
 //----------------------------------------------
 // on document ready
 
 $(document).ready(function()
-                  {
-                     // console.log("document ready");
-                     connectWebSocket();
-                  });
+{
+   console.log("token: " + localStorage.getItem('token'));
+   connectWebSocket();
+});
+
+
+/*
+maybe needed for style selection
+
+function configOptionItem($flow, $title, $name, $value, $options, $comment = "", $attributes = "")
+{
+   $end = "";
+
+   echo "          <span>$title:</span>\n";
+   echo "          <span>\n";
+   echo "            <select class=\"rounded-border input\" name=\"" . $name . "\" "
+      . $attributes . ">\n";
+
+   foreach (explode(" ", $options) as $option)
+   {
+      $opt = explode(":", $option);
+      $sel = ($value == $opt[1]) ? "SELECTED" : "";
+
+      echo "              <option value=\"$opt[1]\" " . $sel . ">$opt[0]</option>\n";
+   }
+
+   echo "            </select>\n";
+   echo "          </span>\n";
+
+   if ($comment != "")
+      echo "          <span class=\"inputComment\">($comment)</span>\n";
+
+   echo $end;
+}
+*/

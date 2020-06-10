@@ -454,8 +454,8 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
          }
 
          char* message = strndup((const char*)in, len);
-
-         event = cWebService::toEvent(getStringFromJson(oData, "event", "<null>"));
+         const char* strEvent = getStringFromJson(oData, "event", "<null>");
+         event = cWebService::toEvent(strEvent);
          oObject = json_object_get(oData, "object");
 
          tell(3, "DEBUG: Got '%s'", message);
@@ -476,6 +476,13 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
             tell(3, "DEBUG: Got '%s'", message);
             clients[wsi].cleanupMessageQueue();
          }
+         else if (event == evGetToken)                       // { "event" : "gettoken", "object" : { "user" : "" : "password" : md5 } }
+         {
+            addToJson(oData, "client", (long)wsi);
+            char* p = json_dumps(oData, JSON_PRESERVE_ORDER);
+            Poold::messagesIn.push(p);
+            free(p);
+         }
          else if (clients[wsi].type == ctWithLogin)
          {
             addToJson(oData, "client", (long)wsi);
@@ -485,7 +492,7 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
          }
          else
          {
-            tell(1, "Debug: Ignoring data of client (%p) without login [%s]", (void*)wsi, message);
+            tell(1, "Debug: Ignoring '%s' request of client (%p) without login [%s]", strEvent, (void*)wsi, message);
          }
 
          json_decref(oData);
@@ -498,7 +505,7 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
       {
          tell(1, "Client '%s' connected (%p), ping time set to (%d)", clientInfo.c_str(), (void*)wsi, timeout);
          clients[wsi].wsi = wsi;
-         clients[wsi].type = ctActive; // ctInactive;  #TODO ??
+         clients[wsi].type = ctActive;
          clients[wsi].tftprio = 100;
 
          break;

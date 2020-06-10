@@ -6,7 +6,6 @@ include("pChart/class/pImage.class.php");
 include("pChart/class/pCache.class.php");
 
 include("config.php");
-include("functions.php");
 
 // ---------------------------------------------------------------------------
 // Check/Create Folder

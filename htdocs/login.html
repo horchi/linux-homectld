@@ -8,33 +8,41 @@
     <meta name="mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-    <link rel="shortcut icon" href="img/logo.png" type="image/png"/>
-    <link rel="icon" href="img/logo.png" type="image/png"/>
-    <link rel="apple-touch-icon-precomposed" sizes="144x144" href="img/logo.png" type="image/png"/>
+
+    <link rel="shortcut icon" href="$img" type="image/png"/>
+    <link rel="icon" href="$img" type="image/png"/>
+    <link rel="apple-touch-icon-precomposed" sizes="144x144" href="$img" type="image/png"/>
     <link rel="stylesheet" type="text/css" href="stylesheet.css"/>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+
+    <script src="//code.jquery.com/jquery.min.js"></script>
+    <script src="//cdn.rawgit.com/placemarker/jQuery-MD5/master/jquery.md5.js"></script>
     <script type="module" src="main.js"></script>
-    <title>Pool Control</title>
+
+    <title>Pool Control Dashboard</title>
   </head>
   <body>
-    <nav>
+
+    <nav class="fixed-menu1">
       <a href="index.html"><button class="rounded-border button1">Dashboard</button></a>
       <a href="list.html"><button class="rounded-border button1">Liste</button></a>
       <a href="chart.php"><button class="rounded-border button1">Charts</button></a>
       <a href="maincfg.html"><button class="rounded-border button1">Setup</button></a>
       <a href="login.html"><button class="rounded-border button1">Login</button></a>
-      <div>
-        <a href="maincfg.html"><button class="rounded-border button2">Allg. Konfiguration</button></a>
-        <a href="iosetup.html"><button class="rounded-border button2">IO Setup</button></a>
-        <a href="syslog.html"><button class="rounded-border button2">Syslog</button></a>
-      </div>
     </nav>
-    <div class="content">
-      <div id="confirm">
-        <button class="rounded-border" onclick="storeConfig()">Speichern</button>
-      </div>
-      <div id="configContainer" class="rounded-border inputTableConfig">
 
-      </div>
-    </body>
+    <div class="rounded-border inputTable">
+      <table>
+        <tr>
+          <td>User:</td>
+          <td><input id="user" class="rounded-border input" type="text" value=""></input></td>
+        </tr>
+        <tr>
+          <td>Passwort:</td>
+          <td><input id="password" class="rounded-border input" type="password" value=""></input></td>
+        </tr>
+      </table>
+      <button class="rounded-border" onclick="doLogin()">Anmelden</button>
+    </div>
+
+  </body>
 </html>

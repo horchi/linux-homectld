@@ -9,8 +9,6 @@ $mysqluser       = "pool";
 $mysqlpass       = "pool";
 $mysqldb         = "pool";
 
-$secretLoginToken = "dein secret login token";
-
 // -----------------------------
 // don't touch below ;-)
 

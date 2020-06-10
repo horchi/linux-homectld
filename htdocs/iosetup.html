@@ -8,16 +8,19 @@
     <meta name="mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+
     <link rel="shortcut icon" href="img/logo.png" type="image/png"/>
     <link rel="icon" href="img/logo.png" type="image/png"/>
     <link rel="apple-touch-icon-precomposed" sizes="144x144" href="img/logo.png" type="image/png"/>
     <link rel="stylesheet" type="text/css" href="stylesheet.css"/>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+
+    <script src="//code.jquery.com/jquery.min.js"></script>
     <script type="module" src="main.js"></script>
+
     <title>Pool Control</title>
   </head>
   <body>
-    <nav>
+    <nav class="fixed-menu1">
       <a href="index.html"><button class="rounded-border button1">Dashboard</button></a>
       <a href="list.html"><button class="rounded-border button1">Liste</button></a>
       <a href="chart.php"><button class="rounded-border button1">Charts</button></a>
@@ -30,11 +33,53 @@
       </div>
     </nav>
     <div class="content">
-      <div id="confirm">
-        <button class="rounded-border" onclick="storeConfig()">Speichern</button>
+      <div id="ioSetupContainer">
+        <div class="rounded-border seperatorTitle1">Digitale Ausgänge</div>
+        <table class="tableMultiCol">
+          <thead>
+            <tr>
+              <td>Name</td>
+              <td style="width:32%;">Bezeichnung</td>
+              <td style="width:6%;">Skala max</td>
+              <td style="width:3%;">Einheit</td>
+              <td style="width:3%;">Aufzeichnen</td>
+              <td style="width:6%;">ID:Typ</td>
+            </tr>
+          </thead>
+          <tbody id="ioDigitalOut">
+          </tbody>
+        </table>
+        <div class="rounded-border seperatorTitle1">One Wire Sensoren</div>
+        <table class="tableMultiCol">
+          <thead>
+            <tr>
+              <td>Name</td>
+              <td style="width:32%;">Bezeichnung</td>
+              <td style="width:6%;">Skala max</td>
+              <td style="width:3%;">Einheit</td>
+              <td style="width:3%;">Aufzeichnen</td>
+              <td style="width:6%;">ID:Typ</td>
+            </tr>
+          </thead>
+          <tbody id="ioOneWire">
+          </tbody>
+        </table>
+        <div class="rounded-border seperatorTitle1">Weitere Sensoren</div>
+        <table class="tableMultiCol">
+          <thead>
+            <tr>
+              <td>Name</td>
+              <td style="width:32%;">Bezeichnung</td>
+              <td style="width:6%;">Skala max</td>
+              <td style="width:3%;">Einheit</td>
+              <td style="width:3%;">Aufzeichnen</td>
+              <td style="width:6%;">ID:Typ</td>
+            </tr>
+          </thead>
+          <tbody id="ioOther">
+          </tbody>
+        </table>
       </div>
-      <div id="configContainer" class="rounded-border inputTableConfig">
-
-      </div>
-    </body>
+    </div>
+  </body>
 </html>

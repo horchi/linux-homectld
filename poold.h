@@ -51,6 +51,8 @@ class cWebService
          evStoreConfig,
          evSyslog,
          evConfigDetails,
+         evGetToken,
+         evIoSettings,
 
          evCount
       };
@@ -344,10 +346,13 @@ class Poold : public cWebService
       // web
 
       int performLogin(json_t* oObject);
+      int performTokenRequest(json_t* oObject, long client);
       int performSyslog(json_t* oObject, long client);
       int performConfigDetails(json_t* oObject, long client);
+      int performIoSettings(json_t* oObject, long client);
       int config2Json(json_t* obj);
       int configDetails2Json(json_t* obj);
+      int valueFacts2Json(json_t* obj);
       int daemonState2Json(json_t* obj);
       int sensor2Json(json_t* obj, cDbTable* table);
       void pin2Json(json_t* ojData, int pin);

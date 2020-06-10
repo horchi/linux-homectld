@@ -94,6 +94,9 @@ const char* cWebService::events[] =
    "storeconfig",
    "syslog",
    "configdetails",
+   "gettoken",
+   "iosettings",
+
    0
 };
 
@@ -210,12 +213,15 @@ int Poold::dispatchClientRequest()
    switch (event)
    {
       case evLogin:         status = performLogin(oObject);                  break;
+      case evGetToken:      status = performTokenRequest(oObject, client);   break;
       case evToggleIo:      status = toggleIo(addr);                         break;
       case evToggleIoNext:  status = toggleIoNext(addr);                     break;
       case evToggleMode:    status = toggleOutputMode(addr);                 break;
       case evStoreConfig:   status = storeConfig(oObject);                   break;
       case evSyslog:        status = performSyslog(oObject, client);         break;
       case evConfigDetails: status = performConfigDetails(oObject, client);  break;
+      case evIoSettings:    status = performIoSettings(oObject, client);  break;
+
       default:
          tell(0, "Error: Received unexpected client request '%s' at [%s]", toName(event), messagesIn.front().c_str());
    }
@@ -553,21 +559,10 @@ int Poold::initW1()
 
 int Poold::readConfiguration()
 {
-   char* webUser {nullptr};
-   char* webPass {nullptr};
-   md5Buf defaultPwd;
-
    // init default web user and password
 
    getConfigItem("WSLoginToken", wsLoginToken, "dein secret login token");
    webSock->setLoginToken(wsLoginToken);
-
-   createMd5("pool", defaultPwd);
-   getConfigItem("user", webUser, "pool");
-   getConfigItem("passwd", webPass, defaultPwd);
-
-   free(webUser);
-   free(webPass);
 
    // init configuration
 
@@ -947,6 +942,44 @@ int Poold::performLogin(json_t* oObject)
 }
 
 //***************************************************************************
+// Perform WS Token Request
+//***************************************************************************
+
+int Poold::performTokenRequest(json_t* oObject, long client)
+{
+   char* webUser {nullptr};
+   char* webPass {nullptr};
+   md5Buf defaultPwd;
+
+   const char* user = getStringFromJson(oObject, "user", "");
+   const char* passwd  = getStringFromJson(oObject, "password", "");
+
+   tell(0, "Token request of client 0x%x for user '%s'", (unsigned int)client, user);
+
+   createMd5("pool", defaultPwd);
+   getConfigItem("user", webUser, "pool");
+   getConfigItem("passwd", webPass, defaultPwd);
+
+   json_t* oJson = json_object();
+
+   if (strcmp(webUser, user) == 0 && strcmp(passwd, webPass) == 0)
+   {
+      tell(0, "Token request for user '%s' succeeded", user);
+      json_object_set_new(oJson, "value", json_string(wsLoginToken));
+      pushMessage(oJson, "token", client);
+   }
+   else
+   {
+      tell(0, "Token request for user '%s' failed, wrong user/password", user);
+   }
+
+   free(webPass);
+   free(webUser);
+
+   return done;
+}
+
+//***************************************************************************
 // Perform WS Syslog Request
 //***************************************************************************
 
@@ -1000,6 +1033,22 @@ int Poold::performConfigDetails(json_t* oObject, long client)
 }
 
 //***************************************************************************
+// Perform WS IO Setting Data Request
+//***************************************************************************
+
+int Poold::performIoSettings(json_t* oObject, long client)
+{
+   if (client <= 0)
+      return done;
+
+   json_t* oJson = json_array();
+   valueFacts2Json(oJson);
+   pushMessage(oJson, "valuefacts", client);
+
+   return done;
+}
+
+//***************************************************************************
 // Store Configuratiom
 //***************************************************************************
 
@@ -1016,6 +1065,12 @@ int Poold::storeConfig(json_t* obj)
 
    return done;
 }
+
+//int Poold::storeIoSettings()
+//{
+//$sql = "UPDATE valuefacts set usrtitle = '$usrtitle', maxscale = '$maxscale', state = '$state' where address = '$addr' and type = '$type'";
+//   return dine;
+//}
 
 //***************************************************************************
 // Config 2 Json
@@ -1069,7 +1124,35 @@ int Poold::configDetails2Json(json_t* obj)
 }
 
 //***************************************************************************
-// Daemon Stateus 2 Json
+// Value Facts 2 Json
+//***************************************************************************
+
+int Poold::valueFacts2Json(json_t* obj)
+{
+   tableValueFacts->clear();
+
+   for (int f = selectAllValueFacts->find(); f; f = selectAllValueFacts->fetch())
+   {
+      json_t* oData = json_object();
+      json_array_append_new(obj, oData);
+
+      json_object_set_new(oData, "address", json_integer(tableValueFacts->getIntValue("ADDRESS")));
+      json_object_set_new(oData, "type", json_string(tableValueFacts->getStrValue("TYPE")));
+      json_object_set_new(oData, "state", json_integer(tableValueFacts->getIntValue("STATE")));
+      json_object_set_new(oData, "name", json_string(tableValueFacts->getStrValue("NAME")));
+      json_object_set_new(oData, "title", json_string(tableValueFacts->getStrValue("TITLE")));
+      json_object_set_new(oData, "usrtitle", json_string(tableValueFacts->getStrValue("USRTITLE")));
+      json_object_set_new(oData, "unit", json_string(tableValueFacts->getStrValue("UNIT")));
+      json_object_set_new(oData, "scalemax", json_integer(tableValueFacts->getIntValue("MAXSCALE")));
+   }
+
+   selectAllValueFacts->freeResult();
+
+   return done;
+}
+
+//***************************************************************************
+// Daemon Status 2 Json
 //***************************************************************************
 
 int Poold::daemonState2Json(json_t* obj)

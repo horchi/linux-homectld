@@ -96,6 +96,7 @@ const char* cWebService::events[] =
    "configdetails",
    "gettoken",
    "iosettings",
+   "chartdata",
 
    0
 };
@@ -113,7 +114,6 @@ cWebService::Event cWebService::toEvent(const char* name)
    for (int e = evUnknown; e < evCount; e++)
       if (strcasecmp(name, events[e]) == 0)
          return (Event)e;
-
    return evUnknown;
 }
 
@@ -167,7 +167,7 @@ int Poold::pushMessage(json_t* oContents, const char* title, long client)
    addToJson(obj, "event", title);
    json_object_set_new(obj, "object", oContents);
 
-   char* p = json_dumps(obj, JSON_PRESERVE_ORDER);
+   char* p = json_dumps(obj, JSON_REAL_PRECISION(4));
    json_decref(obj);
 
    cWebSock::pushMessage(p, (lws*)client);
@@ -220,7 +220,8 @@ int Poold::dispatchClientRequest()
       case evStoreConfig:   status = storeConfig(oObject);                   break;
       case evSyslog:        status = performSyslog(oObject, client);         break;
       case evConfigDetails: status = performConfigDetails(oObject, client);  break;
-      case evIoSettings:    status = performIoSettings(oObject, client);  break;
+      case evIoSettings:    status = performIoSettings(oObject, client);     break;
+      case evChartData:     status = performChartData(oObject, client);      break;
 
       default:
          tell(0, "Error: Received unexpected client request '%s' at [%s]", toName(event), messagesIn.front().c_str());
@@ -381,6 +382,10 @@ int Poold::initInput(uint pin, const char* name)
    return done;
 }
 
+cDbFieldDef xmlTimeDef("XML_TIME", "xmltime", cDBS::ffAscii, 20, cDBS::ftData);
+cDbFieldDef rangeFromDef("RANGE_FROM", "rfrom", cDBS::ffDateTime, 0, cDBS::ftData);
+cDbFieldDef rangeToDef("RANGE_TO", "rto", cDBS::ffDateTime, 0, cDBS::ftData);
+
 //***************************************************************************
 // Init/Exit Database
 //***************************************************************************
@@ -502,6 +507,30 @@ int Poold::initDb()
    status += selectMaxTime->prepare();
 
    // ------------------
+   // select samples for chart data
+
+   rangeFrom.setField(&rangeFromDef);
+   rangeTo.setField(&rangeToDef);
+   xmlTime.setField(&xmlTimeDef);
+
+   selectSamplesRange = new cDbStatement(tableSamples);
+
+   selectSamplesRange->build("select ");
+   selectSamplesRange->bind("ADDRESS", cDBS::bndOut);
+   selectSamplesRange->bind("TYPE", cDBS::bndOut, ", ");
+   selectSamplesRange->bindTextFree("date_format(time, '%Y-%m-%dT%H:%i')", &xmlTime, ", ", cDBS::bndOut);
+   selectSamplesRange->bind("VALUE", cDBS::bndOut, ", ");
+   selectSamplesRange->build(" from %s where ", tableSamples->TableName());
+   selectSamplesRange->bind("ADDRESS", cDBS::bndIn | cDBS::bndSet);
+   selectSamplesRange->bind("TYPE", cDBS::bndIn | cDBS::bndSet, " and ");
+   selectSamplesRange->bindCmp(0, "TIME", &rangeFrom, ">=", " and ");
+   selectSamplesRange->bindCmp(0, "TIME", &rangeTo, "<=", " and ");
+   selectSamplesRange->build(" group by date(time), ((60/15) * hour(time) + floor(minute(time)/15))");
+   selectSamplesRange->build(" order by time");
+
+   status += selectSamplesRange->prepare();
+
+   // ------------------
 
    if (status == success)
       tell(eloAlways, "Connection to database established");
@@ -520,7 +549,7 @@ int Poold::exitDb()
    delete selectAllValueFacts;     selectAllValueFacts = 0;
    delete selectAllConfig;         selectAllConfig = 0;
    delete selectMaxTime;           selectMaxTime = 0;
-
+   delete selectSamplesRange;      selectSamplesRange = 0;
    delete connection;              connection = 0;
 
    return done;
@@ -722,7 +751,7 @@ int Poold::meanwhile()
    if (mqttWriter && mqttWriter->isConnected()) mqttWriter->yield();
    if (mqttCommandReader && mqttCommandReader->isConnected()) mqttCommandReader->yield();
 
-   tell(0, "loop ...");
+   tell(3, "loop ...");
 
    webSock->service(100);
    dispatchClientRequest();
@@ -853,6 +882,8 @@ int Poold::update(bool webOnly, long client)
          json_object_set_new(ojData, "options", json_integer(digitalOutputStates[addr].opt));
          json_object_set_new(ojData, "image", json_string(getImageOf(title, digitalOutputStates[addr].state)));
          json_object_set_new(ojData, "value", json_integer(digitalOutputStates[addr].state));
+         json_object_set_new(ojData, "last", json_integer(digitalOutputStates[addr].last));
+         json_object_set_new(ojData, "next", json_integer(digitalOutputStates[addr].next));
          json_object_set_new(ojData, "widgettype", json_integer(wtSymbol));
 
          if (!webOnly)
@@ -915,6 +946,21 @@ int Poold::update(bool webOnly, long client)
       tell(eloAlways, "Updated %d samples", count);
 
    return success;
+}
+
+//***************************************************************************
+// Poold WS Ping
+//***************************************************************************
+
+int Poold::performWebSocketPing()
+{
+   if (nextWebSocketPing < time(0))
+   {
+      webSock->performData(cWebSock::mtPing);
+      nextWebSocketPing = time(0) + webSocketPingTime-5;
+   }
+
+   return done;
 }
 
 //***************************************************************************
@@ -1049,6 +1095,78 @@ int Poold::performIoSettings(json_t* oObject, long client)
 }
 
 //***************************************************************************
+// Perform WS ChartData request
+//***************************************************************************
+
+int Poold::performChartData(json_t* oObject, long client)
+{
+   if (client <= 0)
+      return done;
+
+   json_t* oJson = json_array();
+
+   tableSamples->clear();
+   tableSamples->setValue("TYPE", "W1");
+   tableSamples->setValue("ADDRESS", 0x567ae57);
+   rangeFrom.setValue(time(0) - (2*tmeSecondsPerDay));
+   rangeTo.setValue(time(0));
+
+   tell(eloAlways, "Selecting chats data");
+
+   {
+      json_t* oSample = json_object();
+      json_array_append_new(oJson, oSample);
+
+      json_object_set_new(oSample, "title", json_string("Pool"));
+      json_t* oData = json_array();
+      json_object_set_new(oSample, "data", oData);
+
+      for (int f = selectSamplesRange->find(); f; f = selectSamplesRange->fetch())
+      {
+         tell(eloAlways, "0x%x: '%s' : %0.2f", (uint)tableSamples->getStrValue("ADDRESS"),
+              xmlTime.getStrValue(), tableSamples->getFloatValue("VALUE"));
+
+         json_t* oRow = json_object();
+         json_array_append_new(oData, oRow);
+
+         json_object_set_new(oRow, "x", json_string(xmlTime.getStrValue()));
+         json_object_set_new(oRow, "y", json_real(tableSamples->getFloatValue("VALUE")));
+      }
+   }
+
+   {
+      tableSamples->setValue("ADDRESS", 0x568317c);
+
+      json_t* oSample = json_object();
+      json_array_append_new(oJson, oSample);
+
+      json_object_set_new(oSample, "title", json_string("Kollektor"));
+      json_t* oData = json_array();
+      json_object_set_new(oSample, "data", oData);
+
+      for (int f = selectSamplesRange->find(); f; f = selectSamplesRange->fetch())
+      {
+         tell(eloAlways, "0x%x: '%s' : %0.2f", (uint)tableSamples->getStrValue("ADDRESS"),
+              xmlTime.getStrValue(), tableSamples->getFloatValue("VALUE"));
+
+         json_t* oRow = json_object();
+         json_array_append_new(oData, oRow);
+
+         json_object_set_new(oRow, "x", json_string(xmlTime.getStrValue()));
+         json_object_set_new(oRow, "y", json_real(tableSamples->getFloatValue("VALUE")));
+      }
+   }
+
+   tell(eloAlways, "... done");
+
+   selectSamplesRange->freeResult();
+
+   pushMessage(oJson, "chartdata", client);
+
+   return done;
+}
+
+//***************************************************************************
 // Store Configuratiom
 //***************************************************************************
 
@@ -1062,6 +1180,8 @@ int Poold::storeConfig(json_t* obj)
       tell(0, "Storing config item '%s' with '%s'", key, json_string_value(jValue));
       setConfigItem(key, json_string_value(jValue));
    }
+
+   readConfiguration();
 
    return done;
 }
@@ -1302,21 +1422,6 @@ int Poold::process()
 }
 
 //***************************************************************************
-// Poold Ping
-//***************************************************************************
-
-int Poold::performWebSocketPing()
-{
-   if (nextWebSocketPing < time(0))
-   {
-      webSock->performData(cWebSock::mtPing);
-      nextWebSocketPing = time(0) + webSocketPingTime-5;
-   }
-
-   return done;
-}
-
-//***************************************************************************
 // Perform Jobs
 //***************************************************************************
 
@@ -1329,7 +1434,12 @@ int Poold::performJobs()
       if (digitalOutputStates[pinShower].last < time(0) - showerDuration)
       {
          tell(eloAlways, "Shower of after %ld seconds", time(0)-digitalOutputStates[pinShower].last);
-         gpioWrite(pinShower, false);
+         digitalOutputStates[pinShower].next = 0;
+         gpioWrite(pinShower, false, true);
+      }
+      else
+      {
+         digitalOutputStates[pinShower].next = digitalOutputStates[pinShower].last + showerDuration;
       }
    }
 
@@ -1857,6 +1967,9 @@ void Poold::pin2Json(json_t* ojData, int pin)
    // json_object_set_new(ojData, "unit", json_string(""));
    json_object_set_new(ojData, "mode", json_string(digitalOutputStates[pin].mode == omManual ? "manual" : "auto"));
    json_object_set_new(ojData, "options", json_integer(digitalOutputStates[pin].opt));
+   json_object_set_new(ojData, "value", json_integer(digitalOutputStates[pin].state));
+   json_object_set_new(ojData, "last", json_integer(digitalOutputStates[pin].last));
+   json_object_set_new(ojData, "next", json_integer(digitalOutputStates[pin].next));
    json_object_set_new(ojData, "image", json_string(getImageOf(digitalOutputStates[pin].title.c_str(), digitalOutputStates[pin].state)));
    json_object_set_new(ojData, "widgettype", json_integer(wtSymbol));
 }
@@ -1881,21 +1994,28 @@ int Poold::toggleOutputMode(uint pin)
    return success;
 }
 
-void Poold::gpioWrite(uint pin, bool state)
+void Poold::gpioWrite(uint pin, bool state, bool callJobs)
 {
    digitalOutputStates[pin].state = state;
    digitalOutputStates[pin].last = time(0);
 
+   if (!state)
+      digitalOutputStates[pin].next = 0;
+
    // invert the state on 'invertDO' - some relay board are active at 'false'
 
    digitalWrite(pin, invertDO ? !state : state);
+   performJobs();
 
-   json_t* oJson = json_array();
-   json_t* ojData = json_object();
-   json_array_append_new(oJson, ojData);
-   pin2Json(ojData, pin);
+   // update WS
+   {
+      json_t* oJson = json_array();
+      json_t* ojData = json_object();
+      json_array_append_new(oJson, ojData);
+      pin2Json(ojData, pin);
 
-   pushMessage(oJson, "update");
+      pushMessage(oJson, "update");
+   }
 
    if (!isEmpty(hassMqttUrl))
       hassPush(iotLight, digitalOutputStates[pin].name, "", "", digitalOutputStates[pin].state, "", false /*forceConfig*/);

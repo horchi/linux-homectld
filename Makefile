@@ -118,9 +118,9 @@ install-web:
 	if test -f "$(WEBDEST)/stylesheet.css.save"; then \
 		cp -Pp "$(WEBDEST)/stylesheet.css.save" "$(WEBDEST)/stylesheet.css"; \
 	fi
-	cat ./htdocs/header.php | sed s:"<VERSION>":"$(VERSION)":g > "$(WEBDEST)/header.php"; \
 	chmod -R a+r "$(WEBDEST)"; \
 	chown -R $(WEBOWNER):$(WEBOWNER) "$(WEBDEST)"
+# cat ./htdocs/header.php | sed s:"<VERSION>":"$(VERSION)":g > "$(WEBDEST)/header.php"; \
 
 install-apache-conf:
 	@mkdir -p $(APACHECFGDEST)/conf-available

@@ -84,33 +84,6 @@
     color: white;
 }
 
-.button2sel
-{
-    background-color: var(--caption1);
-    color: black;
-    margin: 2px;
-    padding: 3px 10px;
-}
-
-.button2sel:hover
-{
-    color: white;
-}
-
-.button3
-{
-    background-color: var(--buttonAction);
-    padding: 3px 10px;
-    color: black;
-    margin-top: 10px;
-    text-decoration: none;
-}
-
-.button3:hover
-{
-    color: white;
-}
-
 .seperatorTitle1
 {
     background-color: var(--caption1);
@@ -118,13 +91,6 @@
     margin-top: 0px;
     padding: 5px 15px;
     font-weight: bold;
-}
-
-.seperatorTitle2
-{
-    background-color: var(--caption2);
-    margin-top: 2px;
-    padding: 5px 15px;
 }
 
 .input
@@ -434,91 +400,9 @@ table.tableMultiCol tr:nth-child(odd)
     font-size: 24px;
 }
 
-#aStateOther
-{
-    color: blue;
-    font-size: 24px;
-}
-
-#aSelect
+.chartCanvas
 {
     background-color: var(--light1);
-    margin-top: 10px;
-    padding: 10px;
-}
-
-#aSelectChart
-{
-    background-color: var(--light1);
-    padding: 10px;
-}
-
-.tableTitle
-{
-    width: 100%;
-    background-color: var(--caption1);
-    color: black;
-    font-size: 20px;
-    padding: 20px;
-}
-
-.chart
-{
-    background-color: var(--light1);
-    padding: 10px;
-    margin-top: 10px;
-}
-
-.cellL0
-{
-    font-size: 16px;
-    background-color: var(--caption1);
-    color: black;
-}
-
-.cellL1
-{
-    font-size: 16px;
-    background-color: var(--light4);
-    color: black;
-}
-
-.cellL2
-{
-    font-size: 16px;
-    background-color: var(--light3);
-    color: black;
-}
-
-.cellL3
-{
-    font-size: 16px;
-    background-color: var(--light2);
-    color: black;
-}
-
-.cellL4
-{
-    background-color: var(--light1);
-    background: linear-gradient(to bottom right, var(--light3), var(--light1)); /* Standard syntax (must be last) */
-    font-size: 16px;
-    color: black;
-}
-
-div.redCircle
-{
-    width: 10px;
-    height: 10px;
-    border-radius: 5px;
-    background-color: red;
-}
-
-div.greenCircle
-{
-    width: 10px;
-    height: 10px;
-    border-radius: 5px;
-    background-color: green;
 }
 
 /* ----------------------- */
@@ -539,7 +423,7 @@ div.greenCircle
     height: 212px;
     margin: 2px;
     background-color: var(--light1);
-    padding: 1%;
+    padding: 1px;
 }
 
 .widget
@@ -547,9 +431,10 @@ div.greenCircle
   display: grid;
   grid-template-areas:
       'title'
-      'main';
-  grid-template-rows: 25% 69%;
-  grid-gap: 5px;
+      'main'
+      'progress';
+  grid-template-rows: 13% 77% 4%;
+  grid-gap: 1px;
 }
 
 .widgetManuel
@@ -563,8 +448,8 @@ div.greenCircle
   grid-template-areas:
       'title'
       'main';
-/*  grid-template-rows: 17% 80%;*/
-  grid-gap: 5px;
+  grid-template-rows: 10% 90%;
+  grid-gap: 1px;
 }
 
 .widgetCtrl
@@ -574,8 +459,8 @@ div.greenCircle
       'title title'
       'main main'
       'ctrl1 ctrl2';
-    grid-template-rows: 17% 50% 25%;
-    grid-gap: 5px;
+    grid-template-rows: 13% 62% 25%;
+    grid-gap: 1px;
 }
 
 .widget-title
@@ -590,6 +475,21 @@ div.greenCircle
     border: none;
     width: inherit;
     color: var(--buttonFont);
+}
+
+.widget-progress {
+    grid-area: progress;
+    background-color: gray;
+    width: 80%;
+    justify-self: center;
+    border-radius: 8px;
+}
+
+.progress-bar {
+    width: 0%;
+    height: 100%;
+    background-color: #3498db;
+    border-radius: 8px;
 }
 
 .widget-mode
@@ -618,7 +518,7 @@ div.greenCircle
     align-items: center;
     justify-content: center;
     word-break: break-word;
-    color: black;
+    color: var(--light4);
 }
 
 .widget-ctrl1 { grid-area: ctrl1; }
@@ -666,6 +566,12 @@ div.greenCircle
 {
     text-align: center;
     font-size: 3.0em;
+    fill: white;
+}
+.gauge-value
+{
+    text-align: center;
+    fill: white;
 }
 
 .widgetGauge path
@@ -711,14 +617,15 @@ div.greenCircle
 {
     .content                   { padding: 0px; }
     .table2Col > div > span    { padding: 3px 10px 3px 10px; }
-    .daemonInfo                   { font-size: 15px; margin-top: 3px; min-width: 91%; }
-    .daemonInfo > div > span      { min-width: 110px; }
+    .daemonInfo                { font-size: 15px; margin-top: 3px; min-width: 91%; }
+    .daemonInfo > div > span   { min-width: 110px; }
     .centerImage               { margin: 0px 0px 0px 0px; }
 
     .inputTableConfig > div > span:nth-child(3) { width: 95%; }
     .inputTableConfig > div > span              { width: 95%; }
 
-    .widgetContainer > div           { width: 185px; }
+    .widgetContainer > div     { width: 185px; height: 160px; }
+    .widgetGauge               { grid-template-rows: 30% 70%; }
 }
 
 @media only screen and (max-width: 380px)

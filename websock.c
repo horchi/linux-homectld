@@ -178,6 +178,8 @@ int cWebSock::callbackHttp(lws* wsi, lws_callback_reasons reason, void* user, vo
    SessionData* sessionData = (SessionData*)user;
    std::string clientInfo = "unknown";
 
+   tell(4, "DEBUG: 'callbackHttp' got (%d)", reason);
+
    switch (reason)
    {
       case LWS_CALLBACK_CLOSED:
@@ -252,7 +254,7 @@ int cWebSock::callbackHttp(lws* wsi, lws_callback_reasons reason, void* user, vo
 
          memset(sessionData, 0, sizeof(SessionData));
 
-         tell(2, "HTTP: Requested uri: (%ld) '%s'", len, url);
+         tell(1, "HTTP: Requested uri: (%ld) '%s'", len, url);
 
          // data or file request ...
 
@@ -348,6 +350,7 @@ int cWebSock::serveFile(lws* wsi, const char* path)
       else if (strcmp(suffix, "svg") == 0)   mime = "image/svg+xml";
       else if (strcmp(suffix, "html") == 0)  mime = "text/html";
       else if (strcmp(suffix, "css") == 0)   mime = "text/css";
+      else if (strcmp(suffix, "js") == 0)    mime = "application/javascript";
    }
 
    return lws_serve_http_file(wsi, path, mime, 0, 0);
@@ -361,7 +364,7 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
 {
    std::string clientInfo = "unknown";
 
-   tell(3, "DEBUG: 'callbackPool' got (%d)", reason);
+   tell(4, "DEBUG: 'callbackPool' got (%d)", reason);
 
    switch (reason)
    {
@@ -460,7 +463,7 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
 
          tell(3, "DEBUG: Got '%s'", message);
 
-         if (event == evLogin)                             // { "event" : "login", "object" : { "type" : "foo" } }
+         if (event == evLogin)                              // { "event" : "login", "object" : { "type" : "foo" } }
          {
             const char* token = getStringFromJson(oObject, "token", "");
 
@@ -471,7 +474,7 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
 
             atLogin(wsi, message, clientInfo.c_str());
          }
-         else if (event == evLogout)                       // { "event" : "logout", "object" : { } }
+         else if (event == evLogout)                         // { "event" : "logout", "object" : { } }
          {
             tell(3, "DEBUG: Got '%s'", message);
             clients[wsi].cleanupMessageQueue();
@@ -479,14 +482,14 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
          else if (event == evGetToken)                       // { "event" : "gettoken", "object" : { "user" : "" : "password" : md5 } }
          {
             addToJson(oData, "client", (long)wsi);
-            char* p = json_dumps(oData, JSON_PRESERVE_ORDER);
+            char* p = json_dumps(oData, 0);
             Poold::messagesIn.push(p);
             free(p);
          }
          else if (clients[wsi].type == ctWithLogin)
          {
             addToJson(oData, "client", (long)wsi);
-            char* p = json_dumps(oData, JSON_PRESERVE_ORDER);
+            char* p = json_dumps(oData, 0);
             Poold::messagesIn.push(p);
             free(p);
          }
@@ -564,7 +567,7 @@ void cWebSock::atLogin(lws* wsi, const char* message, const char* clientInfo)
    addToJson(obj, "event", "login");
    json_object_set_new(obj, "object", oContents);
 
-   char* p = json_dumps(obj, JSON_PRESERVE_ORDER);
+   char* p = json_dumps(obj, 0);
    json_decref(obj);
 
    Poold::messagesIn.push(p);

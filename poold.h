@@ -53,6 +53,7 @@ class cWebService
          evConfigDetails,
          evGetToken,
          evIoSettings,
+         evChartData,
 
          evCount
       };
@@ -243,7 +244,7 @@ class Poold : public cWebService
 
       enum OutputMode
       {
-         omAuto,
+         omAuto = 0,
          omManual
       };
 
@@ -260,7 +261,8 @@ class Poold : public cWebService
          uint opt {ooUser};
          const char* name;     // crash on init with nullptr :o
          std::string title;
-         time_t last {0};
+         time_t last {0};      // last swith time
+         time_t next {0};      // calculated next switch time
       };
 
       struct Range
@@ -339,7 +341,7 @@ class Poold : public cWebService
       int doShutDown() { return shutdown; }
 
       int getWaterLevel();
-      void gpioWrite(uint pin, bool state);
+      void gpioWrite(uint pin, bool state, bool callJobs = true);
       bool gpioRead(uint pin);
       void logReport();
 
@@ -350,6 +352,7 @@ class Poold : public cWebService
       int performSyslog(json_t* oObject, long client);
       int performConfigDetails(json_t* oObject, long client);
       int performIoSettings(json_t* oObject, long client);
+      int performChartData(json_t* oObject, long client);
       int config2Json(json_t* obj);
       int configDetails2Json(json_t* obj);
       int valueFacts2Json(json_t* obj);
@@ -383,6 +386,11 @@ class Poold : public cWebService
       cDbStatement* selectAllValueFacts {nullptr};
       cDbStatement* selectAllConfig {nullptr};
       cDbStatement* selectMaxTime {nullptr};
+      cDbStatement* selectSamplesRange {nullptr};
+
+      cDbValue xmlTime;
+      cDbValue rangeFrom;
+      cDbValue rangeTo;
 
       time_t nextAt {0};
       time_t startedAt {0};

@@ -463,18 +463,13 @@ class cDbStatement : public cDbService
       int bind(cDbFieldDef* field, int mode, const char* delim = 0);
       int bindAllOut(const char* delim = 0);
 
-      int bindCmp(const char* ctable, cDbValue* value,
-                  const char* comp, const char* delim = 0);
-      int bindCmp(const char* ctable, cDbFieldDef* field, cDbValue* value,
-                  const char* comp, const char* delim = 0);
-      int bindCmp(const char* ctable, const char* fname, cDbValue* value,
-                  const char* comp, const char* delim = 0);
-      int bindText(const char* text, cDbValue* value,
-                   const char* comp, const char* delim = 0);
-      int bindTextFree(const char* text, cDbValue* value, const char* delim = 0, int mode = bndIn);
+      int bindCmp(const char* ctable, cDbValue* value, const char* comp, const char* delim = 0);
+      int bindCmp(const char* ctable, cDbFieldDef* field, cDbValue* value, const char* comp, const char* delim = 0);
+      int bindCmp(const char* ctable, const char* fname, cDbValue* value, const char* comp, const char* delim = 0);
 
-      int bindInChar(const char* ctable, const char* fname,
-                     cDbValue* value = 0, const char* delim = 0);
+      int bindText(const char* text, cDbValue* value, const char* comp, const char* delim = 0);
+      int bindTextFree(const char* text, cDbValue* value, const char* delim = 0, int mode = bndIn);
+      int bindInChar(const char* ctable, const char* fname, cDbValue* value = 0, const char* delim = 0);
 
       // ..
 

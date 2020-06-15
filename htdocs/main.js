@@ -9,9 +9,16 @@ var lastUpdate = "";
 
 function connectWebSocket()
 {
+   var useUrl = "";
+
+   if (location.hostname.indexOf("192.168.200.142") != -1)
+      useUrl = "ws://" + location.hostname + ":61109";
+   else
+      useUrl = "ws://" + location.hostname + "/pool/ws";
+
    socket = new WebSocketClient({
       // url: "ws://" + location.hostname + ":61109",
-      url: "ws://" + location.hostname + "/pool/ws",
+      url: useUrl,
       protocol: "pool",
       autoReconnectInterval: 2000,
       onopen: () => {
@@ -29,16 +36,14 @@ function connectWebSocket()
 
             // request some data after login
 
-            var rootChart = null;
-
             if (document.getElementById("syslogContainer") != null)
                socket.send({ "event" : "syslog", "object" : "" });
             else if (document.getElementById("configContainer") != null)
                socket.send({ "event" : "configdetails", "object" : "" });
             else if (document.getElementById("ioSetupContainer") != null)
                socket.send({ "event" : "iosettings", "object" : "" });
-            else if (rootChart = document.getElementById("chart").getContext("2d"))
-               drawCharts(rootChart);
+            else if (document.getElementById("chart") != null)
+               initCharts();
          }
       }, onclose: () => {
          isActive = null;           // auf null setzen, dass ein neues login aufgerufen wird
@@ -59,6 +64,7 @@ function dispatchMessage(message)
    var rootDashboard = document.getElementById("widgetContainer");
    var rootConfig = document.getElementById("configContainer");
    var rootIoSetup = document.getElementById("ioSetupContainer");
+   var rootChart = document.getElementById("chart");
 
    var d = new Date();
 
@@ -111,6 +117,10 @@ function dispatchMessage(message)
    else if (event == "valuefacts" && rootIoSetup)
    {
       initIoSetup(jMessage.object, rootIoSetup);
+   }
+   else if (event == "chartdata" && rootChart)
+   {
+      drawCharts(jMessage.object, rootChart);
    }
 
    // console.log("event: " + event + " dispatched");
@@ -386,6 +396,10 @@ function initDashboard(widgets, root)
             html += "  </div>\n";
          }
 
+         html += "<div id=\"progress" + widget.type + widget.address + "\" class=\"widget-progress\">";
+         html += "   <div id=\"progressBar" + widget.type + widget.address + "\" class=\"progress-bar\" style=\"visible\"></div>";
+         html += "</div>";
+
          var elem = document.createElement("div");
 
          if (ctrlButtons)
@@ -397,6 +411,8 @@ function initDashboard(widgets, root)
          elem.innerHTML = html;
          root.appendChild(elem);
 
+         document.getElementById("progress" + widget.type + widget.address).style.visibility = "hidden";
+
          break;
       case 1:           // Gauge
          var html = "";
@@ -406,9 +422,9 @@ function initDashboard(widgets, root)
          html += "    <path id=\"pb" + widget.type + widget.address + "\"/>\n";
          html += "    <path class=\"data-arc\" id=\"pv" + widget.type + widget.address + "\"/>\n";
          html += "    <path class=\"data-peak\" id=\"pp" + widget.type + widget.address + "\"/>\n";
-         html += "    <text id=\"value" + widget.type + widget.address + "\" text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"500\" y=\"450\" font-size=\"140\" font-weight=\"bold\"></text>\n";
-         html += "    <text id=\"sMin" + widget.type + widget.address + "\" class='scale-text' text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"50\" y=\"550\"></text>\n";
-         html += "    <text id=\"sMax" + widget.type + widget.address + "\" class='scale-text' text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"950\" y=\"550\"></text>\n";
+         html += "    <text id=\"value" + widget.type + widget.address + "\" class=\"gauge-value\" text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"500\" y=\"450\" font-size=\"140\" font-weight=\"bold\"></text>\n";
+         html += "    <text id=\"sMin" + widget.type + widget.address + "\" class=\"scale-text\" text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"50\" y=\"550\"></text>\n";
+         html += "    <text id=\"sMax" + widget.type + widget.address + "\" class=\"scale-text\" text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"950\" y=\"550\"></text>\n";
          html += "  </svg>\n";
 
          var elem = document.createElement("div");
@@ -460,6 +476,25 @@ function updateDashboard(sensors)
             var modeStyle = sensor.options == 3 && sensor.mode == 'manual' ? "background-color: #a27373;" : "";
             $("#widget" + sensor.type + sensor.address).attr("src", sensor.image);
             $("#div" + sensor.type + sensor.address).attr("style", modeStyle);
+
+            document.getElementById("progress" + sensor.type + sensor.address).style.visibility = (sensor.next == 0) ? "hidden" : "visible";
+
+            if (sensor.mode == "auto" && sensor.next > 0) {
+               var pWidth = 100;
+               var s = sensor;
+               var id = sensor.type + sensor.address;
+               var iid = setInterval(progress, 200);
+
+               function progress() {
+                  if (pWidth <= 0) {
+                     clearInterval(iid);
+                  } else {
+                     var d = new Date();
+                     pWidth = 100 - ((d/1000 - s.last) / ((s.next - s.last) / 100));
+                     document.getElementById("progressBar" + id).style.width = pWidth + "%";
+                  }
+               }
+            }
          }
          else if (sensor.widgettype == 1)    // Gauge
          {
@@ -609,31 +644,98 @@ function svg_circle_arc_path(x, y, radius, start_angle, end_angle)
    return "M " + start_xy[0] + " " + start_xy[1] + " A " + radius + " " + radius + " 0 0 0 " + end_xy[0] + " " + end_xy[1];
 };
 
-function drawCharts(root)
+function initCharts()
 {
-      var data = {
-         type: 'line',
-         data: {
-            labels: ['12', '13', '14', '15', '16', '17', '18', '19', '20', 'rr'],
-            datasets: [{
-               label: 'Temperatur °C',
-               data: [5, 8, 7, 12, 19, 3, 5, 2, 3, 45],
-               borderColor: [ 'rgba(0, 0, 255, 1)' ],
-               borderWidth: 0.7
-            }]
-         },
-         options: {
-            scales: {
-               yAxes: [{
-                  ticks: {
-                     beginAtZero: true
-                  }
-               }]
-            }
-         }
-      };
+   console.log("requesting chart data");
+   socket.send({ "event": "chartdata", "object": "" });
+}
 
-      var chart = new Chart(root, data);
+function drawCharts(dataRow, root)
+{
+   var data = {
+      type: "line",
+      data: {
+         labels: [],
+         datasets: []
+      },
+      options: {
+         responsive: true,
+         tooltips: {
+            mode: "index",
+            intersect: false,
+         },
+         hover: {
+            mode: "nearest",
+            intersect: true
+         },
+         scales: {
+            xAxes: [{
+               type: "time",
+               time: { displayFormats: {
+                  millisecond: 'MMM DD - HH:MM',
+                  second: 'MMM DD - HH:MM',
+                  minute: 'HH:MM',
+                  hour: 'MMM DD - HH:MM',
+                  day: 'HH:MM',
+                  week: 'MMM DD - HH:MM',
+                  month: 'MMM DD - HH:MM',
+                  quarter: 'MMM DD - HH:MM',
+                  year: 'MMM DD - HH:MM' } },
+               distribution: "linear",
+               display: true,
+               ticks: {
+                  fontColor: "gray"
+               },
+               gridLines: {
+                  color: "gray",
+                  borderDash: [5,5]
+               },
+               scaleLabel: {
+                  display: true,
+                  labelString: "Zeit"
+               }
+            }],
+            yAxes: [{
+               display: true,
+               ticks: {
+                  fontColor: "gray"
+               },
+               gridLines: {
+                  color: "gray",
+                  borderDash: [5,5]
+               },
+               scaleLabel: {
+                  display: true,
+                  labelString: "Temperatur [°C]"
+               }
+            }]
+         }
+      }
+   };
+
+   // console.log("dataRow: " + JSON.stringify(dataRow, undefined, 4));
+
+   data.data.datasets = [];
+
+   var colors = ['blue','green','red','black','purple','yellow'];
+
+   for (var i = 0; i < dataRow.length; i++)
+   {
+      var dataset = {};
+
+      dataset["data"] = dataRow[i].data;
+      dataset["backgroundColor"] = colors[i];
+      dataset["borderColor"] = colors[i];
+      dataset["label"] = dataRow[i].title;
+      dataset["borderWidth"] = 0.7;
+      dataset["fill"] = false;
+      dataset["pointRadius"] = 0;
+
+      data.data.datasets.push(dataset);
+   }
+
+   root.innerHTML = "";
+   var chart = new Chart(root.getContext("2d"), data);
 }
 
 //----------------------------------------------

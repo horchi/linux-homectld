@@ -355,8 +355,7 @@ int cDbStatement::bindCmp(const char* ctable, const char* fname, cDbValue* value
    return success;
 }
 
-int cDbStatement::bindText(const char* text, cDbValue* value,
-                           const char* comp, const char* delim)
+int cDbStatement::bindText(const char* text, cDbValue* value, const char* comp, const char* delim)
 {
    if (!value)
    {

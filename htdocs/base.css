@@ -626,9 +626,11 @@ table.tableMultiCol tr:nth-child(odd)
 
     .widgetContainer > div     { width: 185px; height: 160px; }
     .widgetGauge               { grid-template-rows: 30% 70%; }
+    .widget                    { grid-template-rows: 30% 66% 4%; }
+
 }
 
-@media only screen and (max-width: 380px)
+@media only screen and (max-width: 375px)
 {
-    .widgetContainer > div           { width: 165px; }
+    .widgetContainer > div     { width: 153px; padding: 0px; margin: 0px; }
 }

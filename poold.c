@@ -315,6 +315,8 @@ int Poold::init()
       sleep(2);
    }
 
+   initScripts();
+
    initialized = true;
 
    return success;
@@ -382,13 +384,47 @@ int Poold::initInput(uint pin, const char* name)
    return done;
 }
 
-cDbFieldDef xmlTimeDef("XML_TIME", "xmltime", cDBS::ffAscii, 20, cDBS::ftData);
-cDbFieldDef rangeFromDef("RANGE_FROM", "rfrom", cDBS::ffDateTime, 0, cDBS::ftData);
-cDbFieldDef rangeToDef("RANGE_TO", "rto", cDBS::ffDateTime, 0, cDBS::ftData);
+//***************************************************************************
+// Init Scripts
+//***************************************************************************
+
+int Poold::initScripts()
+{
+   char* path {nullptr};
+   int count {0};
+   FileList scripts;
+
+   asprintf(&path, "%s/scripts", confDir);
+
+   int status = getFileList(path, DT_REG, "sh", false, &scripts, count);
+   free(path);
+
+   if (status != success)
+      return fail;
+
+   for (const auto& script : scripts)
+   {
+      uint id {0};
+      const char* p = script.name.c_str();
+
+      while (*p)
+         id += *p++;
+
+      int res = addValueFact(id, "SC", script.name.c_str(), "");
+
+      tell(0, "Found script '%s' is is (%d)", script.name.c_str(), id);
+   }
+
+   return success;
+}
 
 //***************************************************************************
 // Init/Exit Database
 //***************************************************************************
+
+cDbFieldDef xmlTimeDef("XML_TIME", "xmltime", cDBS::ffAscii, 20, cDBS::ftData);
+cDbFieldDef rangeFromDef("RANGE_FROM", "rfrom", cDBS::ffDateTime, 0, cDBS::ftData);
+cDbFieldDef rangeToDef("RANGE_TO", "rto", cDBS::ffDateTime, 0, cDBS::ftData);
 
 int Poold::initDb()
 {
@@ -751,13 +787,11 @@ int Poold::meanwhile()
    if (mqttWriter && mqttWriter->isConnected()) mqttWriter->yield();
    if (mqttCommandReader && mqttCommandReader->isConnected()) mqttCommandReader->yield();
 
-   tell(3, "loop ...");
-
-   webSock->service(100);
+   tell(2, "loop ...");
+   webSock->service(10);
    dispatchClientRequest();
    webSock->performData(cWebSock::mtData);
    performWebSocketPing();
-
    performHassRequests();
    performJobs();
 
@@ -1258,7 +1292,7 @@ int Poold::valueFacts2Json(json_t* obj)
 
       json_object_set_new(oData, "address", json_integer(tableValueFacts->getIntValue("ADDRESS")));
       json_object_set_new(oData, "type", json_string(tableValueFacts->getStrValue("TYPE")));
-      json_object_set_new(oData, "state", json_integer(tableValueFacts->getIntValue("STATE")));
+      json_object_set_new(oData, "state", json_integer(tableValueFacts->hasValue("STATE", "A")));
       json_object_set_new(oData, "name", json_string(tableValueFacts->getStrValue("NAME")));
       json_object_set_new(oData, "title", json_string(tableValueFacts->getStrValue("TITLE")));
       json_object_set_new(oData, "usrtitle", json_string(tableValueFacts->getStrValue("USRTITLE")));

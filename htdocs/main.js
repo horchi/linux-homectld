@@ -233,6 +233,11 @@ function initIoSetup(valueFacts, root)
 {
    // console.log(JSON.stringify(valueFacts, undefined, 4));
 
+   document.getElementById("ioDigitalOut").innerHTML = "";
+   document.getElementById("ioOneWire").innerHTML = "";
+   document.getElementById("ioOther").innerHTML = "";
+   document.getElementById("ioScripts").innerHTML = "";
+
    for (var i = 0; i < valueFacts.length; i++)
    {
       var item = valueFacts[i];
@@ -241,18 +246,19 @@ function initIoSetup(valueFacts, root)
       var usrtitle = item.usrtitle != null ? item.usrtitle : "";
       var html = "<td>" + item.title + "</td>";
       html += "<td class=\"tableMultiColCell\"><input class=\"rounded-border inputSetting\" type=\"text\" value=\"" + usrtitle + "\"/></td>";
-      if (item.type != "DO")
+      if (item.type != "DO" && item.type != "SC")
          html += "<td class=\"tableMultiColCell\"><input class=\"rounded-border inputSetting\" type=\"number\" value=\"" + item.scalemax + "\"/></td>";
       else
          html += "<td class=\"tableMultiColCell\"></td>";
       html += "<td style=\"text-align:center;\">" + item.unit + "</td>";
-      html += "<td><input class=\"rounded-border inputSetting\" type=\"checkbox\" value=\"1:SP\" checked /></td>";
+      html += "<td><input class=\"rounded-border inputSetting\" type=\"checkbox\" value=\"1:SP\" " + (item.state == 1 ? "checked" : "") + " /></td>";
       html += "<td>0x" + item.address.toString(16) + ":" + item.type + "</td>";
 
       switch (item.type) {
          case 'DO': root = document.getElementById("ioDigitalOut"); break
          case 'W1': root = document.getElementById("ioOneWire");    break
          case 'SP': root = document.getElementById("ioOther");      break
+         case 'SC': root = document.getElementById("ioScripts");    break
       }
 
       if (root != null)

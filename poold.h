@@ -164,6 +164,7 @@ class cWebSock : public cWebService
 
       int port {na};
       lws_protocols protocols[3];
+      lws_http_mount mounts[1];
 
       // statics
 
@@ -228,15 +229,15 @@ class Poold : public cWebService
 
       enum WidgetType
       {
-         wtSymbol,     // == 0
-         wtGauge,      // == 1
-         wtText,       // == 2
-         wtValue       // == 3
+         wtSymbol = 0,  // == 0
+         wtGauge,       // == 1
+         wtText,        // == 2
+         wtValue        // == 3
       };
 
       enum IoType
       {
-         iotSensor,
+         iotSensor = 0,
          iotLight
       };
 
@@ -303,6 +304,7 @@ class Poold : public cWebService
       int addValueFact(int addr, const char* type, const char* name, const char* unit);
       int initOutput(uint pin, int opt, OutputMode mode, const char* name);
       int initInput(uint pin, const char* name);
+      int initScripts();
 
       int standby(int t);
       int standbyUntil(time_t until);

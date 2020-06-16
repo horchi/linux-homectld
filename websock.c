@@ -46,7 +46,7 @@ cWebSock::~cWebSock()
 
 int cWebSock::init(int aPort, int aTimeout)
 {
-   struct lws_context_creation_info info;
+   lws_context_creation_info info {0};
    const char* interface {nullptr};
    const char* certPath {nullptr};           // we're not using ssl
    const char* keyPath {nullptr};
@@ -73,7 +73,22 @@ int cWebSock::init(int aPort, int aTimeout)
    protocols[2].per_session_data_size = 0;
    protocols[2].rx_buffer_size = 0;
 
-   // setup websocket context info
+   // mounts
+
+   lws_http_mount mount {0};
+
+   mount.mount_next = (lws_http_mount*)nullptr;
+   mount.mountpoint = "/";
+   mount.origin = httpPath;
+   mount.mountpoint_len = 1;
+   mount.cache_max_age = true ? 86400 : 604800;
+   mount.cache_reusable = 1;
+   mount.cache_revalidate = true ? 1 : 0;
+   mount.cache_intermediaries = 1;
+   mount.origin_protocol = LWSMPRO_FILE;
+   mounts[0] = mount;
+
+    // setup websocket context info
 
    memset(&info, 0, sizeof(info));
    info.port = port;
@@ -85,6 +100,7 @@ int cWebSock::init(int aPort, int aTimeout)
    info.gid = -1;
    info.uid = -1;
    info.options = 0;
+   info.mounts = mounts;
 
    // create libwebsocket context representing this server
 
@@ -277,7 +293,6 @@ int cWebSock::callbackHttp(lws* wsi, lws_callback_reasons reason, void* user, vo
             // security, force httpPath path to inhibit access to the whole filesystem
 
             asprintf(&file, "%s/%s", httpPath, url);
-
             res = serveFile(wsi, file);
             free(file);
 
@@ -338,6 +353,8 @@ int cWebSock::serveFile(lws* wsi, const char* path)
 {
    const char* suffix = suffixOf(path ? path : "");
    const char* mime = "text/plain";
+
+   // LogDuration ld("serveFile", 1);
 
    // choose mime type based on the file extension
 

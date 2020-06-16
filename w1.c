@@ -138,7 +138,7 @@ int W1::update()
    if (mqttConnection() != success)
       return fail;
 
-   char* p = json_dumps(oJson);
+   char* p = json_dumps(oJson, 0);
    json_decref(oJson);
    mqttWriter->write(mqttTopic, p);
    free(p);

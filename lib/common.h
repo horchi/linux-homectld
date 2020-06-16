@@ -19,6 +19,7 @@
 #include <string>
 #include <map>
 #include <vector>
+#include <list>
 
 #include <openssl/md5.h> // MD5_*
 
@@ -281,6 +282,16 @@ int removeFile(const char* filename);
 int loadFromFile(const char* infile, MemoryStruct* data);
 int loadLinesFromFile(const char* infile, std::vector<std::string>& lines, bool removeLF = true);
 
+struct FileInfo
+{
+   std::string path;
+   std::string name;
+   uint type;
+};
+
+typedef std::list<FileInfo> FileList;
+int getFileList(const char* path, int type, const char* extensions, int recursion, FileList* dirs, int& count);
+
 const char* getHostName();
 const char* getFirstIp();
 
@@ -334,6 +345,26 @@ class cTimeMs
 };
 
 typedef cTimeMs cMyTimeMs;
+
+//***************************************************************************
+// Log Duration
+//***************************************************************************
+
+class LogDuration
+{
+   public:
+
+      LogDuration(const char* aMessage, int aLogLevel = 2);
+      ~LogDuration();
+
+      void show(const char* label = "");
+
+   protected:
+
+      char message[1000];
+      uint64_t durationStart;
+      int logLevel;
+};
 
 //***************************************************************************
 // Semaphore

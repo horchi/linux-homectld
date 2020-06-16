@@ -14,6 +14,7 @@
 #include <syslog.h>
 #include <unistd.h>
 #include <zlib.h>
+#include <dirent.h>
 
 #include <algorithm>
 
@@ -722,6 +723,72 @@ int loadLinesFromFile(const char* infile, std::vector<std::string>& lines, bool 
    return success;
 }
 
+int getFileList(const char* path, int type, const char* extensions, int recursion, FileList* dirs, int& count)
+{
+   DIR* dir;
+
+   if (!(dir = opendir(path)))
+   {
+      tell(1, "Can't open directory '%s', '%s'", path, strerror(errno));
+      return fail;
+   }
+
+#ifndef HAVE_READDIR_R
+   dirent* pEntry;
+
+   while ((pEntry = readdir(dir)))
+#else
+   dirent entry;
+   dirent* pEntry = &entry;
+   dirent* res;
+
+   // deprecated but the only reentrant with old libc!
+
+   while (readdir_r(dir, pEntry, &res) == 0 && res)
+#endif
+   {
+      // if 'recursion' is set scan subfolders also
+
+      if (recursion && pEntry->d_type == DT_DIR && pEntry->d_name[0] != '.')
+      {
+         char* buf;
+         asprintf(&buf, "%s/%s", path, pEntry->d_name);
+         getFileList(buf, type, extensions, recursion, dirs, count);
+         free(buf);
+      }
+
+      // filter type and ignore '.', '..' an hidden files
+
+      if (pEntry->d_type != type || pEntry->d_name[0] == '.')
+         continue;
+
+      // filter file extensions
+
+      if (extensions)
+      {
+         const char* ext;
+
+         if ((ext = strrchr(pEntry->d_name, '.')))
+            ext++;
+
+         if (isEmpty(ext) || !strcasestr(extensions, ext))
+         {
+            tell(4, "Skipping file '%s' with extension '%s'", pEntry->d_name, ext);
+            continue;
+         }
+      }
+
+      count++;
+
+      if (dirs)
+         dirs->push_back({ path, pEntry->d_name, pEntry->d_type });
+   }
+
+   closedir(dir);
+
+   return success;
+}
+
 //***************************************************************************
 // Gnu Unzip
 //***************************************************************************
@@ -1144,4 +1211,30 @@ bool cTimeMs::TimedOut(void)
 uint64_t cTimeMs::Elapsed(void)
 {
   return Now() - begin;
+}
+
+//***************************************************************************
+// Class LogDuration
+//***************************************************************************
+
+LogDuration::LogDuration(const char* aMessage, int aLogLevel)
+{
+   logLevel = aLogLevel;
+   strcpy(message, aMessage);
+
+   // at last !
+
+   durationStart = cMyTimeMs::Now();
+}
+
+LogDuration::~LogDuration()
+{
+   tell(logLevel, "duration '%s' was (%ldms)",
+        message, (long)(cMyTimeMs::Now() - durationStart));
+}
+
+void LogDuration::show(const char* label)
+{
+   tell(logLevel, "elapsed '%s' at '%s' was (%ldms)",
+        message, label, (long)(cMyTimeMs::Now() - durationStart));
 }

@@ -54,6 +54,7 @@ class cWebService
          evGetToken,
          evIoSettings,
          evChartData,
+         evStoreIoSetup,
 
          evCount
       };
@@ -222,8 +223,9 @@ class Poold : public cWebService
 
       // public static message interface to web thread
 
-      int pushMessage(json_t* obj, const char* title, long client = 0);
+      static int pushInMessage(const char* data);
       static std::queue<std::string> messagesIn;
+      static cMyMutex messagesInMutex;
 
    protected:
 
@@ -316,6 +318,8 @@ class Poold : public cWebService
       int performWebSocketPing();
       int dispatchClientRequest();
 
+      std::string callScript(int addr, const char* type, const char* command);
+      int publishScriptResult(uint addr, const char* type, std::string result);
       bool isInTimeRange(const std::vector<Range>* ranges, time_t t);
       int store(time_t now, const char* name, const char* title, const char* unit, const char* type, int address, double value, const char* text = 0);
 
@@ -349,22 +353,26 @@ class Poold : public cWebService
 
       // web
 
+      int pushOutMessage(json_t* obj, const char* title, long client = 0);
+
       int performLogin(json_t* oObject);
       int performTokenRequest(json_t* oObject, long client);
       int performSyslog(json_t* oObject, long client);
       int performConfigDetails(json_t* oObject, long client);
       int performIoSettings(json_t* oObject, long client);
       int performChartData(json_t* oObject, long client);
+      int storeConfig(json_t* obj, long client);
+      int storeIoSetup(json_t* array, long client);
+
       int config2Json(json_t* obj);
       int configDetails2Json(json_t* obj);
       int valueFacts2Json(json_t* obj);
       int daemonState2Json(json_t* obj);
       int sensor2Json(json_t* obj, cDbTable* table);
       void pin2Json(json_t* ojData, int pin);
-      int storeConfig(json_t* obj);
 
       const char* getImageOf(const char* title, int value);
-      int toggleIo(uint pin);
+      int toggleIo(uint addr, const char* type);
       int toggleIoNext(uint pin);
       int toggleOutputMode(uint pin);
 
@@ -383,12 +391,14 @@ class Poold : public cWebService
       cDbTable* tablePeaks {nullptr};
       cDbTable* tableValueFacts {nullptr};
       cDbTable* tableConfig {nullptr};
+      cDbTable* tableScripts {nullptr};
 
       cDbStatement* selectActiveValueFacts {nullptr};
       cDbStatement* selectAllValueFacts {nullptr};
       cDbStatement* selectAllConfig {nullptr};
       cDbStatement* selectMaxTime {nullptr};
       cDbStatement* selectSamplesRange {nullptr};
+      cDbStatement* selectScriptByPath {nullptr};
 
       cDbValue xmlTime;
       cDbValue rangeFrom;

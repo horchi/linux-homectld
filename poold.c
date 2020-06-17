@@ -22,6 +22,7 @@
 
 int Poold::shutdown = no;
 std::queue<std::string> Poold::messagesIn;
+cMyMutex Poold::messagesInMutex;
 
 std::map<std::string, Poold::ConfigItemDef> Poold::configuration
 {
@@ -97,7 +98,7 @@ const char* cWebService::events[] =
    "gettoken",
    "iosettings",
    "chartdata",
-
+   "storeiosetup",
    0
 };
 
@@ -157,10 +158,23 @@ Poold::~Poold()
 }
 
 //***************************************************************************
-// Push Message
+// Push In Message (from WS to poold)
 //***************************************************************************
 
-int Poold::pushMessage(json_t* oContents, const char* title, long client)
+int Poold::pushInMessage(const char* data)
+{
+   cMyMutexLock lock(&messagesInMutex);
+
+   messagesIn.push(data);
+
+   return success;
+}
+
+//***************************************************************************
+// Push Out Message (from poold to WS)
+//***************************************************************************
+
+int Poold::pushOutMessage(json_t* oContents, const char* title, long client)
 {
    json_t* obj = json_object();
 
@@ -190,6 +204,8 @@ int Poold::dispatchClientRequest()
    json_error_t error;
    json_t *oData, *oObject;
 
+   cMyMutexLock lock(&messagesInMutex);
+
    // #TODO loop here while (!messagesIn.empty()) ?
 
    if (messagesIn.empty())
@@ -207,6 +223,7 @@ int Poold::dispatchClientRequest()
    oObject = json_object_get(oData, "object");
 
    int addr = getIntFromJson(oObject, "address");
+   const char* type = getStringFromJson(oObject, "type");
 
    // dispatch client request
 
@@ -214,17 +231,18 @@ int Poold::dispatchClientRequest()
    {
       case evLogin:         status = performLogin(oObject);                  break;
       case evGetToken:      status = performTokenRequest(oObject, client);   break;
-      case evToggleIo:      status = toggleIo(addr);                         break;
+      case evToggleIo:      status = toggleIo(addr, type);                   break;
       case evToggleIoNext:  status = toggleIoNext(addr);                     break;
       case evToggleMode:    status = toggleOutputMode(addr);                 break;
-      case evStoreConfig:   status = storeConfig(oObject);                   break;
+      case evStoreConfig:   status = storeConfig(oObject, client);           break;
       case evSyslog:        status = performSyslog(oObject, client);         break;
       case evConfigDetails: status = performConfigDetails(oObject, client);  break;
       case evIoSettings:    status = performIoSettings(oObject, client);     break;
       case evChartData:     status = performChartData(oObject, client);      break;
+      case evStoreIoSetup:  status = storeIoSetup(oObject, client);          break;
 
-      default:
-         tell(0, "Error: Received unexpected client request '%s' at [%s]", toName(event), messagesIn.front().c_str());
+      default: tell(0, "Error: Received unexpected client request '%s' at [%s]",
+                    toName(event), messagesIn.front().c_str());
    }
 
    json_decref(oData);      // free the json object
@@ -394,28 +412,75 @@ int Poold::initScripts()
    int count {0};
    FileList scripts;
 
-   asprintf(&path, "%s/scripts", confDir);
-
+   asprintf(&path, "%s/scripts.d", confDir);
    int status = getFileList(path, DT_REG, "sh", false, &scripts, count);
-   free(path);
 
-   if (status != success)
-      return fail;
-
-   for (const auto& script : scripts)
+   if (status == success)
    {
-      uint id {0};
-      const char* p = script.name.c_str();
+      for (const auto& script : scripts)
+      {
+         char* scriptPath {nullptr};
+         uint id {0};
 
-      while (*p)
-         id += *p++;
+         asprintf(&scriptPath, "%s/%s", path, script.name.c_str());
 
-      int res = addValueFact(id, "SC", script.name.c_str(), "");
+         tableScripts->clear();
+         tableScripts->setValue("PATH", scriptPath);
 
-      tell(0, "Found script '%s' is is (%d)", script.name.c_str(), id);
+         if (!selectScriptByPath->find())
+         {
+            tableScripts->store();
+            id = tableScripts->getLastInsertId();
+         }
+         else
+         {
+            id = tableScripts->getIntValue("ID");
+         }
+
+         selectScriptByPath->freeResult();
+
+         addValueFact(id, "SC", script.name.c_str(), "");
+
+         tell(0, "Found script '%s' is is (%d)", scriptPath, id);
+         free(scriptPath);
+      }
    }
 
-   return success;
+   free(path);
+
+   return status;
+}
+
+//***************************************************************************
+// Call Script
+//***************************************************************************
+
+std::string Poold::callScript(int addr, const char* type, const char* command)
+{
+   char* cmd {nullptr};
+
+   tableScripts->clear();
+   tableScripts->setValue("ID", addr);
+
+   if (!tableScripts->find())
+   {
+      tell(0, "Fatal: Script with id (%d) not found", addr);
+      return "0";
+   }
+
+   asprintf(&cmd, "%s %s", tableScripts->getStrValue("PATH"), command);
+
+   tableScripts->reset();
+
+   tell(2, "Info: Calling '%s'", cmd);
+   std::string result = executeCommand(cmd);
+   tell(2, "Debug: Result of script '%s' was [%s]", cmd, result.c_str());
+   free(cmd);
+
+   if (!isEmpty(type))
+      publishScriptResult(addr, type, result);
+
+   return result;
 }
 
 //***************************************************************************
@@ -499,6 +564,9 @@ int Poold::initDb()
    tableConfig = new cDbTable(connection, "config");
    if (tableConfig->open() != success) return fail;
 
+   tableScripts = new cDbTable(connection, "scripts");
+   if (tableScripts->open() != success) return fail;
+
    // prepare statements
 
    selectActiveValueFacts = new cDbStatement(tableValueFacts);
@@ -565,6 +633,19 @@ int Poold::initDb()
    selectSamplesRange->build(" order by time");
 
    status += selectSamplesRange->prepare();
+
+   // ------------------
+   // select script by path
+
+   selectScriptByPath = new cDbStatement(tableScripts);
+
+   selectScriptByPath->build("select ");
+   selectScriptByPath->bindAllOut();
+   selectScriptByPath->build(" from %s where ", tableScripts->TableName());
+   selectScriptByPath->bind("PATH", cDBS::bndIn | cDBS::bndSet);
+
+   status += selectScriptByPath->prepare();
+
 
    // ------------------
 
@@ -923,6 +1004,39 @@ int Poold::update(bool webOnly, long client)
          if (!webOnly)
             store(now, name, title, unit, type, addr, digitalOutputStates[addr].state);
       }
+      else if (tableValueFacts->hasValue("TYPE", "SC"))
+      {
+         std::string result = callScript(addr, 0, "status").c_str();
+
+         auto pos = result.find(':');
+
+         if (pos == std::string::npos)
+         {
+            tell(0, "Error: Failed to parse result of script '%s' [%s]", title, result.c_str());
+            continue;
+         }
+
+         std::string kind = result.substr(0, pos);
+         std::string value = result.substr(pos+1);
+
+         if (kind == "status")
+         {
+            bool state = atoi(value.c_str());
+            json_object_set_new(ojData, "value", json_integer(state));
+            json_object_set_new(ojData, "image", json_string(getImageOf(title, state)));
+            json_object_set_new(ojData, "widgettype", json_integer(wtSymbol));
+         }
+         else if (kind == "value")
+         {
+            json_object_set_new(ojData, "value", json_real(strtod(value.c_str(), nullptr)));
+            json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
+         }
+         else
+            tell(0, "Got unexpected script kind '%s' in '%s'", kind.c_str(), result.c_str());
+
+         if (!webOnly)
+            store(now, name, title, unit, type, addr, strtod(value.c_str(), nullptr));
+      }
       else if (tableValueFacts->hasValue("TYPE", "SP"))
       {
          if (addr == 1)
@@ -936,6 +1050,7 @@ int Poold::update(bool webOnly, long client)
 
                if (!webOnly)
                   store(now, name, title, unit, type, addr, waterLevel, text);
+
                json_object_set_new(ojData, "text", json_string(text));
                json_object_set_new(ojData, "widgettype", json_integer(wtText));
             }
@@ -972,7 +1087,7 @@ int Poold::update(bool webOnly, long client)
 
    // send result to all connected WEBIF clients
 
-   pushMessage(oJson, webOnly ? "init" : "all", client);
+   pushOutMessage(oJson, webOnly ? "init" : "all", client);
 
    // ?? json_decref(oJson);
 
@@ -1010,11 +1125,11 @@ int Poold::performLogin(json_t* oObject)
 
    json_t* oJson = json_object();
    config2Json(oJson);
-   pushMessage(oJson, "config", client);
+   pushOutMessage(oJson, "config", client);
 
    oJson = json_object();
    daemonState2Json(oJson);
-   pushMessage(oJson, "daemonstate", client);
+   pushOutMessage(oJson, "daemonstate", client);
 
    update(true, client);
 
@@ -1046,7 +1161,7 @@ int Poold::performTokenRequest(json_t* oObject, long client)
    {
       tell(0, "Token request for user '%s' succeeded", user);
       json_object_set_new(oJson, "value", json_string(wsLoginToken));
-      pushMessage(oJson, "token", client);
+      pushOutMessage(oJson, "token", client);
    }
    else
    {
@@ -1091,7 +1206,7 @@ int Poold::performSyslog(json_t* oObject, long client)
    }
 
    json_object_set_new(oJson, "lines", json_string(result.c_str()));
-   pushMessage(oJson, "syslog", client);
+   pushOutMessage(oJson, "syslog", client);
 
    return done;
 }
@@ -1107,7 +1222,7 @@ int Poold::performConfigDetails(json_t* oObject, long client)
 
    json_t* oJson = json_array();
    configDetails2Json(oJson);
-   pushMessage(oJson, "configdetails", client);
+   pushOutMessage(oJson, "configdetails", client);
 
    return done;
 }
@@ -1123,7 +1238,7 @@ int Poold::performIoSettings(json_t* oObject, long client)
 
    json_t* oJson = json_array();
    valueFacts2Json(oJson);
-   pushMessage(oJson, "valuefacts", client);
+   pushOutMessage(oJson, "valuefacts", client);
 
    return done;
 }
@@ -1195,23 +1310,23 @@ int Poold::performChartData(json_t* oObject, long client)
 
    selectSamplesRange->freeResult();
 
-   pushMessage(oJson, "chartdata", client);
+   pushOutMessage(oJson, "chartdata", client);
 
    return done;
 }
 
 //***************************************************************************
-// Store Configuratiom
+// Store Configuration
 //***************************************************************************
 
-int Poold::storeConfig(json_t* obj)
+int Poold::storeConfig(json_t* obj, long client)
 {
    const char* key;
    json_t* jValue;
 
    json_object_foreach(obj, key, jValue)
    {
-      tell(0, "Storing config item '%s' with '%s'", key, json_string_value(jValue));
+      tell(3, "Debug: Storing config item '%s' with '%s'", key, json_string_value(jValue));
       setConfigItem(key, json_string_value(jValue));
    }
 
@@ -1220,11 +1335,44 @@ int Poold::storeConfig(json_t* obj)
    return done;
 }
 
-//int Poold::storeIoSettings()
-//{
-//$sql = "UPDATE valuefacts set usrtitle = '$usrtitle', maxscale = '$maxscale', state = '$state' where address = '$addr' and type = '$type'";
-//   return dine;
-//}
+int Poold::storeIoSetup(json_t* array, long client)
+{
+   size_t index;
+   json_t* jObj;
+
+   json_array_foreach(array, index, jObj)
+   {
+      int addr = getIntFromJson(jObj, "address");
+      const char* type = getStringFromJson(jObj, "type");
+      int state = getIntFromJson(jObj, "state");
+      const char* usrTitle = getStringFromJson(jObj, "usrtitle", "");
+      int maxScale = getIntFromJson(jObj, "scalemax");
+
+      tableValueFacts->clear();
+      tableValueFacts->setValue("ADDRESS", addr);
+      tableValueFacts->setValue("TYPE", type);
+
+      if (!tableValueFacts->find())
+         continue;
+
+      tableValueFacts->clearChanged();
+      tableValueFacts->setValue("STATE", state ? "A" : "D");
+      tableValueFacts->setValue("USRTITLE", usrTitle);
+
+      if (maxScale >= 0)
+         tableValueFacts->setValue("MAXSCALE", maxScale);
+
+      if (tableValueFacts->getChanges())
+      {
+         tableValueFacts->store();
+         tell(2, "STORED %s:%d - usrtitle: '%s'; scalemax: %d; state: %d", type, addr, usrTitle, maxScale, state);
+      }
+
+      tell(3, "Debug: %s:%d - usrtitle: '%s'; scalemax: %d; state: %d", type, addr, usrTitle, maxScale, state);
+   }
+
+   return done;
+}
 
 //***************************************************************************
 // Config 2 Json
@@ -1754,6 +1902,9 @@ int Poold::addValueFact(int addr, const char* type, const char* name, const char
 
    if (!tableValueFacts->find())
    {
+      tell(0, "Add ValueFact '%ld' '%s'",
+           tableValueFacts->getIntValue("ADDRESS"), tableValueFacts->getStrValue("TYPE"));
+
       tableValueFacts->setValue("NAME", name);
       tableValueFacts->setValue("STATE", "D");
       tableValueFacts->setValue("UNIT", unit);
@@ -1969,10 +2120,74 @@ const char* Poold::getImageOf(const char* title, int value)
 // Digital IO Stuff
 //***************************************************************************
 
-int Poold::toggleIo(uint pin)
+int Poold::toggleIo(uint addr, const char* type)
 {
-   gpioWrite(pin, !digitalOutputStates[pin].state);
-   tell(eloDebug, "Debug: Set %d to %d", pin, digitalOutputStates[pin].state);
+   if (strcmp(type, "DO") == 0)
+      gpioWrite(addr, !digitalOutputStates[addr].state);
+   else if (strcmp(type, "SC") == 0)
+      callScript(addr, type, "toggle");
+
+   return success;
+}
+
+int Poold::publishScriptResult(uint addr, const char* type, std::string result)
+{
+   auto pos = result.find(':');
+
+   if (pos == std::string::npos)
+   {
+      tell(0, "Error: Failed to parse result of script (%d) [%s]", addr, result.c_str());
+      return fail;
+   }
+
+   std::string kind = result.substr(0, pos);
+   std::string value = result.substr(pos+1);
+
+   tableValueFacts->clear();
+   tableValueFacts->setValue("ADDRESS", (int)addr);
+   tableValueFacts->setValue("TYPE", type);
+
+   if (!tableValueFacts->find())
+      return fail;
+
+   const char* name = tableValueFacts->getStrValue("NAME");
+   const char* title = tableValueFacts->getStrValue("TITLE");
+   const char* usrtitle = tableValueFacts->getStrValue("USRTITLE");
+
+   if (!isEmpty(usrtitle))
+      title = usrtitle;
+
+   // update WS
+   {
+      json_t* oJson = json_array();
+      json_t* ojData = json_object();
+      json_array_append_new(oJson, ojData);
+
+      json_object_set_new(ojData, "address", json_integer(addr));
+      json_object_set_new(ojData, "type", json_string(type));
+      json_object_set_new(ojData, "name", json_string(name));
+      json_object_set_new(ojData, "title", json_string(title));
+
+      if (kind == "status")
+      {
+         bool state = atoi(value.c_str());
+         json_object_set_new(ojData, "value", json_integer(state));
+         json_object_set_new(ojData, "image", json_string(getImageOf(title, state)));
+         json_object_set_new(ojData, "widgettype", json_integer(wtSymbol));
+      }
+      else if (kind == "value")
+      {
+         json_object_set_new(ojData, "value", json_real(strtod(value.c_str(), nullptr)));
+         json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
+      }
+
+      pushOutMessage(oJson, "update");
+   }
+
+   if (!isEmpty(hassMqttUrl))
+      hassPush(iotLight, name, "", "", strtod(value.c_str(), nullptr), "", false /*forceConfig*/);
+
+   tableValueFacts->reset();
 
    return success;
 }
@@ -1981,9 +2196,9 @@ int Poold::toggleIoNext(uint pin)
 {
    if (digitalOutputStates[pin].state)
    {
-      toggleIo(pin);
+      toggleIo(pin, "DO");
       usleep(300000);
-      toggleIo(pin);
+      toggleIo(pin, "DO");
       return success;
    }
 
@@ -2022,7 +2237,7 @@ int Poold::toggleOutputMode(uint pin)
       json_array_append_new(oJson, ojData);
       pin2Json(ojData, pin);
 
-      pushMessage(oJson, "update");
+      pushOutMessage(oJson, "update");
    }
 
    return success;
@@ -2048,7 +2263,7 @@ void Poold::gpioWrite(uint pin, bool state, bool callJobs)
       json_array_append_new(oJson, ojData);
       pin2Json(ojData, pin);
 
-      pushMessage(oJson, "update");
+      pushOutMessage(oJson, "update");
    }
 
    if (!isEmpty(hassMqttUrl))
@@ -2085,8 +2300,9 @@ void Poold::updateW1(const char* id, double value)
       json_object_set_new(ojData, "value", json_real(value));
       json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
 
-      pushMessage(oJson, "update");
+      pushOutMessage(oJson, "update");
    }
+
    tableValueFacts->reset();
 }
 

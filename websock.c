@@ -500,14 +500,14 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
          {
             addToJson(oData, "client", (long)wsi);
             char* p = json_dumps(oData, 0);
-            Poold::messagesIn.push(p);
+            Poold::pushInMessage(p);
             free(p);
          }
          else if (clients[wsi].type == ctWithLogin)
          {
             addToJson(oData, "client", (long)wsi);
             char* p = json_dumps(oData, 0);
-            Poold::messagesIn.push(p);
+            Poold::pushInMessage(p);
             free(p);
          }
          else
@@ -587,7 +587,7 @@ void cWebSock::atLogin(lws* wsi, const char* message, const char* clientInfo)
    char* p = json_dumps(obj, 0);
    json_decref(obj);
 
-   Poold::messagesIn.push(p);
+   Poold::pushInMessage(p);
    free(p);
 }
 

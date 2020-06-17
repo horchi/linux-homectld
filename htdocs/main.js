@@ -20,7 +20,7 @@ function connectWebSocket()
       // url: "ws://" + location.hostname + ":61109",
       url: useUrl,
       protocol: "pool",
-      autoReconnectInterval: 2000,
+      autoReconnectInterval: 1000,
       onopen: () => {
          console.log("socket opened :)");
          if (isActive === null)     // wurde beim Schliessen auf null gesetzt
@@ -244,14 +244,16 @@ function initIoSetup(valueFacts, root)
       var root = null;
 
       var usrtitle = item.usrtitle != null ? item.usrtitle : "";
-      var html = "<td>" + item.title + "</td>";
-      html += "<td class=\"tableMultiColCell\"><input class=\"rounded-border inputSetting\" type=\"text\" value=\"" + usrtitle + "\"/></td>";
+      var html = "<td id=\"row_" + item.type + item.address + "\" data-address=\"" + item.address + "\" data-type=\"" + item.type + "\" >" + item.title + "</td>";
+      html += "<td class=\"tableMultiColCell\">";
+      html += "  <input id=\"usrtitle_" + item.type + item.address + "\" class=\"rounded-border inputSetting\" type=\"text\" value=\"" + usrtitle + "\"/>";
+      html += "</td>";
       if (item.type != "DO" && item.type != "SC")
-         html += "<td class=\"tableMultiColCell\"><input class=\"rounded-border inputSetting\" type=\"number\" value=\"" + item.scalemax + "\"/></td>";
+         html += "<td class=\"tableMultiColCell\"><input id=\"scalemax_" + item.type + item.address + "\" class=\"rounded-border inputSetting\" type=\"number\" value=\"" + item.scalemax + "\"/></td>";
       else
          html += "<td class=\"tableMultiColCell\"></td>";
       html += "<td style=\"text-align:center;\">" + item.unit + "</td>";
-      html += "<td><input class=\"rounded-border inputSetting\" type=\"checkbox\" value=\"1:SP\" " + (item.state == 1 ? "checked" : "") + " /></td>";
+      html += "<td><input id=\"state_" + item.type + item.address + "\" class=\"rounded-border inputSetting\" type=\"checkbox\" value=\"1:SP\" " + (item.state == 1 ? "checked" : "") + " /></td>";
       html += "<td>0x" + item.address.toString(16) + ":" + item.type + "</td>";
 
       switch (item.type) {
@@ -483,7 +485,11 @@ function updateDashboard(sensors)
             $("#widget" + sensor.type + sensor.address).attr("src", sensor.image);
             $("#div" + sensor.type + sensor.address).attr("style", modeStyle);
 
-            document.getElementById("progress" + sensor.type + sensor.address).style.visibility = (sensor.next == 0) ? "hidden" : "visible";
+            var e = document.getElementById("progress" + sensor.type + sensor.address);
+            if (e != null)
+               e.style.visibility = (sensor.next == null || sensor.next == 0) ? "hidden" : "visible";
+            else
+               console.log("Element '" + "progress" + sensor.type + sensor.address + "' not found");
 
             if (sensor.mode == "auto" && sensor.next > 0) {
                var pWidth = 100;
@@ -580,6 +586,39 @@ function toTimeRangesString(base)
    }
 
    return times;
+}
+
+window.storeIoSetup = function()
+{
+   var jsonArray = [];
+   var rootSetup = document.getElementById("ioSetupContainer");
+   var elements = rootSetup.querySelectorAll("[id^='row_']");
+
+   console.log("storeIoSetup");
+
+   for (var i = 0; i < elements.length; i++) {
+      var jsonObj = {};
+
+      var type = $(elements[i]).data("type");
+      var address = $(elements[i]).data("address");
+      console.log("  loop for: " + type + ":" + address);
+      console.log("   - usrtitle: " + $("#usrtitle_" + type + address).val());
+
+      jsonObj["type"] = type;
+      jsonObj["address"] = address;
+      if ($("#scalemax_" + type + address).length)
+         jsonObj["scalemax"] = parseInt($("#scalemax_" + type + address).val());
+      jsonObj["usrtitle"] = $("#usrtitle_" + type + address).val();
+      jsonObj["state"] = $("#state_" + type + address).is(":checked") ? 1 : 0;
+      jsonArray[i] = jsonObj;
+   }
+
+   socket.send({ "event" : "storeiosetup", "object" : jsonArray });
+
+   document.getElementById("confirm").innerHTML = "<button class=\"rounded-border\" onclick=\"storeIoSetup()\">Speichern</button>";
+   var elem = document.createElement("div");
+   elem.innerHTML = "<br/><div class=\"info\"><b><center>Einstellungen gespeichert</center></b></div>";
+   document.getElementById("confirm").appendChild(elem);
 }
 
 window.storeConfig = function()

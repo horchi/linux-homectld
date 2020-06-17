@@ -247,6 +247,8 @@ class cMyMutexLock
 // Tools
 //***************************************************************************
 
+std::string executeCommand(const char* cmd);
+
 double usNow();
 int l2hhmm(time_t t);
 unsigned int getHostId();

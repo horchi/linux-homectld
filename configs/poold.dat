@@ -76,3 +76,27 @@ Table config
    UPDSP                ""  updsp                Int          0 Meta,
    VALUE                ""  value                Ascii      100 Data,
 }
+
+// ----------------------------------------------------------------
+// Table
+// ----------------------------------------------------------------
+
+Table scripts
+{
+   ID                   ""                      id                   UInt        11 Primary|Autoinc,
+
+   INSSP                ""                      inssp                Int          0 Meta,
+   UPDSP                ""                      updsp                Int          0 Meta,
+
+   // NAME              ""                      name                 Ascii      100 Data,
+   PATH                 ""                      path                 Ascii      100 Data,
+}
+
+// ----------------------------------------------------------------
+// Indices for scrips table
+// ----------------------------------------------------------------
+
+Index scrips
+{
+   path             ""  PATH
+}

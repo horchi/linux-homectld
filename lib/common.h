@@ -117,6 +117,15 @@ class MemoryStruct
       int isEmpty()  { return memory == 0; }
       int isZipped() { return zmemory != 0 && zsize > 0; }
 
+      int append(const char c)
+      {
+         size_t len = 1;
+         memory = srealloc(memory, size+len);
+         *(memory+size) = c;
+         size += len;
+
+         return success;
+      }
       int append(const char* buf, int len = 0)
       {
          if (!len) len = strlen(buf);

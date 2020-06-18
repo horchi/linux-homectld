@@ -765,6 +765,7 @@ function drawCharts(dataRow, root)
                },
                gridLines: {
                   color: "gray",
+                  zeroLineColor: 'gray',
                   borderDash: [5,5]
                },
                scaleLabel: {
@@ -781,7 +782,7 @@ function drawCharts(dataRow, root)
 
    data.data.datasets = [];
 
-   var colors = ['blue','lightgreen','red','black','purple','yellow'];
+   var colors = ['yellow','white','red','lightblue','lightgreen','purple','blue'];
 
    for (var i = 0; i < dataRow.length; i++)
    {

@@ -439,7 +439,7 @@ int Poold::initScripts()
 
          addValueFact(id, "SC", script.name.c_str(), "");
 
-         tell(0, "Found script '%s' is is (%d)", scriptPath, id);
+         tell(0, "Found script '%s' id is (%d)", scriptPath, id);
          free(scriptPath);
       }
    }
@@ -866,6 +866,7 @@ int Poold::meanwhile()
 
    if (mqttReader && mqttReader->isConnected()) mqttReader->yield();
    if (mqttWriter && mqttWriter->isConnected()) mqttWriter->yield();
+   if (mqttW1Reader && mqttW1Reader->isConnected()) mqttW1Reader->yield();
    if (mqttCommandReader && mqttCommandReader->isConnected()) mqttCommandReader->yield();
 
    tell(2, "loop ...");

@@ -690,7 +690,7 @@ int cWebSock::dispatchDataRequest(lws* wsi, SessionData* sessionData, const char
 {
    int statusCode = HTTP_STATUS_NOT_FOUND;
 
-   const char* method = methodOf(url);
+   // const char* method = methodOf(url);
 
    // if (strcmp(method, "getenv") == 0)
    //    statusCode = doEnvironment(wsi, sessionData);

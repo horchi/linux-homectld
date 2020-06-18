@@ -418,10 +418,15 @@ class Poold : public cWebService
 
       // Home Assistant stuff
 
-      MqTTPublishClient* mqttWriter {nullptr};
-      MqTTSubscribeClient* mqttReader {nullptr};
-      MqTTSubscribeClient* mqttCommandReader {nullptr};
-      MqTTSubscribeClient* mqttW1Reader {nullptr};
+      // MqTTPublishClient* mqttWriter {nullptr};
+      // MqTTSubscribeClient* mqttReader {nullptr};
+      // MqTTSubscribeClient* mqttCommandReader {nullptr};
+      // MqTTSubscribeClient* mqttW1Reader {nullptr};
+
+      Mqtt* mqttWriter {nullptr};
+      Mqtt* mqttReader {nullptr};
+      Mqtt* mqttCommandReader {nullptr};
+      Mqtt* mqttW1Reader {nullptr};
 
       // config
 
@@ -430,7 +435,7 @@ class Poold : public cWebService
       int aggregateHistory {0};           // history in days
       char* hassMqttUrl {nullptr};
       char* wsLoginToken {nullptr};
-      std::map<std::string,std::string> hassCmdTopicMap; // <topic,name>
+      std::map<std::string,std::string> hassCmdTopicMap; // 'topic' to 'name' map
 
       int mail {no};
       char* mailScript {nullptr};

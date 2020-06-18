@@ -140,7 +140,7 @@ int W1::update()
 
    char* p = json_dumps(oJson, 0);
    json_decref(oJson);
-   mqttWriter->write(mqttTopic, p);
+   mqttWriter->writeRetained(mqttTopic, p);
    free(p);
 
    tell(0, " ... done");
@@ -155,14 +155,11 @@ int W1::update()
 int W1::mqttConnection()
 {
    if (!mqttWriter)
-   {
-      mqttWriter = new MqTTPublishClient(mqttUrl, "w1_pool_publisher");
-      mqttWriter->setConnectTimeout(15);          // seconds
-   }
+      mqttWriter = new Mqtt(); // MqTTPublishClient(mqttUrl, "w1_pool_publisher");
 
    if (!mqttWriter->isConnected())
    {
-      if (mqttWriter->connect() != success)
+      if (mqttWriter->connect(mqttUrl) != success)
       {
          tell(0, "Error: MQTT: Connecting publisher to '%s' failed", mqttUrl);
          return fail;

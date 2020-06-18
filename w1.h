@@ -50,7 +50,7 @@ class W1
       SensorList sensors;
       const char* mqttUrl {nullptr};
       const char* mqttTopic {nullptr};
-      MqTTPublishClient* mqttWriter {nullptr};
+      Mqtt* mqttWriter {nullptr};
 
       static int shutdown;
 };

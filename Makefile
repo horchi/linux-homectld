@@ -29,15 +29,13 @@ GIT_REV      = $(shell git describe --always 2>/dev/null)
 # object files
 
 LOBJS        = lib/db.o lib/dbdict.o lib/common.o lib/serial.o lib/curl.o lib/thread.o lib/json.o
-OBJS         = $(LOBJS) main.o gpio.o hass.o websock.c
-MQTTBJS      = lib/mqtt.c
+MQTTOBJS     = lib/mqtt.o lib/mqtt_c.o lib/mqtt_pal.o
+OBJS         = $(MQTTOBJS) $(LOBJS) main.o gpio.o hass.o websock.o
 
 CFLAGS    	+= $(shell mysql_config --include)
 DEFINES   	+= -DDEAMON=Poold
 OBJS      	+= poold.o
-W1OBJS      = w1.o lib/common.o $(MQTTBJS)
-OBJS    += $(MQTTBJS)
-LIBS    += -lpaho-mqtt3cs
+W1OBJS      = w1.o lib/common.o lib/thread.o $(MQTTOBJS)
 FINES   += -DMQTT_HASS
 
 ifdef GIT_REV
@@ -48,7 +46,7 @@ endif
 
 all: $(TARGET) w1mqtt
 
-$(TARGET) : paho-mqtt $(OBJS)
+$(TARGET) : $(OBJS)
 	$(doLink) $(OBJS) $(LIBS) -o $@
 
 w1mqtt: $(W1OBJS)
@@ -107,20 +105,12 @@ install-web:
 	if test -f "$(WEBDEST)/stylesheet.css"; then \
 		cp -Pp "$(WEBDEST)/stylesheet.css" "$(WEBDEST)/stylesheet.css.save"; \
 	fi
-	if test -f "$(WEBDEST)/config.php"; then \
-		cp -p "$(WEBDEST)/config.php" "$(WEBDEST)/config.php.save"; \
-	fi
 	cp -r ./htdocs/* $(WEBDEST)/
-	if test -f "$(WEBDEST)/config.php.save"; then \
-		cp -p "$(WEBDEST)/config.php" "$(WEBDEST)/config.php.dist"; \
-		cp -p "$(WEBDEST)/config.php.save" "$(WEBDEST)/config.php"; \
-	fi
 	if test -f "$(WEBDEST)/stylesheet.css.save"; then \
 		cp -Pp "$(WEBDEST)/stylesheet.css.save" "$(WEBDEST)/stylesheet.css"; \
 	fi
 	chmod -R a+r "$(WEBDEST)"; \
 	chown -R $(WEBOWNER):$(WEBOWNER) "$(WEBDEST)"
-# cat ./htdocs/header.php | sed s:"<VERSION>":"$(VERSION)":g > "$(WEBDEST)/header.php"; \
 
 install-apache-conf:
 	@mkdir -p $(APACHECFGDEST)/conf-available
@@ -145,27 +135,9 @@ clean:
 cppchk:
 	cppcheck --template="{file}:{line}:{severity}:{message}" --language=c++ --force *.c *.h
 
-paho-mqtt:
-	if [ ! -d ~/build/paho.mqtt.c ]; then \
-		mkdir -p ~/build; \
-		cd ~/build; \
-		git clone https://github.com/eclipse/paho.mqtt.c.git; \
-		sed -i '/if test ! -f ..DESTDIR..{libdir}.lib..MQTTLIB_C..so..{MAJOR_VERSION.; then ln -s/d' ~/build/paho.mqtt.c/Makefile; \
-		sed -i '/\- ..INSTALL_DATA. .{blddir}.doc.MQTTClient.man.man3.MQTTClient.h.3 ..DESTDIR..{man3dir}/d' ~/build/paho.mqtt.c/Makefile; \
-		sed -i '/\- ..INSTALL_DATA. .{blddir}.doc.MQTTAsync.man.man3.MQTTAsync.h.3 ..DESTDIR..{man3dir}/d' ~/build/paho.mqtt.c/Makefile; \
-		sed -i s/'rm [$$]'/'rm -f $$'/g ~/build/paho.mqtt.c/Makefile; \
-	fi
-	cd ~/build/paho.mqtt.c; \
-	make -s; \
-	sudo rm -f /usr/local/lib/libpaho*; \
-	sudo make -s uninstall prefix=/usr; \
-	sudo make -s install prefix=/usr
-
 build-deb:
 	rm -rf $(DEB_DEST)
 	make -s install-poold DESTDIR=$(DEB_DEST) PREFIX=/usr INIT_AFTER=mysql.service
-	cd ~/build/paho.mqtt.c; \
-	make -s install DESTDIR=$(DEB_DEST) prefix=/usr
 	dpkg-deb --build $(DEB_BASE_DIR)/poold-$(VERSION)
 
 publish-deb:
@@ -187,8 +159,9 @@ lib/db.o        :  lib/db.c        $(HEADER)
 lib/dbdict.o    :  lib/dbdict.c    $(HEADER)
 lib/curl.o      :  lib/curl.c      $(HEADER)
 lib/serial.o    :  lib/serial.c    $(HEADER) lib/serial.h
-lib/mqtt.o      :  lib/mqtt.c      lib/mqtt.h
-
+lib/mqtt.o      :  lib/mqtt.c      lib/mqtt.h lib/mqtt_c.h
+lib/mqtt_c.o    :  lib/mqtt_c.c    lib/mqtt_c.h
+lib/mqtt_pal.o  :  lib/mqtt_pal.c  lib/mqtt_c.h
 main.o          :  main.c          $(HEADER) poold.h
 poold.o         :  poold.c         $(HEADER) poold.h w1.h lib/mqtt.h
 w1.o            :  w1.c            $(HEADER) w1.h

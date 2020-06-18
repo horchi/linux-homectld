@@ -27,7 +27,7 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
 
    // check if state topic already exists
 
-   std::string message;
+   MemoryStruct message;
    std::string tp;
    std::string sName = name;
 
@@ -43,12 +43,13 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
    if (!isEmpty(title))
    {
       mqttReader->subscribe(stateTopic);
-      status = mqttReader->read(&message, &tp);
+      status = mqttReader->read(&message, 100);
+      tp = mqttReader->getLastTopic();
 
-      if (status != success && status != MqTTClient::wrnNoMessagePending)
+      if (status != success && status != Mqtt::wrnTimeout)
          return fail;
 
-      if (forceConfig || status == MqTTClient::wrnNoMessagePending)
+      if (forceConfig || status == Mqtt::wrnTimeout)
       {
          char* configTopic {nullptr};
          char* configJson {nullptr};
@@ -96,13 +97,13 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
                      unit, sName.c_str(), title, sName.c_str());
          }
 
-         mqttWriter->write(configTopic, configJson);
+         mqttWriter->writeRetained(configTopic, configJson);
 
          free(configTopic);
          free(configJson);
       }
 
-      mqttReader->unsubscribe();
+      mqttReader->unsubscribe(stateTopic);
    }
 
    // publish actual value
@@ -116,7 +117,7 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
    else
       asprintf(&valueJson, "{ \"value\" : \"%.2f\" }", value);
 
-   mqttWriter->write(stateTopic, valueJson);
+   mqttWriter->writeRetained(stateTopic, valueJson);
 
    free(valueJson);
    free(stateTopic);
@@ -133,23 +134,22 @@ int Poold::performHassRequests()
    if (hassCheckConnection() != success)
       return fail;
 
-   std::string message;
+   MemoryStruct message;
    std::string topic;
    json_error_t error;
 
-   if (mqttCommandReader->read(&message, &topic) == success)
+   if (mqttCommandReader->read(&message, 10) == success)
    {
-      // tell(0, "(%s) GOT [%s]", topic.c_str(), message.c_str());
-
-      json_t* jData = json_loads(message.c_str(), 0, &error);
+      topic = mqttCommandReader->getLastTopic();
+      json_t* jData = json_loads(message.memory, 0, &error);
 
       if (!jData)
       {
-         tell(0, "Error: Can't parse json in '%s'", message.c_str());
+         tell(0, "Error: Can't parse json in '%s'", message.memory);
          return fail;
       }
 
-      tell(eloAlways, "<- (%s) [%s]", topic.c_str(), message.c_str());
+      tell(eloAlways, "<- (%s) [%s]", topic.c_str(), message.memory);
 
       auto it = hassCmdTopicMap.find(topic);
 
@@ -169,17 +169,18 @@ int Poold::performHassRequests()
       }
    }
 
-   while (mqttW1Reader->read(&message, &topic) == success)
+   while (mqttW1Reader->read(&message, 10) == success)
    {
-      json_t* jArray = json_loads(message.c_str(), 0, &error);
+      topic = mqttW1Reader->getLastTopic();
+      json_t* jArray = json_loads(message.memory, 0, &error);
 
       if (!jArray)
       {
-         tell(0, "Error: Can't parse json in '%s'", message.c_str());
+         tell(0, "Error: Can't parse json in '%s'", message.memory);
          return fail;
       }
 
-      tell(eloAlways, "<- (%s) [%s]", topic.c_str(), message.c_str());
+      tell(eloAlways, "<- (%s) [%s]", topic.c_str(), message.memory);
 
       size_t index;
       json_t* jValue;
@@ -203,35 +204,20 @@ int Poold::performHassRequests()
 int Poold::hassCheckConnection()
 {
    if (!mqttCommandReader)
-   {
-      mqttCommandReader = new MqTTSubscribeClient(hassMqttUrl, "poold_com");
-      mqttCommandReader->setConnectTimeout(15);   // seconds
-      mqttCommandReader->setTimeout(15);          // milli seconds
-   }
+      mqttCommandReader = new Mqtt(); // ("poold_com");
 
    if (!mqttW1Reader)
-   {
-      mqttW1Reader = new MqTTSubscribeClient(hassMqttUrl, "poold_w1_reader");
-      mqttW1Reader->setConnectTimeout(15);   // seconds
-      mqttW1Reader->setTimeout(15);          // milli seconds
-   }
+      mqttW1Reader = new Mqtt(); //("poold_w1_reader");
 
    if (!mqttWriter)
-   {
-      mqttWriter = new MqTTPublishClient(hassMqttUrl, "poold_publisher");
-      mqttWriter->setConnectTimeout(15);          // seconds
-   }
+      mqttWriter = new Mqtt(); //("poold_publisher");
 
    if (!mqttReader)
-   {
-      mqttReader = new MqTTSubscribeClient(hassMqttUrl, "poold_subscriber");
-      mqttReader->setConnectTimeout(15);          // seconds
-      mqttReader->setTimeout(100);                // milli seconds
-   }
+      mqttReader = new Mqtt(); //("poold_subscriber");
 
    if (!mqttCommandReader->isConnected())
    {
-      if (mqttCommandReader->connect() != success)
+      if (mqttCommandReader->connect(hassMqttUrl) != success)
       {
          tell(0, "Error: MQTT: Connecting subscriber to '%s' failed", hassMqttUrl);
          return fail;
@@ -243,7 +229,7 @@ int Poold::hassCheckConnection()
 
    if (!mqttW1Reader->isConnected())
    {
-      if (mqttW1Reader->connect() != success)
+      if (mqttW1Reader->connect(hassMqttUrl) != success)
       {
          tell(0, "Error: MQTT: Connecting subscriber to '%s' failed", hassMqttUrl);
          return fail;
@@ -255,7 +241,7 @@ int Poold::hassCheckConnection()
 
    if (!mqttWriter->isConnected())
    {
-      if (mqttWriter->connect() != success)
+      if (mqttWriter->connect(hassMqttUrl) != success)
       {
          tell(0, "Error: MQTT: Connecting publisher to '%s' failed", hassMqttUrl);
          return fail;
@@ -266,7 +252,7 @@ int Poold::hassCheckConnection()
 
    if (!mqttReader->isConnected())
    {
-      if (mqttReader->connect() != success)
+      if (mqttReader->connect(hassMqttUrl) != success)
       {
          tell(0, "Error: MQTT: Connecting subscriber to '%s' failed", hassMqttUrl);
          return fail;

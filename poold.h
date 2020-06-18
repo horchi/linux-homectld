@@ -289,9 +289,9 @@ class Poold : public cWebService
       {
          ConfigItemType type;
          bool internal;
-         std::string category;
-         std::string title;
-         std::string description;
+         const char* category;
+         const char* title;
+         const char* description;
       };
 
       std::map<int,OutputState> digitalOutputStates;
@@ -448,6 +448,8 @@ class Poold : public cWebService
       double tSolarDelta {5.0};
       int waterLevel {0};
       int showerDuration {20};
+
+      char* chart1 {nullptr};
 
       std::vector<Range> filterPumpTimes;
       std::vector<Range> uvcLightTimes;

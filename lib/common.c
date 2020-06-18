@@ -356,8 +356,8 @@ void removeWord(string& pattern, string word)
 
 void prepareCompressed(std::string& pattern)
 {
-   // const char* ignore = " (),.;:-_+*!#?=&%$<>§/'`´@~\"[]{}";
-   const char* notignore = "ABCDEFGHIJKLMNOPQRSTUVWXYZßÖÄÜöäü0123456789";
+   // const char* ignore = " (),.;:-_+*!#?=&%$<>Â§/'`Â´@~\"[]{}";
+   const char* notignore = "ABCDEFGHIJKLMNOPQRSTUVWXYZÃŸÃ–Ã„ÃœÃ¶Ã¤Ã¼0123456789";
 
    toUpper(pattern);
    removeWord(pattern, " TEIL ");

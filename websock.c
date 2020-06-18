@@ -270,7 +270,7 @@ int cWebSock::callbackHttp(lws* wsi, lws_callback_reasons reason, void* user, vo
 
          memset(sessionData, 0, sizeof(SessionData));
 
-         tell(1, "HTTP: Requested uri: (%ld) '%s'", len, url);
+         tell(1, "HTTP: Requested uri: (%ld) '%s'", (ulong)len, url);
 
          // data or file request ...
 
@@ -444,7 +444,7 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
 
                strncpy(msgBuffer + sizeLwsPreFrame, msg.c_str(), msgSize);
 
-               tell(1, "DEBUG: Write (%d) <- %.*s -> to '%s' (%p)\n", msgSize, msgSize,
+               tell(1, "DEBUG: Write (%d) -> %.*s -> to '%s' (%p)\n", msgSize, msgSize,
                     msgBuffer+sizeLwsPreFrame, clientInfo.c_str(), (void*)wsi);
 
                res = lws_write(wsi, (unsigned char*)msgBuffer + sizeLwsPreFrame, msgSize, LWS_WRITE_TEXT);
@@ -632,7 +632,7 @@ void cWebSock::pushMessage(const char* message, lws* wsi)
       if (clients.find(wsi) != clients.end())
          clients[wsi].pushMessage(message);
       else
-         tell(0, "client %ld not found!", wsi);
+         tell(0, "client %ld not found!", (ulong)wsi);
    }
    else
    {

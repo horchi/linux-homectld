@@ -401,7 +401,7 @@ table.tableMultiCol tr:nth-child(odd)
 
 .chartCanvas
 {
-    background-color: var(--light1);
+    background-color: #151515;
 }
 
 /* ----------------------- */

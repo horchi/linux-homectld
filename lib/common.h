@@ -23,7 +23,7 @@
 
 #include <openssl/md5.h> // MD5_*
 
-struct MemoryStruct;
+class MemoryStruct;
 extern int loglevel;
 extern int logstdout;
 extern int logstamp;

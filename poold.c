@@ -35,9 +35,8 @@ std::map<std::string, Poold::ConfigItemDef> Poold::configuration
 
    { "chart1",                { ctString,  false, "3 WEB Interface", "Chart 1", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
    { "chart2",                { ctString,  false, "3 WEB Interface", "Chart 2", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
-   { "chartDiv",              { ctInteger, false, "3 WEB Interface", "Linien-Abstand der Y-Achse", "klein:15 mittel:25 groß:45" } },
+   { "chartDiv",              { ctInteger, true,  "3 WEB Interface", "Linien-Abstand der Y-Achse", "klein:15 mittel:25 groß:45" } },
    { "chartStart",            { ctInteger, false, "3 WEB Interface", "Chart Zeitraum (Tage)", "Standardzeitraum der Chartanzeige (seit x Tagen bis heute)" } },
-   { "chartXLines",           { ctBool,    false, "3 WEB Interface", "Senkrechte Hilfslinien", "" } },
 
    { "user",                  { ctString,  false, "3 WEB Interface", "User", "" } },
    { "passwd",                { ctString,  true,  "3 WEB Interface", "Passwort", "" } },
@@ -76,7 +75,6 @@ std::map<std::string, Poold::ConfigItemDef> Poold::configuration
 
    // sonstiges
 
-   { "localLoginNetmask",     { ctString,  false, "2 Sonstiges", "Netzmaske für auto login", "Beispiel: ..." } },  // "Beispiel: 192.168.200.0/24"
    { "WSLoginToken",          { ctString,  true,  "2 Sonstiges", "", "" } }
 };
 
@@ -596,6 +594,7 @@ int Poold::initDb()
    selectAllConfig->build("select ");
    selectAllConfig->bindAllOut();
    selectAllConfig->build(" from %s", tableConfig->TableName());
+   // selectAllConfig->build(" order by ord");
 
    status += selectAllConfig->prepare();
 
@@ -736,6 +735,7 @@ int Poold::readConfiguration()
    getConfigItem("showerDuration", showerDuration, 20);
 
    getConfigItem("invertDO", invertDO, no);
+   getConfigItem("chart1", chart1, "");
 
    /*
    // config of GPIO pins
@@ -1252,28 +1252,57 @@ int Poold::performChartData(json_t* oObject, long client)
    if (client <= 0)
       return done;
 
-   json_t* oJson = json_array();
+   int range = getIntFromJson(oObject, "range", 3);
+   const char* sensors = getStringFromJson(oObject, "sensors");
 
-   tableSamples->clear();
-   tableSamples->setValue("TYPE", "W1");
-   tableSamples->setValue("ADDRESS", 0x567ae57);
-   rangeFrom.setValue(time(0) - (2*tmeSecondsPerDay));
-   rangeTo.setValue(time(0));
+   if (isEmpty(sensors))
+      sensors = chart1;
 
    tell(eloAlways, "Selecting chats data");
 
+   json_t* oJson = json_array();
+
+   rangeFrom.setValue(time(0) - (range*tmeSecondsPerDay));
+   rangeTo.setValue(time(0));
+
+   tableValueFacts->clear();
+   tableValueFacts->setValue("STATE", "A");
+
+   for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
+      char* id {nullptr};
+      asprintf(&id, "%s:0x%lx", tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"));
+
+      if (!strstr(sensors, id))
+      {
+         free(id);
+         continue;
+      }
+
+      tell(0, " ...collecting data for '%s'", id);
+      free(id);
+
+      const char* usrtitle = tableValueFacts->getStrValue("USRTITLE");
+      const char* title = tableValueFacts->getStrValue("TITLE");
+
+      if (!isEmpty(usrtitle))
+         title = usrtitle;
+
       json_t* oSample = json_object();
       json_array_append_new(oJson, oSample);
 
-      json_object_set_new(oSample, "title", json_string("Pool"));
+      json_object_set_new(oSample, "title", json_string(title));
       json_t* oData = json_array();
       json_object_set_new(oSample, "data", oData);
 
+      tableSamples->clear();
+      tableSamples->setValue("TYPE", tableValueFacts->getStrValue("TYPE"));
+      tableSamples->setValue("ADDRESS", tableValueFacts->getIntValue("ADDRESS"));
+
       for (int f = selectSamplesRange->find(); f; f = selectSamplesRange->fetch())
       {
-         tell(eloAlways, "0x%x: '%s' : %0.2f", (uint)tableSamples->getStrValue("ADDRESS"),
-              xmlTime.getStrValue(), tableSamples->getFloatValue("VALUE"));
+         // tell(eloAlways, "0x%x: '%s' : %0.2f", (uint)tableSamples->getStrValue("ADDRESS"),
+         //      xmlTime.getStrValue(), tableSamples->getFloatValue("VALUE"));
 
          json_t* oRow = json_object();
          json_array_append_new(oData, oRow);
@@ -1281,35 +1310,12 @@ int Poold::performChartData(json_t* oObject, long client)
          json_object_set_new(oRow, "x", json_string(xmlTime.getStrValue()));
          json_object_set_new(oRow, "y", json_real(tableSamples->getFloatValue("VALUE")));
       }
+
+      selectSamplesRange->freeResult();
    }
 
-   {
-      tableSamples->setValue("ADDRESS", 0x568317c);
-
-      json_t* oSample = json_object();
-      json_array_append_new(oJson, oSample);
-
-      json_object_set_new(oSample, "title", json_string("Kollektor"));
-      json_t* oData = json_array();
-      json_object_set_new(oSample, "data", oData);
-
-      for (int f = selectSamplesRange->find(); f; f = selectSamplesRange->fetch())
-      {
-         tell(eloAlways, "0x%x: '%s' : %0.2f", (uint)tableSamples->getStrValue("ADDRESS"),
-              xmlTime.getStrValue(), tableSamples->getFloatValue("VALUE"));
-
-         json_t* oRow = json_object();
-         json_array_append_new(oData, oRow);
-
-         json_object_set_new(oRow, "x", json_string(xmlTime.getStrValue()));
-         json_object_set_new(oRow, "y", json_real(tableSamples->getFloatValue("VALUE")));
-      }
-   }
-
+   selectActiveValueFacts->freeResult();
    tell(eloAlways, "... done");
-
-   selectSamplesRange->freeResult();
-
    pushOutMessage(oJson, "chartdata", client);
 
    return done;
@@ -1415,9 +1421,9 @@ int Poold::configDetails2Json(json_t* obj)
       json_object_set_new(oDetail, "name", json_string(tableConfig->getStrValue("NAME")));
       json_object_set_new(oDetail, "type", json_integer(def.type));
       json_object_set_new(oDetail, "value", json_string(tableConfig->getStrValue("VALUE")));
-      json_object_set_new(oDetail, "category", json_string(def.category.c_str()));
-      json_object_set_new(oDetail, "title", json_string(def.title.c_str()));
-      json_object_set_new(oDetail, "descrtiption", json_string(def.description.c_str()));
+      json_object_set_new(oDetail, "category", json_string(def.category));
+      json_object_set_new(oDetail, "title", json_string(def.title));
+      json_object_set_new(oDetail, "descrtiption", json_string(def.description));
    }
 
    selectAllConfig->freeResult();

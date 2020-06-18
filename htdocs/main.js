@@ -253,8 +253,8 @@ function initIoSetup(valueFacts, root)
       else
          html += "<td class=\"tableMultiColCell\"></td>";
       html += "<td style=\"text-align:center;\">" + item.unit + "</td>";
-      html += "<td><input id=\"state_" + item.type + item.address + "\" class=\"rounded-border inputSetting\" type=\"checkbox\" value=\"1:SP\" " + (item.state == 1 ? "checked" : "") + " /></td>";
-      html += "<td>0x" + item.address.toString(16) + ":" + item.type + "</td>";
+      html += "<td><input id=\"state_" + item.type + item.address + "\" class=\"rounded-border inputSetting\" type=\"checkbox\" " + (item.state == 1 ? "checked" : "") + " /></td>";
+      html += "<td>" + item.type + ":0x" + item.address.toString(16) + "</td>";
 
       switch (item.type) {
          case 'DO': root = document.getElementById("ioDigitalOut"); break
@@ -439,14 +439,8 @@ function initDashboard(widgets, root)
          elem.className = "widgetGauge rounded-border participation";
          elem.setAttribute("id", "widget" + widget.type + widget.address);
          elem.setAttribute("href", "#");
-
-         var start = new Date();  start.setHours(0,0,0,0);
-         var url = "window.open('detail.php?width=1200&height=600&address=" + widget.address + "&type=" + widget.type + "&from="
-             + Math.round(start/1000) + "&range=1&chartXLines=1&chartDiv=25 ','_blank',"
-             + "'scrollbars=yes,width=1200,height=600,resizable=yes,left=120,top=120')";
-
-         elem.setAttribute("onclick", url);
-
+         elem.setAttribute("onclick", "window.open('chart.html?sensors=" + widget.type + ":0x" + widget.address.toString(16) +
+                           "' , '_blank', 'scrollbars=yes,width=1610,height=650,resizable=yes,left=120,top=120')");
          elem.innerHTML = html;
          root.appendChild(elem);
 
@@ -689,10 +683,23 @@ function svg_circle_arc_path(x, y, radius, start_angle, end_angle)
    return "M " + start_xy[0] + " " + start_xy[1] + " A " + radius + " " + radius + " 0 0 0 " + end_xy[0] + " " + end_xy[1];
 };
 
+// ---------------------------------
+// charts
+
 function initCharts()
 {
+   var range = 2;
+   var sensors = "";
+   const urlParams = new URLSearchParams(window.location.search);
+
+   if (urlParams.has("sensors"))
+   {
+      sensors = urlParams.get("sensors");
+      range = 1;
+   }
+
    console.log("requesting chart data");
-   socket.send({ "event": "chartdata", "object": "" });
+   socket.send({ "event": "chartdata", "object": { "range": range, "sensors": sensors } });
 }
 
 function drawCharts(dataRow, root)
@@ -704,7 +711,7 @@ function drawCharts(dataRow, root)
          datasets: []
       },
       options: {
-         responsive: true,
+         responsive: false,
          tooltips: {
             mode: "index",
             intersect: false,
@@ -712,6 +719,12 @@ function drawCharts(dataRow, root)
          hover: {
             mode: "nearest",
             intersect: true
+         },
+         legend: {
+            display: true,
+            labels: {
+               fontColor: "white"
+            }
          },
          scales: {
             xAxes: [{
@@ -729,7 +742,9 @@ function drawCharts(dataRow, root)
                distribution: "linear",
                display: true,
                ticks: {
-                  fontColor: "gray"
+                  maxTicksLimit: 25,
+                  padding: 10,
+                  fontColor: "white"
                },
                gridLines: {
                   color: "gray",
@@ -737,13 +752,16 @@ function drawCharts(dataRow, root)
                },
                scaleLabel: {
                   display: true,
+                  fontColor: "white",
                   labelString: "Zeit"
                }
             }],
             yAxes: [{
                display: true,
                ticks: {
-                  fontColor: "gray"
+                  padding: 10,
+                  maxTicksLimit: 20,
+                  fontColor: "white"
                },
                gridLines: {
                   color: "gray",
@@ -751,6 +769,7 @@ function drawCharts(dataRow, root)
                },
                scaleLabel: {
                   display: true,
+                  fontColor: "white",
                   labelString: "Temperatur [°C]"
                }
             }]
@@ -762,7 +781,7 @@ function drawCharts(dataRow, root)
 
    data.data.datasets = [];
 
-   var colors = ['blue','green','red','black','purple','yellow'];
+   var colors = ['blue','lightgreen','red','black','purple','yellow'];
 
    for (var i = 0; i < dataRow.length; i++)
    {
@@ -772,7 +791,7 @@ function drawCharts(dataRow, root)
       dataset["backgroundColor"] = colors[i];
       dataset["borderColor"] = colors[i];
       dataset["label"] = dataRow[i].title;
-      dataset["borderWidth"] = 0.7;
+      dataset["borderWidth"] = 1.2;
       dataset["fill"] = false;
       dataset["pointRadius"] = 0;
 

@@ -68,7 +68,7 @@ int Serial::open(const char* dev)
    else
       strcpy(deviceName, dev);
 
-   if (!deviceName || !*deviceName)
+   if (isEmpty(deviceName))
       return fail;
 
    if (isOpen())

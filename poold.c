@@ -91,11 +91,7 @@ const char* cWebService::events[] =
    "toggleionext",
    "togglemode",
    "storeconfig",
-   "syslog",
-   "configdetails",
    "gettoken",
-   "iosettings",
-   "chartdata",
    "storeiosetup",
    0
 };
@@ -182,7 +178,18 @@ int Poold::pushOutMessage(json_t* oContents, const char* title, long client)
    char* p = json_dumps(obj, JSON_REAL_PRECISION(4));
    json_decref(obj);
 
-   cWebSock::pushMessage(p, (lws*)client);
+   if (!client && strstr(":all:init:update", title))
+   {
+      for (const auto cl : wsClients)
+      {
+         if (cl.second == true)
+            cWebSock::pushMessage(p, (lws*)cl.first);
+      }
+   }
+   else
+   {
+      cWebSock::pushMessage(p, (lws*)client);
+   }
 
    tell(4, "DEBUG: PushMessage [%s]", p);
    free(p);
@@ -228,15 +235,12 @@ int Poold::dispatchClientRequest()
    switch (event)
    {
       case evLogin:         status = performLogin(oObject);                  break;
+      case evLogout:        status = performLogout(oObject);                 break;
       case evGetToken:      status = performTokenRequest(oObject, client);   break;
       case evToggleIo:      status = toggleIo(addr, type);                   break;
       case evToggleIoNext:  status = toggleIoNext(addr);                     break;
       case evToggleMode:    status = toggleOutputMode(addr);                 break;
       case evStoreConfig:   status = storeConfig(oObject, client);           break;
-      case evSyslog:        status = performSyslog(oObject, client);         break;
-      case evConfigDetails: status = performConfigDetails(oObject, client);  break;
-      case evIoSettings:    status = performIoSettings(oObject, client);     break;
-      case evChartData:     status = performChartData(oObject, client);      break;
       case evStoreIoSetup:  status = storeIoSetup(oObject, client);          break;
 
       default: tell(0, "Error: Received unexpected client request '%s' at [%s]",
@@ -1121,8 +1125,11 @@ int Poold::performLogin(json_t* oObject)
 {
    int type = getIntFromJson(oObject, "type", na);
    long client = getLongFromJson(oObject, "client");
+   json_t* aRequests = json_object_get(oObject, "requests");
 
    tell(0, "Login of client 0x%x; type is %d", (unsigned int)client, type);
+
+   wsClients[(void*)client] = false;
 
    json_t* oJson = json_object();
    config2Json(oJson);
@@ -1132,8 +1139,38 @@ int Poold::performLogin(json_t* oObject)
    daemonState2Json(oJson);
    pushOutMessage(oJson, "daemonstate", client);
 
-   update(true, client);
+   size_t index;
+   json_t* oRequest;
 
+   json_array_foreach(aRequests, index, oRequest)
+   {
+      const char* name = getStringFromJson(oRequest, "name");
+
+      tell(0, "Got request '%s'", name);
+
+      if (strcmp(name, "data") == 0)
+      {
+         wsClients[(void*)client] = true;
+         update(true, client);     // push the data ('init')
+      }
+      else if (strcmp(name, "syslog") == 0)
+         performSyslog(client);
+      else if (strcmp(name, "configdetails") == 0)
+         performConfigDetails(client);
+      else if (strcmp(name, "iosettings") == 0)
+         performIoSettings(client);
+      else if (strcmp(name, "chartdata") == 0)
+         performChartData(oRequest, client);
+   }
+
+   return done;
+}
+
+int Poold::performLogout(json_t* oObject)
+{
+   long client = getLongFromJson(oObject, "client");
+   tell(0, "Logout of client 0x%x", (unsigned int)client);
+   wsClients.erase((void*)client);
    return done;
 }
 
@@ -1179,7 +1216,7 @@ int Poold::performTokenRequest(json_t* oObject, long client)
 // Perform WS Syslog Request
 //***************************************************************************
 
-int Poold::performSyslog(json_t* oObject, long client)
+int Poold::performSyslog(long client)
 {
    if (client <= 0)
       return done;
@@ -1216,7 +1253,7 @@ int Poold::performSyslog(json_t* oObject, long client)
 // Perform WS Config Data Request
 //***************************************************************************
 
-int Poold::performConfigDetails(json_t* oObject, long client)
+int Poold::performConfigDetails(long client)
 {
    if (client <= 0)
       return done;
@@ -1232,7 +1269,7 @@ int Poold::performConfigDetails(json_t* oObject, long client)
 // Perform WS IO Setting Data Request
 //***************************************************************************
 
-int Poold::performIoSettings(json_t* oObject, long client)
+int Poold::performIoSettings(long client)
 {
    if (client <= 0)
       return done;

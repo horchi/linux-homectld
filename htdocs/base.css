@@ -458,7 +458,7 @@ table.tableMultiCol tr:nth-child(odd)
       'title title'
       'main main'
       'ctrl1 ctrl2';
-    grid-template-rows: 13% 62% 25%;
+    grid-template-rows: 13% 68% 16%;
     grid-gap: 1px;
 }
 

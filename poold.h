@@ -49,11 +49,7 @@ class cWebService
          evToggleIoNext,
          evToggleMode,
          evStoreConfig,
-         evSyslog,
-         evConfigDetails,
          evGetToken,
-         evIoSettings,
-         evChartData,
          evStoreIoSetup,
 
          evCount
@@ -146,7 +142,7 @@ class cWebSock : public cWebService
 
       // static interface
 
-      static void atLogin(lws* wsi, const char* message, const char* clientInfo);
+      static void atLogin(lws* wsi, const char* message, const char* clientInfo, json_t* object);
       static void atLogout(lws* wsi, const char* message, const char* clientInfo);
       static int getClientCount();
       static void pushMessage(const char* p, lws* wsi = 0);
@@ -356,10 +352,11 @@ class Poold : public cWebService
       int pushOutMessage(json_t* obj, const char* title, long client = 0);
 
       int performLogin(json_t* oObject);
+      int performLogout(json_t* oObject);
       int performTokenRequest(json_t* oObject, long client);
-      int performSyslog(json_t* oObject, long client);
-      int performConfigDetails(json_t* oObject, long client);
-      int performIoSettings(json_t* oObject, long client);
+      int performSyslog(long client);
+      int performConfigDetails(long client);
+      int performIoSettings(long client);
       int performChartData(json_t* oObject, long client);
       int storeConfig(json_t* obj, long client);
       int storeIoSetup(json_t* array, long client);
@@ -415,6 +412,7 @@ class Poold : public cWebService
       cWebSock* webSock {nullptr};
       time_t nextWebSocketPing {0};
       int webSocketPingTime {60};
+      std::map<void*,bool> wsClients;   // true if interested on data update
 
       // Home Assistant stuff
 
@@ -474,6 +472,5 @@ class Poold : public cWebService
       // statics
 
       static std::map<std::string, ConfigItemDef> configuration;
-
       static int shutdown;
 };

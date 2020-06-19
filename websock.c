@@ -489,7 +489,7 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
             else
                clients[wsi].type = ctActive;
 
-            atLogin(wsi, message, clientInfo.c_str());
+            atLogin(wsi, message, clientInfo.c_str(), oObject);
          }
          else if (event == evLogout)                         // { "event" : "logout", "object" : { } }
          {
@@ -571,21 +571,21 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
 // At Login / Logout
 //***************************************************************************
 
-void cWebSock::atLogin(lws* wsi, const char* message, const char* clientInfo)
+void cWebSock::atLogin(lws* wsi, const char* message, const char* clientInfo, json_t* object)
 {
-   json_t* oContents = json_object();
+//   json_t* oContents = json_object();
 
    tell(1, "Client login '%s' (%p) [%s]", clientInfo, (void*)wsi, message);
 
-   addToJson(oContents, "type", clients[wsi].type);
-   addToJson(oContents, "client", (long)wsi);
+   addToJson(object, "type", clients[wsi].type);
+   addToJson(object, "client", (long)wsi);
 
    json_t* obj = json_object();
    addToJson(obj, "event", "login");
-   json_object_set_new(obj, "object", oContents);
+   json_object_set_new(obj, "object", object);
 
    char* p = json_dumps(obj, 0);
-   json_decref(obj);
+// json_decref(obj);
 
    Poold::pushInMessage(p);
    free(p);
@@ -593,11 +593,29 @@ void cWebSock::atLogin(lws* wsi, const char* message, const char* clientInfo)
 
 void cWebSock::atLogout(lws* wsi, const char* message, const char* clientInfo)
 {
-   cMyMutexLock lock(&clientsMutex);
-
    tell(1, "%s '%s' (%p)", clientInfo, message, (void*)wsi);
 
-   clients.erase(wsi);
+   auto it = clients.find(wsi);
+
+   if (it == clients.end())
+      return ;
+
+   json_t* object = json_object();
+   addToJson(object, "client", (long)wsi);
+
+   json_t* obj = json_object();
+   addToJson(obj, "event", "logout");
+   json_object_set_new(obj, "object", object);
+
+   char* p = json_dumps(obj, 0);
+   json_decref(obj);
+   Poold::pushInMessage(p);
+   free(p);
+
+   {
+      cMyMutexLock lock(&clientsMutex);
+      clients.erase(wsi);
+   }
 }
 
 //***************************************************************************
@@ -611,10 +629,7 @@ int cWebSock::getClientCount()
    cMyMutexLock lock(&clientsMutex);
 
    for (auto it = clients.begin(); it != clients.end(); ++it)
-   {
-//      if (it->second.type != ctInactive)
-         count++;
-   }
+      count++;
 
    return count;
 }
@@ -637,10 +652,7 @@ void cWebSock::pushMessage(const char* message, lws* wsi)
    else
    {
       for (auto it = clients.begin(); it != clients.end(); ++it)
-      {
-         // if (it->second.type != ctInactive)
-            it->second.pushMessage(message);
-      }
+         it->second.pushMessage(message);
    }
 }
 

@@ -16,17 +16,17 @@
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
     <script type="module" src="main.js"></script>
+    <script>
+      $(document).ready(function() { documentReady("list"); });
+    </script>
 
     <title>Pool Control</title>
   </head>
   <body>
-    <nav class="fixed-menu1">
-      <a href="index.html"><button class="rounded-border button1">Dashboard</button></a>
-      <a href="list.html"><button class="rounded-border button1">Liste</button></a>
-      <a href="chart.html"><button class="rounded-border button1">Charts</button></a>
-      <a href="maincfg.html"><button class="rounded-border button1">Setup</button></a>
-      <a href="login.html"><button class="rounded-border button1">Login</button></a>
+
+    <nav id="navMenu" class="fixed-menu1">
     </nav>
+
     <div class="content">
 
       <div id="stateContainer" class="stateInfo">

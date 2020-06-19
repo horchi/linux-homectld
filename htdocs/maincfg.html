@@ -12,25 +12,18 @@
     <link rel="icon" href="img/logo.png" type="image/png"/>
     <link rel="apple-touch-icon-precomposed" sizes="144x144" href="img/logo.png" type="image/png"/>
     <link rel="stylesheet" type="text/css" href="stylesheet.css"/>
+
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
     <script type="module" src="main.js"></script>
+    <script>
+      $(document).ready(function() { documentReady("maincfg"); });
+    </script>
+
     <title>Pool Control</title>
   </head>
   <body>
-    <nav>
-      <a href="index.html"><button class="rounded-border button1">Dashboard</button></a>
-      <a href="list.html"><button class="rounded-border button1">Liste</button></a>
-      <a href="chart.html"><button class="rounded-border button1">Charts</button></a>
-      <a href="maincfg.html"><button class="rounded-border button1">Setup</button></a>
-      <a href="login.html"><button class="rounded-border button1">Login</button></a>
-      <div>
-        <a href="maincfg.html"><button class="rounded-border button2">Allg. Konfiguration</button></a>
-        <a href="iosetup.html"><button class="rounded-border button2">IO Setup</button></a>
-        <a href="syslog.html"><button class="rounded-border button2">Syslog</button></a>
-      </div>
-      <div id="confirm">
-        <button class="rounded-border button2" onclick="storeConfig()">Speichern</button>
-      </div>
+
+    <nav id="navMenu" data-setup="yes" data-maincfg="yes" class="fixed-menu1">
     </nav>
 
     <div class="content">

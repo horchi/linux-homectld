@@ -6,10 +6,58 @@ var socket = null;
 var config = {};
 var daemonState = {};
 var lastUpdate = "";
+var documentName = "";
+
+window.documentReady = function(doc)
+{
+   daemonState.state = -1;
+   documentName = doc;
+   console.log("documentReady: " + documentName);
+   connectWebSocket();
+}
+
+function onSocketConnect()
+{
+   var token = localStorage.getItem('token');
+
+   if (!token || token == null)
+      token = "";
+
+   prepareMenu(token != "");
+
+   // request some data after login
+
+   var jsonArray = [];
+   var nRequests = 0;
+   var jsonRequest = {};
+
+   if (documentName == "syslog")
+      jsonRequest["name"] = "syslog";
+   else if (documentName == "maincfg")
+      jsonRequest["name"] = "configdetails";
+   else if (documentName == "iosetup")
+      jsonRequest["name"] = "iosettings";
+   else if (documentName == "chart")
+      prepareChartRequest(jsonRequest)
+   else if (documentName == "dashboard")
+      jsonRequest["name"] = "data";
+   else if (documentName == "list")
+      jsonRequest["name"] = "data";
+
+   jsonArray[0] = jsonRequest;
+
+   socket.send({ "event" : "login", "object" :
+                 { "type" : "active",
+                   "token" : token,
+                   "requests" : jsonArray }
+               });
+}
 
 function connectWebSocket()
 {
    var useUrl = "";
+
+   // url: "ws://" + location.hostname + ":61109",
 
    if (location.hostname.indexOf("192.168.200.142") != -1)
       useUrl = "ws://" + location.hostname + ":61109";
@@ -17,34 +65,13 @@ function connectWebSocket()
       useUrl = "ws://" + location.hostname + "/pool/ws";
 
    socket = new WebSocketClient({
-      // url: "ws://" + location.hostname + ":61109",
       url: useUrl,
       protocol: "pool",
       autoReconnectInterval: 1000,
       onopen: () => {
          console.log("socket opened :)");
          if (isActive === null)     // wurde beim Schliessen auf null gesetzt
-         {
-            var token = localStorage.getItem('token');
-            if (!token || token == null) token = "";
-
-            daemonState.state = -1;
-            // console.log("LOGIN: stored token is: " + localStorage.getItem('token'));
-
-            socket.send({ "event" : "login", "object" :
-                          { "type" : "active", "token" : token } });
-
-            // request some data after login
-
-            if (document.getElementById("syslogContainer") != null)
-               socket.send({ "event" : "syslog", "object" : "" });
-            else if (document.getElementById("configContainer") != null)
-               socket.send({ "event" : "configdetails", "object" : "" });
-            else if (document.getElementById("ioSetupContainer") != null)
-               socket.send({ "event" : "iosettings", "object" : "" });
-            else if (document.getElementById("chart") != null)
-               initCharts();
-         }
+            onSocketConnect();
       }, onclose: () => {
          isActive = null;           // auf null setzen, dass ein neues login aufgerufen wird
       }, onmessage: (msg) => {
@@ -70,71 +97,90 @@ function dispatchMessage(message)
 
    console.log("got event: " + event);
 
-   if ((event == "update" || event == "all") && rootDashboard)
-   {
+   if ((event == "update" || event == "all") && rootDashboard) {
       lastUpdate = d.toLocaleTimeString();
       updateDashboard(jMessage.object);
    }
-   if ((event == "update" || event == "all") && rootList)
-   {
+   else if ((event == "update" || event == "all") && rootList) {
       lastUpdate = d.toLocaleTimeString();
       updateList(jMessage.object);
    }
-   else if (event == "init" && rootDashboard)
-   {
+   else if (event == "init" && rootDashboard) {
       lastUpdate = d.toLocaleTimeString();
       initDashboard(jMessage.object, rootDashboard);
       updateDashboard(jMessage.object);
    }
-   else if (event == "init" && rootList)
-   {
+   else if (event == "init" && rootList) {
       lastUpdate = d.toLocaleTimeString();
       initList(jMessage.object, rootList);
       updateList(jMessage.object);
    }
-   else if (event == "config")
-   {
-      updateConfig(jMessage.object)
+   else if (event == "config") {
+      config = jMessage.object;
    }
-   else if (event == "configdetails" && rootConfig)
-   {
+   else if (event == "configdetails" && rootConfig) {
       initConfig(jMessage.object, rootConfig)
    }
-   else if (event == "daemonstate")
-   {
+   else if (event == "daemonstate") {
       daemonState = jMessage.object;
    }
-   else if (event == "syslog")
-   {
+   else if (event == "syslog") {
       showSyslog(jMessage.object);
    }
-   else if (event == "token")
-   {
-      // console.log("got token: " + jMessage.object.value);
+   else if (event == "token") {
       localStorage.setItem('token', jMessage.object.value);
       window.location.replace("index.html");
    }
-   else if (event == "valuefacts" && rootIoSetup)
-   {
+   else if (event == "valuefacts" && rootIoSetup) {
       initIoSetup(jMessage.object, rootIoSetup);
    }
-   else if (event == "chartdata" && rootChart)
-   {
+   else if (event == "chartdata" && rootChart) {
       drawCharts(jMessage.object, rootChart);
    }
 
    // console.log("event: " + event + " dispatched");
 }
 
+function prepareMenu(haveToken)
+{
+   var html = "";
+
+   html += "<a href=\"index.html\"><button class=\"rounded-border button1\">Dashboard</button></a>";
+   html += "<a href=\"list.html\"><button class=\"rounded-border button1\">Liste</button></a>";
+   html += "<a href=\"chart.html\"><button class=\"rounded-border button1\">Charts</button></a>";
+   html += "<a href=\"maincfg.html\"><button class=\"rounded-border button1\">Setup</button></a>";
+
+   if (haveToken)
+      html += "<a><button class=\"rounded-border button1\" onclick=\"doLogout()\">Logout</button></a>";
+   else
+      html += "<a href=\"login.html\"><button class=\"rounded-border button1\">Login</button></a>";
+
+   if ($("#navMenu").data("setup") != undefined) {
+      html += "<div>";
+      html += "  <a href=\"maincfg.html\"><button class=\"rounded-border button2\">Allg. Konfiguration</button></a>";
+      html += "  <a href=\"iosetup.html\"><button class=\"rounded-border button2\">IO Setup</button></a>";
+      html += "  <a href=\"syslog.html\"><button class=\"rounded-border button2\">Syslog</button></a>";
+      html += "</div>";
+   }
+
+   if ($("#navMenu").data("iosetup") != undefined) {
+      html += "<div id=\"confirm\">";
+      html += "  <button class=\"rounded-border button2\" onclick=\"storeIoSetup()\">Speichern</button>";
+      html += "</div>";
+   }
+   else if ($("#navMenu").data("maincfg") != undefined) {
+      html += "<div id=\"confirm\">";
+      html += "  <button class=\"rounded-border button2\" onclick=\"storeConfig()\">Speichern</button>";
+      html += "</div>";
+   }
+
+   $("#navMenu").html(html);
+}
+
 function showSyslog(log)
 {
    var root = document.getElementById("syslogContainer");
    root.innerHTML = log.lines.replace(/(?:\r\n|\r|\n)/g, '<br>');
-}
-
-function updateConfig(aConfig)
-{
-   config = aConfig;
 }
 
 function initConfig(configuration, root)
@@ -659,12 +705,18 @@ window.storeConfig = function()
 
 window.doLogin = function()
 {
-   // console.log("login: " + $("#user").val() + " : " + $.md5($("#password").val()));
+   console.log("login: " + $("#user").val() + " : " + $.md5($("#password").val()));
 
    socket.send({ "event": "gettoken", "object":
                  { "user": $("#user").val(),
                    "password": $.md5($("#password").val()) }
                });
+}
+
+window.doLogout = function()
+{
+   localStorage.removeItem('token');
+   window.location.reload(false);
 }
 
 // ---------------------------------
@@ -686,20 +738,20 @@ function svg_circle_arc_path(x, y, radius, start_angle, end_angle)
 // ---------------------------------
 // charts
 
-function initCharts()
+function prepareChartRequest(jRequest)
 {
-   var range = 2;
-   var sensors = "";
    const urlParams = new URLSearchParams(window.location.search);
 
-   if (urlParams.has("sensors"))
-   {
-      sensors = urlParams.get("sensors");
-      range = 1;
-   }
+   jRequest["name"] = "chartdata";
 
-   console.log("requesting chart data");
-   socket.send({ "event": "chartdata", "object": { "range": range, "sensors": sensors } });
+   if (urlParams.has("sensors")) {
+      jRequest["sensors"] = urlParams.get("sensors");
+      jRequest["range"] = 1;
+   }
+   else {
+      jRequest["range"] = 2;
+      jRequest["sensors"] = ""
+   }
 }
 
 function drawCharts(dataRow, root)
@@ -802,16 +854,6 @@ function drawCharts(dataRow, root)
    root.innerHTML = "";
    var chart = new Chart(root.getContext("2d"), data);
 }
-
-//----------------------------------------------
-// on document ready
-
-$(document).ready(function()
-{
-   console.log("token: " + localStorage.getItem('token'));
-   connectWebSocket();
-});
-
 
 /*
 maybe needed for style selection

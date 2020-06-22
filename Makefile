@@ -8,6 +8,7 @@
 include Make.config
 
 TARGET      = poold
+W1TARGET    = w1mqtt
 HISTFILE    = "HISTORY.h"
 
 LIBS += $(shell mysql_config --libs_r) -lrt -lcrypto -lcurl -lpthread
@@ -44,18 +45,19 @@ endif
 
 # rules:
 
-all: $(TARGET) w1mqtt
+all: $(TARGET) $(W1TARGET)
 
-$(TARGET) : $(OBJS)
+$(TARGET) : $(OBJS) w1mqtt
 	$(doLink) $(OBJS) $(LIBS) -o $@
 
-w1mqtt: $(W1OBJS)
+$(W1TARGET): $(W1OBJS)
 	$(doLink) $(W1OBJS) $(LIBS) -o $@
 
-install: $(TARGET) install-poold
+install: $(TARGET) $(W1TARGET) install-poold
 
 install-poold: install-config # install-scripts
 	install --mode=755 -D $(TARGET) $(BINDEST)
+	install --mode=755 -D $(W1TARGET) $(BINDEST)
 	make install-systemd
    ifneq ($(DESTDIR),)
 	   @cp -r contrib/DEBIAN $(DESTDIR)
@@ -164,7 +166,7 @@ lib/mqtt_c.o    :  lib/mqtt_c.c    lib/mqtt_c.h
 lib/mqtt_pal.o  :  lib/mqtt_pal.c  lib/mqtt_c.h
 main.o          :  main.c          $(HEADER) poold.h
 poold.o         :  poold.c         $(HEADER) poold.h w1.h lib/mqtt.h
-w1.o            :  w1.c            $(HEADER) w1.h
+w1.o            :  w1.c            $(HEADER) w1.h lib/mqtt.h
 gpio.o          :  gpio.c          $(HEADER)
 hass.o          :  hass.c          poold.h
 

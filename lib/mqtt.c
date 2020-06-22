@@ -38,20 +38,6 @@ Mqtt::~Mqtt()
    delete mqttClient;
 }
 
-/* int Mqtt::yield()
-{
-   int result;
-
-   if ((result = mqtt_sync(mqttClient)) != MQTT_OK)
-   {
-      tell(0, "yield(): mqtt_sync of connection '%s' failed, result was %d '%s'; isConnected(%d)",
-           theTopic.c_str(), result, mqtt_error_str((MQTTErrors)result), isConnected());
-      disconnect();
-   }
-
-   return result == MQTT_OK ? success : fail;
-} */
-
 //***************************************************************************
 // Called if message was received
 //***************************************************************************
@@ -78,8 +64,8 @@ void* Mqtt::refreshFct(void* client)
    {
       if ((result = mqtt_sync(cl)) != MQTT_OK)
       {
-         tell(0, "Error: mqtt_sync for connection '%s' failed, result was %d '%s'; isConnected(%d)",
-              mqtt->theTopic.c_str(), result, mqtt_error_str((MQTTErrors)result), mqtt->isConnected());
+         tell(0, "Error: mqtt_sync for connection '%s' failed, result was %d '%s'",
+              mqtt->theTopic.c_str(), result, mqtt_error_str((MQTTErrors)result));
          mqtt->disconnect();
       }
 
@@ -134,6 +120,8 @@ int Mqtt::connect(const char* aUrl, const char* user, const char* password)
       *p++ = '\0';
       port = atoi(p);
    }
+
+   cMyMutexLock lock(&connectMutex);
 
    sockfd = openSocket(hostname, port);
 
@@ -196,11 +184,14 @@ int Mqtt::connect(const char* aUrl, const char* user, const char* password)
 
 int Mqtt::disconnect()
 {
+   cMyMutexLock lock(&connectMutex);
+
    if (!isConnected())
       return success;
 
+   connected = false;
+   tell(0, "Info: Disconnecting '%s'", theTopic.c_str());
    mqttClient->close_now = 1;
-   yield();
 
    time_t endWait = time(0) + 10;
 
@@ -209,7 +200,7 @@ int Mqtt::disconnect()
 
    // stop the refresh thread
 
-   tell(0, "stopping refresh thread!");
+   tell(2, "Info: Stopping refresh thread for '%s'", theTopic.c_str());
 
    if (mqttClient->close_now == 2)
       pthread_join(refreshThread, 0);
@@ -226,8 +217,6 @@ int Mqtt::disconnect()
       close(sockfd);
 
    sockfd = -1;
-
-   connected = false;
 
    return success;
 }
@@ -367,7 +356,6 @@ int Mqtt::write(const char* topic, const char* message, size_t len, uint8_t flag
 
    theTopic = topic;
    tell(1, "-> (%s)[%s]", topic, message);
-   yield();
 
    return success;
 }

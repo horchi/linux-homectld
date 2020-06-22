@@ -874,11 +874,6 @@ int Poold::meanwhile()
    if (!connection || !connection->isConnected())
       return fail;
 
-   // if (mqttReader && mqttReader->isConnected()) mqttReader->yield();
-   // if (mqttWriter && mqttWriter->isConnected()) mqttWriter->yield();
-   // if (mqttW1Reader && mqttW1Reader->isConnected()) mqttW1Reader->yield();
-   // if (mqttCommandReader && mqttCommandReader->isConnected()) mqttCommandReader->yield();
-
    tell(2, "loop ...");
    webSock->service(10);
    dispatchClientRequest();

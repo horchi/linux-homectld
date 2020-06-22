@@ -27,7 +27,7 @@ class Mqtt
 
       enum Error
       {
-         wrnTimeout   = -10000,
+         wrnTimeout = -10000,
          wrnEmptyMessage
       };
 
@@ -60,7 +60,6 @@ class Mqtt
 
       void appendMessage(mqtt_response_publish* theMessage);
       size_t getCount()   { return receivedMessages.size(); }
-      // int yield();
 
    protected:
 
@@ -96,6 +95,7 @@ class Mqtt
       cMyMutex readMutex;
       cCondVar readCond;
       uint heartBeat {400};
+      cMyMutex connectMutex;
 
       // the message buffers for the mqtt lib
 

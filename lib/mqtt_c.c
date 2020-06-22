@@ -256,29 +256,29 @@ void mqtt_reinit(struct mqtt_client* client,
  *      3) Upon successful pack, registers the new message.
  */
 #define MQTT_CLIENT_TRY_PACK(tmp, msg, client, pack_call, release)  \
-    if (client->error < 0) {                                        \
-        if (release) MQTT_PAL_MUTEX_UNLOCK(&client->mutex);         \
-        return client->error;                                       \
-    }                                                               \
-    tmp = pack_call;                                                \
-    if (tmp < 0) {                                                  \
-       client->error = (MQTTErrors)tmp;                             \
-        if (release) MQTT_PAL_MUTEX_UNLOCK(&client->mutex);         \
-        return (MQTTErrors)tmp;                                                 \
-    } else if (tmp == 0) {                                          \
-        mqtt_mq_clean(&client->mq);                                 \
-        tmp = pack_call;                                            \
-        if (tmp < 0) {                                              \
-           client->error = (MQTTErrors)tmp;                         \
-            if (release) MQTT_PAL_MUTEX_UNLOCK(&client->mutex);     \
-            return (MQTTErrors)tmp;                                             \
-        } else if (tmp == 0) {                                      \
-            client->error = MQTT_ERROR_SEND_BUFFER_IS_FULL;         \
-            if (release) MQTT_PAL_MUTEX_UNLOCK(&client->mutex);     \
-            return MQTT_ERROR_SEND_BUFFER_IS_FULL;                  \
-        }                                                           \
-    }                                                               \
-    msg = mqtt_mq_register(&client->mq, tmp);                       \
+   if (client->error < 0) {                                         \
+      if (release) MQTT_PAL_MUTEX_UNLOCK(&client->mutex);           \
+      return client->error;                                         \
+   }                                                                \
+   tmp = pack_call;                                                 \
+   if (tmp < 0) {                                                   \
+      client->error = (MQTTErrors)tmp;                              \
+      if (release) MQTT_PAL_MUTEX_UNLOCK(&client->mutex);           \
+      return (MQTTErrors)tmp;                                       \
+   } else if (tmp == 0) {                                           \
+      mqtt_mq_clean(&client->mq);                                   \
+      tmp = pack_call;                                              \
+      if (tmp < 0) {                                                \
+         client->error = (MQTTErrors)tmp;                           \
+         if (release) MQTT_PAL_MUTEX_UNLOCK(&client->mutex);            \
+         return (MQTTErrors)tmp;                                        \
+      } else if (tmp == 0) {                                            \
+         client->error = MQTT_ERROR_SEND_BUFFER_IS_FULL;                \
+         if (release) MQTT_PAL_MUTEX_UNLOCK(&client->mutex);            \
+         return MQTT_ERROR_SEND_BUFFER_IS_FULL;                         \
+      }                                                                 \
+   }                                                                    \
+   msg = mqtt_mq_register(&client->mq, tmp);                            \
 
 
 enum MQTTErrors mqtt_connect(struct mqtt_client* client,

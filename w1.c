@@ -74,11 +74,7 @@ int W1::loop()
       update();
 
       while (!doShutDown() && time(0) < nextAt)
-      {
-         if (mqttWriter && mqttWriter->isConnected())
-            mqttWriter->yield();
          sleep(1);
-      }
    }
 
    return done;

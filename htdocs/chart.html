@@ -29,8 +29,20 @@
     <nav id="navMenu" class="fixed-menu1">
     </nav>
 
+    <div id="chartTitle" class="rounded-border chartTitle">
+    </div>
     <canvas id="chart" class="chartCanvas" width="1600" height="600">
     </canvas>
+
+    <div class="chartButtons">
+      <button class="rounded-border chartButton" onclick="chartSelect('prev')">&lt;&lt;</button>
+      <button class="rounded-border chartButton" onclick="chartSelect('now')">&#8659;</button>
+      <button class="rounded-border chartButton" onclick="chartSelect('next')">&gt;&gt;</button>
+      <input  class="rounded-border chartButton" onclick="chartSelect('range')" id="chartRange" type="number" min="1" value="2"></input>
+    </div>
+
+    <div id="chartSelector" class="chartSelectors">
+    </div>
 
   </body>
 </html>

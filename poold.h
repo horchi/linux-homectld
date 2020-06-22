@@ -51,6 +51,7 @@ class cWebService
          evStoreConfig,
          evGetToken,
          evStoreIoSetup,
+         evChartData,
 
          evCount
       };
@@ -400,6 +401,8 @@ class Poold : public cWebService
       cDbValue xmlTime;
       cDbValue rangeFrom;
       cDbValue rangeTo;
+      cDbValue avgValue;
+      cDbValue maxValue;
 
       time_t nextAt {0};
       time_t startedAt {0};
@@ -415,11 +418,6 @@ class Poold : public cWebService
       std::map<void*,bool> wsClients;   // true if interested on data update
 
       // Home Assistant stuff
-
-      // MqTTPublishClient* mqttWriter {nullptr};
-      // MqTTSubscribeClient* mqttReader {nullptr};
-      // MqTTSubscribeClient* mqttCommandReader {nullptr};
-      // MqTTSubscribeClient* mqttW1Reader {nullptr};
 
       Mqtt* mqttWriter {nullptr};
       Mqtt* mqttReader {nullptr};

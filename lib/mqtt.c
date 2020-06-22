@@ -6,6 +6,7 @@
 // Date 05.04.2020  Jörg Wendel
 //***************************************************************************
 
+#include <sys/syscall.h>
 #include <stdlib.h>
 #include <signal.h>
 
@@ -37,13 +38,23 @@ Mqtt::~Mqtt()
    delete mqttClient;
 }
 
-void Mqtt::yield()
+/* int Mqtt::yield()
 {
-   // mqtt_wakeup(mqttClient);
+   int result;
 
-   if (mqtt_sync(mqttClient) != MQTT_OK)
-      printf("mqtt_sync failed\n");
-}
+   if ((result = mqtt_sync(mqttClient)) != MQTT_OK)
+   {
+      tell(0, "yield(): mqtt_sync of connection '%s' failed, result was %d '%s'; isConnected(%d)",
+           theTopic.c_str(), result, mqtt_error_str((MQTTErrors)result), isConnected());
+      disconnect();
+   }
+
+   return result == MQTT_OK ? success : fail;
+} */
+
+//***************************************************************************
+// Called if message was received
+//***************************************************************************
 
 void Mqtt::publishCallback(void** user, mqtt_response_publish* published)
 {
@@ -53,21 +64,27 @@ void Mqtt::publishCallback(void** user, mqtt_response_publish* published)
    std::sting topic;
    topic.assign((const char*)published->topic_name, published->topic_name_size);
    tell(0, "Received at '%s' (%d) %.*s\n", topic.c_str(), published->dup_flag,
-          (int)published->application_message_size, (const char*)published->application_message);
+        (int)published->application_message_size, (const char*)published->application_message);
 #endif
 }
 
 void* Mqtt::refreshFct(void* client)
 {
    int result;
-   mqtt_client* cl = (mqtt_client*)client;
+   Mqtt* mqtt = (Mqtt*)client;
+   mqtt_client* cl = mqtt->mqttClient; //(mqtt_client*)client;
 
    while (!cl->close_now)
    {
       if ((result = mqtt_sync(cl)) != MQTT_OK)
-         tell(0, "mqtt_sync failed, result was %d\n", result);
+      {
+         tell(0, "Error: mqtt_sync for connection '%s' failed, result was %d '%s'; isConnected(%d)",
+              mqtt->theTopic.c_str(), result, mqtt_error_str((MQTTErrors)result), mqtt->isConnected());
+         mqtt->disconnect();
+      }
 
-      usleep(10000);
+      cCondWait::SleepMs(10);
+      // tell(0, "refreshFct '%s' tid: %ld", mqtt->theTopic.c_str(), syscall(__NR_gettid));
    }
 
    cl->close_now = 2;
@@ -86,9 +103,6 @@ void Mqtt::appendMessage(mqtt_response_publish* published)
    msg->packetId = published->packet_id;
    msg->payload.clear();
    msg->payload.append((const char*)published->application_message, published->application_message_size);
-   // msg->payload.append('\0');
-
-   // tell(2, "DEB: got '%s' (%d/%d), ", msg->payload.memory, published->application_message_size, msg->payload.size);
 
    {
       cMyMutexLock lock(&readMutex);
@@ -96,7 +110,6 @@ void Mqtt::appendMessage(mqtt_response_publish* published)
    }
 
    readCond.Broadcast();
-   // tell("DEBUG, Appended message of '%s', now %zd messages pending", msg.topic.string(), receivedMessages.size());
 }
 
 //***************************************************************************
@@ -138,15 +151,17 @@ int Mqtt::connect(const char* aUrl, const char* user, const char* password)
    sizeReceiveBuf = 1024 * 1024;
    recvbuf = new uint8_t[sizeReceiveBuf];
 
-   // refreah thread
+   // refresh thread
 
-   if (pthread_create(&refreshThread, NULL, refreshFct, mqttClient))
+   if (pthread_create(&refreshThread, NULL, refreshFct, this))
    {
       tell(0, "Error: Failed to start client daemon thread");
       close(sockfd);
       sockfd = -1;
       return fail;
    }
+
+   pthread_detach(refreshThread);
 
    //
 
@@ -194,6 +209,8 @@ int Mqtt::disconnect()
 
    // stop the refresh thread
 
+   tell(0, "stopping refresh thread!");
+
    if (mqttClient->close_now == 2)
       pthread_join(refreshThread, 0);
    else if (refreshThread)
@@ -221,6 +238,8 @@ int Mqtt::disconnect()
 
 int Mqtt::subscribe(const char* topic)
 {
+   theTopic.clear();
+
    if (!isConnected() || isEmpty(topic))
    {
       tell(0, "Error: Can't subscribe, not connected or topic '%s' missing", topic);
@@ -236,6 +255,7 @@ int Mqtt::subscribe(const char* topic)
       return fail;
    }
 
+   theTopic = topic;
    tell(4, "Debug: Subscribing to topic '%s' succeeded", topic);
 
    return success;
@@ -243,6 +263,8 @@ int Mqtt::subscribe(const char* topic)
 
 int Mqtt::unsubscribe(const char* topic)
 {
+   theTopic.clear();
+
    if (!isConnected() || isEmpty(topic))
       return success;
 
@@ -270,7 +292,7 @@ int Mqtt::read(MemoryStruct* message, int timeoutMs)
    Message* msg {nullptr};
 
    message->clear();
-   lastTopic.clear();
+   lastReadTopic.clear();
 
    while (receivedMessages.empty())
    {
@@ -296,7 +318,7 @@ int Mqtt::read(MemoryStruct* message, int timeoutMs)
    message->append(msg->payload.memory, msg->payload.size);
    message->append('\0');
 
-   lastTopic = msg->topic.c_str();
+   lastReadTopic = msg->topic.c_str();
    retained = msg->retained;
 
    delete msg;
@@ -331,6 +353,8 @@ int Mqtt::writeRetained(const char* topic, const char* message)
 
 int Mqtt::write(const char* topic, const char* message, size_t len, uint8_t flags)
 {
+   theTopic.clear();
+
    lastResult = mqtt_publish(mqttClient, topic, message, len, flags);
 
    if (lastResult != MQTT_OK)
@@ -341,6 +365,7 @@ int Mqtt::write(const char* topic, const char* message, size_t len, uint8_t flag
       return fail;
    }
 
+   theTopic = topic;
    tell(1, "-> (%s)[%s]", topic, message);
    yield();
 

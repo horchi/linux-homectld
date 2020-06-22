@@ -174,16 +174,8 @@ int main(int argc, char** argv)
    if (readConfig() != success)
       return 1;
 
-   if (_level != na)  loglevel = _level;
-
-   job = new DEAMON();
-
-   if (job->init() != success)
-   {
-      printf("Initialization failed, see syslog for details\n");
-      delete job;
-      return 1;
-   }
+   if (_level != na)
+      loglevel = _level;
 
    // fork daemon
 
@@ -195,8 +187,23 @@ int main(int argc, char** argv)
          return 1;
       }
 
+      // exit parent
+
       if (pid != 0)
          return 0;
+
+      // i'am the child!
+   }
+
+   // int AFTER fork !!!
+
+   job = new DEAMON();
+
+   if (job->init() != success)
+   {
+      printf("Initialization failed, see syslog for details\n");
+      delete job;
+      return 1;
    }
 
    // register SIGINT

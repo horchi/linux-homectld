@@ -44,7 +44,7 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
    {
       mqttReader->subscribe(stateTopic);
       status = mqttReader->read(&message, 100);
-      tp = mqttReader->getLastTopic();
+      tp = mqttReader->getLastReadTopic();
 
       if (status != success && status != Mqtt::wrnTimeout)
          return fail;
@@ -140,7 +140,7 @@ int Poold::performHassRequests()
 
    if (mqttCommandReader->read(&message, 10) == success)
    {
-      topic = mqttCommandReader->getLastTopic();
+      topic = mqttCommandReader->getLastReadTopic();
       json_t* jData = json_loads(message.memory, 0, &error);
 
       if (!jData)
@@ -171,7 +171,7 @@ int Poold::performHassRequests()
 
    while (mqttW1Reader->read(&message, 10) == success)
    {
-      topic = mqttW1Reader->getLastTopic();
+      topic = mqttW1Reader->getLastReadTopic();
       json_t* jArray = json_loads(message.memory, 0, &error);
 
       if (!jArray)

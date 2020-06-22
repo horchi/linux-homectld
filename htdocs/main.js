@@ -7,6 +7,9 @@ var config = {};
 var daemonState = {};
 var lastUpdate = "";
 var documentName = "";
+var theChart = null;
+var theChartRange = 2;
+var theChartStart = new Date(); theChartStart.setDate(theChartStart.getDate()-theChartRange);
 
 window.documentReady = function(doc)
 {
@@ -38,7 +41,7 @@ function onSocketConnect()
    else if (documentName == "iosetup")
       jsonRequest["name"] = "iosettings";
    else if (documentName == "chart")
-      prepareChartRequest(jsonRequest)
+      prepareChartRequest(jsonRequest, "", 0, 2)
    else if (documentName == "dashboard")
       jsonRequest["name"] = "data";
    else if (documentName == "list")
@@ -585,6 +588,42 @@ function updateDashboard(sensors)
    }
 }
 
+window.chartSelect = function(action)
+{
+   console.log("chartSelect clicked for " + action);
+
+   var sensors = "";
+   var root = document.getElementById("chartSelector");
+   var elements = root.querySelectorAll("[id^='checkChartSel_']");
+
+   for (var i = 0; i < elements.length; i++) {
+      if (elements[i].checked) {
+         var id = elements[i].id.substring(elements[i].id.indexOf("_") + 1);
+         sensors += id + ",";
+       }
+   }
+
+   theChartRange = parseInt($("#chartRange").val());
+
+   var now = new Date();
+
+   if (action == "next")
+      theChartStart.setDate(theChartStart.getDate()+1);
+   else if (action == "prev")
+      theChartStart.setDate(theChartStart.getDate()-1);
+   else if (action == "now")
+      theChartStart.setDate(now.getDate()-theChartRange);
+   else if (action == "range")
+      theChartStart.setDate(now.getDate()-theChartRange);
+
+   // console.log("sensors:  '" + sensors + "'");
+
+   var jsonRequest = {};
+   prepareChartRequest(jsonRequest, sensors, theChartStart, theChartRange);
+
+   socket.send({ "event" : "chartdata", "object" : jsonRequest });
+}
+
 window.toggleMode = function(address, type)
 {
    socket.send({ "event": "togglemode", "object":
@@ -738,24 +777,33 @@ function svg_circle_arc_path(x, y, radius, start_angle, end_angle)
 // ---------------------------------
 // charts
 
-function prepareChartRequest(jRequest)
+function prepareChartRequest(jRequest, sensors, start, range)
 {
    const urlParams = new URLSearchParams(window.location.search);
 
    jRequest["name"] = "chartdata";
 
+   console.log("requesting chart for '" + start + "' range " + range);
+
    if (urlParams.has("sensors")) {
       jRequest["sensors"] = urlParams.get("sensors");
+      jRequest["start"] = 0;   // default (use today-range)
       jRequest["range"] = 1;
    }
    else {
-      jRequest["range"] = 2;
-      jRequest["sensors"] = ""
+      jRequest["start"] = start == 0 ? 0 : Math.floor(start.getTime()/1000);  // calc unix timestamp
+      jRequest["range"] = range;
+      jRequest["sensors"] = sensors;
    }
 }
 
-function drawCharts(dataRow, root)
+function drawCharts(dataObject, root)
 {
+   if (theChart != null) {
+      theChart.destroy();
+      theChart = null;
+   }
+
    var data = {
       type: "line",
       data: {
@@ -830,20 +878,18 @@ function drawCharts(dataRow, root)
       }
    };
 
-   // console.log("dataRow: " + JSON.stringify(dataRow, undefined, 4));
-
-   data.data.datasets = [];
+   // console.log("dataObject: " + JSON.stringify(dataObject, undefined, 4));
 
    var colors = ['yellow','white','red','lightblue','lightgreen','purple','blue'];
 
-   for (var i = 0; i < dataRow.length; i++)
+   for (var i = 0; i < dataObject.rows.length; i++)
    {
       var dataset = {};
 
-      dataset["data"] = dataRow[i].data;
+      dataset["data"] = dataObject.rows[i].data;
       dataset["backgroundColor"] = colors[i];
       dataset["borderColor"] = colors[i];
-      dataset["label"] = dataRow[i].title;
+      dataset["label"] = dataObject.rows[i].title;
       dataset["borderWidth"] = 1.2;
       dataset["fill"] = false;
       dataset["pointRadius"] = 0;
@@ -851,8 +897,20 @@ function drawCharts(dataRow, root)
       data.data.datasets.push(dataset);
    }
 
-   root.innerHTML = "";
-   var chart = new Chart(root.getContext("2d"), data);
+   var end = new Date();
+   end.setDate(theChartStart.getDate()+theChartRange);
+
+   $("#chartTitle").html(theChartStart.toLocaleString('de-DE') + "  -  " + end.toLocaleString('de-DE'));
+
+   $("#chartSelector").html("");
+
+   for (var i = 0; i < dataObject.sensors.length; i++)
+   {
+      var html = "<div class=\"chartSel\"><input id=\"checkChartSel_" + dataObject.sensors[i].id + "\"type=\"checkbox\" onclick=\"chartSelect('choice')\" " + (dataObject.sensors[i].active ? "checked" : "") + "/>" + dataObject.sensors[i].title + "</div>";
+      $("#chartSelector").append(html);
+   }
+
+   theChart = new Chart(root.getContext("2d"), data);
 }
 
 /*

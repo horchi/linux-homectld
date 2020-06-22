@@ -55,12 +55,12 @@ class Mqtt
 
       // ...
 
-      virtual const char* getLastTopic()               { return lastTopic.c_str(); }
+      virtual const char* getLastReadTopic()           { return lastReadTopic.c_str(); }
       virtual bool isRetained()                        { return retained; }
 
       void appendMessage(mqtt_response_publish* theMessage);
       size_t getCount()   { return receivedMessages.size(); }
-      void yield();
+      // int yield();
 
    protected:
 
@@ -83,7 +83,8 @@ class Mqtt
       static void* refreshFct(void* client);
       static void publishCallback(void** user, mqtt_response_publish* published);
 
-      std::string lastTopic;
+      std::string lastReadTopic;
+      std::string theTopic;
       bool connected {false};
       ulong lastResult {0};
       mqtt_client* mqttClient {nullptr};

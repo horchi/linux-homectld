@@ -35,6 +35,7 @@ extern "C" {
  *
  */
 
+/*
 void __mqtt_timeout_handler(int signal)
 {
    // fTimeout = true;
@@ -55,6 +56,7 @@ void mqtt_wakeup(struct mqtt_client* client)
 {
    // pthread_kill(client->threadId, client->signal);
 }
+*/
 
 /**
  * @file
@@ -63,6 +65,9 @@ void mqtt_wakeup(struct mqtt_client* client)
  *
  * @cond Doxygen_Suppress
  */
+
+//#include "common.h"
+//#include <sys/syscall.h>
 
 enum MQTTErrors mqtt_sync(struct mqtt_client* client)
 {
@@ -75,7 +80,7 @@ enum MQTTErrors mqtt_sync(struct mqtt_client* client)
    MQTT_PAL_MUTEX_LOCK(&client->mutex);
 
    if (client->error != MQTT_OK && client->reconnect_callback != NULL)
-      client->reconnect_callback(client, &client->reconnect_state);         /* unlocked during CONNECT */
+      client->reconnect_callback(client, &client->reconnect_state);    /* unlocked during CONNECT */
    else
       MQTT_PAL_MUTEX_UNLOCK(&client->mutex);
 
@@ -186,8 +191,8 @@ enum MQTTErrors mqtt_init(struct mqtt_client* client,
    client->inspector_callback = NULL;
    client->reconnect_callback = NULL;
    client->reconnect_state = NULL;
-   client->signal = signal;
-   client->threadId = threadId;
+   // client->signal = signal;
+   // client->threadId = threadId;
 
    // if (signal)
    //    __mqtt_register_handler(signal);
@@ -349,7 +354,7 @@ enum MQTTErrors mqtt_publish(struct mqtt_client* client,
 
    // wakeup from blocking recv()
 
-   mqtt_wakeup(client);
+   // mqtt_wakeup(client);
 
    return MQTT_OK;
 }

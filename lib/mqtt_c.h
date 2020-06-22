@@ -1078,8 +1078,8 @@ struct mqtt_queued_message* mqtt_mq_find(struct mqtt_message_queue *mq, enum MQT
 struct mqtt_client {
 
     int close_now;
-    pthread_t threadId;
-    int signal;
+   // pthread_t threadId;
+   // int signal;
 
     /** @brief The socket connecting to the MQTT broker. */
     mqtt_pal_socket_handle socketfd;
@@ -1277,7 +1277,7 @@ ssize_t __mqtt_recv(struct mqtt_client *client);
  * @returns MQTT_OK upon success, an \ref MQTTErrors otherwise.
  */
 
-void mqtt_wakeup(struct mqtt_client* client);
+// void mqtt_wakeup(struct mqtt_client* client);
 enum MQTTErrors mqtt_sync(struct mqtt_client *client);
 
 /**

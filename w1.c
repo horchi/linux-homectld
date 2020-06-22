@@ -155,7 +155,7 @@ int W1::update()
 int W1::mqttConnection()
 {
    if (!mqttWriter)
-      mqttWriter = new Mqtt(); // MqTTPublishClient(mqttUrl, "w1_pool_publisher");
+      mqttWriter = new Mqtt();
 
    if (!mqttWriter->isConnected())
    {

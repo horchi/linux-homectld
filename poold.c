@@ -93,6 +93,7 @@ const char* cWebService::events[] =
    "storeconfig",
    "gettoken",
    "storeiosetup",
+   "chartdata",
    0
 };
 
@@ -242,6 +243,7 @@ int Poold::dispatchClientRequest()
       case evToggleMode:    status = toggleOutputMode(addr);                 break;
       case evStoreConfig:   status = storeConfig(oObject, client);           break;
       case evStoreIoSetup:  status = storeIoSetup(oObject, client);          break;
+      case evChartData:     status = performChartData(oObject, client);      break;
 
       default: tell(0, "Error: Received unexpected client request '%s' at [%s]",
                     toName(event), messagesIn.front().c_str());
@@ -492,6 +494,8 @@ std::string Poold::callScript(int addr, const char* type, const char* command)
 cDbFieldDef xmlTimeDef("XML_TIME", "xmltime", cDBS::ffAscii, 20, cDBS::ftData);
 cDbFieldDef rangeFromDef("RANGE_FROM", "rfrom", cDBS::ffDateTime, 0, cDBS::ftData);
 cDbFieldDef rangeToDef("RANGE_TO", "rto", cDBS::ffDateTime, 0, cDBS::ftData);
+cDbFieldDef avgValueDef("AVG_VALUE", "avalue", cDBS::ffFloat, 122, cDBS::ftData);
+cDbFieldDef maxValueDef("MAX_VALUE", "mvalue", cDBS::ffInt, 0, cDBS::ftData);
 
 int Poold::initDb()
 {
@@ -619,20 +623,22 @@ int Poold::initDb()
    rangeFrom.setField(&rangeFromDef);
    rangeTo.setField(&rangeToDef);
    xmlTime.setField(&xmlTimeDef);
-
+   avgValue.setField(&avgValueDef);
+   maxValue.setField(&maxValueDef);
    selectSamplesRange = new cDbStatement(tableSamples);
 
    selectSamplesRange->build("select ");
    selectSamplesRange->bind("ADDRESS", cDBS::bndOut);
    selectSamplesRange->bind("TYPE", cDBS::bndOut, ", ");
    selectSamplesRange->bindTextFree("date_format(time, '%Y-%m-%dT%H:%i')", &xmlTime, ", ", cDBS::bndOut);
-   selectSamplesRange->bind("VALUE", cDBS::bndOut, ", ");
+   selectSamplesRange->bindTextFree("avg(value)", &avgValue, ", ", cDBS::bndOut);
+   selectSamplesRange->bindTextFree("max(value)", &maxValue, ", ", cDBS::bndOut);
    selectSamplesRange->build(" from %s where ", tableSamples->TableName());
    selectSamplesRange->bind("ADDRESS", cDBS::bndIn | cDBS::bndSet);
    selectSamplesRange->bind("TYPE", cDBS::bndIn | cDBS::bndSet, " and ");
    selectSamplesRange->bindCmp(0, "TIME", &rangeFrom, ">=", " and ");
    selectSamplesRange->bindCmp(0, "TIME", &rangeTo, "<=", " and ");
-   selectSamplesRange->build(" group by date(time), ((60/15) * hour(time) + floor(minute(time)/15))");
+   selectSamplesRange->build(" group by date(time), ((60/5) * hour(time) + floor(minute(time)/5))");
    selectSamplesRange->build(" order by time");
 
    status += selectSamplesRange->prepare();
@@ -868,10 +874,10 @@ int Poold::meanwhile()
    if (!connection || !connection->isConnected())
       return fail;
 
-   if (mqttReader && mqttReader->isConnected()) mqttReader->yield();
-   if (mqttWriter && mqttWriter->isConnected()) mqttWriter->yield();
-   if (mqttW1Reader && mqttW1Reader->isConnected()) mqttW1Reader->yield();
-   if (mqttCommandReader && mqttCommandReader->isConnected()) mqttCommandReader->yield();
+   // if (mqttReader && mqttReader->isConnected()) mqttReader->yield();
+   // if (mqttWriter && mqttWriter->isConnected()) mqttWriter->yield();
+   // if (mqttW1Reader && mqttW1Reader->isConnected()) mqttW1Reader->yield();
+   // if (mqttCommandReader && mqttCommandReader->isConnected()) mqttCommandReader->yield();
 
    tell(2, "loop ...");
    webSock->service(10);
@@ -1290,28 +1296,47 @@ int Poold::performChartData(json_t* oObject, long client)
    if (client <= 0)
       return done;
 
-   int range = getIntFromJson(oObject, "range", 3);
-   const char* sensors = getStringFromJson(oObject, "sensors");
+   int range = getIntFromJson(oObject, "range", 3);              // Anzahl der Tage
+   time_t rangeStart = getLongFromJson(oObject, "start", 0);     // Start Datum (unix timestamp)
+   const char* sensors = getStringFromJson(oObject, "sensors");  // Kommata getrennte Liste der Sensoren
 
    if (isEmpty(sensors))
       sensors = chart1;
 
-   tell(eloAlways, "Selecting chats data");
+   tell(eloAlways, "Selecting chats data for '%s'", sensors);
 
+   json_t* oMain = json_object();
    json_t* oJson = json_array();
 
-   rangeFrom.setValue(time(0) - (range*tmeSecondsPerDay));
-   rangeTo.setValue(time(0));
+   if (!rangeStart)
+      rangeStart = time(0) - (range*tmeSecondsPerDay);
+   rangeFrom.setValue(rangeStart);
+   rangeTo.setValue(rangeStart + (range*tmeSecondsPerDay));
 
    tableValueFacts->clear();
    tableValueFacts->setValue("STATE", "A");
+
+   json_t* aAvailableSensors = json_array();
 
    for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
       char* id {nullptr};
       asprintf(&id, "%s:0x%lx", tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"));
 
-      if (!strstr(sensors, id))
+      bool active = strstr(sensors, id) != 0;
+      const char* usrtitle = tableValueFacts->getStrValue("USRTITLE");
+      const char* title = tableValueFacts->getStrValue("TITLE");
+
+      if (!isEmpty(usrtitle))
+         title = usrtitle;
+
+      json_t* oSensor = json_object();
+      json_object_set_new(oSensor, "id", json_string(id));
+      json_object_set_new(oSensor, "title", json_string(title));
+      json_object_set_new(oSensor, "active", json_integer(active));
+      json_array_append_new(aAvailableSensors, oSensor);
+
+      if (!active)
       {
          free(id);
          continue;
@@ -1319,12 +1344,6 @@ int Poold::performChartData(json_t* oObject, long client)
 
       tell(0, " ...collecting data for '%s'", id);
       free(id);
-
-      const char* usrtitle = tableValueFacts->getStrValue("USRTITLE");
-      const char* title = tableValueFacts->getStrValue("TITLE");
-
-      if (!isEmpty(usrtitle))
-         title = usrtitle;
 
       json_t* oSample = json_object();
       json_array_append_new(oJson, oSample);
@@ -1346,15 +1365,21 @@ int Poold::performChartData(json_t* oObject, long client)
          json_array_append_new(oData, oRow);
 
          json_object_set_new(oRow, "x", json_string(xmlTime.getStrValue()));
-         json_object_set_new(oRow, "y", json_real(tableSamples->getFloatValue("VALUE")));
+
+         if (tableValueFacts->hasValue("TYPE", "DO"))
+            json_object_set_new(oRow, "y", json_integer(maxValue.getIntValue()*10));
+         else
+            json_object_set_new(oRow, "y", json_real(avgValue.getFloatValue()));
       }
 
       selectSamplesRange->freeResult();
    }
 
+   json_object_set_new(oMain, "sensors", aAvailableSensors);
+   json_object_set_new(oMain, "rows", oJson);
    selectActiveValueFacts->freeResult();
    tell(eloAlways, "... done");
-   pushOutMessage(oJson, "chartdata", client);
+   pushOutMessage(oMain, "chartdata", client);
 
    return done;
 }

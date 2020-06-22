@@ -404,6 +404,47 @@ table.tableMultiCol tr:nth-child(odd)
     background-color: #151515;
 }
 
+.chartTitle
+{
+    text-align: center;
+    font-size: x-large;
+    padding: 4px;
+    margin: 5px;
+    background-color: slategray;
+}
+
+.chartButtons
+{
+    display: flex;
+    justify-content: center;
+    margin: 15px;
+}
+
+.chartButton
+{
+    display: inline;
+    width: 200px;
+    padding: 4px;
+    margin: 5px;
+    color: white;
+    font-size: x-large;
+    background-color: slategray;
+}
+
+.chartSelectors
+{
+    display: flex;
+    flex-wrap: wrap;
+    margin: 15px;
+}
+
+.chartSel
+{
+    display: inline;
+    width: 200px;
+    padding: 4px;
+}
+
 /* ----------------------- */
 /* Dashboard Widgets */
 

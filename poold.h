@@ -261,7 +261,7 @@ class Poold : public cWebService
          uint opt {ooUser};
          const char* name;     // crash on init with nullptr :o
          std::string title;
-         time_t last {0};      // last swith time
+         time_t last {0};      // last switch time
          time_t next {0};      // calculated next switch time
       };
 
@@ -376,7 +376,7 @@ class Poold : public cWebService
 
       int initW1();
       bool existW1(const char* id);
-      double valueOfW1(const char* id);
+      double valueOfW1(const char* id, time_t& last);
       uint toW1Id(const char* name);
       void updateW1(const char* id, double value);
 
@@ -448,7 +448,9 @@ class Poold : public cWebService
       double tPoolMax {28.0};
       double tSolarDelta {5.0};
       int waterLevel {0};
-      int showerDuration {20};
+      int showerDuration {20};         // seconds
+      int minSolarPumpDuration {10};   // minutes
+      int deactivatePumsAtLowWater {no};
 
       char* chart1 {nullptr};
 
@@ -465,7 +467,13 @@ class Poold : public cWebService
       double tSolar {0.0};
       double tCurrentDelta {0.0};
 
-      std::map<std::string, double> w1Sensors;
+      struct W1Data
+      {
+         time_t last;
+         double value;
+      };
+
+      std::map<std::string, W1Data> w1Sensors;
 
       // statics
 

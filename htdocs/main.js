@@ -1,6 +1,8 @@
 
 import WebSocketClient from "./websocket.js"
 
+const osd2webUrl = "ws://192.168.200.145:4444";
+
 var isActive = null;
 var socket = null;
 var config = {};
@@ -16,17 +18,36 @@ window.documentReady = function(doc)
    daemonState.state = -1;
    documentName = doc;
    console.log("documentReady: " + documentName);
-   connectWebSocket();
+
+   var url = "ws://" + location.hostname + ":61109";
+   var protocol = "pool";
+
+   if (documentName == "vdrfb") {
+      protocol = "osd2vdr";
+      url = osd2webUrl;
+
+      if (location.hostname.indexOf("192.168.200.145") == -1)
+         url = "ws://" + location.hostname + "/poolvdr/ws";   // via apache
+
+      prepareVdrButtons();
+   }
+   else {
+      protocol = "pool";
+      if (location.hostname.indexOf("192.168.200.145") == -1)
+         url = "ws://" + location.hostname + "/pool/ws";   // via apache
+   }
+
+   connectWebSocket(url, protocol);
 }
 
-function onSocketConnect()
+function onSocketConnect(protocol)
 {
    var token = localStorage.getItem('token');
 
    if (!token || token == null)
       token = "";
 
-   prepareMenu(token != "");
+   prepareMenu(token != "", protocol == "osd2vdr");
 
    // request some data after login
 
@@ -49,32 +70,30 @@ function onSocketConnect()
 
    jsonArray[0] = jsonRequest;
 
-   socket.send({ "event" : "login", "object" :
-                 { "type" : "active",
-                   "token" : token,
-                   "requests" : jsonArray }
-               });
+   if (protocol == "osd2vdr")
+      socket.send({ "event" : "login", "object" :
+                    { "type" : 2,         // ctFB
+                      "token" : token,
+                      "requests" : jsonArray }
+                  });
+   else
+      socket.send({ "event" : "login", "object" :
+                    { "type" : "active",
+                      "token" : token,
+                      "requests" : jsonArray }
+                  });
 }
 
-function connectWebSocket()
+function connectWebSocket(useUrl, protocol)
 {
-   var useUrl = "";
-
-   // url: "ws://" + location.hostname + ":61109",
-
-   if (location.hostname.indexOf("192.168.200.142") != -1)
-      useUrl = "ws://" + location.hostname + ":61109";
-   else
-      useUrl = "ws://" + location.hostname + "/pool/ws";
-
    socket = new WebSocketClient({
       url: useUrl,
-      protocol: "pool",
+      protocol: protocol,
       autoReconnectInterval: 1000,
       onopen: () => {
          console.log("socket opened :)");
          if (isActive === null)     // wurde beim Schliessen auf null gesetzt
-            onSocketConnect();
+            onSocketConnect(protocol);
       }, onclose: () => {
          isActive = null;           // auf null setzen, dass ein neues login aufgerufen wird
       }, onmessage: (msg) => {
@@ -144,7 +163,7 @@ function dispatchMessage(message)
    // console.log("event: " + event + " dispatched");
 }
 
-function prepareMenu(haveToken)
+function prepareMenu(haveToken, vdr)
 {
    var html = "";
 
@@ -152,6 +171,7 @@ function prepareMenu(haveToken)
    html += "<a href=\"list.html\"><button class=\"rounded-border button1\">Liste</button></a>";
    html += "<a href=\"chart.html\"><button class=\"rounded-border button1\">Charts</button></a>";
    html += "<a href=\"maincfg.html\"><button class=\"rounded-border button1\">Setup</button></a>";
+   html += "<button id=\"vdrMenu\" class=\"rounded-border button1\" onclick=\"location.href='vdr.html';\" style=\"visibility:hidden\">VDR</button>";
 
    if (haveToken)
       html += "<a><button class=\"rounded-border button1\" onclick=\"doLogout()\">Logout</button></a>";
@@ -178,6 +198,49 @@ function prepareMenu(haveToken)
    }
 
    $("#navMenu").html(html);
+
+   if (vdr && haveToken) {
+      document.getElementById("vdrMenu").style.visibility = "visible";
+      document.getElementById("vdrMenu").disabled = false;
+   }
+   else if (haveToken) {
+      var url = osd2webUrl;
+      if (location.hostname.indexOf("192.168.200.145") == -1)
+         url = "ws://" + location.hostname + "/poolvdr/ws";   // via apache
+
+      var s = new WebSocketClient( {
+         url: url,
+         protocol: "osd2vdr",
+         autoReconnectInterval: 0,
+         onopen: () => {
+            console.log("osd2web socket opened");
+            document.getElementById("vdrMenu").style.visibility = "visible";
+            document.getElementById("vdrMenu").disabled = false;
+            s.ws.close();
+         }, onclose: () => {
+            console.log("osd2web socket closed");
+         }, onmessage: (msg) => {
+         }
+      });
+   }
+   else {
+      document.getElementById("vdrMenu").style.visibility = "hidden";
+      document.getElementById("vdrMenu").disabled = true;
+   }
+
+   // console.log(" button vdrMenu disable is " + document.getElementById("vdrMenu").disabled);
+}
+
+function prepareVdrButtons()
+{
+   var root = document.getElementById("vdrFbContainer");
+   var elements = root.getElementsByClassName("vdrButtonDiv");
+
+   for (var i = 0; i < elements.length; i++) {
+      elements[i].style.height = getComputedStyle(elements[i]).width;
+      if (elements[i].children[0].innerHTML == "")
+         elements[i].style.visibility = "hidden";
+   }
 }
 
 function showSyslog(log)
@@ -366,10 +429,9 @@ function initList(widgets, root)
    {
       var html = "";
       var widget = widgets[i];
+      var id = "id=\"widget" + widget.type + widget.address + "\"";
 
       html += "<span><a class=\"tableButton\" >" + widget.title + "</a></span>";
-
-      var id = "id=\"widget" + widget.type + widget.address + "\"";
 
       if (widget.widgettype == 1 || widget.widgettype == 3)
       {
@@ -647,6 +709,20 @@ window.toggleIoNext = function(address, type)
                    "type": type }
                });
 }
+
+window.vdrKeyPress = function(key)
+{
+   // { "event" : "keypress", "object" : { "key" : "menu", "repeat" : 1 } }
+
+   if (key == undefined || key == "")
+      return;
+
+   socket.send({ "event": "keypress", "object":
+                 { "key": key,
+                   "repeat": 1 }
+               });
+}
+
 
 function toTimeRangesString(base)
 {

@@ -399,6 +399,110 @@ table.tableMultiCol tr:nth-child(odd)
     font-size: 24px;
 }
 
+/* ----------------------- */
+/* VDR FB */
+
+.vdrFbContainer
+{
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 5px;
+    width: 90%;
+    max-width: 450px;
+}
+
+.vdrFbContainer > div
+{
+    overflow: hidden;
+}
+
+.vdrButtonDiv
+{
+    width: 33%;
+}
+
+.vdrButtonColorDiv
+{
+    width: 25%;
+    height: 60px
+}
+
+.vdrButton
+{
+    border-radius: 15px;
+    border-color: var(--borderColor);
+    background-color: var(--caption1);
+    color: var(--buttonFont);
+    text-decoration: none;
+    font-size: 5.0vh;
+    height: 100%;
+    width: 100%;
+    padding: 0px;
+}
+
+.vdrButton:hover
+{
+/*    background-color: var(--caption2); */
+}
+
+.vdrButtonRound
+{
+    border-radius: 100px;
+}
+
+.vdrArrowButton
+{
+    color: lightblue;
+}
+
+.vdrArrowButtonUp
+{
+    border-radius: 100px 100px 15px 15px;
+}
+
+.vdrArrowButtonDown
+{
+    border-radius: 15px 15px 100px 100px;
+}
+
+.vdrArrowButtonLeft
+{
+    border-radius: 100px 15px 15px 100px;
+}
+
+.vdrArrowButtonRight
+{
+    border-radius: 15px 100px 100px 15px;
+}
+
+.vdrColorButtonRed
+{
+    margin: 5px;
+    background-color: red;
+}
+
+.vdrColorButtonGreen
+{
+    margin: 5px;
+    background-color: green;
+}
+
+.vdrColorButtonYellow
+{
+    margin: 5px;
+    background-color: darkgoldenrod;
+}
+
+.vdrColorButtonBlue
+{
+    margin: 5px;
+    background-color: darkblue;
+}
+
+/* ----------------------- */
+/* Chart */
+
 .chartCanvas
 {
     background-color: #151515;

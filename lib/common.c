@@ -78,7 +78,10 @@ void tell(int eloquence, const char* format, ...)
       printf("%s%s\n", buf, t);
    }
    else
-      syslog(LOG_ERR, "%s", t);
+   {
+      int prio = eloquence == 0 ? LOG_ERR : LOG_NOTICE;
+      syslog(prio, "%s", t);
+   }
 
    va_end(ap);
 }

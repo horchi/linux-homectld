@@ -28,54 +28,56 @@ std::map<std::string, Poold::ConfigItemDef> Poold::configuration
 {
    // web
 
-   { "refreshWeb",            { ctInteger, false, "3 WEB Interface", "Seite aktualisieren", "" } },
-   { "addrsDashboard",        { ctString,  false, "3 WEB Interface", "Sensoren Dashboard", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
-   { "addrsMain",             { ctString,  false, "3 WEB Interface", "Sensoren", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
-   { "addrsMainMobile",       { ctString,  false, "3 WEB Interface", "Sensoren Mobile Device", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
+   { "refreshWeb",               { ctInteger, false, "3 WEB Interface", "Seite aktualisieren", "" } },
+   { "addrsDashboard",           { ctString,  false, "3 WEB Interface", "Sensoren Dashboard", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
+   { "addrsMain",                { ctString,  false, "3 WEB Interface", "Sensoren", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
+   { "addrsMainMobile",          { ctString,  false, "3 WEB Interface", "Sensoren Mobile Device", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
 
-   { "chart1",                { ctString,  false, "3 WEB Interface", "Chart 1", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
-   { "chart2",                { ctString,  false, "3 WEB Interface", "Chart 2", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
-   { "chartDiv",              { ctInteger, true,  "3 WEB Interface", "Linien-Abstand der Y-Achse", "klein:15 mittel:25 groß:45" } },
-   { "chartStart",            { ctInteger, false, "3 WEB Interface", "Chart Zeitraum (Tage)", "Standardzeitraum der Chartanzeige (seit x Tagen bis heute)" } },
+   { "chart1",                   { ctString,  false, "3 WEB Interface", "Chart 1", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
+   { "chart2",                   { ctString,  false, "3 WEB Interface", "Chart 2", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
+   { "chartDiv",                 { ctInteger, true,  "3 WEB Interface", "Linien-Abstand der Y-Achse", "klein:15 mittel:25 groß:45" } },
+   { "chartStart",               { ctInteger, false, "3 WEB Interface", "Chart Zeitraum (Tage)", "Standardzeitraum der Chartanzeige (seit x Tagen bis heute)" } },
 
-   { "user",                  { ctString,  false, "3 WEB Interface", "User", "" } },
-   { "passwd",                { ctString,  true,  "3 WEB Interface", "Passwort", "" } },
+   { "user",                     { ctString,  false, "3 WEB Interface", "User", "" } },
+   { "passwd",                   { ctString,  true,  "3 WEB Interface", "Passwort", "" } },
 
    // poold
 
-   { "interval",              { ctInteger, false, "1 Pool Daemon", "Intervall der Aufzeichung", "Datenbank Aufzeichung [s]" } },
+   { "interval",                 { ctInteger, false, "1 Pool Daemon", "Intervall der Aufzeichung", "Datenbank Aufzeichung [s]" } },
 
-   { "filterPumpTimes",       { ctRange,   false, "1 Pool Daemon", "Zeiten Filter Pumpe", "[hh:mm] - [hh:mm]" } },
-   { "uvcLightTimes",         { ctRange,   false, "1 Pool Daemon", "Zeiten UV-C Licht", "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!" } },
-   { "poolLightTimes",        { ctRange,   false, "1 Pool Daemon", "Zeiten Pool Licht", "[hh:mm] - [hh:mm]" } },
-   { "poolLightColorToggle",  { ctBool,    false, "1 Pool Daemon", "Pool Licht Farb-Toggel", "" } },
+   { "filterPumpTimes",          { ctRange,   false, "1 Pool Daemon", "Zeiten Filter Pumpe", "[hh:mm] - [hh:mm]" } },
+   { "uvcLightTimes",            { ctRange,   false, "1 Pool Daemon", "Zeiten UV-C Licht", "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!" } },
+   { "poolLightTimes",           { ctRange,   false, "1 Pool Daemon", "Zeiten Pool Licht", "[hh:mm] - [hh:mm]" } },
+   { "poolLightColorToggle",     { ctBool,    false, "1 Pool Daemon", "Pool Licht Farb-Toggel", "" } },
 
-   { "tPoolMax",              { ctNum,     false, "1 Pool Daemon", "Pool max Temperatur", "" } },
-   { "tSolarDelta",           { ctNum,     false, "1 Pool Daemon", "Einschaltdifferenz Solarpumpe", "" } },
-   { "showerDuration",        { ctInteger, false, "1 Pool Daemon", "Laufzeit der Dusche", "Laufzeit [s]" } },
+   { "tPoolMax",                 { ctNum,     false, "1 Pool Daemon", "Pool max Temperatur", "" } },
+   { "tSolarDelta",              { ctNum,     false, "1 Pool Daemon", "Einschaltdifferenz Solarpumpe", "" } },
+   { "showerDuration",           { ctInteger, false, "1 Pool Daemon", "Laufzeit der Dusche", "Laufzeit [s]" } },
+   { "minSolarPumpDuration",     { ctInteger, false, "1 Pool Daemon", "Mindestlaufzeit der Solarpumpe [m]", "" } },
+   { "deactivatePumsAtLowWater", { ctBool,    false, "1 Pool Daemon", "Pumpen bei geringem Wasserstand deaktivieren", "" } },
 
-   { "invertDO",              { ctBool,    false, "1 Pool Daemon", "Digitalaugänge invertieren", "" } },
-   { "w1AddrAir",             { ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Luft", "" } },
-   { "w1AddrPool",            { ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Pool", "" } },
-   { "w1AddrSolar",           { ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Kollektor", "" } },
-   { "w1AddrSuctionTube",     { ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Saugleitung", "" } },
+   { "invertDO",                 { ctBool,    false, "1 Pool Daemon", "Digitalaugänge invertieren", "" } },
+   { "w1AddrAir",                { ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Luft", "" } },
+   { "w1AddrPool",               { ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Pool", "" } },
+   { "w1AddrSolar",              { ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Kollektor", "" } },
+   { "w1AddrSuctionTube",        { ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Saugleitung", "" } },
 
-   { "aggregateHistory",      { ctInteger, false, "1 Pool Daemon", "Historie [Tage]", "history for aggregation in days (default 0 days -> aggegation turned OFF)" } },
-   { "aggregateInterval",     { ctInteger, false, "1 Pool Daemon", "Intervall [m]", "aggregation interval in minutes - 'one sample per interval will be build'" } },
+   { "aggregateHistory",         { ctInteger, false, "1 Pool Daemon", "Historie [Tage]", "history for aggregation in days (default 0 days -> aggegation turned OFF)" } },
+   { "aggregateInterval",        { ctInteger, false, "1 Pool Daemon", "Intervall [m]", "aggregation interval in minutes - 'one sample per interval will be build'" } },
 
-   { "hassMqttUrl",           { ctString,  false, "1 Pool Daemon", "Home Assistant MQTT Url", "Optional. Beispiel: 'tcp://127.0.0.1:1883'" } },
+   { "hassMqttUrl",              { ctString,  false, "1 Pool Daemon", "Home Assistant MQTT Url", "Optional. Beispiel: 'tcp://127.0.0.1:1883'" } },
 
    // mail
 
-   { "mail",                  { ctBool,    false, "4 Mail", "Mail Benachrichtigung", "Mail Benachrichtigungen aktivieren/deaktivieren" } },
-   { "mailScript",            { ctString,  false, "4 Mail", "poold sendet Mails über das Skript", "" } },
-   { "stateMailTo",           { ctString,  false, "4 Mail", "Status Mail Empfänger", "Komma separierte Empfängerliste" } },
-   { "errorMailTo",           { ctString,  false, "4 Mail", "Fehler Mail Empfänger", "Komma separierte Empfängerliste" } },
-   { "webUrl",                { ctString,  false, "4 Mail", "URL der Visualisierung", "kann mit %weburl% in die Mails eingefügt werden" } },
+   { "mail",                     { ctBool,    false, "4 Mail", "Mail Benachrichtigung", "Mail Benachrichtigungen aktivieren/deaktivieren" } },
+   { "mailScript",               { ctString,  false, "4 Mail", "poold sendet Mails über das Skript", "" } },
+   { "stateMailTo",              { ctString,  false, "4 Mail", "Status Mail Empfänger", "Komma separierte Empfängerliste" } },
+   { "errorMailTo",              { ctString,  false, "4 Mail", "Fehler Mail Empfänger", "Komma separierte Empfängerliste" } },
+   { "webUrl",                   { ctString,  false, "4 Mail", "URL der Visualisierung", "kann mit %weburl% in die Mails eingefügt werden" } },
 
    // sonstiges
 
-   { "WSLoginToken",          { ctString,  true,  "2 Sonstiges", "", "" } }
+   { "WSLoginToken",             { ctString,  true,  "2 Sonstiges", "", "" } }
 };
 
 //***************************************************************************
@@ -743,6 +745,8 @@ int Poold::readConfiguration()
    getConfigItem("tPoolMax", tPoolMax, tPoolMax);
    getConfigItem("tSolarDelta", tSolarDelta, tSolarDelta);
    getConfigItem("showerDuration", showerDuration, 20);
+   getConfigItem("minSolarPumpDuration", minSolarPumpDuration, 10);
+   getConfigItem("deactivatePumsAtLowWater", deactivatePumsAtLowWater, no);
 
    getConfigItem("invertDO", invertDO, no);
    getConfigItem("chart1", chart1, "");
@@ -991,11 +995,19 @@ int Poold::update(bool webOnly, long client)
 
       if (tableValueFacts->hasValue("TYPE", "W1"))
       {
-         json_object_set_new(ojData, "value", json_real(valueOfW1(name)));
-         json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
+         time_t w1Last;
+         double w1Value = valueOfW1(name, w1Last);
 
-         if (!webOnly)
-            store(now, name, title, unit, type, addr, valueOfW1(name));
+         // use value only if not older than 2 cycles
+
+         if (w1Last > time(0) - 2*interval)
+         {
+            json_object_set_new(ojData, "value", json_real(w1Value));
+            json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
+
+            if (!webOnly)
+               store(now, name, title, unit, type, addr, w1Value);
+         }
       }
       else if (tableValueFacts->hasValue("TYPE", "DO"))
       {
@@ -1071,15 +1083,23 @@ int Poold::update(bool webOnly, long client)
          }
          else if (addr == 2)
          {
-            tPool = valueOfW1(w1AddrPool);
-            tSolar = valueOfW1(w1AddrSolar);
-            tCurrentDelta = tSolar - tPool;
+            time_t tPoolLast, tSolarLast;
+            tPool = valueOfW1(w1AddrPool, tPoolLast);
+            tSolar = valueOfW1(w1AddrSolar, tSolarLast);
 
-            json_object_set_new(ojData, "value", json_real(tCurrentDelta));
-            json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
+            // use value only if not older than 2 cycles
 
-            if (!webOnly)
-               store(now, name, title, unit, type, addr, tCurrentDelta);
+            if (tPoolLast > time(0) - 2*interval &&
+                tSolarLast > time(0) - 2*interval)
+            {
+               tCurrentDelta = tSolar - tPool;
+
+               json_object_set_new(ojData, "value", json_real(tCurrentDelta));
+               json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
+
+               if (!webOnly)
+                  store(now, name, title, unit, type, addr, tCurrentDelta);
+            }
          }
       }
 
@@ -1146,6 +1166,9 @@ int Poold::performLogin(json_t* oObject)
    json_array_foreach(aRequests, index, oRequest)
    {
       const char* name = getStringFromJson(oRequest, "name");
+
+      if (isEmpty(name))
+         continue;
 
       tell(0, "Got request '%s'", name);
 
@@ -1578,66 +1601,91 @@ int Poold::sensor2Json(json_t* obj, cDbTable* table)
 
 int Poold::process()
 {
-   tPool = valueOfW1(w1AddrPool);
-   tSolar = valueOfW1(w1AddrSolar);
+   time_t tPoolLast, tSolarLast;
+   tPool = valueOfW1(w1AddrPool, tPoolLast);
+   tSolar = valueOfW1(w1AddrSolar, tSolarLast);
    tCurrentDelta = tSolar - tPool;
+
+   // use W1 values only if not older than 2 cycles
+
+   bool w1Valid = tPoolLast > time(0) - 2*interval && tSolarLast > time(0) - 2*interval;
 
    tell(0, "Process ...");
 
    // -----------
-   // Solar Pump
+   // Solar Pumps
 
-   if (digitalOutputStates[pinSolarPump].mode == omAuto)
+   if (deactivatePumsAtLowWater && waterLevel == 0)   // || waterLevel == fail ??
    {
-      if (!isEmpty(w1AddrPool) && !isEmpty(w1AddrSolar) && existW1(w1AddrPool) && existW1(w1AddrSolar))
+      if (digitalOutputStates[pinSolarPump].state || digitalOutputStates[pinFilterPump].state)
       {
-         if (tPool > tPoolMax)
-         {
-            // switch OFF solar pump
+         tell(0, "Warming: Deactivating pumps due to low water condition!");
+         gpioWrite(pinSolarPump, false);
+         gpioWrite(pinFilterPump, false);
+      }
+   }
+   else
+   {
+      // -----------
+      // Solar Pump
 
-            if (digitalOutputStates[pinSolarPump].state)
+      if (w1Valid && digitalOutputStates[pinSolarPump].mode == omAuto)
+      {
+         if (!isEmpty(w1AddrPool) && !isEmpty(w1AddrSolar) && existW1(w1AddrPool) && existW1(w1AddrSolar))
+         {
+            if (tPool > tPoolMax)
             {
-               tell(0, "Configured pool maximum of %.2f°C reached, pool has is %.2f°C, stopping solar pump!", tPoolMax, tPool);
-               gpioWrite(pinSolarPump, false);
+               // switch OFF solar pump
+
+               if (digitalOutputStates[pinSolarPump].state)
+               {
+                  tell(0, "Configured pool maximum of %.2f°C reached, pool has is %.2f°C, stopping solar pump!", tPoolMax, tPool);
+                  gpioWrite(pinSolarPump, false);
+               }
             }
-         }
-         else if (tCurrentDelta > tSolarDelta)
-         {
-            // switch ON solar pump
-
-            if (!digitalOutputStates[pinSolarPump].state)
+            else if (tCurrentDelta > tSolarDelta)
             {
-               tell(0, "Solar delta of %.2f°C reached, pool has %.2f°C, starting solar pump!", tSolarDelta, tPool);
-               gpioWrite(pinSolarPump, true);
+               // switch ON solar pump
+
+               if (!digitalOutputStates[pinSolarPump].state)
+               {
+                  tell(0, "Solar delta of %.2f°C reached, pool has %.2f°C, starting solar pump", tSolarDelta, tPool);
+                  gpioWrite(pinSolarPump, true);
+               }
+            }
+            else
+            {
+               // switch OFF solar pump
+
+               if (digitalOutputStates[pinSolarPump].state && digitalOutputStates[pinSolarPump].last < time(0) - minSolarPumpDuration*tmeSecondsPerMinute)
+               {
+                  tell(0, "Solar delta (%.2f°C) lower than %.2f°C, pool has %.2f°C, stopping solar pump", tCurrentDelta, tSolarDelta, tPool);
+                  gpioWrite(pinSolarPump, false);
+               }
             }
          }
          else
          {
-            // switch OFF solar pump
-
-            if (digitalOutputStates[pinSolarPump].state)
-            {
-               tell(0, "Solar delta (%.2f°C) lower than %.2f°C, pool has %.2f°C, stopping solar pump!", tCurrentDelta, tSolarDelta, tPool);
-               gpioWrite(pinSolarPump, false);
-            }
+            tell(0, "Warning: Missing at least one sensor, switching solar pump off!");
+            gpioWrite(pinSolarPump, false);
          }
       }
-      else
+      else if (!w1Valid)
       {
-         tell(0, "Missing at least one sensor, switching solar pump off");
          gpioWrite(pinSolarPump, false);
+         tell(0, "Warning: Solar pump switched OFF, sensor values older than %d seconds!", 2*interval);
       }
-   }
 
-   // -----------
-   // Filter Pump
+      // -----------
+      // Filter Pump
 
-   if (digitalOutputStates[pinFilterPump].mode == omAuto)
-   {
-      bool activate = isInTimeRange(&filterPumpTimes, time(0));
+      if (digitalOutputStates[pinFilterPump].mode == omAuto)
+      {
+         bool activate = isInTimeRange(&filterPumpTimes, time(0));
 
-      if (digitalOutputStates[pinFilterPump].state != activate)
-         gpioWrite(pinFilterPump, activate);
+         if (digitalOutputStates[pinFilterPump].state != activate)
+            gpioWrite(pinFilterPump, activate);
+      }
    }
 
    // -----------
@@ -2348,7 +2396,8 @@ void Poold::updateW1(const char* id, double value)
 {
    tell(2, "w1: %s : %0.2f", id, value);
 
-   w1Sensors[id] = value;
+   w1Sensors[id].value = value;
+   w1Sensors[id].last = time(0);
 
    json_t* oJson = json_array();
    json_t* ojData = json_object();
@@ -2380,8 +2429,10 @@ bool Poold::existW1(const char* id)
    return it != w1Sensors.end();
 }
 
-double Poold::valueOfW1(const char* id)
+double Poold::valueOfW1(const char* id, time_t& last)
 {
+   last = 0;
+
    if (isEmpty(id))
       return 0;
 
@@ -2390,7 +2441,9 @@ double Poold::valueOfW1(const char* id)
    if (it == w1Sensors.end())
       return 0;
 
-   return w1Sensors[id];
+   last = w1Sensors[id].last;
+
+   return w1Sensors[id].value;
 }
 
 uint Poold::toW1Id(const char* name)

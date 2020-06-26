@@ -9,13 +9,17 @@
    onerror: function (err) {  ...  }
    });
 */
-export default function WebSocketClient(opt)
+
+
+// export default function WebSocketClient(opt)
+
+window.WebSocketClient = function(opt)
 {
    if (!window.WebSocket)
       return false;
 
-   let client = this;
-   let queue = [];
+   var client = this;
+   var queue = [];
 
    this.onclose = function () {
       console.log("websocket connection closed");
@@ -44,7 +48,7 @@ export default function WebSocketClient(opt)
       client.ws = new WebSocket(client.url, client.protocol);
       client.ws.onopen = function(e){
          if (queue) {
-            let JSONobj;
+            var JSONobj;
             while ((JSONobj=queue.shift()))
                client.ws.send(JSON.stringify(JSONobj));
             queue = null;

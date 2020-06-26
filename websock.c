@@ -503,6 +503,10 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
             Poold::pushInMessage(p);
             free(p);
          }
+         else if (event == evLogMessage)                     // { "event" : "logmessage", "object" : { "message" : "....." } }
+         {
+            tell(0, "Browser message: '%s'", getStringFromJson(oObject, "message", "<null>"));
+         }
          else if (clients[wsi].type == ctWithLogin)
          {
             addToJson(oData, "client", (long)wsi);

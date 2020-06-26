@@ -52,6 +52,7 @@ class cWebService
          evGetToken,
          evStoreIoSetup,
          evChartData,
+         evLogMessage,
 
          evCount
       };

@@ -1,5 +1,6 @@
 
-import WebSocketClient from "./websocket.js"
+var WebSocketClient = window.WebSocketClient
+// import WebSocketClient from "./websocket.js"
 
 const osd2webUrl = "ws://192.168.200.145:4444";
 
@@ -90,15 +91,15 @@ function connectWebSocket(useUrl, protocol)
       url: useUrl,
       protocol: protocol,
       autoReconnectInterval: 1000,
-      onopen: () => {
+      onopen: function (){
          console.log("socket opened :)");
          if (isActive === null)     // wurde beim Schliessen auf null gesetzt
             onSocketConnect(protocol);
-      }, onclose: () => {
+      }, onclose: function (){
          isActive = null;           // auf null setzen, dass ein neues login aufgerufen wird
-      }, onmessage: (msg) => {
+      }, onmessage: function (msg) {
          dispatchMessage(msg.data)
-      }
+      }.bind(this)
    });
 
    if (!socket)
@@ -212,14 +213,14 @@ function prepareMenu(haveToken, vdr)
          url: url,
          protocol: "osd2vdr",
          autoReconnectInterval: 0,
-         onopen: () => {
+         onopen: function (){
             console.log("osd2web socket opened");
             document.getElementById("vdrMenu").style.visibility = "visible";
             document.getElementById("vdrMenu").disabled = false;
             s.ws.close();
-         }, onclose: () => {
+         }, onclose: function (){
             console.log("osd2web socket closed");
-         }, onmessage: (msg) => {
+         }, onmessage: function (msg){
          }
       });
    }
@@ -228,7 +229,8 @@ function prepareMenu(haveToken, vdr)
       document.getElementById("vdrMenu").disabled = true;
    }
 
-   // console.log(" button vdrMenu disable is " + document.getElementById("vdrMenu").disabled);
+   var msg = "DEBUG: Browser: '" + $.browser.name + "' : '" + $.browser.versionNumber + "' : '" + $.browser.version + "'";
+   socket.send({ "event" : "logmessage", "object" : { "message" : msg } });
 }
 
 function prepareVdrButtons()
@@ -855,14 +857,24 @@ function svg_circle_arc_path(x, y, radius, start_angle, end_angle)
 
 function prepareChartRequest(jRequest, sensors, start, range)
 {
-   const urlParams = new URLSearchParams(window.location.search);
+   var gaugeSelected = false;
+
+   if (!$.browser.safari || $.browser.versionNumber > 9)
+   {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has("sensors"))
+      {
+         gaugeSelected = true;
+         sensors = urlParams.get("sensors");
+      }
+   }
 
    jRequest["name"] = "chartdata";
 
    console.log("requesting chart for '" + start + "' range " + range);
 
-   if (urlParams.has("sensors")) {
-      jRequest["sensors"] = urlParams.get("sensors");
+   if (gaugeSelected) {
+      jRequest["sensors"] = sensors;
       jRequest["start"] = 0;   // default (use today-range)
       jRequest["range"] = 1;
    }

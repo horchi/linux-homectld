@@ -96,6 +96,7 @@ const char* cWebService::events[] =
    "gettoken",
    "storeiosetup",
    "chartdata",
+   "logmessage",
    0
 };
 

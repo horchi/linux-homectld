@@ -16,32 +16,32 @@
 
     <script src="//code.jquery.com/jquery.min.js"></script>
     <script src="//cdn.rawgit.com/placemarker/jQuery-MD5/master/jquery.md5.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-browser/0.1.0/jquery.browser.min.js"></script>
     <script type="text/javascript" src="websocket.js"></script>
     <script type="text/javascript" src="main.js"></script>
     <script>
-      $(document).ready(function() { documentReady("dashboard"); });
+      $(document).ready(function() { documentReady("login"); });
     </script>
 
     <title>Pool Control Dashboard</title>
   </head>
   <body>
 
-    <nav id="navMenu" class="fixed-menu1">
+    <nav id="navMenu" data-login="yes" class="menu">
     </nav>
 
-    <div class="rounded-border inputTable">
-      <table>
-        <tr>
-          <td>User:</td>
-          <td><input id="user" class="rounded-border input" type="text" value=""></input></td>
-        </tr>
-        <tr>
-          <td>Passwort:</td>
-          <td><input id="password" class="rounded-border input" type="password" value=""></input></td>
-        </tr>
-      </table>
-      <button class="rounded-border" onclick="doLogin()">Anmelden</button>
-    </div>
+    <br/><br/>
+    <table>
+      <tr>
+        <td>User:</td>
+        <td><input id="user" class="rounded-border input" type="text" value=""></input></td>
+      </tr>
+      <tr>
+        <td>Passwort:</td>
+        <td><input id="password" class="rounded-border input" type="password" value=""></input></td>
+      </tr>
+    </table>
+    <button class="rounded-border buttonLogin" onclick="doLogin()">Anmelden</button>
 
   </body>
 </html>

@@ -24,7 +24,6 @@ cWebSock::MsgType cWebSock::msgType {mtNone};
 std::map<void*,cWebSock::Client> cWebSock::clients;
 cMyMutex cWebSock::clientsMutex;
 char* cWebSock::httpPath {nullptr};
-char* cWebSock::loginToken {nullptr};
 
 //***************************************************************************
 // Init
@@ -39,7 +38,6 @@ cWebSock::~cWebSock()
 {
    exit();
 
-   free(loginToken);
    free(httpPath);
    free(msgBuffer);
 }
@@ -482,13 +480,6 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
 
          if (event == evLogin)                              // { "event" : "login", "object" : { "type" : "foo" } }
          {
-            const char* token = getStringFromJson(oObject, "token", "");
-
-            if (strcmp(token, loginToken) == 0)
-               clients[wsi].type = ctWithLogin;
-            else
-               clients[wsi].type = ctActive;
-
             atLogin(wsi, message, clientInfo.c_str(), oObject);
          }
          else if (event == evLogout)                         // { "event" : "logout", "object" : { } }
@@ -577,19 +568,19 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
 
 void cWebSock::atLogin(lws* wsi, const char* message, const char* clientInfo, json_t* object)
 {
-//   json_t* oContents = json_object();
-
    tell(1, "Client login '%s' (%p) [%s]", clientInfo, (void*)wsi, message);
 
-   addToJson(object, "type", clients[wsi].type);
-   addToJson(object, "client", (long)wsi);
+   {
+      cMyMutexLock lock(&clientsMutex);
+      clients[wsi].type = ctActive;
+   }
 
    json_t* obj = json_object();
    addToJson(obj, "event", "login");
    json_object_set_new(obj, "object", object);
+   addToJson(object, "client", (long)wsi);
 
    char* p = json_dumps(obj, 0);
-// json_decref(obj);
 
    Poold::pushInMessage(p);
    free(p);
@@ -636,6 +627,16 @@ int cWebSock::getClientCount()
       count++;
 
    return count;
+}
+
+//***************************************************************************
+// Set Client Type
+//***************************************************************************
+
+void cWebSock::setClientType(lws* wsi, ClientType type)
+{
+   cMyMutexLock lock(&clientsMutex);
+   clients[wsi].type = type;
 }
 
 //***************************************************************************

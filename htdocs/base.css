@@ -1,20 +1,20 @@
 
 .menu
 {
-    z-index: 9999;
-    position: fixed;
-    left: 0px;
-    width: 100%;
-    height: 40px;
+    margin-left: 10px;
+    margin-right: 10px;
     white-space: nowrap;
-    padding-left: 5px;
-    box-sizing: border-box;
     background-color: var(--menu);
+}
+
+.menuLogin
+{
+    float: right;
 }
 
 .content
 {
-    position: relative;
+/*    position: relative;*/
     margin: 0px 5px 0px 5px;
 }
 
@@ -24,36 +24,6 @@
     border-color: var(--borderColor);
     border-style: solid;
     border-width: 1px;
-}
-
-.schemaValue
-{
-    color: var(--buttonFont);
-    padding: 3px;
-    text-decoration: none;
-
-    border-radius: var(--borderRadiusSchemaValue);
-    border-color: var(--borderColorSchemaValue);
-    border-style: var(--borderStyleSchemaValue);
-    border-width: 1px;
-}
-
-.tableButton
-{
-    color: var(--buttonFont);
-    padding: 2px;
-    text-decoration: none;
-    background-color: var(--colorTableButton);
-    border-radius: var(--borderRadiusTableButton);
-    border-color: var(--borderColorTableButton);
-    border-style: none;
-    border-width: 1px;
-}
-
-.tableButton:hover
-{
-    background-color: var(--buttonAction);
-    color: white;
 }
 
 .button1
@@ -74,14 +44,24 @@
 .button2
 {
     background-color: var(--caption2);
-    color: black;
+    color: var(--buttonFont);
     padding: 3px 10px;
     text-decoration: none;
 }
 
 .button2:hover
 {
-    color: white;
+    background-color: var(--caption1);
+}
+
+.buttonLogin
+{
+    background-color: darkblue;
+    color: var(--buttonFont);
+
+    width: 300px;
+    height: 40px;
+    margin: 20px;
 }
 
 .seperatorTitle1
@@ -200,36 +180,9 @@ span > input
     border-radius: 5px;
 }
 
-.box
+.confirmDiv
 {
-    background-color: var(--light1);
-    padding: 10px;
-    margin-top: 10px;
-}
-
-.imageBox
-{
-    background-color: var(--light1);
-    padding: 10px;
-    margin-top: 10px;
-    position: relative;
-}
-
-.inputTable
-{
-    background-color: var(--light1);
-    background: linear-gradient(to bottom right, var(--light3), var(--light1)); /* Standard syntax (must be last) */
-    margin-top: 2px;
-    color: black;
-    padding: 5px;
-}
-
-.inputTable > div > span
-{
-    width: 12%;
-    min-width: 100px;
-    display: inline-table;
-    text-align: left;
+    margin-top: 5px;
 }
 
 .inputTableConfig
@@ -237,7 +190,6 @@ span > input
     background-color: var(--light1);
     background: linear-gradient(to bottom right, var(--light3), var(--light1)); /* Standard syntax (must be last) */
     margin-top: 2px;
-    color: black;
     padding: 5px;
 }
 
@@ -257,46 +209,44 @@ span > input
     text-align: left;
 }
 
-.inputTableConfig > div > span > input
+.listContainer
 {
-/*    width: 96%;*/
-}
-
-.table2Col
-{
-    background-color: var(--light1);
-    color: var(--buttonFont);
-    margin-top: 10px;
-    padding: 0;
     font-size: 18px;
 }
 
-._table2Col > div:nth-child(even)
+.listContainer > div > div > img
 {
-    background: linear-gradient(to bottom, var(--light1), var(--light3)); /* Standard syntax (must be last) */
+    margin-top: 2%;
+    display: table-cell;
+    max-height: 80%;
 }
 
-.table2Col > div
+.listFirstCol
 {
-    background-color: var(--light3);
-    background: linear-gradient(to bottom right, var(--light3), var(--light1)); /* Standard syntax (must be last) */
-}
-
-.table2Col > div > span
-{
-    width: 35%;
-    min-width: 280px;
-    padding: 6px 10px 6px 10px;
+    width: 12%;
+    min-width: 145px;
     display: inline-block;
     text-align: left;
+    line-height: 45px;
 }
 
-.mainrow {
+.listSecondCol
+{
+    display: inline-block;
+    text-align: left;
+    line-height: 45px;
+}
+
+.listRow {
+    background: linear-gradient(to bottom right, var(--light3), var(--light1)); /* Standard syntax (must be last) */
     border-radius: var(--borderRadius);
     border-color: var(--borderColor);
     border-style: solid;
     border-width: 1px;
     margin: 2px;
+    height: 45px;
+    display: flex;
+    padding: 0px 0px 0px 10px;
 }
 
 .tableMultiCol
@@ -307,12 +257,6 @@ span > input
     margin-top: 5px;
     padding: 0;
     font-size: 17px;
-}
-
-.tableMultiCol > div:nth-child(even)
-{
-    background-color: var(--light3);
-    background: linear-gradient(to bottom, var(--light1), var(--light3)); /* Standard syntax (must be last) */
 }
 
 .tableMultiCol > div
@@ -340,7 +284,6 @@ table.tableMultiCol tr:nth-child(odd)
 
 .tableMultiCol > div > span
 {
-/*    width: 25%;*/
     padding: 5px 10px 5px 10px;
     display: inline-block;
     text-align: left;
@@ -351,17 +294,6 @@ table.tableMultiCol tr:nth-child(odd)
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-}
-
-.imageState
-{
-    margin: 12px;
-}
-
-.centerImage
-{
-    width: 100%;
-    background-color: var(--light1);
 }
 
 .daemonInfo
@@ -379,11 +311,6 @@ table.tableMultiCol tr:nth-child(odd)
     min-width: 215px;
     display: table-cell;
     text-align: left;
-}
-
-#divDaemondState
-{
-    display: block;
 }
 
 #aStateOk
@@ -610,7 +537,6 @@ table.tableMultiCol tr:nth-child(odd)
 .widget-title
 {
     grid-area: title;
-/*    padding: 14px; */
     text-align: center;
     font-size: 1.4em;
     overflow: hidden;
@@ -765,10 +691,8 @@ table.tableMultiCol tr:nth-child(odd)
 @media only screen and (max-width: 740px)
 {
     .content                   { padding: 0px; }
-    .table2Col > div > span    { padding: 3px 10px 3px 10px; }
     .daemonInfo                { font-size: 15px; margin-top: 3px; min-width: 91%; }
     .daemonInfo > div > span   { min-width: 110px; }
-    .centerImage               { margin: 0px 0px 0px 0px; }
 
     .inputTableConfig > div > span:nth-child(3) { width: 95%; }
     .inputTableConfig > div > span              { width: 95%; }

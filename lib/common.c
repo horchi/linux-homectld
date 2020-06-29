@@ -16,6 +16,10 @@
 #include <zlib.h>
 #include <dirent.h>
 
+#ifdef USEUUID
+#  include <uuid/uuid.h>
+#endif
+
 #include <algorithm>
 
 #ifdef VDR_PLUGIN
@@ -519,14 +523,14 @@ char* eos(char* s)
 // Long to Pretty Time
 //***************************************************************************
 
-string l2pTime(time_t t, const char* fmt)
+std::string l2pTime(time_t t, const char* fmt)
 {
    char txt[300];
    tm* tmp = localtime(&t);
 
    strftime(txt, sizeof(txt), fmt, tmp);
 
-   return string(txt);
+   return std::string(txt);
 }
 
 const char* toElapsed(int seconds, char* buf)
@@ -1260,3 +1264,20 @@ void LogDuration::show(const char* label)
    tell(logLevel, "elapsed '%s' at '%s' was (%ldms)",
         message, label, (long)(cMyTimeMs::Now() - durationStart));
 }
+
+//***************************************************************************
+// Get Unique ID
+//***************************************************************************
+
+#ifdef USEUUID
+const char* getUniqueId()
+{
+   static char uuid[sizeUuid+TB] = "";
+
+   uuid_t id;
+   uuid_generate(id);
+   uuid_unparse_upper(id, uuid);
+
+   return uuid;
+}
+#endif // USEUUID

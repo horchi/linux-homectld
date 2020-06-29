@@ -38,9 +38,6 @@ std::map<std::string, Poold::ConfigItemDef> Poold::configuration
    { "chartDiv",                 { ctInteger, true,  "3 WEB Interface", "Linien-Abstand der Y-Achse", "klein:15 mittel:25 groß:45" } },
    { "chartStart",               { ctInteger, false, "3 WEB Interface", "Chart Zeitraum (Tage)", "Standardzeitraum der Chartanzeige (seit x Tagen bis heute)" } },
 
-   { "user",                     { ctString,  false, "3 WEB Interface", "User", "" } },
-   { "passwd",                   { ctString,  true,  "3 WEB Interface", "Passwort", "" } },
-
    // poold
 
    { "interval",                 { ctInteger, false, "1 Pool Daemon", "Intervall der Aufzeichung", "Datenbank Aufzeichung [s]" } },
@@ -74,10 +71,6 @@ std::map<std::string, Poold::ConfigItemDef> Poold::configuration
    { "stateMailTo",              { ctString,  false, "4 Mail", "Status Mail Empfänger", "Komma separierte Empfängerliste" } },
    { "errorMailTo",              { ctString,  false, "4 Mail", "Fehler Mail Empfänger", "Komma separierte Empfängerliste" } },
    { "webUrl",                   { ctString,  false, "4 Mail", "URL der Visualisierung", "kann mit %weburl% in die Mails eingefügt werden" } },
-
-   // sonstiges
-
-   { "WSLoginToken",             { ctString,  true,  "2 Sonstiges", "", "" } }
 };
 
 //***************************************************************************
@@ -97,6 +90,8 @@ const char* cWebService::events[] =
    "storeiosetup",
    "chartdata",
    "logmessage",
+   "userconfig",
+   "changepasswd",
    0
 };
 
@@ -186,7 +181,7 @@ int Poold::pushOutMessage(json_t* oContents, const char* title, long client)
    {
       for (const auto cl : wsClients)
       {
-         if (cl.second == true)
+         if (cl.second.dataUpdates)
             cWebSock::pushMessage(p, (lws*)cl.first);
       }
    }
@@ -230,26 +225,37 @@ int Poold::dispatchClientRequest()
    Event event = cWebService::toEvent(getStringFromJson(oData, "event", "<null>"));
    long client = getLongFromJson(oData, "client");
    oObject = json_object_get(oData, "object");
-
    int addr = getIntFromJson(oObject, "address");
    const char* type = getStringFromJson(oObject, "type");
 
-   // dispatch client request
+   // rights ...
 
-   switch (event)
+   if (checkRights(client, event))
    {
-      case evLogin:         status = performLogin(oObject);                  break;
-      case evLogout:        status = performLogout(oObject);                 break;
-      case evGetToken:      status = performTokenRequest(oObject, client);   break;
-      case evToggleIo:      status = toggleIo(addr, type);                   break;
-      case evToggleIoNext:  status = toggleIoNext(addr);                     break;
-      case evToggleMode:    status = toggleOutputMode(addr);                 break;
-      case evStoreConfig:   status = storeConfig(oObject, client);           break;
-      case evStoreIoSetup:  status = storeIoSetup(oObject, client);          break;
-      case evChartData:     status = performChartData(oObject, client);      break;
+      // dispatch client request
 
-      default: tell(0, "Error: Received unexpected client request '%s' at [%s]",
-                    toName(event), messagesIn.front().c_str());
+      switch (event)
+      {
+         case evLogin:         status = performLogin(oObject);                  break;
+         case evLogout:        status = performLogout(oObject);                 break;
+         case evGetToken:      status = performTokenRequest(oObject, client);   break;
+         case evToggleIo:      status = toggleIo(addr, type);                   break;
+         case evToggleIoNext:  status = toggleIoNext(addr);                     break;
+         case evToggleMode:    status = toggleOutputMode(addr);                 break;
+         case evStoreConfig:   status = storeConfig(oObject, client);           break;
+         case evStoreIoSetup:  status = storeIoSetup(oObject, client);          break;
+         case evChartData:     status = performChartData(oObject, client);      break;
+         case evUserConfig:    status = performUserConfig(oObject, client);     break;
+         case evChangePasswd:  status = performPasswChange(oObject, client);    break;
+
+         default: tell(0, "Error: Received unexpected client request '%s' at [%s]",
+                       toName(event), messagesIn.front().c_str());
+      }
+   }
+   else
+   {
+      tell(0, "Insufficient right to '%s' for user '%s'", getStringFromJson(oData, "event", "<null>"),
+           wsClients[(void*)client].user.c_str());
    }
 
    json_decref(oData);      // free the json object
@@ -284,6 +290,26 @@ int Poold::init()
    {
       exitDb();
       return status;
+   }
+
+   // ---------------------------------
+   // check users - add default user if empty
+
+   int userCount {0};
+   tableUsers->countWhere("", userCount);
+
+   if (userCount <= 0)
+   {
+      tell(0, "Initially adding default user (pool/pool)");
+
+      md5Buf defaultPwd;
+      createMd5("pool", defaultPwd);
+      tableUsers->clear();
+      tableUsers->setValue("USER", "pool");
+      tableUsers->setValue("PASSWD", defaultPwd);
+      tableUsers->setValue("TOKEN", "dein&&secret12login34token");
+      tableUsers->setValue("RIGHTS", 0xff);  // all rights
+      tableUsers->store();
    }
 
    // ---------------------------------
@@ -576,6 +602,9 @@ int Poold::initDb()
    tableScripts = new cDbTable(connection, "scripts");
    if (tableScripts->open() != success) return fail;
 
+   tableUsers = new cDbTable(connection, "users");
+   if (tableUsers->open() != success) return fail;
+
    // prepare statements
 
    selectActiveValueFacts = new cDbStatement(tableValueFacts);
@@ -608,6 +637,17 @@ int Poold::initDb()
    // selectAllConfig->build(" order by ord");
 
    status += selectAllConfig->prepare();
+
+   // ------------------
+   // select all users
+
+   selectAllUser = new cDbStatement(tableUsers);
+
+   selectAllUser->build("select ");
+   selectAllUser->bindAllOut();
+   selectAllUser->build(" from %s", tableUsers->TableName());
+
+   status += selectAllUser->prepare();
 
    // ------------------
    // select max(time) from samples
@@ -658,7 +698,6 @@ int Poold::initDb()
 
    status += selectScriptByPath->prepare();
 
-
    // ------------------
 
    if (status == success)
@@ -673,10 +712,11 @@ int Poold::exitDb()
    delete tablePeaks;              tablePeaks = 0;
    delete tableValueFacts;         tableValueFacts = 0;
    delete tableConfig;             tableConfig = 0;
-
+   delete tableUsers;              tableUsers = 0;
    delete selectActiveValueFacts;  selectActiveValueFacts = 0;
    delete selectAllValueFacts;     selectAllValueFacts = 0;
    delete selectAllConfig;         selectAllConfig = 0;
+   delete selectAllUser;           selectAllUser = 0;
    delete selectMaxTime;           selectMaxTime = 0;
    delete selectSamplesRange;      selectSamplesRange = 0;
    delete connection;              connection = 0;
@@ -717,11 +757,6 @@ int Poold::initW1()
 
 int Poold::readConfiguration()
 {
-   // init default web user and password
-
-   getConfigItem("WSLoginToken", wsLoginToken, "dein secret login token");
-   webSock->setLoginToken(wsLoginToken);
-
    // init configuration
 
    getConfigItem("interval", interval, interval);
@@ -782,6 +817,30 @@ int Poold::applyConfigurationSpecials()
    }
 
    return done;
+}
+
+bool Poold::checkRights(long client, Event event)
+{
+   uint rights = wsClients[(void*)client].rights;
+
+   switch (event)
+   {
+      case evLogin:         return true;
+      case evLogout:        return true;
+      case evGetToken:      return true;
+      case evToggleIo:      return rights & urControl;
+      case evToggleIoNext:  return rights & urControl;
+      case evToggleMode:    return rights & urFullControl;
+      case evStoreConfig:   return rights & urSettings;
+      case evStoreIoSetup:  return rights & urSettings;
+      case evChartData:     return rights & urView;
+      case evUserConfig:    return rights & urAdmin;
+      case evChangePasswd:  return true;   // check will done in performPasswChange()
+
+      default: return false;
+   }
+
+   return false;
 }
 
 //***************************************************************************
@@ -1140,18 +1199,44 @@ int Poold::performWebSocketPing()
 }
 
 //***************************************************************************
-// Perform WS Client Login
+// Perform WS Client Login / Logout
 //***************************************************************************
 
 int Poold::performLogin(json_t* oObject)
 {
-   int type = getIntFromJson(oObject, "type", na);
    long client = getLongFromJson(oObject, "client");
+   const char* user = getStringFromJson(oObject, "user", "");
+   const char* token = getStringFromJson(oObject, "token", "");
    json_t* aRequests = json_object_get(oObject, "requests");
 
-   tell(0, "Login of client 0x%x; type is %d", (unsigned int)client, type);
+   tableUsers->clear();
+   tableUsers->setValue("USER", user);
 
-   wsClients[(void*)client] = false;
+   wsClients[(void*)client].user = user;
+   wsClients[(void*)client].dataUpdates = false;
+
+   if (tableUsers->find() && tableUsers->hasValue("TOKEN", token))
+   {
+      wsClients[(void*)client].type = ctWithLogin;
+      wsClients[(void*)client].rights = tableUsers->getIntValue("RIGHTS");
+   }
+   else
+   {
+      wsClients[(void*)client].type = ctActive;
+      wsClients[(void*)client].rights = 0;
+      tell(0, "Warning: Unknown user '%s' or token mismatch connected!", user);
+
+      json_t* oJson = json_object();
+      json_object_set_new(oJson, "user", json_string(user));
+      json_object_set_new(oJson, "state", json_string("reject"));
+      json_object_set_new(oJson, "value", json_string(""));
+      pushOutMessage(oJson, "token", client);
+   }
+
+   tell(0, "Login of client 0x%x; user '%s'; type is %d", (unsigned int)client, user, wsClients[(void*)client].type);
+   cWebSock::setClientType((lws*)client, wsClients[(void*)client].type);
+
+   //
 
    json_t* oJson = json_object();
    config2Json(oJson);
@@ -1160,6 +1245,8 @@ int Poold::performLogin(json_t* oObject)
    oJson = json_object();
    daemonState2Json(oJson);
    pushOutMessage(oJson, "daemonstate", client);
+
+   // perform requests
 
    size_t index;
    json_t* oRequest;
@@ -1175,14 +1262,16 @@ int Poold::performLogin(json_t* oObject)
 
       if (strcmp(name, "data") == 0)
       {
-         wsClients[(void*)client] = true;
+         wsClients[(void*)client].dataUpdates = true;
          update(true, client);     // push the data ('init')
       }
-      else if (strcmp(name, "syslog") == 0)
+      else if (wsClients[(void*)client].rights & urAdmin && strcmp(name, "syslog") == 0)
          performSyslog(client);
-      else if (strcmp(name, "configdetails") == 0)
+      else if (wsClients[(void*)client].rights & urSettings && strcmp(name, "configdetails") == 0)
          performConfigDetails(client);
-      else if (strcmp(name, "iosettings") == 0)
+      else if (wsClients[(void*)client].rights & urAdmin && strcmp(name, "userdetails") == 0)
+         performUserDetails(client);
+      else if (wsClients[(void*)client].rights & urAdmin && strcmp(name, "iosettings") == 0)
          performIoSettings(client);
       else if (strcmp(name, "chartdata") == 0)
          performChartData(oRequest, client);
@@ -1205,34 +1294,44 @@ int Poold::performLogout(json_t* oObject)
 
 int Poold::performTokenRequest(json_t* oObject, long client)
 {
-   char* webUser {nullptr};
-   char* webPass {nullptr};
-   md5Buf defaultPwd;
-
+   json_t* oJson = json_object();
    const char* user = getStringFromJson(oObject, "user", "");
    const char* passwd  = getStringFromJson(oObject, "password", "");
 
    tell(0, "Token request of client 0x%x for user '%s'", (unsigned int)client, user);
 
-   createMd5("pool", defaultPwd);
-   getConfigItem("user", webUser, "pool");
-   getConfigItem("passwd", webPass, defaultPwd);
+   tableUsers->clear();
+   tableUsers->setValue("USER", user);
 
-   json_t* oJson = json_object();
-
-   if (strcmp(webUser, user) == 0 && strcmp(passwd, webPass) == 0)
+   if (tableUsers->find())
    {
-      tell(0, "Token request for user '%s' succeeded", user);
-      json_object_set_new(oJson, "value", json_string(wsLoginToken));
-      pushOutMessage(oJson, "token", client);
+      if (tableUsers->hasValue("PASSWD", passwd))
+      {
+         tell(0, "Token request for user '%s' succeeded", user);
+         json_object_set_new(oJson, "user", json_string(user));
+         json_object_set_new(oJson, "state", json_string("confirm"));
+         json_object_set_new(oJson, "value", json_string(tableUsers->getStrValue("TOKEN")));
+         pushOutMessage(oJson, "token", client);
+      }
+      else
+      {
+         tell(0, "Token request for user '%s' failed, wrong password", user);
+         json_object_set_new(oJson, "user", json_string(user));
+         json_object_set_new(oJson, "state", json_string("reject"));
+         json_object_set_new(oJson, "value", json_string(""));
+         pushOutMessage(oJson, "token", client);
+      }
    }
    else
    {
-      tell(0, "Token request for user '%s' failed, wrong user/password", user);
+      tell(0, "Token request for user '%s' failed, unknown user", user);
+      json_object_set_new(oJson, "user", json_string(user));
+      json_object_set_new(oJson, "state", json_string("reject"));
+      json_object_set_new(oJson, "value", json_string(""));
+      pushOutMessage(oJson, "token", client);
    }
 
-   free(webPass);
-   free(webUser);
+   tableUsers->reset();
 
    return done;
 }
@@ -1286,6 +1385,22 @@ int Poold::performConfigDetails(long client)
    json_t* oJson = json_array();
    configDetails2Json(oJson);
    pushOutMessage(oJson, "configdetails", client);
+
+   return done;
+}
+
+//***************************************************************************
+// Perform WS User Data Request
+//***************************************************************************
+
+int Poold::performUserDetails(long client)
+{
+   if (client <= 0)
+      return done;
+
+   json_t* oJson = json_array();
+   userDetails2Json(oJson);
+   pushOutMessage(oJson, "userdetails", client);
 
    return done;
 }
@@ -1404,6 +1519,130 @@ int Poold::performChartData(json_t* oObject, long client)
 }
 
 //***************************************************************************
+// Store User Configuration
+//***************************************************************************
+
+int Poold::performUserConfig(json_t* oObject, long client)
+{
+   if (client <= 0)
+      return done;
+
+   int rights = getIntFromJson(oObject, "rights", na);
+   const char* user = getStringFromJson(oObject, "user");
+   const char* passwd = getStringFromJson(oObject, "passwd");
+   const char* action = getStringFromJson(oObject, "action");
+
+   tableUsers->clear();
+   tableUsers->setValue("USER", user);
+   int exists = tableUsers->find();
+
+   if (strcmp(action, "add") == 0)
+   {
+      if (exists)
+         tell(0, "User alredy exists, ignoring 'add' request");
+      else
+      {
+         char* token {nullptr};
+         asprintf(&token, "%s_%s_%s", getUniqueId(), l2pTime(time(0)).c_str(), user);
+         tell(0, "Add user '%s' with token [%s]", user, token);
+         tableUsers->setValue("PASSWD", passwd);
+         tableUsers->setValue("TOKEN", token);
+         tableUsers->setValue("RIGHTS", urView);
+         tableUsers->store();
+         free(token);
+      }
+   }
+   else if (strcmp(action, "store") == 0)
+   {
+      if (!exists)
+         tell(0, "User not exists, ignoring 'store' request");
+      else
+      {
+         tell(0, "Store settings for user '%s'", user);
+         tableUsers->setValue("RIGHTS", rights);
+         tableUsers->store();
+      }
+   }
+   else if (strcmp(action, "del") == 0)
+   {
+      if (!exists)
+         tell(0, "User not exists, ignoring 'del' request");
+      else
+      {
+         tell(0, "Delete user '%s'", user);
+         tableUsers->deleteWhere(" user = '%s'", user);
+      }
+   }
+   else if (strcmp(action, "resetpwd") == 0)
+   {
+      if (!exists)
+         tell(0, "User not exists, ignoring 'resetpwd' request");
+      else
+      {
+         tell(0, "Reset password of user '%s'", user);
+         tableUsers->setValue("PASSWD", passwd);
+         tableUsers->store();
+      }
+   }
+   else if (strcmp(action, "resettoken") == 0)
+   {
+      if (!exists)
+         tell(0, "User not exists, ignoring 'resettoken' request");
+      else
+      {
+         char* token {nullptr};
+         asprintf(&token, "%s_%s_%s", getUniqueId(), l2pTime(time(0)).c_str(), user);
+         tell(0, "Reset token of user '%s' to '%s'", user, token);
+         tableUsers->setValue("TOKEN", token);
+         tableUsers->store();
+         free(token);
+      }
+   }
+
+   tableUsers->reset();
+
+   json_t* oJson = json_array();
+   userDetails2Json(oJson);
+   pushOutMessage(oJson, "userdetails", client);
+
+   return done;
+}
+
+//***************************************************************************
+// Perform password Change
+//***************************************************************************
+
+int Poold::performPasswChange(json_t* oObject, long client)
+{
+   if (client <= 0)
+      return done;
+
+   const char* user = getStringFromJson(oObject, "user");
+   const char* passwd = getStringFromJson(oObject, "passwd");
+
+   if (strcmp(wsClients[(void*)client].user.c_str(), user) != 0)
+   {
+      tell(0, "Warning: User '%s' tried to change password of '%s'",
+           wsClients[(void*)client].user.c_str(), user);
+      return done;
+   }
+
+   tableUsers->clear();
+   tableUsers->setValue("USER", user);
+
+   if (tableUsers->find())
+   {
+      tell(0, "User '%s' changed password", user);
+      tableUsers->setValue("PASSWD", passwd);
+      tableUsers->store();
+   }
+
+   tableUsers->reset();
+
+   return done;
+}
+
+//***************************************************************************
 // Store Configuration
 //***************************************************************************
 
@@ -1470,9 +1709,9 @@ int Poold::config2Json(json_t* obj)
 {
    for (int f = selectAllConfig->find(); f; f = selectAllConfig->fetch())
    {
-      ConfigItemDef def = configuration[tableConfig->getStrValue("NAME")];
+      auto it = configuration.find(tableConfig->getStrValue("NAME"));
 
-      if (def.internal)
+      if (it == configuration.end() || it->second.internal)
          continue;
 
       json_object_set_new(obj, tableConfig->getStrValue("NAME"),
@@ -1485,30 +1724,50 @@ int Poold::config2Json(json_t* obj)
 }
 
 //***************************************************************************
-// Config 2 Json
+// Config Details 2 Json
 //***************************************************************************
 
 int Poold::configDetails2Json(json_t* obj)
 {
    for (int f = selectAllConfig->find(); f; f = selectAllConfig->fetch())
    {
-      ConfigItemDef def = configuration[tableConfig->getStrValue("NAME")];
+      auto it = configuration.find(tableConfig->getStrValue("NAME"));
 
-      if (def.internal)
+      if (it == configuration.end() || it->second.internal)
          continue;
 
       json_t* oDetail = json_object();
       json_array_append_new(obj, oDetail);
 
       json_object_set_new(oDetail, "name", json_string(tableConfig->getStrValue("NAME")));
-      json_object_set_new(oDetail, "type", json_integer(def.type));
+      json_object_set_new(oDetail, "type", json_integer(it->second.type));
       json_object_set_new(oDetail, "value", json_string(tableConfig->getStrValue("VALUE")));
-      json_object_set_new(oDetail, "category", json_string(def.category));
-      json_object_set_new(oDetail, "title", json_string(def.title));
-      json_object_set_new(oDetail, "descrtiption", json_string(def.description));
+      json_object_set_new(oDetail, "category", json_string(it->second.category));
+      json_object_set_new(oDetail, "title", json_string(it->second.title));
+      json_object_set_new(oDetail, "descrtiption", json_string(it->second.description));
    }
 
    selectAllConfig->freeResult();
+
+   return done;
+}
+
+//***************************************************************************
+// User Details 2 Json
+//***************************************************************************
+
+int Poold::userDetails2Json(json_t* obj)
+{
+   for (int f = selectAllUser->find(); f; f = selectAllUser->fetch())
+   {
+      json_t* oDetail = json_object();
+      json_array_append_new(obj, oDetail);
+
+      json_object_set_new(oDetail, "user", json_string(tableUsers->getStrValue("USER")));
+      json_object_set_new(oDetail, "rights", json_integer(tableUsers->getIntValue("RIGHTS")));
+   }
+
+   selectAllUser->freeResult();
 
    return done;
 }

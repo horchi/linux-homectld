@@ -8,11 +8,17 @@ var isActive = null;
 var socket = null;
 var config = {};
 var daemonState = {};
-var lastUpdate = "";
+var lastUpdate = "";   // #TODO - set to data age
 var documentName = "";
 var theChart = null;
 var theChartRange = 2;
 var theChartStart = new Date(); theChartStart.setDate(theChartStart.getDate()-theChartRange);
+
+var rights = [ "View",
+               "Control",
+               "Full Control",
+               "Settings",
+               "Admin" ];    // sync arry with UserRights of poold.h
 
 window.documentReady = function(doc)
 {
@@ -44,13 +50,14 @@ window.documentReady = function(doc)
 function onSocketConnect(protocol)
 {
    var token = localStorage.getItem('token');
+   var user = localStorage.getItem('user');
 
-   if (!token || token == null)
-      token = "";
+   if (!token || token == null)  token = "";
+   if (!user || user == null)    user = "";
 
    prepareMenu(token != "", protocol == "osd2vdr");
 
-   // request some data after login
+   // request some data at login
 
    var jsonArray = [];
    var nRequests = 0;
@@ -60,6 +67,8 @@ function onSocketConnect(protocol)
       jsonRequest["name"] = "syslog";
    else if (documentName == "maincfg")
       jsonRequest["name"] = "configdetails";
+   else if (documentName == "usercfg")
+      jsonRequest["name"] = "userdetails";
    else if (documentName == "iosetup")
       jsonRequest["name"] = "iosettings";
    else if (documentName == "chart")
@@ -71,18 +80,22 @@ function onSocketConnect(protocol)
 
    jsonArray[0] = jsonRequest;
 
-   if (protocol == "osd2vdr")
-      socket.send({ "event" : "login", "object" :
-                    { "type" : 2,         // ctFB
-                      "token" : token,
-                      "requests" : jsonArray }
-                  });
-   else
-      socket.send({ "event" : "login", "object" :
-                    { "type" : "active",
-                      "token" : token,
-                      "requests" : jsonArray }
-                  });
+   if (documentName != "login") {
+      if (protocol == "osd2vdr")
+         socket.send({ "event" : "login", "object" :
+                       { "type" : 2,         // ctFB
+                         "user" : user,
+                         "token" : token,
+                         "requests" : jsonArray }
+                     });
+      else
+         socket.send({ "event" : "login", "object" :
+                       { "type" : "active",
+                         "user" : user,
+                         "token" : token,
+                         "requests" : jsonArray }
+                     });
+   }
 }
 
 function connectWebSocket(useUrl, protocol)
@@ -144,6 +157,9 @@ function dispatchMessage(message)
    else if (event == "configdetails" && rootConfig) {
       initConfig(jMessage.object, rootConfig)
    }
+   else if (event == "userdetails" && rootConfig) {
+      initUserConfig(jMessage.object, rootConfig)
+   }
    else if (event == "daemonstate") {
       daemonState = jMessage.object;
    }
@@ -152,7 +168,12 @@ function dispatchMessage(message)
    }
    else if (event == "token") {
       localStorage.setItem('token', jMessage.object.value);
-      window.location.replace("index.html");
+      localStorage.setItem('user', jMessage.object.user);
+      if (jMessage.object.state == "confirm") {
+         window.location.replace("index.html");
+      } else if (documentName == "login") {
+         document.getElementById("confirm").innerHTML = "<div class=\"infoError\"><b><center>Login fehlgeschlagen</center></b></div>";
+      }
    }
    else if (event == "valuefacts" && rootIoSetup) {
       initIoSetup(jMessage.object, rootIoSetup);
@@ -174,28 +195,38 @@ function prepareMenu(haveToken, vdr)
    html += "<a href=\"maincfg.html\"><button class=\"rounded-border button1\">Setup</button></a>";
    html += "<button id=\"vdrMenu\" class=\"rounded-border button1\" onclick=\"location.href='vdr.html';\" style=\"visibility:hidden\">VDR</button>";
 
+   html += "<div class=\"menuLogin\">";
    if (haveToken)
-      html += "<a><button class=\"rounded-border button1\" onclick=\"doLogout()\">Logout</button></a>";
+      html += "<a href=\"user.html\"><button class=\"rounded-border button1\">[" + localStorage.getItem('user') + "]</button></a>";
    else
       html += "<a href=\"login.html\"><button class=\"rounded-border button1\">Login</button></a>";
+   html += "</div>";
 
    if ($("#navMenu").data("setup") != undefined) {
       html += "<div>";
       html += "  <a href=\"maincfg.html\"><button class=\"rounded-border button2\">Allg. Konfiguration</button></a>";
       html += "  <a href=\"iosetup.html\"><button class=\"rounded-border button2\">IO Setup</button></a>";
+      html += "  <a href=\"usercfg.html\"><button class=\"rounded-border button2\">User</button></a>";
       html += "  <a href=\"syslog.html\"><button class=\"rounded-border button2\">Syslog</button></a>";
       html += "</div>";
    }
 
    if ($("#navMenu").data("iosetup") != undefined) {
-      html += "<div id=\"confirm\">";
+      html += "<div id=\"confirm\" class=\"confirmDiv\">";
       html += "  <button class=\"rounded-border button2\" onclick=\"storeIoSetup()\">Speichern</button>";
       html += "</div>";
    }
    else if ($("#navMenu").data("maincfg") != undefined) {
-      html += "<div id=\"confirm\">";
+      html += "<div id=\"confirm\" class=\"confirmDiv\">";
       html += "  <button class=\"rounded-border button2\" onclick=\"storeConfig()\">Speichern</button>";
       html += "</div>";
+   }
+   else if ($("#navMenu").data("maincfg") != undefined) {
+      html += "<div id=\"confirm\" class=\"confirmDiv\"/>";
+   }
+
+   else if ($("#navMenu").data("login") != undefined) {
+      html += "<div id=\"confirm\" class=\"confirmDiv\"/>";
    }
 
    $("#navMenu").html(html);
@@ -386,6 +417,41 @@ function initIoSetup(valueFacts, root)
    }
 }
 
+function initUserConfig(users, root)
+{
+   var table = document.getElementById("userTable");
+   table.innerHTML = "";
+
+   for (var i = 0; i < users.length; i++)
+   {
+      var item = users[i];
+
+      var html = "<td id=\"row_" + item.user + "\" >" + item.user + "</td>";
+      html += "<td>";
+      for (var b = 0; b < rights.length; b++) {
+         html += "<input id=\"bit_" + item.user + b + "\" class=\"rounded-border input\" style=\"width:auto;\" type=\"checkbox\" " + (item.rights & (2 ** b) ? "checked" : "") + "/>"
+         html += "<span style=\"padding-right:20px; padding-left:5px;\">" + rights[b] + "</span>";
+      }
+      html += "</td>";
+      html += "<td>";
+      html += "<button class=\"rounded-border\" style=\"margin-right:10px;\" onclick=\"userConfig('" + item.user + "', 'store')\">Speichern</button>";
+      html += "<button class=\"rounded-border\" style=\"margin-right:10px;\" onclick=\"userConfig('" + item.user + "', 'resettoken')\">Token zurücksetzen</button>";
+      html += "<button class=\"rounded-border\" style=\"margin-right:10px;\" onclick=\"userConfig('" + item.user + "', 'resetpwd')\">Passwort zurücksetzen</button>";
+      html += "<button class=\"rounded-border\" style=\"margin-right:10px;\" onclick=\"userConfig('" + item.user + "', 'delete')\">Löschen</button>";
+      html += "</td>";
+
+      var elem = document.createElement("tr");
+      elem.innerHTML = html;
+      table.appendChild(elem);
+   }
+
+   html =  "  <span>User: </span><input id=\"input_user\" class=\"rounded-border input\"/>";
+   html += "  <span>Passwort: </span><input id=\"input_passwd\" class=\"rounded-border input\"/>";
+   html += "  <button class=\"rounded-border button2\" onclick=\"addUser()\">+</button>";
+
+   document.getElementById("addUserDiv").innerHTML = html;
+}
+
 function initList(widgets, root)
 {
    if (!widgets)
@@ -433,21 +499,22 @@ function initList(widgets, root)
       var widget = widgets[i];
       var id = "id=\"widget" + widget.type + widget.address + "\"";
 
-      html += "<span><a class=\"tableButton\" >" + widget.title + "</a></span>";
-
-      if (widget.widgettype == 1 || widget.widgettype == 3)
-      {
-         html += "<span " + id + ">" + widget.value.toFixed(2) + "&nbsp;" + widget.unit;
+      if (widget.widgettype == 1 || widget.widgettype == 3) {      // 1 Gauge or 3 Value
+         html += "<span class=\"listFirstCol\"" + id + ">" + widget.value.toFixed(2) + "&nbsp;" + widget.unit;
          html += "&nbsp; <p style=\"display:inline;font-size:12px;font-style:italic;\">(" + widget.peak.toFixed(2) + ")</p>";
          html += "</span>";
       }
-      else if (widget.widgettype == 0)
-         html += "<span " + id + ">" + (widget.value ? "An" : "Aus") + "</span>";
-      else
-         html += "<span " + id + ">" + widget.value.toFixed(0) + "</span>";
+      else if (widget.widgettype == 0) {   // 0 Symbol
+         html += "   <div class=\"listFirstCol\" onclick=\"toggleIo(" + widget.address + ",'" + widget.type + "')\"><img " + id + "/></div>\n";
+      }
+      else {   // 2 Text
+         html += "<span " + id + "></span>";
+      }
+
+      html += "<span class=\"listSecondCol listText\" >" + widget.title + "</span>";
 
       var elem = document.createElement("div");
-      elem.className = "mainrow";
+      elem.className = "listRow";
       elem.innerHTML = html;
       root.appendChild(elem);
    }
@@ -462,13 +529,12 @@ function updateList(sensors)
       var sensor = sensors[i];
       var id = "#widget" + sensor.type + sensor.address;
 
-      if (sensor.widgettype == 1 || sensor.widgettype == 3)
-      {
+      if (sensor.widgettype == 1 || sensor.widgettype == 3) {
          $(id).html(sensor.value.toFixed(2) + "&nbsp;" + sensor.unit +
                     "&nbsp; <p style=\"display:inline;font-size:12px;font-style:italic;\">(" + sensor.peak.toFixed(2) + ")</p>");
       }
       else if (sensor.widgettype == 0)
-         $(id).html(sensor.value ? "An" : "Aus");
+         $(id).attr("src", sensor.image);  // $(id).html(sensor.value ? "An" : "Aus");
       else
          $(id).html(sensor.value.toFixed(0));
 
@@ -478,8 +544,7 @@ function updateList(sensors)
 
 function initDashboard(widgets, root)
 {
-   if (!widgets)
-   {
+   if (!widgets) {
       console.log("Faltal: Missing payload!");
       return;
    }
@@ -758,8 +823,8 @@ window.storeIoSetup = function()
 
       var type = $(elements[i]).data("type");
       var address = $(elements[i]).data("address");
-      console.log("  loop for: " + type + ":" + address);
-      console.log("   - usrtitle: " + $("#usrtitle_" + type + address).val());
+      // console.log("  loop for: " + type + ":" + address);
+      // console.log("   - usrtitle: " + $("#usrtitle_" + type + address).val());
 
       jsonObj["type"] = type;
       jsonObj["address"] = address;
@@ -771,6 +836,8 @@ window.storeIoSetup = function()
    }
 
    socket.send({ "event" : "storeiosetup", "object" : jsonArray });
+
+   // show confirm
 
    document.getElementById("confirm").innerHTML = "<button class=\"rounded-border\" onclick=\"storeIoSetup()\">Speichern</button>";
    var elem = document.createElement("div");
@@ -814,10 +881,84 @@ window.storeConfig = function()
 
    socket.send({ "event" : "storeconfig", "object" : jsonObj });
 
+   // show confirm
+
    document.getElementById("confirm").innerHTML = "<button class=\"rounded-border\" onclick=\"storeConfig()\">Speichern</button>";
    var elem = document.createElement("div");
    elem.innerHTML = "<br/><div class=\"info\"><b><center>Einstellungen gespeichert</center></b></div>";
    document.getElementById("confirm").appendChild(elem);
+}
+
+window.userConfig = function(user, action)
+{
+   console.log("userConfig(" + action + ", " + user + ")");
+
+   if (action == "delete") {
+      if (confirm("User '" + user + "' löschen?"))
+         socket.send({ "event": "userconfig", "object":
+                       { "user": user,
+                         "action": "del" }});
+   }
+   else if (action == "store") {
+      var rightsMask = 0;
+      for (var b = 0; b < rights.length; b++) {
+         if ($("#bit_" + user + b).is(":checked"))
+            rightsMask += 2 ** b;
+      }
+
+      socket.send({ "event": "userconfig", "object":
+                    { "user": user,
+                      "action": "store",
+                      "rights": rightsMask }});
+   }
+   else if (action == "resetpwd") {
+      var passwd = prompt("neues Passwort", "");
+      if (passwd && passwd != "")
+         console.log("Reset password to: "+ passwd);
+         socket.send({ "event": "userconfig", "object":
+                       { "user": user,
+                         "passwd": $.md5(passwd),
+                         "action": "resetpwd" }});
+   }
+   else if (action == "resettoken") {
+      socket.send({ "event": "userconfig", "object":
+                    { "user": user,
+                      "action": "resettoken" }});
+   }
+}
+
+window.chpwd  = function()
+{
+   var user = localStorage.getItem('user');
+
+   if (user && user != "") {
+      console.log("Change password of " + user);
+
+      if ($("#input_passwd").val() != "" && $("#input_passwd").val() == $("#input_passwd2").val()) {
+         socket.send({ "event": "changepasswd", "object":
+                       { "user": user,
+                         "passwd": $.md5($("#input_passwd").val()),
+                         "action": "resetpwd" }});
+      }
+      else
+         console.log("Passwords not match or empty");
+   }
+   else
+      console.log("Missing login!");
+}
+
+window.addUser = function()
+{
+   console.log("Add user: " + $("#input_user").val());
+
+   socket.send({ "event": "userconfig", "object":
+                 { "user": $("#input_user").val(),
+                   "passwd": $.md5($("#input_passwd").val()),
+                   "action": "add" }
+               });
+
+   $("#input_user").val("");
+   $("#input_passwd").val("");
 }
 
 window.doLogin = function()
@@ -833,7 +974,9 @@ window.doLogin = function()
 window.doLogout = function()
 {
    localStorage.removeItem('token');
-   window.location.reload(false);
+   localStorage.removeItem('user');
+   theUser = "";
+   window.location.replace("login.html");
 }
 
 // ---------------------------------

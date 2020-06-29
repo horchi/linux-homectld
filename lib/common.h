@@ -57,6 +57,7 @@ enum Misc
    TB      = 1,
 
    sizeMd5 = 2 * MD5_DIGEST_LENGTH,
+   sizeUuid = 36,
 
    tmeSecondsPerMinute = 60,
    tmeSecondsPerHour = 60 * tmeSecondsPerMinute,
@@ -257,6 +258,10 @@ class cMyMutexLock
 //***************************************************************************
 
 std::string executeCommand(const char* cmd);
+
+#ifdef USEUUID
+  const char* getUniqueId();
+#endif
 
 double usNow();
 int l2hhmm(time_t t);

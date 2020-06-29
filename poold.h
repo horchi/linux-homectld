@@ -53,7 +53,8 @@ class cWebService
          evStoreIoSetup,
          evChartData,
          evLogMessage,
-
+         evUserConfig,
+         evChangePasswd,
          evCount
       };
 
@@ -61,6 +62,15 @@ class cWebService
       {
          ctWithLogin = 0,
          ctActive
+      };
+
+      enum UserRights
+      {
+         urView        = 0x01,
+         urControl     = 0x02,
+         urFullControl = 0x04,
+         urSettings    = 0x08,
+         urAdmin       = 0x10
       };
 
       static const char* toName(Event event);
@@ -129,7 +139,6 @@ class cWebSock : public cWebService
       cWebSock(const char* aHttpPath);
       virtual ~cWebSock();
 
-      void setLoginToken(const char* aLoginToken) {free(loginToken); loginToken = strdup(aLoginToken);}
       int init(int aPort, int aTimeout);
       int exit();
 
@@ -149,6 +158,7 @@ class cWebSock : public cWebService
       static int getClientCount();
       static void pushMessage(const char* p, lws* wsi = 0);
       static void writeLog(int level, const char* line);
+      static void setClientType(lws* wsi, ClientType type);
 
    private:
 
@@ -169,7 +179,6 @@ class cWebSock : public cWebService
 
       static lws_context* context;
 
-      static char* loginToken;
       static char* httpPath;
       static char* epgImagePath;
       static int timeout;
@@ -315,7 +324,7 @@ class Poold : public cWebService
       int performJobs();                                   // called every loop (1 second)
       int performWebSocketPing();
       int dispatchClientRequest();
-
+      bool checkRights(long client, Event event);
       std::string callScript(int addr, const char* type, const char* command);
       int publishScriptResult(uint addr, const char* type, std::string result);
       bool isInTimeRange(const std::vector<Range>* ranges, time_t t);
@@ -358,13 +367,17 @@ class Poold : public cWebService
       int performTokenRequest(json_t* oObject, long client);
       int performSyslog(long client);
       int performConfigDetails(long client);
+      int performUserDetails(long client);
       int performIoSettings(long client);
       int performChartData(json_t* oObject, long client);
+      int performUserConfig(json_t* oObject, long client);
+      int performPasswChange(json_t* oObject, long client);
       int storeConfig(json_t* obj, long client);
       int storeIoSetup(json_t* array, long client);
 
       int config2Json(json_t* obj);
       int configDetails2Json(json_t* obj);
+      int userDetails2Json(json_t* obj);
       int valueFacts2Json(json_t* obj);
       int daemonState2Json(json_t* obj);
       int sensor2Json(json_t* obj, cDbTable* table);
@@ -391,10 +404,12 @@ class Poold : public cWebService
       cDbTable* tableValueFacts {nullptr};
       cDbTable* tableConfig {nullptr};
       cDbTable* tableScripts {nullptr};
+      cDbTable* tableUsers {nullptr};
 
       cDbStatement* selectActiveValueFacts {nullptr};
       cDbStatement* selectAllValueFacts {nullptr};
       cDbStatement* selectAllConfig {nullptr};
+      cDbStatement* selectAllUser {nullptr};
       cDbStatement* selectMaxTime {nullptr};
       cDbStatement* selectSamplesRange {nullptr};
       cDbStatement* selectScriptByPath {nullptr};
@@ -416,7 +431,16 @@ class Poold : public cWebService
       cWebSock* webSock {nullptr};
       time_t nextWebSocketPing {0};
       int webSocketPingTime {60};
-      std::map<void*,bool> wsClients;   // true if interested on data update
+
+      struct WsClient    // Web Socket Client
+      {
+         std::string user;
+         uint rights;                  // rights mask
+         bool dataUpdates {false};     // true if interested on data update
+         ClientType type {ctActive};
+      };
+
+      std::map<void*,WsClient> wsClients;
 
       // Home Assistant stuff
 
@@ -431,7 +455,6 @@ class Poold : public cWebService
       int aggregateInterval {15};         // aggregate interval in minutes
       int aggregateHistory {0};           // history in days
       char* hassMqttUrl {nullptr};
-      char* wsLoginToken {nullptr};
       std::map<std::string,std::string> hassCmdTopicMap; // 'topic' to 'name' map
 
       int mail {no};

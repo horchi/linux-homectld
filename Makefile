@@ -11,7 +11,7 @@ TARGET      = poold
 W1TARGET    = w1mqtt
 HISTFILE    = "HISTORY.h"
 
-LIBS += $(shell mysql_config --libs_r) -lrt -lcrypto -lcurl -lpthread
+LIBS += $(shell mysql_config --libs_r) -lrt -lcrypto -lcurl -lpthread -luuid
 LIBS += -lwiringPi
 
 DEFINES += -D_GNU_SOURCE -DTARGET='"$(TARGET)"'

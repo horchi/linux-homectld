@@ -1,9 +1,10 @@
 
 .menu
 {
-    margin-left: 10px;
-    margin-right: 10px;
-    white-space: nowrap;
+    display: grid;
+    margin-left: 5px;
+    margin-right: 5px;
+    /*white-space: nowrap;*/
     background-color: var(--menu);
 }
 

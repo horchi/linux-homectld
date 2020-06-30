@@ -49,8 +49,8 @@ window.documentReady = function(doc)
 
 function onSocketConnect(protocol)
 {
-   var token = localStorage.getItem('token');
-   var user = localStorage.getItem('user');
+   var token = localStorage.getItem('pooldToken');
+   var user = localStorage.getItem('pooldUser');
 
    if (!token || token == null)  token = "";
    if (!user || user == null)    user = "";
@@ -167,11 +167,13 @@ function dispatchMessage(message)
       showSyslog(jMessage.object);
    }
    else if (event == "token") {
-      localStorage.setItem('token', jMessage.object.value);
-      localStorage.setItem('user', jMessage.object.user);
+      localStorage.setItem('pooldToken', jMessage.object.value);
+      localStorage.setItem('pooldUser', jMessage.object.user);
+      localStorage.setItem('pooldRights', jMessage.object.rights);
+
       if (jMessage.object.state == "confirm") {
          window.location.replace("index.html");
-      } else if (documentName == "login") {
+      } else { // if (documentName == "login") {
          document.getElementById("confirm").innerHTML = "<div class=\"infoError\"><b><center>Login fehlgeschlagen</center></b></div>";
       }
    }
@@ -192,24 +194,29 @@ function prepareMenu(haveToken, vdr)
    html += "<a href=\"index.html\"><button class=\"rounded-border button1\">Dashboard</button></a>";
    html += "<a href=\"list.html\"><button class=\"rounded-border button1\">Liste</button></a>";
    html += "<a href=\"chart.html\"><button class=\"rounded-border button1\">Charts</button></a>";
-   html += "<a href=\"maincfg.html\"><button class=\"rounded-border button1\">Setup</button></a>";
-   html += "<button id=\"vdrMenu\" class=\"rounded-border button1\" onclick=\"location.href='vdr.html';\" style=\"visibility:hidden\">VDR</button>";
+   html += "<button id=\"vdrMenu\" class=\"rounded-border button1\" onclick=\"location.href='vdr.html';\" style=\"visibility:hidden;width:0px\">VDR</button>";
 
    html += "<div class=\"menuLogin\">";
    if (haveToken)
-      html += "<a href=\"user.html\"><button class=\"rounded-border button1\">[" + localStorage.getItem('user') + "]</button></a>";
+      html += "<a href=\"user.html\"><button class=\"rounded-border button1\">[" + localStorage.getItem('pooldUser') + "]</button></a>";
    else
       html += "<a href=\"login.html\"><button class=\"rounded-border button1\">Login</button></a>";
    html += "</div>";
 
-   if ($("#navMenu").data("setup") != undefined) {
-      html += "<div>";
-      html += "  <a href=\"maincfg.html\"><button class=\"rounded-border button2\">Allg. Konfiguration</button></a>";
-      html += "  <a href=\"iosetup.html\"><button class=\"rounded-border button2\">IO Setup</button></a>";
-      html += "  <a href=\"usercfg.html\"><button class=\"rounded-border button2\">User</button></a>";
-      html += "  <a href=\"syslog.html\"><button class=\"rounded-border button2\">Syslog</button></a>";
-      html += "</div>";
+   if (localStorage.getItem('pooldRights') & 0x08 || localStorage.getItem('pooldRights') & 0x10) {
+      html += "<a href=\"maincfg.html\"><button class=\"rounded-border button1\">Setup</button></a>";
+
+      if ($("#navMenu").data("setup") != undefined) {
+         html += "<div>";
+         html += "  <a href=\"maincfg.html\"><button class=\"rounded-border button2\">Allg. Konfiguration</button></a>";
+         html += "  <a href=\"iosetup.html\"><button class=\"rounded-border button2\">IO Setup</button></a>";
+         html += "  <a href=\"usercfg.html\"><button class=\"rounded-border button2\">User</button></a>";
+         html += "  <a href=\"syslog.html\"><button class=\"rounded-border button2\">Syslog</button></a>";
+         html += "</div>";
+      }
    }
+
+   // confirm boy - below menu
 
    if ($("#navMenu").data("iosetup") != undefined) {
       html += "<div id=\"confirm\" class=\"confirmDiv\">";
@@ -222,17 +229,16 @@ function prepareMenu(haveToken, vdr)
       html += "</div>";
    }
    else if ($("#navMenu").data("maincfg") != undefined) {
-      html += "<div id=\"confirm\" class=\"confirmDiv\"/>";
+         html += "<div id=\"confirm\" class=\"confirmDiv\"/>";
    }
-
-   else if ($("#navMenu").data("login") != undefined) {
+   else if ($("#navMenu").data("login") != undefined)
       html += "<div id=\"confirm\" class=\"confirmDiv\"/>";
-   }
 
    $("#navMenu").html(html);
 
    if (vdr && haveToken) {
       document.getElementById("vdrMenu").style.visibility = "visible";
+      document.getElementById("vdrMenu").style.width = "auto";
       document.getElementById("vdrMenu").disabled = false;
    }
    else if (haveToken) {
@@ -247,6 +253,7 @@ function prepareMenu(haveToken, vdr)
          onopen: function (){
             console.log("osd2web socket opened");
             document.getElementById("vdrMenu").style.visibility = "visible";
+            document.getElementById("vdrMenu").style.width = "auto";
             document.getElementById("vdrMenu").disabled = false;
             s.ws.close();
          }, onclose: function (){
@@ -257,6 +264,7 @@ function prepareMenu(haveToken, vdr)
    }
    else {
       document.getElementById("vdrMenu").style.visibility = "hidden";
+      document.getElementById("vdrMenu").style.width = "0px";
       document.getElementById("vdrMenu").disabled = true;
    }
 
@@ -435,8 +443,8 @@ function initUserConfig(users, root)
       html += "</td>";
       html += "<td>";
       html += "<button class=\"rounded-border\" style=\"margin-right:10px;\" onclick=\"userConfig('" + item.user + "', 'store')\">Speichern</button>";
-      html += "<button class=\"rounded-border\" style=\"margin-right:10px;\" onclick=\"userConfig('" + item.user + "', 'resettoken')\">Token zurücksetzen</button>";
-      html += "<button class=\"rounded-border\" style=\"margin-right:10px;\" onclick=\"userConfig('" + item.user + "', 'resetpwd')\">Passwort zurücksetzen</button>";
+      html += "<button class=\"rounded-border\" style=\"margin-right:10px;\" onclick=\"userConfig('" + item.user + "', 'resettoken')\">Reset Token</button>";
+      html += "<button class=\"rounded-border\" style=\"margin-right:10px;\" onclick=\"userConfig('" + item.user + "', 'resetpwd')\">Reset Passwort</button>";
       html += "<button class=\"rounded-border\" style=\"margin-right:10px;\" onclick=\"userConfig('" + item.user + "', 'delete')\">Löschen</button>";
       html += "</td>";
 
@@ -929,7 +937,7 @@ window.userConfig = function(user, action)
 
 window.chpwd  = function()
 {
-   var user = localStorage.getItem('user');
+   var user = localStorage.getItem('pooldUser');
 
    if (user && user != "") {
       console.log("Change password of " + user);
@@ -964,7 +972,6 @@ window.addUser = function()
 window.doLogin = function()
 {
    console.log("login: " + $("#user").val() + " : " + $.md5($("#password").val()));
-
    socket.send({ "event": "gettoken", "object":
                  { "user": $("#user").val(),
                    "password": $.md5($("#password").val()) }
@@ -973,9 +980,10 @@ window.doLogin = function()
 
 window.doLogout = function()
 {
-   localStorage.removeItem('token');
-   localStorage.removeItem('user');
-   theUser = "";
+   localStorage.removeItem('pooldToken');
+   localStorage.removeItem('pooldUser');
+   localStorage.removeItem('pooldRights');
+
    window.location.replace("login.html");
 }
 

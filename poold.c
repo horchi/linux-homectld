@@ -1309,6 +1309,7 @@ int Poold::performTokenRequest(json_t* oObject, long client)
       {
          tell(0, "Token request for user '%s' succeeded", user);
          json_object_set_new(oJson, "user", json_string(user));
+         json_object_set_new(oJson, "rights", json_integer(tableUsers->getIntValue("RIGHTS")));
          json_object_set_new(oJson, "state", json_string("confirm"));
          json_object_set_new(oJson, "value", json_string(tableUsers->getStrValue("TOKEN")));
          pushOutMessage(oJson, "token", client);
@@ -1317,6 +1318,7 @@ int Poold::performTokenRequest(json_t* oObject, long client)
       {
          tell(0, "Token request for user '%s' failed, wrong password", user);
          json_object_set_new(oJson, "user", json_string(user));
+         json_object_set_new(oJson, "rights", json_integer(0));
          json_object_set_new(oJson, "state", json_string("reject"));
          json_object_set_new(oJson, "value", json_string(""));
          pushOutMessage(oJson, "token", client);
@@ -1326,8 +1328,10 @@ int Poold::performTokenRequest(json_t* oObject, long client)
    {
       tell(0, "Token request for user '%s' failed, unknown user", user);
       json_object_set_new(oJson, "user", json_string(user));
+      json_object_set_new(oJson, "rights", json_integer(0));
       json_object_set_new(oJson, "state", json_string("reject"));
       json_object_set_new(oJson, "value", json_string(""));
+
       pushOutMessage(oJson, "token", client);
    }
 

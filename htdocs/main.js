@@ -183,6 +183,9 @@ function dispatchMessage(message)
    else if (event == "chartdata" && rootChart) {
       drawCharts(jMessage.object, rootChart);
    }
+   else if (event == "chartdata" && rootDashboard) {
+      drawChartWidget(jMessage.object, rootDashboard);
+   }
 
    // console.log("event: " + event + " dispatched");
 }
@@ -475,7 +478,7 @@ function initList(widgets, root)
 
    if (daemonState.state != null && daemonState.state == 0)
    {
-      html +=  "              <div id=\"aStateOk\"><span>Pool Control ONLINE</span></div><br/>\n";
+      html +=  "              <div id=\"aStateOk\"><span style=\"text-align: center;\">Pool Control ONLINE</span></div><br/>\n";
       html +=  "              <div><span>Läuft seit:</span><span>" + daemonState.runningsince + "</span>       </div>\n";
       html +=  "              <div><span>Version:</span> <span>" + daemonState.version + "</span></div>\n";
       html +=  "              <div><span>CPU-Last:</span><span>" + daemonState.average0 + " " + daemonState.average1 + " "  + daemonState.average2 + " " + "</span>           </div>\n";
@@ -495,8 +498,8 @@ function initList(widgets, root)
 
    root.innerHTML = "";
    var elem = document.createElement("div");
-   elem.className = "widget rounded-border";
-   elem.innerHTML = "<br/><center id=\"refreshTime\">Messwerte von " + lastUpdate + "</center>";
+   elem.className = "chartTitle rounded-border";
+   elem.innerHTML = "<center id=\"refreshTime\">Messwerte von " + lastUpdate + "</center>";
    root.appendChild(elem);
 
    // build page content
@@ -609,24 +612,33 @@ function initDashboard(widgets, root)
 
          break;
       case 1:           // Gauge
-         var html = "";
-
-         html += "  <div class=\"widget-title\">" + widget.title + "</div>";
-         html += "  <svg class=\"widget-svg\" viewBox=\"0 0 1000 600\" preserveAspectRatio=\"xMidYMin slice\">\n";
-         html += "    <path id=\"pb" + widget.type + widget.address + "\"/>\n";
-         html += "    <path class=\"data-arc\" id=\"pv" + widget.type + widget.address + "\"/>\n";
-         html += "    <path class=\"data-peak\" id=\"pp" + widget.type + widget.address + "\"/>\n";
-         html += "    <text id=\"value" + widget.type + widget.address + "\" class=\"gauge-value\" text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"500\" y=\"450\" font-size=\"140\" font-weight=\"bold\"></text>\n";
-         html += "    <text id=\"sMin" + widget.type + widget.address + "\" class=\"scale-text\" text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"50\" y=\"550\"></text>\n";
-         html += "    <text id=\"sMax" + widget.type + widget.address + "\" class=\"scale-text\" text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"950\" y=\"550\"></text>\n";
-         html += "  </svg>\n";
-
+         var html = "  <div class=\"widget-title\">" + widget.title + "</div>";
          var elem = document.createElement("div");
-         elem.className = "widgetGauge rounded-border participation";
-         elem.setAttribute("id", "widget" + widget.type + widget.address);
-         elem.setAttribute("href", "#");
-         elem.setAttribute("onclick", "window.open('chart.html?sensors=" + widget.type + ":0x" + widget.address.toString(16) +
-                           "' , '_blank', 'scrollbars=yes,width=1610,height=650,resizable=yes,left=120,top=120')");
+
+         if (widget.address != 90680919) {
+            html += "  <svg class=\"widget-svg\" viewBox=\"0 0 1000 600\" preserveAspectRatio=\"xMidYMin slice\">\n";
+            html += "    <path id=\"pb" + widget.type + widget.address + "\"/>\n";
+            html += "    <path class=\"data-arc\" id=\"pv" + widget.type + widget.address + "\"/>\n";
+            html += "    <path class=\"data-peak\" id=\"pp" + widget.type + widget.address + "\"/>\n";
+            html += "    <text id=\"value" + widget.type + widget.address + "\" class=\"gauge-value\" text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"500\" y=\"450\" font-size=\"140\" font-weight=\"bold\"></text>\n";
+            html += "    <text id=\"sMin" + widget.type + widget.address + "\" class=\"scale-text\" text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"50\" y=\"550\"></text>\n";
+            html += "    <text id=\"sMax" + widget.type + widget.address + "\" class=\"scale-text\" text-anchor=\"middle\" alignment-baseline=\"middle\" x=\"950\" y=\"550\"></text>\n";
+            html += "  </svg>\n";
+
+            elem.className = "widgetGauge rounded-border participation";
+            elem.setAttribute("id", "widget" + widget.type + widget.address);
+            elem.setAttribute("href", "#");
+            elem.setAttribute("onclick", "window.open('chart.html?sensors=" + widget.type + ":0x" + widget.address.toString(16) +
+                              "' , '_blank', 'scrollbars=yes,width=1610,height=650,resizable=yes,left=120,top=120')");
+         }
+         else {
+            html += "<div id=\"peak" + widget.type + widget.address + "\" class=\"chart-peak\"></div>";
+            html += "<div id=\"value" + widget.type + widget.address + "\" class=\"chart-value\"></div>";
+            html += "<canvas id=\"widget" + widget.type + widget.address + "\" class=\"chart-canvas\"></canvas>";
+
+            elem.className = "widgetChart rounded-border";
+         }
+
          elem.innerHTML = html;
          root.appendChild(elem);
 
@@ -691,25 +703,34 @@ function updateDashboard(sensors)
          else if (sensor.widgettype == 1)    // Gauge
          {
             var elem = $("#widget" + sensor.type + sensor.address);
-            var value = sensor.value.toFixed(2);
-            var scaleMax = !sensor.scalemax || sensor.unit == '%' ? 100 : sensor.scalemax.toFixed(0);
-            var scaleMin = value >= 0 ? "0" : Math.ceil(value / 5) * 5 - 5;
 
-            if (scaleMax < Math.ceil(value))       scaleMax = value;
-            if (scaleMax < Math.ceil(sensor.peak)) scaleMax = sensor.peak.toFixed(0);
+            if (sensor.address != 90680919) {
+               var value = sensor.value.toFixed(2);
+               var scaleMax = !sensor.scalemax || sensor.unit == '%' ? 100 : sensor.scalemax.toFixed(0);
+               var scaleMin = value >= 0 ? "0" : Math.ceil(value / 5) * 5 - 5;
 
-            $("#sMin" + sensor.type + sensor.address).text(scaleMin);
-            $("#sMax" + sensor.type + sensor.address).text(scaleMax);
-            $("#value" + sensor.type + sensor.address).text(value + " " + sensor.unit);
+               if (scaleMax < Math.ceil(value))       scaleMax = value;
+               if (scaleMax < Math.ceil(sensor.peak)) scaleMax = sensor.peak.toFixed(0);
 
-            var ratio = (value - scaleMin) / (scaleMax - scaleMin);
-            var peak = (sensor.peak.toFixed(2) - scaleMin) / (scaleMax - scaleMin);
+               $("#sMin" + sensor.type + sensor.address).text(scaleMin);
+               $("#sMax" + sensor.type + sensor.address).text(scaleMax);
+               $("#value" + sensor.type + sensor.address).text(value + " " + sensor.unit);
 
-            $("#pb" + sensor.type + sensor.address).attr("d", "M 950 500 A 450 450 0 0 0 50 500");
-            $("#pv" + sensor.type + sensor.address).attr("d", svg_circle_arc_path(500, 500, 450 /*radius*/, -90, ratio * 180.0 - 90));
-            $("#pp" + sensor.type + sensor.address).attr("d", svg_circle_arc_path(500, 500, 450 /*radius*/, peak * 180.0 - 91, peak * 180.0 - 90));
+               var ratio = (value - scaleMin) / (scaleMax - scaleMin);
+               var peak = (sensor.peak.toFixed(2) - scaleMin) / (scaleMax - scaleMin);
 
-            // console.log(sensor.name + " : " + value + " : "  + ratio + " : " + peak + " : " + scaleMin + " : " + scaleMax);
+               $("#pb" + sensor.type + sensor.address).attr("d", "M 950 500 A 450 450 0 0 0 50 500");
+               $("#pv" + sensor.type + sensor.address).attr("d", svg_circle_arc_path(500, 500, 450 /*radius*/, -90, ratio * 180.0 - 90));
+               $("#pp" + sensor.type + sensor.address).attr("d", svg_circle_arc_path(500, 500, 450 /*radius*/, peak * 180.0 - 91, peak * 180.0 - 90));
+            }
+            else {
+               var jsonRequest = {};
+               $("#peak" + sensor.type + sensor.address).text(sensor.peak.toFixed(2) + " " + sensor.unit);
+               $("#value" + sensor.type + sensor.address).text(sensor.value.toFixed(2) + " " + sensor.unit);
+               prepareChartRequest(jsonRequest, sensor.type + ":0x" + sensor.address.toString(16) , 0, 1);
+               jsonRequest["widget"] = 1;
+               socket.send({ "event" : "chartdata", "object" : jsonRequest });
+            }
          }
          else if (sensor.widgettype == 2)      // Text
          {
@@ -757,7 +778,6 @@ window.chartSelect = function(action)
 
    var jsonRequest = {};
    prepareChartRequest(jsonRequest, sensors, theChartStart, theChartRange);
-
    socket.send({ "event" : "chartdata", "object" : jsonRequest });
 }
 
@@ -1140,7 +1160,6 @@ function drawCharts(dataObject, root)
    end.setDate(theChartStart.getDate()+theChartRange);
 
    $("#chartTitle").html(theChartStart.toLocaleString('de-DE') + "  -  " + end.toLocaleString('de-DE'));
-
    $("#chartSelector").html("");
 
    for (var i = 0; i < dataObject.sensors.length; i++)
@@ -1150,6 +1169,58 @@ function drawCharts(dataObject, root)
    }
 
    theChart = new Chart(root.getContext("2d"), data);
+}
+
+function drawChartWidget(dataObject, root)
+{
+   // #TODO we need a arry of theChart to diplay more than one chart widget
+
+   if (theChart != null) {
+      theChart.destroy();
+      theChart = null;
+   }
+
+   var data = {
+      type: "line",
+      data: {
+         datasets: []
+      },
+      options: {
+         legend: {
+            display: false
+         },
+         responsive: false,
+         scales: {
+            xAxes: [{
+               type: "time",
+               distribution: "linear",
+               display: false
+            }],
+            yAxes: [{
+               display: false
+            }]
+         }
+      }
+   };
+
+   for (var i = 0; i < dataObject.rows.length; i++)
+   {
+      var dataset = {};
+
+      dataset["data"] = dataObject.rows[i].data;
+      dataset["backgroundColor"] = "#415969";  // fill color
+      dataset["borderColor"] = "#3498db";      // line color
+      dataset["fill"] = true;
+      dataset["pointRadius"] = 2.0;
+      data.data.datasets.push(dataset);
+      console.log("append dataset " + i);
+   }
+
+   var canvas = document.getElementById("widget" + dataObject.rows[0].sensor);
+
+   theChart = new Chart(canvas.getContext("2d"), data);
+   canvas.style.width = null;     // workaround due to unexpected Chart behavior
+   canvas.style.height = null;    //    "        "        "         "     "
 }
 
 /*

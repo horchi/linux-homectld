@@ -230,7 +230,7 @@ int Poold::dispatchClientRequest()
 
    // rights ...
 
-   if (checkRights(client, event))
+   if (checkRights(client, event, oObject))
    {
       // dispatch client request
 
@@ -686,6 +686,24 @@ int Poold::initDb()
 
    status += selectSamplesRange->prepare();
 
+   selectSamplesRange60 = new cDbStatement(tableSamples);
+
+   selectSamplesRange60->build("select ");
+   selectSamplesRange60->bind("ADDRESS", cDBS::bndOut);
+   selectSamplesRange60->bind("TYPE", cDBS::bndOut, ", ");
+   selectSamplesRange60->bindTextFree("date_format(time, '%Y-%m-%dT%H:%i')", &xmlTime, ", ", cDBS::bndOut);
+   selectSamplesRange60->bindTextFree("avg(value)", &avgValue, ", ", cDBS::bndOut);
+   selectSamplesRange60->bindTextFree("max(value)", &maxValue, ", ", cDBS::bndOut);
+   selectSamplesRange60->build(" from %s where ", tableSamples->TableName());
+   selectSamplesRange60->bind("ADDRESS", cDBS::bndIn | cDBS::bndSet);
+   selectSamplesRange60->bind("TYPE", cDBS::bndIn | cDBS::bndSet, " and ");
+   selectSamplesRange60->bindCmp(0, "TIME", &rangeFrom, ">=", " and ");
+   selectSamplesRange60->bindCmp(0, "TIME", &rangeTo, "<=", " and ");
+   selectSamplesRange60->build(" group by date(time), ((60/60) * hour(time) + floor(minute(time)/60))");
+   selectSamplesRange60->build(" order by time");
+
+   status += selectSamplesRange60->prepare();
+
    // ------------------
    // select script by path
 
@@ -719,6 +737,7 @@ int Poold::exitDb()
    delete selectAllUser;           selectAllUser = 0;
    delete selectMaxTime;           selectMaxTime = 0;
    delete selectSamplesRange;      selectSamplesRange = 0;
+   delete selectSamplesRange60;    selectSamplesRange60 = 0;
    delete connection;              connection = 0;
 
    return done;
@@ -819,7 +838,7 @@ int Poold::applyConfigurationSpecials()
    return done;
 }
 
-bool Poold::checkRights(long client, Event event)
+bool Poold::checkRights(long client, Event event, json_t* oObject)
 {
    uint rights = wsClients[(void*)client].rights;
 
@@ -828,7 +847,6 @@ bool Poold::checkRights(long client, Event event)
       case evLogin:         return true;
       case evLogout:        return true;
       case evGetToken:      return true;
-      case evToggleIo:      return rights & urControl;
       case evToggleIoNext:  return rights & urControl;
       case evToggleMode:    return rights & urFullControl;
       case evStoreConfig:   return rights & urSettings;
@@ -837,7 +855,20 @@ bool Poold::checkRights(long client, Event event)
       case evUserConfig:    return rights & urAdmin;
       case evChangePasswd:  return true;   // check will done in performPasswChange()
 
-      default: return false;
+      default: break;
+   }
+
+   if (event == evToggleIo && rights & urControl)
+   {
+      int addr = getIntFromJson(oObject, "address");
+      const char* type = getStringFromJson(oObject, "type");
+
+      tableValueFacts->clear();
+      tableValueFacts->setValue("ADDRESS", addr);
+      tableValueFacts->setValue("TYPE", type);
+
+      if (tableValueFacts->find())
+         return rights & tableValueFacts->getIntValue("RIGHTS");
    }
 
    return false;
@@ -1223,7 +1254,7 @@ int Poold::performLogin(json_t* oObject)
    else
    {
       wsClients[(void*)client].type = ctActive;
-      wsClients[(void*)client].rights = 0;
+      wsClients[(void*)client].rights = urView;  // allow view without login
       tell(0, "Warning: Unknown user '%s' or token mismatch connected!", user);
 
       json_t* oJson = json_object();
@@ -1434,9 +1465,12 @@ int Poold::performChartData(json_t* oObject, long client)
    if (client <= 0)
       return done;
 
-   int range = getIntFromJson(oObject, "range", 3);              // Anzahl der Tage
-   time_t rangeStart = getLongFromJson(oObject, "start", 0);     // Start Datum (unix timestamp)
-   const char* sensors = getStringFromJson(oObject, "sensors");  // Kommata getrennte Liste der Sensoren
+   int range = getIntFromJson(oObject, "range", 3);                // Anzahl der Tage
+   time_t rangeStart = getLongFromJson(oObject, "start", 0);       // Start Datum (unix timestamp)
+   const char* sensors = getStringFromJson(oObject, "sensors");    // Kommata getrennte Liste der Sensoren
+   int widget = getIntFromJson(oObject, "widget", no);  //
+
+   cDbStatement* select = widget ? selectSamplesRange60 : selectSamplesRange;
 
    if (isEmpty(sensors))
       sensors = chart1;
@@ -1454,11 +1488,15 @@ int Poold::performChartData(json_t* oObject, long client)
    tableValueFacts->clear();
    tableValueFacts->setValue("STATE", "A");
 
-   json_t* aAvailableSensors = json_array();
+   json_t* aAvailableSensors {nullptr};
+
+   if (!widget)
+      aAvailableSensors = json_array();
 
    for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
       char* id {nullptr};
+      char* sensor {nullptr};
       asprintf(&id, "%s:0x%lx", tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"));
 
       bool active = strstr(sensors, id) != 0;
@@ -1468,11 +1506,14 @@ int Poold::performChartData(json_t* oObject, long client)
       if (!isEmpty(usrtitle))
          title = usrtitle;
 
-      json_t* oSensor = json_object();
-      json_object_set_new(oSensor, "id", json_string(id));
-      json_object_set_new(oSensor, "title", json_string(title));
-      json_object_set_new(oSensor, "active", json_integer(active));
-      json_array_append_new(aAvailableSensors, oSensor);
+      if (!widget)
+      {
+         json_t* oSensor = json_object();
+         json_object_set_new(oSensor, "id", json_string(id));
+         json_object_set_new(oSensor, "title", json_string(title));
+         json_object_set_new(oSensor, "active", json_integer(active));
+         json_array_append_new(aAvailableSensors, oSensor);
+      }
 
       if (!active)
       {
@@ -1486,15 +1527,18 @@ int Poold::performChartData(json_t* oObject, long client)
       json_t* oSample = json_object();
       json_array_append_new(oJson, oSample);
 
+      asprintf(&sensor, "%s%ld", tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"));
       json_object_set_new(oSample, "title", json_string(title));
+      json_object_set_new(oSample, "sensor", json_string(sensor));
       json_t* oData = json_array();
       json_object_set_new(oSample, "data", oData);
+      free(sensor);
 
       tableSamples->clear();
       tableSamples->setValue("TYPE", tableValueFacts->getStrValue("TYPE"));
       tableSamples->setValue("ADDRESS", tableValueFacts->getIntValue("ADDRESS"));
 
-      for (int f = selectSamplesRange->find(); f; f = selectSamplesRange->fetch())
+      for (int f = select->find(); f; f = select->fetch())
       {
          // tell(eloAlways, "0x%x: '%s' : %0.2f", (uint)tableSamples->getStrValue("ADDRESS"),
          //      xmlTime.getStrValue(), tableSamples->getFloatValue("VALUE"));
@@ -1510,10 +1554,12 @@ int Poold::performChartData(json_t* oObject, long client)
             json_object_set_new(oRow, "y", json_real(avgValue.getFloatValue()));
       }
 
-      selectSamplesRange->freeResult();
+      select->freeResult();
    }
 
-   json_object_set_new(oMain, "sensors", aAvailableSensors);
+   if (!widget)
+      json_object_set_new(oMain, "sensors", aAvailableSensors);
+
    json_object_set_new(oMain, "rows", oJson);
    selectActiveValueFacts->freeResult();
    tell(eloAlways, "... done");
@@ -1854,6 +1900,8 @@ int Poold::sensor2Json(json_t* obj, cDbTable* table)
 
    json_object_set_new(obj, "unit", json_string(table->getStrValue("UNIT")));
    json_object_set_new(obj, "scalemax", json_integer(table->getIntValue("MAXSCALE")));
+   json_object_set_new(obj, "rights", json_integer(table->getIntValue("RIGHTS")));
+
    json_object_set_new(obj, "peak", json_real(peak));
 
    return done;

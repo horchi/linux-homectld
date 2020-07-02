@@ -299,7 +299,8 @@ table.tableMultiCol tr:nth-child(odd)
 
 .daemonInfo
 {
-    background-color: var(--light1);
+    /*background-color: var(--light1);*/
+    background-color: slategray;
     float: right;
     width: 42%;
     padding: 15px;
@@ -502,9 +503,9 @@ table.tableMultiCol tr:nth-child(odd)
 {
   display: grid;
   grid-template-areas:
-      'title'
-      'main'
-      'progress';
+    'title'
+    'main'
+    'progress';
   grid-template-rows: 13% 77% 4%;
   grid-gap: 1px;
 }
@@ -516,12 +517,12 @@ table.tableMultiCol tr:nth-child(odd)
 
 .widgetGauge
 {
-  display: grid;
-  grid-template-areas:
+    display: grid;
+    grid-template-areas:
       'title'
-      'main';
-  grid-template-rows: 10% 90%;
-  grid-gap: 1px;
+       'main';
+    grid-template-rows: 15% 85%;
+    grid-gap: 1px;
 }
 
 .widgetCtrl
@@ -531,8 +532,49 @@ table.tableMultiCol tr:nth-child(odd)
       'title title'
       'main main'
       'ctrl1 ctrl2';
-    grid-template-rows: 13% 68% 16%;
+    grid-template-rows: 15% 66% 16%;
     grid-gap: 1px;
+}
+
+.widgetChart
+{
+    display: grid;
+    grid-template-areas:
+      'title title'
+      'peak value'
+      'chart chart';
+    grid-template-rows: 15% 16% 69%;
+    grid-gap: 1px;
+}
+
+.chart-value
+{
+    grid-area: value;
+    font-size: 1.5em;
+    font-weight: bold;
+    text-align: end;
+    overflow: hidden;
+    background-color: Transparent;
+    margin-top: 5px;
+    color: var(--buttonFont);
+}
+
+.chart-peak
+{
+    grid-area: peak;
+    font-size: 0.9em;
+    font-weight: bold;
+    padding-left: 12px;
+    overflow: hidden;
+    background-color: Transparent;
+    margin-top: 15px;
+    color: red;
+}
+
+.chart-canvas
+{
+    grid-area: chart;
+    width: inherit;
 }
 
 .widget-title
@@ -667,17 +709,6 @@ table.tableMultiCol tr:nth-child(odd)
     stroke: #3498db;
 }
 
-.widgetGauge.completion path.data-arc
-{
-    stroke: #27ae60;
-}
-
-.widgetGauge.blocked path.data-arc
-{
-    stroke: #e74c3c;
-}
-
-
 /* -------------- */
 /* Media specials*/
 
@@ -701,7 +732,7 @@ table.tableMultiCol tr:nth-child(odd)
     .widgetContainer > div     { width: 185px; height: 160px; }
     .widgetGauge               { grid-template-rows: 30% 70%; }
     .widget                    { grid-template-rows: 30% 66% 4%; }
-
+    .widgetChart               { grid-template-rows: 16% 20% 74%; }
 }
 
 @media only screen and (max-width: 375px)

@@ -498,17 +498,17 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
          {
             tell(0, "Browser message: '%s'", getStringFromJson(oObject, "message", "<null>"));
          }
-         else if (clients[wsi].type == ctWithLogin)
+         else //  if (clients[wsi].type == ctWithLogin)
          {
             addToJson(oData, "client", (long)wsi);
             char* p = json_dumps(oData, 0);
             Poold::pushInMessage(p);
             free(p);
          }
-         else
+/*         else
          {
             tell(1, "Debug: Ignoring '%s' request of client (%p) without login [%s]", strEvent, (void*)wsi, message);
-         }
+            } */
 
          json_decref(oData);
          free(message);

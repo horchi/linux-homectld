@@ -324,7 +324,7 @@ class Poold : public cWebService
       int performJobs();                                   // called every loop (1 second)
       int performWebSocketPing();
       int dispatchClientRequest();
-      bool checkRights(long client, Event event);
+      bool checkRights(long client, Event event, json_t* oObject);
       std::string callScript(int addr, const char* type, const char* command);
       int publishScriptResult(uint addr, const char* type, std::string result);
       bool isInTimeRange(const std::vector<Range>* ranges, time_t t);
@@ -412,6 +412,7 @@ class Poold : public cWebService
       cDbStatement* selectAllUser {nullptr};
       cDbStatement* selectMaxTime {nullptr};
       cDbStatement* selectSamplesRange {nullptr};
+      cDbStatement* selectSamplesRange60 {nullptr};
       cDbStatement* selectScriptByPath {nullptr};
 
       cDbValue xmlTime;

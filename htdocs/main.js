@@ -10,6 +10,7 @@ var config = {};
 var daemonState = {};
 var lastUpdate = "";   // #TODO - set to data age
 var documentName = "";
+var widgetCharts = {};
 var theChart = null;
 var theChartRange = 2;
 var theChartStart = new Date(); theChartStart.setDate(theChartStart.getDate()-theChartRange);
@@ -615,7 +616,7 @@ function initDashboard(widgets, root)
          var html = "  <div class=\"widget-title\">" + widget.title + "</div>";
          var elem = document.createElement("div");
 
-         if (widget.address != 90680919) {
+         if (false && widget.address != 90680919) {
             html += "  <svg class=\"widget-svg\" viewBox=\"0 0 1000 600\" preserveAspectRatio=\"xMidYMin slice\">\n";
             html += "    <path id=\"pb" + widget.type + widget.address + "\"/>\n";
             html += "    <path class=\"data-arc\" id=\"pv" + widget.type + widget.address + "\"/>\n";
@@ -634,7 +635,7 @@ function initDashboard(widgets, root)
          else {
             html += "<div id=\"peak" + widget.type + widget.address + "\" class=\"chart-peak\"></div>";
             html += "<div id=\"value" + widget.type + widget.address + "\" class=\"chart-value\"></div>";
-            html += "<canvas id=\"widget" + widget.type + widget.address + "\" class=\"chart-canvas\"></canvas>";
+            html += "<div class=\"chart-canvas-container\"><canvas id=\"widget" + widget.type + widget.address + "\" class=\"chart-canvas\"></canvas></div>";
 
             elem.className = "widgetChart rounded-border";
          }
@@ -704,7 +705,7 @@ function updateDashboard(sensors)
          {
             var elem = $("#widget" + sensor.type + sensor.address);
 
-            if (sensor.address != 90680919) {
+            if (false && sensor.address != 90680919) {
                var value = sensor.value.toFixed(2);
                var scaleMax = !sensor.scalemax || sensor.unit == '%' ? 100 : sensor.scalemax.toFixed(0);
                var scaleMin = value >= 0 ? "0" : Math.ceil(value / 5) * 5 - 5;
@@ -1173,11 +1174,11 @@ function drawCharts(dataObject, root)
 
 function drawChartWidget(dataObject, root)
 {
-   // #TODO we need a arry of theChart to diplay more than one chart widget
+   var id = "widget" + dataObject.rows[0].sensor;
 
-   if (theChart != null) {
-      theChart.destroy();
-      theChart = null;
+   if (widgetCharts[id] != null) {
+      widgetCharts[id].destroy();
+      widgetCharts[id] = null;
    }
 
    var data = {
@@ -1189,7 +1190,9 @@ function drawChartWidget(dataObject, root)
          legend: {
             display: false
          },
-         responsive: false,
+         responsive: true,
+         maintainAspectRatio: false,
+         aspectRatio: false,
          scales: {
             xAxes: [{
                type: "time",
@@ -1216,11 +1219,11 @@ function drawChartWidget(dataObject, root)
       console.log("append dataset " + i);
    }
 
-   var canvas = document.getElementById("widget" + dataObject.rows[0].sensor);
+   var canvas = document.getElementById(id);
 
-   theChart = new Chart(canvas.getContext("2d"), data);
-   canvas.style.width = null;     // workaround due to unexpected Chart behavior
-   canvas.style.height = null;    //    "        "        "         "     "
+   widgetCharts[id] = new Chart(canvas, data);
+//   canvas.style.width = null;     // workaround due to unexpected Chart behavior
+//   canvas.style.height = null;    //    "        "        "         "     "
 }
 
 /*

@@ -571,10 +571,15 @@ table.tableMultiCol tr:nth-child(odd)
     color: red;
 }
 
-.chart-canvas
+.chart-canvas-container
 {
     grid-area: chart;
+/*    position: relative;*/
     width: inherit;
+}
+
+.chart-canvas
+{
 }
 
 .widget-title
@@ -615,7 +620,8 @@ table.tableMultiCol tr:nth-child(odd)
     grid-area: main;
     background-color: Transparent;
     border: none;
-    overflow: hidden;
+    width: inherit;
+/*    overflow: hidden;*/
     outline: none;
     cursor: pointer;
 }
@@ -663,6 +669,7 @@ table.tableMultiCol tr:nth-child(odd)
 {
     grid-area: main;
     width: 100%;
+    align-self: center;
 }
 
 .widget > button > img
@@ -732,7 +739,8 @@ table.tableMultiCol tr:nth-child(odd)
     .widgetContainer > div     { width: 185px; height: 160px; }
     .widgetGauge               { grid-template-rows: 30% 70%; }
     .widget                    { grid-template-rows: 30% 66% 4%; }
-    .widgetChart               { grid-template-rows: 16% 20% 74%; }
+
+    .widgetChart               { grid-template-rows: 16% 20% 64%; }
 }
 
 @media only screen and (max-width: 375px)

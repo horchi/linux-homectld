@@ -14,6 +14,7 @@ var widgetCharts = {};
 var theChart = null;
 var theChartRange = 2;
 var theChartStart = new Date(); theChartStart.setDate(theChartStart.getDate()-theChartRange);
+var chartDialogSensor = "";
 
 var rights = [ "View",
                "Control",
@@ -73,7 +74,7 @@ function onSocketConnect(protocol)
    else if (documentName == "iosetup")
       jsonRequest["name"] = "iosettings";
    else if (documentName == "chart")
-      prepareChartRequest(jsonRequest, "", 0, 2)
+      prepareChartRequest(jsonRequest, "", 0, 2, "chart")
    else if (documentName == "dashboard")
       jsonRequest["name"] = "data";
    else if (documentName == "list")
@@ -129,6 +130,7 @@ function dispatchMessage(message)
    var rootConfig = document.getElementById("configContainer");
    var rootIoSetup = document.getElementById("ioSetupContainer");
    var rootChart = document.getElementById("chart");
+   var rootDialog = document.querySelector('dialog');
 
    var d = new Date();
 
@@ -181,11 +183,17 @@ function dispatchMessage(message)
    else if (event == "valuefacts" && rootIoSetup) {
       initIoSetup(jMessage.object, rootIoSetup);
    }
-   else if (event == "chartdata" && rootChart) {
-      drawCharts(jMessage.object, rootChart);
-   }
-   else if (event == "chartdata" && rootDashboard) {
-      drawChartWidget(jMessage.object, rootDashboard);
+   else if (event == "chartdata") {
+      var id = jMessage.object.id;
+      if (rootChart) {
+         drawCharts(jMessage.object, rootChart);
+      }
+      else if (rootDashboard && id == "chartwidget") {
+         drawChartWidget(jMessage.object, rootDashboard);
+      }
+      else if (rootDialog && id == "chartdialog") {
+         drawChartDialog(jMessage.object, rootDialog);
+      }
    }
 
    // console.log("event: " + event + " dispatched");
@@ -628,9 +636,9 @@ function initDashboard(widgets, root)
 
             elem.className = "widgetGauge rounded-border participation";
             elem.setAttribute("id", "widget" + widget.type + widget.address);
-            elem.setAttribute("href", "#");
-            elem.setAttribute("onclick", "window.open('chart.html?sensors=" + widget.type + ":0x" + widget.address.toString(16) +
-                              "' , '_blank', 'scrollbars=yes,width=1610,height=650,resizable=yes,left=120,top=120')");
+            elem.setAttribute("onclick", "toggleChartDialog('" + widget.type + "'," + widget.address + ")");
+            /* elem.setAttribute("onclick", "window.open('chart.html?sensors=" + widget.type + ":0x" + widget.address.toString(16) +
+                              "' , '_blank', 'scrollbars=yes,width=1610,height=650,resizable=yes,left=120,top=120')"); */
          }
          else {
             html += "<div id=\"peak" + widget.type + widget.address + "\" class=\"chart-peak\"></div>";
@@ -638,6 +646,7 @@ function initDashboard(widgets, root)
             html += "<div class=\"chart-canvas-container\"><canvas id=\"widget" + widget.type + widget.address + "\" class=\"chart-canvas\"></canvas></div>";
 
             elem.className = "widgetChart rounded-border";
+            elem.setAttribute("onclick", "toggleChartDialog('" + widget.type + "'," + widget.address + ")");
          }
 
          elem.innerHTML = html;
@@ -658,6 +667,49 @@ function initDashboard(widgets, root)
          break;
       }
    }
+}
+
+function toggleChartDialog(type, address)
+{
+   var dialog = document.querySelector('dialog');
+
+   if (type != "" && !dialog.hasAttribute('open')) {
+      var canvas = document.querySelector("#chartDialog");
+      canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+      chartDialogSensor = type + address;
+
+      // show the dialog
+
+      dialog.setAttribute('open', 'open');
+
+      var jsonRequest = {};
+      prepareChartRequest(jsonRequest, type + ":0x" + address.toString(16) , 0, 1, "chartdialog");
+      socket.send({ "event" : "chartdata", "object" : jsonRequest });
+
+      // EventListener für ESC-Taste
+
+      document.addEventListener('keydown', closeChartDialog);
+
+      // only hide the background *after* you've moved focus out of
+      //   the content that will be "hidden"
+
+      var div = document.createElement('div');
+      div.id = 'backdrop';
+      document.body.appendChild(div);
+   }
+   else {
+      chartDialogSensor = "";
+      document.removeEventListener('keydown', closeChartDialog);
+      dialog.removeAttribute('open');
+      var div = document.querySelector('#backdrop');
+      div.parentNode.removeChild(div);
+   }
+}
+
+function closeChartDialog(event)
+{
+   if (event.keyCode == 27)
+      toggleChartDialog("", 0);
 }
 
 function updateDashboard(sensors)
@@ -728,7 +780,7 @@ function updateDashboard(sensors)
                var jsonRequest = {};
                $("#peak" + sensor.type + sensor.address).text(sensor.peak.toFixed(2) + " " + sensor.unit);
                $("#value" + sensor.type + sensor.address).text(sensor.value.toFixed(2) + " " + sensor.unit);
-               prepareChartRequest(jsonRequest, sensor.type + ":0x" + sensor.address.toString(16) , 0, 1);
+               prepareChartRequest(jsonRequest, sensor.type + ":0x" + sensor.address.toString(16) , 0, 1, "chartwidget");
                jsonRequest["widget"] = 1;
                socket.send({ "event" : "chartdata", "object" : jsonRequest });
             }
@@ -778,7 +830,7 @@ window.chartSelect = function(action)
    // console.log("sensors:  '" + sensors + "'");
 
    var jsonRequest = {};
-   prepareChartRequest(jsonRequest, sensors, theChartStart, theChartRange);
+   prepareChartRequest(jsonRequest, sensors, theChartStart, theChartRange, "chart");
    socket.send({ "event" : "chartdata", "object" : jsonRequest });
 }
 
@@ -1027,7 +1079,7 @@ function svg_circle_arc_path(x, y, radius, start_angle, end_angle)
 // ---------------------------------
 // charts
 
-function prepareChartRequest(jRequest, sensors, start, range)
+function prepareChartRequest(jRequest, sensors, start, range, id)
 {
    var gaugeSelected = false;
 
@@ -1041,6 +1093,7 @@ function prepareChartRequest(jRequest, sensors, start, range)
       }
    }
 
+   jRequest["id"] = id;
    jRequest["name"] = "chartdata";
 
    console.log("requesting chart for '" + start + "' range " + range);
@@ -1220,10 +1273,100 @@ function drawChartWidget(dataObject, root)
    }
 
    var canvas = document.getElementById(id);
-
    widgetCharts[id] = new Chart(canvas, data);
-//   canvas.style.width = null;     // workaround due to unexpected Chart behavior
-//   canvas.style.height = null;    //    "        "        "         "     "
+}
+
+function drawChartDialog(dataObject, root)
+{
+   if (dataObject.rows[0].sensor != chartDialogSensor) {
+      return ;
+   }
+
+   if (theChart != null) {
+      theChart.destroy();
+      theChart = null;
+   }
+
+   var data = {
+      type: "line",
+      data: {
+         datasets: []
+      },
+      options: {
+         legend: {
+            display: true
+         },
+         responsive: true,
+         maintainAspectRatio: false,
+         aspectRatio: false,
+         scales: {
+            xAxes: [{
+               type: "time",
+               time: { displayFormats: {
+                  millisecond: 'MMM DD - HH:MM',
+                  second: 'MMM DD - HH:MM',
+                  minute: 'HH:MM',
+                  hour: 'MMM DD - HH:MM',
+                  day: 'HH:MM',
+                  week: 'MMM DD - HH:MM',
+                  month: 'MMM DD - HH:MM',
+                  quarter: 'MMM DD - HH:MM',
+                  year: 'MMM DD - HH:MM' } },
+               distribution: "linear",
+               display: true,
+               ticks: {
+                  maxTicksLimit: 25,
+                  padding: 10,
+                  fontColor: "white"
+               },
+               gridLines: {
+                  color: "gray",
+                  borderDash: [5,5]
+               },
+               scaleLabel: {
+                  display: true,
+                  fontColor: "white",
+                  labelString: "Zeit"
+               }
+            }],
+            yAxes: [{
+               display: true,
+               ticks: {
+                  padding: 10,
+                  maxTicksLimit: 20,
+                  fontColor: "white"
+               },
+               gridLines: {
+                  color: "gray",
+                  zeroLineColor: 'gray',
+                  borderDash: [5,5]
+               },
+               scaleLabel: {
+                  display: true,
+                  fontColor: "white",
+                  labelString: "Temperatur [°C]"
+               }
+            }]
+         }
+      }
+   };
+
+   for (var i = 0; i < dataObject.rows.length; i++)
+   {
+      var dataset = {};
+
+      dataset["data"] = dataObject.rows[i].data;
+      dataset["backgroundColor"] = "#415969";  // fill color
+      dataset["borderColor"] = "#3498db";      // line color
+      dataset["fill"] = true;
+      dataset["label"] = dataObject.rows[i].title;
+      dataset["pointRadius"] = 0;
+      data.data.datasets.push(dataset);
+      console.log("append dataset for chart dialog " + i);
+   }
+
+   var canvas = root.querySelector("#chartDialog");
+   theChart = new Chart(canvas, data);
 }
 
 /*

@@ -1469,6 +1469,7 @@ int Poold::performChartData(json_t* oObject, long client)
    time_t rangeStart = getLongFromJson(oObject, "start", 0);       // Start Datum (unix timestamp)
    const char* sensors = getStringFromJson(oObject, "sensors");    // Kommata getrennte Liste der Sensoren
    int widget = getIntFromJson(oObject, "widget", no);  //
+   const char* id = getStringFromJson(oObject, "id", "");
 
    cDbStatement* select = widget ? selectSamplesRange60 : selectSamplesRange;
 
@@ -1561,6 +1562,7 @@ int Poold::performChartData(json_t* oObject, long client)
       json_object_set_new(oMain, "sensors", aAvailableSensors);
 
    json_object_set_new(oMain, "rows", oJson);
+   json_object_set_new(oMain, "id", json_string(id));
    selectActiveValueFacts->freeResult();
    tell(eloAlways, "... done");
    pushOutMessage(oMain, "chartdata", client);

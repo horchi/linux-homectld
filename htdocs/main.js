@@ -449,7 +449,8 @@ function initUserConfig(users, root)
       var html = "<td id=\"row_" + item.user + "\" >" + item.user + "</td>";
       html += "<td>";
       for (var b = 0; b < rights.length; b++) {
-         html += "<input id=\"bit_" + item.user + b + "\" class=\"rounded-border input\" style=\"width:auto;\" type=\"checkbox\" " + (item.rights & (2 ** b) ? "checked" : "") + "/>"
+         var checked = item.rights & Math.pow(2, b); // (2 ** b);
+         html += "<input id=\"bit_" + item.user + b + "\" class=\"rounded-border input\" style=\"width:auto;\" type=\"checkbox\" " + (checked ? "checked" : "") + "/>"
          html += "<span style=\"padding-right:20px; padding-left:5px;\">" + rights[b] + "</span>";
       }
       html += "</td>";
@@ -984,7 +985,7 @@ window.userConfig = function(user, action)
       var rightsMask = 0;
       for (var b = 0; b < rights.length; b++) {
          if ($("#bit_" + user + b).is(":checked"))
-            rightsMask += 2 ** b;
+            rightsMask += Math.pow(2, b); // 2 ** b;
       }
 
       socket.send({ "event": "userconfig", "object":

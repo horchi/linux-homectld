@@ -52,6 +52,9 @@ int W1::scan()
 
    for (auto it = lines.begin(); it != lines.end(); ++it)
    {
+      if (strcasestr(it->c_str(), "not found"))
+         continue;
+
       if (sensors.find(it->c_str()) == sensors.end())
       {
          tell(eloAlways, "One Wire Sensor '%s' attached", it->c_str());
@@ -102,7 +105,9 @@ int W1::update()
 
       if (!(in = fopen(path, "r")))
       {
-         tell(eloAlways, "Error: Opening '%s' failed, %s", path, strerror(errno));
+         tell(eloAlways, "Error: Opening '%s' failed, error was '%s'", path, strerror(errno));
+         tell(eloAlways, "One Wire Sensor '%s' seems to be detached, removing it", path);
+         sensors.erase(it);
          free(path);
          continue;
       }
@@ -134,7 +139,7 @@ int W1::update()
    if (mqttConnection() != success)
       return fail;
 
-   char* p = json_dumps(oJson, 0);
+   char* p = json_dumps(oJson, JSON_REAL_PRECISION(4));
    json_decref(oJson);
    mqttWriter->writeRetained(mqttTopic, p);
    free(p);

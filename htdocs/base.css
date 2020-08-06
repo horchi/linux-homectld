@@ -586,6 +586,7 @@ table.tableMultiCol tr:nth-child(odd)
 {
     grid-area: title;
     text-align: center;
+    align-self: center;
     font-size: 1.4em;
     overflow: hidden;
     background-color: Transparent;
@@ -774,8 +775,7 @@ dialog::backdrop, #backdrop
     .widgetContainer > div     { width: 185px; height: 160px; }
     .widgetGauge               { grid-template-rows: 30% 70%; }
     .widget                    { grid-template-rows: 30% 66% 4%; }
-
-    .widgetChart               { grid-template-rows: 16% 20% 64%; }
+    .widgetChart               { grid-template-rows: 30% 20% 50%; }
 }
 
 @media only screen and (max-width: 375px)

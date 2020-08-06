@@ -133,9 +133,9 @@ int cWebSock::exit()
 // Service
 //***************************************************************************
 
-int cWebSock::service(int timeoutMs)
+int cWebSock::service()
 {
-   lws_service(context, timeoutMs);
+   lws_service(context, 0);  // timeout parameter is not supported by the lib anymore
    return done;
 }
 
@@ -209,7 +209,7 @@ int cWebSock::callbackHttp(lws* wsi, lws_callback_reasons reason, void* user, vo
          const char* message = (const char*)in;
          int s = lws_hdr_total_length(wsi, WSI_TOKEN_POST_URI);
 
-         tell(0, "DEBUG: Got unecpected LWS_CALLBACK_HTTP_BODY with [%.*s] lws_hdr_total_length is (%d)",
+         tell(1, "DEBUG: Got unecpected LWS_CALLBACK_HTTP_BODY with [%.*s] lws_hdr_total_length is (%d)",
               (int)len+1, message, s);
          break;
       }

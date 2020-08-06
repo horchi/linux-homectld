@@ -142,7 +142,7 @@ class cWebSock : public cWebService
       int init(int aPort, int aTimeout);
       int exit();
 
-      int service(int timeoutMs);
+      int service();
       int performData(MsgType type);
 
       // status callback methods
@@ -193,6 +193,16 @@ class cWebSock : public cWebService
 };
 
 //***************************************************************************
+// Class
+//***************************************************************************
+
+class cInputThread : public cThread
+{
+   public:
+
+};
+
+//***************************************************************************
 // Class Pool Daemon
 //***************************************************************************
 
@@ -200,22 +210,24 @@ class Poold : public cWebService
 {
    public:
 
-      enum Pins  // we use the 'physical' PIN numbers here!
+      enum Pins       // we use the 'physical' PIN numbers here!
       {
-         pinW1 = 7,              // GPIO4
+         pinW1           =  7,     // GPIO4
 
-         pinFilterPump = 11,     // GPIO17
-         pinSolarPump  = 12,     // GPIO18
-         pinPoolLight  = 13,     // GPIO27
-         pinUVC        = 15,     // GPIO22
-         pinUserOut1   = 16,     // GPIO23
-         pinUserOut2   = 18,     // GPIO24
-         pinShower     = 22,     // GPIO25
-         pinUserOut3   = 23,     // GPIO11
+         pinFilterPump   = 11,     // GPIO17
+         pinSolarPump    = 12,     // GPIO18
+         pinPoolLight    = 13,     // GPIO27
+         pinUVC          = 15,     // GPIO22
+         pinUserOut1     = 16,     // GPIO23
+         pinUserOut2     = 18,     // GPIO24
+         pinW1Power      = 19,     // GPIO10
+         pinShower       = 22,     // GPIO25
+         pinUserOut3     = 23,     // GPIO11
 
-         pinLevel1     = 31,     // GPIO6
-         pinLevel2     = 32,     // GPIO12
-         pinLevel3     = 33      // GPIO13
+         pinLevel1       = 31,     // GPIO6
+         pinLevel2       = 32,     // GPIO12
+         pinLevel3       = 33,     // GPIO13
+         pinShowerSwitch = 35      // GPIO19
       };
 
       // object
@@ -224,7 +236,7 @@ class Poold : public cWebService
       ~Poold();
 
       int init();
-	   int loop();
+      int loop();
 
       static void downF(int aSignal) { shutdown = yes; }
 
@@ -301,7 +313,7 @@ class Poold : public cWebService
          const char* description;
       };
 
-      std::map<int,OutputState> digitalOutputStates;
+      std::map<uint,OutputState> digitalOutputStates;
       std::map<int,bool> digitalInputStates;
 
       int exit();
@@ -311,7 +323,7 @@ class Poold : public cWebService
       int applyConfigurationSpecials();
 
       int addValueFact(int addr, const char* type, const char* name, const char* unit);
-      int initOutput(uint pin, int opt, OutputMode mode, const char* name);
+      int initOutput(uint pin, int opt, OutputMode mode, const char* name, uint rights = urControl);
       int initInput(uint pin, const char* name);
       int initScripts();
 
@@ -326,7 +338,7 @@ class Poold : public cWebService
       int dispatchClientRequest();
       bool checkRights(long client, Event event, json_t* oObject);
       std::string callScript(int addr, const char* type, const char* command);
-      int publishScriptResult(uint addr, const char* type, std::string result);
+      int publishScriptResult(ulong addr, const char* type, std::string result);
       bool isInTimeRange(const std::vector<Range>* ranges, time_t t);
       int store(time_t now, const char* name, const char* title, const char* unit, const char* type, int address, double value, const char* text = 0);
 
@@ -393,6 +405,7 @@ class Poold : public cWebService
       double valueOfW1(const char* id, time_t& last);
       uint toW1Id(const char* name);
       void updateW1(const char* id, double value);
+      void cleanupW1();
 
       // data
 

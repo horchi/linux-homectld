@@ -42,6 +42,9 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
 
    if (!isEmpty(title))
    {
+      // Interface description:
+      //   https://www.home-assistant.io/docs/mqtt/discovery/
+
       mqttReader->subscribe(stateTopic);
       status = mqttReader->read(&message, 100);
       tp = mqttReader->getLastReadTopic();
@@ -192,6 +195,8 @@ int Poold::performHassRequests()
 
          updateW1(name, value);
       }
+
+      cleanupW1();
    }
 
    return success;

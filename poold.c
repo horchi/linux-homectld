@@ -217,7 +217,7 @@ int Poold::dispatchClientRequest()
 
    // { "event" : "toggleio", "object" : { "address" : "122", "type" : "DO" } }
 
-   tell(1, "DEBUG: Got '%s'", messagesIn.front().c_str());
+   tell(2, "DEBUG: Got '%s'", messagesIn.front().c_str());
    oData = json_loads(messagesIn.front().c_str(), 0, &error);
 
    // get the request
@@ -262,6 +262,22 @@ int Poold::dispatchClientRequest()
    messagesIn.pop();
 
    return status;
+}
+
+volatile int showerSwitch {0};
+
+void ioInterrupt()
+{
+   static uint64_t lastShowerSwitch = cTimeMs::Now();
+
+   // detect only once a second
+
+   if (!digitalRead(Poold::pinShowerSwitch) && lastShowerSwitch < cTimeMs::Now() + 1000)
+   {
+      tell(2, "Info: Shower key detected");
+      showerSwitch++;
+      lastShowerSwitch = cTimeMs::Now();
+   }
 }
 
 //***************************************************************************
@@ -333,20 +349,28 @@ int Poold::init()
    // wiringPiSetup();      // use the 'special' wiringPi PIN numbers
    // wiringPiSetupGpio();  // use the 'GPIO' PIN numbers
 
-   initOutput(pinFilterPump, ooAuto|ooUser, omAuto, "Filter Pump");
-   initOutput(pinSolarPump, ooAuto|ooUser, omAuto, "Solar Pump");
+   initOutput(pinFilterPump, ooAuto|ooUser, omAuto, "Filter Pump", urFullControl);
+   initOutput(pinSolarPump, ooAuto|ooUser, omAuto, "Solar Pump", urFullControl);
    initOutput(pinPoolLight, ooUser, omManual, "Pool Light");
-   initOutput(pinUVC, ooAuto|ooUser, omAuto, "UV-C Light");
+   initOutput(pinUVC, ooAuto|ooUser, omAuto, "UV-C Light", urFullControl);
    initOutput(pinShower, ooAuto|ooUser, omAuto, "Shower");
    initOutput(pinUserOut1, ooUser, omManual, "User 1");
    initOutput(pinUserOut2, ooUser, omManual, "User 2");
    initOutput(pinUserOut3, ooUser, omManual, "User 3");
+   initOutput(pinW1Power, ooAuto|ooUser, omAuto, "W1 Power", urFullControl);
 
-   // init water Level sensor
+   gpioWrite(pinW1Power, true);
+
+   // init input IO
 
    initInput(pinLevel1, 0);
    initInput(pinLevel2, 0);
    initInput(pinLevel3, 0);
+   initInput(pinShowerSwitch, 0);
+   pullUpDnControl(pinShowerSwitch, PUD_UP);
+
+   if (wiringPiISR(pinShowerSwitch, INT_EDGE_FALLING, &ioInterrupt) < 0)
+      tell(0, "Error: Unable to setup ISR: %s", strerror(errno));
 
    // special values
 
@@ -387,7 +411,7 @@ int Poold::exit()
 // Init digital Output
 //***************************************************************************
 
-int Poold::initOutput(uint pin, int opt, OutputMode mode, const char* name)
+int Poold::initOutput(uint pin, int opt, OutputMode mode, const char* name, uint rights)
 {
    digitalOutputStates[pin].opt = opt;
    digitalOutputStates[pin].mode = mode;
@@ -408,6 +432,7 @@ int Poold::initOutput(uint pin, int opt, OutputMode mode, const char* name)
    else
    {
       digitalOutputStates[pin].title = name;
+      tableValueFacts->setValue("RIGHTS", (int)rights);
    }
 
    tableValueFacts->reset();
@@ -970,7 +995,14 @@ int Poold::meanwhile()
       return fail;
 
    tell(2, "loop ...");
-   webSock->service(10);
+
+   if (showerSwitch > 0)
+   {
+      toggleIo(pinShower, "DO");
+      showerSwitch = 0;
+   }
+
+   webSock->service();   // takes around 1 second :o
    dispatchClientRequest();
    webSock->performData(cWebSock::mtData);
    performWebSocketPing();
@@ -1069,7 +1101,7 @@ int Poold::update(bool webOnly, long client)
    {
       char text[1000];
 
-      int addr = tableValueFacts->getIntValue("ADDRESS");
+      uint addr = tableValueFacts->getIntValue("ADDRESS");
       const char* type = tableValueFacts->getStrValue("TYPE");
       const char* title = tableValueFacts->getStrValue("TITLE");
       const char* usrtitle = tableValueFacts->getStrValue("USRTITLE");
@@ -1098,6 +1130,11 @@ int Poold::update(bool webOnly, long client)
 
             if (!webOnly)
                store(now, name, title, unit, type, addr, w1Value);
+         }
+         else
+         {
+            json_object_set_new(ojData, "text",json_string("<missing sensor>"));
+            json_object_set_new(ojData, "widgettype", json_integer(wtText));
          }
       }
       else if (tableValueFacts->hasValue("TYPE", "DO"))
@@ -1476,7 +1513,7 @@ int Poold::performChartData(json_t* oObject, long client)
    if (isEmpty(sensors))
       sensors = chart1;
 
-   tell(eloAlways, "Selecting chats data for '%s'", sensors);
+   tell(eloAlways, "Selecting chats data for '%s' ..", sensors);
 
    json_t* oMain = json_object();
    json_t* oJson = json_array();
@@ -1497,7 +1534,6 @@ int Poold::performChartData(json_t* oObject, long client)
    for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
       char* id {nullptr};
-      char* sensor {nullptr};
       asprintf(&id, "%s:0x%lx", tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"));
 
       bool active = strstr(sensors, id) != 0;
@@ -1522,13 +1558,13 @@ int Poold::performChartData(json_t* oObject, long client)
          continue;
       }
 
-      tell(0, " ...collecting data for '%s'", id);
       free(id);
 
       json_t* oSample = json_object();
       json_array_append_new(oJson, oSample);
 
-      asprintf(&sensor, "%s%ld", tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"));
+      char* sensor {nullptr};
+      asprintf(&sensor, "%s%lu", tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"));
       json_object_set_new(oSample, "title", json_string(title));
       json_object_set_new(oSample, "sensor", json_string(sensor));
       json_t* oData = json_array();
@@ -1564,7 +1600,7 @@ int Poold::performChartData(json_t* oObject, long client)
    json_object_set_new(oMain, "rows", oJson);
    json_object_set_new(oMain, "id", json_string(id));
    selectActiveValueFacts->freeResult();
-   tell(eloAlways, "... done");
+   tell(eloAlways, ".. done");
    pushOutMessage(oMain, "chartdata", client);
 
    return done;
@@ -1837,7 +1873,7 @@ int Poold::valueFacts2Json(json_t* obj)
       json_t* oData = json_object();
       json_array_append_new(obj, oData);
 
-      json_object_set_new(oData, "address", json_integer(tableValueFacts->getIntValue("ADDRESS")));
+      json_object_set_new(oData, "address", json_integer((ulong)tableValueFacts->getIntValue("ADDRESS")));
       json_object_set_new(oData, "type", json_string(tableValueFacts->getStrValue("TYPE")));
       json_object_set_new(oData, "state", json_integer(tableValueFacts->hasValue("STATE", "A")));
       json_object_set_new(oData, "name", json_string(tableValueFacts->getStrValue("NAME")));
@@ -1891,7 +1927,7 @@ int Poold::sensor2Json(json_t* obj, cDbTable* table)
 
    tablePeaks->reset();
 
-   json_object_set_new(obj, "address", json_integer(table->getIntValue("ADDRESS")));
+   json_object_set_new(obj, "address", json_integer((ulong)table->getIntValue("ADDRESS")));
    json_object_set_new(obj, "type", json_string(table->getStrValue("TYPE")));
    json_object_set_new(obj, "name", json_string(table->getStrValue("NAME")));
 
@@ -1933,7 +1969,7 @@ int Poold::process()
    {
       if (digitalOutputStates[pinSolarPump].state || digitalOutputStates[pinFilterPump].state)
       {
-         tell(0, "Warming: Deactivating pumps due to low water condition!");
+         tell(0, "Warning: Deactivating pumps due to low water condition!");
          gpioWrite(pinSolarPump, false);
          gpioWrite(pinFilterPump, false);
       }
@@ -2556,13 +2592,13 @@ int Poold::toggleIo(uint addr, const char* type)
    return success;
 }
 
-int Poold::publishScriptResult(uint addr, const char* type, std::string result)
+int Poold::publishScriptResult(ulong addr, const char* type, std::string result)
 {
    auto pos = result.find(':');
 
    if (pos == std::string::npos)
    {
-      tell(0, "Error: Failed to parse result of script (%d) [%s]", addr, result.c_str());
+      tell(0, "Error: Failed to parse result of script (%ld) [%s]", addr, result.c_str());
       return fail;
    }
 
@@ -2589,7 +2625,7 @@ int Poold::publishScriptResult(uint addr, const char* type, std::string result)
       json_t* ojData = json_object();
       json_array_append_new(oJson, ojData);
 
-      json_object_set_new(ojData, "address", json_integer(addr));
+      json_object_set_new(ojData, "address", json_integer((ulong)addr));
       json_object_set_new(ojData, "type", json_string(type));
       json_object_set_new(ojData, "name", json_string(name));
       json_object_set_new(ojData, "title", json_string(title));
@@ -2731,6 +2767,15 @@ void Poold::updateW1(const char* id, double value)
    }
 
    tableValueFacts->reset();
+}
+
+void Poold::cleanupW1()
+{
+   for (auto it = w1Sensors.begin(); it != w1Sensors.end(); ++it)
+   {
+      if (it->second.last < time(0) - 30)
+         w1Sensors.erase(it);
+   }
 }
 
 bool Poold::existW1(const char* id)

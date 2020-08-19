@@ -3,12 +3,13 @@
 // File w1.c
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
-// Date 16.04.2020 - Jörg Wendel
+// Date 10.08.2020 - Jörg Wendel
 //***************************************************************************
 
 #include <signal.h>
 #include <dirent.h>
 #include <vector>
+#include <numeric>
 
 #include "w1.h"
 #include "lib/json.h"
@@ -34,7 +35,7 @@ W1::~W1()
 int W1::show()
 {
    for (auto it = sensors.begin(); it != sensors.end(); ++it)
-      tell(0, "%s: %2.3f", it->first.c_str(), it->second);
+      tell(0, "%s: %2.3f", it->first.c_str(), it->second.value);
 
    return done;
 }
@@ -58,7 +59,7 @@ int W1::scan()
       if (sensors.find(it->c_str()) == sensors.end())
       {
          tell(eloAlways, "One Wire Sensor '%s' attached", it->c_str());
-         sensors[it->c_str()] = 0;
+         sensors[it->c_str()].value = 0;
       }
    }
 
@@ -95,7 +96,7 @@ int W1::update()
 
    json_t* oJson = json_array();
 
-   for (auto it = sensors.begin(); it != sensors.end(); ++it)
+   for (auto it = sensors.begin(); it != sensors.end(); it++)
    {
       char line[100+TB];
       FILE* in;
@@ -107,7 +108,7 @@ int W1::update()
       {
          tell(eloAlways, "Error: Opening '%s' failed, error was '%s'", path, strerror(errno));
          tell(eloAlways, "One Wire Sensor '%s' seems to be detached, removing it", path);
-         sensors.erase(it);
+         sensors.erase(it--);
          free(path);
          continue;
       }
@@ -117,10 +118,46 @@ int W1::update()
          char* p;
          line[strlen(line)-1] = 0;
 
-         if ((p = strstr(line, " t=")))
+         if (strstr(line, " crc="))
+         {
+            if (!strstr(line, " YES"))
+            {
+               tell(0, "Error: CRC check for '%s' failed in [%s], skipping sample", it->first.c_str(), line);
+               break;
+            }
+         }
+
+         else if ((p = strstr(line, " t=")))
          {
             double value = atoi(p+3) / 1000.0;
-            sensors[it->first] = value;
+
+            if (value >= 80 || value <= -80)
+            {
+               // at error we get sometimes +85 or -85 from the sensor so limit the range
+               //  to -80 - +80
+
+               tell(0, "Error: Ignoring invalid value (%0.2f) of w1 sensor '%s'", value, it->first.c_str());
+               break;
+            }
+
+            if (sensors[it->first].values.size() >= 3)
+            {
+               double sum = std::accumulate(sensors[it->first].values.cbegin(), sensors[it->first].values.cend(), 0);
+               double average = sum / sensors[it->first].values.size();
+               double delta = abs(average - value);
+
+               tell(1, "Info: %s : %0.2f, the average of the last %d samples is %0.2f (delta is %0.2f)",
+                    it->first.c_str(), value, sensors[it->first].values.size(), average, average - value);
+
+               if (delta > 5)
+                  tell(0, "Warning: delta %0.2f", delta);
+            }
+
+            if (sensors[it->first].values.size() >= 3)
+               sensors[it->first].values.erase(sensors[it->first].values.begin());
+
+            sensors[it->first].values.push_back(value);
+            sensors[it->first].value = value;
 
             json_t* ojData = json_object();
             json_array_append_new(oJson, ojData);
@@ -134,6 +171,11 @@ int W1::update()
 
       fclose(in);
       free(path);
+
+      // take a breath .. due to a forum post we wait 1 second:
+      //   -> "jede Lesung am Bus zieht die Leitungen runter und da alle Sensoren am selben Bus hängen, deswegen min. 1s zwischen den Lesungen"
+
+      sleep(1);
    }
 
    if (mqttConnection() != success)
@@ -206,8 +248,6 @@ int main(int argc, char** argv)
          case 'l': if (argv[i+1]) _level = atoi(argv[i+1]); break;
          case 't': _stdout = yes;                           break;
          case 'n': nofork = yes;                            break;
-//         case 'c': if (argv[i+1]) confDir = argv[i+1];      break;
-//         case 'v': printf("Version %s\n", VERSION);         return 1;
       }
    }
 

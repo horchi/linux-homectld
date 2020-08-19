@@ -3,7 +3,7 @@
 // File w1.h
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
-// Date 16.04.2020 - Jörg Wendel
+// Date 10.08.2020 - Jörg Wendel
 //***************************************************************************
 
 #pragma once
@@ -15,17 +15,23 @@
 #include "lib/common.h"
 #include "lib/mqtt.h"
 
+// #define W1_UDEF std::numeric_limits<double>::max()
+
 //***************************************************************************
 // Class W1
 //***************************************************************************
-
-#define W1_UDEF std::numeric_limits<double>::max()
 
 class W1
 {
    public:
 
-      typedef std::map<std::string, double> SensorList;
+      struct SensorData
+      {
+         double value;
+         std::vector<double> values;
+      };
+
+      typedef std::map<std::string, SensorData> SensorList;
 
       W1();
       ~W1();

@@ -45,9 +45,6 @@ cWebSock::~cWebSock()
 int cWebSock::init(int aPort, int aTimeout)
 {
    lws_context_creation_info info {0};
-   const char* interface {nullptr};
-   const char* certPath {nullptr};           // we're not using ssl
-   const char* keyPath {nullptr};
 
    lws_set_log_level(wsLogLevel, writeLog);
 
@@ -90,11 +87,21 @@ int cWebSock::init(int aPort, int aTimeout)
 
    memset(&info, 0, sizeof(info));
    info.port = port;
-   info.iface = interface;
    info.protocols = protocols;
-   info.ssl_cert_filepath = certPath;
-   info.ssl_private_key_filepath = keyPath;
+#if defined (LWS_LIBRARY_VERSION_MAJOR) && (LWS_LIBRARY_VERSION_MAJOR < 4)
+   info.ifce = nullptr;
+#endif
+   info.ssl_cert_filepath = nullptr;
+   info.ssl_private_key_filepath = nullptr;
+
+#if defined (LWS_LIBRARY_VERSION_MAJOR) && (LWS_LIBRARY_VERSION_MAJOR >= 4)
+   retry.secs_since_valid_ping = timeout;
+   retry.secs_since_valid_hangup = timeout + 10;
+   info.retry_and_idle_policy = &retry;
+#else
    info.ws_ping_pong_interval = timeout;
+#endif
+
    info.gid = -1;
    info.uid = -1;
    info.options = 0;

@@ -37,7 +37,6 @@ CFLAGS    	+= $(shell mysql_config --include)
 DEFINES   	+= -DDEAMON=Poold
 OBJS      	+= poold.o
 W1OBJS      = w1.o lib/common.o lib/thread.o $(MQTTOBJS)
-FINES   += -DMQTT_HASS
 
 ifdef GIT_REV
    DEFINES += -DGIT_REV='"$(GIT_REV)"'

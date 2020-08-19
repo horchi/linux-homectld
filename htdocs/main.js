@@ -16,11 +16,13 @@ var theChartRange = 2;
 var theChartStart = new Date(); theChartStart.setDate(theChartStart.getDate()-theChartRange);
 var chartDialogSensor = "";
 
+// !!  sync this arry with UserRights of poold.h  !!
+
 var rights = [ "View",
                "Control",
                "Full Control",
                "Settings",
-               "Admin" ];    // sync arry with UserRights of poold.h
+               "Admin" ];
 
 window.documentReady = function(doc)
 {
@@ -238,6 +240,7 @@ function prepareMenu(haveToken, vdr)
    else if ($("#navMenu").data("maincfg") != undefined) {
       html += "<div id=\"confirm\" class=\"confirmDiv\">";
       html += "  <button class=\"rounded-border button2\" onclick=\"storeConfig()\">Speichern</button>";
+      html += "  <button class=\"rounded-border button2\" onclick=\"resetPeaks()\">Reset Peaks</button>";
       html += "</div>";
    }
    else if ($("#navMenu").data("maincfg") != undefined) {
@@ -925,6 +928,11 @@ window.storeIoSetup = function()
    var elem = document.createElement("div");
    elem.innerHTML = "<br/><div class=\"info\"><b><center>Einstellungen gespeichert</center></b></div>";
    document.getElementById("confirm").appendChild(elem);
+}
+
+window.resetPeaks = function()
+{
+   socket.send({ "event" : "resetpeaks", "object" : { "what" : "all" } });
 }
 
 window.storeConfig = function()

@@ -127,6 +127,7 @@ class MemoryStruct
 
          return success;
       }
+
       int append(const char* buf, int len = 0)
       {
          if (!len) len = strlen(buf);

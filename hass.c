@@ -18,8 +18,6 @@
 int Poold::hassPush(IoType iot, const char* name, const char* title, const char* unit,
                   double value, const char* text, bool forceConfig)
 {
-   int status = success;
-
    // check/prepare reader/writer connection
 
    if (hassCheckConnection() != success)
@@ -27,6 +25,7 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
 
    // check if state topic already exists
 
+   int status {success};
    MemoryStruct message;
    std::string tp;
    std::string sName = name;

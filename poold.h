@@ -15,6 +15,7 @@
 #include <queue>
 #include <jansson.h>
 #include <libwebsockets.h>
+#include <lws_config.h>
 
 #include "lib/db.h"
 #include "lib/mqtt.h"
@@ -55,6 +56,8 @@ class cWebService
          evLogMessage,
          evUserConfig,
          evChangePasswd,
+         evResetPeaks,
+
          evCount
       };
 
@@ -174,6 +177,9 @@ class cWebSock : public cWebService
       int port {na};
       lws_protocols protocols[3];
       lws_http_mount mounts[1];
+#if defined (LWS_LIBRARY_VERSION_MAJOR) && (LWS_LIBRARY_VERSION_MAJOR >= 4)
+      lws_retry_bo_t retry;
+#endif
 
       // statics
 
@@ -386,6 +392,7 @@ class Poold : public cWebService
       int performPasswChange(json_t* oObject, long client);
       int storeConfig(json_t* obj, long client);
       int storeIoSetup(json_t* array, long client);
+      int resetPeaks(json_t* obj, long client);
 
       int config2Json(json_t* obj);
       int configDetails2Json(json_t* obj);

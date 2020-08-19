@@ -1,4 +1,5 @@
 
 
-- 'invert' für jeden DO konfigurierbar
+- 'invert' für jeden DO separat konfigurierbar
 - Rechte der valuefacts konfigurierbar
+- peaks zurücksetzen

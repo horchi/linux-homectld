@@ -92,6 +92,7 @@ const char* cWebService::events[] =
    "logmessage",
    "userconfig",
    "changepasswd",
+   "resetpeaks",
    0
 };
 
@@ -247,6 +248,7 @@ int Poold::dispatchClientRequest()
          case evChartData:     status = performChartData(oObject, client);      break;
          case evUserConfig:    status = performUserConfig(oObject, client);     break;
          case evChangePasswd:  status = performPasswChange(oObject, client);    break;
+         case evResetPeaks:    status = resetPeaks(oObject, client);            break;
 
          default: tell(0, "Error: Received unexpected client request '%s' at [%s]",
                        toName(event), messagesIn.front().c_str());
@@ -879,7 +881,7 @@ bool Poold::checkRights(long client, Event event, json_t* oObject)
       case evChartData:     return rights & urView;
       case evUserConfig:    return rights & urAdmin;
       case evChangePasswd:  return true;   // check will done in performPasswChange()
-
+      case evResetPeaks:    return rights & urAdmin;
       default: break;
    }
 
@@ -1002,7 +1004,7 @@ int Poold::meanwhile()
       showerSwitch = 0;
    }
 
-   webSock->service();   // takes around 1 second :o
+   webSock->service();       // takes around 1 second :o
    dispatchClientRequest();
    webSock->performData(cWebSock::mtData);
    performWebSocketPing();
@@ -1118,13 +1120,11 @@ int Poold::update(bool webOnly, long client)
 
       if (tableValueFacts->hasValue("TYPE", "W1"))
       {
-         time_t w1Last;
-         double w1Value = valueOfW1(name, w1Last);
-
-         // use value only if not older than 2 cycles
-
-         if (w1Last > time(0) - 2*interval)
+         if (existW1(name))
          {
+            time_t w1Last;
+            double w1Value = valueOfW1(name, w1Last);
+
             json_object_set_new(ojData, "value", json_real(w1Value));
             json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
 
@@ -1133,7 +1133,7 @@ int Poold::update(bool webOnly, long client)
          }
          else
          {
-            json_object_set_new(ojData, "text",json_string("<missing sensor>"));
+            json_object_set_new(ojData, "text",json_string("missing sensor"));
             json_object_set_new(ojData, "widgettype", json_integer(wtText));
          }
       }
@@ -1726,6 +1726,17 @@ int Poold::performPasswChange(json_t* oObject, long client)
    }
 
    tableUsers->reset();
+
+   return done;
+}
+
+//***************************************************************************
+// Reset Peaks
+//***************************************************************************
+
+int Poold::resetPeaks(json_t* obj, long client)
+{
+   tablePeaks->truncate();
 
    return done;
 }
@@ -2771,10 +2782,24 @@ void Poold::updateW1(const char* id, double value)
 
 void Poold::cleanupW1()
 {
-   for (auto it = w1Sensors.begin(); it != w1Sensors.end(); ++it)
+   uint detached {0};
+
+   for (auto it = w1Sensors.begin(); it != w1Sensors.end(); it++)
    {
       if (it->second.last < time(0) - 30)
-         w1Sensors.erase(it);
+      {
+         tell(0, "Info: Missing sensor '%s', removing it from list", it->first.c_str());
+         detached++;
+         w1Sensors.erase(it--);
+      }
+   }
+
+   if (detached)
+   {
+      tell(0, "Info: %d w1 sensors detached, reseting power line to force a re-initialization", detached);
+      gpioWrite(pinW1Power, false);
+      sleep(2);
+      gpioWrite(pinW1Power, true);
    }
 }
 

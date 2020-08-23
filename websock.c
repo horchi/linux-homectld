@@ -1,7 +1,7 @@
 /**
  *  websock.c
  *
- *  (c) 2020 Jörg Wendel
+ *  (c) 2017-2020 Jörg Wendel
  *
  * This code is distributed under the terms and conditions of the
  * GNU GENERAL PUBLIC LICENSE. See the file COPYING for details.
@@ -83,13 +83,13 @@ int cWebSock::init(int aPort, int aTimeout)
    mount.origin_protocol = LWSMPRO_FILE;
    mounts[0] = mount;
 
-    // setup websocket context info
+   // setup websocket context info
 
    memset(&info, 0, sizeof(info));
    info.port = port;
    info.protocols = protocols;
 #if defined (LWS_LIBRARY_VERSION_MAJOR) && (LWS_LIBRARY_VERSION_MAJOR < 4)
-   info.ifce = nullptr;
+   info.iface = nullptr;
 #endif
    info.ssl_cert_filepath = nullptr;
    info.ssl_private_key_filepath = nullptr;
@@ -142,7 +142,12 @@ int cWebSock::exit()
 
 int cWebSock::service()
 {
-   lws_service(context, 0);  // timeout parameter is not supported by the lib anymore
+#if defined (LWS_LIBRARY_VERSION_MAJOR) && (LWS_LIBRARY_VERSION_MAJOR >= 4)
+   lws_service(context, 0);    // timeout parameter is not supported by the lib anymore
+#else
+   lws_service(context, 100);
+#endif
+
    return done;
 }
 
@@ -379,14 +384,14 @@ int cWebSock::serveFile(lws* wsi, const char* path)
 }
 
 //***************************************************************************
-// Callback for pool Protocol
+// Callback for my Protocol
 //***************************************************************************
 
 int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, void* in, size_t len)
 {
    std::string clientInfo = "unknown";
 
-   tell(4, "DEBUG: 'callbackPool' got (%d)", reason);
+   tell(4, "DEBUG: 'callback' got (%d)", reason);
 
    switch (reason)
    {
@@ -449,7 +454,7 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
 
                strncpy(msgBuffer + sizeLwsPreFrame, msg.c_str(), msgSize);
 
-               tell(1, "DEBUG: Write (%d) -> %.*s -> to '%s' (%p)\n", msgSize, msgSize,
+               tell(2, "DEBUG: Write (%d) -> %.*s -> to '%s' (%p)\n", msgSize, msgSize,
                     msgBuffer+sizeLwsPreFrame, clientInfo.c_str(), (void*)wsi);
 
                res = lws_write(wsi, (unsigned char*)msgBuffer + sizeLwsPreFrame, msgSize, LWS_WRITE_TEXT);
@@ -548,7 +553,6 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
       case LWS_CALLBACK_RECEIVE_PONG:                      // ping / pong
       {
          tell(2, "DEBUG: Got 'PONG' from client '%s' (%p)", clientInfo.c_str(), (void*)wsi);
-
          break;
       }
 

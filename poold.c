@@ -109,6 +109,7 @@ cWebService::Event cWebService::toEvent(const char* name)
    for (int e = evUnknown; e < evCount; e++)
       if (strcasecmp(name, events[e]) == 0)
          return (Event)e;
+
    return evUnknown;
 }
 
@@ -181,10 +182,8 @@ int Poold::pushOutMessage(json_t* oContents, const char* title, long client)
    if (!client && strstr(":all:init:update", title))
    {
       for (const auto cl : wsClients)
-      {
          if (cl.second.dataUpdates)
             cWebSock::pushMessage(p, (lws*)cl.first);
-      }
    }
    else
    {

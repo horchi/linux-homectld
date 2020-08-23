@@ -1,7 +1,7 @@
 # Linux - Pool Control Daemon (poold)
 
 Written by: *Jörg Wendel (linux at jwendel dot de)*
-Homepage: https://github.com/horchi/linux-poold
+Project page: https://github.com/horchi/linux-poold
 
 ## License
 This code is distributed under the terms and conditions of the GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.

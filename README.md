@@ -38,7 +38,7 @@ Language package 'de_DE.UTF-8' is required as language package (`dpkg-reconfigur
  
     for example: https://www.amazon.de/gp/product/B07CM9DLHY/ref=ppx_yo_dt_b_search_asin_image?ie=UTF8&psc=1    
     
-- 230V Magnet Valve ()for the shower)
+- 230V Magnet Valve (for the shower)
  
   for example: https://www.amazon.de/gp/product/B072JBBHJS/ref=ppx_yo_dt_b_asin_title_o03_s00?ie=UTF8&psc=1
 - Button (for shower)    
@@ -58,14 +58,22 @@ One Wire Sensors - 7 (GPIO4)
 #### Digital Outputs
 
 Filter Pump    - 11 (GPIO17)
+
 Solar Pump     - 12 (GPIO18)
+
 Pool Light     - 13 (GPIO27)
+
 UVC Light      - 15 (GPIO22)
+
 User Out 1     - 16 (GPIO23)
+
 User Out 2     - 18 (GPIO24)
+
 One Wire Power - 19 (GPIO10)
+
 Shower Valve   - 22 (GPIO25)
-UserOut3       - 23 (GPIO11)
+
+User Out 3     - 23 (GPIO11)
 
 #### Digital Inputs
 

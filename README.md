@@ -14,10 +14,12 @@ All explanations about the hardware are only indications of how it is technicall
 
 ## Donation
 If you like the project and want to support it
+
 [![paypal](https://www.paypalobjects.com/de_DE/DE/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=KUF9ZAQ5UTHUN)
 
 ## Prerequisites:
 The described installation method is tested with Raspbian Buster, the poold should work also with other Linux distributions and versions but the installation process should adapted to them, for example they use other init processes or use different tools for the package management, other package names, ...
+
 Language package 'de_DE.UTF-8' is required as language package (`dpkg-reconfigure locales`)
 
 # Hardware

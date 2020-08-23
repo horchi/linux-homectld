@@ -9,7 +9,7 @@ This code is distributed under the terms and conditions of the GNU GENERAL PUBLI
 ## Disclaimer
 USE AT YOUR OWN RISK. No warranty.
 The software was created for personal use, it's published here for free under the GPLv2.
-The construction of the required hardware, especially in the handling of mains voltage (230V, 110V, ...), is carried out on one's own responsibility, local guidelines and regulations must also be observed especially in connection with water and pool! 
+The construction of the required hardware, especially in the handling of mains voltage (230V, 110V, ...), is carried out on one's own responsibility, local guidelines and regulations must also be observed especially in connection with water and pool!
 All explanations about the hardware are only indications of how it is technically feasible, security and legal provisions are not discussed here!
 
 ## Donation
@@ -24,10 +24,15 @@ Language package 'de_DE.UTF-8' is required as language package (`dpkg-reconfigur
 
 # Hardware
 
-- Rapberry Pi >= 3.x
+- Rapberry Pi >= 3.x with power adapter and at least 16GB SD card
+    for example: https://www.amazon.de/UCreate-Raspberry-Pi-Desktop-Starter/dp/B07BNQ2TWW/ref=sr_1_10?__mk_de_DE=%C3%85M%C3%85%C5%BD%C3%95%C3%91&dchild=1&keywords=raspberry+pi+3&qid=1598178038&sr=8-10
+    If you run the database locally more RAM, faster CPU and a additional SSD will be better
 - Relay Board with at least 8 relays to switch 230V and a max current which fit the needs of your components (lights, pumps, ...)
+    for example: https://www.amazon.de/gp/product/B014L10Q52/ref=ppx_yo_dt_b_asin_title_o00_s00?ie=UTF8&psc=1
 - At least 3 One Wire sensors  
-- ...
+    for example: https://www.amazon.de/gp/product/B00CHEZ250/ref=ppx_yo_dt_b_search_asin_title?ie=UTF8&psc=1
+- Power sockets to connect lights and pumps
+    for example: https://www.amazon.de/gp/product/B07CM9DLHY/ref=ppx_yo_dt_b_search_asin_image?ie=UTF8&psc=1
 - ... to be completed !
 
 
@@ -37,13 +42,13 @@ Language package 'de_DE.UTF-8' is required as language package (`dpkg-reconfigur
 
 ### install
 
-```  
+```
 wget  www.jwendel.de/poold/install-deb.sh -O /tmp/install-deb.sh
 sudo bash /tmp/install-deb.sh
 ```
 ### uninstall
 
-```  
+```
 dpkg --remove poold
 ```
 
@@ -81,7 +86,7 @@ If the database server is located locally (on same host as the poold):
   GRANT ALL PRIVILEGES ON pool.* TO 'pool'@'localhost' IDENTIFIED BY 'pool';
   flush privileges;
 ```
-  
+
 ### Remote database setup:
 if the database is running remote, or you like to have remote access to the database:
 ```
@@ -101,7 +106,7 @@ apt install build-essential cmake libssl-dev libxml2-dev libcurl4-openssl-dev li
 ### get and install libwebsock
 We need to install it manually since the version shipped with the distribution is to old (we need at least version v3.2.0)
 
-```  
+```
 cd /usr/src/
 git clone https://libwebsockets.org/repo/libwebsockets
 cd libwebsockets
@@ -111,7 +116,7 @@ cmake ..
 make install
 
 ```
- 
+
 ### get, build and install the poold
 
 ```
@@ -123,7 +128,7 @@ make install
 ```
 
 Now the pool daemon is installed in folder `/usr/local/bin`
-Check `/etc/poold/poold.conf` file for setting of your database login. If you have used the defaults above no change is needed. 
+Check `/etc/poold/poold.conf` file for setting of your database login. If you have used the defaults above no change is needed.
 
 
 # One Wire Sensors:
@@ -146,7 +151,7 @@ configurable via the web interface.
 # Time to first start of poold
 
 ```
-systemctl start poold  
+systemctl start poold
 systemctl enable poold
 ```
 
@@ -168,7 +173,7 @@ grep "poold:" /var/log/syslog
 
 ## The WEB interface:
 
-The default username and password for login to the web interface is:  
+The default username and password for login to the web interface is:
 ```
 User: pool
 Password: pool

@@ -40,7 +40,6 @@ Language package 'de_DE.UTF-8' is required as language package (`dpkg-reconfigur
 ```  
 wget  www.jwendel.de/poold/install-deb.sh -O /tmp/install-deb.sh
 sudo bash /tmp/install-deb.sh
-
 ```
 ### uninstall
 
@@ -51,7 +50,8 @@ dpkg --remove poold
 
 ### uninstall (with remove of all configurations, data and the poold database)
 
-```dpkg --purge poold`
+```
+dpkg --purge poold`
 ```
 
 # Building and installing by source (working for most Linux platforms)

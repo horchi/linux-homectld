@@ -33,17 +33,19 @@ Language package 'de_DE.UTF-8' is required as language package (`dpkg-reconfigur
 
 # Installation by package (only Raspbian Buster)
 
-*The install package is not available yet! Please use the ""custom build" section below!  *
+**The install package is not available yet! Please use the ""custom build" section below!**
 
 ### install
 
-```wget  www.jwendel.de/poold/install-deb.sh -O /tmp/install-deb.sh
+```  
+wget  www.jwendel.de/poold/install-deb.sh -O /tmp/install-deb.sh
 sudo bash /tmp/install-deb.sh
 
 ```
 ### uninstall
 
-```dpkg --remove poold
+```  
+dpkg --remove poold
 ```
 
 

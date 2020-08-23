@@ -25,15 +25,15 @@ Language package 'de_DE.UTF-8' is required as language package (`dpkg-reconfigur
 # Hardware
 
 - Rapberry Pi >= 3.x
-- Relay Board
+- Relay Board with at least 8 relays to switch 230V and a max current which fit the needs of your components (lights, pumps, ...)
 - At least 3 One Wire sensors  
 - ...
-- to be completed
+- ... to be completed !
 
 
 # Installation by package (only Raspbian Buster)
 
-**The install package is not available yet! Please use the ""custom build" section below!  **
+*The install package is not available yet! Please use the ""custom build" section below!  *
 
 ### install
 

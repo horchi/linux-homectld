@@ -24,15 +24,19 @@ Language package 'de_DE.UTF-8' is required as language package (`dpkg-reconfigur
 
 # Hardware
 
-- Rapberry Pi >= 3.x with power adapter and at least 16GB SD card
+- Rapberry Pi >= 3.x with power adapter and at least 16GB SD card  
+ 
     for example: https://www.amazon.de/UCreate-Raspberry-Pi-Desktop-Starter/dp/B07BNQ2TWW/ref=sr_1_10?__mk_de_DE=%C3%85M%C3%85%C5%BD%C3%95%C3%91&dchild=1&keywords=raspberry+pi+3&qid=1598178038&sr=8-10
     If you run the database locally more RAM, faster CPU and a additional SSD will be better
 - Relay Board with at least 8 relays to switch 230V and a max current which fit the needs of your components (lights, pumps, ...)
+ 
     for example: https://www.amazon.de/gp/product/B014L10Q52/ref=ppx_yo_dt_b_asin_title_o00_s00?ie=UTF8&psc=1
 - At least 3 One Wire sensors  
+ 
     for example: https://www.amazon.de/gp/product/B00CHEZ250/ref=ppx_yo_dt_b_search_asin_title?ie=UTF8&psc=1
 - Power sockets to connect lights and pumps
-    for example: https://www.amazon.de/gp/product/B07CM9DLHY/ref=ppx_yo_dt_b_search_asin_image?ie=UTF8&psc=1
+ 
+    for example: https://www.amazon.de/gp/product/B07CM9DLHY/ref=ppx_yo_dt_b_search_asin_image?ie=UTF8&psc=1    
 - ... to be completed !
 
 

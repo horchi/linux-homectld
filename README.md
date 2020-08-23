@@ -58,7 +58,6 @@ One Wire Sensors - 7 (GPIO4)
 #### Digital Outputs
 
 Filter Pump    - 11 (GPIO17)
-
 Solar Pump     - 12 (GPIO18)
 
 Pool Light     - 13 (GPIO27)

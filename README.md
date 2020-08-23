@@ -58,7 +58,9 @@ dpkg --purge poold`
 
 ## Preliminary
 Update your package data: `sudo apt update`and your installation: `sudo apt dist-upgrade`.
-Perform all the following steps as root user! Either by getting root or by prefix each command with sudo.
+
+Perform all following steps as root user! Either by getting root or by prefix each command with sudo.
+To become root type: `sudo -i`
 
 ## Installation of the MySQL Database
 It's not required to host the database local at the Raspberry. A remote database is supported as well!
@@ -67,7 +69,7 @@ It's not required to host the database local at the Raspberry. A remote database
 apt install mariadb-server
 ```
 
-Set database password for root user during installation!
+Set the database root (db admin) password during installation!
 
 ### Local database setup:
 If the database server is located locally (on same host as the poold):
@@ -93,10 +95,24 @@ if the database is running remote, or you like to have remote access to the data
 ### install the build dependencies
 
 ```
-apt install build-essential libssl-dev libxml2-dev libcurl4-openssl-dev libssl-dev libmariadbclient-dev libmariadb-dev-compat wiringpi
+apt install build-essential cmake libssl-dev libxml2-dev libcurl4-openssl-dev libssl-dev libmariadbclient-dev libmariadb-dev-compat wiringpi
+```
+
+### get and install libwebsock
+We need to install it manually since the version shipped with the distribution is to old (we need at least version v3.2.0)
+
+```  
+cd /usr/src/
+git clone https://libwebsockets.org/repo/libwebsockets
+cd libwebsockets
+mkdir build
+cd build
+cmake ..
+make install
+
 ```
  
-### get the poold and build it
+### get, build and install the poold
 
 ```
 cd /usr/src/
@@ -107,7 +123,7 @@ make install
 ```
 
 Now the pool daemon is installed in folder `/usr/local/bin`
-Check `/etc/poold/poold.conf` file for setting of your database login
+Check `/etc/poold/poold.conf` file for setting of your database login. If you have used the defaults above no change is needed. 
 
 
 # One Wire Sensors:
@@ -117,7 +133,6 @@ To make the sensors available to the Raspberry PI you have to load the `w1-gpio`
 (here in detail : http://www.netzmafia.de/skripten/hardware/RasPi/Projekt-Onewire/index.html)
 
 ```
-sudo -i
 echo "w1-gpio" >> /etc/modules
 echo "w1_therm" >> /etc/modules
 echo "dtoverlay=w1-gpio,gpioin=4,pullup=on" >> /boot/config.txt

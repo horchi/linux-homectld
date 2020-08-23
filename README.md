@@ -54,20 +54,17 @@ dpkg --remove poold
 dpkg --purge poold`
 ```
 
-# Building and installing by source (working for most Linux platforms)
+# Building and installing by source
 
 ## Preliminary
-Update your package data:
-`sudo apt update`
-and, if you like, update your installation:
-`sudo apt dist-upgrade`
-
-Perform all the following steps as root user! Either by getting root or by prefix each command with sodo.
+Update your package data:`sudo apt update`and your installation:`sudo apt dist-upgrade`
+Perform all the following steps as root user! Either by getting root or by prefix each command with sudo.
 
 ## Installation of the MySQL Database
 It's not required to host the database local at the Raspberry. A remote database is supported as well!
 
-```apt install mariadb-server
+```
+apt install mariadb-server
 ```
 
 Set database password for root user during installation!
@@ -95,7 +92,8 @@ if the database is running remote, or you like to have remote access to the data
 
 ### install the build dependencies
 
-```apt install build-essential libssl-dev libxml2-dev libcurl4-openssl-dev libssl-dev libmariadbclient-dev libmariadb-dev-compat wiringpi
+```
+apt install build-essential libssl-dev libxml2-dev libcurl4-openssl-dev libssl-dev libmariadbclient-dev libmariadb-dev-compat wiringpi
 ```
  
 ### get the poold and build it
@@ -130,21 +128,24 @@ configurable via the web interface.
 
 # Time to first start of poold
 
-```systemctl start poold  
-   systemctl enable poold
+```
+systemctl start poold  
+systemctl enable poold
 ```
 
 
 ### to check it's current state call
 
-```systemctl status poold
+```
+systemctl status poold
 ```
 
 it should now 'enabled' and in state 'running'!
 
 ### also check the syslog about errors of the poold, this will show all its current log messages
 
-```grep "poold:" /var/log/syslog
+```
+grep "poold:" /var/log/syslog
 ```
 
 

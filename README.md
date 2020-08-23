@@ -57,7 +57,7 @@ dpkg --purge poold`
 # Building and installing by source
 
 ## Preliminary
-Update your package data:`sudo apt update`and your installation:`sudo apt dist-upgrade`
+Update your package data: `sudo apt update`and your installation: `sudo apt dist-upgrade`.
 Perform all the following steps as root user! Either by getting root or by prefix each command with sudo.
 
 ## Installation of the MySQL Database
@@ -145,7 +145,7 @@ it should now 'enabled' and in state 'running'!
 ### also check the syslog about errors of the poold, this will show all its current log messages
 
 ```
-grep "poold:" /var/log/syslog
+	grep "poold:" /var/log/syslog
 ```
 
 

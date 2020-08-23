@@ -37,7 +37,42 @@ Language package 'de_DE.UTF-8' is required as language package (`dpkg-reconfigur
 - Power sockets to connect lights and pumps
  
     for example: https://www.amazon.de/gp/product/B07CM9DLHY/ref=ppx_yo_dt_b_search_asin_image?ie=UTF8&psc=1    
+    
+- 230V Magnet Valve ()for the shower)
+ 
+  for example: https://www.amazon.de/gp/product/B072JBBHJS/ref=ppx_yo_dt_b_asin_title_o03_s00?ie=UTF8&psc=1
+- Button (for shower)    
+  
+  for example: https://www.amazon.de/gp/product/B002LE8EJC/ref=ppx_yo_dt_b_search_asin_image?ie=UTF8&psc=1
 - ... to be completed !
+
+
+### GPIO Port Connections
+
+The first number below is the physical pin in brackets the GIPO port.
+
+#### One Wire Sensors
+
+One Wire Sensors - 7 (GPIO4)
+
+#### Digital Outputs
+
+Filter Pump    - 11 (GPIO17)
+Solar Pump     - 12 (GPIO18)
+Pool Light     - 13 (GPIO27)
+UVC Light      - 15 (GPIO22)
+User Out 1     - 16 (GPIO23)
+User Out 2     - 18 (GPIO24)
+One Wire Power - 19 (GPIO10)
+Shower Valve   - 22 (GPIO25)
+UserOut3       - 23 (GPIO11)
+
+#### Digital Inputs
+
+Water Level 1 - 31 (GPIO6)
+Water Level 2 - 32 (GPIO12)
+Water Level 3 - 33 (GPIO13)
+Shower Switch - 35 (GPIO19)
 
 
 # Installation by package (only Raspbian Buster)
@@ -47,7 +82,7 @@ Language package 'de_DE.UTF-8' is required as language package (`dpkg-reconfigur
 ### install
 
 ```
-wget  www.jwendel.de/poold/install-deb.sh -O /tmp/install-deb.sh
+wget www.jwendel.de/poold/install-deb.sh -O /tmp/install-deb.sh
 sudo bash /tmp/install-deb.sh
 ```
 ### uninstall

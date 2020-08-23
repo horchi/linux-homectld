@@ -138,6 +138,8 @@ echo "w1_therm" >> /etc/modules
 echo "dtoverlay=w1-gpio,gpioin=4,pullup=on" >> /boot/config.txt
 ```
 
+Reboot to apply this settings!
+
 The poold checks automatically if there are 'One Wire Sensors' connected, each detected sensor will be
 configurable via the web interface.
 
@@ -160,16 +162,16 @@ it should now 'enabled' and in state 'running'!
 ### also check the syslog about errors of the poold, this will show all its current log messages
 
 ```
-	grep "poold:" /var/log/syslog
+grep "poold:" /var/log/syslog
 ```
 
 
 ## The WEB interface:
 
+The default username and password for login to the web interface is:  
 ```
-The default username and password for the login is
 User: pool
-Pass: pool
+Password: pool
 ```
 
 ### Fist steps to enable data logging:

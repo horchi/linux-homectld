@@ -51,7 +51,7 @@ std::map<std::string, Poold::ConfigItemDef> Poold::configuration
    { "tSolarDelta",              { ctNum,     false, "1 Pool Daemon", "Einschaltdifferenz Solarpumpe", "" } },
    { "showerDuration",           { ctInteger, false, "1 Pool Daemon", "Laufzeit der Dusche", "Laufzeit [s]" } },
    { "minSolarPumpDuration",     { ctInteger, false, "1 Pool Daemon", "Mindestlaufzeit der Solarpumpe [m]", "" } },
-   { "deactivatePumsAtLowWater", { ctBool,    false, "1 Pool Daemon", "Pumpen bei geringem Wasserstand deaktivieren", "" } },
+   { "deactivatePumpsAtLowWater",{ ctBool,    false, "1 Pool Daemon", "Pumpen bei geringem Wasserstand deaktivieren", "" } },
 
    { "invertDO",                 { ctBool,    false, "1 Pool Daemon", "Digitalaugänge invertieren", "" } },
    { "w1AddrAir",                { ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Luft", "" } },
@@ -263,6 +263,42 @@ int Poold::dispatchClientRequest()
    messagesIn.pop();
 
    return status;
+}
+
+bool Poold::checkRights(long client, Event event, json_t* oObject)
+{
+   uint rights = wsClients[(void*)client].rights;
+
+   switch (event)
+   {
+      case evLogin:         return true;
+      case evLogout:        return true;
+      case evGetToken:      return true;
+      case evToggleIoNext:  return rights & urControl;
+      case evToggleMode:    return rights & urFullControl;
+      case evStoreConfig:   return rights & urSettings;
+      case evStoreIoSetup:  return rights & urSettings;
+      case evChartData:     return rights & urView;
+      case evUserConfig:    return rights & urAdmin;
+      case evChangePasswd:  return true;   // check will done in performPasswChange()
+      case evResetPeaks:    return rights & urAdmin;
+      default: break;
+   }
+
+   if (event == evToggleIo && rights & urControl)
+   {
+      int addr = getIntFromJson(oObject, "address");
+      const char* type = getStringFromJson(oObject, "type");
+
+      tableValueFacts->clear();
+      tableValueFacts->setValue("ADDRESS", addr);
+      tableValueFacts->setValue("TYPE", type);
+
+      if (tableValueFacts->find())
+         return rights & tableValueFacts->getIntValue("RIGHTS");
+   }
+
+   return false;
 }
 
 volatile int showerSwitch {0};
@@ -827,7 +863,7 @@ int Poold::readConfiguration()
    getConfigItem("tSolarDelta", tSolarDelta, tSolarDelta);
    getConfigItem("showerDuration", showerDuration, 20);
    getConfigItem("minSolarPumpDuration", minSolarPumpDuration, 10);
-   getConfigItem("deactivatePumsAtLowWater", deactivatePumsAtLowWater, no);
+   getConfigItem("deactivatePumpsAtLowWater", deactivatePumpsAtLowWater, no);
 
    getConfigItem("invertDO", invertDO, no);
    getConfigItem("chart1", chart1, "");
@@ -862,42 +898,6 @@ int Poold::applyConfigurationSpecials()
    }
 
    return done;
-}
-
-bool Poold::checkRights(long client, Event event, json_t* oObject)
-{
-   uint rights = wsClients[(void*)client].rights;
-
-   switch (event)
-   {
-      case evLogin:         return true;
-      case evLogout:        return true;
-      case evGetToken:      return true;
-      case evToggleIoNext:  return rights & urControl;
-      case evToggleMode:    return rights & urFullControl;
-      case evStoreConfig:   return rights & urSettings;
-      case evStoreIoSetup:  return rights & urSettings;
-      case evChartData:     return rights & urView;
-      case evUserConfig:    return rights & urAdmin;
-      case evChangePasswd:  return true;   // check will done in performPasswChange()
-      case evResetPeaks:    return rights & urAdmin;
-      default: break;
-   }
-
-   if (event == evToggleIo && rights & urControl)
-   {
-      int addr = getIntFromJson(oObject, "address");
-      const char* type = getStringFromJson(oObject, "type");
-
-      tableValueFacts->clear();
-      tableValueFacts->setValue("ADDRESS", addr);
-      tableValueFacts->setValue("TYPE", type);
-
-      if (tableValueFacts->find())
-         return rights & tableValueFacts->getIntValue("RIGHTS");
-   }
-
-   return false;
 }
 
 //***************************************************************************
@@ -1114,7 +1114,6 @@ int Poold::update(bool webOnly, long client)
 
       json_t* ojData = json_object();
       json_array_append_new(oJson, ojData);
-
       sensor2Json(ojData, tableValueFacts);
 
       if (tableValueFacts->hasValue("TYPE", "W1"))
@@ -1132,7 +1131,7 @@ int Poold::update(bool webOnly, long client)
          }
          else
          {
-            json_object_set_new(ojData, "text",json_string("missing sensor"));
+            json_object_set_new(ojData, "text", json_string("missing sensor"));
             json_object_set_new(ojData, "widgettype", json_integer(wtText));
          }
       }
@@ -1241,7 +1240,6 @@ int Poold::update(bool webOnly, long client)
    // send result to all connected WEBIF clients
 
    pushOutMessage(oJson, webOnly ? "init" : "all", client);
-
    // ?? json_decref(oJson);
 
    if (!webOnly)
@@ -1251,7 +1249,7 @@ int Poold::update(bool webOnly, long client)
 }
 
 //***************************************************************************
-// Poold WS Ping
+// WS Ping
 //***************************************************************************
 
 int Poold::performWebSocketPing()
@@ -1975,7 +1973,7 @@ int Poold::process()
    // -----------
    // Solar Pumps
 
-   if (deactivatePumsAtLowWater && waterLevel == 0)   // || waterLevel == fail ??
+   if (deactivatePumpsAtLowWater && waterLevel == 0)   // || waterLevel == fail ??
    {
       if (digitalOutputStates[pinSolarPump].state || digitalOutputStates[pinFilterPump].state)
       {
@@ -2237,7 +2235,7 @@ int Poold::aggregate()
 int Poold::sendStateMail()
 {
    char* webUrl {nullptr};
-   string subject = "Status: ";
+   std::string subject = "Status: ";
 
    // check
 

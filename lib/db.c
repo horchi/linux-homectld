@@ -577,7 +577,7 @@ int cDbStatement::prepare()
          return connection->errorSql(connection, "buildPrimarySelect(bind_param)", stmt);
    }
 
-   tell(2, "Statement '%s' with (%ld) in parameters and (%d) out bindings prepared",
+   tell(3, "Statement '%s' with (%ld) in parameters and (%d) out bindings prepared",
         stmtTxt.c_str(), mysql_stmt_param_count(stmt), outCount);
 
    return success;

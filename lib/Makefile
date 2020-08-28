@@ -44,7 +44,7 @@ $(LIBTARGET).a : $(LIBOBJS)
 	$(doLib) $@ $(LIBOBJS)
 
 tst: test.o lib
-	$(doLink) test.o $(HLIB) -larchive -lcrypto $(BASELIBS) -o $@
+	$(doLink) test.o serial.o $(HLIB) -larchive -lcrypto $(BASELIBS) -o $@
 
 clean:
 	rm -f *.o *~ core $(TEST) $(DEMO) $(LIBTARGET).a

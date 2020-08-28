@@ -9,6 +9,7 @@
 #include <sys/syscall.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <unistd.h>
 
 #include <iostream>
 
@@ -291,7 +292,7 @@ int Mqtt::read(MemoryStruct* message, int timeoutMs)
       if (!timeoutMs)
          tmoMs = 10000;
       else
-         tmoMs = max((int)(endAt-cTimeMs::Now()), 1);
+         tmoMs = std::max((int)(endAt-cTimeMs::Now()), 1);
 
       readMutex.Lock();
       readCond.TimedWait(readMutex, tmoMs);

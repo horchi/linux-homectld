@@ -168,6 +168,7 @@ poold.o         :  poold.c         $(HEADER) poold.h w1.h lib/mqtt.h
 w1.o            :  w1.c            $(HEADER) w1.h lib/mqtt.h
 gpio.o          :  gpio.c          $(HEADER)
 hass.o          :  hass.c          poold.h
+websock.o       :  websock.c       poold.h
 
 # ------------------------------------------------------
 # Git / Versioning / Tagging

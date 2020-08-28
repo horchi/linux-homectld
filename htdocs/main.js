@@ -322,7 +322,6 @@ function initConfig(configuration, root)
 
       if (lastCat != item.category)
       {
-         if (i) html += "<br/>";
          html += "<div class=\"rounded-border seperatorTitle1\">" + item.category + "</div>";
          var elem = document.createElement("div");
          elem.innerHTML = html;

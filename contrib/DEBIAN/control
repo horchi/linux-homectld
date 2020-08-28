@@ -6,4 +6,4 @@ Architecture: armhf
 Depends: libssl1.1, wiringpi, libxml2, openssl, libmariadb3, mailutils, ssmtp, mariadb-server
  Maintainer: Jörg Wendel <linux@jwendel.de>
 Description: pool steering deamon
- Deamon for pool contrl and storage of states historical in a MySQL database
+ Deamon for pool control and storage of states historical in a MySQL database

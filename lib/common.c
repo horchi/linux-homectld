@@ -8,6 +8,10 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 
+#ifdef USEUUID
+#  include <uuid/uuid.h>
+#endif
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -15,10 +19,6 @@
 #include <unistd.h>
 #include <zlib.h>
 #include <dirent.h>
-
-#ifdef USEUUID
-#  include <uuid/uuid.h>
-#endif
 
 #include <algorithm>
 
@@ -241,7 +241,7 @@ void toUpper(std::string& str)
 
    for (int ps = 0; ps < lenSrc; ps += csSrc)
    {
-      csSrc = max(mblen(&s[ps], lenSrc-ps), 1);
+      csSrc = std::max(mblen(&s[ps], lenSrc-ps), 1);
 
       if (csSrc == 1)
          *d++ = toupper(s[ps]);
@@ -284,11 +284,11 @@ void removeChars(std::string& str, const char* ignore)
       int skip = no;
 
       mblen(0,0);
-      csSrc = max(mblen(&s[ps], lenSrc-ps), 1);
+      csSrc = std::max(mblen(&s[ps], lenSrc-ps), 1);
 
       for (int pi = 0; pi < lenIgn; pi += csIgn)
       {
-         csIgn = max(mblen(&ignore[pi], lenIgn-pi), 1);
+         csIgn = std::max(mblen(&ignore[pi], lenIgn-pi), 1);
 
          if (csSrc == csIgn && strncmp(&s[ps], &ignore[pi], csSrc) == 0)
          {
@@ -327,11 +327,11 @@ void removeCharsExcept(std::string& str, const char* except)
       int skip = yes;
 
       mblen(0,0);
-      csSrc = max(mblen(&s[ps], lenSrc-ps), 1);
+      csSrc = std::max(mblen(&s[ps], lenSrc-ps), 1);
 
       for (int pi = 0; pi < lenIgn; pi += csIgn)
       {
-         csIgn = max(mblen(&except[pi], lenIgn-pi), 1);
+         csIgn = std::max(mblen(&except[pi], lenIgn-pi), 1);
 
          if (csSrc == csIgn && strncmp(&s[ps], &except[pi], csSrc) == 0)
          {
@@ -353,31 +353,20 @@ void removeCharsExcept(std::string& str, const char* except)
    free(dest);
 }
 
-void removeWord(string& pattern, string word)
+void removeWord(std::string& pattern, std::string word)
 {
    size_t  pos;
 
-   if ((pos = pattern.find(word)) != string::npos)
+   if ((pos = pattern.find(word)) != std::string::npos)
       pattern.swap(pattern.erase(pos, word.length()));
 }
 
-void prepareCompressed(std::string& pattern)
+std::string strReplace(const std::string& what, const std::string& with, const std::string& subject)
 {
-   // const char* ignore = " (),.;:-_+*!#?=&%$<>§/'`´@~\"[]{}";
-   const char* notignore = "ABCDEFGHIJKLMNOPQRSTUVWXYZßÖÄÜöäü0123456789";
-
-   toUpper(pattern);
-   removeWord(pattern, " TEIL ");
-   removeWord(pattern, " FOLGE ");
-   removeCharsExcept(pattern, notignore);
-}
-
-string strReplace(const string& what, const string& with, const string& subject)
-{
-   string str = subject;
+   std::string str = subject;
    size_t pos = 0;
 
-   while((pos = str.find(what, pos)) != string::npos)
+   while ((pos = str.find(what, pos)) != std::string::npos)
    {
       str.replace(pos, what.length(), with);
       pos += with.length();
@@ -386,7 +375,7 @@ string strReplace(const string& what, const string& with, const string& subject)
    return str;
 }
 
-string strReplace(const string& what, long with, const string& subject)
+std::string strReplace(const std::string& what, long with, const std::string& subject)
 {
    char swith[100];
 
@@ -395,7 +384,7 @@ string strReplace(const string& what, long with, const string& subject)
    return strReplace(what, swith, subject);
 }
 
-string strReplace(const string& what, double with, const string& subject)
+std::string strReplace(const std::string& what, double with, const std::string& subject)
 {
    char swith[100];
 
@@ -489,22 +478,22 @@ int isNum(const char* value)
 // Number to String
 //***************************************************************************
 
-string num2Str(int num)
+std::string num2Str(int num)
 {
    char txt[16];
 
    snprintf(txt, sizeof(txt), "%d", num);
 
-   return string(txt);
+   return std::string(txt);
 }
 
-string num2Str(double num)
+std::string num2Str(double num)
 {
    char txt[16];
 
    snprintf(txt, sizeof(txt), "%.2f", num);
 
-   return string(txt);
+   return std::string(txt);
 }
 
 //***************************************************************************

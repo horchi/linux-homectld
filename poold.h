@@ -445,8 +445,8 @@ class Poold : public cWebService
       time_t startedAt {0};
       time_t nextAggregateAt {0};
 
-      string mailBody;
-      string mailBodyHtml;
+      std::string mailBody;
+      std::string mailBodyHtml;
       bool initialRun {true};
 
       cWebSock* webSock {nullptr};
@@ -495,7 +495,7 @@ class Poold : public cWebService
       int waterLevel {0};
       int showerDuration {20};         // seconds
       int minSolarPumpDuration {10};   // minutes
-      int deactivatePumsAtLowWater {no};
+      int deactivatePumpsAtLowWater {no};
 
       char* chart1 {nullptr};
 

@@ -100,7 +100,8 @@ int Serial::open(const char* dev)
       CLOCAL  : local connection, no modem control
       CREAD   : enable receiving characters  */
 
-   newtio.c_cflag = B57600 | CS8 | CLOCAL | CREAD;
+   // newtio.c_cflag = B57600 | CS8 | CLOCAL | CREAD;
+   newtio.c_cflag = B9600 | CS8 | CLOCAL | CREAD;
    newtio.c_iflag = IGNPAR;  // don't set ICRNL !!
    newtio.c_oflag = 0;
    newtio.c_lflag = 0;       // ICANON - 'disable echo functionality  and don't
@@ -108,14 +109,14 @@ int Serial::open(const char* dev)
 
    if (tcsetattr(fdDevice, TCSANOW, &newtio) < 0)
    {
-       tell(eloAlways, "Setting inteface parameter failed, errno was (%d) '%s'!",
-            errno, strerror(errno));
+      tell(eloAlways, "Setting inteface parameter failed, errno was (%d) '%s'!",
+           errno, strerror(errno));
 
-       ::close(fdDevice);
-       fdDevice = 0;
+      ::close(fdDevice);
+      fdDevice = 0;
 
-       return fail;
-    }
+      return fail;
+   }
 
    flush();
    opened = yes;
@@ -189,8 +190,7 @@ int Serial::look(BYTE& b, int timeout)
       if (errno == EINTR)
          continue;
 
-      tell(eloAlways, "Read failed, errno was %d '%s'",
-           errno, strerror(errno));
+      tell(eloAlways, "Read failed, errno was %d '%s'", errno, strerror(errno));
 
       return fail;
    }

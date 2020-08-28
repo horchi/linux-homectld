@@ -33,8 +33,6 @@ typedef unsigned short word;
 typedef short sword;
 typedef unsigned int dword;
 
-using namespace std;
-
 //***************************************************************************
 //
 //***************************************************************************
@@ -274,9 +272,9 @@ void removeChars(std::string& str, const char* ignore);
 void removeCharsExcept(std::string& str, const char* except);
 void removeWord(std::string& pattern, std::string word);
 void prepareCompressed(std::string& pattern);
-string strReplace(const string& what, const string& with, const string& subject);
-string strReplace(const string& what, long with, const string& subject);
-string strReplace(const string& what, double with, const string& subject);
+std::string strReplace(const std::string& what, const std::string& with, const std::string& subject);
+std::string strReplace(const std::string& what, long with, const std::string& subject);
+std::string strReplace(const std::string& what, double with, const std::string& subject);
 
 const char* plural(int n, const char* s = "s");
 char* rTrim(char* buf);
@@ -284,9 +282,9 @@ char* lTrim(char* buf);
 char* allTrim(char* buf);
 int isNum(const char* value);
 char* sstrcpy(char* dest, const char* src, int max);
-string num2Str(int num);
-string num2Str(double num);
-string l2pTime(time_t t, const char* fmt = "%d.%m.%Y %T");
+std::string num2Str(int num);
+std::string num2Str(double num);
+std::string l2pTime(time_t t, const char* fmt = "%d.%m.%Y %T");
 char* eos(char* s);
 const char* toElapsed(int seconds, char* buf);
 // #to-be-implemented: splitToInts(const char* string, char c, int& i1, int& i2);

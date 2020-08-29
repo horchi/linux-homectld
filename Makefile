@@ -1,4 +1,4 @@
-#
+
 # Makefile
 #
 # See the README file for copyright information and how to reach the author.
@@ -29,9 +29,9 @@ GIT_REV      = $(shell git describe --always 2>/dev/null)
 
 # object files
 
-LOBJS        = lib/db.o lib/dbdict.o lib/common.o lib/serial.o lib/curl.o lib/thread.o lib/json.o
+LOBJS        = lib/db.o lib/dbdict.o lib/common.o lib/serial.o lib/curl.o lib/thread.o lib/json.o lib/serial.o
 MQTTOBJS     = lib/mqtt.o lib/mqtt_c.o lib/mqtt_pal.o
-OBJS         = $(MQTTOBJS) $(LOBJS) main.o gpio.o hass.o websock.o
+OBJS         = $(MQTTOBJS) $(LOBJS) main.o gpio.o hass.o websock.o ph.c
 
 CFLAGS    	+= $(shell mysql_config --include)
 DEFINES   	+= -DDEAMON=Poold
@@ -169,6 +169,7 @@ w1.o            :  w1.c            $(HEADER) w1.h lib/mqtt.h
 gpio.o          :  gpio.c          $(HEADER)
 hass.o          :  hass.c          poold.h
 websock.o       :  websock.c       poold.h
+ph.o            :  ph.c            poold.h lib/serial.h
 
 # ------------------------------------------------------
 # Git / Versioning / Tagging

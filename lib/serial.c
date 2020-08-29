@@ -76,7 +76,7 @@ int Serial::open(const char* dev)
 
    // open serial line
 
-   if ((fdDevice = ::open(deviceName, O_RDWR | O_NOCTTY | O_NDELAY)) < 0)
+   if ((fdDevice = ::open(deviceName, O_RDWR | O_NOCTTY)) < 0) // | O_NDELAY)) < 0)
    {
       fdDevice = 0;
 
@@ -171,7 +171,7 @@ int Serial::reopen(const char* dev)
 // Read Value
 //***************************************************************************
 
-int Serial::look(BYTE& b, int timeout)
+int Serial::look(BYTE& b, int timeoutMs)
 {
    int res;
    b = 0;
@@ -182,7 +182,7 @@ int Serial::look(BYTE& b, int timeout)
       return fail;
    }
 
-   while ((res = read(&b, 1, timeout)) < 0)
+   while ((res = read(&b, 1, timeoutMs)) < 0)
    {
       if (res == wrnTimeout)
          return wrnTimeout;
@@ -207,24 +207,31 @@ int Serial::write(void* line, int size)
    if (!fdDevice)
    {
       tell(eloAlways, "Warning device not opened, can't write line");
-      return done;
+      return fail;
    }
 
    if (!line)
-      return done;
+      return fail;
+
+   // #TODO: is a loop needed if write
+   //        was interuppted by system or full buffer ??
 
    if (::write(fdDevice, line, size) != size)
       return fail;
 
-   return done;
+   return success;
 }
 
 //***************************************************************************
 // Read
+//   returns
+//     -  count of read bytes on success
+//     -  or <0 on error or count missmatch
 //***************************************************************************
 
-int Serial::read(void* buf, unsigned int count, int timeout)
+int Serial::read(void* buf, size_t count, uint timeoutMs)
 {
+   size_t nRead {0};
    int res;
    uint64_t start = cTimeMs::Now();
 
@@ -234,20 +241,30 @@ int Serial::read(void* buf, unsigned int count, int timeout)
       return fail;
    }
 
-   while ((res = ::read(fdDevice, buf, count)) == 0)
+   while (nRead < count)
    {
-      if (cTimeMs::Now() > start + timeout)
+      if (cTimeMs::Now() > start + timeoutMs)
          return wrnTimeout;
+
+      res = ::read(fdDevice, (char*)buf+nRead, count-nRead);
+
+      if (res < 0)
+      {
+         tell(eloAlways, "Error read failed, '%s'", strerror(errno));
+         return errReadFailed;
+      }
+
+      if (!res)
+         usleep(2000);
+
+      nRead += res;
    };
 
-   if (res > 0)
+   if (nRead != count)
    {
-      for (int i = 0; i < res; i++)
-      {
-         BYTE b = ((BYTE*)buf)[i];
-         tell(eloDebug3, "got %2.2X", b);
-      }
+      tell(0, "Error: Serial read failrd, got %zd bytes instead of %zd", nRead, count);
+      return errCountMissmatch;
    }
 
-   return res;
+   return nRead;
 }

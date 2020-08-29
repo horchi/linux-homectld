@@ -29,7 +29,9 @@ class Serial
       {
          sizeCmdMax = 100,
 
-         wrnTimeout = -10
+         errReadFailed = -200,
+         errCountMissmatch,
+         wrnTimeout
       };
 
       // object
@@ -43,8 +45,10 @@ class Serial
       virtual int close();
       virtual int reopen(const char* dev = 0);
       virtual int isOpen()              { return fdDevice != 0 && opened; }
-      virtual int look(BYTE& b, int timeout = 0);
       virtual int flush();
+
+      virtual int look(BYTE& b, int timeoutMs = 1000);
+      virtual int read(void* buf, size_t count, uint timeoutMs = 5000);
       virtual int write(void* line, int size = 0);
 
       // settings
@@ -53,8 +57,6 @@ class Serial
       virtual int setWriteTimeout(int timeout);
 
    protected:
-
-      virtual int read(void* buf, unsigned int count, int timeout = 0);
 
       // data
 

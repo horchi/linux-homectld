@@ -8,6 +8,8 @@
 #ifndef __COMMON_H
 #define __COMMON_H
 
+#include <openssl/md5.h> // MD5_*
+
 #include <stdint.h>   // uint_64_t
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,8 +22,6 @@
 #include <map>
 #include <vector>
 #include <list>
-
-#include <openssl/md5.h> // MD5_*
 
 class MemoryStruct;
 extern int loglevel;

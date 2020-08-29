@@ -43,7 +43,7 @@ $(LIBTARGET).a : $(LIBOBJS)
 	@echo Building Lib ...
 	$(doLib) $@ $(LIBOBJS)
 
-tst: test.o lib
+tst: test.o serial.o lib
 	$(doLink) test.o serial.o $(HLIB) -larchive -lcrypto $(BASELIBS) -o $@
 
 clean:
@@ -70,6 +70,7 @@ db.o         :  db.c          $(HEADER) db.h
 epgservice.o :  epgservice.c  $(HEADER) epgservice.h
 dbdict.o     :  dbdict.c      $(HEADER) dbdict.h
 json.o       :  json.c        $(HEADER) json.h
+serial.o     :  serial.c      $(HEADER) serial.h
 
 demo.o       :  demo.c        $(HEADER)
 test.o       :  test.c        $(HEADER)

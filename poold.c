@@ -1135,6 +1135,16 @@ int Poold::update(bool webOnly, long client)
             json_object_set_new(ojData, "widgettype", json_integer(wtText));
          }
       }
+      else if (tableValueFacts->hasValue("TYPE", "PH"))
+      {
+         double phValue = getPh();
+
+         json_object_set_new(ojData, "value", json_real(phValue));
+         json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
+
+         if (!webOnly)
+            store(now, name, title, unit, type, addr, phValue);
+      }
       else if (tableValueFacts->hasValue("TYPE", "DO"))
       {
          json_object_set_new(ojData, "mode", json_string(digitalOutputStates[addr].mode == omManual ? "manual" : "auto"));

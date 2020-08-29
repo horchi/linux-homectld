@@ -407,6 +407,15 @@ class Poold : public cWebService
       int toggleIoNext(uint pin);
       int toggleOutputMode(uint pin);
 
+      // serial interface to PH
+
+      int initPhInterface();
+      int requestPh(double& ph);
+      double getPh();
+
+
+      // W1
+
       int initW1();
       bool existW1(const char* id);
       double valueOfW1(const char* id, time_t& last);
@@ -503,8 +512,9 @@ class Poold : public cWebService
       std::vector<Range> uvcLightTimes;
       std::vector<Range> poolLightTimes;
 
-      // int gpioFilterPump {na};
-      // int gpioSolarPump {na};
+      // serial interval to arduino for PH stuff
+
+      Serial serial;
 
       // actual state and data
 

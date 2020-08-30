@@ -1076,15 +1076,15 @@ int toUTF8(char* out, int outMax, const char* in, const char* from_code)
 // CRC
 //***************************************************************************
 
-BYTE crc(const BYTE* data, int size)
+byte crc(const byte* data, int size)
 {
-   BYTE dummy;
-   BYTE crc = 0;
+   byte dummy;
+   byte crc = 0;
 
    for (int count = 0; count < size; count++)
    {
       dummy = data[count] * 2 & 0xFF;
-      crc = crc ^ (BYTE)(data[count] ^ dummy);
+      crc = crc ^ (byte)(data[count] ^ dummy);
    }
 
    return crc;

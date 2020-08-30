@@ -30,7 +30,7 @@ void calcGraph()
 
 void setup()
 {
-   Serial.begin(9600); // 57600);
+   Serial.begin(57600);
 
    while (!Serial)
       ;

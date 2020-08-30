@@ -20,8 +20,10 @@
 #include "lib/db.h"
 #include "lib/mqtt.h"
 #include "lib/thread.h"
+#include "lib/serial.h"
 
 #include "HISTORY.h"
+#include "phservice.h"
 
 #define confDirDefault "/etc/poold"
 
@@ -32,6 +34,9 @@ extern char dbUser[];
 extern char dbPass[];
 
 extern char* confDir;
+
+class Poold;
+typedef Poold MainClass;
 
 //***************************************************************************
 // Class Web Service
@@ -137,6 +142,8 @@ class cWebSock : public cWebService
             while (!messagesOut.empty())
                messagesOut.pop();
          }
+
+         std::string buffer;   // for chunked messages
       };
 
       cWebSock(const char* aHttpPath);
@@ -152,7 +159,7 @@ class cWebSock : public cWebService
 
       static int wsLogLevel;
       static int callbackHttp(lws* wsi, lws_callback_reasons reason, void* user, void* in, size_t len);
-      static int callbackPool(lws* wsi, lws_callback_reasons reason, void* user, void* in, size_t len);
+      static int callbackWs(lws* wsi, lws_callback_reasons reason, void* user, void* in, size_t len);
 
       // static interface
 
@@ -218,7 +225,9 @@ class Poold : public cWebService
 
       enum Pins       // we use the 'physical' PIN numbers here!
       {
-         pinW1           =  7,     // GPIO4
+         pinW1           = 7,      // GPIO4
+         pinSerialTx     = 6,      // GPIO14
+         pinSerialRx     = 8,      // GPIO15
 
          pinFilterPump   = 11,     // GPIO17
          pinSolarPump    = 12,     // GPIO18
@@ -244,6 +253,7 @@ class Poold : public cWebService
       int init();
       int loop();
 
+      static const char* myName()    { return "poold"; }
       static void downF(int aSignal) { shutdown = yes; }
 
       // public static message interface to web thread
@@ -312,6 +322,7 @@ class Poold : public cWebService
 
       struct ConfigItemDef
       {
+         std::string name;
          ConfigItemType type;
          bool internal;
          const char* category;
@@ -410,9 +421,10 @@ class Poold : public cWebService
       // serial interface to PH
 
       int initPhInterface();
+      int exitPhInterface();
+      int readHeader(cPhBoardService::Header* header, uint timeoutMs = 5000);
       int requestPh(double& ph);
       double getPh();
-
 
       // W1
 
@@ -515,6 +527,7 @@ class Poold : public cWebService
       // serial interval to arduino for PH stuff
 
       Serial serial;
+      char* phDevice {nullptr};
 
       // actual state and data
 
@@ -532,6 +545,6 @@ class Poold : public cWebService
 
       // statics
 
-      static std::map<std::string, ConfigItemDef> configuration;
+      static std::list<ConfigItemDef> configuration;
       static int shutdown;
 };

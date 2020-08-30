@@ -3,7 +3,7 @@
 // File ph.c
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
-// Date 16.04.2020 - Jörg Wendel
+// Date 29.08.2020 - Jörg Wendel
 //***************************************************************************
 
 //***************************************************************************
@@ -11,13 +11,12 @@
 //***************************************************************************
 
 #include "poold.h"
-#include "phservice.h"
 
 //***************************************************************************
-//
+// Init/Exit PH Interface
 //***************************************************************************
 
-int cPoold::initPhInterface()
+int Poold::initPhInterface()
 {
    if (serial.isOpen())
       return success;
@@ -25,13 +24,39 @@ int cPoold::initPhInterface()
    return serial.open(phDevice);
 }
 
+int Poold::exitPhInterface()
+{
+   return serial.close();
+}
+
+//***************************************************************************
+// Read Header
+//***************************************************************************
+
+int Poold::readHeader(cPhBoardService::Header* header, uint timeoutMs)
+{
+   if (serial.read(header, sizeof(cPhBoardService::Header), timeoutMs) < 0)
+   {
+      tell(0, "Error: Timeout wating for responce");
+      return fail;
+   }
+
+   if (header->id != cPhBoardService::comId)
+   {
+      tell(0, "Error: Got unexpected communication ID of 0x%x", header->id);
+      return fail;
+   }
+
+   return success;
+}
+
 //***************************************************************************
 // Request PH
 //***************************************************************************
 
-int cPoold::requestPh(double& ph)
+int Poold::requestPh(double& ph)
 {
-   cPhBoardService::PhValue ph;
+   cPhBoardService::PhValue phValue;
    cPhBoardService::Header header;
 
    header.id = cPhBoardService::comId;
@@ -57,8 +82,8 @@ int cPoold::requestPh(double& ph)
       if (serial.read(&ph, sizeof(cPhBoardService::PhValue)) < 0)
          return fail;
 
-      tell(1, "PH %.2f (%d)", ph.ph, ph.value);
-      ph = ph.ph;
+      tell(1, "PH %.2f (%d)", phValue.ph, phValue.value);
+      ph = phValue.ph;
       return success;
    }
 
@@ -70,15 +95,14 @@ int cPoold::requestPh(double& ph)
 // Get PH
 //***************************************************************************
 
-double cPoold::getPh()
+double Poold::getPh()
 {
    double ph {-1};
 
    if (initPhInterface() != success)
       return -1;
 
-   if (requestPh(ph) != success)
-      return -1;
+   requestPh(ph);
 
    return ph;
 }

@@ -5,8 +5,7 @@
  *
  */
 
-#ifndef __COMMON_H
-#define __COMMON_H
+#pragma once
 
 #include <openssl/md5.h> // MD5_*
 
@@ -28,7 +27,7 @@ extern int loglevel;
 extern int logstdout;
 extern int logstamp;
 
-typedef unsigned char BYTE;
+typedef unsigned char byte;
 typedef unsigned short word;
 typedef short sword;
 typedef unsigned int dword;
@@ -265,7 +264,7 @@ std::string executeCommand(const char* cmd);
 double usNow();
 int l2hhmm(time_t t);
 unsigned int getHostId();
-BYTE crc(const BYTE* data, int size);
+byte crc(const byte* data, int size);
 int toUTF8(char* out, int outMax, const char* in, const char* from_code = 0);
 
 void removeChars(std::string& str, const char* ignore);
@@ -518,6 +517,3 @@ class Sem
       int id;
       int locked;
 };
-
-//***************************************************************************
-#endif // ___COMMON_H

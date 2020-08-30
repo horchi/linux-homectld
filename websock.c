@@ -58,8 +58,8 @@ int cWebSock::init(int aPort, int aTimeout)
    protocols[0].per_session_data_size = sizeof(SessionData);
    protocols[0].rx_buffer_size = 0;
 
-   protocols[1].name = "pool";
-   protocols[1].callback = callbackPool;
+   protocols[1].name = MainClass::myName();
+   protocols[1].callback = callbackWs;
    protocols[1].per_session_data_size = 0;
    protocols[1].rx_buffer_size = 80*1024;
 
@@ -387,7 +387,7 @@ int cWebSock::serveFile(lws* wsi, const char* path)
 // Callback for my Protocol
 //***************************************************************************
 
-int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, void* in, size_t len)
+int cWebSock::callbackWs(lws* wsi, lws_callback_reasons reason, void* user, void* in, size_t len)
 {
    std::string clientInfo = "unknown";
 
@@ -475,12 +475,31 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
 
          tell(3, "DEBUG: 'LWS_CALLBACK_RECEIVE' [%.*s]", (int)len, (const char*)in);
 
-         if (!(oData = json_loadb((const char*)in, len, 0, &error)))
          {
-            tell(0, "Error: Ignoring unexpeted client request [%.*s]", (int)len, (const char*)in);
-            tell(0, "Error decoding json: %s (%s, line %d column %d, position %d)",
-                 error.text, error.source, error.line, error.column, error.position);
-            break;
+            cMyMutexLock lock(&clientsMutex);
+
+            if (lws_is_first_fragment(wsi))
+               clients[wsi].buffer.clear();
+
+            clients[wsi].buffer.append((const char*)in, len);
+
+            if (!lws_is_final_fragment(wsi))
+            {
+               tell(3, "DEBUG: Got %zd bytes, have now %zd -> more to get", len, clients[wsi].buffer.length());
+               break;
+            }
+
+            oData = json_loadb(clients[wsi].buffer.c_str(), clients[wsi].buffer.length(), 0, &error);
+
+            if (!oData)
+            {
+               tell(0, "Error: Ignoring invalid jason request [%s]", clients[wsi].buffer.c_str());
+               tell(0, "Error decoding json: %s (%s, line %d column %d, position %d)",
+                    error.text, error.source, error.line, error.column, error.position);
+               break;
+            }
+
+            clients[wsi].buffer.clear();
          }
 
          char* message = strndup((const char*)in, len);
@@ -503,7 +522,7 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
          {
             addToJson(oData, "client", (long)wsi);
             char* p = json_dumps(oData, 0);
-            Poold::pushInMessage(p);
+            MainClass::pushInMessage(p);
             free(p);
          }
          else if (event == evLogMessage)                     // { "event" : "logmessage", "object" : { "message" : "....." } }
@@ -514,7 +533,7 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
          {
             addToJson(oData, "client", (long)wsi);
             char* p = json_dumps(oData, 0);
-            Poold::pushInMessage(p);
+            MainClass::pushInMessage(p);
             free(p);
          }
 /*         else
@@ -566,7 +585,7 @@ int cWebSock::callbackPool(lws* wsi, lws_callback_reasons reason, void* user, vo
          break;
 
       default:
-         tell(1, "DEBUG: Unhandled 'callbackPool' got (%d)", reason);
+         tell(1, "DEBUG: Unhandled 'callbackWs' got (%d)", reason);
          break;
    }
 
@@ -593,7 +612,7 @@ void cWebSock::atLogin(lws* wsi, const char* message, const char* clientInfo, js
 
    char* p = json_dumps(obj, 0);
 
-   Poold::pushInMessage(p);
+   MainClass::pushInMessage(p);
    free(p);
 }
 
@@ -615,7 +634,7 @@ void cWebSock::atLogout(lws* wsi, const char* message, const char* clientInfo)
 
    char* p = json_dumps(obj, 0);
    json_decref(obj);
-   Poold::pushInMessage(p);
+   MainClass::pushInMessage(p);
    free(p);
 
    {

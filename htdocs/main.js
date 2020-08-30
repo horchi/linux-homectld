@@ -31,7 +31,7 @@ window.documentReady = function(doc)
    console.log("documentReady: " + documentName);
 
    var url = "ws://" + location.hostname + ":61109";
-   var protocol = "pool";
+   var protocol = "poolp";
 
    if (documentName == "vdrfb") {
       protocol = "osd2vdr";
@@ -43,7 +43,7 @@ window.documentReady = function(doc)
       prepareVdrButtons();
    }
    else {
-      protocol = "pool";
+      protocol = "poold";
       if (location.hostname.indexOf("192.168.200.145") == -1)
          url = "ws://" + location.hostname + "/pool/ws";   // via apache
    }
@@ -179,7 +179,8 @@ function dispatchMessage(message)
       if (jMessage.object.state == "confirm") {
          window.location.replace("index.html");
       } else { // if (documentName == "login") {
-         document.getElementById("confirm").innerHTML = "<div class=\"infoError\"><b><center>Login fehlgeschlagen</center></b></div>";
+         if (document.getElementById("confirm"))
+            document.getElementById("confirm").innerHTML = "<div class=\"infoError\"><b><center>Login fehlgeschlagen</center></b></div>";
       }
    }
    else if (event == "valuefacts" && rootIoSetup) {
@@ -230,7 +231,7 @@ function prepareMenu(haveToken, vdr)
       }
    }
 
-   // confirm boy - below menu
+   // confirm box - below menu
 
    if ($("#navMenu").data("iosetup") != undefined) {
       html += "<div id=\"confirm\" class=\"confirmDiv\">";
@@ -427,6 +428,7 @@ function initIoSetup(valueFacts, root)
          case 'DO': root = document.getElementById("ioDigitalOut"); break
          case 'W1': root = document.getElementById("ioOneWire");    break
          case 'SP': root = document.getElementById("ioOther");      break
+         case 'PH': root = document.getElementById("ioOther");      break
          case 'SC': root = document.getElementById("ioScripts");    break
       }
 
@@ -531,7 +533,7 @@ function initList(widgets, root)
          html += "   <div class=\"listFirstCol\" onclick=\"toggleIo(" + widget.address + ",'" + widget.type + "')\"><img " + id + "/></div>\n";
       }
       else {   // 2 Text
-         html += "<span " + id + "></span>";
+         html += "<div class=\"listFirstCol\"" + id + "></div>";
       }
 
       html += "<span class=\"listSecondCol listText\" >" + widget.title + "</span>";
@@ -556,8 +558,10 @@ function updateList(sensors)
          $(id).html(sensor.value.toFixed(2) + "&nbsp;" + sensor.unit +
                     "&nbsp; <p style=\"display:inline;font-size:12px;font-style:italic;\">(" + sensor.peak.toFixed(2) + ")</p>");
       }
-      else if (sensor.widgettype == 0)
-         $(id).attr("src", sensor.image);  // $(id).html(sensor.value ? "An" : "Aus");
+      else if (sensor.widgettype == 0)    // Symbol
+         $(id).attr("src", sensor.image);
+      else if (sensor.widgettype == 2)    // Text
+         $(id).html(sensor.text);
       else
          $(id).html(sensor.value.toFixed(0));
 
@@ -794,7 +798,7 @@ function updateDashboard(sensors)
          }
          else if (sensor.widgettype == 3)      // plain value
          {
-            $("#widget" + sensor.type + sensor.address).html(value + " " + sensor.unit);
+            $("#widget" + sensor.type + sensor.address).html(sensor.value + " " + sensor.unit);
          }
 
          // console.log(i + ": " + sensor.name + " / " + sensor.title);

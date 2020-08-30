@@ -24,53 +24,55 @@ int Poold::shutdown = no;
 std::queue<std::string> Poold::messagesIn;
 cMyMutex Poold::messagesInMutex;
 
-std::map<std::string, Poold::ConfigItemDef> Poold::configuration
+std::list<Poold::ConfigItemDef> Poold::configuration
 {
    // web
 
-   { "refreshWeb",               { ctInteger, false, "3 WEB Interface", "Seite aktualisieren", "" } },
-   { "addrsDashboard",           { ctString,  false, "3 WEB Interface", "Sensoren Dashboard", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
-   { "addrsMain",                { ctString,  false, "3 WEB Interface", "Sensoren", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
-   { "addrsMainMobile",          { ctString,  false, "3 WEB Interface", "Sensoren Mobile Device", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
+   { "refreshWeb",                ctInteger, false, "3 WEB Interface", "Seite aktualisieren", "" },
+   { "addrsDashboard",            ctString,  false, "3 WEB Interface", "Sensoren Dashboard", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" },
+   { "addrsMain",                 ctString,  false, "3 WEB Interface", "Sensoren", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" },
+   { "addrsMainMobile",           ctString,  false, "3 WEB Interface", "Sensoren Mobile Device", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" },
 
-   { "chart1",                   { ctString,  false, "3 WEB Interface", "Chart 1", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
-   { "chart2",                   { ctString,  false, "3 WEB Interface", "Chart 2", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" } },
-   { "chartDiv",                 { ctInteger, true,  "3 WEB Interface", "Linien-Abstand der Y-Achse", "klein:15 mittel:25 groß:45" } },
-   { "chartStart",               { ctInteger, false, "3 WEB Interface", "Chart Zeitraum (Tage)", "Standardzeitraum der Chartanzeige (seit x Tagen bis heute)" } },
+   { "chart1",                    ctString,  false, "3 WEB Interface", "Chart 1", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" },
+   { "chart2",                    ctString,  false, "3 WEB Interface", "Chart 2", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" },
+   { "chartDiv",                  ctInteger, true,  "3 WEB Interface", "Linien-Abstand der Y-Achse", "klein:15 mittel:25 groß:45" },
+   { "chartStart",                ctInteger, false, "3 WEB Interface", "Chart Zeitraum (Tage)", "Standardzeitraum der Chartanzeige (seit x Tagen bis heute)" },
 
    // poold
 
-   { "interval",                 { ctInteger, false, "1 Pool Daemon", "Intervall der Aufzeichung", "Datenbank Aufzeichung [s]" } },
+   { "interval",                  ctInteger, false, "1 Pool Daemon", "Intervall der Aufzeichung", "Datenbank Aufzeichung [s]" },
 
-   { "filterPumpTimes",          { ctRange,   false, "1 Pool Daemon", "Zeiten Filter Pumpe", "[hh:mm] - [hh:mm]" } },
-   { "uvcLightTimes",            { ctRange,   false, "1 Pool Daemon", "Zeiten UV-C Licht", "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!" } },
-   { "poolLightTimes",           { ctRange,   false, "1 Pool Daemon", "Zeiten Pool Licht", "[hh:mm] - [hh:mm]" } },
-   { "poolLightColorToggle",     { ctBool,    false, "1 Pool Daemon", "Pool Licht Farb-Toggel", "" } },
+   { "filterPumpTimes",           ctRange,   false, "1 Pool Daemon", "Zeiten Filter Pumpe", "[hh:mm] - [hh:mm]" },
+   { "uvcLightTimes",             ctRange,   false, "1 Pool Daemon", "Zeiten UV-C Licht", "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!" },
+   { "poolLightTimes",            ctRange,   false, "1 Pool Daemon", "Zeiten Pool Licht", "[hh:mm] - [hh:mm]" },
+   { "poolLightColorToggle",      ctBool,    false, "1 Pool Daemon", "Pool Licht Farb-Toggel", "" },
 
-   { "tPoolMax",                 { ctNum,     false, "1 Pool Daemon", "Pool max Temperatur", "" } },
-   { "tSolarDelta",              { ctNum,     false, "1 Pool Daemon", "Einschaltdifferenz Solarpumpe", "" } },
-   { "showerDuration",           { ctInteger, false, "1 Pool Daemon", "Laufzeit der Dusche", "Laufzeit [s]" } },
-   { "minSolarPumpDuration",     { ctInteger, false, "1 Pool Daemon", "Mindestlaufzeit der Solarpumpe [m]", "" } },
-   { "deactivatePumpsAtLowWater",{ ctBool,    false, "1 Pool Daemon", "Pumpen bei geringem Wasserstand deaktivieren", "" } },
+   { "tPoolMax",                  ctNum,     false, "1 Pool Daemon", "Pool max Temperatur", "" },
+   { "tSolarDelta",               ctNum,     false, "1 Pool Daemon", "Einschaltdifferenz Solarpumpe", "" },
+   { "showerDuration",            ctInteger, false, "1 Pool Daemon", "Laufzeit der Dusche", "Laufzeit [s]" },
+   { "minSolarPumpDuration",      ctInteger, false, "1 Pool Daemon", "Mindestlaufzeit der Solarpumpe [m]", "" },
+   { "deactivatePumpsAtLowWater", ctBool,    false, "1 Pool Daemon", "Pumpen bei geringem Wasserstand deaktivieren", "" },
 
-   { "invertDO",                 { ctBool,    false, "1 Pool Daemon", "Digitalaugänge invertieren", "" } },
-   { "w1AddrAir",                { ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Luft", "" } },
-   { "w1AddrPool",               { ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Pool", "" } },
-   { "w1AddrSolar",              { ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Kollektor", "" } },
-   { "w1AddrSuctionTube",        { ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Saugleitung", "" } },
+   { "invertDO",                  ctBool,    false, "1 Pool Daemon", "Digitalaugänge invertieren", "" },
+   { "w1AddrAir",                 ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Luft", "" },
+   { "w1AddrPool",                ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Pool", "" },
+   { "w1AddrSolar",               ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Kollektor", "" },
+   { "w1AddrSuctionTube",         ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Saugleitung", "" },
 
-   { "aggregateHistory",         { ctInteger, false, "1 Pool Daemon", "Historie [Tage]", "history for aggregation in days (default 0 days -> aggegation turned OFF)" } },
-   { "aggregateInterval",        { ctInteger, false, "1 Pool Daemon", "Intervall [m]", "aggregation interval in minutes - 'one sample per interval will be build'" } },
+   { "phDevice",                  ctString,  false, "1 Pool Daemon", "PH interface device", "Beispiel: '/dev/ttyUsb0'" },
 
-   { "hassMqttUrl",              { ctString,  false, "1 Pool Daemon", "Home Assistant MQTT Url", "Optional. Beispiel: 'tcp://127.0.0.1:1883'" } },
+   { "aggregateHistory",          ctInteger, false, "1 Pool Daemon", "Historie [Tage]", "history for aggregation in days (default 0 days -> aggegation turned OFF)" },
+   { "aggregateInterval",         ctInteger, false, "1 Pool Daemon", "Intervall [m]", "aggregation interval in minutes - 'one sample per interval will be build'" },
+
+   { "hassMqttUrl",               ctString,  false, "1 Pool Daemon", "Home Assistant MQTT Url", "Optional. Beispiel: 'tcp://127.0.0.1:1883'" },
 
    // mail
 
-   { "mail",                     { ctBool,    false, "4 Mail", "Mail Benachrichtigung", "Mail Benachrichtigungen aktivieren/deaktivieren" } },
-   { "mailScript",               { ctString,  false, "4 Mail", "poold sendet Mails über das Skript", "" } },
-   { "stateMailTo",              { ctString,  false, "4 Mail", "Status Mail Empfänger", "Komma separierte Empfängerliste" } },
-   { "errorMailTo",              { ctString,  false, "4 Mail", "Fehler Mail Empfänger", "Komma separierte Empfängerliste" } },
-   { "webUrl",                   { ctString,  false, "4 Mail", "URL der Visualisierung", "kann mit %weburl% in die Mails eingefügt werden" } },
+   { "mail",                      ctBool,    false, "4 Mail", "Mail Benachrichtigung", "Mail Benachrichtigungen aktivieren/deaktivieren" },
+   { "mailScript",                ctString,  false, "4 Mail", "poold sendet Mails über das Skript", "" },
+   { "stateMailTo",               ctString,  false, "4 Mail", "Status Mail Empfänger", "Komma separierte Empfängerliste" },
+   { "errorMailTo",               ctString,  false, "4 Mail", "Fehler Mail Empfänger", "Komma separierte Empfängerliste" },
+   { "webUrl",                    ctString,  false, "4 Mail", "URL der Visualisierung", "kann mit %weburl% in die Mails eingefügt werden" },
 };
 
 //***************************************************************************
@@ -149,6 +151,7 @@ Poold::~Poold()
    free(w1AddrSuctionTube);
    free(w1AddrAir);
 
+   exitPhInterface();
    cDbConnection::exit();
 }
 
@@ -371,8 +374,8 @@ int Poold::init()
    for (const auto& it : configuration)
    {
       tableConfig->clear();
-      tableConfig->setValue("OWNER", "poold");
-      tableConfig->setValue("NAME", it.first.c_str());
+      tableConfig->setValue("OWNER", myName());
+      tableConfig->setValue("NAME", it.name.c_str());
       tableConfig->find();
       tableConfig->store();
    }
@@ -413,6 +416,7 @@ int Poold::init()
 
    addValueFact(1, "SP", "Water Level", "%");
    addValueFact(2, "SP", "Solar Delta", "°C");
+   addValueFact(1, "PH", "PH", "");
 
    // ---------------------------------
    // apply some configuration specials
@@ -850,6 +854,8 @@ int Poold::readConfiguration()
    getConfigItem("aggregateHistory", aggregateHistory, 0);
    getConfigItem("hassMqttUrl", hassMqttUrl, "");
 
+   getConfigItem("phDevice", phDevice, "/dev/ttyUSB0");
+
    // more special
 
    getConfigItem("poolLightColorToggle", poolLightColorToggle, no);
@@ -976,7 +982,6 @@ int Poold::standbyUntil(time_t until)
    while (time(0) < until && !doShutDown())
    {
       meanwhile();
-      // tell(eloAlways, "standbyUntil: loop ...");
       // usleep(50000);  sleep is don in meanwhile by mqttCommandReader
    }
 
@@ -1139,11 +1144,19 @@ int Poold::update(bool webOnly, long client)
       {
          double phValue = getPh();
 
-         json_object_set_new(ojData, "value", json_real(phValue));
-         json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
+         if (phValue > 0)
+         {
+            json_object_set_new(ojData, "value", json_real(phValue));
+            json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
 
-         if (!webOnly)
-            store(now, name, title, unit, type, addr, phValue);
+            if (!webOnly)
+               store(now, name, title, unit, type, addr, phValue);
+         }
+         else
+         {
+            json_object_set_new(ojData, "text", json_string("missing sensor"));
+            json_object_set_new(ojData, "widgettype", json_integer(wtText));
+         }
       }
       else if (tableValueFacts->hasValue("TYPE", "DO"))
       {
@@ -1813,18 +1826,17 @@ int Poold::storeIoSetup(json_t* array, long client)
 
 int Poold::config2Json(json_t* obj)
 {
-   for (int f = selectAllConfig->find(); f; f = selectAllConfig->fetch())
+   for (const auto& it : configuration)
    {
-      auto it = configuration.find(tableConfig->getStrValue("NAME"));
+      tableConfig->clear();
+      tableConfig->setValue("OWNER", myName());
+      tableConfig->setValue("NAME", it.name.c_str());
 
-      if (it == configuration.end() || it->second.internal)
-         continue;
+      if (tableConfig->find())
+         json_object_set_new(obj, tableConfig->getStrValue("NAME"), json_string(tableConfig->getStrValue("VALUE")));
 
-      json_object_set_new(obj, tableConfig->getStrValue("NAME"),
-                          json_string(tableConfig->getStrValue("VALUE")));
+      tableConfig->reset();
    }
-
-   selectAllConfig->freeResult();
 
    return done;
 }
@@ -1835,25 +1847,27 @@ int Poold::config2Json(json_t* obj)
 
 int Poold::configDetails2Json(json_t* obj)
 {
-   for (int f = selectAllConfig->find(); f; f = selectAllConfig->fetch())
+   for (const auto& it : configuration)
    {
-      auto it = configuration.find(tableConfig->getStrValue("NAME"));
+      tableConfig->clear();
+      tableConfig->setValue("OWNER", myName());
+      tableConfig->setValue("NAME", it.name.c_str());
 
-      if (it == configuration.end() || it->second.internal)
-         continue;
+      if (tableConfig->find())
+      {
+         json_t* oDetail = json_object();
+         json_array_append_new(obj, oDetail);
 
-      json_t* oDetail = json_object();
-      json_array_append_new(obj, oDetail);
+         json_object_set_new(oDetail, "name", json_string(tableConfig->getStrValue("NAME")));
+         json_object_set_new(oDetail, "type", json_integer(it.type));
+         json_object_set_new(oDetail, "value", json_string(tableConfig->getStrValue("VALUE")));
+         json_object_set_new(oDetail, "category", json_string(it.category));
+         json_object_set_new(oDetail, "title", json_string(it.title));
+         json_object_set_new(oDetail, "descrtiption", json_string(it.description));
+      }
 
-      json_object_set_new(oDetail, "name", json_string(tableConfig->getStrValue("NAME")));
-      json_object_set_new(oDetail, "type", json_integer(it->second.type));
-      json_object_set_new(oDetail, "value", json_string(tableConfig->getStrValue("VALUE")));
-      json_object_set_new(oDetail, "category", json_string(it->second.category));
-      json_object_set_new(oDetail, "title", json_string(it->second.title));
-      json_object_set_new(oDetail, "descrtiption", json_string(it->second.description));
+      tableConfig->reset();
    }
-
-   selectAllConfig->freeResult();
 
    return done;
 }
@@ -2422,10 +2436,10 @@ int Poold::addValueFact(int addr, const char* type, const char* name, const char
 int Poold::getConfigItem(const char* name, char*& value, const char* def)
 {
    free(value);
-   value = 0;
+   value = nullptr;
 
    tableConfig->clear();
-   tableConfig->setValue("OWNER", "poold");
+   tableConfig->setValue("OWNER", myName());
    tableConfig->setValue("NAME", name);
 
    if (tableConfig->find())
@@ -2445,7 +2459,7 @@ int Poold::setConfigItem(const char* name, const char* value)
 {
    tell(eloAlways, "Storing '%s' with value '%s'", name, value);
    tableConfig->clear();
-   tableConfig->setValue("OWNER", "poold");
+   tableConfig->setValue("OWNER", myName());
    tableConfig->setValue("NAME", name);
    tableConfig->setValue("VALUE", value);
 

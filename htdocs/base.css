@@ -231,6 +231,7 @@ span > input
     display: inline-block;
     text-align: left;
     line-height: 45px;
+    overflow: hidden;
 }
 
 .listSecondCol
@@ -596,6 +597,7 @@ table.tableMultiCol tr:nth-child(odd)
     border: none;
     width: inherit;
     color: var(--buttonFont);
+    text-overflow: ellipsis;
 }
 
 .widget-progress {
@@ -637,13 +639,11 @@ table.tableMultiCol tr:nth-child(odd)
 .widget-value
 {
     grid-area: main;
-    padding: 8px;
+    display: inline-grid;
     text-align: center;
     font-size: 2.1em;
     font-weight: bold;
-    height: 82%;
     align-items: center;
-    justify-content: center;
     word-break: break-word;
     color: var(--light4);
 }

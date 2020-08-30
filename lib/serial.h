@@ -6,8 +6,7 @@
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
 //***************************************************************************
 
-#ifndef _IO_SERIAL_H_
-#define _IO_SERIAL_H_
+#pragma once
 
 //***************************************************************************
 // Include
@@ -47,7 +46,7 @@ class Serial
       virtual int isOpen()              { return fdDevice != 0 && opened; }
       virtual int flush();
 
-      virtual int look(BYTE& b, int timeoutMs = 1000);
+      virtual int look(byte& b, int timeoutMs = 1000);
       virtual int read(void* buf, size_t count, uint timeoutMs = 5000);
       virtual int write(void* line, int size = 0);
 
@@ -68,6 +67,3 @@ class Serial
       int fdDevice;
       struct termios oldtio;
 };
-
-//***************************************************************************
-#endif // _IO_SERIAL_H_

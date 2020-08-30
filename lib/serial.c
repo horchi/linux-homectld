@@ -69,14 +69,17 @@ int Serial::open(const char* dev)
       strcpy(deviceName, dev);
 
    if (isEmpty(deviceName))
+   {
+      tell(eloAlways, "Error: Missing device name, can't open serial line");
       return fail;
+   }
 
    if (isOpen())
       close();
 
    // open serial line
 
-   if ((fdDevice = ::open(deviceName, O_RDWR | O_NOCTTY)) < 0) // | O_NDELAY)) < 0)
+   if ((fdDevice = ::open(deviceName, O_RDWR | O_NOCTTY | O_NDELAY)) < 0)
    {
       fdDevice = 0;
 
@@ -100,8 +103,7 @@ int Serial::open(const char* dev)
       CLOCAL  : local connection, no modem control
       CREAD   : enable receiving characters  */
 
-   // newtio.c_cflag = B57600 | CS8 | CLOCAL | CREAD;
-   newtio.c_cflag = B9600 | CS8 | CLOCAL | CREAD;
+   newtio.c_cflag = B57600 | CS8 | CLOCAL | CREAD;
    newtio.c_iflag = IGNPAR;  // don't set ICRNL !!
    newtio.c_oflag = 0;
    newtio.c_lflag = 0;       // ICANON - 'disable echo functionality  and don't
@@ -171,7 +173,7 @@ int Serial::reopen(const char* dev)
 // Read Value
 //***************************************************************************
 
-int Serial::look(BYTE& b, int timeoutMs)
+int Serial::look(byte& b, int timeoutMs)
 {
    int res;
    b = 0;
@@ -268,3 +270,4 @@ int Serial::read(void* buf, size_t count, uint timeoutMs)
 
    return nRead;
 }
+

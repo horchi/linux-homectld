@@ -59,6 +59,12 @@ int cPhInterface::requestPh(double& ph)
    PhValue phValue;
    Header header;
 
+   if (!serial.isOpen())
+   {
+      tell(0, "Error: Interface not open!");
+      return fail;
+   }
+
    header.id = comId;
    header.command = cPhRequest;
 

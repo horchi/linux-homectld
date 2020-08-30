@@ -151,7 +151,7 @@ Poold::~Poold()
    free(w1AddrSuctionTube);
    free(w1AddrAir);
 
-   exitPhInterface();
+   phInterface.close();
    cDbConnection::exit();
 }
 
@@ -430,6 +430,13 @@ int Poold::init()
       tell(0, "Retrying in 2 seconds");
       sleep(2);
    }
+
+   // init PH interface
+
+   if (!isEmpty(phDevice))
+      phInterface.open(phDevice);
+
+   //
 
    initScripts();
 
@@ -1142,9 +1149,9 @@ int Poold::update(bool webOnly, long client)
       }
       else if (tableValueFacts->hasValue("TYPE", "PH"))
       {
-         double phValue = getPh();
+         double phValue {0.0};
 
-         if (phValue > 0)
+         if (phInterface.requestPh(phValue) == success)
          {
             json_object_set_new(ojData, "value", json_real(phValue));
             json_object_set_new(ojData, "widgettype", json_integer(wtGauge));

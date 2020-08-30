@@ -102,6 +102,8 @@ install-scripts:
 	fi
 	install -D ./scripts/poold-* $(BINDEST)/
 
+iw: install-web
+
 install-web:
 	if ! test -d $(WEBDEST); then \
 		mkdir -p "$(WEBDEST)"; \

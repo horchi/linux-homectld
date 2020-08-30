@@ -20,7 +20,6 @@
 #include "lib/db.h"
 #include "lib/mqtt.h"
 #include "lib/thread.h"
-#include "lib/serial.h"
 
 #include "HISTORY.h"
 #include "ph.h"
@@ -418,17 +417,6 @@ class Poold : public cWebService, public cPhBoardService
       int toggleIoNext(uint pin);
       int toggleOutputMode(uint pin);
 
-      // serial interface to PH
-
-      int initPhInterface();
-      int exitPhInterface();
-      int readHeader(Header* header, uint timeoutMs = 5000);
-      int requestPh(double& ph);
-      double getPh();
-      int requestCalibration(PhCalResponse& calResp, uint duration = 30);
-      int requestCalGet(PhCalSettings& calSettings);
-      int requestCalSet(word pointA, word pointB);
-
       // W1
 
       int initW1();
@@ -527,9 +515,9 @@ class Poold : public cWebService, public cPhBoardService
       std::vector<Range> uvcLightTimes;
       std::vector<Range> poolLightTimes;
 
-      // serial interval to arduino for PH stuff
+      // serial interface to arduino for PH stuff
 
-      Serial serial;
+      cPhInterface phInterface;
       char* phDevice {nullptr};
 
       // actual state and data

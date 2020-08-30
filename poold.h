@@ -219,7 +219,7 @@ class cInputThread : public cThread
 // Class Pool Daemon
 //***************************************************************************
 
-class Poold : public cWebService
+class Poold : public cWebService, public cPhBoardService
 {
    public:
 
@@ -422,9 +422,12 @@ class Poold : public cWebService
 
       int initPhInterface();
       int exitPhInterface();
-      int readHeader(cPhBoardService::Header* header, uint timeoutMs = 5000);
+      int readHeader(Header* header, uint timeoutMs = 5000);
       int requestPh(double& ph);
       double getPh();
+      int requestCalibration(PhCalResponse& calResp, uint duration = 30);
+      int requestCalGet(PhCalSettings& calSettings);
+      int requestCalSet(word pointA, word pointB);
 
       // W1
 

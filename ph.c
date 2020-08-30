@@ -1,5 +1,5 @@
 //***************************************************************************
-// poold / Linux - Pool Steering
+// poold / Linux - PH Control
 // File ph.c
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
@@ -10,21 +10,21 @@
 // Include
 //***************************************************************************
 
-#include "poold.h"
+#include "ph.h"
 
 //***************************************************************************
-// Init/Exit PH Interface
+// Open / Close Interface
 //***************************************************************************
 
-int Poold::initPhInterface()
+int cPhInterface::open(const char* ttyDevice)
 {
    if (serial.isOpen())
       return success;
 
-   return serial.open(phDevice);
+   return serial.open(ttyDevice);
 }
 
-int Poold::exitPhInterface()
+int cPhInterface::close()
 {
    return serial.close();
 }
@@ -33,7 +33,7 @@ int Poold::exitPhInterface()
 // Read Header
 //***************************************************************************
 
-int Poold::readHeader(Header* header, uint timeoutMs)
+int cPhInterface::readHeader(Header* header, uint timeoutMs)
 {
    if (serial.read(header, sizeof(Header), timeoutMs) < 0)
    {
@@ -51,11 +51,52 @@ int Poold::readHeader(Header* header, uint timeoutMs)
 }
 
 //***************************************************************************
+// PH Request
+//***************************************************************************
+
+int cPhInterface::requestPh(double& ph)
+{
+   PhValue phValue;
+   Header header;
+
+   header.id = comId;
+   header.command = cPhRequest;
+
+   tell(2, "Requesting PH ...");
+
+   serial.flush();
+
+   if (serial.write(&header, sizeof(Header)) != success)
+   {
+      tell(0, "Error write serial line failed");
+      return fail;
+   }
+
+   tell(2, ".. requested, waiting for responce ..");
+
+   if (readHeader(&header) != success)
+      return fail;
+
+   if (header.command == cPhResponse)
+   {
+      if (serial.read(&phValue, sizeof(PhValue)) < 0)
+         return fail;
+
+      tell(1, "PH %.2f (%d)", phValue.ph, phValue.value);
+      ph = phValue.ph;
+      return success;
+   }
+
+   tell(0, "Got unexpected command 0x%x", header.command);
+   return fail;
+}
+
+//***************************************************************************
 // Request Calibration Process
 //   get avarage of <duration>
 //***************************************************************************
 
-int Poold::requestCalibration(PhCalResponse& calResp, uint duration)
+int cPhInterface::requestCalibration(PhCalResponse& calResp, uint duration)
 {
    int res;
 
@@ -101,7 +142,7 @@ int Poold::requestCalibration(PhCalResponse& calResp, uint duration)
 // Request Current calibration settings (stored in arduino's EEPOROM)
 //***************************************************************************
 
-int Poold::requestCalGet(PhCalSettings& calSettings)
+int cPhInterface::requestCalGet(PhCalSettings& calSettings)
 {
    Header header;
 
@@ -128,7 +169,8 @@ int Poold::requestCalGet(PhCalSettings& calSettings)
       if (serial.read(&calSettings, sizeof(PhCalSettings)) < 0)
          return fail;
 
-      tell(0, "Current PH Calibration values are %d / %d", calSettings.pointA, calSettings.pointB);
+      tell(0, "Current PH Calibration values are\n PH %2.1f => %d\n PH %2.1f => %d",
+           calSettings.phA, calSettings.pointA, calSettings.phB, calSettings.pointB);
 
       return success;
    }
@@ -141,21 +183,20 @@ int Poold::requestCalGet(PhCalSettings& calSettings)
 // Request Setting of calibration data (stored in arduino's EEPOROM)
 //***************************************************************************
 
-int Poold::requestCalSet(word pointA, word pointB)
+int cPhInterface::requestCalSet(PhCalSettings& calSettings)
 {
-   if (!pointA || !pointB)
+   if (!calSettings.pointA || !calSettings.pointB || !calSettings.phA || !calSettings.phB)
    {
       tell(0, "Error: Missing values");
       return fail;
    }
 
    Header header;
-   PhCalSettings calSettings;
 
    header.id = comId;
    header.command = cPhCalSetRequest;
-   calSettings.pointA = pointA;
-   calSettings.pointB = pointB;
+   calSettings.pointA = calSettings.pointA;
+   calSettings.pointB = calSettings.pointB;
 
    tell(2, "Requesting set of PH calibration values ...");
 
@@ -186,61 +227,4 @@ int Poold::requestCalSet(word pointA, word pointB)
 
    tell(0, "Got unexpected command 0x%x", header.command);
    return fail;
-}
-
-//***************************************************************************
-// Request PH
-//***************************************************************************
-
-int Poold::requestPh(double& ph)
-{
-   PhValue phValue;
-   Header header;
-
-   header.id = comId;
-   header.command = cPhRequest;
-
-   tell(2, "Requesting PH ...");
-
-   serial.flush();
-
-   if (serial.write(&header, sizeof(Header)) != success)
-   {
-      tell(0, "Error write serial line failed");
-      return fail;
-   }
-
-   tell(2, ".. requested, waiting for responce ..");
-
-   if (readHeader(&header) != success)
-      return fail;
-
-   if (header.command == cPhResponse)
-   {
-      if (serial.read(&ph, sizeof(PhValue)) < 0)
-         return fail;
-
-      tell(1, "PH %.2f (%d)", phValue.ph, phValue.value);
-      ph = phValue.ph;
-      return success;
-   }
-
-   tell(0, "Got unexpected command 0x%x", header.command);
-   return fail;
-}
-
-//***************************************************************************
-// Get PH
-//***************************************************************************
-
-double Poold::getPh()
-{
-   double ph {-1};
-
-   if (initPhInterface() != success)
-      return -1;
-
-   requestPh(ph);
-
-   return ph;
 }

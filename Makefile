@@ -9,10 +9,10 @@ include Make.config
 
 TARGET      = poold
 W1TARGET    = w1mqtt
+PHTARGET    = ph
 HISTFILE    = "HISTORY.h"
 
 LIBS += $(shell mysql_config --libs_r) -lrt -lcrypto -lcurl -lpthread -luuid
-LIBS += -lwiringPi
 
 DEFINES += -D_GNU_SOURCE -DTARGET='"$(TARGET)"'
 
@@ -37,6 +37,7 @@ CFLAGS    	+= $(shell mysql_config --include)
 DEFINES   	+= -DDEAMON=Poold
 OBJS      	+= poold.o
 W1OBJS      = w1.o lib/common.o lib/thread.o $(MQTTOBJS)
+PHOBJS      = phcmd.o ph.o lib/common.o lib/serial.o
 
 ifdef GIT_REV
    DEFINES += -DGIT_REV='"$(GIT_REV)"'
@@ -44,13 +45,16 @@ endif
 
 # rules:
 
-all: $(TARGET) $(W1TARGET)
+all: $(TARGET) $(W1TARGET) $(PHTARGET)
 
 $(TARGET) : $(OBJS) w1mqtt
-	$(doLink) $(OBJS) $(LIBS) -o $@
+	$(doLink) $(OBJS) $(LIBS) -lwiringPi -o $@
 
 $(W1TARGET): $(W1OBJS)
 	$(doLink) $(W1OBJS) $(LIBS) -o $@
+
+$(PHTARGET): $(PHOBJS)
+	$(doLink) $(PHOBJS) $(LIBS) -o $@
 
 install: $(TARGET) $(W1TARGET) install-poold
 
@@ -170,6 +174,7 @@ gpio.o          :  gpio.c          $(HEADER)
 hass.o          :  hass.c          poold.h
 websock.o       :  websock.c       poold.h
 ph.o            :  ph.c            poold.h lib/serial.h
+phcmd.o         :  phcmd.c         ph.h lib/serial.h
 
 # ------------------------------------------------------
 # Git / Versioning / Tagging

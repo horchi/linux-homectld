@@ -23,7 +23,7 @@
 #include "lib/serial.h"
 
 #include "HISTORY.h"
-#include "phservice.h"
+#include "ph.h"
 
 #define confDirDefault "/etc/poold"
 

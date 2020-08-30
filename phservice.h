@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include "lib/common.h"
+
 //***************************************************************************
 // PH Board Service
 //***************************************************************************
@@ -60,8 +62,10 @@ class cPhBoardService
 
       struct PhCalSettings
       {
-         word pointA {0};   // value of calibration point A
-         word pointB {0};   // value of calibration point B
+         word pointA {377};   // value of calibration point A
+         word pointB {435};   // value of calibration point B
+         float phA {7.0};     // PH value for calibration point A
+         float phB {9.0};     // PH value for calibration point B
       };
 
 #pragma pack()

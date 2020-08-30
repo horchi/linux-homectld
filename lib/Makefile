@@ -9,8 +9,6 @@ include ../Make.config
 LIBTARGET = libhorchi
 HLIB      = -L. -lhorchi
 
-TEST = tst
-
 LIBOBJS = common.o db.o dbdict.o
 
 BASELIBS = -lrt -lz -luuid -lpthread
@@ -36,18 +34,15 @@ CFLAGS += $(shell xml2-config --cflags)
 
 DEFINES = $(USES)
 
-all: lib $(TEST)
+all: lib
 lib: $(LIBTARGET).a
 
 $(LIBTARGET).a : $(LIBOBJS)
 	@echo Building Lib ...
 	$(doLib) $@ $(LIBOBJS)
 
-tst: test.o serial.o lib
-	$(doLink) test.o serial.o $(HLIB) -lcrypto $(BASELIBS) -o $@
-
 clean:
-	rm -f *.o *~ core $(TEST) $(DEMO) $(LIBTARGET).a
+	rm -f *.o *~ core $(DEMO) $(LIBTARGET).a
 
 cppchk:
 	cppcheck --template="{file}:{line}:{severity}:{message}" --quiet --force *.c *.h
@@ -73,4 +68,3 @@ json.o       :  json.c        $(HEADER) json.h
 serial.o     :  serial.c      $(HEADER) serial.h
 
 demo.o       :  demo.c        $(HEADER)
-test.o       :  test.c        $(HEADER)

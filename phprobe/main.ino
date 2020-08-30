@@ -20,8 +20,8 @@ void calcGraph()
 
    EEPROM.get(0, calSettings);    // stored at eeprom address 0
 
-   m = (9.0 - 7.0) / (calSettings.pointB - calSettings.pointA);
-   b = 9 - m * calSettings.pointB;
+   m = (calSettings.phB - calSettings.phA) / (calSettings.pointB - calSettings.pointA);
+   b = calSettings.phB - m * calSettings.pointB;
 }
 
 //******************************************************************

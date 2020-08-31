@@ -6,10 +6,6 @@
 // Date 16.04.2020 - Jörg Wendel
 //***************************************************************************
 
-//***************************************************************************
-// Include
-//***************************************************************************
-
 #include <stdio.h>
 #include <unistd.h>
 #include <dirent.h>
@@ -21,8 +17,10 @@
 #include "poold.h"
 
 int Poold::shutdown = no;
-std::queue<std::string> Poold::messagesIn;
-cMyMutex Poold::messagesInMutex;
+
+//***************************************************************************
+// Configuration Items
+//***************************************************************************
 
 std::list<Poold::ConfigItemDef> Poold::configuration
 {
@@ -95,6 +93,7 @@ const char* cWebService::events[] =
    "userconfig",
    "changepasswd",
    "resetpeaks",
+   "groupconfig",
    0
 };
 
@@ -132,7 +131,7 @@ Poold::Poold()
    cDbConnection::setUser(dbUser);
    cDbConnection::setPass(dbPass);
 
-   webSock = new cWebSock("/var/lib/pool/");
+   webSock = new cWebSock(this, "/var/lib/pool/");
 }
 
 Poold::~Poold()
@@ -186,14 +185,14 @@ int Poold::pushOutMessage(json_t* oContents, const char* title, long client)
    {
       for (const auto cl : wsClients)
          if (cl.second.dataUpdates)
-            cWebSock::pushMessage(p, (lws*)cl.first);
+            webSock->pushOutMessage(p, (lws*)cl.first);
    }
    else
    {
-      cWebSock::pushMessage(p, (lws*)client);
+      webSock->pushOutMessage(p, (lws*)client);
    }
 
-   tell(4, "DEBUG: PushMessage [%s]", p);
+   tell(4, "DEBUG: PushOutMessage [%s]", p);
    free(p);
 
    webSock->performData(cWebSock::mtData);
@@ -1329,7 +1328,7 @@ int Poold::performLogin(json_t* oObject)
    }
 
    tell(0, "Login of client 0x%x; user '%s'; type is %d", (unsigned int)client, user, wsClients[(void*)client].type);
-   cWebSock::setClientType((lws*)client, wsClients[(void*)client].type);
+   webSock->setClientType((lws*)client, wsClients[(void*)client].type);
 
    //
 

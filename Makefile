@@ -3,7 +3,6 @@
 #
 # See the README file for copyright information and how to reach the author.
 #
-#
 
 include Make.config
 
@@ -170,11 +169,11 @@ lib/mqtt.o      :  lib/mqtt.c      lib/mqtt.h lib/mqtt_c.h
 lib/mqtt_c.o    :  lib/mqtt_c.c    lib/mqtt_c.h
 lib/mqtt_pal.o  :  lib/mqtt_pal.c  lib/mqtt_c.h
 main.o          :  main.c          $(HEADER) poold.h
-poold.o         :  poold.c         $(HEADER) poold.h w1.h lib/mqtt.h
+poold.o         :  poold.c         $(HEADER) poold.h w1.h lib/mqtt.h websock.h
 w1.o            :  w1.c            $(HEADER) w1.h lib/mqtt.h
 gpio.o          :  gpio.c          $(HEADER)
 hass.o          :  hass.c          poold.h
-websock.o       :  websock.c       poold.h
+websock.o       :  websock.c       websock.h
 ph.o            :  ph.c            poold.h lib/serial.h
 phcmd.o         :  phcmd.c         ph.h lib/serial.h
 

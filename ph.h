@@ -25,8 +25,10 @@ class cPhInterface : public cPhBoardService
 
       int open(const char* ttyDevice);
       int close();
+      int checkInterface();
+
       int readHeader(Header* header, uint timeoutMs = 5000);
-      int requestPh(double& ph);
+      int requestPh(PhValue& phValue);
       double getPh();
       int requestCalibration(PhCalResponse& calResp, uint duration = 30);
       int requestCalGet(PhCalSettings& calSettings);
@@ -35,4 +37,5 @@ class cPhInterface : public cPhBoardService
    private:
 
       Serial serial;
+      cMyMutex mutex;
 };

@@ -28,7 +28,52 @@ char* cWebSock::httpPath {nullptr};
 cWebInterface* cWebSock::singleton {nullptr};
 
 //***************************************************************************
-// Init
+// Web Service
+//***************************************************************************
+
+const char* cWebService::events[] =
+{
+   "unknown",
+   "login",
+   "logout",
+   "toggleio",
+   "toggleionext",
+   "togglemode",
+   "storeconfig",
+   "gettoken",
+   "storeiosetup",
+   "chartdata",
+   "logmessage",
+   "userconfig",
+   "changepasswd",
+   "resetpeaks",
+   "groupconfig",
+   "ph",
+   "phall",
+   "phcal",
+   "phsetcal",
+   0
+};
+
+const char* cWebService::toName(Event event)
+{
+   if (event >= evUnknown && event < evCount)
+      return events[event];
+
+   return events[evUnknown];
+}
+
+cWebService::Event cWebService::toEvent(const char* name)
+{
+   for (int e = evUnknown; e < evCount; e++)
+      if (strcasecmp(name, events[e]) == 0)
+         return (Event)e;
+
+   return evUnknown;
+}
+
+//***************************************************************************
+// Web Socket
 //***************************************************************************
 
 cWebSock::cWebSock(cWebInterface* aProcess, const char* aHttpPath)

@@ -29,6 +29,19 @@ int cPhInterface::close()
    return serial.close();
 }
 
+int cPhInterface::checkInterface()
+{
+   if (serial.isOpen())
+      return success;
+
+   tell(0, "Error: Interface not open!");
+
+   // #TODO try open here
+   // return open(ttyDevice);
+
+   return fail;
+}
+
 //***************************************************************************
 // Read Header
 //***************************************************************************
@@ -54,16 +67,14 @@ int cPhInterface::readHeader(Header* header, uint timeoutMs)
 // PH Request
 //***************************************************************************
 
-int cPhInterface::requestPh(double& ph)
+int cPhInterface::requestPh(PhValue& phValue)
 {
-   PhValue phValue;
    Header header;
 
-   if (!serial.isOpen())
-   {
-      tell(0, "Error: Interface not open!");
+   if (checkInterface() != success)
       return fail;
-   }
+
+   cMyMutexLock lock(&mutex);
 
    header.id = comId;
    header.command = cPhRequest;
@@ -89,7 +100,6 @@ int cPhInterface::requestPh(double& ph)
          return fail;
 
       tell(1, "PH %.2f (%d)", phValue.ph, phValue.value);
-      ph = phValue.ph;
       return success;
    }
 
@@ -105,9 +115,13 @@ int cPhInterface::requestPh(double& ph)
 int cPhInterface::requestCalibration(PhCalResponse& calResp, uint duration)
 {
    int res;
-
    Header header;
    PhCalRequest calReq;
+
+   if (checkInterface() != success)
+      return fail;
+
+   cMyMutexLock lock(&mutex);
 
    header.id = comId;
    header.command = cPhCalRequest;
@@ -152,6 +166,11 @@ int cPhInterface::requestCalGet(PhCalSettings& calSettings)
 {
    Header header;
 
+   if (checkInterface() != success)
+      return fail;
+
+   cMyMutexLock lock(&mutex);
+
    header.id = comId;
    header.command = cPhCalGetRequest;
 
@@ -161,7 +180,7 @@ int cPhInterface::requestCalGet(PhCalSettings& calSettings)
 
    if (serial.write(&header, sizeof(Header)) != success)
    {
-      tell(0, "Error write serial line failed");
+      tell(0, "Error: Write serial line failed");
       return fail;
    }
 
@@ -191,6 +210,9 @@ int cPhInterface::requestCalGet(PhCalSettings& calSettings)
 
 int cPhInterface::requestCalSet(PhCalSettings& calSettings)
 {
+   if (checkInterface() != success)
+      return fail;
+
    if (!calSettings.pointA || !calSettings.pointB || !calSettings.phA || !calSettings.phB)
    {
       tell(0, "Error: Missing values");
@@ -198,11 +220,10 @@ int cPhInterface::requestCalSet(PhCalSettings& calSettings)
    }
 
    Header header;
+   cMyMutexLock lock(&mutex);
 
    header.id = comId;
    header.command = cPhCalSetRequest;
-   calSettings.pointA = calSettings.pointA;
-   calSettings.pointB = calSettings.pointB;
 
    tell(2, "Requesting set of PH calibration values ...");
 

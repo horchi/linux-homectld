@@ -41,6 +41,10 @@ class cWebService
          evChangePasswd,
          evResetPeaks,
          evGroupConfig,
+         evPh,
+         evPhAll,
+         evPhCal,
+         evPhSetCal,
 
          evCount
       };

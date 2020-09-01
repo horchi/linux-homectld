@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="de" lang="de">
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+    <meta name="author" content="Jörg Wendel"/>
+    <meta name="copyright" content="Jörg Wendel"/>
+    <meta name="viewport" content="initial-scale=1.0, width=device-width, user-scalable=no, maximum-scale=1, minimum-scale=1"/>
+    <meta name="mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+    <link rel="shortcut icon" href="img/logo.png" type="image/png"/>
+    <link rel="icon" href="img/logo.png" type="image/png"/>
+    <link rel="apple-touch-icon-precomposed" sizes="144x144" href="img/logo.png" type="image/png"/>
+    <link rel="stylesheet" type="text/css" href="stylesheet.css"/>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+    <script src="jquery.browser.min.js"></script>
+    <script type="text/javascript" src="websocket.js"></script>
+    <script type="text/javascript" src="main.js"></script>
+    <script>
+      $(document).ready(function() { documentReady("ph"); });
+    </script>
+
+    <title>Pool Control</title>
+  </head>
+  <body>
+
+    <div class="menu">
+      <nav id="navMenu" data-setup="yes" data-ph="yes"></nav>
+    </div>
+
+    <div class="content">
+
+      <div id="phShowActual" class="rounded-border phSetup">
+        <div class="configDescriptionCaption">Der akuell gemessene PH Wert und die eingestellen Kalibrierungspunkte</div>
+        <br/>
+        <div><span>Aktueller PH Wert</span><span id="currentPh" style="text-align:right;">--</span><span style="text-align:center;">&ndash;</span><span id="currentPhValue">--</span><span>(digits)</span></div>
+        <br/>
+        <div><span>#1 Erster Punkt bei PH</span><span id="currentPhA" style="text-align:right;">--</span><span style="text-align:center;">&ndash;</span><span id="currentCalA">--</span><span>(digits)</span></div>
+        <div><span>#2 Zweiter Punkt bei PH</span><span id="currentPhB" style="text-align:right;">--</span><span style="text-align:center;">&ndash;</span><span id="currentCalB">--</span><span>(digits)</span></div>
+        <br/>
+        <input id="checkboxRefresh" class="rounded-border" type="checkbox" onclick="checkboxRefreshKlick()" checked \><span>&nbsp;refresh</span>
+      </div>
+
+      <div id="phShowCal" class="rounded-border phSetup">
+        <div class="configDescriptionCaption">
+          Zum Kalibrieren der PH Probe werden zwei Messpunkte mit unterschiedlichen PH Werten benötigt.
+          Für diese sind genaue Pufferlösungen erforderlich. Der PH Wert des ersten Messpunktes muss zwingend unter dem des Zweiten liegen!
+          Es ist zu empfehlen den Eichwert über eine Dauer von mindestens 20 Sekunden zu ermitteln, je nachdem wie schnell sich die verwendete PH Probe der Lösung anpasst ist vorher zu warten bis sich die Werte stabilisiert haben. Sollen typisch Werte zwischen 7 und 8 gemessen werden sollten Pufferlösungen mit um PH 7 und PH 9 eingesetzt werden.
+          Ist der erste der Kalibrierungspunkte ermittelt speichert man diesen mit 'Speichern', mit dem Zweiten ist im Anschluss genauso zu verfahren.
+        </div>
+        <div>
+          <span>Messung für PH</span>
+          <input id="inputCalPh" class="rounded-border inputFloat" type="number" step="0.1" max="1.0" max="10.0" value="7.0" \>
+          <input id="inputCalMeasureValue" class="rounded-border inputNum" type="number" min="1" max="2023" step="1" \>
+          <span id="currentCalMeasureText" style="width: 25%;"></span>
+          <button id="buttonStoreCal1" class="rounded-border buttonHighlighted" style="height:inherit;" onclick="storePhCal1()">als #1 Speichern</button>
+          <button id="buttonStoreCal2" class="rounded-border buttonHighlighted" style="height:inherit;" onclick="storePhCal2()">als #2 Speichern</button>
+        </div>
+        <div>
+          <span>Messung über</span>
+          <input id="inputCalDuration" class="rounded-border inputNum" type="number" max="30" step="1" value="30" \>
+          <span>Sekunden</span>
+          <button class="rounded-border buttonHighlighted" style="height:inherit;" onclick="doPhCal()">Start</button>
+        </div>
+      </div>
+
+    </body>
+</html>

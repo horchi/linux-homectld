@@ -32,12 +32,11 @@ int atConfigItem(const char* Name, const char* Value)
 {
    // Parse setup parameters and store values.
 
-   if      (!strcasecmp(Name, "dbHost"))      sstrcpy(dbHost, Value, sizeof(dbHost));
-   else if (!strcasecmp(Name, "dbPort"))      dbPort = atoi(Value);
-   else if (!strcasecmp(Name, "dbName"))      sstrcpy(dbName, Value, sizeof(dbName));
-   else if (!strcasecmp(Name, "dbUser"))      sstrcpy(dbUser, Value, sizeof(dbUser));
-   else if (!strcasecmp(Name, "dbPass"))      sstrcpy(dbPass, Value, sizeof(dbPass));
-   else if (!strcasecmp(Name, "logLevel"))    loglevel = atoi(Value);
+   if      (!strcasecmp(Name, "dbHost")) sstrcpy(dbHost, Value, sizeof(dbHost));
+   else if (!strcasecmp(Name, "dbPort")) dbPort = atoi(Value);
+   else if (!strcasecmp(Name, "dbName")) sstrcpy(dbName, Value, sizeof(dbName));
+   else if (!strcasecmp(Name, "dbUser")) sstrcpy(dbUser, Value, sizeof(dbUser));
+   else if (!strcasecmp(Name, "dbPass")) sstrcpy(dbPass, Value, sizeof(dbPass));
 
    return success;
 }

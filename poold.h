@@ -218,6 +218,9 @@ class Poold : public cWebInterface
       int performChartData(json_t* oObject, long client);
       int performUserConfig(json_t* oObject, long client);
       int performPasswChange(json_t* oObject, long client);
+      int performPh(long client, bool all);
+      int performPhCal(json_t* obj, long client);
+      int performPhSetCal(json_t* oObject, long client);
       int storeConfig(json_t* obj, long client);
       int storeIoSetup(json_t* array, long client);
       int resetPeaks(json_t* obj, long client);

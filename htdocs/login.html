@@ -31,18 +31,23 @@
       <nav id="navMenu" data-login="yes"></nav>
     </div>
 
-    <br/><br/>
-    <table>
-      <tr>
-        <td>User:</td>
-        <td><input id="user" class="rounded-border input" type="text" value=""></input></td>
-      </tr>
-      <tr>
-        <td>Passwort:</td>
-        <td><input id="password" class="rounded-border input" type="password" value=""></input></td>
-      </tr>
-    </table>
-    <button class="rounded-border buttonLogin" onclick="doLogin()">Anmelden</button>
+    <div class="content">
+      <div id="phContainer" class="rounded-border inputTableConfig">
+
+        <table>
+          <tr>
+            <td>User:</td>
+            <td><input id="user" class="rounded-border input" type="text" value=""></input></td>
+          </tr>
+          <tr>
+            <td>Passwort:</td>
+            <td><input id="password" class="rounded-border input" type="password" value=""></input></td>
+          </tr>
+        </table>
+        <button class="rounded-border buttonHighlighted" onclick="doLogin()">Anmelden</button>
+
+      </div>
+    </div>
 
   </body>
 </html>

@@ -15,6 +15,7 @@ var theChart = null;
 var theChartRange = 2;
 var theChartStart = new Date(); theChartStart.setDate(theChartStart.getDate()-theChartRange);
 var chartDialogSensor = "";
+var phCalTimerhandle = null;
 
 // !!  sync this arry with UserRights of poold.h  !!
 
@@ -46,6 +47,11 @@ window.documentReady = function(doc)
       protocol = "poold";
       if (location.hostname.indexOf("192.168.200.145") == -1)
          url = "ws://" + location.hostname + "/pool/ws";   // via apache
+   }
+
+   if (documentName == "ph" && phCalTimerhandle != null) {
+      clearInterval(phCalTimerhandle);
+      phCalTimerhandle = null;
    }
 
    connectWebSocket(url, protocol);
@@ -81,6 +87,8 @@ function onSocketConnect(protocol)
       jsonRequest["name"] = "data";
    else if (documentName == "list")
       jsonRequest["name"] = "data";
+   else if (documentName == "ph")
+      jsonRequest["name"] = "phall";
 
    jsonArray[0] = jsonRequest;
 
@@ -132,7 +140,8 @@ function dispatchMessage(message)
    var rootConfig = document.getElementById("configContainer");
    var rootIoSetup = document.getElementById("ioSetupContainer");
    var rootChart = document.getElementById("chart");
-   var rootDialog = document.querySelector('dialog');
+   var rootDialog = document.querySelector('dialog');  // chart dialog
+   var rootPhActual = document.getElementById("phShowActual");
 
    var d = new Date();
 
@@ -167,6 +176,12 @@ function dispatchMessage(message)
    }
    else if (event == "daemonstate") {
       daemonState = jMessage.object;
+   }
+   else if (event == "phdata" && rootPhActual) {
+      updatePhActual(jMessage.object, rootPhActual);
+   }
+   else if (event == "phcal" && rootPhActual) {
+      updatePhCal(jMessage.object);
    }
    else if (event == "syslog") {
       showSyslog(jMessage.object);
@@ -226,6 +241,7 @@ function prepareMenu(haveToken, vdr)
          html += "  <a href=\"maincfg.html\"><button class=\"rounded-border button2\">Allg. Konfiguration</button></a>";
          html += "  <a href=\"iosetup.html\"><button class=\"rounded-border button2\">IO Setup</button></a>";
          html += "  <a href=\"usercfg.html\"><button class=\"rounded-border button2\">User</button></a>";
+         html += "  <a href=\"ph.html\"><button class=\"rounded-border button2\">PH</button></a>";
          html += "  <a href=\"syslog.html\"><button class=\"rounded-border button2\">Syslog</button></a>";
          html += "</div>";
       }
@@ -800,9 +816,106 @@ function updateDashboard(sensors)
          {
             $("#widget" + sensor.type + sensor.address).html(sensor.value + " " + sensor.unit);
          }
-
-         // console.log(i + ": " + sensor.name + " / " + sensor.title);
       }
+   }
+}
+
+function requestActualPh() {
+   socket.send({ "event" : "ph", "object" : {} });
+}
+
+function updatePhActual(data, rootPhActual)
+{
+   var currentPh = document.getElementById("currentPh");
+   document.getElementById("buttonStoreCal1").style.visibility = 'hidden';
+   document.getElementById("buttonStoreCal2").style.visibility = 'hidden';
+
+   if (data.currentPh == "--")
+      currentPh.innerHTML = data.currentPh;
+   else {
+      currentPh.innerHTML = data.currentPh.toFixed(2);
+      currentPh.style.color = "yellow";
+      hh = setInterval(resetFont, 400);
+      document.getElementById("checkboxRefresh").checked = true;
+
+      function resetFont() {
+         currentPh.style.color = "white";
+         clearInterval(hh);
+      }
+   }
+
+   rootPhActual.querySelector("#currentPhValue").innerHTML = data.currentPhValue;
+
+   if (data.currentPhA != null) {
+      rootPhActual.querySelector("#currentPhA").innerHTML = data.currentPhA.toFixed(2);
+      rootPhActual.querySelector("#currentPhB").innerHTML = data.currentPhB.toFixed(2);
+      rootPhActual.querySelector("#currentCalA").innerHTML = data.currentCalA;
+      rootPhActual.querySelector("#currentCalB").innerHTML = data.currentCalB;
+   }
+
+   if (phCalTimerhandle == null)
+      phCalTimerhandle = setInterval(requestActualPh, 3000);
+}
+
+function updatePhCal(data)
+{
+   document.getElementById("inputCalMeasureValue").value = data.calValue;
+   document.getElementById("currentCalMeasureText").innerHTML = "&nbsp;&nbsp;&nbsp;(Durchschnitt über&nbsp;"
+      + data.duration + "&nbsp;Sekunden)";
+
+   document.getElementById("buttonStoreCal1").style.visibility = 'visible';
+   document.getElementById("buttonStoreCal2").style.visibility = 'visible';
+}
+
+window.doPhCal = function()
+{
+   clearInterval(phCalTimerhandle);
+   phCalTimerhandle = null;
+   document.getElementById("checkboxRefresh").checked = false;
+   var duration = document.getElementById("inputCalDuration").value;
+   socket.send({ "event" : "phcal", "object" : { "duration" : parseInt(duration)} });
+   document.getElementById("inputCalMeasureValue").value = "";
+   document.getElementById("currentCalMeasureText").innerHTML = "";
+}
+
+window.storePhCal1 = function()
+{
+   var cal = parseInt(document.getElementById("inputCalMeasureValue").value);
+   var ph = parseFloat(document.getElementById("inputCalPh").value);
+
+   if (confirm("#1 Kalibrier-Wert '" + cal + "' für PH " + ph + " speichern?")) {
+      socket.send({ "event" : "phsetcal", "object" :
+                    { "currentPhA" : ph,
+                     "currentCalA" : cal }
+                  });
+   }
+
+   document.getElementById("buttonStoreCal1").style.visibility = 'hidden';
+}
+
+window.storePhCal2 = function()
+{
+   var cal = parseInt(document.getElementById("inputCalMeasureValue").value);
+   var ph = parseFloat(document.getElementById("inputCalPh").value);
+
+   if (confirm("#2 Kalibrier-Wert '" + cal + "' für PH " + ph + " speichern?")) {
+      socket.send({ "event" : "phsetcal", "object" :
+                    { "currentPhA" : ph,
+                    "currentCalA" : cal }
+                  });
+   }
+
+   document.getElementById("buttonStoreCal2").style.visibility = 'hidden';
+}
+
+window.checkboxRefreshKlick = function()
+{
+   if (!phCalTimerhandle && document.getElementById("checkboxRefresh").checked) {
+      phCalTimerhandle = setInterval(requestActualPh, 3000);
+   }
+   else if (phCalTimerhandle && !document.getElementById("checkboxRefresh").checked) {
+      clearInterval(phCalTimerhandle);
+      phCalTimerhandle = null;
    }
 }
 

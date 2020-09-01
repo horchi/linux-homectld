@@ -31,7 +31,7 @@ int main(int argc, char** argv)
 {
    cPhBoardService::PhCalResponse calResp;
    cPhBoardService::PhCalSettings calSettings;
-
+   cPhBoardService::PhValue phValue;
    int every {na};
    bool cal {false};
    bool calGet {false};
@@ -88,9 +88,7 @@ int main(int argc, char** argv)
    {
       while (true)
       {
-         double ph {0.0};
-
-         phInterface.requestPh(ph);
+         phInterface.requestPh(phValue);
 
          if (every > 0)
             sleep(every);

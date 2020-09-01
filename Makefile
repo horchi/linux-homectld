@@ -55,7 +55,7 @@ $(W1TARGET): $(W1OBJS)
 $(PHTARGET): $(PHOBJS)
 	$(doLink) $(PHOBJS) $(LIBS) -o $@
 
-install: $(TARGET) $(W1TARGET) install-poold
+install: $(TARGET) $(W1TARGET) install-poold install-web
 
 install-poold: install-config # install-scripts
 	install --mode=755 -D $(TARGET) $(BINDEST)

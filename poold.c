@@ -39,7 +39,7 @@ std::list<Poold::ConfigItemDef> Poold::configuration
    // poold
 
    { "interval",                  ctInteger, false, "1 Pool Daemon", "Intervall der Aufzeichung", "Datenbank Aufzeichung [s]" },
-
+   { "loglevel",                  ctInteger, false, "1 Pool Daemon", "Log level", "" },
    { "filterPumpTimes",           ctRange,   false, "1 Pool Daemon", "Zeiten Filter Pumpe", "[hh:mm] - [hh:mm]" },
    { "uvcLightTimes",             ctRange,   false, "1 Pool Daemon", "Zeiten UV-C Licht", "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!" },
    { "poolLightTimes",            ctRange,   false, "1 Pool Daemon", "Zeiten Pool Licht", "[hh:mm] - [hh:mm]" },
@@ -72,47 +72,6 @@ std::list<Poold::ConfigItemDef> Poold::configuration
    { "errorMailTo",               ctString,  false, "4 Mail", "Fehler Mail Empfänger", "Komma separierte Empfängerliste" },
    { "webUrl",                    ctString,  false, "4 Mail", "URL der Visualisierung", "kann mit %weburl% in die Mails eingefügt werden" },
 };
-
-//***************************************************************************
-// Web Service
-//***************************************************************************
-
-const char* cWebService::events[] =
-{
-   "unknown",
-   "login",
-   "logout",
-   "toggleio",
-   "toggleionext",
-   "togglemode",
-   "storeconfig",
-   "gettoken",
-   "storeiosetup",
-   "chartdata",
-   "logmessage",
-   "userconfig",
-   "changepasswd",
-   "resetpeaks",
-   "groupconfig",
-   0
-};
-
-const char* cWebService::toName(Event event)
-{
-   if (event >= evUnknown && event < evCount)
-      return events[event];
-
-   return events[evUnknown];
-}
-
-cWebService::Event cWebService::toEvent(const char* name)
-{
-   for (int e = evUnknown; e < evCount; e++)
-      if (strcasecmp(name, events[e]) == 0)
-         return (Event)e;
-
-   return evUnknown;
-}
 
 //***************************************************************************
 // Object
@@ -250,14 +209,17 @@ int Poold::dispatchClientRequest()
          case evUserConfig:    status = performUserConfig(oObject, client);     break;
          case evChangePasswd:  status = performPasswChange(oObject, client);    break;
          case evResetPeaks:    status = resetPeaks(oObject, client);            break;
-
+         case evPh:            status = performPh(client, false);               break;
+         case evPhAll:         status = performPh(client, true);                break;
+         case evPhCal:         status = performPhCal(oObject, client);          break;
+         case evPhSetCal:      status = performPhSetCal(oObject, client);       break;
          default: tell(0, "Error: Received unexpected client request '%s' at [%s]",
                        toName(event), messagesIn.front().c_str());
       }
    }
    else
    {
-      tell(0, "Insufficient right to '%s' for user '%s'", getStringFromJson(oData, "event", "<null>"),
+      tell(0, "Insufficient rights to '%s' for user '%s'", getStringFromJson(oData, "event", "<null>"),
            wsClients[(void*)client].user.c_str());
    }
 
@@ -284,6 +246,11 @@ bool Poold::checkRights(long client, Event event, json_t* oObject)
       case evUserConfig:    return rights & urAdmin;
       case evChangePasswd:  return true;   // check will done in performPasswChange()
       case evResetPeaks:    return rights & urAdmin;
+
+      case evPh:
+      case evPhAll:
+      case evPhCal:
+      case evPhSetCal:      return rights & urAdmin;
       default: break;
    }
 
@@ -850,6 +817,7 @@ int Poold::readConfiguration()
 {
    // init configuration
 
+   getConfigItem("loglevel", loglevel, 1);
    getConfigItem("interval", interval, interval);
 
    getConfigItem("mail", mail, no);
@@ -1148,15 +1116,15 @@ int Poold::update(bool webOnly, long client)
       }
       else if (tableValueFacts->hasValue("TYPE", "PH"))
       {
-         double phValue {0.0};
+         cPhInterface::PhValue phValue;
 
          if (phInterface.requestPh(phValue) == success)
          {
-            json_object_set_new(ojData, "value", json_real(phValue));
+            json_object_set_new(ojData, "value", json_real(phValue.ph));
             json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
 
             if (!webOnly)
-               store(now, name, title, unit, type, addr, phValue);
+               store(now, name, title, unit, type, addr, phValue.ph);
          }
          else
          {
@@ -1349,6 +1317,8 @@ int Poold::performLogin(json_t* oObject)
    {
       const char* name = getStringFromJson(oRequest, "name");
 
+      // #TODO add this 'services' to the events and use it here
+
       if (isEmpty(name))
          continue;
 
@@ -1367,6 +1337,9 @@ int Poold::performLogin(json_t* oObject)
          performUserDetails(client);
       else if (wsClients[(void*)client].rights & urAdmin && strcmp(name, "iosettings") == 0)
          performIoSettings(client);
+      else if (wsClients[(void*)client].rights & urAdmin && strcmp(name, "phall") == 0)
+         performPh(client, true);
+
       else if (strcmp(name, "chartdata") == 0)
          performChartData(oRequest, client);
    }
@@ -1720,6 +1693,125 @@ int Poold::performUserConfig(json_t* oObject, long client)
    pushOutMessage(oJson, "userdetails", client);
 
    return done;
+}
+
+//***************************************************************************
+// Perform PH Request
+//***************************************************************************
+
+int Poold::performPh(long client, bool all)
+{
+   if (client <= 0)
+      return done;
+
+   json_t* oJson = json_object();
+   cPhInterface::PhValue phValue;
+   cPhInterface::PhCalSettings calSettings;
+
+   if (all)
+   {
+      if (phInterface.requestCalGet(calSettings) == success)
+      {
+         json_object_set_new(oJson, "currentPhA", json_real(calSettings.phA));
+         json_object_set_new(oJson, "currentPhB", json_real(calSettings.phB));
+         json_object_set_new(oJson, "currentCalA", json_real(calSettings.pointA));
+         json_object_set_new(oJson, "currentCalB", json_real(calSettings.pointB));
+      }
+      else
+      {
+         json_object_set_new(oJson, "currentPhA", json_string("--"));
+         json_object_set_new(oJson, "currentPhB", json_string("--"));
+         json_object_set_new(oJson, "currentCalA", json_string("--"));
+         json_object_set_new(oJson, "currentCalB", json_string("--"));
+      }
+   }
+
+   if (phInterface.requestPh(phValue) == success)
+   {
+      json_object_set_new(oJson, "currentPh", json_real(phValue.ph));
+      json_object_set_new(oJson, "currentPhValue", json_integer(phValue.value));
+   }
+   else
+   {
+      json_object_set_new(oJson, "currentPh", json_string("--"));
+      json_object_set_new(oJson, "currentPhValue", json_string("--"));
+   }
+
+   pushOutMessage(oJson, "phdata", client);
+
+   return done;
+}
+
+//***************************************************************************
+// Perform PH Calibration Request
+//***************************************************************************
+
+int Poold::performPhCal(json_t* oObject, long client)
+{
+   if (client <= 0)
+      return done;
+
+   json_t* oJson = json_object();
+   int duration = getIntFromJson(oObject, "duration");
+   cPhInterface::PhCalResponse calResp;
+
+   tell(0, "duration of %d was requested", duration);
+
+   if (duration > 30)
+   {
+      tell(0, "Limit duration to 30, %d was requested", duration);
+      duration = 30;
+   }
+
+   if (phInterface.requestCalibration(calResp, duration) == success)
+      json_object_set_new(oJson, "calValue", json_integer(calResp.value));
+   else
+      json_object_set_new(oJson, "calValue", json_string("request failed"));
+
+   json_object_set_new(oJson, "duration", json_integer(duration));
+   pushOutMessage(oJson, "phcal", client);
+
+   return done;
+}
+
+//***************************************************************************
+// Perform Request for setting PH Calibration Data
+//***************************************************************************
+
+int Poold::performPhSetCal(json_t* oObject, long client)
+{
+   if (client <= 0)
+      return done;
+
+   cPhInterface::PhCalSettings calSettings;
+
+   // first get the actual settings
+
+   if (phInterface.requestCalGet(calSettings) == success)
+   {
+      // now update what we get from the WS client
+
+      if (getIntFromJson(oObject, "currentPhA", na) != na)
+      {
+         calSettings.phA = getIntFromJson(oObject, "currentPhA");
+         calSettings.pointA = getIntFromJson(oObject, "currentCalA");
+      }
+
+      if (getIntFromJson(oObject, "currentPhB", na) != na)
+      {
+         calSettings.phB = getIntFromJson(oObject, "currentPhB");
+         calSettings.pointB = getIntFromJson(oObject, "currentCalB");
+      }
+
+      // and store
+
+      if (phInterface.requestCalSet(calSettings) != success)
+      {
+         // error!
+      }
+   }
+
+   return performPh(client, true);
 }
 
 //***************************************************************************

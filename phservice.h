@@ -46,7 +46,7 @@ class cPhBoardService
 
       struct PhValue
       {
-         float ph {0};
+         float ph {0.0};
          word value {0};
       };
 

@@ -196,6 +196,7 @@ class Poold : public cWebInterface
       int doShutDown() { return shutdown; }
 
       int getWaterLevel();
+      int calcPhMinusVolume(double ph);
       void gpioWrite(uint pin, bool state, bool callJobs = true);
       bool gpioRead(uint pin);
       void logReport();
@@ -330,6 +331,12 @@ class Poold : public cWebInterface
       int minSolarPumpDuration {10};   // minutes
       int deactivatePumpsAtLowWater {no};
 
+      double phMinusDensity {0.0};
+      int phMinusDemand01 {0};
+      int phMinusDayLimit {0};
+      int phPumpDuration100 {0};
+      double phReference {0.0};
+
       char* chart1 {nullptr};
 
       std::vector<Range> filterPumpTimes;
@@ -346,8 +353,10 @@ class Poold : public cWebInterface
       double tPool {0.0};
       double tSolar {0.0};
       double tCurrentDelta {0.0};
+      double phValue {0.0};
+      time_t phValueAt {0};
 
-      struct W1Data
+       struct W1Data
       {
          time_t last;
          double value;

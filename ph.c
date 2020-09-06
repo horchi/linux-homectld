@@ -127,7 +127,7 @@ int cPhInterface::requestCalibration(PhCalResponse& calResp, uint duration)
    header.command = cPhCalRequest;
    calReq.time = duration;
 
-   tell(2, "Requesting PH calibration cycle ...");
+   tell(0, "Requesting PH calibration cycle ...");
 
    serial.flush();
 

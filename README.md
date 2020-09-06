@@ -24,25 +24,25 @@ Language package 'de_DE.UTF-8' is required as language package (`dpkg-reconfigur
 
 # Hardware
 
-- Rapberry Pi >= 3.x with power adapter and at least 16GB SD card  
- 
+- Rapberry Pi >= 3.x with power adapter and at least 16GB SD card
+
     for example: https://www.amazon.de/UCreate-Raspberry-Pi-Desktop-Starter/dp/B07BNQ2TWW/ref=sr_1_10?__mk_de_DE=%C3%85M%C3%85%C5%BD%C3%95%C3%91&dchild=1&keywords=raspberry+pi+3&qid=1598178038&sr=8-10
     If you run the database locally more RAM, faster CPU and a additional SSD will be better
 - Relay Board with at least 8 relays to switch 230V and a max current which fit the needs of your components (lights, pumps, ...)
- 
+
     for example: https://www.amazon.de/gp/product/B014L10Q52/ref=ppx_yo_dt_b_asin_title_o00_s00?ie=UTF8&psc=1
-- At least 3 One Wire sensors  
- 
+- At least 3 One Wire sensors
+
     for example: https://www.amazon.de/gp/product/B00CHEZ250/ref=ppx_yo_dt_b_search_asin_title?ie=UTF8&psc=1
 - Power sockets to connect lights and pumps
- 
-    for example: https://www.amazon.de/gp/product/B07CM9DLHY/ref=ppx_yo_dt_b_search_asin_image?ie=UTF8&psc=1    
-    
+
+    for example: https://www.amazon.de/gp/product/B07CM9DLHY/ref=ppx_yo_dt_b_search_asin_image?ie=UTF8&psc=1
+
 - 230V Magnet Valve (for the shower)
- 
+
   for example: https://www.amazon.de/gp/product/B072JBBHJS/ref=ppx_yo_dt_b_asin_title_o03_s00?ie=UTF8&psc=1
-- Button (for shower)    
-  
+- Button (for shower)
+
   for example: https://www.amazon.de/gp/product/B002LE8EJC/ref=ppx_yo_dt_b_search_asin_image?ie=UTF8&psc=1
 - ... to be completed !
 
@@ -66,7 +66,7 @@ The first number below is the physical pin in brackets the GIPO port.
 - One Wire Power - 19 (GPIO10)
 - Shower Valve   - 22 (GPIO25)
 - User Out 3     - 23 (GPIO11)
- 
+
 #### Digital Inputs
 
 - Water Level 1 - 31 (GPIO6)
@@ -101,7 +101,11 @@ dpkg --purge poold`
 # Building and installing by source
 
 ## Preliminary
-Update your package data: `sudo apt update`and your installation: `sudo apt dist-upgrade`.
+Update your system
+```
+sudo apt update
+sudo apt dist-upgrade
+```
 
 Perform all following steps as root user! Either by getting root or by prefix each command with sudo.
 To become root type: `sudo -i`
@@ -139,7 +143,8 @@ if the database is running remote, or you like to have remote access to the data
 ### install the build dependencies
 
 ```
-apt install build-essential cmake libssl-dev libxml2-dev libcurl4-openssl-dev libssl-dev libmariadbclient-dev libmariadb-dev-compat wiringpi
+apt install build-essential cmake libssl-dev libxml2-dev libcurl4-openssl-dev uuid-dev
+apt install libjansson-dev libssl-dev libmariadbclient-dev libmariadb-dev-compat wiringpi
 ```
 
 ### get and install libwebsock
@@ -153,7 +158,7 @@ mkdir build
 cd build
 cmake ..
 make install
-
+ldconfig
 ```
 
 ### get, build and install the poold

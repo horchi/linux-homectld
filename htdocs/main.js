@@ -1,3 +1,12 @@
+/*
+ *  main.js
+ *
+ *  (c) 2020 Jörg Wendel
+ *
+ * This code is distributed under the terms and conditions of the
+ * GNU GENERAL PUBLIC LICENSE. See the file COPYING for details.
+ *
+ */
 
 var WebSocketClient = window.WebSocketClient
 // import WebSocketClient from "./websocket.js"
@@ -140,7 +149,7 @@ function dispatchMessage(message)
    var rootConfig = document.getElementById("configContainer");
    var rootIoSetup = document.getElementById("ioSetupContainer");
    var rootChart = document.getElementById("chart");
-   var rootDialog = document.querySelector('dialog');  // chart dialog
+   var rootDialog = document.querySelector('dialog');                // chart dialog
    var rootPhActual = document.getElementById("phShowActual");
 
    var d = new Date();
@@ -588,7 +597,7 @@ function updateList(sensors)
 function initDashboard(widgets, root)
 {
    if (!widgets) {
-      console.log("Faltal: Missing payload!");
+      console.log("Fatal: Missing payload!");
       return;
    }
 
@@ -660,8 +669,6 @@ function initDashboard(widgets, root)
             elem.className = "widgetGauge rounded-border participation";
             elem.setAttribute("id", "widget" + widget.type + widget.address);
             elem.setAttribute("onclick", "toggleChartDialog('" + widget.type + "'," + widget.address + ")");
-            /* elem.setAttribute("onclick", "window.open('chart.html?sensors=" + widget.type + ":0x" + widget.address.toString(16) +
-                              "' , '_blank', 'scrollbars=yes,width=1610,height=650,resizable=yes,left=120,top=120')"); */
          }
          else {
             html += "<div id=\"peak" + widget.type + widget.address + "\" class=\"chart-peak\"></div>";
@@ -820,105 +827,6 @@ function updateDashboard(sensors)
    }
 }
 
-function requestActualPh() {
-   socket.send({ "event" : "ph", "object" : {} });
-}
-
-function updatePhActual(data, rootPhActual)
-{
-   var currentPh = document.getElementById("currentPh");
-   document.getElementById("buttonStoreCal1").style.visibility = 'hidden';
-   document.getElementById("buttonStoreCal2").style.visibility = 'hidden';
-
-   if (data.currentPh == "--")
-      currentPh.innerHTML = data.currentPh;
-   else {
-      currentPh.innerHTML = data.currentPh.toFixed(2);
-      currentPh.style.color = "yellow";
-      hh = setInterval(resetFont, 400);
-      document.getElementById("checkboxRefresh").checked = true;
-
-      function resetFont() {
-         currentPh.style.color = "white";
-         clearInterval(hh);
-      }
-   }
-
-   rootPhActual.querySelector("#currentPhValue").innerHTML = data.currentPhValue;
-
-   if (data.currentPhA != null) {
-      rootPhActual.querySelector("#currentPhA").innerHTML = data.currentPhA.toFixed(2);
-      rootPhActual.querySelector("#currentPhB").innerHTML = data.currentPhB.toFixed(2);
-      rootPhActual.querySelector("#currentCalA").innerHTML = data.currentCalA;
-      rootPhActual.querySelector("#currentCalB").innerHTML = data.currentCalB;
-   }
-
-   if (phCalTimerhandle == null)
-      phCalTimerhandle = setInterval(requestActualPh, 3000);
-}
-
-function updatePhCal(data)
-{
-   document.getElementById("inputCalMeasureValue").value = data.calValue;
-   document.getElementById("currentCalMeasureText").innerHTML = "&nbsp;&nbsp;&nbsp;(Durchschnitt über&nbsp;"
-      + data.duration + "&nbsp;Sekunden)";
-
-   document.getElementById("buttonStoreCal1").style.visibility = 'visible';
-   document.getElementById("buttonStoreCal2").style.visibility = 'visible';
-}
-
-window.doPhCal = function()
-{
-   clearInterval(phCalTimerhandle);
-   phCalTimerhandle = null;
-   document.getElementById("checkboxRefresh").checked = false;
-   var duration = document.getElementById("inputCalDuration").value;
-   socket.send({ "event" : "phcal", "object" : { "duration" : parseInt(duration)} });
-   document.getElementById("inputCalMeasureValue").value = "";
-   document.getElementById("currentCalMeasureText").innerHTML = "";
-}
-
-window.storePhCal1 = function()
-{
-   var cal = parseInt(document.getElementById("inputCalMeasureValue").value);
-   var ph = parseFloat(document.getElementById("inputCalPh").value);
-
-   if (confirm("#1 Kalibrier-Wert '" + cal + "' für PH " + ph + " speichern?")) {
-      socket.send({ "event" : "phsetcal", "object" :
-                    { "currentPhA" : ph,
-                     "currentCalA" : cal }
-                  });
-   }
-
-   document.getElementById("buttonStoreCal1").style.visibility = 'hidden';
-}
-
-window.storePhCal2 = function()
-{
-   var cal = parseInt(document.getElementById("inputCalMeasureValue").value);
-   var ph = parseFloat(document.getElementById("inputCalPh").value);
-
-   if (confirm("#2 Kalibrier-Wert '" + cal + "' für PH " + ph + " speichern?")) {
-      socket.send({ "event" : "phsetcal", "object" :
-                    { "currentPhA" : ph,
-                    "currentCalA" : cal }
-                  });
-   }
-
-   document.getElementById("buttonStoreCal2").style.visibility = 'hidden';
-}
-
-window.checkboxRefreshKlick = function()
-{
-   if (!phCalTimerhandle && document.getElementById("checkboxRefresh").checked) {
-      phCalTimerhandle = setInterval(requestActualPh, 3000);
-   }
-   else if (phCalTimerhandle && !document.getElementById("checkboxRefresh").checked) {
-      clearInterval(phCalTimerhandle);
-      phCalTimerhandle = null;
-   }
-}
-
 window.chartSelect = function(action)
 {
    console.log("chartSelect clicked for " + action);
@@ -990,7 +898,6 @@ window.vdrKeyPress = function(key)
                    "repeat": 1 }
                });
 }
-
 
 function toTimeRangesString(base)
 {

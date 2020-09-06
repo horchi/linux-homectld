@@ -57,12 +57,19 @@ std::list<Poold::ConfigItemDef> Poold::configuration
    { "w1AddrSolar",               ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Kollektor", "" },
    { "w1AddrSuctionTube",         ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Saugleitung", "" },
 
-   { "phDevice",                  ctString,  false, "1 Pool Daemon", "PH interface device", "Beispiel: '/dev/ttyUsb0'" },
-
    { "aggregateHistory",          ctInteger, false, "1 Pool Daemon", "Historie [Tage]", "history for aggregation in days (default 0 days -> aggegation turned OFF)" },
    { "aggregateInterval",         ctInteger, false, "1 Pool Daemon", "Intervall [m]", "aggregation interval in minutes - 'one sample per interval will be build'" },
 
    { "hassMqttUrl",               ctString,  false, "1 Pool Daemon", "Home Assistant MQTT Url", "Optional. Beispiel: 'tcp://127.0.0.1:1883'" },
+
+   // PH stuff
+
+   { "phDevice",                  ctString,  false, "1 Pool Daemon", "PH interface device", "Beispiel: '/dev/ttyUsb0'" },
+   { "phReference",               ctNum,     false, "1 Pool Daemon", "PH Sollwert", "Sollwert [PH] (default 7,2)" },
+   { "phMinusDensity",            ctNum,     false, "1 Pool Daemon", "Dichte PH Minus [kg/l]", "Wie viel kg wiegt ein Liter PH Minus (default 1,4)" },
+   { "phMinusDemand01",           ctInteger, false, "1 Pool Daemon", "Menge zum Senken um 0,1 [g]", "Wie viel Gramm PH Minus wird zum Senken des PH Wertes um 0,1 für das vorhandene Pool Volumen benötigt (default 120g)" },
+   { "phMinusDayLimit",           ctInteger, false, "1 Pool Daemon", "Obergrenze PH Minus/Tag [ml]", "Wie viel PH Minus wird pro Tag maximal zugegeben [ml] (default 100ml)" },
+   { "phPumpDurationPer100",       ctInteger, false, "1 Pool Daemon", "Laufzeit Dosierpumpe/100ml [ms]", "Welche Zeit in Millisekunden benötigt die Dosierpumpe um 100ml zu fördern (default 1000ms)" },
 
    // mail
 
@@ -382,6 +389,7 @@ int Poold::init()
 
    addValueFact(1, "SP", "Water Level", "%");
    addValueFact(2, "SP", "Solar Delta", "°C");
+   addValueFact(3, "SP", "PH Minus Bedarf", "ml");
    addValueFact(1, "PH", "PH", "");
 
    // ---------------------------------
@@ -828,8 +836,6 @@ int Poold::readConfiguration()
    getConfigItem("aggregateHistory", aggregateHistory, 0);
    getConfigItem("hassMqttUrl", hassMqttUrl, "");
 
-   getConfigItem("phDevice", phDevice, "/dev/ttyUSB0");
-
    // more special
 
    getConfigItem("poolLightColorToggle", poolLightColorToggle, no);
@@ -847,6 +853,15 @@ int Poold::readConfiguration()
 
    getConfigItem("invertDO", invertDO, no);
    getConfigItem("chart1", chart1, "");
+
+   // PH stuff
+
+   getConfigItem("phDevice", phDevice, "/dev/ttyUSB0");
+   getConfigItem("phReference", phReference, 7.2);
+   getConfigItem("phMinusDensity", phMinusDensity, 1.4);         // [kg/l]
+   getConfigItem("phMinusDemand01", phMinusDemand01, 85);        // [ml]
+   getConfigItem("phMinusDayLimit", phMinusDayLimit, 100);       // [ml]
+   getConfigItem("phPumpDuration100", phPumpDuration100, 1000);   // [ms]
 
    /*
    // config of GPIO pins
@@ -986,7 +1001,10 @@ int Poold::meanwhile()
    dispatchClientRequest();
    webSock->performData(cWebSock::mtData);
    performWebSocketPing();
-   performHassRequests();
+
+   if (!isEmpty(hassMqttUrl))
+      performHassRequests();
+
    performJobs();
 
    return done;
@@ -1116,15 +1134,17 @@ int Poold::update(bool webOnly, long client)
       }
       else if (tableValueFacts->hasValue("TYPE", "PH"))
       {
-         cPhInterface::PhValue phValue;
+         cPhInterface::PhValue phValueStruct;
 
-         if (phInterface.requestPh(phValue) == success)
+         if (phInterface.requestPh(phValueStruct) == success)
          {
-            json_object_set_new(ojData, "value", json_real(phValue.ph));
+            phValue = phValueStruct.ph;
+            phValueAt = time(0);
+            json_object_set_new(ojData, "value", json_real(phValue));
             json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
 
             if (!webOnly)
-               store(now, name, title, unit, type, addr, phValue.ph);
+               store(now, name, title, unit, type, addr, phValue);
          }
          else
          {
@@ -1222,6 +1242,19 @@ int Poold::update(bool webOnly, long client)
 
                if (!webOnly)
                   store(now, name, title, unit, type, addr, tCurrentDelta);
+            }
+         }
+         else if (addr == 3)
+         {
+            if (phValue)
+            {
+               int ml = calcPhMinusVolume(phValue);
+
+               json_object_set_new(ojData, "value", json_real(ml));
+               json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
+
+               if (!webOnly)
+                  store(now, name, title, unit, type, addr, ml);
             }
          }
       }
@@ -1754,8 +1787,6 @@ int Poold::performPhCal(json_t* oObject, long client)
    json_t* oJson = json_object();
    int duration = getIntFromJson(oObject, "duration");
    cPhInterface::PhCalResponse calResp;
-
-   tell(0, "duration of %d was requested", duration);
 
    if (duration > 30)
    {
@@ -2682,6 +2713,18 @@ int Poold::getWaterLevel()
    tell(eloDetail, "Water level is %d (%d/%d/%d)", waterLevel, l1, l2, l3);
 
    return waterLevel;
+}
+
+//***************************************************************************
+// Calc PH Minus Volume
+//***************************************************************************
+
+int Poold::calcPhMinusVolume(double ph)
+{
+   double phLack = ph - phReference;
+   double mlPer01 = phMinusDemand01 * (1.0/phMinusDensity);
+
+   return (phLack/0.1) * mlPer01;
 }
 
 //***************************************************************************

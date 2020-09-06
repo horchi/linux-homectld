@@ -856,7 +856,7 @@ int Poold::readConfiguration()
 
    // PH stuff
 
-   getConfigItem("phDevice", phDevice, "/dev/ttyUSB0");
+   getConfigItem("phDevice", phDevice);
    getConfigItem("phReference", phReference, 7.2);
    getConfigItem("phMinusDensity", phMinusDensity, 1.4);         // [kg/l]
    getConfigItem("phMinusDemand01", phMinusDemand01, 85);        // [ml]

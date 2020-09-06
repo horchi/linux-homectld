@@ -1132,7 +1132,7 @@ int Poold::update(bool webOnly, long client)
             json_object_set_new(ojData, "widgettype", json_integer(wtText));
          }
       }
-      else if (tableValueFacts->hasValue("TYPE", "PH"))
+      else if (tableValueFacts->hasValue("TYPE", "PH") && !isEmpty(phDevice))
       {
          cPhInterface::PhValue phValueStruct;
 

@@ -170,10 +170,8 @@ cd linux-poold
 make clean all
 make install
 ```
-
 Now the pool daemon is installed in folder `/usr/local/bin`
 Check `/etc/poold/poold.conf` file for setting of your database login. If you have used the defaults above no change is needed.
-
 
 # One Wire Sensors:
 
@@ -193,9 +191,12 @@ The poold checks automatically if there are 'One Wire Sensors' connected, each d
 configurable via the web interface.
 
 # Time to first start of poold
-
 ```
 systemctl start poold
+```
+
+# And enable it for automatic start at boot
+```
 systemctl enable poold
 ```
 

@@ -33,6 +33,7 @@ function updatePhActual(data, rootPhActual)
 {
    var phShowCal = document.getElementById("phShowCal");
    var currentPh = rootPhActual.querySelector("#currentPh");
+   var currentPhMinusDemand = rootPhActual.querySelector("#currentPhMinusDemand");
 
    phShowCal.querySelector("#buttonStoreCal").style.visibility = 'hidden';
 
@@ -41,16 +42,19 @@ function updatePhActual(data, rootPhActual)
    else {
       currentPh.innerHTML = data.currentPh.toFixed(2);
       currentPh.style.color = "yellow";
+      currentPhMinusDemand.style.color = "yellow";
       hh = setInterval(resetFont, 400);
       rootPhActual.querySelector("#checkboxRefresh").checked = true;
 
       function resetFont() {
          currentPh.style.color = "white";
+         currentPhMinusDemand.style.color = "white";
          clearInterval(hh);
       }
    }
 
    rootPhActual.querySelector("#currentPhValue").innerHTML = data.currentPhValue;
+   rootPhActual.querySelector("#currentPhMinusDemand").innerHTML = data.currentPhMinusDemand + "&nbsp;ml";
 
    if (data.currentPhA != null) {
       rootPhActual.querySelector("#currentPhA").innerHTML = data.currentPhA.toFixed(2);
@@ -118,5 +122,5 @@ window.storePhCal = function()
                                       });
                        }
                     }
-	               });
+                  });
 }

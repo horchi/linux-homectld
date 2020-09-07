@@ -171,6 +171,7 @@ class Poold : public cWebInterface
       int publishScriptResult(ulong addr, const char* type, std::string result);
       bool isInTimeRange(const std::vector<Range>* ranges, time_t t);
       int store(time_t now, const char* name, const char* title, const char* unit, const char* type, int address, double value, const char* text = 0);
+      bool onDashboard(const char* type, int address);
 
       int performHassRequests();
       int hassPush(IoType iot, const char* name, const char* title, const char* unit, double theValue, const char* text = 0, bool forceConfig = false);
@@ -279,6 +280,7 @@ class Poold : public cWebInterface
       time_t startedAt {0};
       time_t nextAggregateAt {0};
 
+      char* addrsDashboard {nullptr};
       std::string mailBody;
       std::string mailBodyHtml;
       bool initialRun {true};
@@ -337,7 +339,7 @@ class Poold : public cWebInterface
       int phPumpDuration100 {0};
       double phReference {0.0};
 
-      char* chart1 {nullptr};
+      char* chartSensors {nullptr};
 
       std::vector<Range> filterPumpTimes;
       std::vector<Range> uvcLightTimes;

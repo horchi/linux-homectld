@@ -43,13 +43,10 @@ dpkg-reconfigure --frontend=noninteractive locales && \
 wget www.jwendel.de/poold/poold-latest.deb -O /tmp/poold-latest.deb || exit 1
 apt -y install /tmp/poold-latest.deb || exit 1
 
-echo "alias pooldb='mysql -u pool -D pool -ppool'" >> ~/.bashrc
-echo "alias vs='tail -f /var/log/syslog'" >> ~/.bashrc
-echo "alias va='tail -f /var/log/apache2/error.log'" >> ~/.bashrc
-
-echo "alias pooldb='mysql -u pool -D pool -ppool'" >> ~pi/.bashrc
-echo "alias vs='tail -f /var/log/syslog'" >> ~pi/.bashrc
-echo "alias va='tail -f /var/log/apache2/error.log'" >> ~pi/.bashrc
+grep -q '^alias pooldb=' ~/.bashrc || echo "alias pooldb='mysql -u pool -D pool -ppool'" >> ~/.bashrc
+grep -q '^alias vl=' ~/.bashrc || echo "alias vl='tail -f /var/log/syslog'" >> ~/.bashrc
+grep -q '^alias pooldb=' ~pi/.bashrc || echo "alias pooldb='mysql -u pool -D pool -ppool'" >> ~pi/.bashrc
+grep -q '^alias vl=' ~pi/.bashrc || echo "alias vl='tail -f /var/log/syslog'" >> ~pi/.bashrc
 
 echo -e "${BLUE}-------------------------------------------------------------------------------------------${NC}"
 echo -e "${BLUE}- The installation is completed and will be available after reboot${NC}"
@@ -60,7 +57,7 @@ echo -e "${BLUE}- Default user/password is pool/pool{NC}"
 echo -e "${BLUE}- ${NC}"
 echo -e "${BLUE}- Added aliases for convenience:${NC}"
 echo -e "${BLUE}-  pooldb  - go to the SQL prompt${NC}"
-echo -e "${BLUE}-  vs    - view syslog (abort with CTRL-C)${NC}"
+echo -e "${BLUE}-  vl    - view syslog (abort with CTRL-C)${NC}"
 echo -e "${BLUE}-  va    - view apace error log (abort with CTRL-C)${NC}"
 echo -e "${BLUE}-------------------------------------------------------------------------------------------${NC}"
 echo -e "${WHITE}- to permit poold sending mails: ${NC}"

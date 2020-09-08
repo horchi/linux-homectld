@@ -26,11 +26,10 @@ std::list<Poold::ConfigItemDef> Poold::configuration
 {
    // web
 
-   { "addrsDashboard",            ctString,  false, "3 WEB Interface", "Sensoren Dashboard", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" },
-//   { "addrsMain",                 ctString,  false, "3 WEB Interface", "Sensoren", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" },
-//   { "addrsMainMobile",           ctString,  false, "3 WEB Interface", "Sensoren Mobile Device", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" },
+   { "addrsDashboard",            ctString,  false, "3 WEB Interface", "Sensoren 'Dashboard'", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" },
+   { "addrsList",                 ctString,  false, "3 WEB Interface", "Sensoren 'Liste'", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" },
 
-   { "chart",                     ctString,  false, "3 WEB Interface", "Charts", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" },
+   // { "chart",                     ctString,  false, "3 WEB Interface", "Charts", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" },
    { "chartDiv",                  ctInteger, true,  "3 WEB Interface", "Linien-Abstand der Y-Achse", "klein:15 mittel:25 groß:45" },
    { "chartStart",                ctInteger, false, "3 WEB Interface", "Chart Zeitraum (Tage)", "Standardzeitraum der Chartanzeige (seit x Tagen bis heute)" },
 
@@ -145,23 +144,84 @@ int Poold::pushOutMessage(json_t* oContents, const char* title, long client)
    char* p = json_dumps(obj, JSON_REAL_PRECISION(4));
    json_decref(obj);
 
-   if (!client && strstr(":all:init:update", title))
+   if (!p)
    {
-      for (const auto cl : wsClients)
-         if (cl.second.dataUpdates)
-            webSock->pushOutMessage(p, (lws*)cl.first);
-   }
-   else
-   {
-      webSock->pushOutMessage(p, (lws*)client);
+      tell(0, "Error: Dumping json message failed");
+      return fail;
    }
 
-   tell(4, "DEBUG: PushOutMessage [%s]", p);
+   webSock->pushOutMessage(p, (lws*)client);
+   tell(1, "DEBUG: PushMessage [%s]", p);
    free(p);
 
    webSock->performData(cWebSock::mtData);
 
    return done;
+}
+
+int Poold::pushDataUpdate(const char* title, long client)
+{
+   // push all in the jsonSensorList to the 'interested' clients
+
+   if (client)
+   {
+      json_t* oWsJson = json_array();
+
+      auto cl = wsClients[(void*)client];
+
+      for (auto sj : jsonSensorList)
+      {
+         bool visible {false};
+
+         if (cl.page == "dashboard")
+            visible = onDashboard(sj.type.c_str(), sj.address);
+         else if (cl.page == "list")
+            visible = onList(sj.type.c_str(), sj.address);
+
+         if (visible)
+            json_array_append(oWsJson, sj.json);      // use _append instead of _append_new to keep the object
+      }
+
+      pushOutMessage(oWsJson, title, client);
+   }
+   else
+   {
+      for (const auto cl : wsClients)
+      {
+         json_t* oWsJson = json_array();
+         size_t count {0};
+
+         for (auto sj : jsonSensorList)
+         {
+            bool visible {false};
+
+            if (cl.second.page == "dashboard")
+               visible = onDashboard(sj.type.c_str(), sj.address);
+            else if (cl.second.page == "list")
+               visible = onList(sj.type.c_str(), sj.address);
+
+            if (visible)
+            {
+               json_array_append(oWsJson, sj.json);      // use _append instead of _append_new to keep the object
+               count++;
+            }
+         }
+
+         if (count)
+            pushOutMessage(oWsJson, title, (long)cl.first);
+         else
+            json_decref(oWsJson);
+      }
+   }
+
+   // cleanup
+
+   for (auto sj : jsonSensorList)
+      json_decref(sj.json);
+
+   jsonSensorList.clear();
+
+   return success;
 }
 
 //***************************************************************************
@@ -176,32 +236,30 @@ int Poold::dispatchClientRequest()
 
    cMyMutexLock lock(&messagesInMutex);
 
-   // #TODO loop here while (!messagesIn.empty()) ?
-
-   if (messagesIn.empty())
-      return done;
-
-   // { "event" : "toggleio", "object" : { "address" : "122", "type" : "DO" } }
-
-   tell(2, "DEBUG: Got '%s'", messagesIn.front().c_str());
-   oData = json_loads(messagesIn.front().c_str(), 0, &error);
-
-   // get the request
-
-   Event event = cWebService::toEvent(getStringFromJson(oData, "event", "<null>"));
-   long client = getLongFromJson(oData, "client");
-   oObject = json_object_get(oData, "object");
-   int addr = getIntFromJson(oObject, "address");
-   const char* type = getStringFromJson(oObject, "type");
-
-   // rights ...
-
-   if (checkRights(client, event, oObject))
+   while (!messagesIn.empty())
    {
-      // dispatch client request
+      // dispatch message like
+      // { "event" : "toggleio", "object" : { "address" : "122", "type" : "DO" } }
 
-      switch (event)
+      tell(2, "DEBUG: Got '%s'", messagesIn.front().c_str());
+      oData = json_loads(messagesIn.front().c_str(), 0, &error);
+
+      // get the request
+
+      Event event = cWebService::toEvent(getStringFromJson(oData, "event", "<null>"));
+      long client = getLongFromJson(oData, "client");
+      oObject = json_object_get(oData, "object");
+      int addr = getIntFromJson(oObject, "address");
+      const char* type = getStringFromJson(oObject, "type");
+
+      // rights ...
+
+      if (checkRights(client, event, oObject))
       {
+         // dispatch client request
+
+         switch (event)
+         {
          case evLogin:         status = performLogin(oObject);                  break;
          case evLogout:        status = performLogout(oObject);                 break;
          case evGetToken:      status = performTokenRequest(oObject, client);   break;
@@ -220,17 +278,18 @@ int Poold::dispatchClientRequest()
          case evPhSetCal:      status = performPhSetCal(oObject, client);       break;
          default: tell(0, "Error: Received unexpected client request '%s' at [%s]",
                        toName(event), messagesIn.front().c_str());
+         }
       }
-   }
-   else
-   {
-      tell(0, "Insufficient rights to '%s' for user '%s'",
-           getStringFromJson(oData, "event", "<null>"),
-           wsClients[(void*)client].user.c_str());
-   }
+      else
+      {
+         tell(0, "Insufficient rights to '%s' for user '%s'",
+              getStringFromJson(oData, "event", "<null>"),
+              wsClients[(void*)client].user.c_str());
+      }
 
-   json_decref(oData);      // free the json object
-   messagesIn.pop();
+      json_decref(oData);      // free the json object
+      messagesIn.pop();
+   }
 
    return status;
 }
@@ -277,6 +336,11 @@ bool Poold::checkRights(long client, Event event, json_t* oObject)
 }
 
 volatile int showerSwitch {0};
+
+
+//***************************************************************************
+// IO Interrupt Handler
+//***************************************************************************
 
 void ioInterrupt()
 {
@@ -828,6 +892,7 @@ int Poold::readConfiguration()
    getConfigItem("interval", interval, interval);
 
    getConfigItem("addrsDashboard", addrsDashboard, "");
+   getConfigItem("addrsList", addrsList, "");
 
    getConfigItem("mail", mail, no);
    getConfigItem("mailScript", mailScript, BIN_PATH "/poold-mail.sh");
@@ -1088,6 +1153,20 @@ bool Poold::onDashboard(const char* type, int address)
    return visible;
 }
 
+bool Poold::onList(const char* type, int address)
+{
+   if (isEmpty(addrsList))
+      return true;
+
+   char* tupel;
+   asprintf(&tupel, "%s:0x%x", type, address);
+
+   bool visible = strstr(addrsList, tupel);
+   free(tupel);
+
+   return visible;
+}
+
 //***************************************************************************
 // Update
 //***************************************************************************
@@ -1112,7 +1191,10 @@ int Poold::update(bool webOnly, long client)
    if (!webOnly)
       connection->startTransaction();
 
-   json_t* oWsJson = json_array();
+   for (auto sj : jsonSensorList)
+      json_decref(sj.json);
+
+   jsonSensorList.clear();
 
    for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
@@ -1128,14 +1210,9 @@ int Poold::update(bool webOnly, long client)
       if (!isEmpty(usrtitle))
          title = usrtitle;
 
-      json_t* ojData = {nullptr};
-
-      if (onDashboard(type, addr))
-      {
-         ojData = json_object();
-         json_array_append_new(oWsJson, ojData);
-         sensor2Json(ojData, tableValueFacts);
-      }
+      json_t* ojData = json_object();
+      jsonSensorList.push_back({type, addr, ojData});
+      sensor2Json(ojData, tableValueFacts);
 
       if (tableValueFacts->hasValue("TYPE", "W1"))
       {
@@ -1144,22 +1221,16 @@ int Poold::update(bool webOnly, long client)
             time_t w1Last;
             double w1Value = valueOfW1(name, w1Last);
 
-            if (ojData)
-            {
-               json_object_set_new(ojData, "value", json_real(w1Value));
-               json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
-            }
+            json_object_set_new(ojData, "value", json_real(w1Value));
+            json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
 
             if (!webOnly)
                store(now, name, title, unit, type, addr, w1Value);
          }
          else
          {
-            if (ojData)
-            {
-               json_object_set_new(ojData, "text", json_string("missing sensor"));
-               json_object_set_new(ojData, "widgettype", json_integer(wtText));
-            }
+            json_object_set_new(ojData, "text", json_string("missing sensor"));
+            json_object_set_new(ojData, "widgettype", json_integer(wtText));
          }
       }
       else if (tableValueFacts->hasValue("TYPE", "PH") && !isEmpty(phDevice))
@@ -1171,36 +1242,27 @@ int Poold::update(bool webOnly, long client)
             phValue = phValueStruct.ph;
             phValueAt = time(0);
 
-            if (ojData)
-            {
-               json_object_set_new(ojData, "value", json_real(phValue));
-               json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
-            }
+            json_object_set_new(ojData, "value", json_real(phValue));
+            json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
 
             if (!webOnly)
                store(now, name, title, unit, type, addr, phValue);
          }
          else
          {
-            if (ojData)
-            {
-               json_object_set_new(ojData, "text", json_string("missing sensor"));
-               json_object_set_new(ojData, "widgettype", json_integer(wtText));
-            }
+            json_object_set_new(ojData, "text", json_string("missing sensor"));
+            json_object_set_new(ojData, "widgettype", json_integer(wtText));
          }
       }
       else if (tableValueFacts->hasValue("TYPE", "DO"))
       {
-         if (ojData)
-         {
-            json_object_set_new(ojData, "mode", json_string(digitalOutputStates[addr].mode == omManual ? "manual" : "auto"));
-            json_object_set_new(ojData, "options", json_integer(digitalOutputStates[addr].opt));
-            json_object_set_new(ojData, "image", json_string(getImageOf(title, digitalOutputStates[addr].state)));
-            json_object_set_new(ojData, "value", json_integer(digitalOutputStates[addr].state));
-            json_object_set_new(ojData, "last", json_integer(digitalOutputStates[addr].last));
-            json_object_set_new(ojData, "next", json_integer(digitalOutputStates[addr].next));
-            json_object_set_new(ojData, "widgettype", json_integer(wtSymbol));
-         }
+         json_object_set_new(ojData, "mode", json_string(digitalOutputStates[addr].mode == omManual ? "manual" : "auto"));
+         json_object_set_new(ojData, "options", json_integer(digitalOutputStates[addr].opt));
+         json_object_set_new(ojData, "image", json_string(getImageOf(title, digitalOutputStates[addr].state)));
+         json_object_set_new(ojData, "value", json_integer(digitalOutputStates[addr].state));
+         json_object_set_new(ojData, "last", json_integer(digitalOutputStates[addr].last));
+         json_object_set_new(ojData, "next", json_integer(digitalOutputStates[addr].next));
+         json_object_set_new(ojData, "widgettype", json_integer(wtSymbol));
 
          if (!webOnly)
             store(now, name, title, unit, type, addr, digitalOutputStates[addr].state);
@@ -1220,23 +1282,20 @@ int Poold::update(bool webOnly, long client)
          std::string kind = result.substr(0, pos);
          std::string value = result.substr(pos+1);
 
-         if (ojData)
+         if (kind == "status")
          {
-            if (kind == "status")
-            {
-               bool state = atoi(value.c_str());
-               json_object_set_new(ojData, "value", json_integer(state));
-               json_object_set_new(ojData, "image", json_string(getImageOf(title, state)));
-               json_object_set_new(ojData, "widgettype", json_integer(wtSymbol));
-            }
-            else if (kind == "value")
-            {
-               json_object_set_new(ojData, "value", json_real(strtod(value.c_str(), nullptr)));
-               json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
-            }
-            else
-               tell(0, "Got unexpected script kind '%s' in '%s'", kind.c_str(), result.c_str());
+            bool state = atoi(value.c_str());
+            json_object_set_new(ojData, "value", json_integer(state));
+            json_object_set_new(ojData, "image", json_string(getImageOf(title, state)));
+            json_object_set_new(ojData, "widgettype", json_integer(wtSymbol));
          }
+         else if (kind == "value")
+         {
+            json_object_set_new(ojData, "value", json_real(strtod(value.c_str(), nullptr)));
+            json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
+         }
+         else
+            tell(0, "Got unexpected script kind '%s' in '%s'", kind.c_str(), result.c_str());
 
          if (!webOnly)
             store(now, name, title, unit, type, addr, strtod(value.c_str(), nullptr));
@@ -1255,19 +1314,13 @@ int Poold::update(bool webOnly, long client)
                if (!webOnly)
                   store(now, name, title, unit, type, addr, waterLevel, text);
 
-               if (ojData)
-               {
-                  json_object_set_new(ojData, "text", json_string(text));
-                  json_object_set_new(ojData, "widgettype", json_integer(wtText));
-               }
+               json_object_set_new(ojData, "text", json_string(text));
+               json_object_set_new(ojData, "widgettype", json_integer(wtText));
             }
             else
             {
-               if (ojData)
-               {
-                  json_object_set_new(ojData, "value", json_integer(waterLevel));
-                  json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
-               }
+               json_object_set_new(ojData, "value", json_integer(waterLevel));
+               json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
 
                if (!webOnly)
                   store(now, name, title, unit, type, addr, waterLevel);
@@ -1286,11 +1339,8 @@ int Poold::update(bool webOnly, long client)
             {
                tCurrentDelta = tSolar - tPool;
 
-               if (ojData)
-               {
-                  json_object_set_new(ojData, "value", json_real(tCurrentDelta));
-                  json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
-               }
+               json_object_set_new(ojData, "value", json_real(tCurrentDelta));
+               json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
 
                if (!webOnly)
                   store(now, name, title, unit, type, addr, tCurrentDelta);
@@ -1302,11 +1352,8 @@ int Poold::update(bool webOnly, long client)
             {
                int ml = calcPhMinusVolume(phValue);
 
-               if (ojData)
-               {
-                  json_object_set_new(ojData, "value", json_real(ml));
-                  json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
-               }
+               json_object_set_new(ojData, "value", json_real(ml));
+               json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
 
                if (!webOnly)
                   store(now, name, title, unit, type, addr, ml);
@@ -1324,7 +1371,7 @@ int Poold::update(bool webOnly, long client)
 
    // send result to all connected WEBIF clients
 
-   pushOutMessage(oWsJson, webOnly ? "init" : "all", client);
+   pushDataUpdate(webOnly ? "init" : "all", client);
 
    if (!webOnly)
       tell(eloAlways, "Updated %d samples", count);
@@ -1356,13 +1403,14 @@ int Poold::performLogin(json_t* oObject)
    long client = getLongFromJson(oObject, "client");
    const char* user = getStringFromJson(oObject, "user", "");
    const char* token = getStringFromJson(oObject, "token", "");
+   const char* page = getStringFromJson(oObject, "page", "");
    json_t* aRequests = json_object_get(oObject, "requests");
 
    tableUsers->clear();
    tableUsers->setValue("USER", user);
 
    wsClients[(void*)client].user = user;
-   wsClients[(void*)client].dataUpdates = false;
+   wsClients[(void*)client].page = page;
 
    if (tableUsers->find() && tableUsers->hasValue("TOKEN", token))
    {
@@ -1412,10 +1460,7 @@ int Poold::performLogin(json_t* oObject)
       tell(0, "Got request '%s'", name);
 
       if (strcmp(name, "data") == 0)
-      {
-         wsClients[(void*)client].dataUpdates = true;
          update(true, client);     // push the data ('init')
-      }
       else if (wsClients[(void*)client].rights & urAdmin && strcmp(name, "syslog") == 0)
          performSyslog(client);
       else if (wsClients[(void*)client].rights & urSettings && strcmp(name, "configdetails") == 0)
@@ -1591,14 +1636,14 @@ int Poold::performChartData(json_t* oObject, long client)
    int range = getIntFromJson(oObject, "range", 3);                // Anzahl der Tage
    time_t rangeStart = getLongFromJson(oObject, "start", 0);       // Start Datum (unix timestamp)
    const char* sensors = getStringFromJson(oObject, "sensors");    // Kommata getrennte Liste der Sensoren
-   int widget = getIntFromJson(oObject, "widget", no);  //
    const char* id = getStringFromJson(oObject, "id", "");
+   bool widget = strcmp(id, "chart") != 0;
 
    cDbStatement* select = widget ? selectSamplesRange60 : selectSamplesRange;
 
-   if (!widget && !isEmpty(sensors))
+   if (strcmp(id, "chart") == 0 && !isEmpty(sensors))
    {
-      tell(0, "storing sensores '%s' for chart", sensors);
+      tell(0, "storing sensors '%s' for chart", sensors);
       setConfigItem("chart", sensors);
       getConfigItem("chart", chartSensors);
    }
@@ -2981,9 +3026,9 @@ void Poold::updateW1(const char* id, double value)
    w1Sensors[id].value = value;
    w1Sensors[id].last = time(0);
 
-   json_t* oJson = json_array();
+//   json_t* oJson = json_array();
    json_t* ojData = json_object();
-   json_array_append_new(oJson, ojData);
+   // json_array_append_new(oJson, ojData);
 
    tableValueFacts->clear();
    tableValueFacts->setValue("ADDRESS", (int)toW1Id(id));
@@ -2995,7 +3040,10 @@ void Poold::updateW1(const char* id, double value)
       json_object_set_new(ojData, "value", json_real(value));
       json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
 
-      pushOutMessage(oJson, "update");
+      jsonSensorList.push_back({"W1", (uint)toW1Id(id), ojData});
+      pushDataUpdate("update", 0L);
+
+      // pushOutMessage(oJson, "update");
    }
 
    tableValueFacts->reset();

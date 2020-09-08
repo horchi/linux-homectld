@@ -172,6 +172,7 @@ class Poold : public cWebInterface
       bool isInTimeRange(const std::vector<Range>* ranges, time_t t);
       int store(time_t now, const char* name, const char* title, const char* unit, const char* type, int address, double value, const char* text = 0);
       bool onDashboard(const char* type, int address);
+      bool onList(const char* type, int address);
 
       int performHassRequests();
       int hassPush(IoType iot, const char* name, const char* title, const char* unit, double theValue, const char* text = 0, bool forceConfig = false);
@@ -205,6 +206,7 @@ class Poold : public cWebInterface
       // web
 
       int pushOutMessage(json_t* obj, const char* title, long client = 0);
+      int pushDataUpdate(const char* title, long client);
 
       int pushInMessage(const char* data) override;
       std::queue<std::string> messagesIn;
@@ -281,6 +283,7 @@ class Poold : public cWebInterface
       time_t nextAggregateAt {0};
 
       char* addrsDashboard {nullptr};
+      char* addrsList {nullptr};
       std::string mailBody;
       std::string mailBodyHtml;
       bool initialRun {true};
@@ -293,7 +296,7 @@ class Poold : public cWebInterface
       {
          std::string user;
          uint rights;                  // rights mask
-         bool dataUpdates {false};     // true if interested on data update
+         std::string page;
          ClientType type {ctActive};
       };
 
@@ -365,6 +368,15 @@ class Poold : public cWebInterface
       };
 
       std::map<std::string, W1Data> w1Sensors;
+
+      struct SensorJson
+      {
+         std::string type;
+         uint address;
+         json_t* json;
+      };
+
+      std::vector<SensorJson> jsonSensorList;
 
       // statics
 

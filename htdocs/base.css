@@ -210,6 +210,7 @@ span > input
 .phSetup > div > span
 {
     width: 15%;
+    min-width: 200px;
     display: inline-table;
     text-align: left;
     height: 24px;

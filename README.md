@@ -44,6 +44,13 @@ Language package 'de_DE.UTF-8' is required as language package (`dpkg-reconfigur
 - Button (for shower)
 
   for example: https://www.amazon.de/gp/product/B002LE8EJC/ref=ppx_yo_dt_b_search_asin_image?ie=UTF8&psc=1
+- PH probe
+
+  for example: https://www.amazon.de/gp/product/B081QK9TX2/ref=ppx_yo_dt_b_asin_title_o06_s00?ie=UTF8&psc=1
+- Arduino nano (for PH probe and PHminus fluid control)
+
+  for example: https://www.amazon.de/gp/product/B015MGHLNA/ref=ppx_yo_dt_b_asin_title_o05_s00?ie=UTF8&psc=1
+  USB Interface for programming: https://www.amazon.de/gp/product/B07KVT6HNL/ref=ppx_yo_dt_b_asin_title_o04_s00?ie=UTF8&psc=1
 - ... to be completed !
 
 

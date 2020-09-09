@@ -64,9 +64,9 @@ std::list<Poold::ConfigItemDef> Poold::configuration
    { "phDevice",                  ctString,  false, "1 Pool Daemon", "PH interface device", "Beispiel: '/dev/ttyUsb0'" },
    { "phReference",               ctNum,     false, "1 Pool Daemon", "PH Sollwert", "Sollwert [PH] (default 7,2)" },
    { "phMinusDensity",            ctNum,     false, "1 Pool Daemon", "Dichte PH Minus [kg/l]", "Wie viel kg wiegt ein Liter PH Minus (default 1,4)" },
-   { "phMinusDemand01",           ctInteger, false, "1 Pool Daemon", "Menge zum Senken um 0,1 [g]", "Wie viel Gramm PH Minus wird zum Senken des PH Wertes um 0,1 für das vorhandene Pool Volumen benötigt (default 120g)" },
+   { "phMinusDemand01",           ctInteger, false, "1 Pool Daemon", "Menge zum Senken um 0,1 [g]", "Wie viel Gramm PH Minus wird zum Senken des PH Wertes um 0,1 für das vorhandene Pool Volumen benötigt (default 60g)" },
    { "phMinusDayLimit",           ctInteger, false, "1 Pool Daemon", "Obergrenze PH Minus/Tag [ml]", "Wie viel PH Minus wird pro Tag maximal zugegeben [ml] (default 100ml)" },
-   { "phPumpDurationPer100",       ctInteger, false, "1 Pool Daemon", "Laufzeit Dosierpumpe/100ml [ms]", "Welche Zeit in Millisekunden benötigt die Dosierpumpe um 100ml zu fördern (default 1000ms)" },
+   { "phPumpDurationPer100",      ctInteger, false, "1 Pool Daemon", "Laufzeit Dosierpumpe/100ml [ms]", "Welche Zeit in Millisekunden benötigt die Dosierpumpe um 100ml zu fördern (default 1000ms)" },
 
    // mail
 

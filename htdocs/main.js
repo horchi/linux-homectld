@@ -279,6 +279,7 @@ function prepareMenu(haveToken, vdr)
 
    $("#navMenu").html(html);
 
+   /*
    if (vdr && haveToken) {
       document.getElementById("vdrMenu").style.visibility = "visible";
       document.getElementById("vdrMenu").style.width = "auto";
@@ -310,6 +311,7 @@ function prepareMenu(haveToken, vdr)
       document.getElementById("vdrMenu").style.width = "0px";
       document.getElementById("vdrMenu").disabled = true;
    }
+*/
 
    var msg = "DEBUG: Browser: '" + $.browser.name + "' : '" + $.browser.versionNumber + "' : '" + $.browser.version + "'";
    socket.send({ "event" : "logmessage", "object" : { "message" : msg } });

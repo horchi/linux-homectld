@@ -26,11 +26,10 @@ std::list<Poold::ConfigItemDef> Poold::configuration
 {
    // web
 
-   { "addrsDashboard",            ctString,  false, "3 WEB Interface", "Sensoren 'Dashboard'", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" },
-   { "addrsList",                 ctString,  false, "3 WEB Interface", "Sensoren 'Liste'", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" },
+   { "addrsDashboard",            ctString,  false, "3 WEB Interface", "Sensoren 'Dashboard'", "Komma getrennte Liste aus ID:Typ siehe 'IO Setup'" },
+   { "addrsList",                 ctString,  false, "3 WEB Interface", "Sensoren 'Liste'", "Komma getrennte Liste aus ID:Typ siehe 'IO Setup'" },
 
    // { "chart",                     ctString,  false, "3 WEB Interface", "Charts", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" },
-   { "chartDiv",                  ctInteger, true,  "3 WEB Interface", "Linien-Abstand der Y-Achse", "klein:15 mittel:25 groß:45" },
    { "chartStart",                ctInteger, false, "3 WEB Interface", "Chart Zeitraum (Tage)", "Standardzeitraum der Chartanzeige (seit x Tagen bis heute)" },
 
    // poold
@@ -72,8 +71,8 @@ std::list<Poold::ConfigItemDef> Poold::configuration
 
    { "mail",                      ctBool,    false, "4 Mail", "Mail Benachrichtigung", "Mail Benachrichtigungen aktivieren/deaktivieren" },
    { "mailScript",                ctString,  false, "4 Mail", "poold sendet Mails über das Skript", "" },
-   { "stateMailTo",               ctString,  false, "4 Mail", "Status Mail Empfänger", "Komma separierte Empfängerliste" },
-   { "errorMailTo",               ctString,  false, "4 Mail", "Fehler Mail Empfänger", "Komma separierte Empfängerliste" },
+   { "stateMailTo",               ctString,  false, "4 Mail", "Status Mail Empfänger", "Komma getrennte Empfängerliste" },
+   { "errorMailTo",               ctString,  false, "4 Mail", "Fehler Mail Empfänger", "Komma getrennte Empfängerliste" },
    { "webUrl",                    ctString,  false, "4 Mail", "URL der Visualisierung", "kann mit %weburl% in die Mails eingefügt werden" },
 };
 
@@ -1445,8 +1444,8 @@ int Poold::performLogin(json_t* oObject)
 
    // perform requests
 
-   size_t index;
-   json_t* oRequest;
+   size_t index {0};
+   json_t* oRequest {nullptr};
 
    json_array_foreach(aRequests, index, oRequest)
    {
@@ -2000,8 +1999,8 @@ int Poold::resetPeaks(json_t* obj, long client)
 
 int Poold::storeConfig(json_t* obj, long client)
 {
-   const char* key;
-   json_t* jValue;
+   const char* key {nullptr};
+   json_t* jValue {nullptr};
 
    json_object_foreach(obj, key, jValue)
    {
@@ -2016,8 +2015,8 @@ int Poold::storeConfig(json_t* obj, long client)
 
 int Poold::storeIoSetup(json_t* array, long client)
 {
-   size_t index;
-   json_t* jObj;
+   size_t index {0};
+   json_t* jObj {nullptr};
 
    json_array_foreach(array, index, jObj)
    {

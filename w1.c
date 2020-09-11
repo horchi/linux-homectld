@@ -146,7 +146,7 @@ int W1::update()
                double average = sum / sensors[it->first].values.size();
                double delta = abs(average - value);
 
-               tell(1, "Info: %s : %0.2f, the average of the last %d samples is %0.2f (delta is %0.2f)",
+               tell(1, "Info: %s : %0.2f, the average of the last %zd samples is %0.2f (delta is %0.2f)",
                     it->first.c_str(), value, sensors[it->first].values.size(), average, average - value);
 
                if (delta > 5)

@@ -38,6 +38,10 @@ OBJS      	+= poold.o
 W1OBJS      = w1.o lib/common.o lib/thread.o $(MQTTOBJS)
 PHOBJS      = phcmd.o ph.o lib/common.o lib/serial.o
 
+ifdef WIRINGPI
+  LIBS += -lwiringPi
+endif
+
 ifdef GIT_REV
    DEFINES += -DGIT_REV='"$(GIT_REV)"'
 endif
@@ -46,8 +50,8 @@ endif
 
 all: $(TARGET) $(W1TARGET) $(PHTARGET)
 
-$(TARGET) : $(OBJS) w1mqtt
-	$(doLink) $(OBJS) $(LIBS) -lwiringPi -o $@
+$(TARGET) : $(OBJS) $(W1TARGET)
+	$(doLink) $(OBJS) $(LIBS) -o $@
 
 $(W1TARGET): $(W1OBJS)
 	$(doLink) $(W1OBJS) $(LIBS) -o $@

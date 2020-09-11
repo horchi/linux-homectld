@@ -184,8 +184,8 @@ int Poold::performHassRequests()
 
       tell(eloAlways, "<- (%s) [%s]", topic.c_str(), message.memory);
 
-      size_t index;
-      json_t* jValue;
+      size_t index {0};
+      json_t* jValue {nullptr};
 
       json_array_foreach(jArray, index, jValue)
       {

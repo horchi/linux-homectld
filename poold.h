@@ -152,7 +152,7 @@ class Poold : public cWebInterface
       int readConfiguration();
       int applyConfigurationSpecials();
 
-      int addValueFact(int addr, const char* type, const char* name, const char* unit);
+      int addValueFact(int addr, const char* type, const char* name, const char* unit, int rights = 0);
       int initOutput(uint pin, int opt, OutputMode mode, const char* name, uint rights = urControl);
       int initInput(uint pin, const char* name);
       int initScripts();
@@ -212,6 +212,7 @@ class Poold : public cWebInterface
       std::queue<std::string> messagesIn;
       cMyMutex messagesInMutex;
 
+      int replyResult(int status, const char* message, long client);
       int performLogin(json_t* oObject);
       int performLogout(json_t* oObject);
       int performTokenRequest(json_t* oObject, long client);
@@ -312,6 +313,8 @@ class Poold : public cWebInterface
       // config
 
       int interval {60};
+      int webPort {61109};
+      char* webUrl {nullptr};
       int aggregateInterval {15};         // aggregate interval in minutes
       int aggregateHistory {0};           // history in days
       char* hassMqttUrl {nullptr};

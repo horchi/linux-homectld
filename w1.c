@@ -16,11 +16,11 @@
 
 int W1::shutdown {false};
 
-W1::W1()
+W1::W1(const char* aUrl)
 {
    w1Path = strdup("/sys/bus/w1/devices");
    mqttTopic = "poold2mqtt/w1";
-   mqttUrl = "tcp://localhost:1883";
+   mqttUrl = aUrl;
 }
 
 W1::~W1()
@@ -56,14 +56,14 @@ int W1::scan()
       if (strcasestr(it->c_str(), "not found") || isEmpty(it->c_str()))
          continue;
 
-      char* path;
+      char* path {nullptr};
       asprintf(&path, "%s/%s/w1_slave", w1Path, it->c_str());
       bool exist = fileExists(path);
       free(path);
 
       if (!exist)
       {
-         tell(0, "%s seems not to be a temperatur sensor, skipping", it->c_str());
+         tell(eloDebug, "%s seems not to be a temperatur sensor, skipping", it->c_str());
          continue;
       }
 
@@ -110,11 +110,8 @@ int W1::update()
    for (auto it = sensors.begin(); it != sensors.end(); it++)
    {
       char line[100+TB];
-      FILE* in;
-      char* path;
-
-      if (isEmpty(it->first.c_str()))
-         continue;
+      FILE* in {nullptr};
+      char* path {nullptr};
 
       asprintf(&path, "%s/%s/w1_slave", w1Path, it->first.c_str());
 
@@ -239,6 +236,7 @@ int main(int argc, char** argv)
    int pid;
    int _stdout = na;
    int _level = na;
+   const char* url = "tcp://localhost:1883";
 
    logstdout = yes;
 
@@ -246,7 +244,7 @@ int main(int argc, char** argv)
 
    if (argc > 1 && (argv[1][0] == '?' || (strcmp(argv[1], "-h") == 0) || (strcmp(argv[1], "--help") == 0)))
    {
-      // showUsage(argv[0]);
+      // showUsage(argv[0]);  // to be implemented!
       return 0;
    }
 
@@ -259,6 +257,7 @@ int main(int argc, char** argv)
 
       switch (argv[i][1])
       {
+         case 'u': url = argv[i+1];                         break;
          case 'l': if (argv[i+1]) _level = atoi(argv[i+1]); break;
          case 't': _stdout = yes;                           break;
          case 'n': nofork = yes;                            break;
@@ -277,7 +276,7 @@ int main(int argc, char** argv)
 
    if (_level != na)  loglevel = _level;
 
-   job = new W1();
+   job = new W1(url);
 
    if (job->init() != success)
    {

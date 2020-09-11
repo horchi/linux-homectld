@@ -1,14 +1,14 @@
 [Unit]
 
 Description = W1 to MQTT service
-After = network.target 
+After = network.target
 StartLimitInterval = 200
 StartLimitBurst = 5
 
 [Service]
-
+EnvironmentFile=-/etc/default/w1mqtt
 Type = forking
-ExecStart = /usr/local/bin/w1mqtt
+ExecStart = /usr/local/bin/w1mqtt $W1MQTT_OPTS
 Restart = always
 RestartSec = 30
 

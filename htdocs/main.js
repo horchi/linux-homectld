@@ -11,8 +11,6 @@
 var WebSocketClient = window.WebSocketClient
 // import WebSocketClient from "./websocket.js"
 
-const osd2webUrl = "ws://192.168.200.145:4444";
-
 var isActive = null;
 var socket = null;
 var config = {};
@@ -26,7 +24,7 @@ var theChartStart = new Date(); theChartStart.setDate(theChartStart.getDate()-th
 var chartDialogSensor = "";
 var phCalTimerhandle = null;
 
-// !!  sync this arry with UserRights of poold.h  !!
+// !!  sync this arry with UserRights of websock.h  !!
 
 var rights = [ "View",
                "Control",
@@ -40,22 +38,18 @@ window.documentReady = function(doc)
    documentName = doc;
    console.log("documentReady: " + documentName);
 
-   var url = "ws://" + location.hostname + ":61109";
-   var protocol = "poolp";
+   var url = "ws://" + location.hostname + ":" + location.port;
+   var protocol = "poold";
 
    if (documentName == "vdrfb") {
       protocol = "osd2vdr";
-      url = osd2webUrl;
+      url = "ws://" + location.hostname + ":4444";
 
-      if (location.hostname.indexOf("192.168.200.145") == -1)
-         url = "ws://" + location.hostname + "/poolvdr/ws";   // via apache
+      // if (location.hostname.indexOf("192.168.200.145") == -1)
+      //   url = "ws://" + location.hostname + "/poolvdr/ws";   // via apache
 
-      prepareVdrButtons();
-   }
-   else {
-      protocol = "poold";
-//      if (location.hostname.indexOf("192.168.200.145") == -1)
-//         url = "ws://" + location.hostname + "/pool/ws";   // via apache
+      prepareVdrRemoteControl();
+      prepareMenu();
    }
 
    if (documentName == "ph" && phCalTimerhandle != null) {
@@ -74,7 +68,7 @@ function onSocketConnect(protocol)
    if (!token || token == null)  token = "";
    if (!user || user == null)    user = "";
 
-   prepareMenu(token != "", protocol == "osd2vdr");
+   // prepareMenu(token != "", protocol == "osd2vdr");
 
    // request some data at login
 
@@ -142,6 +136,34 @@ function connectWebSocket(useUrl, protocol)
       return !($el.innerHTML = "Your Browser will not support Websockets!");
 }
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+var infoDialog = null;
+
+async function showInfoDialog(message, titleMsg, onCloseCallback)
+{
+   while (infoDialog)
+      await sleep(100);
+
+   var cls = ""
+   if (!titleMsg || titleMsg == "") cls = "no-titlebar";
+
+   $('<div style="margin-top:13px;"></div>').html(message).dialog({
+      dialogClass: cls,
+      width: "60%",
+      height: 75,
+      title: titleMsg,
+		modal: false,
+      resizable: false,
+		closeOnEscape: true,
+      hide: "fade",
+      open:  function() { infoDialog = $(this); setTimeout(function() { infoDialog.dialog('close'); infoDialog = null }, 2000); },
+      close: function() { $(this).dialog('destroy').remove(); }
+   });
+}
+
 function dispatchMessage(message)
 {
    var jMessage = JSON.parse(message);
@@ -158,7 +180,16 @@ function dispatchMessage(message)
 
    console.log("got event: " + event);
 
-   if ((event == "update" || event == "all") && rootDashboard) {
+   if (event == "result") {
+      if (jMessage.object.status == 0)
+         showInfoDialog(jMessage.object.message);
+      else
+         dialog.alert({ title: "Information (" + jMessage.object.status + ")",
+                        message: jMessage.object.message,
+	                     cancel: "Schließen"
+	                   });
+   }
+   else if ((event == "update" || event == "all") && rootDashboard) {
       lastUpdate = d.toLocaleTimeString();
       updateDashboard(jMessage.object);
    }
@@ -178,6 +209,7 @@ function dispatchMessage(message)
    }
    else if (event == "config") {
       config = jMessage.object;
+      prepareMenu();
    }
    else if (event == "configdetails" && rootConfig) {
       initConfig(jMessage.object, rootConfig)
@@ -228,9 +260,10 @@ function dispatchMessage(message)
    // console.log("event: " + event + " dispatched");
 }
 
-function prepareMenu(haveToken, vdr)
+function prepareMenu() // haveToken, vdr)
 {
    var html = "";
+   var haveToken = localStorage.getItem('pooldToken') != "";
 
    html += "<a href=\"index.html\"><button class=\"rounded-border button1\">Dashboard</button></a>";
    html += "<a href=\"list.html\"><button class=\"rounded-border button1\">Liste</button></a>";
@@ -271,53 +304,50 @@ function prepareMenu(haveToken, vdr)
       html += "  <button class=\"rounded-border button2\" onclick=\"resetPeaks()\">Reset Peaks</button>";
       html += "</div>";
    }
-   else if ($("#navMenu").data("maincfg") != undefined) {
-         html += "<div id=\"confirm\" class=\"confirmDiv\"/>";
-   }
    else if ($("#navMenu").data("login") != undefined)
       html += "<div id=\"confirm\" class=\"confirmDiv\"/>";
 
    $("#navMenu").html(html);
 
-   /*
-   if (vdr && haveToken) {
-      document.getElementById("vdrMenu").style.visibility = "visible";
-      document.getElementById("vdrMenu").style.width = "auto";
-      document.getElementById("vdrMenu").disabled = false;
-   }
-   else if (haveToken) {
-      var url = osd2webUrl;
-      if (location.hostname.indexOf("192.168.200.145") == -1)
-         url = "ws://" + location.hostname + "/poolvdr/ws";   // via apache
+   if (config.vdr == 1) {
+/*      if (vdr && haveToken) {
+         document.getElementById("vdrMenu").style.visibility = "visible";
+         document.getElementById("vdrMenu").style.width = "auto";
+         document.getElementById("vdrMenu").disabled = false;
+      }
+      else*/
+      if (haveToken) {
+         var url = "ws://" + location.hostname + ":4444";
+         // var url = osd2webUrl;
 
-      var s = new WebSocketClient( {
-         url: url,
-         protocol: "osd2vdr",
-         autoReconnectInterval: 0,
-         onopen: function (){
-            console.log("osd2web socket opened");
-            document.getElementById("vdrMenu").style.visibility = "visible";
-            document.getElementById("vdrMenu").style.width = "auto";
-            document.getElementById("vdrMenu").disabled = false;
-            s.ws.close();
-         }, onclose: function (){
-            console.log("osd2web socket closed");
-         }, onmessage: function (msg){
-         }
-      });
+         var s = new WebSocketClient( {
+            url: url,
+            protocol: "osd2vdr",
+            autoReconnectInterval: 0,
+            onopen: function (){
+               console.log("osd2web socket opened");
+               document.getElementById("vdrMenu").style.visibility = "visible";
+               document.getElementById("vdrMenu").style.width = "auto";
+               document.getElementById("vdrMenu").disabled = false;
+               s.ws.close();
+            }, onclose: function (){
+               console.log("osd2web socket closed");
+            }, onmessage: function (msg){
+            }
+         });
+      }
+      else {
+         document.getElementById("vdrMenu").style.visibility = "hidden";
+         document.getElementById("vdrMenu").style.width = "0px";
+         document.getElementById("vdrMenu").disabled = true;
+      }
    }
-   else {
-      document.getElementById("vdrMenu").style.visibility = "hidden";
-      document.getElementById("vdrMenu").style.width = "0px";
-      document.getElementById("vdrMenu").disabled = true;
-   }
-*/
 
    var msg = "DEBUG: Browser: '" + $.browser.name + "' : '" + $.browser.versionNumber + "' : '" + $.browser.version + "'";
    socket.send({ "event" : "logmessage", "object" : { "message" : msg } });
 }
 
-function prepareVdrButtons()
+function prepareVdrRemoteControl()
 {
    var root = document.getElementById("vdrFbContainer");
    var elements = root.getElementsByClassName("vdrButtonDiv");
@@ -533,7 +563,7 @@ function initList(widgets, root)
 
    rootState.innerHTML = "";
    var elem = document.createElement("div");
-   elem.className = "rounded-border daemonInfo";
+   elem.className = "rounded-border daemonState";
    elem.innerHTML = html;
    rootState.appendChild(elem);
 
@@ -948,13 +978,6 @@ window.storeIoSetup = function()
    }
 
    socket.send({ "event" : "storeiosetup", "object" : jsonArray });
-
-   // show confirm
-
-   document.getElementById("confirm").innerHTML = "<button class=\"rounded-border\" onclick=\"storeIoSetup()\">Speichern</button>";
-   var elem = document.createElement("div");
-   elem.innerHTML = "<br/><div class=\"info\"><b><center>Einstellungen gespeichert</center></b></div>";
-   document.getElementById("confirm").appendChild(elem);
 }
 
 window.resetPeaks = function()
@@ -997,13 +1020,6 @@ window.storeConfig = function()
    // console.log(JSON.stringify(jsonObj, undefined, 4));
 
    socket.send({ "event" : "storeconfig", "object" : jsonObj });
-
-   // show confirm
-
-   document.getElementById("confirm").innerHTML = "<button class=\"rounded-border\" onclick=\"storeConfig()\">Speichern</button>";
-   var elem = document.createElement("div");
-   elem.innerHTML = "<br/><div class=\"info\"><b><center>Einstellungen gespeichert</center></b></div>";
-   document.getElementById("confirm").appendChild(elem);
 }
 
 window.userConfig = function(user, action)
@@ -1056,12 +1072,14 @@ window.chpwd  = function()
                        { "user": user,
                          "passwd": $.md5($("#input_passwd").val()),
                          "action": "resetpwd" }});
+         $("#input_passwd").val("");
+         $("#input_passwd2").val("");
       }
       else
-         console.log("Passwords not match or empty");
+         showInfoDialog("Passwords not match or empty");
    }
    else
-      console.log("Missing login!");
+      showInfoDialog("Missing login!");
 }
 
 window.addUser = function()

@@ -1,6 +1,4 @@
 
-- w1mqtt url konfigurierbar
-- w1mqtt.service installieren!
 
 - 'invert' für jeden DO separat konfigurierbar
 - Rechte der valuefacts konfigurierbar

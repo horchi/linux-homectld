@@ -33,7 +33,7 @@ class W1
 
       typedef std::map<std::string, SensorData> SensorList;
 
-      W1();
+      W1(const char* aUrl);
       ~W1();
 
       static void downF(int aSignal) { shutdown = yes; }

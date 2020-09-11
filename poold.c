@@ -31,10 +31,12 @@ std::list<Poold::ConfigItemDef> Poold::configuration
 
    // { "chart",                     ctString,  false, "3 WEB Interface", "Charts", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" },
    { "chartStart",                ctInteger, false, "3 WEB Interface", "Chart Zeitraum (Tage)", "Standardzeitraum der Chartanzeige (seit x Tagen bis heute)" },
+   { "vdr",                       ctBool,    false, "3 WEB Interface", "VDR (Video Disk Recorder) Osd verfügbar", "" },
 
    // poold
 
    { "interval",                  ctInteger, false, "1 Pool Daemon", "Intervall der Aufzeichung", "Datenbank Aufzeichung [s]" },
+   { "webPort",                   ctInteger, false, "1 Pool Daemon", "Port des Web Interfaces", "" },
    { "loglevel",                  ctInteger, false, "1 Pool Daemon", "Log level", "" },
    { "filterPumpTimes",           ctRange,   false, "1 Pool Daemon", "Zeiten Filter Pumpe", "[hh:mm] - [hh:mm]" },
    { "uvcLightTimes",             ctRange,   false, "1 Pool Daemon", "Zeiten UV-C Licht", "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!" },
@@ -420,9 +422,9 @@ int Poold::init()
    // ---------------------------------
    // setup GPIO
 
-   wiringPiSetupPhys();     // use the 'physical' PIN numbers
-   // wiringPiSetup();      // use the 'special' wiringPi PIN numbers
-   // wiringPiSetupGpio();  // use the 'GPIO' PIN numbers
+   wiringPiSetupPhys();     // we use the 'physical' PIN numbers
+   // wiringPiSetup();      // to use the 'special' wiringPi PIN numbers
+   // wiringPiSetupGpio();  // to use the 'GPIO' PIN numbers
 
    initOutput(pinFilterPump, ooAuto|ooUser, omAuto, "Filter Pump", urFullControl);
    initOutput(pinSolarPump, ooAuto|ooUser, omAuto, "Solar Pump", urFullControl);
@@ -461,7 +463,7 @@ int Poold::init()
 
    // init web socket ...
 
-   while (webSock->init(61109, webSocketPingTime) != success)
+   while (webSock->init(webPort, webSocketPingTime) != success)
    {
       tell(0, "Retrying in 2 seconds");
       sleep(2);
@@ -523,7 +525,7 @@ int Poold::initOutput(uint pin, int opt, OutputMode mode, const char* name, uint
 
    pinMode(pin, OUTPUT);
    gpioWrite(pin, false);
-   addValueFact(pin, "DO", name, "");
+   addValueFact(pin, "DO", name, "", urControl);
 
    return done;
 }
@@ -581,7 +583,7 @@ int Poold::initScripts()
 
          selectScriptByPath->freeResult();
 
-         addValueFact(id, "SC", script.name.c_str(), "");
+         addValueFact(id, "SC", script.name.c_str(), "", urControl);
 
          tell(0, "Found script '%s' id is (%d)", scriptPath, id);
          free(scriptPath);
@@ -889,6 +891,18 @@ int Poold::readConfiguration()
 
    getConfigItem("loglevel", loglevel, 1);
    getConfigItem("interval", interval, interval);
+   getConfigItem("webPort", webPort, 61109);
+
+   getConfigItem("webUrl", webUrl);
+
+   char* port {nullptr};
+   asprintf(&port, "%d", webPort);
+   if (isEmpty(webUrl) || !strstr(webUrl, port))
+   {
+      asprintf(&webUrl, "http://%s:%d", getFirstIp(), webPort);
+      setConfigItem("webUrl", webUrl);
+   }
+   free(port);
 
    getConfigItem("addrsDashboard", addrsDashboard, "");
    getConfigItem("addrsList", addrsList, "");
@@ -1054,7 +1068,7 @@ int Poold::meanwhile()
    if (!connection || !connection->isConnected())
       return fail;
 
-   tell(2, "loop ...");
+   tell(3, "loop ...");
 
    if (showerSwitch > 0)
    {
@@ -1391,6 +1405,23 @@ int Poold::performWebSocketPing()
    }
 
    return done;
+}
+
+//***************************************************************************
+// Reply Result
+//***************************************************************************
+
+int Poold::replyResult(int status, const char* message, long client)
+{
+   if (status != success)
+      tell(0, "Error: Web request failed with '%s' (%d)", message, status);
+
+   json_t* oJson = json_object();
+   json_object_set_new(oJson, "status", json_integer(status));
+   json_object_set_new(oJson, "message", json_string(message));
+   pushOutMessage(oJson, "result", client);
+
+   return status;
 }
 
 //***************************************************************************
@@ -1940,9 +1971,9 @@ int Poold::performPhSetCal(json_t* oObject, long client)
       // and store
 
       if (phInterface.requestCalSet(calSettings) != success)
-      {
-         // error!
-      }
+         replyResult(fail, "Speichern fehlgeschlagen", client);
+      else
+         replyResult(success, "gespeichert", client);
    }
 
    return performPh(client, true);
@@ -1975,6 +2006,7 @@ int Poold::performPasswChange(json_t* oObject, long client)
       tell(0, "User '%s' changed password", user);
       tableUsers->setValue("PASSWD", passwd);
       tableUsers->store();
+      replyResult(success, "Passwort gespeichert", client);
    }
 
    tableUsers->reset();
@@ -2002,6 +2034,7 @@ int Poold::storeConfig(json_t* obj, long client)
    const char* key {nullptr};
    json_t* jValue {nullptr};
 
+   int oldWebPort = webPort;
    json_object_foreach(obj, key, jValue)
    {
       tell(3, "Debug: Storing config item '%s' with '%s'", key, json_string_value(jValue));
@@ -2009,6 +2042,11 @@ int Poold::storeConfig(json_t* obj, long client)
    }
 
    readConfiguration();
+
+   if (oldWebPort != webPort)
+      replyResult(success, "Konfiguration gespeichert. Web Port geändert, bitte poold neu Starten!", client);
+   else
+      replyResult(success, "Konfiguration gespeichert", client);
 
    return done;
 }
@@ -2049,7 +2087,7 @@ int Poold::storeIoSetup(json_t* array, long client)
       tell(3, "Debug: %s:%d - usrtitle: '%s'; scalemax: %d; state: %d", type, addr, usrTitle, maxScale, state);
    }
 
-   return done;
+   return replyResult(success, "Konfiguration gespeichert", client);
 }
 
 //***************************************************************************
@@ -2490,17 +2528,12 @@ int Poold::aggregate()
 
 int Poold::sendStateMail()
 {
-   char* webUrl {nullptr};
    std::string subject = "Status: ";
 
    // check
 
    if (isEmpty(mailScript) || !mailBody.length() || isEmpty(stateMailTo))
       return done;
-
-   // get web url ..
-
-   getConfigItem("webUrl", webUrl, "http://to-be-configured");
 
    // HTML mail
 
@@ -2618,7 +2651,7 @@ int Poold::loadHtmlHeader()
 // Add Value Fact
 //***************************************************************************
 
-int Poold::addValueFact(int addr, const char* type, const char* name, const char* unit)
+int Poold::addValueFact(int addr, const char* type, const char* name, const char* unit, int rights)
 {
    int maxScale = unit[0] == '%' ? 100 : 45;
 
@@ -2632,6 +2665,7 @@ int Poold::addValueFact(int addr, const char* type, const char* name, const char
            tableValueFacts->getIntValue("ADDRESS"), tableValueFacts->getStrValue("TYPE"));
 
       tableValueFacts->setValue("NAME", name);
+      tableValueFacts->setValue("RIGHTS", rights);
       tableValueFacts->setValue("STATE", "D");
       tableValueFacts->setValue("UNIT", unit);
       tableValueFacts->setValue("TITLE", name);
@@ -2647,6 +2681,9 @@ int Poold::addValueFact(int addr, const char* type, const char* name, const char
       tableValueFacts->setValue("NAME", name);
       tableValueFacts->setValue("UNIT", unit);
       tableValueFacts->setValue("TITLE", name);
+
+      if (tableValueFacts->getValue("RIGHTS")->isNull())
+         tableValueFacts->setValue("RIGHTS", rights);
 
       if (tableValueFacts->getValue("MAXSCALE")->isNull())
          tableValueFacts->setValue("MAXSCALE", maxScale);
@@ -2844,7 +2881,7 @@ const char* Poold::getImageOf(const char* title, int value)
       imagePath = value ? "img/icon/plug-on.png" : "img/icon/plug-off.png";
    else if (strcasestr(title, "UV-C"))
       imagePath = value ? "img/icon/uvc-on.png" : "img/icon/uvc-off.png";
-   else if (strcasestr(title, "Licht"))
+   else if (strcasestr(title, "Licht") || strcasestr(title, "Light"))
       imagePath = value ? "img/icon/light-on.png" : "img/icon/light-off.png";
    else if (strcasestr(title, "Shower") || strcasestr(title, "Dusche"))
       imagePath = value ? "img/icon/shower-on.png" : "img/icon/shower-off.png";

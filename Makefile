@@ -81,7 +81,9 @@ inst_restart: $(TARGET) install-config # install-scripts
 
 install-systemd:
 	cat contrib/poold.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/poold.service
+	cat contrib/w1mqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/w1mqtt.service
 	chmod a+r $(SYSTEMDDEST)/poold.service
+	chmod a+r $(SYSTEMDDEST)/w1mqtt.service
    ifeq ($(DESTDIR),)
 	   systemctl daemon-reload
 	   systemctl enable poold

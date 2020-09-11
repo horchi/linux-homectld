@@ -53,7 +53,7 @@ int W1::scan()
 
    for (auto it = lines.begin(); it != lines.end(); ++it)
    {
-      if (strcasestr(it->c_str(), "not found"))
+      if (strcasestr(it->c_str(), "not found") || isEmpty(it->c_str()))
          continue;
 
       if (sensors.find(it->c_str()) == sensors.end())
@@ -101,6 +101,9 @@ int W1::update()
       char line[100+TB];
       FILE* in;
       char* path;
+
+      if (isEmpty(it->first.c_str()))
+         continue;
 
       asprintf(&path, "%s/%s/w1_slave", w1Path, it->first.c_str());
 

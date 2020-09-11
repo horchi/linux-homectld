@@ -54,8 +54,8 @@ window.documentReady = function(doc)
    }
    else {
       protocol = "poold";
-      if (location.hostname.indexOf("192.168.200.145") == -1)
-         url = "ws://" + location.hostname + "/pool/ws";   // via apache
+//      if (location.hostname.indexOf("192.168.200.145") == -1)
+//         url = "ws://" + location.hostname + "/pool/ws";   // via apache
    }
 
    if (documentName == "ph" && phCalTimerhandle != null) {

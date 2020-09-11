@@ -20,7 +20,7 @@ W1::W1()
 {
    w1Path = strdup("/sys/bus/w1/devices");
    mqttTopic = "poold2mqtt/w1";
-   mqttUrl = "tcp://gate:1883";
+   mqttUrl = "tcp://localhost:1883";
 }
 
 W1::~W1()

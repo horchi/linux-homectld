@@ -56,6 +56,17 @@ int W1::scan()
       if (strcasestr(it->c_str(), "not found") || isEmpty(it->c_str()))
          continue;
 
+      char* path;
+      asprintf(&path, "%s/%s/w1_slave", w1Path, it->c_str());
+      bool exist = fileExists(path);
+      free(path);
+
+      if (!exist)
+      {
+         tell(0, "%s seems not to be a temperatur sensor, skipping", it->c_str());
+         continue;
+      }
+
       if (sensors.find(it->c_str()) == sensors.end())
       {
          tell(eloAlways, "One Wire Sensor '%s' attached", it->c_str());

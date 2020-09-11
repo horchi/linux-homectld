@@ -102,7 +102,7 @@ int W1::update()
       FILE* in;
       char* path;
 
-      asprintf(&path, "%s/w1_slave", w1Path, it->first.c_str());
+      asprintf(&path, "%s/%s/w1_slave", w1Path, it->first.c_str());
 
       if (!(in = fopen(path, "r")))
       {

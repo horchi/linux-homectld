@@ -349,7 +349,7 @@ void ioInterrupt()
 
    // detect only once a second
 
-   if (!digitalRead(Poold::pinShowerSwitch) && lastShowerSwitch < cTimeMs::Now() + 1000)
+   if (cTimeMs::Now() > lastShowerSwitch + 1000 && !digitalRead(Poold::pinShowerSwitch))
    {
       tell(2, "Info: Shower key detected");
       showerSwitch++;

@@ -53,7 +53,13 @@ Language package 'de_DE.UTF-8' is required as language package (`dpkg-reconfigur
 
   for example: https://www.amazon.de/gp/product/B015MGHLNA/ref=ppx_yo_dt_b_asin_title_o05_s00?ie=UTF8&psc=1
   USB Interface for programming: https://www.amazon.de/gp/product/B07KVT6HNL/ref=ppx_yo_dt_b_asin_title_o04_s00?ie=UTF8&psc=1
+
+- House-pump to inject PH Minus
+
+  for example: https://www.amazon.de/gp/product/B07YWY29XL/ref=ppx_yo_dt_b_asin_title_o07_s00?ie=UTF8&psc=1
+  better but more expensive may be: https://www.amazon.de/dp/B06ZZDLTJ7/?coliid=I37J0L29HIAMDR&colid=344R3XZTD8676&psc=1&ref_=lv_ov_lig_dp_it
 - ... to be completed !
+
 
 
 ### GPIO Port Connections
@@ -72,7 +78,7 @@ The first number below is the physical pin in brackets the GIPO port.
 - UVC Light      - 15 (GPIO22)
 - User Out 1     - 16 (GPIO23)
 - User Out 2     - 18 (GPIO24)
-- One Wire Power - 19 (GPIO10)
+- One Wire Power - 19 (GPIO10) to reset the sensors on trouble
 - Shower Valve   - 22 (GPIO25)
 - User Out 3     - 23 (GPIO11)
 

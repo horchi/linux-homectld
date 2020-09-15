@@ -34,6 +34,7 @@ class cWebService
          evToggleMode,
          evStoreConfig,
          evGetToken,
+         evIoSetup,
          evStoreIoSetup,
          evChartData,
          evLogMessage,
@@ -45,6 +46,8 @@ class cWebService
          evPhAll,
          evPhCal,
          evPhSetCal,
+         evChartbookmarks,
+         evStoreChartbookmarks,
 
          evCount
       };

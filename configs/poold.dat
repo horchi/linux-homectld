@@ -75,7 +75,7 @@ Table config
    NAME                 ""  name                 Ascii       40 Primary,
    INSSP                ""  inssp                Int          0 Meta,
    UPDSP                ""  updsp                Int          0 Meta,
-   VALUE                ""  value                Ascii      100 Data,
+   VALUE                ""  value                Text      1500 Data,
 }
 
 // ----------------------------------------------------------------

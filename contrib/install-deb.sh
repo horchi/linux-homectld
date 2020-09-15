@@ -14,7 +14,7 @@ NC='\033[0m'
 
 echo -e "${BLUE}-------------------------------------------------------------------------------------------${NC}"
 echo -e "${BLUE}- Starting the installation (or update) of poold deamon${NC}"
-echo -e "${BLUE}-    Deamon to fetch sensor data of the 'Lambdatronic s3200' and store to a MySQL database${NC}"
+echo -e "${BLUE}-    Deamon to control almost everything around your pool {NC}"
 echo -e "${BLUE}-------------------------------------------------------------------------------------------${NC}"
 
 echo -e -n "${BLUE}Continue? [y/N] ${NC}"
@@ -43,22 +43,21 @@ dpkg-reconfigure --frontend=noninteractive locales && \
 wget www.jwendel.de/poold/poold-latest.deb -O /tmp/poold-latest.deb || exit 1
 apt -y install /tmp/poold-latest.deb || exit 1
 
-grep -q '^alias pooldb=' ~/.bashrc || echo "alias pooldb='mysql -u pool -D pool -ppool'" >> ~/.bashrc
-grep -q '^alias vl=' ~/.bashrc || echo "alias vl='tail -f /var/log/syslog'" >> ~/.bashrc
+grep -q '^alias pooldb=' ~/.bashrc   || echo "alias pooldb='mysql -u pool -D pool -ppool'" >> ~/.bashrc
+grep -q '^alias vl=' ~/.bashrc       || echo "alias vl='tail -f /var/log/syslog'" >> ~/.bashrc
 grep -q '^alias pooldb=' ~pi/.bashrc || echo "alias pooldb='mysql -u pool -D pool -ppool'" >> ~pi/.bashrc
-grep -q '^alias vl=' ~pi/.bashrc || echo "alias vl='tail -f /var/log/syslog'" >> ~pi/.bashrc
+grep -q '^alias vl=' ~pi/.bashrc     || echo "alias vl='tail -f /var/log/syslog'" >> ~pi/.bashrc
 
 echo -e "${BLUE}-------------------------------------------------------------------------------------------${NC}"
 echo -e "${BLUE}- The installation is completed and will be available after reboot${NC}"
 echo -e "${BLUE}- ${NC}"
-echo -e "${BLUE}- You can reach the web interface at http://<raspi-ip>/pool${NC}"
-echo -e "${BLUE}- Guess your IP is ${IP} use:${NC} ${BWHITE}http://${IP}/pool${NC}"
+echo -e "${BLUE}- You can reach the web interface at http://<raspi-ip>:61109${NC}"
+echo -e "${BLUE}- Guess your IP is ${IP} use:${NC} ${BWHITE}http://${IP}:61109${NC}"
 echo -e "${BLUE}- Default user/password is pool/pool{NC}"
 echo -e "${BLUE}- ${NC}"
 echo -e "${BLUE}- Added aliases for convenience:${NC}"
 echo -e "${BLUE}-  pooldb  - go to the SQL prompt${NC}"
 echo -e "${BLUE}-  vl    - view syslog (abort with CTRL-C)${NC}"
-echo -e "${BLUE}-  va    - view apace error log (abort with CTRL-C)${NC}"
 echo -e "${BLUE}-------------------------------------------------------------------------------------------${NC}"
 echo -e "${WHITE}- to permit poold sending mails: ${NC}"
 echo -e "${WHITE}-   setup your SMTP account in /etc/ssmtp/ssmtp.conf properly${NC}"

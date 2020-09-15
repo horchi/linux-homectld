@@ -77,6 +77,25 @@ int serialRead(void* buf, size_t size, int timeoutMs)
 }
 
 //******************************************************************
+// PH Pressure
+//******************************************************************
+
+void processPressureRequest()
+{
+   cPhBoardService::Header header;
+   cPhBoardService::PressValue pressValue;
+
+   pressValue.value = analogRead(A1);
+//   phValue.ph = m * phValue.value + b;
+
+   header.id = cPhBoardService::comId;
+   header.command = cPhBoardService::cPhResponse;
+
+   Serial.write((char*)&header, sizeof(cPhBoardService::Header));
+   Serial.write((char*)&pressValue, sizeof(cPhBoardService::PressValue));
+}
+
+//******************************************************************
 // PH Request
 //******************************************************************
 

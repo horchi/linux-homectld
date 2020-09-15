@@ -44,24 +44,46 @@ class Poold : public cWebInterface
 
       enum Pins       // we use the 'physical' PIN numbers here!
       {
+         // 1  - 3.3 V
+         // 2  - 5 V
+         // 3  - GPIO2 (SDA)
+         // 4  - 5 V
+         // 5  - GPIO2 (SCL)
+         // 6  - GND
          pinW1           = 7,      // GPIO4
-         pinSerialTx     = 6,      // GPIO14
-         pinSerialRx     = 8,      // GPIO15
-
+         pinSerialTx     = 8,      // GPIO14 (TX)
+         // 9  - GND
+         pinSerialRx     = 10,     // GPIO15 (RX)
          pinFilterPump   = 11,     // GPIO17
          pinSolarPump    = 12,     // GPIO18
          pinPoolLight    = 13,     // GPIO27
+         // 14  - GND
          pinUVC          = 15,     // GPIO22
          pinUserOut1     = 16,     // GPIO23
+         // 17  - 3.3 V
          pinUserOut2     = 18,     // GPIO24
          pinW1Power      = 19,     // GPIO10
+         // 20  - GND
+         pinUserOut4     = 21,     // GPIO9
          pinShower       = 22,     // GPIO25
          pinUserOut3     = 23,     // GPIO11
-
+         // 24  - GPIO8 (SPI)
+         // 25  - GND
+         // 26  - GPIO7 (ID EEPROM)
+         // 27  - ID_SD
+         // 28  - ID_SC
+         pinFree1        = 29,     // GPIO5
+         // 30  - GND
          pinLevel1       = 31,     // GPIO6
          pinLevel2       = 32,     // GPIO12
          pinLevel3       = 33,     // GPIO13
-         pinShowerSwitch = 35      // GPIO19
+         // 34  - GND
+         pinShowerSwitch = 35,     // GPIO19
+         pinFree2        = 36,     // GPIO16
+         pinFree3        = 37,     // GPIO26
+         pinFree4        = 38,     // GPIO20
+         // 39  - GND
+         pinFree5        = 40      // GPIO21
       };
 
       // object
@@ -130,7 +152,8 @@ class Poold : public cWebInterface
          ctNum,
          ctString,
          ctBool,
-         ctRange
+         ctRange,
+         ctChoice
       };
 
       struct ConfigItemDef
@@ -219,7 +242,7 @@ class Poold : public cWebInterface
       int performSyslog(long client);
       int performConfigDetails(long client);
       int performUserDetails(long client);
-      int performIoSettings(long client);
+      int performIoSettings(json_t* oObject, long client);
       int performChartData(json_t* oObject, long client);
       int performUserConfig(json_t* oObject, long client);
       int performPasswChange(json_t* oObject, long client);
@@ -229,11 +252,14 @@ class Poold : public cWebInterface
       int storeConfig(json_t* obj, long client);
       int storeIoSetup(json_t* array, long client);
       int resetPeaks(json_t* obj, long client);
+      int performChartbookmarks(long client);
+      int storeChartbookmarks(json_t* array, long client);
 
       int config2Json(json_t* obj);
       int configDetails2Json(json_t* obj);
       int userDetails2Json(json_t* obj);
-      int valueFacts2Json(json_t* obj);
+      int configChoice2json(json_t* obj, const char* name);
+      int valueFacts2Json(json_t* obj, bool filterActive);
       int daemonState2Json(json_t* obj);
       int sensor2Json(json_t* obj, cDbTable* table);
       void pin2Json(json_t* ojData, int pin);
@@ -292,6 +318,7 @@ class Poold : public cWebInterface
       cWebSock* webSock {nullptr};
       time_t nextWebSocketPing {0};
       int webSocketPingTime {60};
+      const char* httpPath {"/var/lib/pool"};
 
       struct WsClient    // Web Socket Client
       {
@@ -303,7 +330,7 @@ class Poold : public cWebInterface
 
       std::map<void*,WsClient> wsClients;
 
-      // Home Assistant stuff
+      // MQTT stuff
 
       Mqtt* mqttWriter {nullptr};
       Mqtt* mqttReader {nullptr};

@@ -41,6 +41,7 @@ const char* cWebService::events[] =
    "togglemode",
    "storeconfig",
    "gettoken",
+   "iosetup",
    "storeiosetup",
    "chartdata",
    "logmessage",
@@ -52,6 +53,9 @@ const char* cWebService::events[] =
    "phall",
    "phcal",
    "phsetcal",
+   "chartbookmarks",
+   "storechartbookmarks",
+
    0
 };
 

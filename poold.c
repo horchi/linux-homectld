@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <libxml/parser.h>
+#include <algorithm>
 
 #include <wiringPi.h>
 
@@ -31,6 +32,7 @@ std::list<Poold::ConfigItemDef> Poold::configuration
 
    // { "chart",                     ctString,  false, "3 WEB Interface", "Charts", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" },
    { "chartStart",                ctInteger, false, "3 WEB Interface", "Chart Zeitraum (Tage)", "Standardzeitraum der Chartanzeige (seit x Tagen bis heute)" },
+   { "style",                     ctChoice,  false, "3 WEB Interface", "Farbschema", "" },
    { "vdr",                       ctBool,    false, "3 WEB Interface", "VDR (Video Disk Recorder) Osd verfügbar", "" },
 
    // poold
@@ -95,7 +97,7 @@ Poold::Poold()
    cDbConnection::setUser(dbUser);
    cDbConnection::setPass(dbPass);
 
-   webSock = new cWebSock(this, "/var/lib/pool/");
+   webSock = new cWebSock(this, httpPath);
 }
 
 Poold::~Poold()
@@ -261,24 +263,28 @@ int Poold::dispatchClientRequest()
 
          switch (event)
          {
-         case evLogin:         status = performLogin(oObject);                  break;
-         case evLogout:        status = performLogout(oObject);                 break;
-         case evGetToken:      status = performTokenRequest(oObject, client);   break;
-         case evToggleIo:      status = toggleIo(addr, type);                   break;
-         case evToggleIoNext:  status = toggleIoNext(addr);                     break;
-         case evToggleMode:    status = toggleOutputMode(addr);                 break;
-         case evStoreConfig:   status = storeConfig(oObject, client);           break;
-         case evStoreIoSetup:  status = storeIoSetup(oObject, client);          break;
-         case evChartData:     status = performChartData(oObject, client);      break;
-         case evUserConfig:    status = performUserConfig(oObject, client);     break;
-         case evChangePasswd:  status = performPasswChange(oObject, client);    break;
-         case evResetPeaks:    status = resetPeaks(oObject, client);            break;
-         case evPh:            status = performPh(client, false);               break;
-         case evPhAll:         status = performPh(client, true);                break;
-         case evPhCal:         status = performPhCal(oObject, client);          break;
-         case evPhSetCal:      status = performPhSetCal(oObject, client);       break;
-         default: tell(0, "Error: Received unexpected client request '%s' at [%s]",
-                       toName(event), messagesIn.front().c_str());
+            case evLogin:          status = performLogin(oObject);                  break;
+            case evLogout:         status = performLogout(oObject);                 break;
+            case evGetToken:       status = performTokenRequest(oObject, client);   break;
+            case evToggleIo:       status = toggleIo(addr, type);                   break;
+            case evToggleIoNext:   status = toggleIoNext(addr);                     break;
+            case evToggleMode:     status = toggleOutputMode(addr);                 break;
+            case evStoreConfig:    status = storeConfig(oObject, client);           break;
+            case evIoSetup:        status = performIoSettings(oObject, client);     break;
+            case evStoreIoSetup:   status = storeIoSetup(oObject, client);          break;
+            case evChartData:      status = performChartData(oObject, client);      break;
+            case evUserConfig:     status = performUserConfig(oObject, client);     break;
+            case evChangePasswd:   status = performPasswChange(oObject, client);    break;
+            case evResetPeaks:     status = resetPeaks(oObject, client);            break;
+            case evPh:             status = performPh(client, false);               break;
+            case evPhAll:          status = performPh(client, true);                break;
+            case evPhCal:          status = performPhCal(oObject, client);          break;
+            case evPhSetCal:       status = performPhSetCal(oObject, client);       break;
+            case evChartbookmarks: status = performChartbookmarks(client);             break;
+            case evStoreChartbookmarks: status = storeChartbookmarks(oObject, client); break;
+
+            default: tell(0, "Error: Received unexpected client request '%s' at [%s]",
+                          toName(event), messagesIn.front().c_str());
          }
       }
       else
@@ -301,22 +307,27 @@ bool Poold::checkRights(long client, Event event, json_t* oObject)
 
    switch (event)
    {
-      case evLogin:         return true;
-      case evLogout:        return true;
-      case evGetToken:      return true;
-      case evToggleIoNext:  return rights & urControl;
-      case evToggleMode:    return rights & urFullControl;
-      case evStoreConfig:   return rights & urSettings;
-      case evStoreIoSetup:  return rights & urSettings;
-      case evChartData:     return rights & urView;
-      case evUserConfig:    return rights & urAdmin;
-      case evChangePasswd:  return true;   // check will done in performPasswChange()
-      case evResetPeaks:    return rights & urAdmin;
+      case evLogin:               return true;
+      case evLogout:              return true;
+      case evGetToken:            return true;
+      case evToggleIoNext:        return rights & urControl;
+      case evToggleMode:          return rights & urFullControl;
+      case evStoreConfig:         return rights & urSettings;
+      case evIoSetup:             return rights & urView;
+      case evStoreIoSetup:        return rights & urSettings;
+      case evChartData:           return rights & urView;
+      case evUserConfig:          return rights & urAdmin;
+      case evChangePasswd:        return true;   // check will done in performPasswChange()
+      case evResetPeaks:          return rights & urAdmin;
 
       case evPh:
       case evPhAll:
       case evPhCal:
-      case evPhSetCal:      return rights & urAdmin;
+      case evPhSetCal:            return rights & urAdmin;
+
+      case evChartbookmarks:      return rights & urView;
+      case evStoreChartbookmarks: return rights & urSettings;
+
       default: break;
    }
 
@@ -434,6 +445,7 @@ int Poold::init()
    initOutput(pinUserOut1, ooUser, omManual, "User 1");
    initOutput(pinUserOut2, ooUser, omManual, "User 2");
    initOutput(pinUserOut3, ooUser, omManual, "User 3");
+   initOutput(pinUserOut4, ooUser, omManual, "User 4");
    initOutput(pinW1Power, ooAuto|ooUser, omAuto, "W1 Power", urFullControl);
 
    gpioWrite(pinW1Power, true);
@@ -1498,7 +1510,7 @@ int Poold::performLogin(json_t* oObject)
       else if (wsClients[(void*)client].rights & urAdmin && strcmp(name, "userdetails") == 0)
          performUserDetails(client);
       else if (wsClients[(void*)client].rights & urAdmin && strcmp(name, "iosettings") == 0)
-         performIoSettings(client);
+         performIoSettings(nullptr, client);
       else if (wsClients[(void*)client].rights & urAdmin && strcmp(name, "phall") == 0)
          performPh(client, true);
 
@@ -1642,13 +1654,18 @@ int Poold::performUserDetails(long client)
 // Perform WS IO Setting Data Request
 //***************************************************************************
 
-int Poold::performIoSettings(long client)
+int Poold::performIoSettings(json_t* oObject, long client)
 {
    if (client <= 0)
       return done;
 
+   bool filterActive = false;
+
+   if (oObject)
+      filterActive = getBoolFromJson(oObject, "filter", false);
+
    json_t* oJson = json_array();
-   valueFacts2Json(oJson);
+   valueFacts2Json(oJson, filterActive);
    pushOutMessage(oJson, "valuefacts", client);
 
    return done;
@@ -1667,9 +1684,14 @@ int Poold::performChartData(json_t* oObject, long client)
    time_t rangeStart = getLongFromJson(oObject, "start", 0);       // Start Datum (unix timestamp)
    const char* sensors = getStringFromJson(oObject, "sensors");    // Kommata getrennte Liste der Sensoren
    const char* id = getStringFromJson(oObject, "id", "");
-   bool widget = strcmp(id, "chart") != 0;
 
+   // the id is one of {"chart" "chartwidget" "chartdialog"}
+
+   bool widget = strcmp(id, "chart") != 0;
    cDbStatement* select = widget ? selectSamplesRange60 : selectSamplesRange;
+
+   if (!widget)
+      performChartbookmarks(client);
 
    if (strcmp(id, "chart") == 0 && !isEmpty(sensors))
    {
@@ -1680,13 +1702,16 @@ int Poold::performChartData(json_t* oObject, long client)
    else if (isEmpty(sensors))
       sensors = chartSensors;
 
-   tell(eloAlways, "Selecting chats data for '%s' ..", sensors);
+   tell(eloDebug, "Selecting chats data for '%s' ..", sensors);
+
+   auto sList = split(sensors, ',');
 
    json_t* oMain = json_object();
    json_t* oJson = json_array();
 
    if (!rangeStart)
       rangeStart = time(0) - (range*tmeSecondsPerDay);
+
    rangeFrom.setValue(rangeStart);
    rangeTo.setValue(rangeStart + (range*tmeSecondsPerDay));
 
@@ -1703,7 +1728,7 @@ int Poold::performChartData(json_t* oObject, long client)
       char* id {nullptr};
       asprintf(&id, "%s:0x%lx", tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"));
 
-      bool active = strstr(sensors, id) != 0;
+      bool active = std::find(sList.begin(), sList.end(), id) != sList.end();  // #PORT
       const char* usrtitle = tableValueFacts->getStrValue("USRTITLE");
       const char* title = tableValueFacts->getStrValue("TITLE");
 
@@ -1764,8 +1789,35 @@ int Poold::performChartData(json_t* oObject, long client)
    json_object_set_new(oMain, "rows", oJson);
    json_object_set_new(oMain, "id", json_string(id));
    selectActiveValueFacts->freeResult();
-   tell(eloAlways, ".. done");
+   tell(eloDebug, ".. done");
    pushOutMessage(oMain, "chartdata", client);
+
+   return done;
+}
+
+//***************************************************************************
+// Chart Bookmarks
+//***************************************************************************
+
+int Poold::storeChartbookmarks(json_t* array, long client)
+{
+   char* bookmarks = json_dumps(array, JSON_REAL_PRECISION(4));
+   setConfigItem("chartBookmarks", bookmarks);
+   free(bookmarks);
+
+   performChartbookmarks(client);
+
+   return done; // replyResult(success, "Bookmarks gespeichert", client);
+}
+
+int Poold::performChartbookmarks(long client)
+{
+   char* bookmarks {nullptr};
+   getConfigItem("chartBookmarks", bookmarks, "{[]}");
+   json_error_t error;
+   json_t* oJson = json_loads(bookmarks, 0, &error);
+   pushOutMessage(oJson, "chartbookmarks", client);
+   free(bookmarks);
 
    return done;
 }
@@ -2033,15 +2085,37 @@ int Poold::storeConfig(json_t* obj, long client)
 {
    const char* key {nullptr};
    json_t* jValue {nullptr};
-
    int oldWebPort = webPort;
+
    json_object_foreach(obj, key, jValue)
    {
       tell(3, "Debug: Storing config item '%s' with '%s'", key, json_string_value(jValue));
       setConfigItem(key, json_string_value(jValue));
    }
 
+   // create link for the stylesheet
+
+   const char* name = getStringFromJson(obj, "style");
+
+   if (!isEmpty(name))
+   {
+      tell(1, "Info: Creating link 'stylesheet.css' to '%s'", name);
+      char* link {nullptr};
+      char* target {nullptr};
+      asprintf(&link, "%s/stylesheet.css", httpPath);
+      asprintf(&target, "%s/stylesheet-%s.css", httpPath, name);
+      createLink(link, target, true);
+      free(link);
+      free(target);
+   }
+
+   // reload configuration
+
    readConfiguration();
+
+   json_t* oJson = json_object();
+   config2Json(oJson);
+   pushOutMessage(oJson, "config", client);
 
    if (oldWebPort != webPort)
       replyResult(success, "Konfiguration gespeichert. Web Port geändert, bitte poold neu Starten!", client);
@@ -2134,9 +2208,40 @@ int Poold::configDetails2Json(json_t* obj)
          json_object_set_new(oDetail, "category", json_string(it.category));
          json_object_set_new(oDetail, "title", json_string(it.title));
          json_object_set_new(oDetail, "descrtiption", json_string(it.description));
+
+         if (it.type == ctChoice)
+            configChoice2json(oDetail, it.name.c_str());
       }
 
       tableConfig->reset();
+   }
+
+   return done;
+}
+
+int Poold::configChoice2json(json_t* obj, const char* name)
+{
+   if (strcmp(name, "style") == 0)
+   {
+      FileList options;
+      int count {0};
+
+      if (getFileList(httpPath, DT_REG, "css", false, &options, count) == success)
+      {
+         json_t* oArray = json_array();
+
+         for (const auto& opt : options)
+         {
+            if (strncmp(opt.name.c_str(), "stylesheet-", strlen("stylesheet-")) != 0)
+               continue;
+
+            char* p = strdup(strrchr(opt.name.c_str(), '-'));
+            *(strrchr(p, '.')) = '\0';
+            json_array_append_new(oArray, json_string(p+1));
+         }
+
+         json_object_set_new(obj, "options", oArray);
+      }
    }
 
    return done;
@@ -2166,12 +2271,15 @@ int Poold::userDetails2Json(json_t* obj)
 // Value Facts 2 Json
 //***************************************************************************
 
-int Poold::valueFacts2Json(json_t* obj)
+int Poold::valueFacts2Json(json_t* obj, bool filterActive)
 {
    tableValueFacts->clear();
 
    for (int f = selectAllValueFacts->find(); f; f = selectAllValueFacts->fetch())
    {
+      if (filterActive && !tableValueFacts->hasValue("STATE", "A"))
+         continue;
+
       json_t* oData = json_object();
       json_array_append_new(obj, oData);
 

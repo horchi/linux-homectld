@@ -62,17 +62,15 @@ $(PHTARGET): $(PHOBJS)
 install: $(TARGET) $(W1TARGET) install-poold install-web
 
 install-poold: install-config # install-scripts
-	install --mode=755 -D $(TARGET) $(BINDEST)
-	install --mode=755 -D $(W1TARGET) $(BINDEST)
-	make install-systemd
    ifneq ($(DESTDIR),)
 	   @cp -r contrib/DEBIAN $(DESTDIR)
 	   @chown root:root -R $(DESTDIR)/DEBIAN
 		sed -i s:"<VERSION>":"$(VERSION)":g $(DESTDIR)/DEBIAN/control
-	   @mkdir -p $(DESTDIR)/usr/lib
 	   @mkdir -p $(DESTDIR)/usr/bin
-	   @mkdir -p $(DESTDIR)/usr/share/man/man1
    endif
+	install --mode=755 -D $(TARGET) $(BINDEST)/
+	install --mode=755 -D $(W1TARGET) $(BINDEST)/
+	make install-systemd
 
 inst_restart: $(TARGET) install-config # install-scripts
 	systemctl stop poold
@@ -110,26 +108,7 @@ install-scripts:
 iw: install-web
 
 install-web:
-	if ! test -d $(WEBDEST); then \
-		mkdir -p "$(WEBDEST)"; \
-		chmod a+rx "$(WEBDEST)"; \
-	fi
-	if test -f "$(WEBDEST)/stylesheet.css"; then \
-		cp -Pp "$(WEBDEST)/stylesheet.css" "$(WEBDEST)/stylesheet.css.save"; \
-	fi
-	cp -r ./htdocs/* $(WEBDEST)/
-	if test -f "$(WEBDEST)/stylesheet.css.save"; then \
-		cp -Pp "$(WEBDEST)/stylesheet.css.save" "$(WEBDEST)/stylesheet.css"; \
-	fi
-	chmod -R a+r "$(WEBDEST)"; \
-	chown -R $(WEBOWNER):$(WEBOWNER) "$(WEBDEST)"
-
-install-apache-conf:
-	@mkdir -p $(APACHECFGDEST)/conf-available
-	@mkdir -p $(APACHECFGDEST)/conf-enabled
-	install --mode=644 -D apache2/pool.conf $(APACHECFGDEST)/conf-available/
-	rm -f $(APACHECFGDEST)/conf-enabled/pool.conf
-	ln -s ../conf-available/pool.conf $(APACHECFGDEST)/conf-enabled/pool.conf
+	(cd htdocs; $(MAKE) install)
 
 dist: clean
 	@-rm -rf $(TMPDIR)/$(ARCHIVE)
@@ -174,7 +153,8 @@ lib/serial.o    :  lib/serial.c    $(HEADER) lib/serial.h
 lib/mqtt.o      :  lib/mqtt.c      lib/mqtt.h lib/mqtt_c.h
 lib/mqtt_c.o    :  lib/mqtt_c.c    lib/mqtt_c.h
 lib/mqtt_pal.o  :  lib/mqtt_pal.c  lib/mqtt_c.h
-main.o          :  main.c          $(HEADER) poold.h
+
+main.o          :  main.c          $(HEADER) poold.h HISTORY.h
 poold.o         :  poold.c         $(HEADER) poold.h w1.h lib/mqtt.h websock.h
 w1.o            :  w1.c            $(HEADER) w1.h lib/mqtt.h
 gpio.o          :  gpio.c          $(HEADER)

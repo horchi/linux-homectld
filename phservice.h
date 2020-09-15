@@ -44,6 +44,12 @@ class cPhBoardService
          char command {0};
       };
 
+      struct PressValue
+      {
+         float pressure {0.0};
+         word value {0};
+      };
+
       struct PhValue
       {
          float ph {0.0};

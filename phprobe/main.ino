@@ -89,7 +89,7 @@ void processPressureRequest()
 //   phValue.ph = m * phValue.value + b;
 
    header.id = cPhBoardService::comId;
-   header.command = cPhBoardService::cPhResponse;
+   header.command = cPhBoardService::cPressureResponse;
 
    Serial.write((char*)&header, sizeof(cPhBoardService::Header));
    Serial.write((char*)&pressValue, sizeof(cPhBoardService::PressValue));
@@ -201,10 +201,11 @@ void loop()
 
       switch (header.command)
       {
-         case cPhBoardService::cPhRequest:       processPhRequest();     break;
-         case cPhBoardService::cPhCalRequest:    processCalRequest();    break;
-         case cPhBoardService::cPhCalGetRequest: processCalGetRequest(); break;
-         case cPhBoardService::cPhCalSetRequest: processCalSetRequest(); break;
+         case cPhBoardService::cPhRequest:       processPhRequest();       break;
+         case cPhBoardService::cPhCalRequest:    processCalRequest();      break;
+         case cPhBoardService::cPhCalGetRequest: processCalGetRequest();   break;
+         case cPhBoardService::cPhCalSetRequest: processCalSetRequest();   break;
+         case cPhBoardService::cPressureRequest: processPressureRequest(); break;
          default: break;
       }
    }

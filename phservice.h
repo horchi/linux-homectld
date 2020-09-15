@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "lib/common.h"
+// #include "lib/common.h"
 
 //***************************************************************************
 // PH Board Service
@@ -31,6 +31,9 @@ class cPhBoardService
          cPhCalGetRequest,     // request the current callibartion settings
          cPhCalGetResponse,
          cPhCalSetRequest,     // request set of callibartion settings
+         cPressureRequest,
+         cPressureResponse,
+
          cPhCalSetResponse = cPhCalGetResponse,
 
          cCount

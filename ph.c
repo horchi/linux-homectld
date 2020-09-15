@@ -64,6 +64,50 @@ int cPhInterface::readHeader(Header* header, uint timeoutMs)
 }
 
 //***************************************************************************
+// Pressure Request
+//***************************************************************************
+
+int cPhInterface::requestPressure(PressValue& pressValue)
+{
+   Header header;
+
+   if (checkInterface() != success)
+      return fail;
+
+   cMyMutexLock lock(&mutex);
+
+   header.id = comId;
+   header.command = cPressureRequest;
+
+   tell(2, "Requesting Pressure ...");
+
+   serial.flush();
+
+   if (serial.write(&header, sizeof(Header)) != success)
+   {
+      tell(0, "Error write serial line failed");
+      return fail;
+   }
+
+   tell(2, ".. requested, waiting for responce ..");
+
+   if (readHeader(&header) != success)
+      return fail;
+
+   if (header.command == cPressureResponse)
+   {
+      if (serial.read(&pressValue, sizeof(PressValue)) < 0)
+         return fail;
+
+      tell(1, "Pressure (%d)", pressValue.value);
+      return success;
+   }
+
+   tell(0, "Got unexpected command 0x%x", header.command);
+   return fail;
+}
+
+//***************************************************************************
 // PH Request
 //***************************************************************************
 

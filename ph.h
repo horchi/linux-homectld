@@ -28,6 +28,7 @@ class cPhInterface : public cPhBoardService
       int checkInterface();
 
       int readHeader(Header* header, uint timeoutMs = 5000);
+      int requestPressure(PressValue& pressValue);
       int requestPh(PhValue& phValue);
       double getPh();
       int requestCalibration(PhCalResponse& calResp, uint duration = 30);

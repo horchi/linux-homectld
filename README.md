@@ -49,7 +49,7 @@ Language package 'de_DE.UTF-8' is required as language package (`dpkg-reconfigur
 - PH probe
 
   for example: https://www.amazon.de/gp/product/B081QK9TX2/ref=ppx_yo_dt_b_asin_title_o06_s00?ie=UTF8&psc=1
-- Arduino nano (for PH probe and PHminus fluid control)
+- Arduino Mini (for PH probe and PH minus fluid control)
 
   for example: https://www.amazon.de/gp/product/B015MGHLNA/ref=ppx_yo_dt_b_asin_title_o05_s00?ie=UTF8&psc=1
   USB Interface for programming: https://www.amazon.de/gp/product/B07KVT6HNL/ref=ppx_yo_dt_b_asin_title_o04_s00?ie=UTF8&psc=1
@@ -64,7 +64,7 @@ Language package 'de_DE.UTF-8' is required as language package (`dpkg-reconfigur
 
 ### GPIO Port Connections
 
-The first number below is the physical pin in brackets the GIPO port.
+The first number below is the *physical* pin in brackets the GIPO port.
 
 #### One Wire Sensors
 
@@ -79,8 +79,10 @@ The first number below is the physical pin in brackets the GIPO port.
 - User Out 1     - 16 (GPIO23)
 - User Out 2     - 18 (GPIO24)
 - One Wire Power - 19 (GPIO10) to reset the sensors on trouble
+- User Out 4     - 21 (GPIO9)
 - Shower Valve   - 22 (GPIO25)
 - User Out 3     - 23 (GPIO11)
+
 
 #### Digital Inputs
 

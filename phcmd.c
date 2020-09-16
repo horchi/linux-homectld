@@ -32,10 +32,12 @@ int main(int argc, char** argv)
    cPhBoardService::PhCalResponse calResp;
    cPhBoardService::PhCalSettings calSettings;
    cPhBoardService::PhValue phValue;
+   cPhBoardService::PressValue pressValue;
    int every {na};
    bool cal {false};
    bool calGet {false};
    bool calSet {false};
+   bool press {false};
 
    logstdout = yes;
    loglevel = 1;
@@ -48,6 +50,8 @@ int main(int argc, char** argv)
 
    if (argc == 2)
       ;
+   else if (argc > 2 && strcmp(argv[2], "press") == 0)
+      press = true;
    else if (argc > 3 && strcmp(argv[2], "every") == 0)
       every = atoi(argv[3]);
    else if (argc > 2 && strcmp(argv[2], "cal") == 0)
@@ -84,8 +88,17 @@ int main(int argc, char** argv)
    else if (calGet)
       phInterface.requestCalGet(calSettings);
 
+   else if (press)
+   {
+      while (true)
+      {
+         phInterface.requestPressure(pressValue);
+         sleep(1);
+      }
+   }
    else
    {
+
       while (true)
       {
          phInterface.requestPh(phValue);

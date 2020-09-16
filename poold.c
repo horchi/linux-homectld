@@ -59,6 +59,7 @@ std::list<Poold::ConfigItemDef> Poold::configuration
 
    { "aggregateHistory",          ctInteger, false, "1 Pool Daemon", "Historie [Tage]", "history for aggregation in days (default 0 days -> aggegation turned OFF)" },
    { "aggregateInterval",         ctInteger, false, "1 Pool Daemon", "Intervall [m]", "aggregation interval in minutes - 'one sample per interval will be build'" },
+   { "peakResetAt",               ctString,  true,  "1 Pool Daemon", "", "" },
 
    { "hassMqttUrl",               ctString,  false, "1 Pool Daemon", "Home Assistant MQTT Url", "Optional. Beispiel: 'tcp://127.0.0.1:1883'" },
 
@@ -168,21 +169,33 @@ int Poold::pushDataUpdate(const char* title, long client)
 
    if (client)
    {
+      auto cl = wsClients[(void*)client];
       json_t* oWsJson = json_array();
 
-      auto cl = wsClients[(void*)client];
-
-      for (auto sj : jsonSensorList)
+      if (cl.page == "dashboard")
       {
-         bool visible {false};
+         if (addrsDashboard.size())
+            for (const auto sensor : addrsDashboard)
+               json_array_append(oWsJson, jsonSensorList[sensor]);
+         else
+            for (auto sj : jsonSensorList)
+               json_array_append(oWsJson, sj.second);
+      }
+      else if (cl.page == "list")
+      {
+         if (addrsList.size())
+            for (const auto sensor : addrsList)
+               json_array_append(oWsJson, jsonSensorList[sensor]);
+         else
+            for (auto sj : jsonSensorList)
+               json_array_append(oWsJson, sj.second);
+      }
+      else if (cl.page == "schema")
+      {
+         // #TODO - send visible instead of all
 
-         if (cl.page == "dashboard")
-            visible = onDashboard(sj.type.c_str(), sj.address);
-         else if (cl.page == "list")
-            visible = onList(sj.type.c_str(), sj.address);
-
-         if (visible)
-            json_array_append(oWsJson, sj.json);      // use _append instead of _append_new to keep the object
+         for (auto sj : jsonSensorList)
+            json_array_append(oWsJson, sj.second);
       }
 
       pushOutMessage(oWsJson, title, client);
@@ -192,35 +205,34 @@ int Poold::pushDataUpdate(const char* title, long client)
       for (const auto cl : wsClients)
       {
          json_t* oWsJson = json_array();
-         size_t count {0};
 
-         for (auto sj : jsonSensorList)
+         if (cl.second.page == "dashboard")
          {
-            bool visible {false};
-
-            if (cl.second.page == "dashboard")
-               visible = onDashboard(sj.type.c_str(), sj.address);
-            else if (cl.second.page == "list")
-               visible = onList(sj.type.c_str(), sj.address);
-
-            if (visible)
-            {
-               json_array_append(oWsJson, sj.json);      // use _append instead of _append_new to keep the object
-               count++;
-            }
+            if (addrsDashboard.size())
+               for (const auto sensor : addrsDashboard)
+                  json_array_append(oWsJson, jsonSensorList[sensor]);
+            else
+               for (auto sj : jsonSensorList)
+                  json_array_append(oWsJson, sj.second);
+         }
+         else if (cl.second.page == "list")
+         {
+            if (addrsList.size())
+               for (const auto sensor : addrsList)
+                  json_array_append(oWsJson, jsonSensorList[sensor]);
+            else
+               for (auto sj : jsonSensorList)
+                  json_array_append(oWsJson, sj.second);
          }
 
-         if (count)
-            pushOutMessage(oWsJson, title, (long)cl.first);
-         else
-            json_decref(oWsJson);
+         pushOutMessage(oWsJson, title, (long)cl.first);
       }
    }
 
    // cleanup
 
    for (auto sj : jsonSensorList)
-      json_decref(sj.json);
+      json_decref(sj.second);
 
    jsonSensorList.clear();
 
@@ -916,8 +928,12 @@ int Poold::readConfiguration()
    }
    free(port);
 
-   getConfigItem("addrsDashboard", addrsDashboard, "");
-   getConfigItem("addrsList", addrsList, "");
+   char* addrs {nullptr};
+   getConfigItem("addrsDashboard", addrs, "");
+   addrsDashboard = split(addrs, ',');
+   getConfigItem("addrsList", addrs, "");
+   addrsList = split(addrs, ',');
+   free(addrs);
 
    getConfigItem("mail", mail, no);
    getConfigItem("mailScript", mailScript, BIN_PATH "/poold-mail.sh");
@@ -1161,38 +1177,6 @@ int Poold::loop()
 }
 
 //***************************************************************************
-// Show Sensor On Dashbord
-//***************************************************************************
-
-bool Poold::onDashboard(const char* type, int address)
-{
-   if (isEmpty(addrsDashboard))
-      return true;
-
-   char* tupel;
-   asprintf(&tupel, "%s:0x%x", type, address);
-
-   bool visible = strstr(addrsDashboard, tupel);
-   free(tupel);
-
-   return visible;
-}
-
-bool Poold::onList(const char* type, int address)
-{
-   if (isEmpty(addrsList))
-      return true;
-
-   char* tupel;
-   asprintf(&tupel, "%s:0x%x", type, address);
-
-   bool visible = strstr(addrsList, tupel);
-   free(tupel);
-
-   return visible;
-}
-
-//***************************************************************************
 // Update
 //***************************************************************************
 
@@ -1217,7 +1201,7 @@ int Poold::update(bool webOnly, long client)
       connection->startTransaction();
 
    for (auto sj : jsonSensorList)
-      json_decref(sj.json);
+      json_decref(sj.second);
 
    jsonSensorList.clear();
 
@@ -1236,7 +1220,11 @@ int Poold::update(bool webOnly, long client)
          title = usrtitle;
 
       json_t* ojData = json_object();
-      jsonSensorList.push_back({type, addr, ojData});
+      char* tupel {nullptr};
+      asprintf(&tupel, "%s:0x%02x", type, addr);
+      jsonSensorList[tupel] = ojData;
+      free(tupel);
+
       sensor2Json(ojData, tableValueFacts);
 
       if (tableValueFacts->hasValue("TYPE", "W1"))
@@ -1247,7 +1235,7 @@ int Poold::update(bool webOnly, long client)
             double w1Value = valueOfW1(name, w1Last);
 
             json_object_set_new(ojData, "value", json_real(w1Value));
-            json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
+            json_object_set_new(ojData, "widgettype", json_integer(wtChart));
 
             if (!webOnly)
                store(now, name, title, unit, type, addr, w1Value);
@@ -1258,23 +1246,24 @@ int Poold::update(bool webOnly, long client)
             json_object_set_new(ojData, "widgettype", json_integer(wtText));
          }
       }
-      else if (tableValueFacts->hasValue("TYPE", "PH") && !isEmpty(phDevice))
+      else if (tableValueFacts->hasValue("TYPE", "PH"))
       {
          cPhInterface::PhValue phValueStruct;
 
-         if (phInterface.requestPh(phValueStruct) == success)
+         if (!isEmpty(phDevice) && phInterface.requestPh(phValueStruct) == success)
          {
             phValue = phValueStruct.ph;
             phValueAt = time(0);
 
             json_object_set_new(ojData, "value", json_real(phValue));
-            json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
+            json_object_set_new(ojData, "widgettype", json_integer(wtChart));
 
             if (!webOnly)
                store(now, name, title, unit, type, addr, phValue);
          }
          else
          {
+            tell(0, "ADDING PH ERROR");
             json_object_set_new(ojData, "text", json_string("missing sensor"));
             json_object_set_new(ojData, "widgettype", json_integer(wtText));
          }
@@ -1317,7 +1306,7 @@ int Poold::update(bool webOnly, long client)
          else if (kind == "value")
          {
             json_object_set_new(ojData, "value", json_real(strtod(value.c_str(), nullptr)));
-            json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
+            json_object_set_new(ojData, "widgettype", json_integer(wtChart));
          }
          else
             tell(0, "Got unexpected script kind '%s' in '%s'", kind.c_str(), result.c_str());
@@ -1345,7 +1334,7 @@ int Poold::update(bool webOnly, long client)
             else
             {
                json_object_set_new(ojData, "value", json_integer(waterLevel));
-               json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
+               json_object_set_new(ojData, "widgettype", json_integer(wtChart));
 
                if (!webOnly)
                   store(now, name, title, unit, type, addr, waterLevel);
@@ -1365,7 +1354,7 @@ int Poold::update(bool webOnly, long client)
                tCurrentDelta = tSolar - tPool;
 
                json_object_set_new(ojData, "value", json_real(tCurrentDelta));
-               json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
+               json_object_set_new(ojData, "widgettype", json_integer(wtChart));
 
                if (!webOnly)
                   store(now, name, title, unit, type, addr, tCurrentDelta);
@@ -1378,7 +1367,7 @@ int Poold::update(bool webOnly, long client)
                int ml = calcPhMinusVolume(phValue);
 
                json_object_set_new(ojData, "value", json_real(ml));
-               json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
+               json_object_set_new(ojData, "widgettype", json_integer(wtChart));
 
                if (!webOnly)
                   store(now, name, title, unit, type, addr, ml);
@@ -2073,6 +2062,11 @@ int Poold::performPasswChange(json_t* oObject, long client)
 int Poold::resetPeaks(json_t* obj, long client)
 {
    tablePeaks->truncate();
+   setConfigItem("peakResetAt", l2pTime(time(0)).c_str());
+
+   json_t* oJson = json_object();
+   config2Json(oJson);
+   pushOutMessage(oJson, "config", client);
 
    return done;
 }
@@ -2749,8 +2743,7 @@ int Poold::loadHtmlHeader()
                      "        border: 1px solid #D2D2D2;\n"
                      "      }\n"
                      "      </style>\n"
-                     "  </head>"
-                     "\0");
+                     "  </head>\n\0");
 
    return success;
 }
@@ -3061,7 +3054,7 @@ int Poold::publishScriptResult(ulong addr, const char* type, std::string result)
       else if (kind == "value")
       {
          json_object_set_new(ojData, "value", json_real(strtod(value.c_str(), nullptr)));
-         json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
+         json_object_set_new(ojData, "widgettype", json_integer(wtChart));
       }
 
       pushOutMessage(oJson, "update");
@@ -3096,7 +3089,6 @@ void Poold::pin2Json(json_t* ojData, int pin)
    json_object_set_new(ojData, "type", json_string("DO"));
    json_object_set_new(ojData, "name", json_string(digitalOutputStates[pin].name));
    json_object_set_new(ojData, "title", json_string(digitalOutputStates[pin].title.c_str()));
-   // json_object_set_new(ojData, "unit", json_string(""));
    json_object_set_new(ojData, "mode", json_string(digitalOutputStates[pin].mode == omManual ? "manual" : "auto"));
    json_object_set_new(ojData, "options", json_integer(digitalOutputStates[pin].opt));
    json_object_set_new(ojData, "value", json_integer(digitalOutputStates[pin].state));
@@ -3170,9 +3162,7 @@ void Poold::updateW1(const char* id, double value)
    w1Sensors[id].value = value;
    w1Sensors[id].last = time(0);
 
-//   json_t* oJson = json_array();
    json_t* ojData = json_object();
-   // json_array_append_new(oJson, ojData);
 
    tableValueFacts->clear();
    tableValueFacts->setValue("ADDRESS", (int)toW1Id(id));
@@ -3182,12 +3172,14 @@ void Poold::updateW1(const char* id, double value)
    {
       sensor2Json(ojData, tableValueFacts);
       json_object_set_new(ojData, "value", json_real(value));
-      json_object_set_new(ojData, "widgettype", json_integer(wtGauge));
+      json_object_set_new(ojData, "widgettype", json_integer(wtChart));
 
-      jsonSensorList.push_back({"W1", (uint)toW1Id(id), ojData});
+      char* tupel {nullptr};
+      asprintf(&tupel, "W1:0x%02x", toW1Id(id));
+      jsonSensorList[tupel] = ojData;
+      free(tupel);
+
       pushDataUpdate("update", 0L);
-
-      // pushOutMessage(oJson, "update");
    }
 
    tableValueFacts->reset();

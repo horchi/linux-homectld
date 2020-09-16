@@ -6,9 +6,7 @@
 // Date 29.08.2020 - Jörg Wendel
 //***************************************************************************
 
-//***************************************************************************
-// Include
-//***************************************************************************
+#include <cmath>
 
 #include "ph.h"
 
@@ -99,7 +97,13 @@ int cPhInterface::requestPressure(PressValue& pressValue)
       if (serial.read(&pressValue, sizeof(PressValue)) < 0)
          return fail;
 
-      tell(1, "Pressure (%d)", pressValue.value);
+      // if (std::isnan(.... ))
+      // {
+      //    tell(0, "Error: Got unexpected pressvalue of %.2f (%d)", phValue.ph, phValue.value);
+      //    return fail;
+      // }
+
+      tell(1, "Pressure %.0f mv (%d)", pressValue.value * (5000.0/1023.0), pressValue.value);
       return success;
    }
 
@@ -142,6 +146,12 @@ int cPhInterface::requestPh(PhValue& phValue)
    {
       if (serial.read(&phValue, sizeof(PhValue)) < 0)
          return fail;
+
+      if (std::isnan(phValue.ph))
+      {
+         tell(0, "Error: Got unexpected PH of %.2f (%d)", phValue.ph, phValue.value);
+         return fail;
+      }
 
       tell(1, "PH %.2f (%d)", phValue.ph, phValue.value);
       return success;

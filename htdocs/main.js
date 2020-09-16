@@ -299,7 +299,7 @@ function prepareMenu()
    else if ($("#navMenu").data("maincfg") != undefined) {
       html += "<div class=\"confirmDiv\">";
       html += "  <button class=\"rounded-border buttonOptions\" onclick=\"storeConfig()\">Speichern</button>";
-      html += "  <button class=\"rounded-border buttonOptions\" id=\"buttonResPeaks\" onclick=\"resetPeaks()\">Reset Peaks</button>";
+      html += "  <button class=\"rounded-border buttonOptions\" title=\"Letzter Reset: " + config.peakResetAt + "\" id=\"buttonResPeaks\" onclick=\"resetPeaks()\">Reset Peaks</button>";
       html += "  <button class=\"rounded-border buttonOptions\" onclick=\"sendMail('Test Mail', 'test')\">Test Mail</button>";
       html += "</div>";
    }

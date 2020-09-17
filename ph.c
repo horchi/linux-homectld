@@ -213,9 +213,9 @@ int cPhInterface::requestCalSet(CalSettings& calSettings, uint input)
    if (checkInterface() != success)
       return fail;
 
-   if (!calSettings.digitsA || !calSettings.digitsB || !calSettings.valueA || !calSettings.valueB)
+   if (!calSettings.digitsA || !calSettings.digitsB || /* !calSettings.valueA || */ !calSettings.valueB)
    {
-      tell(0, "Error: Missing values");
+      tell(0, "Error: Missing at least one calibration value");
       return fail;
    }
 

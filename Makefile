@@ -155,13 +155,13 @@ lib/mqtt_c.o    :  lib/mqtt_c.c    lib/mqtt_c.h
 lib/mqtt_pal.o  :  lib/mqtt_pal.c  lib/mqtt_c.h
 
 main.o          :  main.c          $(HEADER) poold.h HISTORY.h
-poold.o         :  poold.c         $(HEADER) poold.h w1.h lib/mqtt.h websock.h
+poold.o         :  poold.c         $(HEADER) poold.h w1.h lib/mqtt.h websock.h phservice.h
 w1.o            :  w1.c            $(HEADER) w1.h lib/mqtt.h
 gpio.o          :  gpio.c          $(HEADER)
 hass.o          :  hass.c          poold.h
 websock.o       :  websock.c       websock.h
-ph.o            :  ph.c            poold.h lib/serial.h
-phcmd.o         :  phcmd.c         ph.h lib/serial.h
+ph.o            :  ph.c            poold.h lib/serial.h phservice.h
+phcmd.o         :  phcmd.c         ph.h lib/serial.h phservice.h
 
 # ------------------------------------------------------
 # Git / Versioning / Tagging

@@ -31,8 +31,8 @@ int main(int argc, char** argv)
 {
    cPhBoardService::PhCalResponse calResp;
    cPhBoardService::PhCalSettings calSettings;
-   cPhBoardService::PhValue phValue;
-   cPhBoardService::PressValue pressValue;
+   cPhBoardService::AnalogValue phValue;
+   cPhBoardService::AnalogValue pressValue;
    int every {na};
    bool cal {false};
    bool calGet {false};
@@ -61,9 +61,9 @@ int main(int argc, char** argv)
    else if (argc > 4 && strcmp(argv[2], "calset") == 0)
    {
       calSet = true;
-      calSettings.phA = 7.00;
+      calSettings.valueA = 7.00;
       calSettings.pointA = atoi(argv[3]);
-      calSettings.phB = 9.00;
+      calSettings.valueB = 9.00;
       calSettings.pointB = atoi(argv[4]);
    }
    else

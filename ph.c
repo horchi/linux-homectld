@@ -65,7 +65,7 @@ int cPhInterface::readHeader(Header* header, uint timeoutMs)
 // Pressure Request
 //***************************************************************************
 
-int cPhInterface::requestPressure(PressValue& pressValue)
+int cPhInterface::requestPressure(AnalogValue& pressValue)
 {
    Header header;
 
@@ -94,16 +94,23 @@ int cPhInterface::requestPressure(PressValue& pressValue)
 
    if (header.command == cPressureResponse)
    {
-      if (serial.read(&pressValue, sizeof(PressValue)) < 0)
+      if (serial.read(&pressValue, sizeof(AnalogValue)) < 0)
          return fail;
 
-      // if (std::isnan(.... ))
-      // {
-      //    tell(0, "Error: Got unexpected pressvalue of %.2f (%d)", phValue.ph, phValue.value);
-      //    return fail;
-      // }
+      PhCalSettings calSettings = { 475, 780, 2.25, 4.0};
+      double m = (calSettings.valueB - calSettings.valueA) / (calSettings.pointB - calSettings.pointA);
+      double b = calSettings.valueB - m * calSettings.pointB;
+      double bar = m * pressValue.digits + b;
 
-      tell(1, "Pressure %.0f mv (%d)", pressValue.value * (5000.0/1023.0), pressValue.value);
+      pressValue.value = bar;
+
+      if (std::isnan(pressValue.value))
+      {
+         tell(0, "Error: Got unexpected pressure value of %.2f (%d)", pressValue.value, pressValue.digits);
+         return fail;
+      }
+
+      tell(1, "Pressure %.2f bar (%d)", pressValue.value, pressValue.digits);
       return success;
    }
 
@@ -115,7 +122,7 @@ int cPhInterface::requestPressure(PressValue& pressValue)
 // PH Request
 //***************************************************************************
 
-int cPhInterface::requestPh(PhValue& phValue)
+int cPhInterface::requestPh(AnalogValue& phValue)
 {
    Header header;
 
@@ -144,16 +151,16 @@ int cPhInterface::requestPh(PhValue& phValue)
 
    if (header.command == cPhResponse)
    {
-      if (serial.read(&phValue, sizeof(PhValue)) < 0)
+      if (serial.read(&phValue, sizeof(AnalogValue)) < 0)
          return fail;
 
-      if (std::isnan(phValue.ph))
+      if (std::isnan(phValue.value))
       {
-         tell(0, "Error: Got unexpected PH of %.2f (%d)", phValue.ph, phValue.value);
+         tell(0, "Error: Got unexpected PH of %.2f (%d)", phValue.value, phValue.digits);
          return fail;
       }
 
-      tell(1, "PH %.2f (%d)", phValue.ph, phValue.value);
+      tell(1, "PH %.2f (%d)", phValue.value, phValue.digits);
       return success;
    }
 
@@ -249,7 +256,7 @@ int cPhInterface::requestCalGet(PhCalSettings& calSettings)
          return fail;
 
       tell(0, "Current PH Calibration values are\n PH %2.1f => %d\n PH %2.1f => %d",
-           calSettings.phA, calSettings.pointA, calSettings.phB, calSettings.pointB);
+           calSettings.valueA, calSettings.pointA, calSettings.valueB, calSettings.pointB);
 
       return success;
    }
@@ -267,7 +274,7 @@ int cPhInterface::requestCalSet(PhCalSettings& calSettings)
    if (checkInterface() != success)
       return fail;
 
-   if (!calSettings.pointA || !calSettings.pointB || !calSettings.phA || !calSettings.phB)
+   if (!calSettings.pointA || !calSettings.pointB || !calSettings.valueA || !calSettings.valueB)
    {
       tell(0, "Error: Missing values");
       return fail;

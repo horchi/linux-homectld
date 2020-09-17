@@ -47,16 +47,10 @@ class cPhBoardService
          char command {0};
       };
 
-      struct PressValue
+      struct AnalogValue
       {
-         float pressure {0.0};
-         word value {0};
-      };
-
-      struct PhValue
-      {
-         float ph {0.0};
-         word value {0};
+         float value {0.0};
+         word digits {0};
       };
 
       struct PhCalRequest
@@ -73,8 +67,8 @@ class cPhBoardService
       {
          word pointA {377};   // value of calibration point A
          word pointB {435};   // value of calibration point B
-         float phA {7.0};     // PH value for calibration point A
-         float phB {9.0};     // PH value for calibration point B
+         float valueA {7.0};     // PH value for calibration point A
+         float valueB {9.0};     // PH value for calibration point B
       };
 
 #pragma pack()

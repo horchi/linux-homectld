@@ -479,6 +479,7 @@ int Poold::init()
    addValueFact(2, "SP", "Solar Delta", "°C");
    addValueFact(3, "SP", "PH Minus Bedarf", "ml");
    addValueFact(1, "PH", "PH", "");
+   addValueFact(2, "PH", "Druck", "bar");
 
    // ---------------------------------
    // apply some configuration specials
@@ -1248,24 +1249,47 @@ int Poold::update(bool webOnly, long client)
       }
       else if (tableValueFacts->hasValue("TYPE", "PH"))
       {
-         cPhInterface::PhValue phValueStruct;
-
-         if (!isEmpty(phDevice) && phInterface.requestPh(phValueStruct) == success)
+         if (addr == 1)
          {
-            phValue = phValueStruct.ph;
-            phValueAt = time(0);
+            cPhInterface::AnalogValue phValueStruct;
 
-            json_object_set_new(ojData, "value", json_real(phValue));
-            json_object_set_new(ojData, "widgettype", json_integer(wtChart));
+            if (!isEmpty(phDevice) && phInterface.requestPh(phValueStruct) == success)
+            {
+               phValue = phValueStruct.value;
+               phValueAt = time(0);
 
-            if (!webOnly)
-               store(now, name, title, unit, type, addr, phValue);
+               json_object_set_new(ojData, "value", json_real(phValue));
+               json_object_set_new(ojData, "widgettype", json_integer(wtChart));
+
+               if (!webOnly)
+                  store(now, name, title, unit, type, addr, phValue);
+            }
+            else
+            {
+               json_object_set_new(ojData, "text", json_string("missing sensor"));
+               json_object_set_new(ojData, "widgettype", json_integer(wtText));
+            }
          }
-         else
+         else if (addr == 2)
          {
-            tell(0, "ADDING PH ERROR");
-            json_object_set_new(ojData, "text", json_string("missing sensor"));
-            json_object_set_new(ojData, "widgettype", json_integer(wtText));
+            cPhInterface::AnalogValue pressValueStruct;
+
+            if (!isEmpty(phDevice) && phInterface.requestPressure(pressValueStruct) == success)
+            {
+               double pressValue = pressValueStruct.value;
+               // time_t pressValueAt = time(0);
+
+               json_object_set_new(ojData, "value", json_real(pressValue));
+               json_object_set_new(ojData, "widgettype", json_integer(wtChart));
+
+               if (!webOnly)
+                  store(now, name, title, unit, type, addr, pressValue);
+            }
+            else
+            {
+               json_object_set_new(ojData, "text", json_string("missing sensor"));
+               json_object_set_new(ojData, "widgettype", json_integer(wtText));
+            }
          }
       }
       else if (tableValueFacts->hasValue("TYPE", "DO"))
@@ -1911,15 +1935,15 @@ int Poold::performPh(long client, bool all)
       return done;
 
    json_t* oJson = json_object();
-   cPhInterface::PhValue phValue;
+   cPhInterface::AnalogValue phValue;
    cPhInterface::PhCalSettings calSettings;
 
    if (all)
    {
       if (phInterface.requestCalGet(calSettings) == success)
       {
-         json_object_set_new(oJson, "currentPhA", json_real(calSettings.phA));
-         json_object_set_new(oJson, "currentPhB", json_real(calSettings.phB));
+         json_object_set_new(oJson, "currentPhA", json_real(calSettings.valueA));
+         json_object_set_new(oJson, "currentPhB", json_real(calSettings.valueB));
          json_object_set_new(oJson, "currentCalA", json_real(calSettings.pointA));
          json_object_set_new(oJson, "currentCalB", json_real(calSettings.pointB));
       }
@@ -1934,9 +1958,9 @@ int Poold::performPh(long client, bool all)
 
    if (phInterface.requestPh(phValue) == success)
    {
-      json_object_set_new(oJson, "currentPh", json_real(phValue.ph));
-      json_object_set_new(oJson, "currentPhValue", json_integer(phValue.value));
-      json_object_set_new(oJson, "currentPhMinusDemand", json_integer(calcPhMinusVolume(phValue.ph)));
+      json_object_set_new(oJson, "currentPh", json_real(phValue.value));
+      json_object_set_new(oJson, "currentPhValue", json_integer(phValue.digits));
+      json_object_set_new(oJson, "currentPhMinusDemand", json_integer(calcPhMinusVolume(phValue.value)));
    }
    else
    {
@@ -1999,13 +2023,13 @@ int Poold::performPhSetCal(json_t* oObject, long client)
 
       if (getIntFromJson(oObject, "currentPhA", na) != na)
       {
-         calSettings.phA = getIntFromJson(oObject, "currentPhA");
+         calSettings.valueA = getIntFromJson(oObject, "currentPhA");
          calSettings.pointA = getIntFromJson(oObject, "currentCalA");
       }
 
       if (getIntFromJson(oObject, "currentPhB", na) != na)
       {
-         calSettings.phB = getIntFromJson(oObject, "currentPhB");
+         calSettings.valueB = getIntFromJson(oObject, "currentPhB");
          calSettings.pointB = getIntFromJson(oObject, "currentCalB");
       }
 

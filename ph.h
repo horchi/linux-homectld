@@ -28,12 +28,10 @@ class cPhInterface : public cPhBoardService
       int checkInterface();
 
       int readHeader(Header* header, uint timeoutMs = 5000);
-      int requestPressure(AnalogValue& pressValue);
-      int requestPh(AnalogValue& phValue);
-      double getPh();
-      int requestCalibration(PhCalResponse& calResp, uint duration = 30);
-      int requestCalGet(PhCalSettings& calSettings);
-      int requestCalSet(PhCalSettings& calSettings);
+      int requestAi(AnalogValue& aiValue, uint input);
+      int requestCalibration(CalResponse& calResp, uint input, uint duration = 30);
+      int requestCalGet(CalSettings& calSettings, uint input);
+      int requestCalSet(CalSettings& calSettings, uint input);
 
    private:
 

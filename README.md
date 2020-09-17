@@ -91,6 +91,11 @@ The first number below is the *physical* pin in brackets the GIPO port.
 - Water Level 3 - 33 (GPIO13)
 - Shower Switch - 35 (GPIO19)
 
+### Arduino Mini Belegung
+
+- A0 - PH probe
+- A1 - Filter Pressure Sensor
+
 
 # Installation by package (only Raspbian Buster)
 

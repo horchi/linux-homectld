@@ -34,7 +34,7 @@ int cPhInterface::checkInterface()
 
    tell(0, "Error: Interface not open!");
 
-   // #TODO try open here
+   // #TODO try re-open here
    // return open(ttyDevice);
 
    return fail;
@@ -65,17 +65,15 @@ int cPhInterface::readHeader(Header* header, uint timeoutMs)
 // Pressure Request
 //***************************************************************************
 
-int cPhInterface::requestPressure(AnalogValue& pressValue)
+int cPhInterface::requestAi(AnalogValue& aiValue, uint input)
 {
-   Header header;
-
    if (checkInterface() != success)
       return fail;
 
    cMyMutexLock lock(&mutex);
 
+   Header header(cAiRequest, input);
    header.id = comId;
-   header.command = cPressureRequest;
 
    tell(2, "Requesting Pressure ...");
 
@@ -92,79 +90,23 @@ int cPhInterface::requestPressure(AnalogValue& pressValue)
    if (readHeader(&header) != success)
       return fail;
 
-   if (header.command == cPressureResponse)
+   if (header.command == cAiResponse)
    {
-      if (serial.read(&pressValue, sizeof(AnalogValue)) < 0)
+      if (serial.read(&aiValue, sizeof(AnalogValue)) < 0)
          return fail;
 
-      PhCalSettings calSettings = { 475, 780, 2.25, 4.0};
-      double m = (calSettings.valueB - calSettings.valueA) / (calSettings.pointB - calSettings.pointA);
-      double b = calSettings.valueB - m * calSettings.pointB;
-      double bar = m * pressValue.digits + b;
-
-      pressValue.value = bar;
-
-      if (std::isnan(pressValue.value))
+      if (std::isnan(aiValue.value))
       {
-         tell(0, "Error: Got unexpected pressure value of %.2f (%d)", pressValue.value, pressValue.digits);
+         tell(0, "Error: Got unexpected value for A%d of %.2f (%d)", input, aiValue.value, aiValue.digits);
          return fail;
       }
 
-      tell(1, "Pressure %.2f bar (%d)", pressValue.value, pressValue.digits);
+      tell(1, "A%d value %.2f (%d)", input, aiValue.value, aiValue.digits);
       return success;
    }
 
    tell(0, "Got unexpected command 0x%x", header.command);
-   return fail;
-}
 
-//***************************************************************************
-// PH Request
-//***************************************************************************
-
-int cPhInterface::requestPh(AnalogValue& phValue)
-{
-   Header header;
-
-   if (checkInterface() != success)
-      return fail;
-
-   cMyMutexLock lock(&mutex);
-
-   header.id = comId;
-   header.command = cPhRequest;
-
-   tell(2, "Requesting PH ...");
-
-   serial.flush();
-
-   if (serial.write(&header, sizeof(Header)) != success)
-   {
-      tell(0, "Error write serial line failed");
-      return fail;
-   }
-
-   tell(2, ".. requested, waiting for responce ..");
-
-   if (readHeader(&header) != success)
-      return fail;
-
-   if (header.command == cPhResponse)
-   {
-      if (serial.read(&phValue, sizeof(AnalogValue)) < 0)
-         return fail;
-
-      if (std::isnan(phValue.value))
-      {
-         tell(0, "Error: Got unexpected PH of %.2f (%d)", phValue.value, phValue.digits);
-         return fail;
-      }
-
-      tell(1, "PH %.2f (%d)", phValue.value, phValue.digits);
-      return success;
-   }
-
-   tell(0, "Got unexpected command 0x%x", header.command);
    return fail;
 }
 
@@ -173,27 +115,26 @@ int cPhInterface::requestPh(AnalogValue& phValue)
 //   get avarage of <duration>
 //***************************************************************************
 
-int cPhInterface::requestCalibration(PhCalResponse& calResp, uint duration)
+int cPhInterface::requestCalibration(CalResponse& calResp, uint input, uint duration)
 {
    int res;
-   Header header;
-   PhCalRequest calReq;
+   CalRequest calReq;
 
    if (checkInterface() != success)
       return fail;
 
    cMyMutexLock lock(&mutex);
 
+   Header header(cCalRequest, input);
    header.id = comId;
-   header.command = cPhCalRequest;
    calReq.time = duration;
 
-   tell(0, "Requesting PH calibration cycle ...");
+   tell(0, "Requesting calibration cycle of A%d ...", input);
 
    serial.flush();
 
    res = serial.write(&header, sizeof(Header))
-      + serial.write(&calReq, sizeof(PhCalRequest));
+      + serial.write(&calReq, sizeof(CalRequest));
 
    if (res != success)
    {
@@ -206,12 +147,12 @@ int cPhInterface::requestCalibration(PhCalResponse& calResp, uint duration)
    if (readHeader(&header, duration*2*1000) != success)
       return fail;
 
-   if (header.command == cPhCalResponse)
+   if (header.command == cCalResponse)
    {
-      if (serial.read(&calResp, sizeof(PhCalResponse)) < 0)
+      if (serial.read(&calResp, sizeof(CalResponse)) < 0)
          return fail;
 
-      tell(0, "PH Calibration value is (%d)", calResp.value);
+      tell(0, "Calibration value of A%d is (%d)", input, calResp.digits);
       return success;
    }
 
@@ -223,19 +164,17 @@ int cPhInterface::requestCalibration(PhCalResponse& calResp, uint duration)
 // Request Current calibration settings (stored in arduino's EEPOROM)
 //***************************************************************************
 
-int cPhInterface::requestCalGet(PhCalSettings& calSettings)
+int cPhInterface::requestCalGet(CalSettings& calSettings, uint input)
 {
-   Header header;
-
    if (checkInterface() != success)
       return fail;
 
    cMyMutexLock lock(&mutex);
 
+   Header header(cCalGetRequest, input);
    header.id = comId;
-   header.command = cPhCalGetRequest;
 
-   tell(2, "Requesting current PH calibration settings ...");
+   tell(2, "Requesting current calibration settings ...");
 
    serial.flush();
 
@@ -250,13 +189,13 @@ int cPhInterface::requestCalGet(PhCalSettings& calSettings)
    if (readHeader(&header) != success)
       return fail;
 
-   if (header.command == cPhCalGetResponse)
+   if (header.command == cCalGSResponse)
    {
-      if (serial.read(&calSettings, sizeof(PhCalSettings)) < 0)
+      if (serial.read(&calSettings, sizeof(CalSettings)) < 0)
          return fail;
 
-      tell(0, "Current PH Calibration values are\n PH %2.1f => %d\n PH %2.1f => %d",
-           calSettings.valueA, calSettings.pointA, calSettings.valueB, calSettings.pointB);
+      tell(0, "Current Calibration values of A%d are\n value %2.1f => %d\n value %2.1f => %d", input,
+           calSettings.valueA, calSettings.digitsA, calSettings.valueB, calSettings.digitsB);
 
       return success;
    }
@@ -269,29 +208,30 @@ int cPhInterface::requestCalGet(PhCalSettings& calSettings)
 // Request Setting of calibration data (stored in arduino's EEPOROM)
 //***************************************************************************
 
-int cPhInterface::requestCalSet(PhCalSettings& calSettings)
+int cPhInterface::requestCalSet(CalSettings& calSettings, uint input)
 {
    if (checkInterface() != success)
       return fail;
 
-   if (!calSettings.pointA || !calSettings.pointB || !calSettings.valueA || !calSettings.valueB)
+   if (!calSettings.digitsA || !calSettings.digitsB || !calSettings.valueA || !calSettings.valueB)
    {
       tell(0, "Error: Missing values");
       return fail;
    }
 
-   Header header;
+   //
+
    cMyMutexLock lock(&mutex);
 
+   Header header(cCalSetRequest, input);
    header.id = comId;
-   header.command = cPhCalSetRequest;
 
-   tell(2, "Requesting set of PH calibration values ...");
+   tell(2, "Requesting set of calibration values for A%d ...", header.input);
 
    serial.flush();
 
    int res = serial.write(&header, sizeof(Header))
-      + serial.write(&calSettings, sizeof(PhCalSettings));
+      + serial.write(&calSettings, sizeof(CalSettings));
 
    if (res != success)
    {
@@ -304,12 +244,12 @@ int cPhInterface::requestCalSet(PhCalSettings& calSettings)
    if (readHeader(&header) != success)
       return fail;
 
-   if (header.command == cPhCalSetResponse)
+   if (header.command == cCalGSResponse)
    {
-      if (serial.read(&calSettings, sizeof(PhCalSettings)) < 0)
+      if (serial.read(&calSettings, sizeof(CalSettings)) < 0)
          return fail;
 
-      tell(0, "PH Calibration values now set to %d / %d", calSettings.pointA, calSettings.pointB);
+      tell(0, "Calibration values for A%c now set to %u / %u", header.input, (uint)calSettings.digitsA, (uint)calSettings.digitsB);
       return success;
    }
 

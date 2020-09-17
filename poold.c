@@ -478,8 +478,8 @@ int Poold::init()
    addValueFact(1, "SP", "Water Level", "%");
    addValueFact(2, "SP", "Solar Delta", "°C");
    addValueFact(3, "SP", "PH Minus Bedarf", "ml");
-   addValueFact(1, "PH", "PH", "");
-   addValueFact(2, "PH", "Druck", "bar");
+   addValueFact(0, "AI", "PH", "");
+   addValueFact(1, "AI", "Druck", "bar");
 
    // ---------------------------------
    // apply some configuration specials
@@ -1247,15 +1247,15 @@ int Poold::update(bool webOnly, long client)
             json_object_set_new(ojData, "widgettype", json_integer(wtText));
          }
       }
-      else if (tableValueFacts->hasValue("TYPE", "PH"))
+      else if (tableValueFacts->hasValue("TYPE", "AI"))
       {
-         if (addr == 1)
+         if (addr == 0)
          {
-            cPhInterface::AnalogValue phValueStruct;
+            cPhInterface::AnalogValue aiValue;
 
-            if (!isEmpty(phDevice) && phInterface.requestPh(phValueStruct) == success)
+            if (!isEmpty(phDevice) && phInterface.requestAi(aiValue, addr) == success)
             {
-               phValue = phValueStruct.value;
+               phValue = aiValue.value;
                phValueAt = time(0);
 
                json_object_set_new(ojData, "value", json_real(phValue));
@@ -1270,13 +1270,13 @@ int Poold::update(bool webOnly, long client)
                json_object_set_new(ojData, "widgettype", json_integer(wtText));
             }
          }
-         else if (addr == 2)
+         else if (addr == 1)
          {
-            cPhInterface::AnalogValue pressValueStruct;
+            cPhInterface::AnalogValue aiValue;
 
-            if (!isEmpty(phDevice) && phInterface.requestPressure(pressValueStruct) == success)
+            if (!isEmpty(phDevice) && phInterface.requestAi(aiValue, addr) == success)
             {
-               double pressValue = pressValueStruct.value;
+               double pressValue = aiValue.value;
                // time_t pressValueAt = time(0);
 
                json_object_set_new(ojData, "value", json_real(pressValue));
@@ -1936,16 +1936,16 @@ int Poold::performPh(long client, bool all)
 
    json_t* oJson = json_object();
    cPhInterface::AnalogValue phValue;
-   cPhInterface::PhCalSettings calSettings;
+   cPhInterface::CalSettings calSettings;
 
    if (all)
    {
-      if (phInterface.requestCalGet(calSettings) == success)
+      if (phInterface.requestCalGet(calSettings, 0) == success)
       {
          json_object_set_new(oJson, "currentPhA", json_real(calSettings.valueA));
          json_object_set_new(oJson, "currentPhB", json_real(calSettings.valueB));
-         json_object_set_new(oJson, "currentCalA", json_real(calSettings.pointA));
-         json_object_set_new(oJson, "currentCalB", json_real(calSettings.pointB));
+         json_object_set_new(oJson, "currentCalA", json_real(calSettings.digitsA));
+         json_object_set_new(oJson, "currentCalB", json_real(calSettings.digitsB));
       }
       else
       {
@@ -1956,7 +1956,7 @@ int Poold::performPh(long client, bool all)
       }
    }
 
-   if (phInterface.requestPh(phValue) == success)
+   if (phInterface.requestAi(phValue, 0) == success)
    {
       json_object_set_new(oJson, "currentPh", json_real(phValue.value));
       json_object_set_new(oJson, "currentPhValue", json_integer(phValue.digits));
@@ -1985,7 +1985,7 @@ int Poold::performPhCal(json_t* oObject, long client)
 
    json_t* oJson = json_object();
    int duration = getIntFromJson(oObject, "duration");
-   cPhInterface::PhCalResponse calResp;
+   cPhInterface::CalResponse calResp;
 
    if (duration > 30)
    {
@@ -1993,8 +1993,8 @@ int Poold::performPhCal(json_t* oObject, long client)
       duration = 30;
    }
 
-   if (phInterface.requestCalibration(calResp, duration) == success)
-      json_object_set_new(oJson, "calValue", json_integer(calResp.value));
+   if (phInterface.requestCalibration(calResp, 0, duration) == success)
+      json_object_set_new(oJson, "calValue", json_integer(calResp.digits));
    else
       json_object_set_new(oJson, "calValue", json_string("request failed"));
 
@@ -2013,29 +2013,29 @@ int Poold::performPhSetCal(json_t* oObject, long client)
    if (client <= 0)
       return done;
 
-   cPhInterface::PhCalSettings calSettings;
+   cPhInterface::CalSettings calSettings;
 
    // first get the actual settings
 
-   if (phInterface.requestCalGet(calSettings) == success)
+   if (phInterface.requestCalGet(calSettings, 0) == success)
    {
       // now update what we get from the WS client
 
       if (getIntFromJson(oObject, "currentPhA", na) != na)
       {
          calSettings.valueA = getIntFromJson(oObject, "currentPhA");
-         calSettings.pointA = getIntFromJson(oObject, "currentCalA");
+         calSettings.digitsA = getIntFromJson(oObject, "currentCalA");
       }
 
       if (getIntFromJson(oObject, "currentPhB", na) != na)
       {
          calSettings.valueB = getIntFromJson(oObject, "currentPhB");
-         calSettings.pointB = getIntFromJson(oObject, "currentCalB");
+         calSettings.digitsB = getIntFromJson(oObject, "currentCalB");
       }
 
       // and store
 
-      if (phInterface.requestCalSet(calSettings) != success)
+      if (phInterface.requestCalSet(calSettings, 0) != success)
          replyResult(fail, "Speichern fehlgeschlagen", client);
       else
          replyResult(success, "gespeichert", client);

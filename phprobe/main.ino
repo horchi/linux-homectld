@@ -7,21 +7,45 @@
 // globals
 //******************************************************************
 
-float m {0};
-float b {0};
+float m[cPhBoardService::analogCount] {0};
+float b[cPhBoardService::analogCount] {0};
 
 //******************************************************************
-// Calculate Graph
+//
 //******************************************************************
 
-void calcGraph()
+int intToA(int num)
 {
-   cPhBoardService::PhCalSettings calSettings;
+   switch (num)
+   {
+      case 0: return A0;
+      case 1: return A1;
+      case 2: return A2;
+      case 3: return A3;
+      case 4: return A4;
+      case 5: return A5;
+      case 6: return A6;
+      case 7: return A7;
+   }
 
-   EEPROM.get(0, calSettings);    // stored at eeprom address 0
+   return A7; // ??
+}
 
-   m = (calSettings.phB - calSettings.phA) / (calSettings.pointB - calSettings.pointA);
-   b = calSettings.phB - m * calSettings.pointB;
+//******************************************************************
+// Calculate Graphs
+//******************************************************************
+
+void calcGraphs()
+{
+   cPhBoardService::CalSettings calSettings;
+
+   for (unsigned int i = 0; i < cPhBoardService::analogCount; i++)
+   {
+      EEPROM.get(0 + (i*sizeof(cPhBoardService::CalSettings)), calSettings);
+
+      m[i] = (calSettings.valueB - calSettings.valueA) / (calSettings.digitsB - calSettings.digitsA);
+      b[i] = calSettings.valueB - m[i] * calSettings.digitsB;
+   }
 }
 
 //******************************************************************
@@ -35,7 +59,7 @@ void setup()
    while (!Serial)
       ;
 
-   calcGraph();
+   calcGraphs();
 
    Serial.flush();
    pinMode(LED_BUILTIN, OUTPUT);
@@ -77,106 +101,84 @@ int serialRead(void* buf, size_t size, int timeoutMs)
 }
 
 //******************************************************************
-// PH Pressure
+// AI Request
 //******************************************************************
 
-void processPressureRequest()
+void processAiRequest(int input)
 {
-   cPhBoardService::Header header;
-   cPhBoardService::PressValue pressValue;
+   cPhBoardService::AnalogValue value;
 
-   pressValue.value = analogRead(A1);
-//   phValue.ph = m * phValue.value + b;
+   value.digits = analogRead(intToA(input));
+   value.value = m[input] * value.digits + b[input];
 
+   cPhBoardService::Header header(cPhBoardService::cAiResponse, input);
    header.id = cPhBoardService::comId;
-   header.command = cPhBoardService::cPressureResponse;
 
    Serial.write((char*)&header, sizeof(cPhBoardService::Header));
-   Serial.write((char*)&pressValue, sizeof(cPhBoardService::PressValue));
-}
-
-//******************************************************************
-// PH Request
-//******************************************************************
-
-void processPhRequest()
-{
-   cPhBoardService::Header header;
-   cPhBoardService::PhValue phValue;
-
-   phValue.value = analogRead(A0);
-   phValue.ph = m * phValue.value + b;
-
-   header.id = cPhBoardService::comId;
-   header.command = cPhBoardService::cPhResponse;
-
-   Serial.write((char*)&header, sizeof(cPhBoardService::Header));
-   Serial.write((char*)&phValue, sizeof(cPhBoardService::PhValue));
+   Serial.write((char*)&value, sizeof(cPhBoardService::AnalogValue));
 }
 
 //******************************************************************
 // Callibartion
 //******************************************************************
 
-void processCalRequest()
+void processCalRequest(int input)
 {
    digitalWrite(LED_BUILTIN, HIGH);
 
-   cPhBoardService::Header header;
-   cPhBoardService::PhCalRequest calReq;
-   cPhBoardService::PhCalResponse calResp;
+   cPhBoardService::CalRequest calReq;
+   cPhBoardService::CalResponse calResp;
 
-   if (serialRead((char*)&calReq, sizeof(cPhBoardService::PhCalRequest), 1000) != sizeof(cPhBoardService::PhCalRequest))
+   if (serialRead((char*)&calReq, sizeof(cPhBoardService::CalRequest), 1000) != sizeof(cPhBoardService::CalRequest))
       return ;
 
    unsigned int total {0};
 
    for (int i = 0; i < calReq.time; i++)
    {
-      total += analogRead(A0);
+      total += analogRead(intToA(input));
       delay(1000);
    }
 
+   cPhBoardService::Header header(cPhBoardService::cCalResponse, input);
    header.id = cPhBoardService::comId;
-   header.command = cPhBoardService::cPhCalResponse;
-   calResp.value = total / calReq.time;   // the time is also the count of values (1 value / second)
+   calResp.digits = total / calReq.time;       // the time is also the count of values (1 value / second)
 
    Serial.write((char*)&header, sizeof(cPhBoardService::Header));
-   Serial.write((char*)&calResp, sizeof(cPhBoardService::PhCalResponse));
+   Serial.write((char*)&calResp, sizeof(cPhBoardService::CalResponse));
 
    digitalWrite(LED_BUILTIN, LOW);
 }
 
-void processCalGetRequest()
+void processCalGetRequest(int input)
 {
-   cPhBoardService::Header header;
-   cPhBoardService::PhCalSettings calSettings;
+   cPhBoardService::CalSettings calSettings;
 
-   EEPROM.get(0, calSettings);            // stored at eeprom address 0
+   EEPROM.get(0 + (input*sizeof(cPhBoardService::CalSettings)), calSettings);
 
+   cPhBoardService::Header header(cPhBoardService::cCalGSResponse, input);
    header.id = cPhBoardService::comId;
-   header.command = cPhBoardService::cPhCalGetResponse;
 
    Serial.write((char*)&header, sizeof(cPhBoardService::Header));
-   Serial.write((char*)&calSettings, sizeof(cPhBoardService::PhCalSettings));
+   Serial.write((char*)&calSettings, sizeof(cPhBoardService::CalSettings));
 }
 
-void processCalSetRequest()
+void processCalSetRequest(int input)
 {
-   cPhBoardService::PhCalSettings calSettings;
+   cPhBoardService::CalSettings calSettings;
 
-   if (serialRead((char*)&calSettings, sizeof(cPhBoardService::PhCalSettings), 1000) != sizeof(cPhBoardService::PhCalSettings))
+   if (serialRead((char*)&calSettings, sizeof(cPhBoardService::CalSettings), 1000) != sizeof(cPhBoardService::CalSettings))
       return ;
 
-   EEPROM.put(0, calSettings);            // we store it at eeprom address 0
+   EEPROM.put(0 + (input*sizeof(cPhBoardService::CalSettings)), calSettings);
 
    // recalculate graph by new callibartion settings
 
-   calcGraph();
+   calcGraphs();
 
    // respond with the new settings
 
-   processCalGetRequest();
+   processCalGetRequest(input);
 }
 
 //******************************************************************
@@ -185,7 +187,7 @@ void processCalSetRequest()
 
 void loop()
 {
-   cPhBoardService::Header header;
+   cPhBoardService::Header header(0, 0);
 
    // dispatcher
 
@@ -201,11 +203,10 @@ void loop()
 
       switch (header.command)
       {
-         case cPhBoardService::cPhRequest:       processPhRequest();       break;
-         case cPhBoardService::cPhCalRequest:    processCalRequest();      break;
-         case cPhBoardService::cPhCalGetRequest: processCalGetRequest();   break;
-         case cPhBoardService::cPhCalSetRequest: processCalSetRequest();   break;
-         case cPhBoardService::cPressureRequest: processPressureRequest(); break;
+         case cPhBoardService::cCalRequest:     processCalRequest(header.input);     break;
+         case cPhBoardService::cCalGetRequest:  processCalGetRequest(header.input);  break;
+         case cPhBoardService::cCalSetRequest:  processCalSetRequest(header.input);  break;
+         case cPhBoardService::cAiRequest:      processAiRequest(header.input);      break;
          default: break;
       }
    }

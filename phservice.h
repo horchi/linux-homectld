@@ -19,22 +19,19 @@ class cPhBoardService
 
       enum Misc
       {
-         comId = 0xef1a
+         comId       = 0xef1a,
+         analogCount = 8
       };
 
       enum Command
       {
-         cPhRequest   = 0x10,  // request the current PH value
-         cPhResponse,
-         cPhCalRequest,        // request the callibartion cycle
-         cPhCalResponse,
-         cPhCalGetRequest,     // request the current callibartion settings
-         cPhCalGetResponse,
-         cPhCalSetRequest,     // request set of callibartion settings
-         cPressureRequest,
-         cPressureResponse,
-
-         cPhCalSetResponse = cPhCalGetResponse,
+         cCalRequest = 0x12,   // request the callibartion cycle
+         cCalResponse,
+         cCalGetRequest,       // request the current callibartion settings
+         cCalGSResponse,       // Cal Get/Set Response
+         cCalSetRequest,       // request set of callibartion settings
+         cAiRequest,
+         cAiResponse,
 
          cCount
       };
@@ -43,8 +40,10 @@ class cPhBoardService
 
       struct Header
       {
+         Header(char cmd, char in) { command = cmd; input = in; }
          word id {comId};
          char command {0};
+         char input {0};
       };
 
       struct AnalogValue
@@ -53,22 +52,22 @@ class cPhBoardService
          word digits {0};
       };
 
-      struct PhCalRequest
+      struct CalRequest
       {
-         int time {30};      // time for building average for calibration
+         int time {30};       // time for building average for calibration
       };
 
-      struct PhCalResponse
+      struct CalResponse
       {
-         word value {0};
+         word digits {0};     // average digits
       };
 
-      struct PhCalSettings
+      struct CalSettings
       {
-         word pointA {377};   // value of calibration point A
-         word pointB {435};   // value of calibration point B
-         float valueA {7.0};     // PH value for calibration point A
-         float valueB {9.0};     // PH value for calibration point B
+         word digitsA {377};    // value of calibration point A
+         word digitsB {435};    // value of calibration point B
+         float valueA {7.0};    //  digits for calibration point A
+         float valueB {9.0};    //  digits for calibration point B
       };
 
 #pragma pack()

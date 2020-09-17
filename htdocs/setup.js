@@ -200,7 +200,7 @@ function initIoSetup(valueFacts, root)
          case 'DO': root = document.getElementById("ioDigitalOut"); break
          case 'W1': root = document.getElementById("ioOneWire");    break
          case 'SP': root = document.getElementById("ioOther");      break
-         case 'PH': root = document.getElementById("ioOther");      break
+         case 'AI': root = document.getElementById("ioOther");      break
          case 'SC': root = document.getElementById("ioScripts");    break
       }
 
@@ -259,4 +259,3 @@ window.storeIoSetup = function()
 
    socket.send({ "event" : "storeiosetup", "object" : jsonArray });
 }
-

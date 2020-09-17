@@ -110,18 +110,21 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
 
    // publish actual value
 
-   char* valueJson = 0;
+   json_t* oValue = json_object();
 
    if (iot == iotLight)
-      asprintf(&valueJson, "{ \"state\" : \"%s\", \"brightness\": 255 }", value ? "ON" :"OFF");
+   {
+      json_object_set_new(oValue, "state", json_string(value ? "ON" :"OFF"));
+      json_object_set_new(oValue, "brightness", json_integer(255));
+   }
    else if (!isEmpty(text))
-      asprintf(&valueJson, "{ \"value\" : \"%s\" }", text);
+      json_object_set_new(oValue, "value", json_string(text));
    else
-      asprintf(&valueJson, "{ \"value\" : \"%.2f\" }", value);
+      json_object_set_new(oValue, "value", json_real(value));
 
-   mqttWriter->writeRetained(stateTopic, valueJson);
+   char* j = json_dumps(oValue, JSON_REAL_PRECISION(4));
+   mqttWriter->writeRetained(stateTopic, j);
 
-   free(valueJson);
    free(stateTopic);
 
    return success;

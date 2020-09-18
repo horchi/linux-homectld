@@ -214,58 +214,58 @@ int Poold::hassCheckConnection()
       mqttCommandReader = new Mqtt(); // ("poold_com");
 
    if (!mqttW1Reader)
-      mqttW1Reader = new Mqtt(); //("poold_w1_reader");
+      mqttW1Reader = new Mqtt();      //("poold_w1_reader");
 
    if (!mqttWriter)
-      mqttWriter = new Mqtt(); //("poold_publisher");
+      mqttWriter = new Mqtt();        //("poold_publisher");
 
    if (!mqttReader)
-      mqttReader = new Mqtt(); //("poold_subscriber");
+      mqttReader = new Mqtt();        //("poold_subscriber");
 
    if (!mqttCommandReader->isConnected())
    {
-      if (mqttCommandReader->connect(hassMqttUrl) != success)
+      if (mqttCommandReader->connect(mqttUrl) != success)
       {
-         tell(0, "Error: MQTT: Connecting subscriber to '%s' failed", hassMqttUrl);
+         tell(0, "Error: MQTT: Connecting subscriber to '%s' failed", mqttUrl);
          return fail;
       }
 
       mqttCommandReader->subscribe("poold2mqtt/light/+/set/#");
-      tell(0, "MQTT: Connecting command subscriber to '%s' succeeded", hassMqttUrl);
+      tell(0, "MQTT: Connecting command subscriber to '%s' succeeded", mqttUrl);
    }
 
    if (!mqttW1Reader->isConnected())
    {
-      if (mqttW1Reader->connect(hassMqttUrl) != success)
+      if (mqttW1Reader->connect(mqttUrl) != success)
       {
-         tell(0, "Error: MQTT: Connecting subscriber to '%s' failed", hassMqttUrl);
+         tell(0, "Error: MQTT: Connecting subscriber to '%s' failed", mqttUrl);
          return fail;
       }
 
       mqttW1Reader->subscribe("poold2mqtt/w1");
-      tell(0, "MQTT: Connecting w1 subscriber to '%s' succeeded", hassMqttUrl);
+      tell(0, "MQTT: Connecting w1 subscriber to '%s' succeeded", mqttUrl);
    }
 
    if (!mqttWriter->isConnected())
    {
-      if (mqttWriter->connect(hassMqttUrl) != success)
+      if (mqttWriter->connect(mqttUrl) != success)
       {
-         tell(0, "Error: MQTT: Connecting publisher to '%s' failed", hassMqttUrl);
+         tell(0, "Error: MQTT: Connecting publisher to '%s' failed", mqttUrl);
          return fail;
       }
 
-      tell(0, "MQTT: Connecting publisher to '%s' succeeded", hassMqttUrl);
+      tell(0, "MQTT: Connecting publisher to '%s' succeeded", mqttUrl);
    }
 
    if (!mqttReader->isConnected())
    {
-      if (mqttReader->connect(hassMqttUrl) != success)
+      if (mqttReader->connect(mqttUrl) != success)
       {
-         tell(0, "Error: MQTT: Connecting subscriber to '%s' failed", hassMqttUrl);
+         tell(0, "Error: MQTT: Connecting subscriber to '%s' failed", mqttUrl);
          return fail;
       }
 
-      tell(0, "MQTT: Connecting subscriber to '%s' succeeded", hassMqttUrl);
+      tell(0, "MQTT: Connecting subscriber to '%s' succeeded", mqttUrl);
    }
 
    return success;

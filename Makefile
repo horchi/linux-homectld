@@ -125,6 +125,9 @@ clean:
 cppchk:
 	cppcheck --template="{file}:{line}:{severity}:{message}" --language=c++ --force *.c *.h
 
+upload:
+	avrdude -q -V -p atmega328p -D -c arduino -b 57600 -P $(AVR_DEVICE) -U flash:w:build-nano-atmega328.arduino.hex:i
+
 build-deb:
 	rm -rf $(DEB_DEST)
 	make -s install-poold DESTDIR=$(DEB_DEST) PREFIX=/usr INIT_AFTER=mysql.service

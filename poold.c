@@ -62,7 +62,7 @@ std::list<Poold::ConfigItemDef> Poold::configuration
    { "aggregateInterval",         ctInteger, false, "1 Pool Daemon", "Intervall [m]", "aggregation interval in minutes - 'one sample per interval will be build'" },
    { "peakResetAt",               ctString,  true,  "1 Pool Daemon", "", "" },
 
-   { "hassMqttUrl",               ctString,  false, "1 Pool Daemon", "Home Assistant MQTT Url", "Optional. Beispiel: 'tcp://127.0.0.1:1883'" },
+   { "mqttUrl",                   ctString,  false, "1 Pool Daemon", "Url des MQTT Message Broker. Wird zur Kommunikation mit dem one-wire Interface und mit Hausautomatisierungen verwendet", "Beispiel: 'tcp://localhost:1883'" },
 
    // PH stuff
 
@@ -943,7 +943,7 @@ int Poold::readConfiguration()
 
    getConfigItem("aggregateInterval", aggregateInterval, 15);
    getConfigItem("aggregateHistory", aggregateHistory, 0);
-   getConfigItem("hassMqttUrl", hassMqttUrl, "");
+   getConfigItem("mqttUrl", mqttUrl, "tcp://localhost:1883");
 
    // more special
 
@@ -1052,7 +1052,7 @@ int Poold::store(time_t now, const char* name, const char* title, const char* un
 
    IoType iot = strcmp(type, "DO") == 0 ? iotLight : iotSensor;
 
-   if (!isEmpty(hassMqttUrl))
+   if (!isEmpty(mqttUrl))
       hassPush(iot, name, title, unit, value, text, initialRun /*forceConfig*/);
 
    return success;
@@ -1111,7 +1111,7 @@ int Poold::meanwhile()
    webSock->performData(cWebSock::mtData);
    performWebSocketPing();
 
-   if (!isEmpty(hassMqttUrl))
+   if (!isEmpty(mqttUrl))
       performHassRequests();
 
    performJobs();
@@ -3064,7 +3064,7 @@ int Poold::publishScriptResult(ulong addr, const char* type, std::string result)
       pushOutMessage(oJson, "update");
    }
 
-   if (!isEmpty(hassMqttUrl))
+   if (!isEmpty(mqttUrl))
       hassPush(iotLight, name, "", "", strtod(value.c_str(), nullptr), "", false /*forceConfig*/);
 
    tableValueFacts->reset();
@@ -3145,7 +3145,7 @@ void Poold::gpioWrite(uint pin, bool state, bool callJobs)
       pushOutMessage(oJson, "update");
    }
 
-   if (!isEmpty(hassMqttUrl))
+   if (!isEmpty(mqttUrl))
       hassPush(iotLight, digitalOutputStates[pin].name, "", "", digitalOutputStates[pin].state, "", false /*forceConfig*/);
 }
 

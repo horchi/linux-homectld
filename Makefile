@@ -1,4 +1,3 @@
-
 # Makefile
 #
 # See the README file for copyright information and how to reach the author.
@@ -6,10 +5,10 @@
 
 include Make.config
 
-TARGET      = poold
-W1TARGET    = w1mqtt
-PHTARGET    = ph
-HISTFILE    = "HISTORY.h"
+TARGET         = poold
+W1TARGET       = w1mqtt
+ARDUINO_IF_CMD = poolai
+HISTFILE       = "HISTORY.h"
 
 LIBS += $(shell mysql_config --libs_r) -lrt -lcrypto -lcurl -lpthread -luuid
 
@@ -30,13 +29,13 @@ GIT_REV      = $(shell git describe --always 2>/dev/null)
 
 LOBJS        = lib/db.o lib/dbdict.o lib/common.o lib/serial.o lib/curl.o lib/thread.o lib/json.o
 MQTTOBJS     = lib/mqtt.o lib/mqtt_c.o lib/mqtt_pal.o
-OBJS         = $(MQTTOBJS) $(LOBJS) main.o gpio.o hass.o websock.o ph.c
+OBJS         = $(MQTTOBJS) $(LOBJS) main.o gpio.o hass.o websock.o arduinoif.o
 
 CFLAGS    	+= $(shell mysql_config --include)
 DEFINES   	+= -DDEAMON=Poold
 OBJS      	+= poold.o
 W1OBJS      = w1.o lib/common.o lib/thread.o $(MQTTOBJS)
-PHOBJS      = phcmd.o ph.o lib/common.o lib/serial.o
+AIOBJS      = aicmd.o arduinoif.o lib/common.o lib/serial.o
 
 ifdef WIRINGPI
   LIBS += -lwiringPi
@@ -48,7 +47,7 @@ endif
 
 # rules:
 
-all: $(TARGET) $(W1TARGET) $(PHTARGET)
+all: $(TARGET) $(W1TARGET) $(ARDUINO_IF_CMD)
 
 $(TARGET) : $(OBJS) $(W1TARGET)
 	$(doLink) $(OBJS) $(LIBS) -o $@
@@ -56,8 +55,8 @@ $(TARGET) : $(OBJS) $(W1TARGET)
 $(W1TARGET): $(W1OBJS)
 	$(doLink) $(W1OBJS) $(LIBS) -o $@
 
-$(PHTARGET): $(PHOBJS)
-	$(doLink) $(PHOBJS) $(LIBS) -o $@
+$(ARDUINO_IF_CMD): $(AIOBJS)
+	$(doLink) $(AIOBJS) $(LIBS) -o $@
 
 install: $(TARGET) $(W1TARGET) install-poold install-web
 
@@ -155,13 +154,13 @@ lib/mqtt_c.o    :  lib/mqtt_c.c    lib/mqtt_c.h
 lib/mqtt_pal.o  :  lib/mqtt_pal.c  lib/mqtt_c.h
 
 main.o          :  main.c          $(HEADER) poold.h HISTORY.h
-poold.o         :  poold.c         $(HEADER) poold.h w1.h lib/mqtt.h websock.h phservice.h
+poold.o         :  poold.c         $(HEADER) poold.h w1.h lib/mqtt.h websock.h aiservice.h
 w1.o            :  w1.c            $(HEADER) w1.h lib/mqtt.h
 gpio.o          :  gpio.c          $(HEADER)
 hass.o          :  hass.c          poold.h
 websock.o       :  websock.c       websock.h
-ph.o            :  ph.c            poold.h lib/serial.h phservice.h
-phcmd.o         :  phcmd.c         ph.h lib/serial.h phservice.h
+arduinoif.o     :  arduinoif.c     arduinoif.h lib/serial.h aiservice.h
+aicmd.o         :  aicmd.c         arduinoif.h lib/serial.h aiservice.h
 
 # ------------------------------------------------------
 # Git / Versioning / Tagging

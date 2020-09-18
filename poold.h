@@ -22,7 +22,7 @@
 #include "HISTORY.h"
 
 #include "websock.h"
-#include "ph.h"
+#include "arduinoif.h"
 
 #define confDirDefault "/etc/poold"
 
@@ -84,6 +84,19 @@ class Poold : public cWebInterface
          pinFree4        = 38,     // GPIO20
          // 39  - GND
          pinFree5        = 40      // GPIO21
+      };
+
+      enum AnalogInputs
+      {
+         aiPh = 0,
+         aiFilterPressure
+      };
+
+      enum SpecialValues  // 'SP'
+      {
+         spWaterLevel = 1,
+         spSolarDelta,
+         spPhMinusDemand
       };
 
       // object
@@ -380,24 +393,23 @@ class Poold : public cWebInterface
 
       // serial interface to arduino for PH stuff
 
-      cPhInterface phInterface;
-      char* phDevice {nullptr};
+      cArduinoInterface arduinoInterface;
+      char* arduinoDevice {nullptr};
 
       // actual state and data
 
       double tPool {0.0};
       double tSolar {0.0};
       double tCurrentDelta {0.0};
-      double phValue {0.0};
-      time_t phValueAt {0};
 
-       struct W1Data
+      struct SensorData
       {
          time_t last;
          double value;
       };
 
-      std::map<std::string, W1Data> w1Sensors;
+      std::map<int, SensorData> aiSensors;
+      std::map<std::string, SensorData> w1Sensors;
       std::map<std::string, json_t*> jsonSensorList;
 
       // statics

@@ -7,13 +7,11 @@
 
 #pragma once
 
-// #include "lib/common.h"
-
 //***************************************************************************
-// PH Board Service
+// Arduino Board Service
 //***************************************************************************
 
-class cPhBoardService
+class cArduinoInterfaceService
 {
    public:
 
@@ -36,7 +34,7 @@ class cPhBoardService
          cCount
       };
 
-#pragma pack(1)
+    #pragma pack(1)
 
       struct Header
       {
@@ -70,6 +68,5 @@ class cPhBoardService
          float valueB {9.0};    //  digits for calibration point B
       };
 
-#pragma pack()
-
+    #pragma pack()
 };

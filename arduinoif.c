@@ -1,6 +1,6 @@
 //***************************************************************************
-// poold / Linux - PH Control
-// File ph.c
+// poold / Linux - Arduino Interface
+// File arduinoif.c
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
 // Date 29.08.2020 - Jörg Wendel
@@ -8,13 +8,13 @@
 
 #include <cmath>
 
-#include "ph.h"
+#include "arduinoif.h"
 
 //***************************************************************************
 // Open / Close Interface
 //***************************************************************************
 
-int cPhInterface::open(const char* ttyDevice)
+int cArduinoInterface::open(const char* ttyDevice)
 {
    if (serial.isOpen())
       return success;
@@ -22,12 +22,12 @@ int cPhInterface::open(const char* ttyDevice)
    return serial.open(ttyDevice);
 }
 
-int cPhInterface::close()
+int cArduinoInterface::close()
 {
    return serial.close();
 }
 
-int cPhInterface::checkInterface()
+int cArduinoInterface::checkInterface()
 {
    if (serial.isOpen())
       return success;
@@ -44,7 +44,7 @@ int cPhInterface::checkInterface()
 // Read Header
 //***************************************************************************
 
-int cPhInterface::readHeader(Header* header, uint timeoutMs)
+int cArduinoInterface::readHeader(Header* header, uint timeoutMs)
 {
    if (serial.read(header, sizeof(Header), timeoutMs) < 0)
    {
@@ -65,7 +65,7 @@ int cPhInterface::readHeader(Header* header, uint timeoutMs)
 // Pressure Request
 //***************************************************************************
 
-int cPhInterface::requestAi(AnalogValue& aiValue, uint input)
+int cArduinoInterface::requestAi(AnalogValue& aiValue, uint input)
 {
    if (checkInterface() != success)
       return fail;
@@ -115,7 +115,7 @@ int cPhInterface::requestAi(AnalogValue& aiValue, uint input)
 //   get avarage of <duration>
 //***************************************************************************
 
-int cPhInterface::requestCalibration(CalResponse& calResp, uint input, uint duration)
+int cArduinoInterface::requestCalibration(CalResponse& calResp, uint input, uint duration)
 {
    int res;
    CalRequest calReq;
@@ -164,7 +164,7 @@ int cPhInterface::requestCalibration(CalResponse& calResp, uint input, uint dura
 // Request Current calibration settings (stored in arduino's EEPOROM)
 //***************************************************************************
 
-int cPhInterface::requestCalGet(CalSettings& calSettings, uint input)
+int cArduinoInterface::requestCalGet(CalSettings& calSettings, uint input)
 {
    if (checkInterface() != success)
       return fail;
@@ -208,7 +208,7 @@ int cPhInterface::requestCalGet(CalSettings& calSettings, uint input)
 // Request Setting of calibration data (stored in arduino's EEPOROM)
 //***************************************************************************
 
-int cPhInterface::requestCalSet(CalSettings& calSettings, uint input)
+int cArduinoInterface::requestCalSet(CalSettings& calSettings, uint input)
 {
    if (checkInterface() != success)
       return fail;

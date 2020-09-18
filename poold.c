@@ -11,6 +11,7 @@
 #include <dirent.h>
 #include <libxml/parser.h>
 #include <algorithm>
+#include <cmath>
 
 #include <wiringPi.h>
 
@@ -65,7 +66,7 @@ std::list<Poold::ConfigItemDef> Poold::configuration
 
    // PH stuff
 
-   { "phDevice",                  ctString,  false, "1 Pool Daemon", "PH interface device", "Beispiel: '/dev/ttyUsb0'" },
+   { "arduinoDevice",             ctString,  false, "1 Pool Daemon", "Arduino interface device", "Beispiel: '/dev/ttyS0'" },
    { "phReference",               ctNum,     false, "1 Pool Daemon", "PH Sollwert", "Sollwert [PH] (default 7,2)" },
    { "phMinusDensity",            ctNum,     false, "1 Pool Daemon", "Dichte PH Minus [kg/l]", "Wie viel kg wiegt ein Liter PH Minus (default 1,4)" },
    { "phMinusDemand01",           ctInteger, false, "1 Pool Daemon", "Menge zum Senken um 0,1 [g]", "Wie viel Gramm PH Minus wird zum Senken des PH Wertes um 0,1 für das vorhandene Pool Volumen benötigt (default 60g)" },
@@ -117,7 +118,7 @@ Poold::~Poold()
    free(w1AddrSuctionTube);
    free(w1AddrAir);
 
-   phInterface.close();
+   arduinoInterface.close();
    cDbConnection::exit();
 }
 
@@ -496,8 +497,8 @@ int Poold::init()
 
    // init PH interface
 
-   if (!isEmpty(phDevice))
-      phInterface.open(phDevice);
+   if (!isEmpty(arduinoDevice))
+      arduinoInterface.open(arduinoDevice);
 
    //
 
@@ -964,7 +965,7 @@ int Poold::readConfiguration()
 
    // PH stuff
 
-   getConfigItem("phDevice", phDevice);
+   getConfigItem("arduinoDevice", arduinoDevice);
    getConfigItem("phReference", phReference, 7.2);
    getConfigItem("phMinusDensity", phMinusDensity, 1.4);         // [kg/l]
    getConfigItem("phMinusDemand01", phMinusDemand01, 85);        // [ml]
@@ -1183,14 +1184,17 @@ int Poold::loop()
 
 int Poold::update(bool webOnly, long client)
 {
-   static size_t w1Count = w1Sensors.size();
+   static size_t w1Count = 0;
    time_t now = time(0);
    int count {0};
 
    if (!webOnly)
    {
       if (w1Count < w1Sensors.size())
+      {
          initW1();
+         w1Count = w1Sensors.size();
+      }
    }
 
    tell(eloDetail, "Update ...");
@@ -1249,47 +1253,23 @@ int Poold::update(bool webOnly, long client)
       }
       else if (tableValueFacts->hasValue("TYPE", "AI"))
       {
-         if (addr == 0)
+         cArduinoInterface::AnalogValue aiValue;
+
+         if (!isEmpty(arduinoDevice) && arduinoInterface.requestAi(aiValue, addr) == success)
          {
-            cPhInterface::AnalogValue aiValue;
+            aiSensors[addr].value = std::ceil(aiValue.value*10.0)/10.0;
+            aiSensors[addr].last = time(0);
 
-            if (!isEmpty(phDevice) && phInterface.requestAi(aiValue, addr) == success)
-            {
-               phValue = aiValue.value;
-               phValueAt = time(0);
+            json_object_set_new(ojData, "value", json_real(aiSensors[addr].value));
+            json_object_set_new(ojData, "widgettype", json_integer(wtChart));
 
-               json_object_set_new(ojData, "value", json_real(phValue));
-               json_object_set_new(ojData, "widgettype", json_integer(wtChart));
-
-               if (!webOnly)
-                  store(now, name, title, unit, type, addr, phValue);
-            }
-            else
-            {
-               json_object_set_new(ojData, "text", json_string("missing sensor"));
-               json_object_set_new(ojData, "widgettype", json_integer(wtText));
-            }
+            if (!webOnly)
+               store(now, name, title, unit, type, addr, aiSensors[addr].value);
          }
-         else if (addr == 1)
+         else
          {
-            cPhInterface::AnalogValue aiValue;
-
-            if (!isEmpty(phDevice) && phInterface.requestAi(aiValue, addr) == success)
-            {
-               double pressValue = aiValue.value;
-               // time_t pressValueAt = time(0);
-
-               json_object_set_new(ojData, "value", json_real(pressValue));
-               json_object_set_new(ojData, "widgettype", json_integer(wtChart));
-
-               if (!webOnly)
-                  store(now, name, title, unit, type, addr, pressValue);
-            }
-            else
-            {
-               json_object_set_new(ojData, "text", json_string("missing sensor"));
-               json_object_set_new(ojData, "widgettype", json_integer(wtText));
-            }
+            json_object_set_new(ojData, "text", json_string("missing sensor"));
+            json_object_set_new(ojData, "widgettype", json_integer(wtText));
          }
       }
       else if (tableValueFacts->hasValue("TYPE", "DO"))
@@ -1340,7 +1320,7 @@ int Poold::update(bool webOnly, long client)
       }
       else if (tableValueFacts->hasValue("TYPE", "SP"))
       {
-         if (addr == 1)
+         if (addr == spWaterLevel)
          {
             getWaterLevel();
 
@@ -1364,7 +1344,7 @@ int Poold::update(bool webOnly, long client)
                   store(now, name, title, unit, type, addr, waterLevel);
             }
          }
-         else if (addr == 2)
+         else if (addr == spSolarDelta)
          {
             time_t tPoolLast, tSolarLast;
             tPool = valueOfW1(w1AddrPool, tPoolLast);
@@ -1384,11 +1364,11 @@ int Poold::update(bool webOnly, long client)
                   store(now, name, title, unit, type, addr, tCurrentDelta);
             }
          }
-         else if (addr == 3 && !isEmpty(phDevice))
+         else if (addr == spPhMinusDemand && !isEmpty(arduinoDevice))
          {
-            if (phValue)
+            if (aiSensors[aiPh].value)
             {
-               int ml = calcPhMinusVolume(phValue);
+               int ml = calcPhMinusVolume(aiSensors[aiPh].value);
 
                json_object_set_new(ojData, "value", json_real(ml));
                json_object_set_new(ojData, "widgettype", json_integer(wtChart));
@@ -1935,12 +1915,12 @@ int Poold::performPh(long client, bool all)
       return done;
 
    json_t* oJson = json_object();
-   cPhInterface::AnalogValue phValue;
-   cPhInterface::CalSettings calSettings;
+   cArduinoInterface::AnalogValue phValue;
+   cArduinoInterface::CalSettings calSettings;
 
    if (all)
    {
-      if (phInterface.requestCalGet(calSettings, 0) == success)
+      if (arduinoInterface.requestCalGet(calSettings, 0) == success)
       {
          json_object_set_new(oJson, "currentPhA", json_real(calSettings.valueA));
          json_object_set_new(oJson, "currentPhB", json_real(calSettings.valueB));
@@ -1956,7 +1936,7 @@ int Poold::performPh(long client, bool all)
       }
    }
 
-   if (phInterface.requestAi(phValue, 0) == success)
+   if (arduinoInterface.requestAi(phValue, 0) == success)
    {
       json_object_set_new(oJson, "currentPh", json_real(phValue.value));
       json_object_set_new(oJson, "currentPhValue", json_integer(phValue.digits));
@@ -1985,7 +1965,7 @@ int Poold::performPhCal(json_t* oObject, long client)
 
    json_t* oJson = json_object();
    int duration = getIntFromJson(oObject, "duration");
-   cPhInterface::CalResponse calResp;
+   cArduinoInterface::CalResponse calResp;
 
    if (duration > 30)
    {
@@ -1993,7 +1973,7 @@ int Poold::performPhCal(json_t* oObject, long client)
       duration = 30;
    }
 
-   if (phInterface.requestCalibration(calResp, 0, duration) == success)
+   if (arduinoInterface.requestCalibration(calResp, 0, duration) == success)
       json_object_set_new(oJson, "calValue", json_integer(calResp.digits));
    else
       json_object_set_new(oJson, "calValue", json_string("request failed"));
@@ -2013,11 +1993,11 @@ int Poold::performPhSetCal(json_t* oObject, long client)
    if (client <= 0)
       return done;
 
-   cPhInterface::CalSettings calSettings;
+   cArduinoInterface::CalSettings calSettings;
 
    // first get the actual settings
 
-   if (phInterface.requestCalGet(calSettings, 0) == success)
+   if (arduinoInterface.requestCalGet(calSettings, 0) == success)
    {
       // now update what we get from the WS client
 
@@ -2035,7 +2015,7 @@ int Poold::performPhSetCal(json_t* oObject, long client)
 
       // and store
 
-      if (phInterface.requestCalSet(calSettings, 0) != success)
+      if (arduinoInterface.requestCalSet(calSettings, 0) != success)
          replyResult(fail, "Speichern fehlgeschlagen", client);
       else
          replyResult(success, "gespeichert", client);

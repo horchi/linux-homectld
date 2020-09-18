@@ -1,3 +1,10 @@
+//***************************************************************************
+// poold / Linux - Arduino Interface Test Command
+// File aicmd.c
+// This code is distributed under the terms and conditions of the
+// GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
+// Date 18.09.2020 - Jörg Wendel
+//***************************************************************************
 
 #include <sys/time.h>
 #include <arpa/inet.h>
@@ -9,17 +16,17 @@
 
 #include "lib/common.h"
 #include "lib/serial.h"
-#include "ph.h"
+#include "arduinoif.h"
 
 //***************************************************************************
-// Test PH Interface
+// Test Arduino Interface
 //***************************************************************************
 
-cPhInterface phInterface;
+cArduinoInterface arduinoInterface;
 
 void downF(int aSignal)
 {
-   phInterface.close();
+   arduinoInterface.close();
    exit(0);
 }
 
@@ -41,10 +48,9 @@ int usage(const char* name)
 
 int main(int argc, char** argv)
 {
-   cPhBoardService::CalResponse calResp;
-   cPhBoardService::CalSettings calSettings;
-   cPhBoardService::AnalogValue phValue;
-   cPhBoardService::AnalogValue aiValue;
+   cArduinoInterfaceService::CalResponse calResp;
+   cArduinoInterfaceService::CalSettings calSettings;
+   cArduinoInterfaceService::AnalogValue aiValue;
    bool cal {false};
    bool calGet {false};
    bool calSet {false};
@@ -78,24 +84,24 @@ int main(int argc, char** argv)
    ::signal(SIGINT, downF);
    ::signal(SIGTERM, downF);
 
-   if (phInterface.open(argv[1]) != success)
+   if (arduinoInterface.open(argv[1]) != success)
    {
       tell(0, "Error: opening device '%s' failed", argv[1]);
       return 1;
    }
 
    if (cal)
-      phInterface.requestCalibration(calResp, input, 15);
+      arduinoInterface.requestCalibration(calResp, input, 15);
    else if (calSet)
-      phInterface.requestCalSet(calSettings, input);
+      arduinoInterface.requestCalSet(calSettings, input);
    else if (calGet)
-      phInterface.requestCalGet(calSettings, input);
+      arduinoInterface.requestCalGet(calSettings, input);
 
    else if (readAnalog)
    {
       while (true)
       {
-         phInterface.requestAi(aiValue, input);
+         arduinoInterface.requestAi(aiValue, input);
          sleep(1);
       }
    }

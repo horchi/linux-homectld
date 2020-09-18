@@ -1,6 +1,6 @@
 //***************************************************************************
-// poold / Linux - PH Control
-// File ph.h
+// poold / Linux - Arduino Interface
+// File arduinoif.h
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
 // Date 30.08.2020 - Jörg Wendel
@@ -10,18 +10,18 @@
 
 #include "lib/serial.h"
 
-#include "phservice.h"
+#include "aiservice.h"
 
 //***************************************************************************
-// PH Interface
+// Arduini Mini - Interface
 //***************************************************************************
 
-class cPhInterface : public cPhBoardService
+class cArduinoInterface : public cArduinoInterfaceService
 {
    public:
 
-      cPhInterface() {};
-      virtual ~cPhInterface() {};
+      cArduinoInterface() {};
+      virtual ~cArduinoInterface() {};
 
       int open(const char* ttyDevice);
       int close();

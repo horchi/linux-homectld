@@ -8,3 +8,9 @@ AVRDUDE_ARD_BAUDRATE = 57600
 CXXFLAGS     += -Wno-deprecated-declarations
 
 include /usr/share/arduino/Arduino.mk
+
+BIN  = $(OBJDIR)/$(TARGET).hex
+DEST = ../$(OBJDIR).$(TARGET).hex
+
+install:
+	cp $(BIN) $(DEST)

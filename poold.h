@@ -96,7 +96,8 @@ class Poold : public cWebInterface
       {
          spWaterLevel = 1,
          spSolarDelta,
-         spPhMinusDemand
+         spPhMinusDemand,
+         spLastUpdate
       };
 
       // object
@@ -210,9 +211,9 @@ class Poold : public cWebInterface
       bool isInTimeRange(const std::vector<Range>* ranges, time_t t);
       int store(time_t now, const char* name, const char* title, const char* unit, const char* type, int address, double value, const char* text = 0);
 
-      int performHassRequests();
+      int performMqttRequests();
       int hassPush(IoType iot, const char* name, const char* title, const char* unit, double theValue, const char* text = 0, bool forceConfig = false);
-      int hassCheckConnection();
+      int mqttCheckConnection();
 
       int scheduleAggregate();
       int aggregate();
@@ -253,6 +254,7 @@ class Poold : public cWebInterface
       int performLogout(json_t* oObject);
       int performTokenRequest(json_t* oObject, long client);
       int performSyslog(long client);
+      int performSendMail(json_t* oObject, long client);
       int performConfigDetails(long client);
       int performUserDetails(long client);
       int performIoSettings(json_t* oObject, long client);
@@ -358,6 +360,7 @@ class Poold : public cWebInterface
       int aggregateInterval {15};         // aggregate interval in minutes
       int aggregateHistory {0};           // history in days
       char* mqttUrl {nullptr};
+      time_t lastMqttConnectAt {0};
       std::map<std::string,std::string> hassCmdTopicMap; // 'topic' to 'name' map
 
       int mail {no};

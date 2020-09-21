@@ -60,7 +60,7 @@ $(ARDUINO_IF_CMD): $(AIOBJS)
 
 install: $(TARGET) $(W1TARGET) install-poold install-web
 
-install-poold: install-config # install-scripts
+install-poold: install-config install-scripts
    ifneq ($(DESTDIR),)
 	   @cp -r contrib/DEBIAN $(DESTDIR)
 	   @chown root:root -R $(DESTDIR)/DEBIAN
@@ -121,6 +121,10 @@ clean:
 	rm -f */*.o *.o core* *~ */*~ lib/t *.jpg
 	rm -f $(TARGET) $(ARCHIVE).tgz
 	rm -f com2
+
+activate: install
+	systemctl restart $(TARGET)
+	tail -f /var/log/$(TARGET).log
 
 cppchk:
 	cppcheck --template="{file}:{line}:{severity}:{message}" --language=c++ --force *.c *.h

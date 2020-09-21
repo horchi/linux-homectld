@@ -16,7 +16,6 @@ var isActive = null;
 var socket = null;
 var config = {};
 var daemonState = {};
-var lastUpdate = "";   // #TODO - set to data age instead of receive time
 var documentName = "";
 var widgetCharts = {};
 var theChart = null;
@@ -172,8 +171,6 @@ function dispatchMessage(message)
    var rootDialog = document.querySelector('dialog');                // chart dialog
    var rootPhActual = document.getElementById("phShowActual");
 
-   var d = new Date();
-
    console.log("got event: " + event);
 
    if (event == "result") {
@@ -183,20 +180,17 @@ function dispatchMessage(message)
          showInfoDialog(jMessage.object.message , "Information (" + jMessage.object.status + ")");
    }
    else if ((event == "update" || event == "all") && rootDashboard) {
-      lastUpdate = d.toLocaleTimeString();
+
       updateDashboard(jMessage.object);
    }
    else if ((event == "update" || event == "all") && rootList) {
-      lastUpdate = d.toLocaleTimeString();
       updateList(jMessage.object);
    }
    else if (event == "init" && rootDashboard) {
-      lastUpdate = d.toLocaleTimeString();
       initDashboard(jMessage.object, rootDashboard);
       updateDashboard(jMessage.object);
    }
    else if (event == "init" && rootList) {
-      lastUpdate = d.toLocaleTimeString();
       initList(jMessage.object, rootList);
       updateList(jMessage.object);
    }

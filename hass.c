@@ -20,7 +20,7 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
 {
    // check/prepare reader/writer connection
 
-   if (hassCheckConnection() != success)
+   if (mqttCheckConnection() != success)
       return fail;
 
    // check if state topic already exists
@@ -131,12 +131,14 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
 }
 
 //***************************************************************************
-// Perform Hass Requests
+// Perform MQTT Requests
+//   - check 'mqttCommandReader' for commands of a home automation
+//   - check 'mqttW1Reader' for data from the W1 service
 //***************************************************************************
 
-int Poold::performHassRequests()
+int Poold::performMqttRequests()
 {
-   if (hassCheckConnection() != success)
+   if (mqttCheckConnection() != success)
       return fail;
 
    MemoryStruct message;
@@ -208,19 +210,32 @@ int Poold::performHassRequests()
 // Check MQTT Connection
 //***************************************************************************
 
-int Poold::hassCheckConnection()
+int Poold::mqttCheckConnection()
 {
    if (!mqttCommandReader)
-      mqttCommandReader = new Mqtt(); // ("poold_com");
+      mqttCommandReader = new Mqtt();
 
    if (!mqttW1Reader)
-      mqttW1Reader = new Mqtt();      //("poold_w1_reader");
+      mqttW1Reader = new Mqtt();
 
    if (!mqttWriter)
-      mqttWriter = new Mqtt();        //("poold_publisher");
+      mqttWriter = new Mqtt();
 
    if (!mqttReader)
-      mqttReader = new Mqtt();        //("poold_subscriber");
+      mqttReader = new Mqtt();
+
+   if (mqttCommandReader->isConnected() &&
+       mqttW1Reader->isConnected() &&
+       mqttWriter->isConnected() &&
+       mqttReader->isConnected())
+   {
+      return success;
+   }
+
+   if (lastMqttConnectAt >= time(0) - 60)
+      return fail;
+
+   lastMqttConnectAt = time(0);
 
    if (!mqttCommandReader->isConnected())
    {

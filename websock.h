@@ -48,6 +48,7 @@ class cWebService
          evPhSetCal,
          evChartbookmarks,
          evStoreChartbookmarks,
+         evSendMail,
 
          evCount
       };

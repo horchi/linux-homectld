@@ -18,10 +18,6 @@ function initDashboard(widgets, root)
    // clean page content
 
    root.innerHTML = "";
-   var elem = document.createElement("div");
-   elem.className = "widget rounded-border";
-   elem.innerHTML = "<div class=\"widget-title\">Aktualisiert</div>\n<div id=\"refreshTime\" class=\"widget-value\"></div>";
-   root.appendChild(elem);
 
    // build page content
 
@@ -121,8 +117,6 @@ function initDashboard(widgets, root)
 function updateDashboard(sensors)
 {
    // console.log("updateDashboard");
-
-   document.getElementById("refreshTime").innerHTML = lastUpdate;
 
    if (sensors)
    {

@@ -31,7 +31,7 @@ std::list<Poold::ConfigItemDef> Poold::configuration
    { "addrsDashboard",            ctString,  false, "3 WEB Interface", "Sensoren 'Dashboard'", "Komma getrennte Liste aus ID:Typ siehe 'IO Setup'" },
    { "addrsList",                 ctString,  false, "3 WEB Interface", "Sensoren 'Liste'", "Komma getrennte Liste aus ID:Typ siehe 'IO Setup'" },
 
-   // { "chart",                     ctString,  false, "3 WEB Interface", "Charts", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" },
+   // { "chart",                  ctString,  false, "3 WEB Interface", "Charts", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" },
    { "chartStart",                ctInteger, false, "3 WEB Interface", "Chart Zeitraum (Tage)", "Standardzeitraum der Chartanzeige (seit x Tagen bis heute)" },
    { "style",                     ctChoice,  false, "3 WEB Interface", "Farbschema", "" },
    { "vdr",                       ctBool,    false, "3 WEB Interface", "VDR (Video Disk Recorder) Osd verfügbar", "" },
@@ -62,7 +62,7 @@ std::list<Poold::ConfigItemDef> Poold::configuration
    { "aggregateInterval",         ctInteger, false, "1 Pool Daemon", "Intervall [m]", "aggregation interval in minutes - 'one sample per interval will be build'" },
    { "peakResetAt",               ctString,  true,  "1 Pool Daemon", "", "" },
 
-   { "mqttUrl",                   ctString,  false, "1 Pool Daemon", "Url des MQTT Message Broker. Wird zur Kommunikation mit dem one-wire Interface und mit Hausautomatisierungen verwendet", "Beispiel: 'tcp://localhost:1883'" },
+   { "mqttUrl",                   ctString,  false, "1 Pool Daemon", "Url des MQTT Message Broker", "Wird zur Kommunikation mit dem one-wire Interface und mit Hausautomatisierungen verwendet. Beispiel: 'tcp://localhost:1883'" },
 
    // PH stuff
 
@@ -293,6 +293,7 @@ int Poold::dispatchClientRequest()
             case evPhAll:          status = performPh(client, true);                break;
             case evPhCal:          status = performPhCal(oObject, client);          break;
             case evPhSetCal:       status = performPhSetCal(oObject, client);       break;
+            case evSendMail:       status = performSendMail(oObject, client);          break;
             case evChartbookmarks: status = performChartbookmarks(client);             break;
             case evStoreChartbookmarks: status = storeChartbookmarks(oObject, client); break;
 
@@ -332,6 +333,7 @@ bool Poold::checkRights(long client, Event event, json_t* oObject)
       case evUserConfig:          return rights & urAdmin;
       case evChangePasswd:        return true;   // check will done in performPasswChange()
       case evResetPeaks:          return rights & urAdmin;
+      case evSendMail:            return rights & urSettings;
 
       case evPh:
       case evPhAll:
@@ -476,11 +478,12 @@ int Poold::init()
 
    // special values
 
-   addValueFact(1, "SP", "Water Level", "%");
-   addValueFact(2, "SP", "Solar Delta", "°C");
-   addValueFact(3, "SP", "PH Minus Bedarf", "ml");
-   addValueFact(0, "AI", "PH", "");
-   addValueFact(1, "AI", "Druck", "bar");
+   addValueFact(spWaterLevel, "SP", "Water Level", "%");
+   addValueFact(spSolarDelta, "SP", "Solar Delta", "°C");
+   addValueFact(spPhMinusDemand, "SP", "PH Minus Bedarf", "ml");
+   addValueFact(spLastUpdate, "SP", "Aktualisiert", "");
+   addValueFact(aiPh, "AI", "PH", "");
+   addValueFact(aiFilterPressure, "AI", "Druck", "bar");
 
    // ---------------------------------
    // apply some configuration specials
@@ -970,7 +973,7 @@ int Poold::readConfiguration()
    getConfigItem("phMinusDensity", phMinusDensity, 1.4);         // [kg/l]
    getConfigItem("phMinusDemand01", phMinusDemand01, 85);        // [ml]
    getConfigItem("phMinusDayLimit", phMinusDayLimit, 100);       // [ml]
-   getConfigItem("phPumpDuration100", phPumpDuration100, 1000);   // [ms]
+   getConfigItem("phPumpDuration100", phPumpDuration100, 1000);  // [ms]
 
    /*
    // config of GPIO pins
@@ -1112,7 +1115,7 @@ int Poold::meanwhile()
    performWebSocketPing();
 
    if (!isEmpty(mqttUrl))
-      performHassRequests();
+      performMqttRequests();
 
    performJobs();
 
@@ -1257,8 +1260,12 @@ int Poold::update(bool webOnly, long client)
 
          if (!isEmpty(arduinoDevice) && arduinoInterface.requestAi(aiValue, addr) == success)
          {
-            aiSensors[addr].value = std::ceil(aiValue.value*10.0)/10.0;
+            aiSensors[addr].value = round2(aiValue.value); // std::ceil(aiValue.value*100.0)/100.0;
             aiSensors[addr].last = time(0);
+
+            // to debug DEBUG
+            //if (addr == aiFilterPressure)
+            //  aiSensors[addr].value = 0.3;
 
             json_object_set_new(ojData, "value", json_real(aiSensors[addr].value));
             json_object_set_new(ojData, "widgettype", json_integer(wtChart));
@@ -1320,7 +1327,12 @@ int Poold::update(bool webOnly, long client)
       }
       else if (tableValueFacts->hasValue("TYPE", "SP"))
       {
-         if (addr == spWaterLevel)
+         if (addr == spLastUpdate)
+         {
+            json_object_set_new(ojData, "text", json_string(l2pTime(time(0), "%T").c_str()));
+            json_object_set_new(ojData, "widgettype", json_integer(wtText));
+         }
+         else if (addr == spWaterLevel)
          {
             getWaterLevel();
 
@@ -1609,6 +1621,39 @@ int Poold::performSyslog(long client)
    pushOutMessage(oJson, "syslog", client);
 
    return done;
+}
+
+
+//***************************************************************************
+// Perform Send Mail
+//***************************************************************************
+
+int Poold::performSendMail(json_t* oObject, long client)
+{
+/*   int alertid = getIntFromJson(oObject, "alertid", na);
+
+   if (alertid != na)
+      return performAlertTestMail(alertid, client);
+*/
+
+   const char* subject = getStringFromJson(oObject, "subject");
+   const char* body = getStringFromJson(oObject, "body");
+
+   tell(eloDetail, "Test mail requested with: '%s/%s'", subject, body);
+
+   if (isEmpty(mailScript))
+      return replyResult(fail, "missing mail script", client);
+
+   if (!fileExists(mailScript))
+      return replyResult(fail, "mail script not found", client);
+
+   if (isEmpty(stateMailTo))
+      return replyResult(fail, "missing receiver", client);
+
+   if (sendMail(stateMailTo, subject, body, "text/plain") != success)
+      return replyResult(fail, "send failed", client);
+
+   return replyResult(success, "mail sended", client);
 }
 
 //***************************************************************************
@@ -2191,25 +2236,27 @@ int Poold::configDetails2Json(json_t* obj)
 {
    for (const auto& it : configuration)
    {
+      if (it.internal)
+         continue;
+
+      json_t* oDetail = json_object();
+      json_array_append_new(obj, oDetail);
+
+      json_object_set_new(oDetail, "name", json_string(it.name.c_str()));
+      json_object_set_new(oDetail, "type", json_integer(it.type));
+      json_object_set_new(oDetail, "category", json_string(it.category));
+      json_object_set_new(oDetail, "title", json_string(it.title));
+      json_object_set_new(oDetail, "descrtiption", json_string(it.description));
+
+      if (it.type == ctChoice)
+         configChoice2json(oDetail, it.name.c_str());
+
       tableConfig->clear();
       tableConfig->setValue("OWNER", myName());
       tableConfig->setValue("NAME", it.name.c_str());
 
       if (tableConfig->find())
-      {
-         json_t* oDetail = json_object();
-         json_array_append_new(obj, oDetail);
-
-         json_object_set_new(oDetail, "name", json_string(tableConfig->getStrValue("NAME")));
-         json_object_set_new(oDetail, "type", json_integer(it.type));
          json_object_set_new(oDetail, "value", json_string(tableConfig->getStrValue("VALUE")));
-         json_object_set_new(oDetail, "category", json_string(it.category));
-         json_object_set_new(oDetail, "title", json_string(it.title));
-         json_object_set_new(oDetail, "descrtiption", json_string(it.description));
-
-         if (it.type == ctChoice)
-            configChoice2json(oDetail, it.name.c_str());
-      }
 
       tableConfig->reset();
    }
@@ -2233,7 +2280,7 @@ int Poold::configChoice2json(json_t* obj, const char* name)
             if (strncmp(opt.name.c_str(), "stylesheet-", strlen("stylesheet-")) != 0)
                continue;
 
-            char* p = strdup(strrchr(opt.name.c_str(), '-'));
+            char* p = strdup(srrchr(opt.name.c_str(), '-'));
             *(strrchr(p, '.')) = '\0';
             json_array_append_new(oArray, json_string(p+1));
          }
@@ -2378,8 +2425,18 @@ int Poold::process()
       if (digitalOutputStates[pinSolarPump].state || digitalOutputStates[pinFilterPump].state)
       {
          tell(0, "Warning: Deactivating pumps due to low water condition!");
-         gpioWrite(pinSolarPump, false);
+
          gpioWrite(pinFilterPump, false);
+         gpioWrite(pinSolarPump, false);
+
+         digitalOutputStates[pinFilterPump].mode = omManual;
+         digitalOutputStates[pinSolarPump].mode = omManual;
+
+         char* body;
+         asprintf(&body, "Water level is 'low'\n Pumps switched off now!");
+         if (sendMail(stateMailTo, "Pool pump alert", body, "text/plain") != success)
+            tell(eloAlways, "Error: Sending alert mail failed");
+         free(body);
       }
    }
    else
@@ -2466,6 +2523,33 @@ int Poold::process()
 
       if (digitalOutputStates[pinPoolLight].state != activate)
          gpioWrite(pinPoolLight, activate);
+   }
+
+   // --------------------
+   // check pump condition
+
+   if (aiSensors[aiFilterPressure].value < 0.4)
+   {
+      // pressure is less than 0.4 bar
+
+      if (digitalOutputStates[pinFilterPump].state &&
+          digitalOutputStates[pinFilterPump].last < time(0) - 5*tmeSecondsPerMinute)
+      {
+         // and pump is runnning longer than 5 minutes
+
+         gpioWrite(pinFilterPump, false);
+         gpioWrite(pinSolarPump, false);
+         digitalOutputStates[pinFilterPump].mode = omManual;
+         digitalOutputStates[pinSolarPump].mode = omManual;
+
+         char* body;
+         asprintf(&body, "Filter pressure is %.2f bar and pump is running!\n Pumps switched off now!",
+                  aiSensors[aiFilterPressure].value);
+         tell(0, body);
+         if (sendMail(stateMailTo, "Pool pump alert", body, "text/plain") != success)
+            tell(eloAlways, "Error: Sending alert mail failed");
+         free(body);
+      }
    }
 
    logReport();

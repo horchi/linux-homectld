@@ -55,6 +55,7 @@ const char* cWebService::events[] =
    "phsetcal",
    "chartbookmarks",
    "storechartbookmarks",
+   "sendmail",
 
    0
 };

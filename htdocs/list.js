@@ -42,9 +42,10 @@ function initList(widgets, root)
    // clean page content
 
    root.innerHTML = "";
+
    var elem = document.createElement("div");
    elem.className = "chartTitle rounded-border";
-   elem.innerHTML = "<center id=\"refreshTime\">Messwerte von " + lastUpdate + "</center>";
+   elem.innerHTML = "<center id=\"refreshTime\" \>";
    root.appendChild(elem);
 
    // build page content
@@ -78,7 +79,8 @@ function initList(widgets, root)
 
 function updateList(sensors)
 {
-   document.getElementById("refreshTime").innerHTML = "Messwerte von " + lastUpdate;
+   var d = new Date();     // #TODO use SP:0x4 instead of Date()
+   document.getElementById("refreshTime").innerHTML = "Messwerte von " + d.toLocaleTimeString();
 
    for (var i = 0; i < sensors.length; i++)
    {

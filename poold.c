@@ -2129,6 +2129,9 @@ int Poold::storeConfig(json_t* obj, long client)
    const char* key {nullptr};
    json_t* jValue {nullptr};
    int oldWebPort = webPort;
+   char* oldStyle {nullptr};
+
+   getConfigItem("style", oldStyle, "");
 
    json_object_foreach(obj, key, jValue)
    {
@@ -2140,7 +2143,7 @@ int Poold::storeConfig(json_t* obj, long client)
 
    const char* name = getStringFromJson(obj, "style");
 
-   if (!isEmpty(name))
+   if (!isEmpty(name) && strcmp(name, oldStyle) != 0)
    {
       tell(1, "Info: Creating link 'stylesheet.css' to '%s'", name);
       char* link {nullptr};
@@ -2162,8 +2165,12 @@ int Poold::storeConfig(json_t* obj, long client)
 
    if (oldWebPort != webPort)
       replyResult(success, "Konfiguration gespeichert. Web Port geändert, bitte poold neu Starten!", client);
+   else if (strcmp(name, oldStyle) != 0)
+      replyResult(success, "Konfiguration gespeichert. Das Farbschema wurde geändert, mit STRG-Umschalt-r neu laden!", client);
    else
       replyResult(success, "Konfiguration gespeichert", client);
+
+   free(oldStyle);
 
    return done;
 }
@@ -2280,7 +2287,7 @@ int Poold::configChoice2json(json_t* obj, const char* name)
             if (strncmp(opt.name.c_str(), "stylesheet-", strlen("stylesheet-")) != 0)
                continue;
 
-            char* p = strdup(srrchr(opt.name.c_str(), '-'));
+            char* p = strdup(strchr(opt.name.c_str(), '-'));
             *(strrchr(p, '.')) = '\0';
             json_array_append_new(oArray, json_string(p+1));
          }

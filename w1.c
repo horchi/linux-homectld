@@ -83,9 +83,11 @@ int W1::scan()
 
 int W1::loop()
 {
+   const int updateCycle {60};   // 60 Sekunden
+
    while (!doShutDown())
    {
-      time_t nextAt = time(0) + 60;
+      time_t nextAt = time(0) + updateCycle;
       update();
 
       while (!doShutDown() && time(0) < nextAt)
@@ -114,6 +116,8 @@ int W1::update()
       char* path {nullptr};
 
       asprintf(&path, "%s/%s/w1_slave", w1Path, it->first.c_str());
+
+      tell(0, "Query '%s'", it->first.c_str());
 
       if (!(in = fopen(path, "r")))
       {
@@ -175,6 +179,7 @@ int W1::update()
 
             json_object_set_new(ojData, "name", json_string(it->first.c_str()));
             json_object_set_new(ojData, "value", json_real(value));
+            json_object_set_new(ojData, "time", json_integer(time(0)));
 
             tell(0, "%s : %0.2f", it->first.c_str(), value);
          }

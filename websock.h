@@ -151,7 +151,6 @@ class cWebSock : public cWebService
       int init(int aPort, int aTimeout);
       int exit();
 
-      int service();
       int performData(MsgType type);
 
       // static interface
@@ -190,6 +189,22 @@ class cWebSock : public cWebService
       lws_retry_bo_t retry;
 #endif
 
+      // sync thread stuff
+
+      struct ThreadControl
+      {
+         bool active {false};
+         bool close {false};
+         cWebSock* webSock {nullptr};
+         int timeout {60};
+      };
+
+      pthread_t syncThread {0};
+      ThreadControl threadCtl;
+
+      static void* syncFct(void* user);
+      static int service(ThreadControl* threadCtl);
+
       // statics
 
       static lws_context* context;
@@ -200,6 +215,7 @@ class cWebSock : public cWebService
       static std::map<void*,Client> clients;
       static cMyMutex clientsMutex;
       static MsgType msgType;
+      static std::map<std::string, std::string> htmlTemplates;
 
       // only used in callback
 

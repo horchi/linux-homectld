@@ -154,8 +154,16 @@ async function showInfoDialog(message, titleMsg, onCloseCallback)
       resizable: true,
 		closeOnEscape: true,
       hide: "fade",
-      open:  function() { infoDialog = $(this); setTimeout(function() { infoDialog.dialog('close'); infoDialog = null }, msDuaration); },
-      close: function() { $(this).dialog('destroy').remove(); }
+      open:  function() {
+         infoDialog = $(this); setTimeout(function() {
+            if (infoDialog)
+               infoDialog.dialog('close');
+            infoDialog = null }, msDuaration);
+      },
+      close: function() {
+         $(this).dialog('destroy').remove();
+         infoDialog = null;
+      }
    });
 }
 

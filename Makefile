@@ -33,7 +33,7 @@ OBJS         = $(MQTTOBJS) $(LOBJS) main.o gpio.o hass.o websock.o arduinoif.o
 
 CFLAGS    	+= $(shell mysql_config --include)
 DEFINES   	+= -DDEAMON=Poold
-OBJS      	+= poold.o
+OBJS      	+= poold.o wsactions.o
 W1OBJS      = w1.o lib/common.o lib/thread.o $(MQTTOBJS)
 AIOBJS      = aicmd.o arduinoif.o lib/common.o lib/serial.o
 

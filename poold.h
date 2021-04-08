@@ -88,8 +88,8 @@ class Poold : public cWebInterface
 
       enum AnalogInputs
       {
-         aiPh = 0,
-         aiFilterPressure
+         aiPh = 0,         // addr 0x00
+         aiFilterPressure  // addr 0x01
       };
 
       enum SpecialValues  // 'SP'
@@ -148,7 +148,7 @@ class Poold : public cWebInterface
          bool state {false};
          OutputMode mode {omAuto};
          uint opt {ooUser};
-         const char* name;     // crash on init with nullptr :o
+         const char* name {nullptr};     // crash on init with nullptr :o
          std::string title;
          time_t last {0};      // last switch time
          time_t next {0};      // calculated next switch time
@@ -159,7 +159,7 @@ class Poold : public cWebInterface
          uint from;
          uint to;
 
-         bool inRange(uint t)  const    { return (from <= t && to >= t); }
+         bool inRange(uint t) const { return (from <= t && to >= t); }
       };
 
       enum ConfigItemType
@@ -176,10 +176,10 @@ class Poold : public cWebInterface
       {
          std::string name;
          ConfigItemType type;
-         bool internal;
-         const char* category;
-         const char* title;
-         const char* description;
+         bool internal {false};
+         const char* category {nullptr};
+         const char* title {nullptr};
+         const char* description {nullptr};
       };
 
       std::map<uint,OutputState> digitalOutputStates;
@@ -214,6 +214,7 @@ class Poold : public cWebInterface
       int performMqttRequests();
       int hassPush(IoType iot, const char* name, const char* title, const char* unit, double theValue, const char* text = 0, bool forceConfig = false);
       int mqttCheckConnection();
+      int mqttDisconnect();
 
       int scheduleAggregate();
       int aggregate();
@@ -284,13 +285,15 @@ class Poold : public cWebInterface
       int toggleIoNext(uint pin);
       int toggleOutputMode(uint pin);
 
+      int storeStates();
+
       // W1
 
       int initW1();
       bool existW1(const char* id);
       double valueOfW1(const char* id, time_t& last);
       uint toW1Id(const char* name);
-      void updateW1(const char* id, double value);
+      void updateW1(const char* id, double value, time_t stamp);
       void cleanupW1();
 
       // data
@@ -381,6 +384,7 @@ class Poold : public cWebInterface
       int showerDuration {20};         // seconds
       int minSolarPumpDuration {10};   // minutes
       int deactivatePumpsAtLowWater {no};
+      int alertSwitchOffPressure {0};
 
       double phMinusDensity {0.0};
       int phMinusDemand01 {0};

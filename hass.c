@@ -176,8 +176,11 @@ int Poold::performMqttRequests()
       }
    }
 
+   static time_t lastW1Read {0};
+
    while (mqttW1Reader->read(&message, 10) == success)
    {
+      lastW1Read = time(0);
       topic = mqttW1Reader->getLastReadTopic();
       json_t* jArray = json_loads(message.memory, 0, &error);
 
@@ -196,11 +199,27 @@ int Poold::performMqttRequests()
       {
          const char* name = getStringFromJson(jValue, "name");
          double value = getDoubleFromJson(jValue, "value");
+         time_t stamp = getIntFromJson(jValue, "time");
 
-         updateW1(name, value);
+         if (stamp < time(0)-300)
+         {
+            tell(eloAlways, "Skipping old (%ld seconds) w1 value", time(0)-stamp);
+            continue;
+         }
+
+         updateW1(name, value, stamp);
       }
 
       cleanupW1();
+   }
+
+   // last read at least in last 5 minutes?
+
+   if (lastW1Read < time(0)-300)
+   {
+      tell(eloAlways, "Error: No w1 update since '%s', "
+           "disconnect from MQTT to force recover", l2pTime(lastW1Read).c_str());
+      mqttDisconnect();   // disconnect from MQTT brocker to force reconnect at next cycle
    }
 
    return success;
@@ -208,6 +227,25 @@ int Poold::performMqttRequests()
 
 //***************************************************************************
 // Check MQTT Connection
+//***************************************************************************
+
+int Poold::mqttDisconnect()
+{
+   if (mqttCommandReader) mqttCommandReader->disconnect();
+   if (mqttW1Reader)      mqttW1Reader->disconnect();
+   if (mqttWriter)        mqttWriter->disconnect();
+   if (mqttReader)        mqttReader->disconnect();
+
+   delete mqttCommandReader;
+   delete mqttW1Reader;
+   delete mqttWriter;
+   delete mqttReader;
+
+   return done;
+}
+
+//***************************************************************************
+// Check MQTT Connection and Connect
 //***************************************************************************
 
 int Poold::mqttCheckConnection()

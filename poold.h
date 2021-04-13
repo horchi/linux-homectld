@@ -227,7 +227,8 @@ class Poold : public cWebInterface
       int getConfigItem(const char* name, char*& value, const char* def = "");
       int setConfigItem(const char* name, const char* value);
       int getConfigItem(const char* name, int& value, int def = na);
-      int setConfigItem(const char* name, int value);
+      int getConfigItem(const char* name, long& value, long def = na);
+      int setConfigItem(const char* name, long value);
       int getConfigItem(const char* name, double& value, double def = na);
       int setConfigItem(const char* name, double value);
 
@@ -237,7 +238,7 @@ class Poold : public cWebInterface
 
       int getWaterLevel();
       int calcPhMinusVolume(double ph);
-      void gpioWrite(uint pin, bool state, bool callJobs = true);
+      void gpioWrite(uint pin, bool state, bool store = true);
       bool gpioRead(uint pin);
       void logReport();
 
@@ -286,6 +287,7 @@ class Poold : public cWebInterface
       int toggleOutputMode(uint pin);
 
       int storeStates();
+      int loadStates();
 
       // W1
 

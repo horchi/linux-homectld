@@ -660,6 +660,7 @@ table.tableMultiCol tr:nth-child(odd)
 {
     display: flex;
     justify-content: center;
+    align-items: center;
     margin: 4px;
 }
 

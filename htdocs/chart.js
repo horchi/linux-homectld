@@ -40,20 +40,23 @@ function drawCharts(dataObject, root)
          scales: {
             xAxes: [{
                type: "time",
-               time: { displayFormats: {
-                  millisecond: 'MMM DD - HH:MM',
-                  second: 'MMM DD - HH:MM',
-                  minute: 'HH:MM',
-                  hour: 'MMM DD - HH:MM',
-                  day: 'HH:MM',
-                  week: 'MMM DD - HH:MM',
-                  month: 'MMM DD - HH:MM',
-                  quarter: 'MMM DD - HH:MM',
-                  year: 'MMM DD - HH:MM' } },
+               time: {
+                  unit: 'hour',
+                  unitStepSize: 1,
+                  displayFormats: {
+                  millisecond: 'MMM DD - HH:mm',
+                  second: 'MMM DD - HH:mm',
+                  minute: 'HH:mm',
+                  hour: 'MMM DD - HH:mm',
+                  day: 'HH:mm',
+                  week: 'MMM DD - HH:mm',
+                  month: 'MMM DD - HH:mm',
+                  quarter: 'MMM DD - HH:mm',
+                  year: 'MMM DD - HH:mm' } },
                distribution: "linear",
                display: true,
                ticks: {
-                  maxTicksLimit: 25,
+                  maxTicksLimit: 24,
                   padding: 10,
                   fontColor: "white"
                },
@@ -91,7 +94,7 @@ function drawCharts(dataObject, root)
 
    // console.log("dataObject: " + JSON.stringify(dataObject, undefined, 4));
 
-   var colors = ['yellow','white','red','lightblue','lightgreen','purple','blue'];
+   var colors = ['yellow','white','red','lightblue','lightgreen','purple','blue','green','pink','#E69138'];
 
    for (var i = 0; i < dataObject.rows.length; i++)
    {
@@ -109,7 +112,7 @@ function drawCharts(dataObject, root)
    }
 
    var end = new Date();
-   end.setDate(theChartStart.getDate()+theChartRange);
+   end.setFullYear(theChartStart.getFullYear(), theChartStart.getMonth(), theChartStart.getDate()+theChartRange);
 
    $("#chartTitle").html(theChartStart.toLocaleString('de-DE') + "  -  " + end.toLocaleString('de-DE'));
    $("#chartSelector").html("");
@@ -117,9 +120,8 @@ function drawCharts(dataObject, root)
    updateChartBookmarks();
 
    for (var i = 0; i < dataObject.sensors.length; i++) {
-      var html = "<div class=\"chartSel\"><input id=\"checkChartSel_" + dataObject.sensors[i].id
-          + "\"type=\"checkbox\" onclick=\"chartSelect('choice')\" " + (dataObject.sensors[i].active ? "checked" : "")
-          + "/>" + dataObject.sensors[i].title + "</div>";
+      var html = '<div class="chartSel"><input id="checkChartSel_' + dataObject.sensors[i].id
+          + '" type="checkbox" onclick="chartSelect(\'choice\')" ' + (dataObject.sensors[i].active ? 'checked' : '') + '/><label for="checkChartSel_' + dataObject.sensors[i].id + '">' + dataObject.sensors[i].title + '</label></div>';
       $("#chartSelector").append(html);
    }
 
@@ -142,12 +144,13 @@ function getSensors()
    return sensors;
 }
 
+
 function updateChartBookmarks()
 {
    if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10)
       $("#chartBookmarks").html('<div>'
                                 + '<button title="Lesezeichen hinzufügen" class="rounded-border chartBookmarkButton" style="min-width:30px;" onclick="addBookmark()">&#128209;</button>'
-                                + '<button title="zum Löschen hier ablegen" ondrop="dropBm(event)" ondragover="allowDropBm(event)" class="rounded-border chartBookmarkButton" style="min-width:30px;margin-right:50px;" disabled>&#128465;</button>'
+                                + '<button title="zum Löschen hier ablegen" ondrop="dropBm(event)" ondragover="allowDropBm(event)" class="rounded-border chartBookmarkButton" style="min-width:30px;margin-right:50px;">&#128465;</button>'
                                 + '</div>');
    else
       $("#chartBookmarks").html('');
@@ -171,6 +174,7 @@ function dragBm(ev, name)
 
 function allowDropBm(ev)
 {
+   console.log("allowDropBm");
    ev.preventDefault();
 }
 
@@ -179,6 +183,7 @@ function dropBm(ev)
    ev.preventDefault();
    var name = ev.dataTransfer.getData("name");
 
+   console.log("dropBm: " + name);
    for (var i = 0; i < chartBookmarks.length; i++) {
       if (chartBookmarks[i].name == name) {
          chartBookmarks.splice(i, 1);
@@ -199,19 +204,24 @@ function chartSelect(action)
    var now = new Date();
 
    if (action == "next")
-      theChartStart.setDate(theChartStart.getDate()+1);
+      theChartStart.setFullYear(theChartStart.getFullYear(), theChartStart.getMonth(), theChartStart.getDate()+1);
+   else if (action == "nextmonth")
+      theChartStart.setFullYear(theChartStart.getFullYear(), theChartStart.getMonth(), theChartStart.getDate()+30);
    else if (action == "prev")
-      theChartStart.setDate(theChartStart.getDate()-1);
+      theChartStart.setFullYear(theChartStart.getFullYear(), theChartStart.getMonth(), theChartStart.getDate()-1);
+   else if (action == "prevmonth")
+      theChartStart.setFullYear(theChartStart.getFullYear(), theChartStart.getMonth(), theChartStart.getDate()-30);
    else if (action == "now")
-      theChartStart.setDate(now.getDate()-theChartRange);
+      theChartStart.setFullYear(now.getFullYear(), now.getMonth(), now.getDate()-theChartRange);
    else if (action == "range")
-      theChartStart.setDate(now.getDate()-theChartRange);
+      theChartStart.setFullYear(now.getFullYear(), now.getMonth(), now.getDate()-theChartRange);
 
-   // console.log("sensors:  '" + sensors + "'");
+   // console.log("sensors:  '" + sensors + "'" + ' Range:' + theChartRange);
 
    var jsonRequest = {};
    prepareChartRequest(jsonRequest, sensors, theChartStart, theChartRange, "chart");
    socket.send({ "event" : "chartdata", "object" : jsonRequest });
+   showProgressDialog();
 }
 
 function chartSelectBookmark(sensors)
@@ -221,6 +231,7 @@ function chartSelectBookmark(sensors)
    var jsonRequest = {};
    prepareChartRequest(jsonRequest, sensors, theChartStart, theChartRange, "chart");
    socket.send({ "event" : "chartdata", "object" : jsonRequest });
+   showProgressDialog();
 }
 
 function addBookmark()

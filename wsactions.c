@@ -465,7 +465,7 @@ int Poold::performChartData(json_t* oObject, long client)
    else if (isEmpty(sensors))
       sensors = chartSensors;
 
-   tell(eloDebug, "Selecting chats data for '%s' ..", sensors);
+   tell(eloDetail, "Selecting chart data for sendors '%s' with range %d ..", sensors, range);
 
    std::vector<std::string> sList;
 

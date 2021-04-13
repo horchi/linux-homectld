@@ -340,9 +340,9 @@ int Poold::init()
    initOutput(pinUserOut2, ooUser, omManual, "User 2");
    initOutput(pinUserOut3, ooUser, omManual, "User 3");
    initOutput(pinUserOut4, ooUser, omManual, "User 4");
-   initOutput(pinW1Power, ooAuto|ooUser, omAuto, "W1 Power", urFullControl);
+   initOutput(pinW1Power, ooAuto, omAuto, "W1 Power", urFullControl);
 
-   gpioWrite(pinW1Power, true);
+   gpioWrite(pinW1Power, true, false);
 
    // init input IO
 
@@ -385,6 +385,7 @@ int Poold::init()
    //
 
    initScripts();
+   loadStates();
 
    initialized = true;
 
@@ -394,7 +395,7 @@ int Poold::init()
 int Poold::exit()
 {
    for (auto it = digitalOutputStates.begin(); it != digitalOutputStates.end(); ++it)
-      gpioWrite(it->first, false);
+      gpioWrite(it->first, false, false);
 
    exitDb();
 
@@ -432,7 +433,7 @@ int Poold::initOutput(uint pin, int opt, OutputMode mode, const char* name, uint
    tableValueFacts->reset();
 
    pinMode(pin, OUTPUT);
-   gpioWrite(pin, false);
+   gpioWrite(pin, false, false);
    addValueFact(pin, "DO", name, "", urControl);
 
    return done;
@@ -1826,6 +1827,11 @@ int Poold::setConfigItem(const char* name, const char* value)
 
 int Poold::getConfigItem(const char* name, int& value, int def)
 {
+   return getConfigItem(name, (long&)value, (long)def);
+}
+
+int Poold::getConfigItem(const char* name, long& value, long def)
+{
    char* txt {nullptr};
 
    getConfigItem(name, txt);
@@ -1845,11 +1851,11 @@ int Poold::getConfigItem(const char* name, int& value, int def)
    return success;
 }
 
-int Poold::setConfigItem(const char* name, int value)
+int Poold::setConfigItem(const char* name, long value)
 {
    char txt[16];
 
-   snprintf(txt, sizeof(txt), "%d", value);
+   snprintf(txt, sizeof(txt), "%ld", value);
 
    return setConfigItem(name, txt);
 }
@@ -2095,6 +2101,8 @@ int Poold::toggleOutputMode(uint pin)
       OutputMode mode = digitalOutputStates[pin].mode == omAuto ? omManual : omAuto;
       digitalOutputStates[pin].mode = mode;
 
+      storeStates();
+
       json_t* oJson = json_array();
       json_t* ojData = json_object();
       json_array_append_new(oJson, ojData);
@@ -2106,7 +2114,7 @@ int Poold::toggleOutputMode(uint pin)
    return success;
 }
 
-void Poold::gpioWrite(uint pin, bool state, bool callJobs)
+void Poold::gpioWrite(uint pin, bool state, bool store)
 {
    digitalOutputStates[pin].state = state;
    digitalOutputStates[pin].last = time(0);
@@ -2117,7 +2125,10 @@ void Poold::gpioWrite(uint pin, bool state, bool callJobs)
    // invert the state on 'invertDO' - some relay board are active at 'false'
 
    digitalWrite(pin, invertDO ? !state : state);
-   storeStates();
+
+   if (store)
+      storeStates();
+
    performJobs();
 
    // send update to WS
@@ -2141,20 +2152,61 @@ bool Poold::gpioRead(uint pin)
 }
 
 //***************************************************************************
-// Store States to DB
+// Store/Load States to DB
 //  used to recover at restart
 //***************************************************************************
 
 int Poold::storeStates()
 {
    long value {0};
+   long mode {0};
 
    for (const auto& output : digitalOutputStates)
    {
       if (output.second.state)
          value += pow(2, output.first);
 
-      tell(0, "state bit (%d): %s: %d [%ld]", output.first, output.second.name, output.second.state, value);
+      if (output.second.mode == omManual)
+         mode += pow(2, output.first);
+
+      setConfigItem("ioStates", value);
+      setConfigItem("ioModes", mode);
+
+      // tell(0, "state bit (%d): %s: %d [%ld]", output.first, output.second.name, output.second.state, value);
+   }
+
+   return done;
+}
+
+int Poold::loadStates()
+{
+   long value {0};
+   long mode {0};
+
+   getConfigItem("ioStates", value, 0);
+   getConfigItem("ioModes", mode, 0);
+
+   tell(0, "Info: Loaded iostates: %ld", value);
+
+   for (const auto& output : digitalOutputStates)
+   {
+      if (digitalOutputStates[output.first].opt & ooUser)
+      {
+         gpioWrite(output.first, value & (long)pow(2, output.first), false);
+         tell(0, "Info: IO %s/%d recovered to %d", output.second.name, output.first, output.second.state);
+      }
+   }
+
+   if (mode)
+   {
+      for (const auto& output : digitalOutputStates)
+      {
+         if (digitalOutputStates[output.first].opt & ooAuto && digitalOutputStates[output.first].opt & ooUser)
+         {
+            OutputMode m = mode & (long)pow(2, output.first) ? omManual : omAuto;
+            digitalOutputStates[output.first].mode = m;
+         }
+      }
    }
 
    return done;

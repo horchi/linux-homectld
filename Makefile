@@ -70,6 +70,8 @@ install-poold: install-config install-scripts
 	install --mode=755 -D $(TARGET) $(BINDEST)/
 	install --mode=755 -D $(W1TARGET) $(BINDEST)/
 	make install-systemd
+	mkdir -p $(DESTDIR)$(PREFIX)/share/poold/
+	install --mode=644 -D arduino/build-nano-atmega328/ioctrl.hex $(DESTDIR)$(PREFIX)/share/poold/nano-atmega328-ioctrl.hex
 
 inst_restart: $(TARGET) install-config # install-scripts
 	systemctl stop poold
@@ -128,6 +130,8 @@ clean:
 	rm -f $(TARGET) $(ARCHIVE).tgz
 	rm -f com2
 
+build: clean all
+
 activate: install
 	systemctl restart $(TARGET)
 	tail -f /var/log/$(TARGET).log
@@ -136,7 +140,7 @@ cppchk:
 	cppcheck --template="{file}:{line}:{severity}:{message}" --language=c++ --force *.c *.h
 
 upload:
-	avrdude -q -V -p atmega328p -D -c arduino -b 57600 -P $(AVR_DEVICE) -U flash:w:build-nano-atmega328.arduino.hex:i
+	avrdude -q -V -p atmega328p -D -c arduino -b 57600 -P $(AVR_DEVICE) -U flash:w:arduino/build-nano-atmega328/ioctrl.hex:i
 
 build-deb:
 	rm -rf $(DEB_DEST)

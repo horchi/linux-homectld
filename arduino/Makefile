@@ -12,6 +12,3 @@ include /usr/share/arduino/Arduino.mk
 
 BIN  = $(TARGET_HEX)
 DEST = ../$(OBJDIR).$(TARGET).hex
-
-install:
-	cp $(BIN) $(DEST)

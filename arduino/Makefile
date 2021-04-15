@@ -1,4 +1,5 @@
 
+TARGET        = ioctrl
 BOARD_TAG     = nano
 BOARD_SUB     = atmega328
 MCU           = atmega328p
@@ -9,7 +10,7 @@ CXXFLAGS     += -Wno-deprecated-declarations
 
 include /usr/share/arduino/Arduino.mk
 
-BIN  = $(OBJDIR)/$(TARGET).hex
+BIN  = $(TARGET_HEX)
 DEST = ../$(OBJDIR).$(TARGET).hex
 
 install:

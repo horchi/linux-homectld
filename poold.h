@@ -176,6 +176,7 @@ class Poold : public cWebInterface
       {
          std::string name;
          ConfigItemType type;
+         const char* def {nullptr};
          bool internal {false};
          const char* category {nullptr};
          const char* title {nullptr};
@@ -255,7 +256,7 @@ class Poold : public cWebInterface
       int performLogin(json_t* oObject);
       int performLogout(json_t* oObject);
       int performTokenRequest(json_t* oObject, long client);
-      int performSyslog(long client);
+      int performSyslog(json_t* oObject, long client);
       int performSendMail(json_t* oObject, long client);
       int performConfigDetails(long client);
       int performUserDetails(long client);
@@ -367,6 +368,7 @@ class Poold : public cWebInterface
       char* mqttUrl {nullptr};
       time_t lastMqttConnectAt {0};
       std::map<std::string,std::string> hassCmdTopicMap; // 'topic' to 'name' map
+      char* chartSensors {nullptr};
 
       int mail {no};
       char* mailScript {nullptr};
@@ -393,8 +395,6 @@ class Poold : public cWebInterface
       int phMinusDayLimit {0};
       int phPumpDuration100 {0};
       double phReference {0.0};
-
-      char* chartSensors {nullptr};
 
       std::vector<Range> filterPumpTimes;
       std::vector<Range> uvcLightTimes;

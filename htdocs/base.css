@@ -1,12 +1,16 @@
 
-button:focus { outline:0; }
+input:focus,
+select:focus,
+textarea:focus,
+button:focus {
+    outline: none;
+}
 
 .menu
 {
     display: grid;
     margin-left: 5px;
     margin-right: 5px;
-    /*white-space: nowrap;*/
     background-color: var(--menu);
 }
 
@@ -17,16 +21,36 @@ button:focus { outline:0; }
 
 .content
 {
-/*    position: relative;*/
     margin: 0px 5px 0px 5px;
+    background-color: var(--background);
 }
 
 .rounded-border
 {
     border-radius: var(--borderRadius);
     border-color: var(--borderColor);
-    border-style: solid;
+    border-style: none;
     border-width: 1px;
+}
+
+.progress {
+  border: 5px solid white;
+  border-radius: 50%;
+  border-top: 5px solid var(--blue);
+  width: 80px;
+  height: 80px;
+  -webkit-animation: spin 2s linear infinite; /* Safari */
+  animation: spin 2s linear infinite;
+}
+
+@-webkit-keyframes spin {   /* Safari */
+  0% { -webkit-transform: rotate(0deg); }
+  100% { -webkit-transform: rotate(360deg); }
+}
+
+@keyframes spin {  /* Safari */
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .button1
@@ -37,6 +61,7 @@ button:focus { outline:0; }
     display: inline-block;
     padding: 6px 6px;
     text-decoration: none;
+    box-shadow: 1px 1px 5px 1px var(--shadow);
 }
 
 .button1:hover
@@ -50,6 +75,7 @@ button:focus { outline:0; }
     color: var(--buttonFont);
     padding: 3px 10px;
     text-decoration: none;
+    box-shadow: 1px 1px 5px 1px var(--shadow);
 }
 
 .button2:hover
@@ -67,6 +93,7 @@ button:focus { outline:0; }
     height: 28px;
     background-color: slategray;
     text-decoration: none;
+    box-shadow: 1px 1px 5px 1px var(--shadow);
 }
 
 .buttonOptions:hover
@@ -81,46 +108,8 @@ button:focus { outline:0; }
     width: 300px;
     height: 40px;
     margin: 8px;
+    box-shadow: 1px 1px 5px 1px var(--shadow);
 }
-
-/* ----------------------- */
-/* Dialogs */
-
-.ui-widget {}
-
-.ui-widget-content {
-    border-width: 1x;
-    border-radius: 10px;
-    border-color: var(--dialogColor);
-    background: var(--dialogColor);
-    align-items: center;
-}
-
-.ui-dialog {}
-.ui-widget-header {}
-
-.ui-dialog .ui-dialog-content {
-    text-align: center;
-}
-
-.ui-dialog .ui-dialog-titlebar {
-    background: var(--dialogColor);
-    border-color: var(--dialogColor);
-}
-
-/*.ui-dialog .ui-dialog-buttonpane button.ui-button {
-    display: none;
-}*/
-
-.no-close .ui-dialog-titlebar-close {
-    display: none
-}
-
-.no-titlebar .ui-dialog-titlebar {
-    display: none;
-}
-
-/* ----------------------- */
 
 .seperatorTitle1
 {
@@ -194,6 +183,37 @@ span > input
     font-size: 13px;
 }
 
+.time-input
+{
+    background-color: var(--edit);
+    margin-top: 2px;
+    padding: 3px;
+    width: 45px;
+    color: black;
+
+    border-radius: var(--borderRadius);
+    border-color: var(--borderColor);
+    border-style: none;
+    border-width: 1px;
+}
+
+.timepicker
+{
+    width: 110px;
+    display: flex;
+}
+
+.timerangepicker
+{
+    display: flex;
+    align-items: center;
+}
+
+.timepicker > input
+{
+    width: inherit;
+}
+
 .info
 {
     background-color: green;
@@ -255,20 +275,16 @@ span > input
 .schemaDiv
 {
     color: white;
-    padding-top: 3px;
+    padding-top: 5px;
+    padding-left: 4px;
+    padding-right: 4px;
+    padding-bottom: 3px;
     background-color: Transparent;
     background-repeat: no-repeat;
     border-radius: var(--borderRadiusSchemaValue);
     border-color: var(--borderColorSchemaValue);
     border-style: var(--borderStyleSchemaValue);
     border-width: 1px;
-}
-
-.buttonSchemaValue
-{
-    color: inherit;
-    background-color: Transparent;
-    border: none;
 }
 
 .inputTableAlert
@@ -297,7 +313,7 @@ span > input
 .configDescriptionCaption
 {
     padding: 15px;
-     text-align: center;
+    text-align: center;
     font-weight: bold;
     font-size: 18px;
 }
@@ -398,6 +414,41 @@ span > input
     height: 45px;
     display: flex;
     padding: 0px 0px 0px 10px;
+}
+
+.tableRow
+{
+    background: linear-gradient(to bottom right, var(--light3), var(--light1)); /* Standard syntax (must be last) */
+    border-radius: var(--borderRadius);
+    margin: 2px;
+    height: 30px;
+    display: flex;
+    padding: 5px;
+}
+
+.tableRow > input
+{
+    margin-left: 15px;
+    align-self: center;
+    height: 18px;
+}
+
+.tableRow > button
+{
+    margin-left: 15px;
+    align-self: center;
+    height: 25px;
+}
+
+.tableRow > input[type='search']
+{
+    height: 24px;
+}
+
+.tableRow > div
+{
+    margin-left: 15px;
+    align-self: center;
 }
 
 div.redCircle
@@ -675,6 +726,11 @@ table.tableMultiCol tr:nth-child(odd)
     background-color: slategray;
 }
 
+.chartButton:hover
+{
+    background-color: darkslategray;
+}
+
 .chartBookmarks
 {
     display: flex;
@@ -692,6 +748,11 @@ table.tableMultiCol tr:nth-child(odd)
     background-color: slategray;
 }
 
+.chartBookmarkButton:hover
+{
+    background-color: darkslategray;
+}
+
 .chartSelectors
 {
     display: flex;
@@ -702,8 +763,8 @@ table.tableMultiCol tr:nth-child(odd)
 .chartSel
 {
     display: inline;
-    width: 200px;
-    padding: 4px;
+    width: 300px;
+    padding: 0px;
 }
 
 /* ----------------------- */
@@ -720,9 +781,7 @@ table.tableMultiCol tr:nth-child(odd)
 {
     justify-content: center;
     overflow: hidden;
-    min-height: 60px;
     margin: 2px;
-    padding: 10px;
 }
 
 .menuButton
@@ -736,6 +795,22 @@ table.tableMultiCol tr:nth-child(odd)
     cursor: pointer;
     background-color: var(--light1);
     color: var(--buttonFont);
+    min-height: 60px;
+    padding: 10px;
+}
+
+.menuButtonHead
+{
+    display: grid;
+    align-items: center;
+    text-align: center;
+    grid-gap: 1px;
+    font-size: 1.5em;
+    font-weight: bold;
+    background-color: var(--light1);
+    color: var(--buttonFont);
+    min-height: 40px;
+    padding: 1px;
 }
 
 .menuButtonValue
@@ -744,10 +819,12 @@ table.tableMultiCol tr:nth-child(odd)
     align-items: center;
     text-align: center;
     grid-gap: 1px;
-    font-size: 1.5em;
+    font-size: 1.4em;
     font-weight: normal;
     background-color: var(--light1);
     color: var(--buttonFont);
+    min-height: 50px;
+    padding: 1px;
 }
 
 .menuButtonValueEditable
@@ -765,6 +842,8 @@ table.tableMultiCol tr:nth-child(odd)
     font-size: 1.5em;
     font-weight: bold;
     cursor: pointer;
+    min-height: 60px;
+    padding: 10px;
     background-color: var(--light3);
 }
 
@@ -784,7 +863,7 @@ table.tableMultiCol tr:nth-child(odd)
     overflow: hidden;
     width: 330px;
     height: 212px;
-    margin: 2px;
+    margin: 3px;
     background-color: var(--light1);
     padding: 1px;
 }
@@ -796,8 +875,9 @@ table.tableMultiCol tr:nth-child(odd)
     'title'
     'main'
     'progress';
-  grid-template-rows: 13% 77% 4%;
+  grid-template-rows: 25% 71% 4%;
   grid-gap: 1px;
+  box-shadow: 1px 1px 1px 0px var(--shadow);
 }
 
 .widgetManuel
@@ -813,6 +893,7 @@ table.tableMultiCol tr:nth-child(odd)
        'main';
     grid-template-rows: 15% 85%;
     grid-gap: 1px;
+    box-shadow: 1px 1px 1px 0px var(--shadow);
 }
 
 .widgetCtrl
@@ -824,6 +905,7 @@ table.tableMultiCol tr:nth-child(odd)
       'ctrl1 ctrl2';
     grid-template-rows: 15% 66% 16%;
     grid-gap: 1px;
+    box-shadow: 1px 1px 1px 0px var(--shadow);
 }
 
 .widgetChart
@@ -835,6 +917,7 @@ table.tableMultiCol tr:nth-child(odd)
       'chart chart';
     grid-template-rows: 15% 16% 69%;
     grid-gap: 1px;
+    box-shadow: 1px 1px 1px 0px var(--shadow);
 }
 
 .chart-value
@@ -883,7 +966,7 @@ table.tableMultiCol tr:nth-child(odd)
     background-color: Transparent;
     cursor: pointer;
     border: none;
-    width: inherit;
+   /* width: inherit;*/
     color: var(--buttonFont);
     text-overflow: ellipsis;
 }
@@ -929,7 +1012,7 @@ table.tableMultiCol tr:nth-child(odd)
     grid-area: main;
     display: inline-grid;
     text-align: center;
-    font-size: 2.1em;
+    font-size: xx-large;
     font-weight: bold;
     align-items: center;
     word-break: break-word;
@@ -1056,10 +1139,6 @@ dialog::backdrop, #backdrop
 @media only screen and (max-width: 740px)
 {
     .daemonState               { width: 88%; }
-/*    .content                   { padding: 0px; }
-    .daemonState               { font-size: 15px; margin: 5px; min-width: 91%; }
-    .daemonState > div > span  { min-width: 110px; }*/
-
     .inputTableConfig > div > span:nth-child(3) { width: 95%; }
     .inputTableConfig > div > span              { width: 95%; }
 
@@ -1067,6 +1146,8 @@ dialog::backdrop, #backdrop
     .widgetGauge               { grid-template-rows: 30% 70%; }
     .widget                    { grid-template-rows: 30% 66% 4%; }
     .widgetChart               { grid-template-rows: 30% 20% 50%; }
+    .widget-title              { font-size: 1.2em; }
+    .widget-value              { font-size: 1.3em; }
 }
 
 @media only screen and (max-width: 375px)

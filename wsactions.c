@@ -229,12 +229,12 @@ int Poold::performLogin(json_t* oObject)
       if (isEmpty(name))
          continue;
 
-      tell(0, "Got request '%s'", name);
+      tell(0, "Got request '%s' rights 0x%x", name, wsClients[(void*)client].rights);
 
       if (strcmp(name, "data") == 0)
          update(true, client);     // push the data ('init')
       else if (wsClients[(void*)client].rights & urAdmin && strcmp(name, "syslog") == 0)
-         performSyslog(client);
+         performSyslog(oRequest, client);
       else if (wsClients[(void*)client].rights & urSettings && strcmp(name, "configdetails") == 0)
          performConfigDetails(client);
       else if (wsClients[(void*)client].rights & urAdmin && strcmp(name, "userdetails") == 0)
@@ -315,15 +315,20 @@ int Poold::performTokenRequest(json_t* oObject, long client)
 // Perform WS Syslog Request
 //***************************************************************************
 
-int Poold::performSyslog(long client)
+int Poold::performSyslog(json_t* oObject, long client)
 {
-   if (client <= 0)
+   const char* name {"/var/log/poold.log"};
+
+   if (client == 0)
       return done;
 
+   const char* log = getStringFromJson(oObject, "log");
    json_t* oJson = json_object();
-   const char* name = "/var/log/syslog";
    std::vector<std::string> lines;
    std::string result;
+
+   if (!isEmpty(log))
+      name = log;
 
    if (loadLinesFromFile(name, lines, false) == success)
    {
@@ -387,7 +392,7 @@ int Poold::performSendMail(json_t* oObject, long client)
 
 int Poold::performConfigDetails(long client)
 {
-   if (client <= 0)
+   if (client == 0)
       return done;
 
    json_t* oJson = json_array();
@@ -403,7 +408,7 @@ int Poold::performConfigDetails(long client)
 
 int Poold::performUserDetails(long client)
 {
-   if (client <= 0)
+   if (client == 0)
       return done;
 
    json_t* oJson = json_array();
@@ -419,7 +424,7 @@ int Poold::performUserDetails(long client)
 
 int Poold::performIoSettings(json_t* oObject, long client)
 {
-   if (client <= 0)
+   if (client == 0)
       return done;
 
    bool filterActive = false;
@@ -440,7 +445,7 @@ int Poold::performIoSettings(json_t* oObject, long client)
 
 int Poold::performChartData(json_t* oObject, long client)
 {
-   if (client <= 0)
+   if (client == 0)
       return done;
 
    int range = getIntFromJson(oObject, "range", 3);                // Anzahl der Tage
@@ -594,7 +599,7 @@ int Poold::performChartbookmarks(long client)
 
 int Poold::performUserConfig(json_t* oObject, long client)
 {
-   if (client <= 0)
+   if (client == 0)
       return done;
 
    int rights = getIntFromJson(oObject, "rights", na);
@@ -684,7 +689,7 @@ int Poold::performUserConfig(json_t* oObject, long client)
 
 int Poold::performPh(long client, bool all)
 {
-   if (client <= 0)
+   if (client == 0)
       return done;
 
    json_t* oJson = json_object();
@@ -733,7 +738,7 @@ int Poold::performPh(long client, bool all)
 
 int Poold::performPhCal(json_t* oObject, long client)
 {
-   if (client <= 0)
+   if (client == 0)
       return done;
 
    json_t* oJson = json_object();
@@ -763,7 +768,7 @@ int Poold::performPhCal(json_t* oObject, long client)
 
 int Poold::performPhSetCal(json_t* oObject, long client)
 {
-   if (client <= 0)
+   if (client == 0)
       return done;
 
    cArduinoInterface::CalSettings calSettings;
@@ -803,7 +808,7 @@ int Poold::performPhSetCal(json_t* oObject, long client)
 
 int Poold::performPasswChange(json_t* oObject, long client)
 {
-   if (client <= 0)
+   if (client == 0)
       return done;
 
    const char* user = getStringFromJson(oObject, "user");

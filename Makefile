@@ -95,6 +95,12 @@ install-config:
 	if ! test -f $(CONFDEST)/poold.conf; then \
 	   install --mode=644 -D ./configs/poold.conf $(CONFDEST)/; \
 	fi
+	mkdir -p $(DESTDIR)/etc/rsyslog.d
+	@cp contrib/rsyslog-poold.conf $(DESTDIR)/etc/rsyslog.d/10-poold.conf
+	mkdir -p $(DESTDIR)/etc/logrotate.d
+	@cp contrib/logrotate-poold $(DESTDIR)/etc/logrotate.d/poold
+	mkdir -p $(DESTDIR)/etc/default
+	@cp contrib/w1mqtt $(DESTDIR)/etc/default/w1mqtt
 	install --mode=644 -D ./configs/poold.dat $(CONFDEST)/;
 
 install-scripts:
@@ -135,6 +141,7 @@ upload:
 build-deb:
 	rm -rf $(DEB_DEST)
 	make -s install-poold DESTDIR=$(DEB_DEST) PREFIX=/usr INIT_AFTER=mysql.service
+	make -s install-web DESTDIR=$(DEB_DEST) PREFIX=/usr
 	dpkg-deb --build $(DEB_BASE_DIR)/poold-$(VERSION)
 
 publish-deb:

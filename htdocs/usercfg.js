@@ -32,8 +32,8 @@ function initUserConfig(users, root)
       html += "<td>";
       for (var b = 0; b < rights.length; b++) {
          var checked = item.rights & Math.pow(2, b); // (2 ** b);
-         html += "<input id=\"bit_" + item.user + b + "\" class=\"rounded-border input\" style=\"width:auto;\" type=\"checkbox\" " + (checked ? "checked" : "") + "/>"
-         html += "<span style=\"padding-right:20px; padding-left:5px;\">" + rights[b] + "</span>";
+         html += "<input id=\"bit_" + item.user + b + "\" class=\"rounded-border input\" style=\"width:auto;\" type=\"checkbox\" " + (checked ? "checked" : "") +
+            '/><label for="bit_' + item.user + b + '">' + rights[b] + '</label>';
       }
       html += "</td>";
       html += "<td>";

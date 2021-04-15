@@ -4,7 +4,7 @@ Section: base
 Priority: optional
 Architecture: armhf
 Depends: libssl1.1, libjansson4, libxml2, openssl, libmariadb3, mailutils, ssmtp,
-   mosquitto, mosquitto-clients, avrdude
+   mosquitto, mosquitto-clients, avrdude, mosquitto, mosquitto-clients,
    mariadb-server, libuuid1, libcurl4, wiringpi
 Maintainer: Jörg Wendel <linux@jwendel.de>
 Description: pool steering deamon

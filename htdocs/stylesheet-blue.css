@@ -1,25 +1,30 @@
 
 @import url("normalize.css");
+@import url("checkbox.css");
+@import url("dialog.css");
 @import url("base.css");
 
 :root
 {
     /* colors */
 
-    --menu: #455e7f;
+    --menu: #001129;
 
     --light1: #0d2546;
     --light2: white;
     --light3: #396992;
-
     --light4: white;
+    --blue: #2177AD;
 
     --caption1: #0d2546;
     --caption2: #113a77;
     --edit: #f9f9ef;
 
-    --borderColor: #0d2546;
+    --borderColor: #001129;
     --borderRadius: 3px;
+
+    --background: #001129;
+    --shadow: black;
 
     --borderColorSchemaValue: blue;
     --borderRadiusSchemaValue: 3px;
@@ -31,13 +36,17 @@
 
     --buttonAction: #818382;
     --buttonFont: white;
-    --dialogColor: #f8ffdb;
+
+    --dialogColor: black;
+    --dialogBackground: lightgray;
 }
 
 Body
 {
     font-family: Helvetica,Arial,sans-serif;
     font-size: 1.0em;
+    color: white;
+    background-color: black;
 }
 
 .content

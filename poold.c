@@ -3,7 +3,7 @@
 // File poold.c
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
-// Date 16.04.2020 - Jörg Wendel
+// Date 16.04.2021 - Jörg Wendel
 //***************************************************************************
 
 #include <stdio.h>
@@ -28,60 +28,58 @@ std::list<Poold::ConfigItemDef> Poold::configuration
 {
    // web
 
-   { "addrsDashboard",            ctString,  false, "3 WEB Interface", "Sensoren 'Dashboard'", "Komma getrennte Liste aus ID:Typ siehe 'IO Setup'" },
-   { "addrsList",                 ctString,  false, "3 WEB Interface", "Sensoren 'Liste'", "Komma getrennte Liste aus ID:Typ siehe 'IO Setup'" },
+   { "addrsDashboard",            ctString,  "",      false, "3 WEB Interface", "Sensoren 'Dashboard'", "Komma getrennte Liste aus ID:Typ siehe 'IO Setup'" },
+   { "addrsList",                 ctString,  "",      false, "3 WEB Interface", "Sensoren 'Liste'", "Komma getrennte Liste aus ID:Typ siehe 'IO Setup'" },
 
-   // { "chart",                  ctString,  false, "3 WEB Interface", "Charts", "Komma getrennte Liste aus ID:Typ siehe 'Aufzeichnung'" },
-   { "chartStart",                ctInteger, false, "3 WEB Interface", "Chart Zeitraum (Tage)", "Standardzeitraum der Chartanzeige (seit x Tagen bis heute)" },
-   { "style",                     ctChoice,  false, "3 WEB Interface", "Farbschema", "" },
-   { "vdr",                       ctBool,    false, "3 WEB Interface", "VDR (Video Disk Recorder) Osd verfügbar", "" },
+   { "style",                     ctChoice,  "dark",  false, "3 WEB Interface", "Farbschema", "" },
+   { "vdr",                       ctBool,    "0",     false, "3 WEB Interface", "VDR (Video Disk Recorder) OSD verfügbar", "" },
 
    // poold
 
-   { "interval",                  ctInteger, false, "1 Pool Daemon", "Intervall der Aufzeichung", "Datenbank Aufzeichung [s]" },
-   { "webPort",                   ctInteger, false, "1 Pool Daemon", "Port des Web Interfaces", "" },
-   { "loglevel",                  ctInteger, false, "1 Pool Daemon", "Log level", "" },
-   { "filterPumpTimes",           ctRange,   false, "1 Pool Daemon", "Zeiten Filter Pumpe", "[hh:mm] - [hh:mm]" },
-   { "uvcLightTimes",             ctRange,   false, "1 Pool Daemon", "Zeiten UV-C Licht", "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!" },
-   { "poolLightTimes",            ctRange,   false, "1 Pool Daemon", "Zeiten Pool Licht", "[hh:mm] - [hh:mm]" },
-   { "poolLightColorToggle",      ctBool,    false, "1 Pool Daemon", "Pool Licht Farb-Toggel", "" },
+   { "interval",                  ctInteger, "60",           false, "1 Pool Daemon", "Intervall der Aufzeichung", "Datenbank Aufzeichung [s]" },
+   { "webPort",                   ctInteger, "61109",        false, "1 Pool Daemon", "Port des Web Interfaces", "" },
+   { "loglevel",                  ctInteger, "1",            false, "1 Pool Daemon", "Log level", "" },
+   { "filterPumpTimes",           ctRange,   "10:00-17:00",  false, "1 Pool Daemon", "Zeiten Filter Pumpe", "[hh:mm] - [hh:mm]" },
+   { "uvcLightTimes",             ctRange,   "",             false, "1 Pool Daemon", "Zeiten UV-C Licht", "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!" },
+   { "poolLightTimes",            ctRange,   "",             false, "1 Pool Daemon", "Zeiten Pool Licht", "[hh:mm] - [hh:mm] (ansonsten manuell schalten)" },
+   { "poolLightColorToggle",      ctBool,    "0",            false, "1 Pool Daemon", "Pool Licht Farb-Toggel", "" },
 
-   { "alertSwitchOffPressure",    ctInteger, false, "1 Pool Daemon", "Trockenlaufschutz unter x bar", "> 5 Minuten (0 deaktiviert)" },
+   { "alertSwitchOffPressure",    ctInteger, "0",            false, "1 Pool Daemon", "Trockenlaufschutz unter x bar", "Deaktiviert Pumpen nach 5 Minuten (0 deaktiviert)" },
 
-   { "tPoolMax",                  ctNum,     false, "1 Pool Daemon", "Pool max Temperatur", "" },
-   { "tSolarDelta",               ctNum,     false, "1 Pool Daemon", "Einschaltdifferenz Solarpumpe", "" },
-   { "showerDuration",            ctInteger, false, "1 Pool Daemon", "Laufzeit der Dusche", "Laufzeit [s]" },
-   { "minSolarPumpDuration",      ctInteger, false, "1 Pool Daemon", "Mindestlaufzeit der Solarpumpe [m]", "" },
-   { "deactivatePumpsAtLowWater", ctBool,    false, "1 Pool Daemon", "Pumpen bei geringem Wasserstand deaktivieren", "" },
+   { "tPoolMax",                  ctNum,     "28.0",         false, "1 Pool Daemon", "Pool max Temperatur", "" },
+   { "tSolarDelta",               ctNum,     "5.0",          false, "1 Pool Daemon", "Einschaltdifferenz Solarpumpe", "" },
+   { "showerDuration",            ctInteger, "20",           false, "1 Pool Daemon", "Laufzeit der Dusche", "Laufzeit [s]" },
+   { "minSolarPumpDuration",      ctInteger, "10",           false, "1 Pool Daemon", "Mindestlaufzeit der Solarpumpe [m]", "" },
+   { "deactivatePumpsAtLowWater", ctBool,    "0",            false, "1 Pool Daemon", "Pumpen bei geringem Wasserstand deaktivieren", "" },
 
-   { "invertDO",                  ctBool,    false, "1 Pool Daemon", "Digitalaugänge invertieren", "" },
-   { "w1AddrAir",                 ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Luft", "" },
-   { "w1AddrPool",                ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Pool", "" },
-   { "w1AddrSolar",               ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Kollektor", "" },
-   { "w1AddrSuctionTube",         ctString,  false, "1 Pool Daemon", "Adresse Fühler Temperatur Saugleitung", "" },
+   { "invertDO",                  ctBool,    "1",            false, "1 Pool Daemon", "Digitalaugänge invertieren", "" },
+   { "w1AddrAir",                 ctString,  "",             false, "1 Pool Daemon", "Adresse Fühler Temperatur Luft", "" },
+   { "w1AddrPool",                ctString,  "",             false, "1 Pool Daemon", "Adresse Fühler Temperatur Pool", "" },
+   { "w1AddrSolar",               ctString,  "",             false, "1 Pool Daemon", "Adresse Fühler Temperatur Kollektor", "" },
+   { "w1AddrSuctionTube",         ctString,  "",             false, "1 Pool Daemon", "Adresse Fühler Temperatur Saugleitung", "" },
 
-   { "aggregateHistory",          ctInteger, false, "1 Pool Daemon", "Historie [Tage]", "history for aggregation in days (default 0 days -> aggegation turned OFF)" },
-   { "aggregateInterval",         ctInteger, false, "1 Pool Daemon", "Intervall [m]", "aggregation interval in minutes - 'one sample per interval will be build'" },
-   { "peakResetAt",               ctString,  true,  "1 Pool Daemon", "", "" },
+   { "aggregateHistory",          ctInteger, "0",            false, "1 Pool Daemon", "Historie [Tage]", "history for aggregation in days (default 0 days -> aggegation turned OFF)" },
+   { "aggregateInterval",         ctInteger, "15",           false, "1 Pool Daemon", "Intervall [m]", "aggregation interval in minutes - 'one sample per interval will be build'" },
+   { "peakResetAt",               ctString,  "",             true,  "1 Pool Daemon", "", "" },
 
-   { "mqttUrl",                   ctString,  false, "1 Pool Daemon", "Url des MQTT Message Broker", "Wird zur Kommunikation mit dem one-wire Interface und mit Hausautomatisierungen verwendet. Beispiel: 'tcp://localhost:1883'" },
+   { "mqttUrl",                   ctString,  "tcp://localhost:1883", false, "1 Pool Daemon", "Url des MQTT Message Broker", "Wird zur Kommunikation mit dem one-wire Interface und mit Hausautomatisierungen verwendet. Beispiel: 'tcp://localhost:1883'" },
 
    // PH stuff
 
-   { "arduinoDevice",             ctString,  false, "1 Pool Daemon", "Arduino interface device", "Beispiel: '/dev/ttyS0'" },
-   { "phReference",               ctNum,     false, "1 Pool Daemon", "PH Sollwert", "Sollwert [PH] (default 7,2)" },
-   { "phMinusDensity",            ctNum,     false, "1 Pool Daemon", "Dichte PH Minus [kg/l]", "Wie viel kg wiegt ein Liter PH Minus (default 1,4)" },
-   { "phMinusDemand01",           ctInteger, false, "1 Pool Daemon", "Menge zum Senken um 0,1 [g]", "Wie viel Gramm PH Minus wird zum Senken des PH Wertes um 0,1 für das vorhandene Pool Volumen benötigt (default 60g)" },
-   { "phMinusDayLimit",           ctInteger, false, "1 Pool Daemon", "Obergrenze PH Minus/Tag [ml]", "Wie viel PH Minus wird pro Tag maximal zugegeben [ml] (default 100ml)" },
-   { "phPumpDurationPer100",      ctInteger, false, "1 Pool Daemon", "Laufzeit Dosierpumpe/100ml [ms]", "Welche Zeit in Millisekunden benötigt die Dosierpumpe um 100ml zu fördern (default 1000ms)" },
+   { "arduinoDevice",             ctString,  "",     false, "1 Pool Daemon", "Arduino Interface Device", "Beispiel: '/dev/ttyS0'" },
+   { "phReference",               ctNum,     "7.2",  false, "1 Pool Daemon", "PH Sollwert", "Sollwert [PH] (default 7,2)" },
+   { "phMinusDensity",            ctNum,     "1.4",  false, "1 Pool Daemon", "Dichte PH Minus [kg/l]", "Wie viel kg wiegt ein Liter PH Minus (default 1,4)" },
+   { "phMinusDemand01",           ctInteger, "85",   false, "1 Pool Daemon", "Menge zum Senken um 0,1 [g]", "Wie viel Gramm PH Minus wird zum Senken des PH Wertes um 0,1 für das vorhandene Pool Volumen benötigt (default 60g)" },
+   { "phMinusDayLimit",           ctInteger, "100",  false, "1 Pool Daemon", "Obergrenze PH Minus/Tag [ml]", "Wie viel PH Minus wird pro Tag maximal zugegeben [ml] (default 100ml)" },
+   { "phPumpDurationPer100",      ctInteger, "1000", false, "1 Pool Daemon", "Laufzeit Dosierpumpe/100ml [ms]", "Welche Zeit in Millisekunden benötigt die Dosierpumpe um 100ml zu fördern (default 1000ms)" },
 
    // mail
 
-   { "mail",                      ctBool,    false, "4 Mail", "Mail Benachrichtigung", "Mail Benachrichtigungen aktivieren/deaktivieren" },
-   { "mailScript",                ctString,  false, "4 Mail", "poold sendet Mails über das Skript", "" },
-   { "stateMailTo",               ctString,  false, "4 Mail", "Status Mail Empfänger", "Komma getrennte Empfängerliste" },
-   { "errorMailTo",               ctString,  false, "4 Mail", "Fehler Mail Empfänger", "Komma getrennte Empfängerliste" },
-   { "webUrl",                    ctString,  false, "4 Mail", "URL der Visualisierung", "kann mit %weburl% in die Mails eingefügt werden" },
+   { "mail",                      ctBool,    "0",                       false, "4 Mail", "Mail Benachrichtigung", "Mail Benachrichtigungen aktivieren/deaktivieren" },
+   { "mailScript",                ctString,  BIN_PATH "/poold-mail.sh", false, "4 Mail", "poold sendet Mails über das Skript", "" },
+   { "stateMailTo",               ctString,  "",                        false, "4 Mail", "Status Mail Empfänger", "Komma getrennte Empfängerliste" },
+   { "errorMailTo",               ctString,  "",                        false, "4 Mail", "Fehler Mail Empfänger", "Komma getrennte Empfängerliste" },
+   { "webUrl",                    ctString,  "",                        false, "4 Mail", "URL der Visualisierung", "kann mit %weburl% in die Mails eingefügt werden" },
 };
 
 //***************************************************************************
@@ -318,8 +316,12 @@ int Poold::init()
       tableConfig->clear();
       tableConfig->setValue("OWNER", myName());
       tableConfig->setValue("NAME", it.name.c_str());
-      tableConfig->find();
-      tableConfig->store();
+
+      if (!tableConfig->find())
+      {
+         tableConfig->setValue("VALUE", it.def);
+         tableConfig->store();
+      }
    }
 
    readConfiguration();
@@ -821,7 +823,7 @@ int Poold::readConfiguration()
    free(addrs);
 
    getConfigItem("mail", mail, no);
-   getConfigItem("mailScript", mailScript, BIN_PATH "/poold-mail.sh");
+   getConfigItem("mailScript", mailScript);
    getConfigItem("stateMailTo", stateMailTo);
 
    getConfigItem("aggregateInterval", aggregateInterval, 15);
@@ -844,8 +846,7 @@ int Poold::readConfiguration()
    getConfigItem("deactivatePumpsAtLowWater", deactivatePumpsAtLowWater, no);
    getConfigItem("alertSwitchOffPressure", alertSwitchOffPressure, 0);
 
-   getConfigItem("invertDO", invertDO, no);
-   getConfigItem("chart", chartSensors, "");
+   getConfigItem("invertDO", invertDO, yes);
 
    // PH stuff
 
@@ -1801,10 +1802,16 @@ int Poold::getConfigItem(const char* name, char*& value, const char* def)
    tableConfig->setValue("OWNER", myName());
    tableConfig->setValue("NAME", name);
 
+   tell(0, "search '%s' [%s]", name, def);
+
    if (tableConfig->find())
-      value = strdup(tableConfig->getStrValue("VALUE"));
-   else
    {
+      value = strdup(tableConfig->getStrValue("VALUE"));
+      tell(0, "'%s' found '%s'  [%s]", name, value, def);
+   }
+   else if (def)  // only if not a nullptr
+   {
+      tell(0, "'%s' not found [%s]", name, def);
       value = strdup(def);
       setConfigItem(name, value);  // store the default
    }
@@ -1816,7 +1823,7 @@ int Poold::getConfigItem(const char* name, char*& value, const char* def)
 
 int Poold::setConfigItem(const char* name, const char* value)
 {
-   tell(eloAlways, "Storing '%s' with value '%s'", name, value);
+   tell(2, "Debug: Storing '%s' with value '%s'", name, value);
    tableConfig->clear();
    tableConfig->setValue("OWNER", myName());
    tableConfig->setValue("NAME", name);
@@ -2186,7 +2193,7 @@ int Poold::loadStates()
    getConfigItem("ioStates", value, 0);
    getConfigItem("ioModes", mode, 0);
 
-   tell(0, "Info: Loaded iostates: %ld", value);
+   tell(2, "Debug: Loaded iostates: %ld", value);
 
    for (const auto& output : digitalOutputStates)
    {

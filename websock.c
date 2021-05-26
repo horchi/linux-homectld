@@ -731,7 +731,7 @@ void cWebSock::atLogin(lws* wsi, const char* message, const char* clientInfo, js
 
 void cWebSock::atLogout(lws* wsi, const char* message, const char* clientInfo)
 {
-   tell(1, "%s '%s' (%p)", clientInfo, message, (void*)wsi);
+   tell(2, "%s '%s' (%p)", clientInfo, message, (void*)wsi);
 
    auto it = clients.find(wsi);
 
@@ -794,7 +794,7 @@ void cWebSock::pushOutMessage(const char* message, lws* wsi)
    {
       if (clients.find(wsi) != clients.end())
          clients[wsi].pushMessage(message);
-      else
+      else if ((ulong)wsi != (ulong)-1)
          tell(0, "client %ld not found!", (ulong)wsi);
    }
    else

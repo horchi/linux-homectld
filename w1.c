@@ -35,7 +35,7 @@ W1::~W1()
 int W1::show()
 {
    for (auto it = sensors.begin(); it != sensors.end(); ++it)
-      tell(0, "%s: %2.3f", it->first.c_str(), it->second.value);
+      tell(0, "%s: %2.3f, %sactive", it->first.c_str(), it->second.value, it->second.active ? "" : "in-");
 
    return done;
 }
@@ -71,6 +71,13 @@ int W1::scan()
       {
          tell(eloAlways, "One Wire Sensor '%s' attached", it->c_str());
          sensors[it->c_str()].value = 0;
+         sensors[it->c_str()].active = true;
+      }
+      else if (!sensors[it->c_str()].active)
+      {
+         tell(eloAlways, "One Wire Sensor '%s' activated again", it->c_str());
+         sensors[it->c_str()].value = 0;
+         sensors[it->c_str()].active = true;
       }
    }
 
@@ -107,6 +114,7 @@ int W1::update()
 
    scan();
 
+   uint count {0};
    json_t* oJson = json_array();
 
    for (auto it = sensors.begin(); it != sensors.end(); it++)
@@ -114,6 +122,9 @@ int W1::update()
       char line[100+TB];
       FILE* in {nullptr};
       char* path {nullptr};
+
+      if (!it->second.active)
+         continue;
 
       asprintf(&path, "%s/%s/w1_slave", w1Path, it->first.c_str());
 
@@ -123,7 +134,7 @@ int W1::update()
       {
          tell(eloAlways, "Error: Opening '%s' failed, error was '%s'", path, strerror(errno));
          tell(eloAlways, "One Wire Sensor '%s' seems to be detached, removing it", path);
-         sensors.erase(it--);
+         it->second.active = false;
          free(path);
          continue;
       }
@@ -176,6 +187,7 @@ int W1::update()
 
             json_t* ojData = json_object();
             json_array_append_new(oJson, ojData);
+            count++;
 
             json_object_set_new(ojData, "name", json_string(it->first.c_str()));
             json_object_set_new(ojData, "value", json_real(value));
@@ -199,7 +211,10 @@ int W1::update()
 
    char* p = json_dumps(oJson, JSON_REAL_PRECISION(4));
    json_decref(oJson);
-   mqttWriter->writeRetained(mqttTopic, p);
+
+   if (count)
+      mqttWriter->writeRetained(mqttTopic, p);
+
    free(p);
 
    tell(0, " ... done");

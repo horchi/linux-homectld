@@ -365,7 +365,11 @@ class Poold : public cWebInterface
       char* webUrl {nullptr};
       int aggregateInterval {15};         // aggregate interval in minutes
       int aggregateHistory {0};           // history in days
+      char* w1MqttUrl {nullptr};
       char* mqttUrl {nullptr};
+      char* mqttUser {nullptr};
+      char* mqttPassword {nullptr};
+
       time_t lastMqttConnectAt {0};
       std::map<std::string,std::string> hassCmdTopicMap; // 'topic' to 'name' map
       char* chartSensors {nullptr};

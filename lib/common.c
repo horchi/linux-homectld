@@ -504,25 +504,56 @@ char* allTrim(char* buf)
 // Is Number
 //***************************************************************************
 
-int isNum(const char* value)
+bool isNum(const char* value)
 {
    const char* p = value;
 
    while (*p)
    {
-      if (p == value && *p == '-')
+      if (p == value && *p == '-')  // '-' is allowed at first pos
       {
          p++;
          continue;
       }
 
       if (!isdigit(*p))
-         return no;
+         return false;
 
       p++;
    }
 
-   return yes;
+   return true;
+}
+
+bool isFloat(const char* value)
+{
+   uint digits {0};
+   const char* p {value};
+
+   while (*p)
+   {
+      if (p == value && *p == '-')  // '-' is allowed at first pos
+      {
+         p++;
+         continue;
+      }
+
+      if (*p == ',')
+      {
+         if (++digits > 1)
+            return false;
+
+         p++;
+         continue;
+      }
+
+      if (!isdigit(*p))
+         return false;
+
+      p++;
+   }
+
+   return true;
 }
 
 //***************************************************************************
@@ -844,7 +875,7 @@ int loadLinesFromFile(const char* infile, std::vector<std::string>& lines, bool 
 
 int getFileList(const char* path, int type, const char* extensions, int recursion, FileList* dirs, int& count)
 {
-   DIR* dir;
+   DIR* dir {nullptr};
 
    if (!(dir = opendir(path)))
    {
@@ -853,13 +884,13 @@ int getFileList(const char* path, int type, const char* extensions, int recursio
    }
 
 #ifndef HAVE_READDIR_R
-   dirent* pEntry;
+   dirent* pEntry {nullptr};
 
    while ((pEntry = readdir(dir)))
 #else
    dirent entry;
    dirent* pEntry = &entry;
-   dirent* res;
+   dirent* res {nullptr};
 
    // deprecated but the only reentrant with old libc!
 
@@ -870,13 +901,13 @@ int getFileList(const char* path, int type, const char* extensions, int recursio
 
       if (recursion && pEntry->d_type == DT_DIR && pEntry->d_name[0] != '.')
       {
-         char* buf;
+         char* buf {nullptr};
          asprintf(&buf, "%s/%s", path, pEntry->d_name);
          getFileList(buf, type, extensions, recursion, dirs, count);
          free(buf);
       }
 
-      // filter type and ignore '.', '..' an hidden files
+      // filter type and ignore '.', '..' and hidden files
 
       if (pEntry->d_type != type || pEntry->d_name[0] == '.')
          continue;
@@ -885,7 +916,7 @@ int getFileList(const char* path, int type, const char* extensions, int recursio
 
       if (extensions)
       {
-         const char* ext;
+         const char* ext {nullptr};
 
          if ((ext = strrchr(pEntry->d_name, '.')))
             ext++;

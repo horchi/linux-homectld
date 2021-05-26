@@ -29,6 +29,7 @@ class W1
       {
          double value;
          std::vector<double> values;
+         bool active {false};
       };
 
       typedef std::map<std::string, SensorData> SensorList;

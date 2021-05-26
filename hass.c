@@ -20,8 +20,10 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
 {
    // check/prepare reader/writer connection
 
-   if (mqttCheckConnection() != success)
-      return fail;
+   if (isEmpty(mqttUrl))
+      return done;
+
+   mqttCheckConnection();
 
    // check if state topic already exists
 
@@ -41,6 +43,9 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
 
    if (!isEmpty(title))
    {
+      if (!mqttReader->isConnected())
+         return fail;
+
       // Interface description:
       //   https://www.home-assistant.io/docs/mqtt/discovery/
 
@@ -55,6 +60,9 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
       {
          char* configTopic {nullptr};
          char* configJson {nullptr};
+
+         if (!mqttWriter->isConnected())
+            return fail;
 
          // topic don't exists -> create sensor
 
@@ -110,6 +118,9 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
 
    // publish actual value
 
+   if (!mqttWriter->isConnected())
+      return fail;
+
    json_t* oValue = json_object();
 
    if (iot == iotLight)
@@ -138,88 +149,99 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
 
 int Poold::performMqttRequests()
 {
-   if (mqttCheckConnection() != success)
-      return fail;
+   mqttCheckConnection();
 
    MemoryStruct message;
-   std::string topic;
    json_error_t error;
 
-   if (mqttCommandReader->read(&message, 10) == success)
+   if (!isEmpty(mqttUrl) && mqttCommandReader->isConnected())
    {
-      topic = mqttCommandReader->getLastReadTopic();
-      json_t* jData = json_loads(message.memory, 0, &error);
-
-      if (!jData)
+      if (mqttCommandReader->read(&message, 10) == success)
       {
-         tell(0, "Error: Can't parse json in '%s'", message.memory);
-         return fail;
-      }
+         json_t* jData = json_loads(message.memory, 0, &error);
 
-      tell(eloAlways, "<- (%s) [%s]", topic.c_str(), message.memory);
-
-      auto it = hassCmdTopicMap.find(topic);
-
-      if (it != hassCmdTopicMap.end())
-      {
-         for (auto itOutput = digitalOutputStates.begin(); itOutput != digitalOutputStates.end(); ++itOutput)
+         if (!jData)
          {
-            const char* s = getStringFromJson(jData, "state", "");
-            int state = strcmp(s, "ON") == 0;
+            tell(0, "Error: Can't parse json in '%s'", message.memory);
+            return fail;
+         }
 
-            if (strcmp(it->second.c_str(), itOutput->second.name) == 0)
+         tell(eloAlways, "<- (%s) [%s]", mqttCommandReader->getLastReadTopic(), message.memory);
+
+         auto it = hassCmdTopicMap.find(mqttCommandReader->getLastReadTopic());
+
+         if (it != hassCmdTopicMap.end())
+         {
+            for (auto itOutput = digitalOutputStates.begin(); itOutput != digitalOutputStates.end(); ++itOutput)
             {
-               gpioWrite(itOutput->first, state);
-               break;
+               const char* s = getStringFromJson(jData, "state", "");
+               int state = strcmp(s, "ON") == 0;
+
+               if (strcmp(it->second.c_str(), itOutput->second.name) == 0)
+               {
+                  gpioWrite(itOutput->first, state);
+                  break;
+               }
             }
          }
       }
    }
 
-   static time_t lastW1Read {0};
-
-   while (mqttW1Reader->read(&message, 10) == success)
+   if (!isEmpty(w1MqttUrl) && mqttW1Reader->isConnected())
    {
-      lastW1Read = time(0);
-      topic = mqttW1Reader->getLastReadTopic();
-      json_t* jArray = json_loads(message.memory, 0, &error);
+      static time_t lastW1Read {0};
 
-      if (!jArray)
+      if (!lastW1Read)
+         lastW1Read = time(0);
+
+      // tell(0, "Try reading topic '%s'", mqttW1Reader->getTopic());
+
+      while (mqttW1Reader->read(&message, 10) == success)
       {
-         tell(0, "Error: Can't parse json in '%s'", message.memory);
-         return fail;
-      }
+         // tell(0, "read w1 success [%s]", message.memory);
+         lastW1Read = time(0);
 
-      tell(eloAlways, "<- (%s) [%s]", topic.c_str(), message.memory);
-
-      size_t index {0};
-      json_t* jValue {nullptr};
-
-      json_array_foreach(jArray, index, jValue)
-      {
-         const char* name = getStringFromJson(jValue, "name");
-         double value = getDoubleFromJson(jValue, "value");
-         time_t stamp = getIntFromJson(jValue, "time");
-
-         if (stamp < time(0)-300)
-         {
-            tell(eloAlways, "Skipping old (%ld seconds) w1 value", time(0)-stamp);
+         if (isEmpty(message.memory))
             continue;
+
+         json_t* jArray = json_loads(message.memory, 0, &error);
+
+         if (!jArray)
+         {
+            tell(0, "Error: Can't parse json in '%s'", message.memory);
+            return fail;
          }
 
-         updateW1(name, value, stamp);
+         tell(eloAlways, "<- (%s) [%s] retained %d", mqttCommandReader->getLastReadTopic(), message.memory, mqttW1Reader->isRetained());
+
+         size_t index {0};
+         json_t* jValue {nullptr};
+
+         json_array_foreach(jArray, index, jValue)
+         {
+            const char* name = getStringFromJson(jValue, "name");
+            double value = getDoubleFromJson(jValue, "value");
+            time_t stamp = getIntFromJson(jValue, "time");
+
+            if (stamp < time(0)-300)
+            {
+               tell(eloAlways, "Skipping old (%ld seconds) w1 value", time(0)-stamp);
+               continue;
+            }
+
+            updateW1(name, value, stamp);
+         }
       }
 
       cleanupW1();
-   }
 
-   // last read at least in last 5 minutes?
+      // last successful W1 read at least in last 5 minutes?
 
-   if (lastW1Read < time(0)-300)
-   {
-      tell(eloAlways, "Error: No w1 update since '%s', "
-           "disconnect from MQTT to force recover", l2pTime(lastW1Read).c_str());
-      mqttDisconnect();   // disconnect from MQTT brocker to force reconnect at next cycle
+      if (lastW1Read < time(0)-300)
+      {
+         tell(eloAlways, "Error: No w1 update since '%s', disconnect from MQTT to force recover", l2pTime(lastW1Read).c_str());
+         mqttDisconnect();
+      }
    }
 
    return success;
@@ -231,15 +253,15 @@ int Poold::performMqttRequests()
 
 int Poold::mqttDisconnect()
 {
-   if (mqttCommandReader) mqttCommandReader->disconnect();
    if (mqttW1Reader)      mqttW1Reader->disconnect();
+   if (mqttCommandReader) mqttCommandReader->disconnect();
    if (mqttWriter)        mqttWriter->disconnect();
    if (mqttReader)        mqttReader->disconnect();
 
-   delete mqttCommandReader;
-   delete mqttW1Reader;
-   delete mqttWriter;
-   delete mqttReader;
+   delete mqttW1Reader;      mqttW1Reader = nullptr;
+   delete mqttCommandReader; mqttCommandReader = nullptr;
+   delete mqttWriter;        mqttWriter = nullptr;
+   delete mqttReader;        mqttReader = nullptr;
 
    return done;
 }
@@ -250,6 +272,8 @@ int Poold::mqttDisconnect()
 
 int Poold::mqttCheckConnection()
 {
+   bool renonnectNeeded {false};
+
    if (!mqttCommandReader)
       mqttCommandReader = new Mqtt();
 
@@ -262,63 +286,68 @@ int Poold::mqttCheckConnection()
    if (!mqttReader)
       mqttReader = new Mqtt();
 
-   if (mqttCommandReader->isConnected() &&
-       mqttW1Reader->isConnected() &&
-       mqttWriter->isConnected() &&
-       mqttReader->isConnected())
-   {
+   if (!isEmpty(mqttUrl) && (!mqttCommandReader->isConnected() || !mqttWriter->isConnected() || !mqttReader->isConnected()))
+      renonnectNeeded = true;
+
+   if (!isEmpty(w1MqttUrl) && !mqttW1Reader->isConnected())
+      renonnectNeeded = true;
+
+   if (!renonnectNeeded)
       return success;
-   }
 
    if (lastMqttConnectAt >= time(0) - 60)
       return fail;
 
    lastMqttConnectAt = time(0);
 
-   if (!mqttCommandReader->isConnected())
+   if (!isEmpty(mqttUrl))
    {
-      if (mqttCommandReader->connect(mqttUrl) != success)
+      if (!mqttCommandReader->isConnected())
       {
-         tell(0, "Error: MQTT: Connecting subscriber to '%s' failed", mqttUrl);
-         return fail;
+         if (mqttCommandReader->connect(mqttUrl, mqttUser, mqttPassword) != success)
+         {
+            tell(0, "Error: MQTT: Connecting subscriber to '%s' failed", mqttUrl);
+         }
+         else
+         {
+            mqttCommandReader->subscribe("poold2mqtt/light/+/set/#");
+            tell(0, "MQTT: Connecting command subscriber to '%s' succeeded", mqttUrl);
+         }
       }
 
-      mqttCommandReader->subscribe("poold2mqtt/light/+/set/#");
-      tell(0, "MQTT: Connecting command subscriber to '%s' succeeded", mqttUrl);
+      if (!mqttWriter->isConnected())
+      {
+         if (mqttWriter->connect(mqttUrl, mqttUser, mqttPassword) != success)
+            tell(0, "Error: MQTT: Connecting publisher to '%s' failed", mqttUrl);
+         else
+            tell(0, "MQTT: Connecting publisher to '%s' succeeded", mqttUrl);
+      }
+
+      if (!mqttReader->isConnected())
+      {
+         if (mqttReader->connect(mqttUrl, mqttUser, mqttPassword) != success)
+            tell(0, "Error: MQTT: Connecting subscriber to '%s' failed", mqttUrl);
+         else
+            tell(0, "MQTT: Connecting subscriber to '%s' succeeded", mqttUrl);
+
+         // subscription is done in hassPush
+      }
    }
 
-   if (!mqttW1Reader->isConnected())
+   if (!isEmpty(w1MqttUrl))
    {
-      if (mqttW1Reader->connect(mqttUrl) != success)
+      if (!mqttW1Reader->isConnected())
       {
-         tell(0, "Error: MQTT: Connecting subscriber to '%s' failed", mqttUrl);
-         return fail;
+         if (mqttW1Reader->connect(w1MqttUrl) != success)
+         {
+            tell(0, "Error: MQTT: Connecting subscriber to '%s' failed", w1MqttUrl);
+         }
+         else
+         {
+            mqttW1Reader->subscribe("poold2mqtt/w1");
+            tell(0, "MQTT: Connecting w1 subscriber to '%s' - '%s' succeeded", w1MqttUrl, "poold2mqtt/w1");
+         }
       }
-
-      mqttW1Reader->subscribe("poold2mqtt/w1");
-      tell(0, "MQTT: Connecting w1 subscriber to '%s' succeeded", mqttUrl);
-   }
-
-   if (!mqttWriter->isConnected())
-   {
-      if (mqttWriter->connect(mqttUrl) != success)
-      {
-         tell(0, "Error: MQTT: Connecting publisher to '%s' failed", mqttUrl);
-         return fail;
-      }
-
-      tell(0, "MQTT: Connecting publisher to '%s' succeeded", mqttUrl);
-   }
-
-   if (!mqttReader->isConnected())
-   {
-      if (mqttReader->connect(mqttUrl) != success)
-      {
-         tell(0, "Error: MQTT: Connecting subscriber to '%s' failed", mqttUrl);
-         return fail;
-      }
-
-      tell(0, "MQTT: Connecting subscriber to '%s' succeeded", mqttUrl);
    }
 
    return success;

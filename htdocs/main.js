@@ -127,38 +127,61 @@ function sleep(ms) {
 
 var infoDialog = null;
 
-async function showInfoDialog(message, titleMsg, onCloseCallback)
+async function showInfoDialog(object, titleMsg, onCloseCallback)
 {
-   while (infoDialog)
-      await sleep(100);
-
-   var msDuaration = 2000;
-   var bgColor = null;
-   var height = 70;
-   var cls = "no-titlebar";
-
-   if (titleMsg && titleMsg != "") {
-      msDuaration = 10000;
-      cls = "";
-      height = 100;
-      if (titleMsg.indexOf("Error") != -1 || titleMsg.indexOf("Fehler") != -1)
-         bgColor = 'background-color:rgb(224, 102, 102);'
+   if (infoDialog) {
+      infoDialog.dialog('close');
+      infoDialog.dialog('destroy').remove();
+      infoDialog = null;
    }
 
-   $('<div style="margin-top:13px;' + (bgColor != null ? bgColor : "")  + '"></div>').html(message).dialog({
+   var message = object.message;
+   var titleMsg = "";
+
+   if (object.status == -1)
+      titleMsg = "Error";
+   else if (object.status < -1)
+      titleMsg = "Information (" + object.status + ")";
+   else if (object.status == 1) {
+      var array = message.split("#:#");
+      titleMsg = array[0];
+      message = array[1];
+   }
+
+   var msDuration = 2000;
+   var bgColor = "";
+   var cls = "no-titlebar";
+   var align = "center";
+
+   if (object.status != 0) {
+      msDuration = 20000;
+      cls = "";
+      align = "left";
+   }
+
+   var div = document.createElement("div");
+   // div.style.marginTop = "13px";
+   div.style.textAlign = align;
+   div.style.whiteSpace = "pre";
+   div.style.backgroundColor = bgColor;
+   div.className = object.status ? "error-border" : "";
+   div.textContent = message;
+
+   $(div).dialog({
       dialogClass: cls,
       width: "60%",
-      height: height,
       title: titleMsg,
 		modal: true,
-      resizable: true,
+      resizable: false,
 		closeOnEscape: true,
+      minHeight: "0px",
       hide: "fade",
-      open:  function() {
-         infoDialog = $(this); setTimeout(function() {
+      open: function() {
+         infoDialog = $(this);
+         setTimeout(function() {
             if (infoDialog)
                infoDialog.dialog('close');
-            infoDialog = null }, msDuaration);
+            infoDialog = null }, msDuration);
       },
       close: function() {
          $(this).dialog('destroy').remove();
@@ -182,10 +205,7 @@ function dispatchMessage(message)
    console.log("got event: " + event);
 
    if (event == "result") {
-      if (jMessage.object.status == 0)
-         showInfoDialog(jMessage.object.message);
-      else
-         showInfoDialog(jMessage.object.message , "Information (" + jMessage.object.status + ")");
+      showInfoDialog(jMessage.object);
    }
    else if ((event == "update" || event == "all") && rootDashboard) {
 

@@ -26,14 +26,6 @@ int Poold::shutdown = no;
 
 std::list<Poold::ConfigItemDef> Poold::configuration
 {
-   // web
-
-   { "addrsDashboard",            ctString,  "",      false, "3 WEB Interface", "Sensoren 'Dashboard'", "Komma getrennte Liste aus ID:Typ siehe 'IO Setup'" },
-   { "addrsList",                 ctString,  "",      false, "3 WEB Interface", "Sensoren 'Liste'", "Komma getrennte Liste aus ID:Typ siehe 'IO Setup'" },
-
-   { "style",                     ctChoice,  "dark",  false, "3 WEB Interface", "Farbschema", "" },
-   { "vdr",                       ctBool,    "0",     false, "3 WEB Interface", "VDR (Video Disk Recorder) OSD verfügbar", "" },
-
    // poold
 
    { "interval",                  ctInteger, "60",           false, "1 Pool Daemon", "Intervall der Aufzeichung", "Datenbank Aufzeichung [s]" },
@@ -58,20 +50,32 @@ std::list<Poold::ConfigItemDef> Poold::configuration
    { "w1AddrSolar",               ctString,  "",             false, "1 Pool Daemon", "Adresse Fühler Temperatur Kollektor", "" },
    { "w1AddrSuctionTube",         ctString,  "",             false, "1 Pool Daemon", "Adresse Fühler Temperatur Saugleitung", "" },
 
+   { "w1MqttUrl",                 ctString,  "tcp://localhost:1883",  false, "1 Pool Daemon", "Url des MQTT Message Broker für den One-Wire Dienst", "Wird zur Kommunikation mit dem one-wire Interface Service (w1mqtt) verwendet. Beispiel: 'tcp://localhost:1883'" },
    { "aggregateHistory",          ctInteger, "0",            false, "1 Pool Daemon", "Historie [Tage]", "history for aggregation in days (default 0 days -> aggegation turned OFF)" },
    { "aggregateInterval",         ctInteger, "15",           false, "1 Pool Daemon", "Intervall [m]", "aggregation interval in minutes - 'one sample per interval will be build'" },
    { "peakResetAt",               ctString,  "",             true,  "1 Pool Daemon", "", "" },
 
-   { "mqttUrl",                   ctString,  "tcp://localhost:1883", false, "1 Pool Daemon", "Url des MQTT Message Broker", "Wird zur Kommunikation mit dem one-wire Interface und mit Hausautomatisierungen verwendet. Beispiel: 'tcp://localhost:1883'" },
-
    // PH stuff
 
-   { "arduinoDevice",             ctString,  "",     false, "1 Pool Daemon", "Arduino Interface Device", "Beispiel: '/dev/ttyS0'" },
-   { "phReference",               ctNum,     "7.2",  false, "1 Pool Daemon", "PH Sollwert", "Sollwert [PH] (default 7,2)" },
-   { "phMinusDensity",            ctNum,     "1.4",  false, "1 Pool Daemon", "Dichte PH Minus [kg/l]", "Wie viel kg wiegt ein Liter PH Minus (default 1,4)" },
-   { "phMinusDemand01",           ctInteger, "85",   false, "1 Pool Daemon", "Menge zum Senken um 0,1 [g]", "Wie viel Gramm PH Minus wird zum Senken des PH Wertes um 0,1 für das vorhandene Pool Volumen benötigt (default 60g)" },
-   { "phMinusDayLimit",           ctInteger, "100",  false, "1 Pool Daemon", "Obergrenze PH Minus/Tag [ml]", "Wie viel PH Minus wird pro Tag maximal zugegeben [ml] (default 100ml)" },
-   { "phPumpDurationPer100",      ctInteger, "1000", false, "1 Pool Daemon", "Laufzeit Dosierpumpe/100ml [ms]", "Welche Zeit in Millisekunden benötigt die Dosierpumpe um 100ml zu fördern (default 1000ms)" },
+   { "arduinoDevice",             ctString,  "",             false, "1 Pool Daemon", "Arduino Interface Device", "Beispiel: '/dev/ttyS0'" },
+   { "phReference",               ctNum,     "7.2",          false, "1 Pool Daemon", "PH Sollwert", "Sollwert [PH] (default 7,2)" },
+   { "phMinusDensity",            ctNum,     "1.4",          false, "1 Pool Daemon", "Dichte PH Minus [kg/l]", "Wie viel kg wiegt ein Liter PH Minus (default 1,4)" },
+   { "phMinusDemand01",           ctInteger, "85",           false, "1 Pool Daemon", "Menge zum Senken um 0,1 [g]", "Wie viel Gramm PH Minus wird zum Senken des PH Wertes um 0,1 für das vorhandene Pool Volumen benötigt (default 60g)" },
+   { "phMinusDayLimit",           ctInteger, "100",          false, "1 Pool Daemon", "Obergrenze PH Minus/Tag [ml]", "Wie viel PH Minus wird pro Tag maximal zugegeben [ml] (default 100ml)" },
+   { "phPumpDurationPer100",      ctInteger, "1000",         false, "1 Pool Daemon", "Laufzeit Dosierpumpe/100ml [ms]", "Welche Zeit in Millisekunden benötigt die Dosierpumpe um 100ml zu fördern (default 1000ms)" },
+
+   // web
+
+   { "addrsDashboard",            ctString,  "",             false, "2 WEB Interface", "Sensoren 'Dashboard'", "Komma getrennte Liste aus ID:Typ siehe 'IO Setup'" },
+   { "addrsList",                 ctString,  "",             false, "2 WEB Interface", "Sensoren 'Liste'", "Komma getrennte Liste aus ID:Typ siehe 'IO Setup'" },
+   { "style",                     ctChoice,  "dark",         false, "2 WEB Interface", "Farbschema", "" },
+   { "vdr",                       ctBool,    "0",            false, "2 WEB Interface", "VDR (Video Disk Recorder) OSD verfügbar", "" },
+
+   // mqtt interface
+
+   { "mqttUrl",                   ctString,  "",             false, "3 MQTT Interface", "Url des MQTT Message Broker", "Deiser kann z.B. zur Kommunikation mit Hausautomatisierungen verwendet werden. Beispiel: 'tcp://localhost:1883'" },
+   { "mqttUser",                  ctString,  "",             false, "3 MQTT Interface", "User", "" },
+   { "mqttPassword",              ctString,  "",             false, "3 MQTT Interface", "Password", "" },
 
    // mail
 
@@ -156,7 +160,7 @@ int Poold::pushOutMessage(json_t* oContents, const char* title, long client)
    }
 
    webSock->pushOutMessage(p, (lws*)client);
-   tell(1, "DEBUG: PushMessage [%s]", p);
+   tell(2, "DEBUG: PushMessage [%s]", p);
    free(p);
 
    webSock->performData(cWebSock::mtData);
@@ -828,7 +832,21 @@ int Poold::readConfiguration()
 
    getConfigItem("aggregateInterval", aggregateInterval, 15);
    getConfigItem("aggregateHistory", aggregateHistory, 0);
-   getConfigItem("mqttUrl", mqttUrl, "tcp://localhost:1883");
+
+   std::string url = w1MqttUrl ? w1MqttUrl : "";
+   getConfigItem("w1MqttUrl", w1MqttUrl);
+
+   if (url != w1MqttUrl)
+      mqttDisconnect();
+
+   url = mqttUrl ? mqttUrl : "";
+   getConfigItem("mqttUrl", mqttUrl);
+
+   if (url != mqttUrl)
+      mqttDisconnect();
+
+   getConfigItem("mqttUser", mqttUser, nullptr);
+   getConfigItem("mqttPassword", mqttPassword, nullptr);
 
    // more special
 
@@ -869,6 +887,8 @@ int Poold::readConfiguration()
    getConfigTimeRangeItem("filterPumpTimes", filterPumpTimes);
    getConfigTimeRangeItem("uvcLightTimes", uvcLightTimes);
    getConfigTimeRangeItem("poolLightTimes", poolLightTimes);
+
+   performMqttRequests();
 
    return done;
 }
@@ -937,8 +957,7 @@ int Poold::store(time_t now, const char* name, const char* title, const char* un
 
    IoType iot = strcmp(type, "DO") == 0 ? iotLight : iotSensor;
 
-   if (!isEmpty(mqttUrl))
-      hassPush(iot, name, title, unit, value, text, initialRun /*forceConfig*/);
+   hassPush(iot, name, title, unit, value, text, initialRun /*forceConfig*/);
 
    return success;
 }
@@ -954,7 +973,7 @@ int Poold::standby(int t)
    while (time(0) < end && !doShutDown())
    {
       meanwhile();
-      // usleep(50000);  sleep is don in meanwhile by mqttCommandReader
+      usleep(50000);
    }
 
    return done;
@@ -965,7 +984,7 @@ int Poold::standbyUntil(time_t until)
    while (time(0) < until && !doShutDown())
    {
       meanwhile();
-      // usleep(50000);  sleep is don in meanwhile by mqttCommandReader
+      usleep(50000);
    }
 
    return done;
@@ -996,9 +1015,7 @@ int Poold::meanwhile()
    // webSock->performData(cWebSock::mtData);
    // performWebSocketPing();
 
-   if (!isEmpty(mqttUrl))
-      performMqttRequests();
-
+   performMqttRequests();
    performJobs();
 
    return done;
@@ -1802,16 +1819,12 @@ int Poold::getConfigItem(const char* name, char*& value, const char* def)
    tableConfig->setValue("OWNER", myName());
    tableConfig->setValue("NAME", name);
 
-   tell(0, "search '%s' [%s]", name, def);
-
    if (tableConfig->find())
    {
       value = strdup(tableConfig->getStrValue("VALUE"));
-      tell(0, "'%s' found '%s'  [%s]", name, value, def);
    }
    else if (def)  // only if not a nullptr
    {
-      tell(0, "'%s' not found [%s]", name, def);
       value = strdup(def);
       setConfigItem(name, value);  // store the default
    }
@@ -2061,8 +2074,7 @@ int Poold::publishScriptResult(ulong addr, const char* type, std::string result)
       pushOutMessage(oJson, "update");
    }
 
-   if (!isEmpty(mqttUrl))
-      hassPush(iotLight, name, "", "", strtod(value.c_str(), nullptr), "", false /*forceConfig*/);
+   hassPush(iotLight, name, "", "", strtod(value.c_str(), nullptr), "", false /*forceConfig*/);
 
    tableValueFacts->reset();
 
@@ -2148,8 +2160,7 @@ void Poold::gpioWrite(uint pin, bool state, bool store)
       pushOutMessage(oJson, "update");
    }
 
-   if (!isEmpty(mqttUrl))
-      hassPush(iotLight, digitalOutputStates[pin].name, "", "", digitalOutputStates[pin].state, "", false /*forceConfig*/);
+   hassPush(iotLight, digitalOutputStates[pin].name, "", "", digitalOutputStates[pin].state, "", false /*forceConfig*/);
 }
 
 bool Poold::gpioRead(uint pin)
@@ -2259,7 +2270,7 @@ void Poold::cleanupW1()
 
    for (auto it = w1Sensors.begin(); it != w1Sensors.end(); it++)
    {
-      if (it->second.last < time(0) - 30)
+      if (it->second.last < time(0) - 5*tmeSecondsPerMinute)
       {
          tell(0, "Info: Missing sensor '%s', removing it from list", it->first.c_str());
          detached++;

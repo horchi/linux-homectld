@@ -69,6 +69,7 @@ install-poold: install-config install-scripts
    endif
 	install --mode=755 -D $(TARGET) $(BINDEST)/
 	install --mode=755 -D $(W1TARGET) $(BINDEST)/
+	install --mode=755 -D $(ARDUINO_IF_CMD) $(BINDEST)/
 	make install-systemd
 	mkdir -p $(DESTDIR)$(PREFIX)/share/poold/
 	install --mode=644 -D arduino/build-nano-atmega328/ioctrl.hex $(DESTDIR)$(PREFIX)/share/poold/nano-atmega328-ioctrl.hex
@@ -94,6 +95,9 @@ install-config:
 	   mkdir -p $(CONFDEST)/scripts.d; \
 	   chmod a+rx $(CONFDEST); \
 	fi
+	if ! test -f $(DESTDIR)/etc/msmtprc; then \
+	   install --mode=644 -D ./configs/msmtprc $(DESTDIR)/etc/; \
+	fi
 	if ! test -f $(CONFDEST)/poold.conf; then \
 	   install --mode=644 -D ./configs/poold.conf $(CONFDEST)/; \
 	fi
@@ -102,7 +106,9 @@ install-config:
 	mkdir -p $(DESTDIR)/etc/logrotate.d
 	@cp contrib/logrotate-poold $(DESTDIR)/etc/logrotate.d/poold
 	mkdir -p $(DESTDIR)/etc/default
-	@cp contrib/w1mqtt $(DESTDIR)/etc/default/w1mqtt
+	if ! test -f $(DESTDIR)/etc/default/w1mqtt; then \
+	   cp contrib/w1mqtt $(DESTDIR)/etc/default/w1mqtt; \
+	fi
 	install --mode=644 -D ./configs/poold.dat $(CONFDEST)/;
 
 install-scripts:

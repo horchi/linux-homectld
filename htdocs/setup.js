@@ -11,6 +11,7 @@
 function initConfig(configuration, root)
 {
    var lastCat = "";
+   root.innerHTML = "";
 
    // console.log(JSON.stringify(configuration, undefined, 4));
 

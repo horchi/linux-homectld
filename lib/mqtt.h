@@ -61,6 +61,8 @@ class Mqtt
       void appendMessage(mqtt_response_publish* theMessage);
       size_t getCount()   { return receivedMessages.size(); }
 
+      const char* getTopic() { return theTopic.c_str(); }
+
    protected:
 
       struct Message

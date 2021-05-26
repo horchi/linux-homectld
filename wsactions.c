@@ -167,6 +167,35 @@ int Poold::replyResult(int status, const char* message, long client)
 }
 
 //***************************************************************************
+// Reply Result - the new version!!!
+//***************************************************************************
+/*
+int Poold::replyResult(int status, long client, const char* format, ...)
+{
+   if (!client)
+      return done;
+
+   char* message {nullptr};
+   va_list ap;
+
+   va_start(ap, format);
+   vasprintf(&message, format, ap);
+   va_end(ap);
+
+   if (status != success)
+      tell(0, "Error: Requested web action failed with '%s' (%d)", message, status);
+
+   json_t* oJson = json_object();
+   json_object_set_new(oJson, "status", json_integer(status));
+   json_object_set_new(oJson, "message", json_string(message));
+   pushOutObject(job, oJson, "result", client);
+
+   free(message);
+
+   return status;
+}
+*/
+//***************************************************************************
 // Perform WS Client Login / Logout
 //***************************************************************************
 
@@ -372,16 +401,44 @@ int Poold::performSendMail(json_t* oObject, long client)
    tell(eloDetail, "Test mail requested with: '%s/%s'", subject, body);
 
    if (isEmpty(mailScript))
-      return replyResult(fail, "missing mail script", client);
+      return replyResult(fail, "Missing mail script", client);
 
    if (!fileExists(mailScript))
-      return replyResult(fail, "mail script not found", client);
+   {
+      char* buf {nullptr};
+      asprintf(&buf, "Mail script '%s' not found", mailScript);
+      replyResult(fail, buf, client);
+      delete buf;
+      return fail;
+   }
 
    if (isEmpty(stateMailTo))
-      return replyResult(fail, "missing receiver", client);
+      return replyResult(fail, "Missing receiver", client);
 
    if (sendMail(stateMailTo, subject, body, "text/plain") != success)
-      return replyResult(fail, "send failed", client);
+   {
+      const char* message = "Sending mail failed\n"
+         "Check your '/etc/msmtprc' and configure your mail account.\n\n"
+         " For example 'gmx':\n"
+         "defaults\n"
+         "auth           on\n"
+         "tls            on\n"
+         "tls_trust_file /etc/ssl/certs/ca-certificates.crt\n"
+         "logfile        /var/log/msmtp.log\n"
+         "\n"
+         "account        myaccount\n"
+         "host           mail.gmx.net\n"
+         "port           587\n"
+         "\n"
+         "from           you@gmx.de\n"
+         "user           your-user@gmx.de\n"
+         "password       your-passwd\n"
+         "\n"
+         "# Default\n"
+         "account default : myaccount\n";
+
+      return replyResult(fail, message, client);
+   }
 
    return replyResult(success, "mail sended", client);
 }

@@ -3,6 +3,8 @@
 Written by: *Jörg Wendel (linux at jwendel dot de)*
 Project page: https://github.com/horchi/linux-poold
 
+![](contrib/poold.jpg?raw=true "Title")
+
 ## License
 This code is distributed under the terms and conditions of the GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
 

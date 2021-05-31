@@ -190,6 +190,52 @@ async function showInfoDialog(object, titleMsg, onCloseCallback)
    });
 }
 
+var progressDialog = null;
+
+async function hideProgressDialog()
+{
+   if (progressDialog != null) {
+      console.log("hide progress");
+      progressDialog.dialog('destroy').remove();
+      progressDialog = null;
+   }
+}
+
+async function showProgressDialog()
+{
+   hideProgressDialog();
+
+   var msDuration = 30000;   // timeout 30 seconds
+   var form = document.createElement("form");
+   form.style.overflow = "hidden";
+   var div = document.createElement("div");
+   form.appendChild(div);
+   div.className = "progress";
+
+   console.log("show progress");
+
+   $(form).dialog({
+      dialogClass: "no-titlebar rounded-border",
+      width: "125px",
+      title: "",
+		modal: true,
+      resizable: false,
+		closeOnEscape: false,
+      minHeight: "0px",
+      hide: "fade",
+      open: function() {
+         progressDialog = $(this); setTimeout(function() {
+            if (progressDialog)
+               progressDialog.dialog('close');
+            progressDialog = null }, msDuration);
+      },
+      close: function() {
+         $(this).dialog('destroy').remove();
+         progressDialog = null;
+      }
+   });
+}
+
 function dispatchMessage(message)
 {
    var jMessage = JSON.parse(message);
@@ -205,6 +251,7 @@ function dispatchMessage(message)
    console.log("got event: " + event);
 
    if (event == "result") {
+      hideProgressDialog();
       showInfoDialog(jMessage.object);
    }
    else if ((event == "update" || event == "all") && rootDashboard) {
@@ -243,6 +290,7 @@ function dispatchMessage(message)
       updatePhActual(jMessage.object, rootPhActual);
    }
    else if (event == "phcal" && rootPhActual) {
+      hideProgressDialog();
       updatePhCal(jMessage.object);
    }
    else if (event == "syslog") {
@@ -264,6 +312,7 @@ function dispatchMessage(message)
       initIoSetup(jMessage.object, rootIoSetup);
    }
    else if (event == "chartdata") {
+      hideProgressDialog();
       var id = jMessage.object.id;
       if (rootChart) {                                       // the charts page
          drawCharts(jMessage.object, rootChart);

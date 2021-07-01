@@ -47,8 +47,15 @@ int usage(const char* name)
 // Main
 //***************************************************************************
 
+#include <math.h>
+
 int main(int argc, char** argv)
 {
+   // double value = atof(argv[1]);
+   // double rounded = std::llround(value*20) / 20.0;
+   // printf("%.2f -> %.2f\n", value, rounded);
+   // return 0;
+
    cArduinoInterfaceService::CalResponse calResp;
    cArduinoInterfaceService::CalSettings calSettings;
    cArduinoInterfaceService::AnalogValue aValue;

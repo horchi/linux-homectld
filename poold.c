@@ -2219,15 +2219,18 @@ void Poold::updateAnalogInput(const char* id, int value, time_t stamp)
    {
       double m = (phCalibratePointB - phCalibratePointA) / (phCalibratePointValueB - phCalibratePointValueA);
       double b = phCalibratePointB - m * phCalibratePointValueB;
-
-      aiSensors[input].value = m * value + b;
+      double dValue = m * value + b;
+      dValue = std::llround(dValue*20) / 20.0;  // round to .05
+      tell(1, "Rouned %.2f to %.2f", m * value + b, dValue);
+      aiSensors[input].value = dValue;
    }
    else if (input == aiFilterPressure)
    {
       double m = (pressCalibratePointB - pressCalibratePointA) / (pressCalibratePointValueB - pressCalibratePointValueA);
       double b = pressCalibratePointB - m * pressCalibratePointValueB;
-
-      aiSensors[input].value = m * value + b;
+      double dValue = m * value + b;
+      dValue = std::llround(dValue*20) / 20.0;  // round to .05
+      aiSensors[input].value = dValue;
    }
    else
    {

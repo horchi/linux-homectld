@@ -11,6 +11,7 @@
 
 #include "lib/json.h"
 #include "poold.h"
+#include "arduinoif.h"
 
 //***************************************************************************
 // Dispatch Client Requests
@@ -741,42 +742,42 @@ int Poold::performPh(long client, bool all)
    if (client == 0)
       return done;
 
-   json_t* oJson = json_object();
-   cArduinoInterface::AnalogValue phValue;
-   cArduinoInterface::CalSettings calSettings;
+   // json_t* oJson = json_object();
+   // cArduinoInterface::AnalogValue phValue;
+   // cArduinoInterface::CalSettings calSettings;
 
-   if (all)
-   {
-      if (arduinoInterface.requestCalGet(calSettings, 0) == success)
-      {
-         json_object_set_new(oJson, "currentPhA", json_real(calSettings.valueA));
-         json_object_set_new(oJson, "currentPhB", json_real(calSettings.valueB));
-         json_object_set_new(oJson, "currentCalA", json_real(calSettings.digitsA));
-         json_object_set_new(oJson, "currentCalB", json_real(calSettings.digitsB));
-      }
-      else
-      {
-         json_object_set_new(oJson, "currentPhA", json_string("--"));
-         json_object_set_new(oJson, "currentPhB", json_string("--"));
-         json_object_set_new(oJson, "currentCalA", json_string("--"));
-         json_object_set_new(oJson, "currentCalB", json_string("--"));
-      }
-   }
+   // if (all)
+   // {
+   //    if (arduinoInterface.requestCalGet(calSettings, 0) == success)
+   //    {
+   //       json_object_set_new(oJson, "currentPhA", json_real(calSettings.valueA));
+   //       json_object_set_new(oJson, "currentPhB", json_real(calSettings.valueB));
+   //       json_object_set_new(oJson, "currentCalA", json_real(calSettings.digitsA));
+   //       json_object_set_new(oJson, "currentCalB", json_real(calSettings.digitsB));
+   //    }
+   //    else
+   //    {
+   //       json_object_set_new(oJson, "currentPhA", json_string("--"));
+   //       json_object_set_new(oJson, "currentPhB", json_string("--"));
+   //       json_object_set_new(oJson, "currentCalA", json_string("--"));
+   //       json_object_set_new(oJson, "currentCalB", json_string("--"));
+   //    }
+   // }
 
-   if (arduinoInterface.requestAi(phValue, 0) == success)
-   {
-      json_object_set_new(oJson, "currentPh", json_real(phValue.value));
-      json_object_set_new(oJson, "currentPhValue", json_integer(phValue.digits));
-      json_object_set_new(oJson, "currentPhMinusDemand", json_integer(calcPhMinusVolume(phValue.value)));
-   }
-   else
-   {
-      json_object_set_new(oJson, "currentPh", json_string("--"));
-      json_object_set_new(oJson, "currentPhValue", json_string("--"));
-      json_object_set_new(oJson, "currentPhMinusDemand", json_string("--"));
-   }
+   // if (arduinoInterface.requestAi(phValue, 0) == success)
+   // {
+   //    json_object_set_new(oJson, "currentPh", json_real(phValue.value));
+   //    json_object_set_new(oJson, "currentPhValue", json_integer(phValue.digits));
+   //    json_object_set_new(oJson, "currentPhMinusDemand", json_integer(calcPhMinusVolume(phValue.value)));
+   // }
+   // else
+   // {
+   //    json_object_set_new(oJson, "currentPh", json_string("--"));
+   //    json_object_set_new(oJson, "currentPhValue", json_string("--"));
+   //    json_object_set_new(oJson, "currentPhMinusDemand", json_string("--"));
+   // }
 
-   pushOutMessage(oJson, "phdata", client);
+   // pushOutMessage(oJson, "phdata", client);
 
    return done;
 }
@@ -790,23 +791,23 @@ int Poold::performPhCal(json_t* oObject, long client)
    if (client == 0)
       return done;
 
-   json_t* oJson = json_object();
-   int duration = getIntFromJson(oObject, "duration");
-   cArduinoInterface::CalResponse calResp;
+   // json_t* oJson = json_object();
+   // int duration = getIntFromJson(oObject, "duration");
+   // cArduinoInterface::CalResponse calResp;
 
-   if (duration > 30)
-   {
-      tell(0, "Limit duration to 30, %d was requested", duration);
-      duration = 30;
-   }
+   // if (duration > 30)
+   // {
+   //    tell(0, "Limit duration to 30, %d was requested", duration);
+   //    duration = 30;
+   // }
 
-   if (arduinoInterface.requestCalibration(calResp, 0, duration) == success)
-      json_object_set_new(oJson, "calValue", json_integer(calResp.digits));
-   else
-      json_object_set_new(oJson, "calValue", json_string("request failed"));
+   // if (arduinoInterface.requestCalibration(calResp, 0, duration) == success)
+   //    json_object_set_new(oJson, "calValue", json_integer(calResp.digits));
+   // else
+   //    json_object_set_new(oJson, "calValue", json_string("request failed"));
 
-   json_object_set_new(oJson, "duration", json_integer(duration));
-   pushOutMessage(oJson, "phcal", client);
+   // json_object_set_new(oJson, "duration", json_integer(duration));
+   // pushOutMessage(oJson, "phcal", client);
 
    return done;
 }
@@ -820,35 +821,36 @@ int Poold::performPhSetCal(json_t* oObject, long client)
    if (client == 0)
       return done;
 
-   cArduinoInterface::CalSettings calSettings;
+   // cArduinoInterface::CalSettings calSettings;
 
-   // first get the actual settings
+   // // first get the actual settings
 
-   if (arduinoInterface.requestCalGet(calSettings, 0) == success)
-   {
-      // now update what we get from the WS client
+   // if (arduinoInterface.requestCalGet(calSettings, 0) == success)
+   // {
+   //    // now update what we get from the WS client
 
-      if (getIntFromJson(oObject, "currentPhA", na) != na)
-      {
-         calSettings.valueA = getIntFromJson(oObject, "currentPhA");
-         calSettings.digitsA = getIntFromJson(oObject, "currentCalA");
-      }
+   //    if (getIntFromJson(oObject, "currentPhA", na) != na)
+   //    {
+   //       calSettings.valueA = getIntFromJson(oObject, "currentPhA");
+   //       calSettings.digitsA = getIntFromJson(oObject, "currentCalA");
+   //    }
 
-      if (getIntFromJson(oObject, "currentPhB", na) != na)
-      {
-         calSettings.valueB = getIntFromJson(oObject, "currentPhB");
-         calSettings.digitsB = getIntFromJson(oObject, "currentCalB");
-      }
+   //    if (getIntFromJson(oObject, "currentPhB", na) != na)
+   //    {
+   //       calSettings.valueB = getIntFromJson(oObject, "currentPhB");
+   //       calSettings.digitsB = getIntFromJson(oObject, "currentCalB");
+   //    }
 
-      // and store
+   //    // and store
 
-      if (arduinoInterface.requestCalSet(calSettings, 0) != success)
-         replyResult(fail, "Speichern fehlgeschlagen", client);
-      else
-         replyResult(success, "gespeichert", client);
-   }
+   //    if (arduinoInterface.requestCalSet(calSettings, 0) != success)
+   //       replyResult(fail, "Speichern fehlgeschlagen", client);
+   //    else
+   //       replyResult(success, "gespeichert", client);
+   // }
 
-   return performPh(client, true);
+   // return performPh(client, true);
+   return done;
 }
 
 //***************************************************************************

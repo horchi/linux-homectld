@@ -26,7 +26,7 @@ function drawCharts(dataObject)
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'now\')">Jetzt</button>' +
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'next\')">Tag &gt;</button>' +
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'nextmonth\')">Monat &gt;</button>' +
-         '  <div>Tage </div><input class="rounded-border chartButton" style="width:90px;" onchange="chartSelect(\'range\')" id="chartRange" type="number" min="1" value="3"></input>' +
+         '  <div>Tage </div><input class="rounded-border chartButton" style="width:90px;" onchange="chartSelect(\'range\')" id="chartRange" type="number" min="1" value="1"></input>' +
          '</div>' +
          '<div id="chartSelector" class="chartSelectors"></div>';
    }

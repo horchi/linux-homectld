@@ -34,12 +34,6 @@ $('document').ready(function() {
    var url = "ws://" + location.hostname + ":" + location.port;
    var protocol = "poold";
 
-//   if (currentPage == "vdr") {
-//      protocol = "osd2vdr";
-//      url = "ws://" + location.hostname + ":4444";
-//      prepareMenu();
-//   }
-
    connectWebSocket(url, protocol);
 });
 
@@ -63,12 +57,14 @@ function onSocketConnect(protocol)
 
 function connectWebSocket(useUrl, protocol)
 {
+   console.log("try socket opened " + protocol);
+
    socket = new WebSocketClient({
       url: useUrl,
       protocol: protocol,
-      autoReconnectInterval: 1000,
+      autoReconnectInterval: protocol == 'poold' ? 1000 : 0,
       onopen: function (){
-         console.log("socket opened :)");
+         console.log("socket opened " + socket.protocol);
          if (isActive === null)     // wurde beim Schliessen auf null gesetzt
             onSocketConnect(protocol);
       }, onclose: function (){
@@ -350,7 +346,7 @@ function prepareMenu()
 
    $("#navMenu").html(html);
 
-   if (config.vdr == 1) {
+/*   if (config.vdr == 1 && currentPage == "vdr") {
       if (haveToken) {
          var url = "ws://" + location.hostname + ":4444";
 
@@ -376,7 +372,7 @@ function prepareMenu()
          document.getElementById("vdrMenu").style.width = "0px";
          document.getElementById("vdrMenu").disabled = true;
       }
-   }
+   }*/
 }
 
 function mainMenuSel(what)
@@ -386,7 +382,10 @@ function mainMenuSel(what)
    console.log("switch to " + currentPage);
 
    if (currentPage != lastPage && (currentPage == "vdr" || lastPage == "vdr")) {
+      console.log("closing socket " + socket.protocol);
       socket.close();
+      // delete socket;
+      socket = null;
 
       var protocol = "poold";
       var url = "ws://" + location.hostname + ":" + location.port;

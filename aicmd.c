@@ -51,17 +51,16 @@ int usage(const char* name)
 
 int main(int argc, char** argv)
 {
-   // double value = atof(argv[1]);
-   // double rounded = std::llround(value*20) / 20.0;
-   // printf("%.2f -> %.2f\n", value, rounded);
-   // return 0;
+/*   double value = atof(argv[1]);
+   double rounded = std::llround(value*50) / 50.0;
+   printf("%.2f -> %.2f\n", value, rounded);
+   return 0;*/
 
    cArduinoInterfaceService::CalResponse calResp;
    cArduinoInterfaceService::CalSettings calSettings;
    cArduinoInterfaceService::AnalogValue aValue;
    bool cal {false};
-   bool calGet {false};
-   bool calSet {false};
+   bool calGet {false}; bool calSet {false};
    bool readAnalog {false};
    bool writeAnalog {false};
 

@@ -12,6 +12,7 @@ button:focus {
     margin-left: 5px;
     margin-right: 5px;
     background-color: var(--menu);
+    padding: 3px;
 }
 
 .menuLogin
@@ -70,6 +71,7 @@ button:focus {
     padding: 6px 6px;
     text-decoration: none;
     box-shadow: 1px 1px 5px 1px var(--shadow);
+    margin-left: 5px;
 }
 
 .button1:hover
@@ -380,6 +382,11 @@ span > input
     display: inline-table;
     text-align: left;
     height: 24px;
+}
+
+.container
+{
+    overflow-y: auto;
 }
 
 .listContainer

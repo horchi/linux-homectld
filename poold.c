@@ -2220,7 +2220,7 @@ void Poold::updateAnalogInput(const char* id, int value, time_t stamp)
       double m = (phCalibratePointB - phCalibratePointA) / (phCalibratePointValueB - phCalibratePointValueA);
       double b = phCalibratePointB - m * phCalibratePointValueB;
       double dValue = m * value + b;
-      dValue = std::llround(dValue*20) / 20.0;  // round to .05
+      dValue = std::llround(dValue*50) / 50.0;  // round to .02
       tell(1, "Rouned %.2f to %.2f", m * value + b, dValue);
       aiSensors[input].value = dValue;
    }

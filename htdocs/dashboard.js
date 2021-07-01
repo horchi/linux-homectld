@@ -18,7 +18,12 @@ function initDashboard(update = false)
    if (!update) {
       $('#stateContainer').addClass('hidden');
       $('#container').removeClass('hidden');
+      $("#container").height($(window).height() - $("#menu").height() - 8);
    }
+
+   window.onresize = function() {
+      $("#container").height($(window).height() - $("#menu").height() - 8);
+   };
 
    // clean page content
 

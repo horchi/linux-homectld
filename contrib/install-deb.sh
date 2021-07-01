@@ -37,7 +37,6 @@ IP=$(ip route get 8.8.8.8 | sed -n '/src/{s/.*src *\([^ ]*\).*/\1/p;q}')
 if [ ${update} != 1 ]; then
    apt update || exit 1
    apt -y dist-upgrade || exit 1
-   apt -y install ssmtp || exit 1
    apt-get -y install locales || exit 1
    timedatectl set-timezone 'Europe/Berlin'
    dpkg-reconfigure --frontend noninteractive tzdata

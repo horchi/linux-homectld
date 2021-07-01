@@ -8,24 +8,34 @@
  *
  */
 
-function initDashboard(widgets, root)
+function initDashboard(update = false)
 {
-   if (!widgets) {
+   if (!allWidgets) {
       console.log("Fatal: Missing payload!");
       return;
    }
 
+   if (!update) {
+      $('#stateContainer').addClass('hidden');
+      $('#container').removeClass('hidden');
+   }
+
    // clean page content
 
-   root.innerHTML = "";
+   document.getElementById("container").innerHTML = '<div id="widgetContainer" class="widgetContainer"></div>';
+
+   var root = document.getElementById("widgetContainer");
 
    // build page content
 
-   for (var i = 0; i < widgets.length; i++)
+   for (var i = 0; i < allWidgets.length; i++)
    {
-      var widget = widgets[i];
+      var widget = allWidgets[i];
 
-      switch(widget.widgettype) {
+      if (!widget.dashboard)
+         continue;
+
+      switch (widget.widgettype) {
       case 0:           // Symbol
          var html = "";
          var ctrlButtons = widget.name == "Pool Light" && config.poolLightColorToggle == 1;
@@ -112,17 +122,22 @@ function initDashboard(widgets, root)
          break;
       }
    }
+
+   updateDashboard(allWidgets);
 }
 
-function updateDashboard(sensors)
+function updateDashboard(widgets)
 {
    // console.log("updateDashboard");
 
-   if (sensors)
+   if (widgets)
    {
-      for (var i = 0; i < sensors.length; i++)
+      for (var i = 0; i < widgets.length; i++)
       {
-         var sensor = sensors[i];
+         var sensor = widgets[i];
+
+         if (!sensor.dashboard)
+            continue;
 
          if (sensor.widgettype == 0)         // Symbol
          {
@@ -204,6 +219,7 @@ function updateDashboard(sensors)
 function toggleChartDialog(type, address)
 {
    var dialog = document.querySelector('dialog');
+   dialog.style.position = 'fixed';
 
    if (type != "" && !dialog.hasAttribute('open')) {
       var canvas = document.querySelector("#chartDialog");

@@ -19,7 +19,7 @@ button:focus {
     float: right;
 }
 
-.content
+.vdrContent
 {
     margin: 0px 5px 0px 5px;
     background-color: var(--background);
@@ -31,6 +31,14 @@ button:focus {
     border-color: var(--borderColor);
     border-style: none;
     border-width: 1px;
+}
+
+.hidden
+{
+    width: 0px !important;
+    height: 0px !important;
+    visibility: hidden !important;
+    display: none !important;
 }
 
 .progress {
@@ -631,9 +639,14 @@ table.tableMultiCol tr:nth-child(odd)
     padding: 0px;
 }
 
+.vdrButton:active {
+    background-color: var(--caption2);
+    transform: translateY(2px);
+}
+
 .vdrButton:hover
 {
-/*    background-color: var(--caption2); */
+/*    background-color: var(--caption2);*/
 }
 
 .vdrButtonRound

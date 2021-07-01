@@ -18,6 +18,7 @@ class cInterface : public cArduinoInterfaceService
 {
    public:
 
+      void processAoRequest(int output);
       void processAiRequest(int input);
       void processCalRequest(int input);
       void processCalGetRequest(int input);
@@ -107,6 +108,25 @@ int cInterface::serialRead(void* buf, size_t size, int timeoutMs)
    }
 
    return nRead;
+}
+
+//******************************************************************
+// AO Request
+//******************************************************************
+
+void cInterface::processAoRequest(int output)
+{
+   AnalogValue analogValue;
+
+   if (serialRead((char*)&analogValue, sizeof(AnalogValue), 1000) != sizeof(AnalogValue))
+      return ;
+
+   analogWrite(output, analogValue.digits);
+
+   Header header(cAoResponse, output);
+   header.id = comId;
+
+   Serial.write((char*)&header, sizeof(Header));
 }
 
 //******************************************************************
@@ -225,6 +245,7 @@ void cInterface::dispatch()
          case cCalGetRequest:  processCalGetRequest(header.input); break;
          case cCalSetRequest:  processCalSetRequest(header.input); break;
          case cAiRequest:      processAiRequest(header.input);     break;
+         case cAoRequest:      processAoRequest(header.input);     break;
          default: break;
       }
    }

@@ -22,7 +22,7 @@
 #include "HISTORY.h"
 
 #include "websock.h"
-#include "arduinoif.h"
+//#include "arduinoif.h"
 
 #define confDirDefault "/etc/poold"
 
@@ -109,7 +109,7 @@ class Poold : public cWebInterface
       int loop();
 
       const char* myName() override  { return "poold"; }
-      static void downF(int aSignal) { shutdown = yes; }
+      static void downF(int aSignal) { shutdown = true; }
 
    protected:
 
@@ -235,7 +235,7 @@ class Poold : public cWebInterface
 
       int getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges);
 
-      int doShutDown() { return shutdown; }
+      bool doShutDown() { return shutdown; }
 
       int getWaterLevel();
       int calcPhMinusVolume(double ph);
@@ -256,13 +256,14 @@ class Poold : public cWebInterface
       int performLogin(json_t* oObject);
       int performLogout(json_t* oObject);
       int performTokenRequest(json_t* oObject, long client);
+      int performPageChange(json_t* oObject, long client);
       int performSyslog(json_t* oObject, long client);
       int performSendMail(json_t* oObject, long client);
       int performConfigDetails(long client);
       int performUserDetails(long client);
       int performIoSettings(json_t* oObject, long client);
       int performChartData(json_t* oObject, long client);
-      int performUserConfig(json_t* oObject, long client);
+      int storeUserConfig(json_t* oObject, long client);
       int performPasswChange(json_t* oObject, long client);
       int performPh(long client, bool all);
       int performPhCal(json_t* obj, long client);
@@ -289,6 +290,10 @@ class Poold : public cWebInterface
 
       int storeStates();
       int loadStates();
+
+      // analog inputs
+
+      void updateAnalogInput(const char* id, int value, time_t stamp);
 
       // W1
 
@@ -356,7 +361,7 @@ class Poold : public cWebInterface
       Mqtt* mqttWriter {nullptr};
       Mqtt* mqttReader {nullptr};
       Mqtt* mqttCommandReader {nullptr};
-      Mqtt* mqttW1Reader {nullptr};
+      Mqtt* mqttPoolReader {nullptr};
 
       // config
 
@@ -365,7 +370,7 @@ class Poold : public cWebInterface
       char* webUrl {nullptr};
       int aggregateInterval {15};         // aggregate interval in minutes
       int aggregateHistory {0};           // history in days
-      char* w1MqttUrl {nullptr};
+      char* poolMqttUrl {nullptr};
       char* mqttUrl {nullptr};
       char* mqttUser {nullptr};
       char* mqttPassword {nullptr};
@@ -400,14 +405,24 @@ class Poold : public cWebInterface
       int phPumpDuration100 {0};
       double phReference {0.0};
 
+      double phCalibratePointA {0.0};
+      int phCalibratePointValueA {0};
+      double phCalibratePointB {0.0};
+      int phCalibratePointValueB {0};
+
+      double pressCalibratePointA {0.0};
+      int pressCalibratePointValueA {400};
+      double pressCalibratePointB {0.6};
+      int pressCalibratePointValueB {2600};
+
       std::vector<Range> filterPumpTimes;
       std::vector<Range> uvcLightTimes;
       std::vector<Range> poolLightTimes;
 
       // serial interface to arduino for PH stuff
 
-      cArduinoInterface arduinoInterface;
-      char* arduinoDevice {nullptr};
+      //cArduinoInterface arduinoInterface;
+      //char* arduinoDevice {nullptr};
 
       // actual state and data
 
@@ -428,5 +443,5 @@ class Poold : public cWebInterface
       // statics
 
       static std::list<ConfigItemDef> configuration;
-      static int shutdown;
+      static bool shutdown;
 };

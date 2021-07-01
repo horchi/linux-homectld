@@ -16,7 +16,7 @@ var isActive = null;
 var socket = null;
 var config = {};
 var daemonState = {};
-var documentName = "";
+var currentPage = "dashboard";
 var widgetCharts = {};
 var theChart = null;
 var theChartRange = 2;
@@ -24,80 +24,41 @@ var theChartStart = new Date(); theChartStart.setDate(theChartStart.getDate()-th
 var chartDialogSensor = "";
 var chartBookmarks = {};
 var phCalTimerhandle = null;
+var allWidgets = [];
 
-window.documentReady = function(doc)
-{
+$('document').ready(function() {
    daemonState.state = -1;
-   documentName = doc;
-   console.log("documentReady: " + documentName);
+
+   console.log("currentPage: " + currentPage);
 
    var url = "ws://" + location.hostname + ":" + location.port;
    var protocol = "poold";
 
-   if (documentName == "vdrfb") {
-      protocol = "osd2vdr";
-      url = "ws://" + location.hostname + ":4444";
-      prepareVdrRemoteControl();
-      prepareMenu();
-   }
-
-   if (documentName == "ph" && phCalTimerhandle != null) {
-      clearInterval(phCalTimerhandle);
-      phCalTimerhandle = null;
-   }
+//   if (currentPage == "vdr") {
+//      protocol = "osd2vdr";
+//      url = "ws://" + location.hostname + ":4444";
+//      prepareMenu();
+//   }
 
    connectWebSocket(url, protocol);
-}
+});
 
 function onSocketConnect(protocol)
 {
    var token = localStorage.getItem(storagePrefix + 'Token');
    var user = localStorage.getItem(storagePrefix + 'User');
 
-   if (!token || token == null)  token = "";
-   if (!user || user == null)    user = "";
+   if (token == null) token = "";
+   if (user == null)  user = "";
 
-   // request some data at login
+   socket.send({ "event" : "login", "object" :
+                 { "type" : "active",
+                   "user" : user,
+                   "page" : currentPage,
+                   "token" : token }
+               });
 
-   var jsonArray = [];
-   var nRequests = 0;
-   var jsonRequest = {};
-
-   if (documentName == "syslog")
-      jsonRequest["name"] = "syslog";
-   else if (documentName == "maincfg")
-      jsonRequest["name"] = "configdetails";
-   else if (documentName == "usercfg")
-      jsonRequest["name"] = "userdetails";
-   else if (documentName == "iosetup")
-      jsonRequest["name"] = "iosettings";
-   else if (documentName == "chart")
-      prepareChartRequest(jsonRequest, "", 0, 2, "chart")
-   else if (documentName == "dashboard")
-      jsonRequest["name"] = "data";
-   else if (documentName == "list")
-      jsonRequest["name"] = "data";
-   else if (documentName == "ph")
-      jsonRequest["name"] = "phall";
-
-   jsonArray[0] = jsonRequest;
-
-   if (protocol == "osd2vdr")
-      socket.send({ "event" : "login", "object" :
-                    { "type" : 2,         // ctFB
-                      "user" : user,
-                      "token" : token,
-                      "page"  : documentName,
-                      "requests" : jsonArray }
-                  });
-   else
-      socket.send({ "event" : "login", "object" :
-                    { "type" : "active",
-                      "user" : user,
-                      "token" : token,
-                      "page"  : documentName,
-                      "requests" : jsonArray }
-                     });
+   prepareMenu();
 }
 
 function connectWebSocket(useUrl, protocol)
@@ -160,7 +121,6 @@ async function showInfoDialog(object, titleMsg, onCloseCallback)
    }
 
    var div = document.createElement("div");
-   // div.style.marginTop = "13px";
    div.style.textAlign = align;
    div.style.whiteSpace = "pre";
    div.style.backgroundColor = bgColor;
@@ -240,34 +200,39 @@ function dispatchMessage(message)
 {
    var jMessage = JSON.parse(message);
    var event = jMessage.event;
-   var rootList = document.getElementById("listContainer");
-   var rootDashboard = document.getElementById("widgetContainer");
-   var rootConfig = document.getElementById("configContainer");
-   var rootIoSetup = document.getElementById("ioSetupContainer");
-   var rootChart = document.getElementById("chart");
-   var rootDialog = document.querySelector('dialog');                // chart dialog
-   var rootPhActual = document.getElementById("phShowActual");
 
-   console.log("got event: " + event);
+   if (event != "chartdata")
+      console.log("got event: " + event);
 
    if (event == "result") {
       hideProgressDialog();
       showInfoDialog(jMessage.object);
    }
-   else if ((event == "update" || event == "all") && rootDashboard) {
+   else if ((event == "update" || event == "all")) {
+      if (event == "all")
+         allWidgets = jMessage.object;
+      else {
+         for (var i = 0; i < jMessage.object.length; i++) {
+            for (var w = 0; w < allWidgets.length; w++) {
+               if (jMessage.object[i].name == allWidgets[w].name) {
+                  console.log("update '" + allWidgets[w].name + "' to (" + jMessage.object[i].value.toFixed(2) + ") from (" + allWidgets[w].value.toFixed(2) + ")");
+                  allWidgets[w] = jMessage.object[i];
+               }
+            }
+         }
+      }
+      if (currentPage == 'dashboard')
+         updateDashboard(jMessage.object);
+      else if (currentPage == 'list')
+         updateList(jMessage.object);
+   }
+   else if (event == "init" && currentPage == 'dashboard') {
+      allWidgets = jMessage.object;
 
-      updateDashboard(jMessage.object);
-   }
-   else if ((event == "update" || event == "all") && rootList) {
-      updateList(jMessage.object);
-   }
-   else if (event == "init" && rootDashboard) {
-      initDashboard(jMessage.object, rootDashboard);
-      updateDashboard(jMessage.object);
-   }
-   else if (event == "init" && rootList) {
-      initList(jMessage.object, rootList);
-      updateList(jMessage.object);
+      if (currentPage == 'dashboard')
+         initDashboard();
+      else if (currentPage == 'list')
+         initList();
    }
    else if (event == "chartbookmarks") {
       chartBookmarks = jMessage.object;
@@ -275,21 +240,20 @@ function dispatchMessage(message)
    }
    else if (event == "config") {
       config = jMessage.object;
-      prepareMenu();
    }
-   else if (event == "configdetails" && rootConfig) {
-      initConfig(jMessage.object, rootConfig)
+   else if (event == "configdetails" && currentPage == 'setup') {
+      initConfig(jMessage.object)
    }
-   else if (event == "userdetails" && rootConfig) {
-      initUserConfig(jMessage.object, rootConfig)
+   else if (event == "userdetails" && currentPage == 'userdetails') {
+      initUserConfig(jMessage.object);
    }
    else if (event == "daemonstate") {
       daemonState = jMessage.object;
    }
-   else if (event == "phdata" && rootPhActual) {
-      updatePhActual(jMessage.object, rootPhActual);
+   else if (event == "phdata" && currentPage == 'ph') {
+      updatePhActual(jMessage.object);
    }
-   else if (event == "phcal" && rootPhActual) {
+   else if (event == "phcal" && currentPage == 'ph') {
       hideProgressDialog();
       updatePhCal(jMessage.object);
    }
@@ -303,25 +267,27 @@ function dispatchMessage(message)
 
       if (jMessage.object.state == "confirm") {
          window.location.replace("index.html");
-      } else { // if (documentName == "login") {
+      } else {
          if (document.getElementById("confirm"))
             document.getElementById("confirm").innerHTML = "<div class=\"infoError\"><b><center>Login fehlgeschlagen</center></b></div>";
       }
    }
-   else if (event == "valuefacts" && rootIoSetup) {
-      initIoSetup(jMessage.object, rootIoSetup);
+   else if (event == "valuefacts" && currentPage == 'iosetup') {
+      initIoSetup(jMessage.object);
    }
    else if (event == "chartdata") {
       hideProgressDialog();
       var id = jMessage.object.id;
-      if (rootChart) {                                       // the charts page
-         drawCharts(jMessage.object, rootChart);
+
+      if (currentPage == 'chart') {                                 // the charts page
+         drawCharts(jMessage.object);
       }
-      else if (rootDashboard && id == "chartwidget") {       // the dashboard widget
-         drawChartWidget(jMessage.object, rootDashboard);
+      else if (currentPage == 'dashboard' && id == "chartwidget") { // the dashboard widget
+         drawChartWidget(jMessage.object);
       }
-      else if (rootDialog && id == "chartdialog") {          // the dashboard chart dialog
-         drawChartDialog(jMessage.object, rootDialog);
+
+      else if (currentPage == 'dashboard' && id == "chartdialog") { // the dashboard chart dialog
+         drawChartDialog(jMessage.object);
       }
    }
 
@@ -331,51 +297,56 @@ function dispatchMessage(message)
 function prepareMenu()
 {
    var html = "";
-   var haveToken = localStorage.getItem(storagePrefix + 'Token') != "";
+   var haveToken = localStorage.getItem(storagePrefix + 'Token') && localStorage.getItem(storagePrefix + 'Token') != "";
 
-   html += "<a href=\"index.html\"><button class=\"rounded-border button1\">Dashboard</button></a>";
-   html += "<a href=\"list.html\"><button class=\"rounded-border button1\">Liste</button></a>";
-   html += "<a href=\"chart.html\"><button class=\"rounded-border button1\">Charts</button></a>";
-   html += "<button id=\"vdrMenu\" class=\"rounded-border button1\" onclick=\"location.href='vdr.html';\" style=\"visibility:hidden;width:0px\">VDR</button>";
+   console.log("prepareMenu: " + currentPage);
+
+   // html += "<a href=\"index.html\"><button class=\"rounded-border button1\">Dashboard</button></a>";
+   html += '<button class="rounded-border button1" onclick="mainMenuSel(\'dashboard\')">Dashboard</button>';
+   html += '<button class="rounded-border button1" onclick="mainMenuSel(\'list\')">Liste</button>';
+   html += '<button class="rounded-border button1" onclick="mainMenuSel(\'chart\')">Charts</button>';
+   html += '<button id="vdrMenu" class="rounded-border button1" onclick="mainMenuSel(\'vdr\')">VDR</button>';
 
    html += "<div class=\"menuLogin\">";
    if (haveToken)
-      html += "<a href=\"user.html\"><button class=\"rounded-border button1\">[" + localStorage.getItem(storagePrefix + 'User') + "]</button></a>";
+      html += '<button class="rounded-border button1" onclick="mainMenuSel(\'user\')">[' + localStorage.getItem(storagePrefix + 'User') + ']</button>';
    else
-      html += "<a href=\"login.html\"><button class=\"rounded-border button1\">Login</button></a>";
+      html += '<button class="rounded-border button1" onclick="mainMenuSel(\'login\')">Login</button>';
    html += "</div>";
 
    if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10) {
-      html += "<a href=\"maincfg.html\"><button class=\"rounded-border button1\">Setup</button></a>";
+      html += '<button class="rounded-border button1" onclick="mainMenuSel(\'setup\')">Setup</button>';
 
-      if ($("#navMenu").data("setup") != undefined) {
+      if (currentPage == "setup" || currentPage == "iosetup" || currentPage == "userdetails" || currentPage == "ph" || currentPage == "syslog") {
          html += "<div>";
-         html += "  <a href=\"maincfg.html\"><button class=\"rounded-border button2\">Allg. Konfiguration</button></a>";
-         html += "  <a href=\"iosetup.html\"><button class=\"rounded-border button2\">IO Setup</button></a>";
-         html += "  <a href=\"usercfg.html\"><button class=\"rounded-border button2\">User</button></a>";
-         html += "  <a href=\"ph.html\"><button class=\"rounded-border button2\">PH</button></a>";
-         html += "  <a href=\"syslog.html\"><button class=\"rounded-border button2\">Syslog</button></a>";
+         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'setup\')">Allg. Konfiguration</button>';
+         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'iosetup\')">IO Setup</button>';
+         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'userdetails\')">User</button>';
+         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'ph\')">PH</button>';
+         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'syslog\')">Syslog</button>';
+         // html += "  <a href=\"ph.html\"><button class=\"rounded-border button2\">PH</button></a>";
          html += "</div>";
       }
    }
 
    // buttons below menu
 
-   if ($("#navMenu").data("iosetup") != undefined) {
+   if (currentPage == "iosetup") {
       html += "<div class=\"confirmDiv\">";
       html += "  <button class=\"rounded-border buttonOptions\" onclick=\"storeIoSetup()\">Speichern</button>";
       html += "  <button class=\"rounded-border buttonOptions\" id=\"filterIoSetup\" onclick=\"filterIoSetup()\">[alle]</button>";
       html += "</div>";
    }
-   else if ($("#navMenu").data("maincfg") != undefined) {
+   else if (currentPage == "setup") {
       html += "<div class=\"confirmDiv\">";
       html += "  <button class=\"rounded-border buttonOptions\" onclick=\"storeConfig()\">Speichern</button>";
       html += "  <button class=\"rounded-border buttonOptions\" title=\"Letzter Reset: " + config.peakResetAt + "\" id=\"buttonResPeaks\" onclick=\"resetPeaks()\">Reset Peaks</button>";
       html += "  <button class=\"rounded-border buttonOptions\" onclick=\"sendMail('Test Mail', 'test')\">Test Mail</button>";
       html += "</div>";
    }
-   else if ($("#navMenu").data("login") != undefined)
-      html += "<div id=\"confirm\" class=\"confirmDiv\"/>";
+   else if (currentPage == "login") {
+      html += '<div id="confirm" class="confirmDiv"/>';
+   }
 
    $("#navMenu").html(html);
 
@@ -395,7 +366,7 @@ function prepareMenu()
                document.getElementById("vdrMenu").disabled = false;
                s.ws.close();
             }, onclose: function (){
-               console.log("osd2web socket closed");
+               // console.log("osd2web socket closed");
             }, onmessage: function (msg){
             }
          });
@@ -408,22 +379,101 @@ function prepareMenu()
    }
 }
 
-function showSyslog(log)
+function mainMenuSel(what)
 {
-   var root = document.getElementById("syslogContainer");
-   root.innerHTML = log.lines.replace(/(?:\r\n|\r|\n)/g, '<br>');
+   var lastPage = currentPage;
+   currentPage = what;
+   console.log("switch to " + currentPage);
+
+   if (currentPage != lastPage && (currentPage == "vdr" || lastPage == "vdr")) {
+      socket.close();
+
+      var protocol = "poold";
+      var url = "ws://" + location.hostname + ":" + location.port;
+
+      if (currentPage == "vdr") {
+         protocol = "osd2vdr";
+         url = "ws://" + location.hostname + ":4444";
+      }
+
+      connectWebSocket(url, protocol);
+   }
+
+   if (currentPage != "vdr")
+      socket.send({ "event" : "pagechange", "object" : { "page"  : currentPage }});
+
+   var event = null;
+   var jsonRequest = {};
+
+   if (currentPage == "setup")
+      event = "setup";
+   else if (currentPage == "iosetup")
+      event = "iosetup";
+   else if (currentPage == "user")
+      initUser();
+   else if (currentPage == "userdetails")
+      event = "userdetails";
+   else if (currentPage == "ph")
+      event = "phall";
+   else if (currentPage == "syslog")
+      event = "syslog";
+   else if (currentPage == "list")
+      initList();
+   else if (currentPage == "dashboard")
+      initDashboard();
+   else if (currentPage == "vdr")
+      initVdr();
+   else if (currentPage == "chart") {
+      event = "chartdata"
+      prepareChartRequest(jsonRequest, "", 0, 2, "chart");
+   }
+
+   if (currentPage != "vdr") {
+      if (jsonRequest != {})
+         socket.send({ "event" : event, "object" : jsonRequest });
+      else if (event != null)
+         socket.send({ "event" : event, "object" : { } });
+
+      if (currentPage == 'login') {
+         initLogin();
+      }
+
+      if (currentPage != "ph" && phCalTimerhandle != null) {
+         clearInterval(phCalTimerhandle);
+         phCalTimerhandle = null;
+      }
+   }
+
+   prepareMenu();
 }
 
-function prepareVdrRemoteControl()
+function initLogin()
 {
-   var root = document.getElementById("vdrFbContainer");
-   var elements = root.getElementsByClassName("vdrButtonDiv");
+   $('#stateContainer').addClass('hidden');
+   $('#container').removeClass('hidden');
 
-   for (var i = 0; i < elements.length; i++) {
-      elements[i].style.height = getComputedStyle(elements[i]).width;
-      if (elements[i].children[0].innerHTML == "")
-         elements[i].style.visibility = "hidden";
-   }
+   document.getElementById("container").innerHTML =
+      '<div id="loginContainer" class="rounded-border inputTableConfig">' +
+      '  <table>' +
+      '    <tr>' +
+      '      <td>User:</td>' +
+      '      <td><input id="user" class="rounded-border input" type="text" value=""></input></td>' +
+      '    </tr>' +
+      '    <tr>' +
+      '      <td>Passwort:</td>' +
+      '      <td><input id="password" class="rounded-border input" type="password" value=""></input></td>' +
+      '    </tr>' +
+      '  </table>' +
+      '  <button class="rounded-border buttonHighlighted" onclick="doLogin()">Anmelden</button>' +
+      '</div>';
+}
+
+function showSyslog(log)
+{
+   document.getElementById("container").innerHTML = '<div id="syslogContainer" class="log"></div>';
+
+   var root = document.getElementById("syslogContainer");
+   root.innerHTML = log.lines.replace(/(?:\r\n|\r|\n)/g, '<br>');
 }
 
 window.sendMail = function(subject, body)
@@ -455,20 +505,7 @@ window.toggleIoNext = function(address, type)
                });
 }
 
-window.vdrKeyPress = function(key)
-{
-   // { "event" : "keypress", "object" : { "key" : "menu", "repeat" : 1 } }
-
-   if (key == undefined || key == "")
-      return;
-
-   socket.send({ "event": "keypress", "object":
-                 { "key": key,
-                   "repeat": 1 }
-               });
-}
-
-window.doLogin = function()
+function doLogin()
 {
    // console.log("login: " + $("#user").val() + " : " + $.md5($("#password").val()));
    socket.send({ "event": "gettoken", "object":
@@ -477,13 +514,13 @@ window.doLogin = function()
                });
 }
 
-window.doLogout = function()
+function doLogout()
 {
    localStorage.removeItem(storagePrefix + 'Token');
    localStorage.removeItem(storagePrefix + 'User');
    localStorage.removeItem(storagePrefix + 'Rights');
-
-   window.location.replace("login.html");
+   console.log("logout");
+   mainMenuSel('login');
 }
 
 // ---------------------------------
@@ -520,8 +557,9 @@ function prepareChartRequest(jRequest, sensors, start, range, id)
    }
 }
 
-function drawChartWidget(dataObject, root)
+function drawChartWidget(dataObject)
 {
+   var root = document.getElementById("container");
    var id = "widget" + dataObject.rows[0].sensor;
 
    if (widgetCharts[id] != null) {
@@ -570,8 +608,9 @@ function drawChartWidget(dataObject, root)
    widgetCharts[id] = new Chart(canvas, data);
 }
 
-function drawChartDialog(dataObject, root)
+function drawChartDialog(dataObject)
 {
+   var root = document.querySelector('dialog')
    if (dataObject.rows[0].sensor != chartDialogSensor) {
       return ;
    }

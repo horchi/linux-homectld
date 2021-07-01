@@ -26,6 +26,8 @@
 # include <vdr/thread.h>
 #endif
 
+#include <regex>
+
 #include "common.h"
 
 #ifdef VDR_PLUGIN
@@ -601,7 +603,8 @@ std::vector<std::string> split(const std::string& str, char delim)
    while ((start = str.find_first_not_of(delim, end)) != std::string::npos)
    {
       end = str.find(delim, start);
-      strings.push_back(str.substr(start, end - start));
+      std::string s = std::regex_replace(str.substr(start, end - start), std::regex("^\\s+"), std::string(""));
+      strings.push_back(std::regex_replace(s, std::regex("\\s+$"), std::string("")));
    }
 
    return strings;

@@ -37,14 +37,14 @@ class W1
       W1(const char* aUrl);
       ~W1();
 
-      static void downF(int aSignal) { shutdown = yes; }
+      static void downF(int aSignal) { shutdown = true; }
 
       int init() { return success; }
       int loop();
       int show();
       int scan();
       int update();
-      int doShutDown() { return shutdown; }
+      bool doShutDown() { return shutdown; }
 
       const SensorList* getList()    { return &sensors; }
       size_t getCount()              { return sensors.size(); }
@@ -59,5 +59,5 @@ class W1
       const char* mqttTopic {nullptr};
       Mqtt* mqttWriter {nullptr};
 
-      static int shutdown;
+      static bool shutdown;
 };

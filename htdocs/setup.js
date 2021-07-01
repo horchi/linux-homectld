@@ -8,8 +8,15 @@
  *
  */
 
-function initConfig(configuration, root)
+function initConfig(configuration)
 {
+   $('#stateContainer').addClass('hidden');
+   $('#container').removeClass('hidden');
+
+   document.getElementById("container").innerHTML =
+      '<div id="setupContainer" class="rounded-border inputTableConfig">';
+
+   var root = document.getElementById("setupContainer");
    var lastCat = "";
    root.innerHTML = "";
 
@@ -121,7 +128,7 @@ function initConfig(configuration, root)
 window.storeConfig = function()
 {
    var jsonObj = {};
-   var rootConfig = document.getElementById("configContainer");
+   var rootConfig = document.getElementById("container");
 
    console.log("storeSettings");
 
@@ -171,8 +178,76 @@ function filterIoSetup()
    socket.send({ "event" : "iosetup", "object" : { "filter" : filterActive } });
 }
 
-function initIoSetup(valueFacts, root)
+function initIoSetup(valueFacts)
 {
+   document.getElementById("container").innerHTML =
+      '<div id="ioSetupContainer">' +
+      '  <div class="rounded-border seperatorTitle1">Digitale Ausgänge</div>' +
+      '  <table class="tableMultiCol">' +
+      '    <thead>' +
+      '      <tr>' +
+      '        <td style="width:30%;">Name</td>' +
+      '        <td style="width:32%;">Bezeichnung</td>' +
+      '        <td style="width:6%;">Skala max</td>' +
+      '        <td style="width:3%;">Einheit</td>' +
+      '        <td style="width:3%;">Aufzeichnen</td>' +
+      '        <td style="width:8%;">ID:Typ</td>' +
+      '      </tr>' +
+      '    </thead>' +
+      '    <tbody id="ioDigitalOut">' +
+      '    </tbody>' +
+      '  </table>' +
+      '  <div class="rounded-border seperatorTitle1">One Wire Sensoren</div>' +
+      '  <table class="tableMultiCol">' +
+      '    <thead>' +
+      '      <tr>' +
+      '        <td style="width:30%;">Name</td>' +
+      '        <td style="width:32%;">Bezeichnung</td>' +
+      '        <td style="width:6%;">Skala max</td>' +
+      '        <td style="width:3%;">Einheit</td>' +
+      '        <td style="width:3%;">Aufzeichnen</td>' +
+      '        <td style="width:8%;">ID:Typ</td>' +
+      '      </tr>' +
+      '    </thead>' +
+      '    <tbody id="ioOneWire">' +
+      '    </tbody>' +
+      '  </table>' +
+      '  <div class="rounded-border seperatorTitle1">Skripte</div>' +
+      '  <table class="tableMultiCol">' +
+      '    <thead>' +
+      '      <tr>' +
+      '        <td style="width:30%;">Name</td>' +
+      '        <td style="width:32%;">Bezeichnung</td>' +
+      '        <td style="width:6%;">Skala max</td>' +
+      '        <td style="width:3%;">Einheit</td>' +
+      '        <td style="width:3%;">Aufzeichnen</td>' +
+      '        <td style="width:8%;">ID:Typ</td>' +
+      '      </tr>' +
+      '    </thead>' +
+      '    <tbody id="ioScripts">' +
+      '    </tbody>' +
+      '  </table>' +
+      '  <div class="rounded-border seperatorTitle1">Weitere Sensoren</div>' +
+      '  <table class="tableMultiCol">' +
+      '    <thead>' +
+      '      <tr>' +
+      '        <td style="width:30%;">Name</td>' +
+      '        <td style="width:32%;">Bezeichnung</td>' +
+      '        <td style="width:6%;">Skala max</td>' +
+      '        <td style="width:3%;">Einheit</td>' +
+      '        <td style="width:3%;">Aufzeichnen</td>' +
+      '        <td style="width:8%;">ID:Typ</td>' +
+      '      </tr>' +
+      '    </thead>' +
+      '    <tbody id="ioOther">' +
+      '    </tbody>' +
+      '  </table>' +
+      '</div>';
+
+
+
+   var root = document.getElementById("ioSetupContainer");
+
    // console.log(JSON.stringify(valueFacts, undefined, 4));
 
    document.getElementById("ioDigitalOut").innerHTML = "";

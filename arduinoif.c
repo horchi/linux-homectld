@@ -62,7 +62,51 @@ int cArduinoInterface::readHeader(Header* header, uint timeoutMs)
 }
 
 //***************************************************************************
-// Pressure Request
+// Request Analog Outout
+//***************************************************************************
+
+int cArduinoInterface::requestAo(AnalogValue aoValue, uint output)
+{
+   if (checkInterface() != success)
+      return fail;
+
+   cMyMutexLock lock(&mutex);
+
+   Header header(cAoRequest, output);
+   header.id = comId;
+
+   tell(2, "Requesting Analog write ...");
+
+   serial.flush();
+
+   if (serial.write(&header, sizeof(Header)) != success)
+   {
+      tell(0, "Error write serial line failed");
+      return fail;
+   }
+
+   if (serial.write(&aoValue, sizeof(AnalogValue)) != success)
+   {
+      tell(0, "Error write serial line failed");
+      return fail;
+   }
+
+   tell(2, ".. requested, waiting for responce ..");
+
+   if (readHeader(&header) != success)
+      return fail;
+
+   if (header.command != cAoResponse)
+   {
+      tell(0, "Got unexpected command 0x%x", header.command);
+      return fail;
+   }
+
+   return success;
+}
+
+//***************************************************************************
+// Request Analog Input
 //***************************************************************************
 
 int cArduinoInterface::requestAi(AnalogValue& aiValue, uint input)
@@ -75,7 +119,7 @@ int cArduinoInterface::requestAi(AnalogValue& aiValue, uint input)
    Header header(cAiRequest, input);
    header.id = comId;
 
-   tell(2, "Requesting Pressure ...");
+   tell(2, "Requesting Analog Value ...");
 
    serial.flush();
 

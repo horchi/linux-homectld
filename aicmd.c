@@ -35,6 +35,7 @@ int usage(const char* name)
    printf("Usage: %s <device> <command> [<options>]\n", name);
    printf(" commands:\n");
    printf("    read   <analog input> \n");
+   printf("    write  <PWM output> <value %%>\n");
    printf("    cal    <analog input> \n");
    printf("    calget <analog input> \n");
    printf("    calset <analog input> <value point A> <digits point A> <value point B> <digits point B>\n");
@@ -50,11 +51,12 @@ int main(int argc, char** argv)
 {
    cArduinoInterfaceService::CalResponse calResp;
    cArduinoInterfaceService::CalSettings calSettings;
-   cArduinoInterfaceService::AnalogValue aiValue;
+   cArduinoInterfaceService::AnalogValue aValue;
    bool cal {false};
    bool calGet {false};
    bool calSet {false};
    bool readAnalog {false};
+   bool writeAnalog {false};
 
    logstdout = yes;
    loglevel = 1;
@@ -62,10 +64,12 @@ int main(int argc, char** argv)
    if (argc < 4)
       return usage(argv[0]);
 
-   uint input = atoi(argv[3]);
+   uint pin = atoi(argv[3]);
 
    if (strcmp(argv[2], "read") == 0)
       readAnalog = true;
+   else if (strcmp(argv[2], "write") == 0)
+      writeAnalog = true;
    else if (strcmp(argv[2], "cal") == 0)
       cal = true;
    else if (strcmp(argv[2], "calget") == 0)
@@ -91,19 +95,37 @@ int main(int argc, char** argv)
    }
 
    if (cal)
-      arduinoInterface.requestCalibration(calResp, input, 15);
+      arduinoInterface.requestCalibration(calResp, pin, 15);
    else if (calSet)
-      arduinoInterface.requestCalSet(calSettings, input);
+      arduinoInterface.requestCalSet(calSettings, pin);
    else if (calGet)
-      arduinoInterface.requestCalGet(calSettings, input);
+      arduinoInterface.requestCalGet(calSettings, pin);
 
    else if (readAnalog)
    {
       while (true)
       {
-         arduinoInterface.requestAi(aiValue, input);
+         arduinoInterface.requestAi(aValue, pin);
          sleep(1);
       }
+   }
+   else if (writeAnalog)
+   {
+      if (argc < 5)
+      {
+         tell(0, "Missing parameter");
+         return 1;
+      }
+
+      if (pin != 3 && pin != 5 && pin != 6 && pin != 9 && pin != 10 && pin != 11)
+      {
+         tell(0, "Not a PWM pin!");
+         return 1;
+      }
+
+      aValue.digits = 255.0 / 100.0 * (double)atoi(argv[4]);
+      arduinoInterface.requestAo(aValue, pin);
+      tell(0, "Wrote %d to %d", aValue.digits, pin);
    }
 
    return 0;

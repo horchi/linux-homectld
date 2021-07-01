@@ -37,16 +37,21 @@ const char* cWebService::events[] =
    "unknown",
    "login",
    "logout",
+   "pagechange",
+   "data",
+   "init",
    "toggleio",
    "toggleionext",
    "togglemode",
    "storeconfig",
    "gettoken",
+   "setup",
    "iosetup",
    "storeiosetup",
    "chartdata",
    "logmessage",
-   "userconfig",
+   "userdetails",
+   "storeuserconfig",
    "changepasswd",
    "resetpeaks",
    "groupconfig",
@@ -57,6 +62,7 @@ const char* cWebService::events[] =
    "chartbookmarks",
    "storechartbookmarks",
    "sendmail",
+   "syslog",
 
    0
 };
@@ -71,6 +77,9 @@ const char* cWebService::toName(Event event)
 
 cWebService::Event cWebService::toEvent(const char* name)
 {
+   if (!name)
+      return evUnknown;
+
    for (int e = evUnknown; e < evCount; e++)
       if (strcasecmp(name, events[e]) == 0)
          return (Event)e;

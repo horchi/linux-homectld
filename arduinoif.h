@@ -28,6 +28,7 @@ class cArduinoInterface : public cArduinoInterfaceService
       int checkInterface();
 
       int readHeader(Header* header, uint timeoutMs = 5000);
+      int requestAo(AnalogValue aoValue, uint outout);
       int requestAi(AnalogValue& aiValue, uint input);
       int requestCalibration(CalResponse& calResp, uint input, uint duration = 30);
       int requestCalGet(CalSettings& calSettings, uint input);

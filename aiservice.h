@@ -23,13 +23,15 @@ class cArduinoInterfaceService
 
       enum Command
       {
-         cCalRequest = 0x12,   // request the callibartion cycle
+         cCalRequest = 0x12,    // request the callibartion cycle
          cCalResponse,
-         cCalGetRequest,       // request the current callibartion settings
-         cCalGSResponse,       // Cal Get/Set Response
-         cCalSetRequest,       // request set of callibartion settings
+         cCalGetRequest,        // request the current callibartion settings
+         cCalGSResponse,        // Cal Get/Set Response
+         cCalSetRequest,        // request set of callibartion settings
          cAiRequest,
          cAiResponse,
+         cAoRequest,
+         cAoResponse,
 
          cCount
       };
@@ -41,7 +43,7 @@ class cArduinoInterfaceService
          Header(char cmd, char in) { command = cmd; input = in; }
          word id {comId};
          char command {0};
-         char input {0};
+         char input {0};        // input or output pin number
       };
 
       struct AnalogValue
@@ -52,12 +54,12 @@ class cArduinoInterfaceService
 
       struct CalRequest
       {
-         int time {30};       // time for building average for calibration
+         int time {30};         // time for building average for calibration
       };
 
       struct CalResponse
       {
-         word digits {0};     // average digits
+         word digits {0};       // average digits
       };
 
       struct CalSettings

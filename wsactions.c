@@ -48,25 +48,31 @@ int Poold::dispatchClientRequest()
 
          switch (event)
          {
-            case evLogin:          status = performLogin(oObject);                  break;
-            case evLogout:         status = performLogout(oObject);                 break;
-            case evGetToken:       status = performTokenRequest(oObject, client);   break;
-            case evToggleIo:       status = toggleIo(addr, type);                   break;
-            case evToggleIoNext:   status = toggleIoNext(addr);                     break;
-            case evToggleMode:     status = toggleOutputMode(addr);                 break;
-            case evStoreConfig:    status = storeConfig(oObject, client);           break;
-            case evIoSetup:        status = performIoSettings(oObject, client);     break;
-            case evStoreIoSetup:   status = storeIoSetup(oObject, client);          break;
-            case evChartData:      status = performChartData(oObject, client);      break;
-            case evUserConfig:     status = performUserConfig(oObject, client);     break;
-            case evChangePasswd:   status = performPasswChange(oObject, client);    break;
-            case evResetPeaks:     status = resetPeaks(oObject, client);            break;
-            case evPh:             status = performPh(client, false);               break;
-            case evPhAll:          status = performPh(client, true);                break;
-            case evPhCal:          status = performPhCal(oObject, client);          break;
-            case evPhSetCal:       status = performPhSetCal(oObject, client);       break;
-            case evSendMail:       status = performSendMail(oObject, client);          break;
-            case evChartbookmarks: status = performChartbookmarks(client);             break;
+            case evLogin:           status = performLogin(oObject);                  break;
+            case evLogout:          status = performLogout(oObject);                 break;
+            case evInit:
+            case evPageChange:      status = performPageChange(oObject, client);     break;
+            case evData:            status = update(true, client);                   break;
+            case evGetToken:        status = performTokenRequest(oObject, client);   break;
+            case evToggleIo:        status = toggleIo(addr, type);                   break;
+            case evToggleIoNext:    status = toggleIoNext(addr);                     break;
+            case evToggleMode:      status = toggleOutputMode(addr);                 break;
+            case evStoreConfig:     status = storeConfig(oObject, client);           break;
+            case evSetup:           status = performConfigDetails(client);           break;
+            case evIoSetup:         status = performIoSettings(oObject, client);     break;
+            case evStoreIoSetup:    status = storeIoSetup(oObject, client);          break;
+            case evChartData:       status = performChartData(oObject, client);      break;
+            case evUserDetails:     status = performUserDetails(client);             break;
+            case evStoreUserConfig: status = storeUserConfig(oObject, client);       break;
+            case evChangePasswd:    status = performPasswChange(oObject, client);    break;
+            case evResetPeaks:      status = resetPeaks(oObject, client);            break;
+            case evPh:              status = performPh(client, false);               break;
+            case evPhAll:           status = performPh(client, true);                break;
+            case evPhCal:           status = performPhCal(oObject, client);          break;
+            case evPhSetCal:        status = performPhSetCal(oObject, client);       break;
+            case evSendMail:        status = performSendMail(oObject, client);       break;
+            case evSyslog:          status = performSyslog(oObject, client);         break;
+            case evChartbookmarks:  status = performChartbookmarks(client);            break;
             case evStoreChartbookmarks: status = storeChartbookmarks(oObject, client); break;
 
             default: tell(0, "Error: Received unexpected client request '%s' at [%s]",
@@ -75,8 +81,7 @@ int Poold::dispatchClientRequest()
       }
       else
       {
-         tell(0, "Insufficient rights to '%s' for user '%s'",
-              getStringFromJson(oData, "event", "<null>"),
+         tell(0, "Insufficient rights to '%s' for user '%s'", getStringFromJson(oData, "event", "<null>"),
               wsClients[(void*)client].user.c_str());
       }
 
@@ -96,16 +101,22 @@ bool Poold::checkRights(long client, Event event, json_t* oObject)
       case evLogin:               return true;
       case evLogout:              return true;
       case evGetToken:            return true;
+      case evData:                return true;
+      case evInit:                return true;
+      case evPageChange:          return true;
       case evToggleIoNext:        return rights & urControl;
       case evToggleMode:          return rights & urFullControl;
       case evStoreConfig:         return rights & urSettings;
+      case evSetup:               return rights & urView;
       case evIoSetup:             return rights & urView;
       case evStoreIoSetup:        return rights & urSettings;
       case evChartData:           return rights & urView;
-      case evUserConfig:          return rights & urAdmin;
+      case evStoreUserConfig:     return rights & urAdmin;
+      case evUserDetails:         return rights & urAdmin;
       case evChangePasswd:        return true;   // check will done in performPasswChange()
       case evResetPeaks:          return rights & urAdmin;
       case evSendMail:            return rights & urSettings;
+      case evSyslog:              return rights & urAdmin;
 
       case evPh:
       case evPhAll:
@@ -205,7 +216,6 @@ int Poold::performLogin(json_t* oObject)
    const char* user = getStringFromJson(oObject, "user", "");
    const char* token = getStringFromJson(oObject, "token", "");
    const char* page = getStringFromJson(oObject, "page", "");
-   json_t* aRequests = json_object_get(oObject, "requests");
 
    tableUsers->clear();
    tableUsers->setValue("USER", user);
@@ -244,38 +254,20 @@ int Poold::performLogin(json_t* oObject)
    daemonState2Json(oJson);
    pushOutMessage(oJson, "daemonstate", client);
 
-   // perform requests
+   update(true, client);
 
-   size_t index {0};
-   json_t* oRequest {nullptr};
+   return done;
+}
 
-   json_array_foreach(aRequests, index, oRequest)
-   {
-      const char* name = getStringFromJson(oRequest, "name");
+//***************************************************************************
+// Perform Page Change
+//***************************************************************************
 
-      // #TODO add this 'services' to the events and use it here
+int Poold::performPageChange(json_t* oObject, long client)
+{
+   const char* page = getStringFromJson(oObject, "page", "");
 
-      if (isEmpty(name))
-         continue;
-
-      tell(0, "Got request '%s' rights 0x%x", name, wsClients[(void*)client].rights);
-
-      if (strcmp(name, "data") == 0)
-         update(true, client);     // push the data ('init')
-      else if (wsClients[(void*)client].rights & urAdmin && strcmp(name, "syslog") == 0)
-         performSyslog(oRequest, client);
-      else if (wsClients[(void*)client].rights & urSettings && strcmp(name, "configdetails") == 0)
-         performConfigDetails(client);
-      else if (wsClients[(void*)client].rights & urAdmin && strcmp(name, "userdetails") == 0)
-         performUserDetails(client);
-      else if (wsClients[(void*)client].rights & urAdmin && strcmp(name, "iosettings") == 0)
-         performIoSettings(nullptr, client);
-      else if (wsClients[(void*)client].rights & urAdmin && strcmp(name, "phall") == 0)
-         performPh(client, true);
-
-      else if (strcmp(name, "chartdata") == 0)
-         performChartData(oRequest, client);
-   }
+   wsClients[(void*)client].page = page;
 
    return done;
 }
@@ -527,7 +519,7 @@ int Poold::performChartData(json_t* oObject, long client)
    else if (isEmpty(sensors))
       sensors = chartSensors;
 
-   tell(eloDetail, "Selecting chart data for sendors '%s' with range %d ..", sensors, range);
+   tell(eloInfo, "Selecting chart data for sensors '%s' with range %d ..", sensors, range);
 
    std::vector<std::string> sList;
 
@@ -654,7 +646,7 @@ int Poold::performChartbookmarks(long client)
 // Store User Configuration
 //***************************************************************************
 
-int Poold::performUserConfig(json_t* oObject, long client)
+int Poold::storeUserConfig(json_t* oObject, long client)
 {
    if (client == 0)
       return done;

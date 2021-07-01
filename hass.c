@@ -12,11 +12,11 @@
 #include "poold.h"
 
 //***************************************************************************
-// Push Value to Home Assistant
+// Push Value to MQTT for Home Automation Systems
 //***************************************************************************
 
 int Poold::hassPush(IoType iot, const char* name, const char* title, const char* unit,
-                  double value, const char* text, bool forceConfig)
+                    double value, const char* text, bool forceConfig)
 {
    // check/prepare reader/writer connection
 
@@ -38,7 +38,7 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
    sName = strReplace("ä", "ae", sName);
    sName = strReplace(" ", "_", sName);
 
-   char* stateTopic = 0;
+   char* stateTopic {nullptr};
    asprintf(&stateTopic, "poold2mqtt/%s/%s/state", iot == iotLight ? "light" : "sensor", sName.c_str());
 
    if (!isEmpty(title))
@@ -144,7 +144,9 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
 //***************************************************************************
 // Perform MQTT Requests
 //   - check 'mqttCommandReader' for commands of a home automation
-//   - check 'mqttW1Reader' for data from the W1 service
+//   - check 'mqttPoolReader' for data from the W1 service and the arduino
+//      -> w1mqtt (W1 service) is running localy and provide data of the W1 sensors
+//      -> the arduino provide the values of his analog inputs
 //***************************************************************************
 
 int Poold::performMqttRequests()
@@ -166,9 +168,9 @@ int Poold::performMqttRequests()
             return fail;
          }
 
-         tell(eloAlways, "<- (%s) [%s]", mqttCommandReader->getLastReadTopic(), message.memory);
+         tell(eloAlways, "<- (%s) [%s]", mqttCommandReader->getLastReadTopic().c_str(), message.memory);
 
-         auto it = hassCmdTopicMap.find(mqttCommandReader->getLastReadTopic());
+         auto it = hassCmdTopicMap.find(mqttCommandReader->getLastReadTopic().c_str());
 
          if (it != hassCmdTopicMap.end())
          {
@@ -187,16 +189,16 @@ int Poold::performMqttRequests()
       }
    }
 
-   if (!isEmpty(w1MqttUrl) && mqttW1Reader->isConnected())
+   if (!isEmpty(poolMqttUrl) && mqttPoolReader->isConnected())
    {
       static time_t lastW1Read {0};
 
       if (!lastW1Read)
          lastW1Read = time(0);
 
-      // tell(0, "Try reading topic '%s'", mqttW1Reader->getTopic());
+      // tell(0, "Try reading topic '%s'", mqttPoolReader->getTopic());
 
-      while (mqttW1Reader->read(&message, 10) == success)
+      while (mqttPoolReader->read(&message, 10) == success)
       {
          // tell(0, "read w1 success [%s]", message.memory);
          lastW1Read = time(0);
@@ -212,35 +214,53 @@ int Poold::performMqttRequests()
             return fail;
          }
 
-         tell(eloAlways, "<- (%s) [%s] retained %d", mqttCommandReader->getLastReadTopic(), message.memory, mqttW1Reader->isRetained());
+         std::string tp = mqttPoolReader->getLastReadTopic();
 
-         size_t index {0};
-         json_t* jValue {nullptr};
+         tell(eloAlways, "<- (%s) [%s] retained %d", tp.c_str(), message.memory, mqttPoolReader->isRetained());
 
-         json_array_foreach(jArray, index, jValue)
+         if (strcmp(tp.c_str(), "poold2mqtt/w1") == 0)
          {
-            const char* name = getStringFromJson(jValue, "name");
-            double value = getDoubleFromJson(jValue, "value");
-            time_t stamp = getIntFromJson(jValue, "time");
+            size_t index {0};
+            json_t* jValue {nullptr};
 
-            if (stamp < time(0)-300)
+            json_array_foreach(jArray, index, jValue)
             {
-               tell(eloAlways, "Skipping old (%ld seconds) w1 value", time(0)-stamp);
-               continue;
+               const char* name = getStringFromJson(jValue, "name");
+               double value = getDoubleFromJson(jValue, "value");
+               time_t stamp = getIntFromJson(jValue, "time");
+
+               if (stamp < time(0)-300)
+               {
+                  tell(eloAlways, "Skipping old (%ld seconds) w1 value", time(0)-stamp);
+                  continue;
+               }
+
+               updateW1(name, value, stamp);
             }
 
-            updateW1(name, value, stamp);
+            cleanupW1();
+
+            // last successful W1 read at least in last 5 minutes?
+
+            if (lastW1Read < time(0)-300)
+            {
+               tell(eloAlways, "Error: No w1 update since '%s', disconnect from MQTT to force recover", l2pTime(lastW1Read).c_str());
+               mqttDisconnect();
+            }
          }
-      }
+         else if (strcmp(tp.c_str(), "poold2mqtt/arduino/out") == 0)
+         {
+            size_t index {0};
+            json_t* jValue {nullptr};
 
-      cleanupW1();
+            json_array_foreach(jArray, index, jValue)
+            {
+               const char* name = getStringFromJson(jValue, "name");
+               double value = getDoubleFromJson(jValue, "value");
 
-      // last successful W1 read at least in last 5 minutes?
-
-      if (lastW1Read < time(0)-300)
-      {
-         tell(eloAlways, "Error: No w1 update since '%s', disconnect from MQTT to force recover", l2pTime(lastW1Read).c_str());
-         mqttDisconnect();
+               updateAnalogInput(name, value, time(0));
+            }
+         }
       }
    }
 
@@ -253,12 +273,12 @@ int Poold::performMqttRequests()
 
 int Poold::mqttDisconnect()
 {
-   if (mqttW1Reader)      mqttW1Reader->disconnect();
-   if (mqttCommandReader) mqttCommandReader->disconnect();
-   if (mqttWriter)        mqttWriter->disconnect();
-   if (mqttReader)        mqttReader->disconnect();
+   if (mqttPoolReader)       mqttPoolReader->disconnect();
+   if (mqttCommandReader)    mqttCommandReader->disconnect();
+   if (mqttWriter)           mqttWriter->disconnect();
+   if (mqttReader)           mqttReader->disconnect();
 
-   delete mqttW1Reader;      mqttW1Reader = nullptr;
+   delete mqttPoolReader;    mqttPoolReader = nullptr;
    delete mqttCommandReader; mqttCommandReader = nullptr;
    delete mqttWriter;        mqttWriter = nullptr;
    delete mqttReader;        mqttReader = nullptr;
@@ -277,8 +297,8 @@ int Poold::mqttCheckConnection()
    if (!mqttCommandReader)
       mqttCommandReader = new Mqtt();
 
-   if (!mqttW1Reader)
-      mqttW1Reader = new Mqtt();
+   if (!mqttPoolReader)
+      mqttPoolReader = new Mqtt();
 
    if (!mqttWriter)
       mqttWriter = new Mqtt();
@@ -289,7 +309,7 @@ int Poold::mqttCheckConnection()
    if (!isEmpty(mqttUrl) && (!mqttCommandReader->isConnected() || !mqttWriter->isConnected() || !mqttReader->isConnected()))
       renonnectNeeded = true;
 
-   if (!isEmpty(w1MqttUrl) && !mqttW1Reader->isConnected())
+   if (!isEmpty(poolMqttUrl) && !mqttPoolReader->isConnected())
       renonnectNeeded = true;
 
    if (!renonnectNeeded)
@@ -334,18 +354,20 @@ int Poold::mqttCheckConnection()
       }
    }
 
-   if (!isEmpty(w1MqttUrl))
+   if (!isEmpty(poolMqttUrl))
    {
-      if (!mqttW1Reader->isConnected())
+      if (!mqttPoolReader->isConnected())
       {
-         if (mqttW1Reader->connect(w1MqttUrl) != success)
+         if (mqttPoolReader->connect(poolMqttUrl) != success)
          {
-            tell(0, "Error: MQTT: Connecting subscriber to '%s' failed", w1MqttUrl);
+            tell(0, "Error: MQTT: Connecting subscriber to '%s' failed", poolMqttUrl);
          }
          else
          {
-            mqttW1Reader->subscribe("poold2mqtt/w1");
-            tell(0, "MQTT: Connecting w1 subscriber to '%s' - '%s' succeeded", w1MqttUrl, "poold2mqtt/w1");
+            mqttPoolReader->subscribe("poold2mqtt/w1");
+            tell(0, "MQTT: Connecting subscriber to '%s' - '%s' succeeded", poolMqttUrl, "poold2mqtt/w1");
+            mqttPoolReader->subscribe("poold2mqtt/arduino/out");
+            tell(0, "MQTT: Connecting subscriber to '%s' - '%s' succeeded", poolMqttUrl, "poold2mqtt/arduino/out");
          }
       }
    }

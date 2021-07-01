@@ -51,7 +51,7 @@ Language package 'de_DE.UTF-8' is required as language package (`dpkg-reconfigur
 - PH probe
 
   for example: https://www.amazon.de/gp/product/B081QK9TX2/ref=ppx_yo_dt_b_asin_title_o06_s00?ie=UTF8&psc=1
-- Arduino Mini (for PH probe and PH minus fluid control)
+- Arduino Pro Mini 328 (for PH probe and PH minus fluid control)
 
   for example: https://www.amazon.de/gp/product/B015MGHLNA/ref=ppx_yo_dt_b_asin_title_o05_s00?ie=UTF8&psc=1
   USB Interface for programming: https://www.amazon.de/gp/product/B07KVT6HNL/ref=ppx_yo_dt_b_asin_title_o04_s00?ie=UTF8&psc=1
@@ -66,6 +66,7 @@ Language package 'de_DE.UTF-8' is required as language package (`dpkg-reconfigur
 
 ### GPIO Port Connections
 
+https://pinout.xyz/pinout/ground
 The first number below is the *physical* pin in brackets the GIPO port.
 
 #### One Wire Sensors
@@ -108,6 +109,13 @@ The first number below is the *physical* pin in brackets the GIPO port.
 ```
 wget www.jwendel.de/poold/install-deb.sh -O /tmp/install-deb.sh
 sudo bash /tmp/install-deb.sh
+```
+
+## after the first install or an update of the arduino software
+```
+systemctl stop poold
+poold-upload-arduino
+systemctl start poold
 ```
 ### uninstall
 

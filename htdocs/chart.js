@@ -8,8 +8,31 @@
  *
  */
 
-function drawCharts(dataObject, root)
+function drawCharts(dataObject)
 {
+   var update = document.getElementById("chartTitle") != null;
+
+   if (!update) {
+      $('#stateContainer').addClass('hidden');
+      $('#container').removeClass('hidden');
+
+      document.getElementById("container").innerHTML =
+         '<div id="chartTitle" class="rounded-border chartTitle"></div>' +
+         '<div id="chartBookmarks" class="chartBookmarks"></div>' +
+         '<canvas id="chartContainer" class="chartCanvas" width="1600" height="600"></canvas>' +
+         '<div class="chartButtons">' +
+         '  <button class="rounded-border chartButton" onclick="chartSelect(\'prevmonth\')">&lt; Monat</button>' +
+         '  <button class="rounded-border chartButton" onclick="chartSelect(\'prev\')">&lt; Tag</button>' +
+         '  <button class="rounded-border chartButton" onclick="chartSelect(\'now\')">Jetzt</button>' +
+         '  <button class="rounded-border chartButton" onclick="chartSelect(\'next\')">Tag &gt;</button>' +
+         '  <button class="rounded-border chartButton" onclick="chartSelect(\'nextmonth\')">Monat &gt;</button>' +
+         '  <div>Tage </div><input class="rounded-border chartButton" style="width:90px;" onchange="chartSelect(\'range\')" id="chartRange" type="number" min="1" value="3"></input>' +
+         '</div>' +
+         '<div id="chartSelector" class="chartSelectors"></div>';
+   }
+
+   var root = document.getElementById("chartContainer");
+
    if (theChart != null) {
       theChart.destroy();
       theChart = null;

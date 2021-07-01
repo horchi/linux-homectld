@@ -8,13 +8,23 @@
  *
  */
 
-function initList(widgets, root)
+function initList(update = false)
 {
-   if (!widgets)
+   if (!allWidgets)
    {
       console.log("Fatal: Missing payload!");
       return;
    }
+
+   if (!update) {
+      $('#stateContainer').removeClass('hidden');
+      $('#container').removeClass('hidden');
+
+      // ...
+   }
+
+   document.getElementById("container").innerHTML = '<div id="listContainer" class="rounded-border listContainer"</div>>';
+   var root = document.getElementById("listContainer");
 
    // deamon state
 
@@ -50,11 +60,14 @@ function initList(widgets, root)
 
    // build page content
 
-   for (var i = 0; i < widgets.length; i++)
+   for (var i = 0; i < allWidgets.length; i++)
    {
       var html = "";
-      var widget = widgets[i];
+      var widget = allWidgets[i];
       var id = "id=\"widget" + widget.type + widget.address + "\"";
+
+      if (!widget.list)
+         continue;
 
       if (widget.widgettype == 1 || widget.widgettype == 3) {      // 1 Gauge or 3 Value
          html += "<span class=\"listFirstCol\"" + id + ">" + widget.value.toFixed(2) + "&nbsp;" + widget.unit;
@@ -75,17 +88,22 @@ function initList(widgets, root)
       elem.innerHTML = html;
       root.appendChild(elem);
    }
+
+   updateList(allWidgets);
 }
 
-function updateList(sensors)
+function updateList(widgets)
 {
    var d = new Date();     // #TODO use SP:0x4 instead of Date()
    document.getElementById("refreshTime").innerHTML = "Messwerte von " + d.toLocaleTimeString();
 
-   for (var i = 0; i < sensors.length; i++)
+   for (var i = 0; i < widgets.length; i++)
    {
-      var sensor = sensors[i];
+      var sensor = widgets[i];
       var id = "#widget" + sensor.type + sensor.address;
+
+      if (!sensor.list)
+         continue;
 
       if (sensor.widgettype == 1 || sensor.widgettype == 3) {
          $(id).html(sensor.value.toFixed(2) + "&nbsp;" + sensor.unit +

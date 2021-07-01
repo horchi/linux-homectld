@@ -79,6 +79,9 @@ window.WebSocketClient = function(opt)
          }
       };
    }
+   this.close = function () {
+      client.ws.close();
+   }
    this.reopen = function () {
       client.ws.onerror = client.ws.onclose = client.ws.onmessage = null;
       client.ws.close();

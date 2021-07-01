@@ -14,7 +14,7 @@
 #include "w1.h"
 #include "lib/json.h"
 
-int W1::shutdown {false};
+bool W1::shutdown {false};
 
 W1::W1(const char* aUrl)
 {

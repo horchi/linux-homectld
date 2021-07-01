@@ -18,7 +18,7 @@
 #include "lib/json.h"
 #include "poold.h"
 
-int Poold::shutdown = no;
+bool Poold::shutdown {false};
 
 //***************************************************************************
 // Configuration Items
@@ -50,19 +50,26 @@ std::list<Poold::ConfigItemDef> Poold::configuration
    { "w1AddrSolar",               ctString,  "",             false, "1 Pool Daemon", "Adresse Fühler Temperatur Kollektor", "" },
    { "w1AddrSuctionTube",         ctString,  "",             false, "1 Pool Daemon", "Adresse Fühler Temperatur Saugleitung", "" },
 
-   { "w1MqttUrl",                 ctString,  "tcp://localhost:1883",  false, "1 Pool Daemon", "Url des MQTT Message Broker für den One-Wire Dienst", "Wird zur Kommunikation mit dem one-wire Interface Service (w1mqtt) verwendet. Beispiel: 'tcp://localhost:1883'" },
+   { "poolMqttUrl",               ctString,  "tcp://localhost:1883",  false, "1 Pool Daemon", "Url des MQTT Message Broker für den Pool Daemon", "Wird zur Kommunikation mit dem one-wire Interface Service (w1mqtt) sowie dem Arduino verwendet. Beispiel: 'tcp://localhost:1883'" },
    { "aggregateHistory",          ctInteger, "0",            false, "1 Pool Daemon", "Historie [Tage]", "history for aggregation in days (default 0 days -> aggegation turned OFF)" },
    { "aggregateInterval",         ctInteger, "15",           false, "1 Pool Daemon", "Intervall [m]", "aggregation interval in minutes - 'one sample per interval will be build'" },
    { "peakResetAt",               ctString,  "",             true,  "1 Pool Daemon", "", "" },
 
+   // old arduino serial interface
+   // { "arduinoDevice",             ctString,  "",             false, "1 Pool Daemon", "Arduino Interface Device", "Beispiel: '/dev/ttyS0'" },
+
    // PH stuff
 
-   { "arduinoDevice",             ctString,  "",             false, "1 Pool Daemon", "Arduino Interface Device", "Beispiel: '/dev/ttyS0'" },
    { "phReference",               ctNum,     "7.2",          false, "1 Pool Daemon", "PH Sollwert", "Sollwert [PH] (default 7,2)" },
    { "phMinusDensity",            ctNum,     "1.4",          false, "1 Pool Daemon", "Dichte PH Minus [kg/l]", "Wie viel kg wiegt ein Liter PH Minus (default 1,4)" },
    { "phMinusDemand01",           ctInteger, "85",           false, "1 Pool Daemon", "Menge zum Senken um 0,1 [g]", "Wie viel Gramm PH Minus wird zum Senken des PH Wertes um 0,1 für das vorhandene Pool Volumen benötigt (default 60g)" },
    { "phMinusDayLimit",           ctInteger, "100",          false, "1 Pool Daemon", "Obergrenze PH Minus/Tag [ml]", "Wie viel PH Minus wird pro Tag maximal zugegeben [ml] (default 100ml)" },
    { "phPumpDurationPer100",      ctInteger, "1000",         false, "1 Pool Daemon", "Laufzeit Dosierpumpe/100ml [ms]", "Welche Zeit in Millisekunden benötigt die Dosierpumpe um 100ml zu fördern (default 1000ms)" },
+
+   { "phCalibratePointA",         ctNum,     "7.0",          false, "1 Pool Daemon", "Kallibrier-Punkt A", "" },
+   { "phCalibratePointValueA",    ctInteger, "377",          false, "1 Pool Daemon", "Wert (digits) am Kallibrier-Punkt A", "" },
+   { "phCalibratePointB",         ctNum,     "9.0",          false, "1 Pool Daemon", "Kallibrier-Punkt B", "" },
+   { "phCalibratePointValueB",    ctInteger, "412",          false, "1 Pool Daemon", "Wert (digits) am Kallibrier-Punkt B", "" },
 
    // web
 
@@ -122,7 +129,7 @@ Poold::~Poold()
    free(w1AddrSuctionTube);
    free(w1AddrAir);
 
-   arduinoInterface.close();
+   //arduinoInterface.close();
    cDbConnection::exit();
 }
 
@@ -177,31 +184,8 @@ int Poold::pushDataUpdate(const char* title, long client)
       auto cl = wsClients[(void*)client];
       json_t* oWsJson = json_array();
 
-      if (cl.page == "dashboard")
-      {
-         if (addrsDashboard.size())
-            for (const auto sensor : addrsDashboard)
-               json_array_append(oWsJson, jsonSensorList[sensor]);
-         else
-            for (auto sj : jsonSensorList)
-               json_array_append(oWsJson, sj.second);
-      }
-      else if (cl.page == "list")
-      {
-         if (addrsList.size())
-            for (const auto sensor : addrsList)
-               json_array_append(oWsJson, jsonSensorList[sensor]);
-         else
-            for (auto sj : jsonSensorList)
-               json_array_append(oWsJson, sj.second);
-      }
-      else if (cl.page == "schema")
-      {
-         // #TODO - send visible instead of all
-
-         for (auto sj : jsonSensorList)
-            json_array_append(oWsJson, sj.second);
-      }
+      for (auto sj : jsonSensorList)
+         json_array_append(oWsJson, sj.second);
 
       pushOutMessage(oWsJson, title, client);
    }
@@ -211,24 +195,8 @@ int Poold::pushDataUpdate(const char* title, long client)
       {
          json_t* oWsJson = json_array();
 
-         if (cl.second.page == "dashboard")
-         {
-            if (addrsDashboard.size())
-               for (const auto sensor : addrsDashboard)
-                  json_array_append(oWsJson, jsonSensorList[sensor]);
-            else
-               for (auto sj : jsonSensorList)
-                  json_array_append(oWsJson, sj.second);
-         }
-         else if (cl.second.page == "list")
-         {
-            if (addrsList.size())
-               for (const auto sensor : addrsList)
-                  json_array_append(oWsJson, jsonSensorList[sensor]);
-            else
-               for (auto sj : jsonSensorList)
-                  json_array_append(oWsJson, sj.second);
-         }
+         for (auto sj : jsonSensorList)
+            json_array_append(oWsJson, sj.second);
 
          pushOutMessage(oWsJson, title, (long)cl.first);
       }
@@ -385,8 +353,8 @@ int Poold::init()
 
    // init PH interface
 
-   if (!isEmpty(arduinoDevice))
-      arduinoInterface.open(arduinoDevice);
+   // if (!isEmpty(arduinoDevice))
+   //    arduinoInterface.open(arduinoDevice);
 
    //
 
@@ -833,10 +801,10 @@ int Poold::readConfiguration()
    getConfigItem("aggregateInterval", aggregateInterval, 15);
    getConfigItem("aggregateHistory", aggregateHistory, 0);
 
-   std::string url = w1MqttUrl ? w1MqttUrl : "";
-   getConfigItem("w1MqttUrl", w1MqttUrl);
+   std::string url = poolMqttUrl ? poolMqttUrl : "";
+   getConfigItem("poolMqttUrl", poolMqttUrl);
 
-   if (url != w1MqttUrl)
+   if (url != poolMqttUrl)
       mqttDisconnect();
 
    url = mqttUrl ? mqttUrl : "";
@@ -868,12 +836,17 @@ int Poold::readConfiguration()
 
    // PH stuff
 
-   getConfigItem("arduinoDevice", arduinoDevice);
+   //getConfigItem("arduinoDevice", arduinoDevice);
    getConfigItem("phReference", phReference, 7.2);
    getConfigItem("phMinusDensity", phMinusDensity, 1.4);         // [kg/l]
    getConfigItem("phMinusDemand01", phMinusDemand01, 85);        // [ml]
    getConfigItem("phMinusDayLimit", phMinusDayLimit, 100);       // [ml]
    getConfigItem("phPumpDuration100", phPumpDuration100, 1000);  // [ms]
+
+   getConfigItem("phCalibratePointA", phCalibratePointA, 7.0);            // [ph]
+   getConfigItem("phCalibratePointValueA", phCalibratePointValueA, 377);  // [digits]
+   getConfigItem("phCalibratePointB", phCalibratePointB, 9.0);            // [ph]
+   getConfigItem("phCalibratePointValueB", phCalibratePointValueB, 412);  // [digits]
 
    /*
    // config of GPIO pins
@@ -1129,6 +1102,8 @@ int Poold::update(bool webOnly, long client)
       json_t* ojData = json_object();
       char* tupel {nullptr};
       asprintf(&tupel, "%s:0x%02x", type, addr);
+      json_object_set_new(ojData, "dashboard", json_boolean(addrsDashboard.empty() || std::find(addrsDashboard.begin(), addrsDashboard.end(), tupel) != addrsDashboard.end()));
+      json_object_set_new(ojData, "list", json_boolean(addrsList.empty() || std::find(addrsList.begin(), addrsList.end(), tupel) != addrsList.end()));
       jsonSensorList[tupel] = ojData;
       free(tupel);
 
@@ -1166,17 +1141,8 @@ int Poold::update(bool webOnly, long client)
       }
       else if (tableValueFacts->hasValue("TYPE", "AI"))
       {
-         cArduinoInterface::AnalogValue aiValue;
-
-         if (!isEmpty(arduinoDevice) && arduinoInterface.requestAi(aiValue, addr) == success)
+         if (aiSensors[addr].value == aiSensors[addr].value) // check for NaN
          {
-            aiSensors[addr].value = round2(aiValue.value); // std::ceil(aiValue.value*100.0)/100.0;
-            aiSensors[addr].last = time(0);
-
-            // to debug DEBUG
-            //if (addr == aiFilterPressure)
-            //  aiSensors[addr].value = 0.3;
-
             json_object_set_new(ojData, "value", json_real(aiSensors[addr].value));
             json_object_set_new(ojData, "widgettype", json_integer(wtChart));
 
@@ -1286,7 +1252,7 @@ int Poold::update(bool webOnly, long client)
                   store(now, name, title, unit, type, addr, tCurrentDelta);
             }
          }
-         else if (addr == spPhMinusDemand && !isEmpty(arduinoDevice))
+         else if (addr == spPhMinusDemand)  // && !isEmpty(arduinoDevice))
          {
             if (aiSensors[aiPh].value)
             {
@@ -1462,8 +1428,7 @@ int Poold::process()
          digitalOutputStates[pinSolarPump].mode = omManual;
 
          char* body;
-         asprintf(&body, "Filter pressure is %.2f bar and pump is running!\n Pumps switched off now!",
-                  aiSensors[aiFilterPressure].value);
+         asprintf(&body, "Filter pressure is %.2f bar and pump is running!\n Pumps switched off now!", aiSensors[aiFilterPressure].value);
          tell(0, body);
          if (sendMail(stateMailTo, "Pool pump alert", body, "text/plain") != success)
             tell(eloAlways, "Error: Sending alert mail failed");
@@ -2053,6 +2018,11 @@ int Poold::publishScriptResult(ulong addr, const char* type, std::string result)
       json_t* ojData = json_object();
       json_array_append_new(oJson, ojData);
 
+      char* tupel {nullptr};
+      asprintf(&tupel, "%s:0x%02lx", type, addr);
+      json_object_set_new(ojData, "dashboard", json_boolean(addrsDashboard.empty() || std::find(addrsDashboard.begin(), addrsDashboard.end(), tupel) != addrsDashboard.end()));
+      json_object_set_new(ojData, "list", json_boolean(addrsList.empty() || std::find(addrsList.begin(), addrsList.end(), tupel) != addrsList.end()));
+
       json_object_set_new(ojData, "address", json_integer((ulong)addr));
       json_object_set_new(ojData, "type", json_string(type));
       json_object_set_new(ojData, "name", json_string(name));
@@ -2098,6 +2068,11 @@ int Poold::toggleIoNext(uint pin)
 
 void Poold::pin2Json(json_t* ojData, int pin)
 {
+   char* tupel {nullptr};
+   asprintf(&tupel, "DO:0x%02x", pin);
+   json_object_set_new(ojData, "dashboard", json_boolean(addrsDashboard.empty() || std::find(addrsDashboard.begin(), addrsDashboard.end(), tupel) != addrsDashboard.end()));
+   json_object_set_new(ojData, "list", json_boolean(addrsList.empty() || std::find(addrsList.begin(), addrsList.end(), tupel) != addrsList.end()));
+
    json_object_set_new(ojData, "address", json_integer(pin));
    json_object_set_new(ojData, "type", json_string("DO"));
    json_object_set_new(ojData, "name", json_string(digitalOutputStates[pin].name));
@@ -2231,6 +2206,63 @@ int Poold::loadStates()
 }
 
 //***************************************************************************
+// Analog Input Stuff ...
+//***************************************************************************
+
+void Poold::updateAnalogInput(const char* id, int value, time_t stamp)
+{
+   // tell(0, "DEBUG: %s: %d", id, value);
+
+   uint input = atoi(id+1);
+
+   if (input == aiPh)
+   {
+      double m = (phCalibratePointB - phCalibratePointA) / (phCalibratePointValueB - phCalibratePointValueA);
+      double b = phCalibratePointB - m * phCalibratePointValueB;
+
+      aiSensors[input].value = m * value + b;
+   }
+   else if (input == aiFilterPressure)
+   {
+      double m = (pressCalibratePointB - pressCalibratePointA) / (pressCalibratePointValueB - pressCalibratePointValueA);
+      double b = pressCalibratePointB - m * pressCalibratePointValueB;
+
+      aiSensors[input].value = m * value + b;
+   }
+   else
+   {
+      aiSensors[input].value = value;
+   }
+
+   aiSensors[input].last = stamp;
+
+   json_t* ojData = json_object();
+
+   tableValueFacts->clear();
+   tableValueFacts->setValue("ADDRESS", (int)input);
+   tableValueFacts->setValue("TYPE", "AI");
+
+   if (tableValueFacts->find())
+   {
+      sensor2Json(ojData, tableValueFacts);
+      json_object_set_new(ojData, "value", json_real(aiSensors[input].value));
+      json_object_set_new(ojData, "widgettype", json_integer(wtChart));
+
+      char* tupel {nullptr};
+      asprintf(&tupel, "AI:0x%02x", input);
+
+      json_object_set_new(ojData, "dashboard", json_boolean(addrsDashboard.empty() || std::find(addrsDashboard.begin(), addrsDashboard.end(), tupel) != addrsDashboard.end()));
+      json_object_set_new(ojData, "list", json_boolean(addrsList.empty() || std::find(addrsList.begin(), addrsList.end(), tupel) != addrsList.end()));
+      jsonSensorList[tupel] = ojData;
+      free(tupel);
+
+      pushDataUpdate("update", 0L);
+   }
+
+   tableValueFacts->reset();
+}
+
+//***************************************************************************
 // W1 Sensor Stuff ...
 //***************************************************************************
 
@@ -2255,6 +2287,9 @@ void Poold::updateW1(const char* id, double value, time_t stamp)
 
       char* tupel {nullptr};
       asprintf(&tupel, "W1:0x%02x", toW1Id(id));
+
+      json_object_set_new(ojData, "dashboard", json_boolean(addrsDashboard.empty() || std::find(addrsDashboard.begin(), addrsDashboard.end(), tupel) != addrsDashboard.end()));
+      json_object_set_new(ojData, "list", json_boolean(addrsList.empty() || std::find(addrsList.begin(), addrsList.end(), tupel) != addrsList.end()));
       jsonSensorList[tupel] = ojData;
       free(tupel);
 

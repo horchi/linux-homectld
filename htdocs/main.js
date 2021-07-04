@@ -19,7 +19,7 @@ var daemonState = {};
 var currentPage = "dashboard";
 var widgetCharts = {};
 var theChart = null;
-var theChartRange = 2;
+var theChartRange = 1;
 var theChartStart = new Date(); theChartStart.setDate(theChartStart.getDate()-theChartRange);
 var chartDialogSensor = "";
 var chartBookmarks = {};
@@ -218,7 +218,7 @@ function dispatchMessage(message)
          }
       }
       if (currentPage == 'dashboard')
-         updateDashboard(jMessage.object);
+         updateDashboard(jMessage.object, event == "all");
       else if (currentPage == 'list')
          updateList(jMessage.object);
    }
@@ -424,7 +424,7 @@ function mainMenuSel(what)
       initVdr();
    else if (currentPage == "chart") {
       event = "chartdata"
-      prepareChartRequest(jsonRequest, "", 0, 2, "chart");
+      prepareChartRequest(jsonRequest, "", theChartStart, theChartRange, "chart");
    }
 
    if (currentPage != "vdr") {

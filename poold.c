@@ -49,48 +49,48 @@ std::list<Poold::ConfigItemDef> Poold::configuration
    { "w1AddrPool",                ctString,  "",             false, "1 Pool Daemon", "Adresse Fühler Temperatur Pool", "" },
    { "w1AddrSolar",               ctString,  "",             false, "1 Pool Daemon", "Adresse Fühler Temperatur Kollektor", "" },
    { "w1AddrSuctionTube",         ctString,  "",             false, "1 Pool Daemon", "Adresse Fühler Temperatur Saugleitung", "" },
-
    { "poolMqttUrl",               ctString,  "tcp://localhost:1883",  false, "1 Pool Daemon", "Url des MQTT Message Broker für den Pool Daemon", "Wird zur Kommunikation mit dem one-wire Interface Service (w1mqtt) sowie dem Arduino verwendet. Beispiel: 'tcp://localhost:1883'" },
+
    { "aggregateHistory",          ctInteger, "0",            false, "1 Pool Daemon", "Historie [Tage]", "history for aggregation in days (default 0 days -> aggegation turned OFF)" },
    { "aggregateInterval",         ctInteger, "15",           false, "1 Pool Daemon", "Intervall [m]", "aggregation interval in minutes - 'one sample per interval will be build'" },
    { "peakResetAt",               ctString,  "",             true,  "1 Pool Daemon", "", "" },
 
-   // old arduino serial interface
-   // { "arduinoDevice",             ctString,  "",             false, "1 Pool Daemon", "Arduino Interface Device", "Beispiel: '/dev/ttyS0'" },
+   { "massPerSecond",             ctNum,     "11.0",         false, "1 Pool Daemon", "Durchfluss Solar", "[Liter/min]" },
 
    // PH stuff
 
-   { "phReference",               ctNum,     "7.2",          false, "1 Pool Daemon", "PH Sollwert", "Sollwert [PH] (default 7,2)" },
-   { "phMinusDensity",            ctNum,     "1.4",          false, "1 Pool Daemon", "Dichte PH Minus [kg/l]", "Wie viel kg wiegt ein Liter PH Minus (default 1,4)" },
-   { "phMinusDemand01",           ctInteger, "85",           false, "1 Pool Daemon", "Menge zum Senken um 0,1 [g]", "Wie viel Gramm PH Minus wird zum Senken des PH Wertes um 0,1 für das vorhandene Pool Volumen benötigt (default 60g)" },
-   { "phMinusDayLimit",           ctInteger, "100",          false, "1 Pool Daemon", "Obergrenze PH Minus/Tag [ml]", "Wie viel PH Minus wird pro Tag maximal zugegeben [ml] (default 100ml)" },
-   { "phPumpDurationPer100",      ctInteger, "1000",         false, "1 Pool Daemon", "Laufzeit Dosierpumpe/100ml [ms]", "Welche Zeit in Millisekunden benötigt die Dosierpumpe um 100ml zu fördern (default 1000ms)" },
+   { "phInterval",                ctInteger, "15",           false, "2 PH", "Intervall der PH Messung", "[s]" },
+   { "phReference",               ctNum,     "7.2",          false, "2 PH", "PH Sollwert", "Sollwert [PH] (default 7,2)" },
+   { "phMinusDensity",            ctNum,     "1.4",          false, "2 PH", "Dichte PH Minus [kg/l]", "Wie viel kg wiegt ein Liter PH Minus (default 1,4)" },
+   { "phMinusDemand01",           ctInteger, "85",           false, "2 PH", "Menge zum Senken um 0,1 [g]", "Wie viel Gramm PH Minus wird zum Senken des PH Wertes um 0,1 für das vorhandene Pool Volumen benötigt (default 60g)" },
+   { "phMinusDayLimit",           ctInteger, "100",          false, "2 PH", "Obergrenze PH Minus/Tag [ml]", "Wie viel PH Minus wird pro Tag maximal zugegeben [ml] (default 100ml)" },
+   { "phPumpDurationPer100",      ctInteger, "1000",         false, "2 PH", "Laufzeit Dosierpumpe/100ml [ms]", "Welche Zeit in Millisekunden benötigt die Dosierpumpe um 100ml zu fördern (default 1000ms)" },
 
-   { "phCalibratePointA",         ctNum,     "7.0",          false, "1 Pool Daemon", "Kallibrier-Punkt A", "" },
-   { "phCalibratePointValueA",    ctInteger, "377",          false, "1 Pool Daemon", "Wert (digits) am Kallibrier-Punkt A", "" },
-   { "phCalibratePointB",         ctNum,     "9.0",          false, "1 Pool Daemon", "Kallibrier-Punkt B", "" },
-   { "phCalibratePointValueB",    ctInteger, "412",          false, "1 Pool Daemon", "Wert (digits) am Kallibrier-Punkt B", "" },
+   { "phCalibratePointA",         ctNum,     "7.0",          false, "2 PH", "Kallibrier-Punkt A", "" },
+   { "phCalibratePointValueA",    ctInteger, "377",          false, "2 PH", "Wert (digits) am Kallibrier-Punkt A", "" },
+   { "phCalibratePointB",         ctNum,     "9.0",          false, "2 PH", "Kallibrier-Punkt B", "" },
+   { "phCalibratePointValueB",    ctInteger, "412",          false, "2 PH", "Wert (digits) am Kallibrier-Punkt B", "" },
 
    // web
 
-   { "addrsDashboard",            ctString,  "",             false, "2 WEB Interface", "Sensoren 'Dashboard'", "Komma getrennte Liste aus ID:Typ siehe 'IO Setup'" },
-   { "addrsList",                 ctString,  "",             false, "2 WEB Interface", "Sensoren 'Liste'", "Komma getrennte Liste aus ID:Typ siehe 'IO Setup'" },
-   { "style",                     ctChoice,  "dark",         false, "2 WEB Interface", "Farbschema", "" },
-   { "vdr",                       ctBool,    "0",            false, "2 WEB Interface", "VDR (Video Disk Recorder) OSD verfügbar", "" },
+   { "addrsDashboard",            ctString,  "",             false, "3 WEB Interface", "Sensoren 'Dashboard'", "Komma getrennte Liste aus ID:Typ siehe 'IO Setup'" },
+   { "addrsList",                 ctString,  "",             false, "3 WEB Interface", "Sensoren 'Liste'", "Komma getrennte Liste aus ID:Typ siehe 'IO Setup'" },
+   { "style",                     ctChoice,  "dark",         false, "3 WEB Interface", "Farbschema", "" },
+   { "vdr",                       ctBool,    "0",            false, "3 WEB Interface", "VDR (Video Disk Recorder) OSD verfügbar", "" },
 
    // mqtt interface
 
-   { "mqttUrl",                   ctString,  "",             false, "3 MQTT Interface", "Url des MQTT Message Broker", "Deiser kann z.B. zur Kommunikation mit Hausautomatisierungen verwendet werden. Beispiel: 'tcp://localhost:1883'" },
-   { "mqttUser",                  ctString,  "",             false, "3 MQTT Interface", "User", "" },
-   { "mqttPassword",              ctString,  "",             false, "3 MQTT Interface", "Password", "" },
+   { "mqttUrl",                   ctString,  "",             false, "4 MQTT Interface", "Url des MQTT Message Broker", "Deiser kann z.B. zur Kommunikation mit Hausautomatisierungen verwendet werden. Beispiel: 'tcp://localhost:1883'" },
+   { "mqttUser",                  ctString,  "",             false, "4 MQTT Interface", "User", "" },
+   { "mqttPassword",              ctString,  "",             false, "4 MQTT Interface", "Password", "" },
 
    // mail
 
-   { "mail",                      ctBool,    "0",                       false, "4 Mail", "Mail Benachrichtigung", "Mail Benachrichtigungen aktivieren/deaktivieren" },
-   { "mailScript",                ctString,  BIN_PATH "/poold-mail.sh", false, "4 Mail", "poold sendet Mails über das Skript", "" },
-   { "stateMailTo",               ctString,  "",                        false, "4 Mail", "Status Mail Empfänger", "Komma getrennte Empfängerliste" },
-   { "errorMailTo",               ctString,  "",                        false, "4 Mail", "Fehler Mail Empfänger", "Komma getrennte Empfängerliste" },
-   { "webUrl",                    ctString,  "",                        false, "4 Mail", "URL der Visualisierung", "kann mit %weburl% in die Mails eingefügt werden" },
+   { "mail",                      ctBool,    "0",                       false, "5 Mail", "Mail Benachrichtigung", "Mail Benachrichtigungen aktivieren/deaktivieren" },
+   { "mailScript",                ctString,  BIN_PATH "/poold-mail.sh", false, "5 Mail", "poold sendet Mails über das Skript", "" },
+   { "stateMailTo",               ctString,  "",                        false, "5 Mail", "Status Mail Empfänger", "Komma getrennte Empfängerliste" },
+   { "errorMailTo",               ctString,  "",                        false, "5 Mail", "Fehler Mail Empfänger", "Komma getrennte Empfängerliste" },
+   { "webUrl",                    ctString,  "",                        false, "5 Mail", "URL der Visualisierung", "kann mit %weburl% in die Mails eingefügt werden" },
 };
 
 //***************************************************************************
@@ -99,7 +99,7 @@ std::list<Poold::ConfigItemDef> Poold::configuration
 
 Poold::Poold()
 {
-   nextAt = time(0) + 5;
+   nextRefreshAt = time(0) + 5;
    startedAt = time(0);
 
    cDbConnection::init();
@@ -335,6 +335,8 @@ int Poold::init()
    addValueFact(spSolarDelta, "SP", "Solar Delta", "°C");
    addValueFact(spPhMinusDemand, "SP", "PH Minus Bedarf", "ml");
    addValueFact(spLastUpdate, "SP", "Aktualisiert", "");
+   addValueFact(spSolarPower, "SP", "Solar Leistung", "W");
+   addValueFact(spSolarWork, "SP", "Solar Arbeit", "kWh");
    addValueFact(aiPh, "AI", "PH", "");
    addValueFact(aiFilterPressure, "AI", "Druck", "bar");
 
@@ -360,6 +362,7 @@ int Poold::init()
 
    initScripts();
    loadStates();
+   initArduino();
 
    initialized = true;
 
@@ -827,6 +830,8 @@ int Poold::readConfiguration()
 
    getConfigItem("tPoolMax", tPoolMax, tPoolMax);
    getConfigItem("tSolarDelta", tSolarDelta, tSolarDelta);
+   getConfigItem("lastSolarWork", solarWork, 0);
+
    getConfigItem("showerDuration", showerDuration, 20);
    getConfigItem("minSolarPumpDuration", minSolarPumpDuration, 10);
    getConfigItem("deactivatePumpsAtLowWater", deactivatePumpsAtLowWater, no);
@@ -834,14 +839,19 @@ int Poold::readConfiguration()
 
    getConfigItem("invertDO", invertDO, yes);
 
+   // Solar stuff
+
+   getConfigItem("massPerSecond", massPerSecond, 11.0);                  // [Liter/min]
+   massPerSecond /= 60.0;                                                // => [l/s]
+
    // PH stuff
 
-   //getConfigItem("arduinoDevice", arduinoDevice);
+   getConfigItem("phInterval", phInterval, 15);
    getConfigItem("phReference", phReference, 7.2);
-   getConfigItem("phMinusDensity", phMinusDensity, 1.4);         // [kg/l]
-   getConfigItem("phMinusDemand01", phMinusDemand01, 85);        // [ml]
-   getConfigItem("phMinusDayLimit", phMinusDayLimit, 100);       // [ml]
-   getConfigItem("phPumpDuration100", phPumpDuration100, 1000);  // [ms]
+   getConfigItem("phMinusDensity", phMinusDensity, 1.4);                  // [kg/l]
+   getConfigItem("phMinusDemand01", phMinusDemand01, 85);                 // [ml]
+   getConfigItem("phMinusDayLimit", phMinusDayLimit, 100);                // [ml]
+   getConfigItem("phPumpDuration100", phPumpDuration100, 1000);           // [ms]
 
    getConfigItem("phCalibratePointA", phCalibratePointA, 7.0);            // [ph]
    getConfigItem("phCalibratePointValueA", phCalibratePointValueA, 377);  // [digits]
@@ -1018,7 +1028,7 @@ int Poold::loop()
          standby(10);
       }
 
-      standbyUntil(nextAt);
+      standbyUntil(nextRefreshAt);
 
       if (doShutDown())
          break;
@@ -1028,26 +1038,26 @@ int Poold::loop()
       if (aggregateHistory && nextAggregateAt <= time(0))
          aggregate();
 
-      // work expected?
+      // refresh expected?
 
-      if (time(0) < nextAt)
-         continue;
+      if (time(0) >= nextRefreshAt)
+      {
+         // perform update
 
-      // perform update
+         nextRefreshAt = time(0) + interval;
+         mailBody = "";
+         mailBodyHtml = "";
 
-      nextAt = time(0) + interval;
-      mailBody = "";
-      mailBodyHtml = "";
+         update();
+         process();
 
-      update();
-      process();
+         // mail
 
-      // mail
+         if (mail)
+            sendStateMail();
 
-      if (mail)
-         sendStateMail();
-
-      initialRun = false;
+         initialRun = false;
+      }
    }
 
    return success;
@@ -1109,7 +1119,7 @@ int Poold::update(bool webOnly, long client)
 
       sensor2Json(ojData, tableValueFacts);
 
-      if (tableValueFacts->hasValue("TYPE", "W1"))
+      if (tableValueFacts->hasValue("TYPE", "W1"))       // One Wire Sensor
       {
          bool w1Exist = existW1(name);
          time_t w1Last {0};
@@ -1139,7 +1149,7 @@ int Poold::update(bool webOnly, long client)
             json_object_set_new(ojData, "widgettype", json_integer(wtText));
          }
       }
-      else if (tableValueFacts->hasValue("TYPE", "AI"))
+      else if (tableValueFacts->hasValue("TYPE", "AI"))     // Analog Input
       {
          if (aiSensors[addr].value == aiSensors[addr].value) // check for NaN
          {
@@ -1155,7 +1165,7 @@ int Poold::update(bool webOnly, long client)
             json_object_set_new(ojData, "widgettype", json_integer(wtText));
          }
       }
-      else if (tableValueFacts->hasValue("TYPE", "DO"))
+      else if (tableValueFacts->hasValue("TYPE", "DO"))    // Digital Output
       {
          json_object_set_new(ojData, "mode", json_string(digitalOutputStates[addr].mode == omManual ? "manual" : "auto"));
          json_object_set_new(ojData, "options", json_integer(digitalOutputStates[addr].opt));
@@ -1168,7 +1178,7 @@ int Poold::update(bool webOnly, long client)
          if (!webOnly)
             store(now, name, title, unit, type, addr, digitalOutputStates[addr].state);
       }
-      else if (tableValueFacts->hasValue("TYPE", "SC"))
+      else if (tableValueFacts->hasValue("TYPE", "SC"))   // Script Sensor
       {
          std::string result = callScript(addr, 0, "status").c_str();
 
@@ -1201,9 +1211,25 @@ int Poold::update(bool webOnly, long client)
          if (!webOnly)
             store(now, name, title, unit, type, addr, strtod(value.c_str(), nullptr));
       }
-      else if (tableValueFacts->hasValue("TYPE", "SP"))
+      else if (tableValueFacts->hasValue("TYPE", "SP"))            // Special Values
       {
-         if (addr == spLastUpdate)
+         if (addr == spSolarPower)
+         {
+            json_object_set_new(ojData, "value", json_real(pSolar));
+            json_object_set_new(ojData, "widgettype", json_integer(wtChart));
+
+            if (!webOnly)
+               store(now, name, title, unit, type, addr, pSolar);
+         }
+         if (addr == spSolarWork)
+         {
+            json_object_set_new(ojData, "value", json_real(solarWork));
+            json_object_set_new(ojData, "widgettype", json_integer(wtChart));
+
+            if (!webOnly)
+               store(now, name, title, unit, type, addr, solarWork);
+         }
+         else if (addr == spLastUpdate)
          {
             json_object_set_new(ojData, "text", json_string(l2pTime(time(0), "%T").c_str()));
             json_object_set_new(ojData, "widgettype", json_integer(wtText));
@@ -1234,23 +1260,11 @@ int Poold::update(bool webOnly, long client)
          }
          else if (addr == spSolarDelta)
          {
-            time_t tPoolLast, tSolarLast;
-            tPool = valueOfW1(w1AddrPool, tPoolLast);
-            tSolar = valueOfW1(w1AddrSolar, tSolarLast);
+            json_object_set_new(ojData, "value", json_real(tCurrentDelta));
+            json_object_set_new(ojData, "widgettype", json_integer(wtChart));
 
-            // use value only if not older than 2 cycles
-
-            if (tPoolLast > time(0) - 2*interval &&
-                tSolarLast > time(0) - 2*interval)
-            {
-               tCurrentDelta = tSolar - tPool;
-
-               json_object_set_new(ojData, "value", json_real(tCurrentDelta));
-               json_object_set_new(ojData, "widgettype", json_integer(wtChart));
-
-               if (!webOnly)
-                  store(now, name, title, unit, type, addr, tCurrentDelta);
-            }
+            if (!webOnly)
+               store(now, name, title, unit, type, addr, tCurrentDelta);
          }
          else if (addr == spPhMinusDemand)  // && !isEmpty(arduinoDevice))
          {
@@ -1294,13 +1308,44 @@ int Poold::process()
    time_t tPoolLast, tSolarLast;
    tPool = valueOfW1(w1AddrPool, tPoolLast);
    tSolar = valueOfW1(w1AddrSolar, tSolarLast);
-   tCurrentDelta = tSolar - tPool;
 
    // use W1 values only if not older than 2 cycles
 
    bool w1Valid = tPoolLast > time(0) - 2*interval && tSolarLast > time(0) - 2*interval;
 
    tell(0, "Process ...");
+
+   // ------------
+   // Solar State
+
+   if (w1Valid)
+   {
+      //
+
+      solarWork += pSolar * ((time(0)-pSolarSince) / 3600.0) / 1000.0;    // in kWh
+      // #TODO - reset solarWork daily
+
+      setConfigItem("lastSolarWork", solarWork);
+
+      tCurrentDelta = tSolar - tPool;
+
+      const double termalCapacity = 4183.0; // Wärmekapazität Wasser bei 20°C [kJ·kg-1·K-1]
+
+      if (digitalOutputStates[pinSolarPump].state)
+         pSolar = termalCapacity * massPerSecond * tCurrentDelta;
+      else
+         pSolar = 0.0;
+
+      pSolarSince = time(0);
+
+      // publish
+
+      publishSpecialValue(spSolarDelta, tCurrentDelta);
+      publishSpecialValue(spSolarPower, pSolar);
+      publishSpecialValue(spSolarWork, solarWork);
+   }
+   else
+      tell(0, "W1 values NOT valid");
 
    // -----------
    // Solar Pumps
@@ -1442,6 +1487,29 @@ int Poold::process()
 }
 
 //***************************************************************************
+// Report Actual State
+//***************************************************************************
+
+void Poold::logReport()
+{
+   tell(0, "------------------------");
+
+   tell(0, "Pool has %.2f °C; Solar has %.2f °C; Current delta is %.2f° (%.2f° configured)",
+        tPool, tSolar, tCurrentDelta, tSolarDelta);
+   tell(0, "Solar power is %0.2f Watt; Solar work %0.2f kWh", pSolar, solarWork);
+   tell(0, "Solar pump is '%s/%s'", digitalOutputStates[pinSolarPump].state ? "running" : "stopped",
+        digitalOutputStates[pinSolarPump].mode == omAuto ? "auto" : "manual");
+   tell(0, "Filter pump is '%s/%s'", digitalOutputStates[pinFilterPump].state ? "running" : "stopped",
+        digitalOutputStates[pinFilterPump].mode == omAuto ? "auto" : "manual");
+   tell(0, "UV-C light is '%s/%s'", digitalOutputStates[pinUVC].state ? "on" : "off",
+        digitalOutputStates[pinUVC].mode == omAuto ? "auto" : "manual");
+   tell(0, "Pool light is '%s/%s'", digitalOutputStates[pinPoolLight].state ? "on" : "off",
+        digitalOutputStates[pinPoolLight].mode == omAuto ? "auto" : "manual");
+
+   tell(0, "------------------------");
+}
+
+//***************************************************************************
 // Perform Jobs
 //***************************************************************************
 
@@ -1482,26 +1550,6 @@ bool Poold::isInTimeRange(const std::vector<Range>* ranges, time_t t)
    }
 
    return false;
-}
-
-//***************************************************************************
-// Report to syslog
-//***************************************************************************
-
-void Poold::logReport()
-{
-   tell(0, "------------------------");
-
-   tell(0, "Pool has %.2f °C; Solar has %.2f °C; Current delta is %.2f° (%.2f° configured)",
-        tPool, tSolar, tCurrentDelta, tSolarDelta);
-   tell(0, "Solar pump is '%s/%s'", digitalOutputStates[pinSolarPump].state ? "running" : "stopped",
-        digitalOutputStates[pinSolarPump].mode == omAuto ? "auto" : "manual");
-   tell(0, "Filter pump is '%s/%s'", digitalOutputStates[pinFilterPump].state ? "running" : "stopped",
-        digitalOutputStates[pinFilterPump].mode == omAuto ? "auto" : "manual");
-   tell(0, "UV-C light is '%s/%s'", digitalOutputStates[pinUVC].state ? "on" : "off",
-        digitalOutputStates[pinUVC].mode == omAuto ? "auto" : "manual");
-   tell(0, "Pool light is '%s/%s'", digitalOutputStates[pinPoolLight].state ? "on" : "off",
-        digitalOutputStates[pinPoolLight].mode == omAuto ? "auto" : "manual");
 }
 
 //***************************************************************************
@@ -2145,6 +2193,39 @@ bool Poold::gpioRead(uint pin)
 }
 
 //***************************************************************************
+// Set Special Value
+//***************************************************************************
+
+void Poold::publishSpecialValue(int sp, double value)
+{
+   // send update to WS
+
+   tableValueFacts->clear();
+   tableValueFacts->setValue("ADDRESS", sp);
+   tableValueFacts->setValue("TYPE", "SP");
+
+   if (tableValueFacts->find())
+   {
+      json_t* ojData = json_object();
+
+      sensor2Json(ojData, tableValueFacts);
+      json_object_set_new(ojData, "value", json_real(value));
+      json_object_set_new(ojData, "widgettype", json_integer(wtChart));
+
+      char* tupel {nullptr};
+      asprintf(&tupel, "SP:0x%02x", sp);
+      json_object_set_new(ojData, "dashboard", json_boolean(addrsDashboard.empty() || std::find(addrsDashboard.begin(), addrsDashboard.end(), tupel) != addrsDashboard.end()));
+      json_object_set_new(ojData, "list", json_boolean(addrsList.empty() || std::find(addrsList.begin(), addrsList.end(), tupel) != addrsList.end()));
+      jsonSensorList[tupel] = ojData;
+      free(tupel);
+
+      pushDataUpdate("update", 0L);
+   }
+
+   tableValueFacts->reset();
+}
+
+//***************************************************************************
 // Store/Load States to DB
 //  used to recover at restart
 //***************************************************************************
@@ -2206,8 +2287,77 @@ int Poold::loadStates()
 }
 
 //***************************************************************************
-// Analog Input Stuff ...
+// Arduino Stuff ...
 //***************************************************************************
+
+int Poold::dispatchArduinoMsg(const char* message)
+{
+   json_error_t error;
+   json_t* jObject = json_loads(message, 0, &error);
+
+   if (!jObject)
+   {
+      tell(0, "Error: Can't parse json in '%s'", message);
+      return fail;
+   }
+
+   const char* event = getStringFromJson(jObject, "event", "<null>");
+
+   if (strcmp(event, "update") == 0)
+   {
+      json_t* jArray = getObjectFromJson(jObject, "analog");
+      size_t index {0};
+      json_t* jValue {nullptr};
+
+      json_array_foreach(jArray, index, jValue)
+      {
+         const char* name = getStringFromJson(jValue, "name");
+         double value = getDoubleFromJson(jValue, "value");
+
+         updateAnalogInput(name, value, time(0));
+      }
+
+      process();
+   }
+   else if (strcmp(event, "init") == 0)
+   {
+      initArduino();
+   }
+   else
+   {
+      tell(eloAlways, "Got unexpected event '%s' from arduino", event);
+   }
+
+   return success;
+}
+
+int Poold::initArduino()
+{
+   mqttCheckConnection();
+
+   if (isEmpty(poolMqttUrl) || !mqttPoolReader->isConnected())
+      return fail;
+
+   json_t* oJson = json_object();
+
+   json_object_set_new(oJson, "event", json_string("setUpdateInterval"));
+   json_object_set_new(oJson, "parameter", json_integer(phInterval));
+
+   char* p = json_dumps(oJson, JSON_REAL_PRECISION(4));
+   json_decref(oJson);
+
+   if (!p)
+   {
+      tell(0, "Error: Dumping json message failed");
+      return fail;
+   }
+
+   mqttPoolReader->write("poold2mqtt/arduino/in", p);
+   tell(1, "DEBUG: PushMessage to arduino [%s]", p);
+   free(p);
+
+   return success;
+}
 
 void Poold::updateAnalogInput(const char* id, int value, time_t stamp)
 {
@@ -2221,7 +2371,7 @@ void Poold::updateAnalogInput(const char* id, int value, time_t stamp)
       double b = phCalibratePointB - m * phCalibratePointValueB;
       double dValue = m * value + b;
       dValue = std::llround(dValue*50) / 50.0;  // round to .02
-      tell(1, "Rouned %.2f to %.2f", m * value + b, dValue);
+      tell(2, "Rouned %.2f to %.2f", m * value + b, dValue);
       aiSensors[input].value = dValue;
    }
    else if (input == aiFilterPressure)
@@ -2266,8 +2416,43 @@ void Poold::updateAnalogInput(const char* id, int value, time_t stamp)
 }
 
 //***************************************************************************
-// W1 Sensor Stuff ...
+// W1 Stuff ...
 //***************************************************************************
+
+int Poold::dispatchW1Msg(const char* message)
+{
+   json_error_t error;
+   json_t* jArray = json_loads(message, 0, &error);
+
+   if (!jArray)
+   {
+      tell(0, "Error: Can't parse json in '%s'", message);
+      return fail;
+   }
+
+   size_t index {0};
+   json_t* jValue {nullptr};
+
+   json_array_foreach(jArray, index, jValue)
+   {
+      const char* name = getStringFromJson(jValue, "name");
+      double value = getDoubleFromJson(jValue, "value");
+      time_t stamp = getIntFromJson(jValue, "time");
+
+      if (stamp < time(0)-300)
+      {
+         tell(eloAlways, "Skipping old (%ld seconds) w1 value", time(0)-stamp);
+         continue;
+      }
+
+      updateW1(name, value, stamp);
+   }
+
+   cleanupW1();
+   process();
+
+   return success;
+}
 
 void Poold::updateW1(const char* id, double value, time_t stamp)
 {
@@ -2276,21 +2461,20 @@ void Poold::updateW1(const char* id, double value, time_t stamp)
    w1Sensors[id].value = value;
    w1Sensors[id].last = stamp;
 
-   json_t* ojData = json_object();
-
    tableValueFacts->clear();
    tableValueFacts->setValue("ADDRESS", (int)toW1Id(id));
    tableValueFacts->setValue("TYPE", "W1");
 
    if (tableValueFacts->find())
    {
+      json_t* ojData = json_object();
+
       sensor2Json(ojData, tableValueFacts);
       json_object_set_new(ojData, "value", json_real(value));
       json_object_set_new(ojData, "widgettype", json_integer(wtChart));
 
       char* tupel {nullptr};
       asprintf(&tupel, "W1:0x%02x", toW1Id(id));
-
       json_object_set_new(ojData, "dashboard", json_boolean(addrsDashboard.empty() || std::find(addrsDashboard.begin(), addrsDashboard.end(), tupel) != addrsDashboard.end()));
       json_object_set_new(ojData, "list", json_boolean(addrsList.empty() || std::find(addrsList.begin(), addrsList.end(), tupel) != addrsList.end()));
       jsonSensorList[tupel] = ojData;

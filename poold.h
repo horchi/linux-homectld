@@ -97,7 +97,9 @@ class Poold : public cWebInterface
          spWaterLevel = 1,
          spSolarDelta,
          spPhMinusDemand,
-         spLastUpdate
+         spLastUpdate,
+         spSolarPower,
+         spSolarWork
       };
 
       // object
@@ -282,6 +284,7 @@ class Poold : public cWebInterface
       int daemonState2Json(json_t* obj);
       int sensor2Json(json_t* obj, cDbTable* table);
       void pin2Json(json_t* ojData, int pin);
+      void publishSpecialValue(int sp, double value);
 
       const char* getImageOf(const char* title, int value);
       int toggleIo(uint addr, const char* type);
@@ -291,8 +294,11 @@ class Poold : public cWebInterface
       int storeStates();
       int loadStates();
 
-      // analog inputs
+      // arduino
 
+      int dispatchArduinoMsg(const char* message);
+      int dispatchW1Msg(const char* message);
+      int initArduino();
       void updateAnalogInput(const char* id, int value, time_t stamp);
 
       // W1
@@ -331,7 +337,7 @@ class Poold : public cWebInterface
       cDbValue avgValue;
       cDbValue maxValue;
 
-      time_t nextAt {0};
+      time_t nextRefreshAt {0};
       time_t startedAt {0};
       time_t nextAggregateAt {0};
 
@@ -399,6 +405,7 @@ class Poold : public cWebInterface
       int deactivatePumpsAtLowWater {no};
       int alertSwitchOffPressure {0};
 
+      int phInterval {0};
       double phMinusDensity {0.0};
       int phMinusDemand01 {0};
       int phMinusDayLimit {0};
@@ -419,16 +426,15 @@ class Poold : public cWebInterface
       std::vector<Range> uvcLightTimes;
       std::vector<Range> poolLightTimes;
 
-      // serial interface to arduino for PH stuff
-
-      //cArduinoInterface arduinoInterface;
-      //char* arduinoDevice {nullptr};
-
       // actual state and data
 
       double tPool {0.0};
       double tSolar {0.0};
       double tCurrentDelta {0.0};
+      double pSolar {0.0};           // solar power [W]
+      time_t pSolarSince {0};
+      double solarWork {0.0};        // [kWh]
+      double massPerSecond {0.0};    // Fördermeneg der Solarpumpe [kg·s-1] bzw. [l/s]
 
       struct SensorData
       {

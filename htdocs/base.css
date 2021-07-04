@@ -125,11 +125,10 @@ button:focus {
 {
     background-color: var(--caption1);
     color: var(--light2);
-    margin-top: 0px;
     padding: 5px 15px;
     font-weight: bold;
-    margin-top: 10px;
-    margin-bottom: 5px;
+    margin-top: 4px;
+    margin-bottom: 4px;
 }
 
 /* ----------------------- */
@@ -362,7 +361,6 @@ span > input
 {
     background-color: var(--light1);
     background: linear-gradient(to bottom right, var(--light3), var(--light1)); /* Standard syntax (must be last) */
-    margin-top: 8px;
     padding: 5px;
 }
 
@@ -895,7 +893,7 @@ table.tableMultiCol tr:nth-child(odd)
     'title'
     'main'
     'progress';
-  grid-template-rows: 25% 71% 4%;
+  grid-template-rows: 14% 82% 2%;
   grid-gap: 1px;
   box-shadow: 1px 1px 1px 0px var(--shadow);
 }
@@ -1159,8 +1157,9 @@ dialog::backdrop, #backdrop
 @media only screen and (max-width: 740px)
 {
     .daemonState               { width: 88%; }
-    .inputTableConfig > div > span:nth-child(3) { width: 95%; }
-    .inputTableConfig > div > span              { width: 95%; }
+    .inputTableConfig > div:nth-child(odd) { background-color: var(--light3); }
+    .inputTableConfig > div > span:nth-child(3) { width: 25%; }
+    .inputTableConfig > div > span              { width: 30%; }
 
     .widgetContainer > div     { width: 185px; height: 160px; }
     .widgetGauge               { grid-template-rows: 30% 70%; }

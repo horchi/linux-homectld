@@ -13,6 +13,12 @@ function initConfig(configuration)
    $('#stateContainer').addClass('hidden');
    $('#container').removeClass('hidden');
 
+   $("#container").height($(window).height() - $("#menu").height() - 8);
+
+   window.onresize = function() {
+      $("#container").height($(window).height() - $("#menu").height() - 8);
+   };
+
    document.getElementById("container").innerHTML =
       '<div id="setupContainer" class="rounded-border inputTableConfig">';
 
@@ -227,6 +233,21 @@ function initIoSetup(valueFacts)
       '    <tbody id="ioScripts">' +
       '    </tbody>' +
       '  </table>' +
+      '  <div class="rounded-border seperatorTitle1">Analog Eingänge (arduino)</div>' +
+      '  <table class="tableMultiCol">' +
+      '    <thead>' +
+      '      <tr>' +
+      '        <td style="width:30%;">Name</td>' +
+      '        <td style="width:32%;">Bezeichnung</td>' +
+      '        <td style="width:6%;">Skala max</td>' +
+      '        <td style="width:3%;">Einheit</td>' +
+      '        <td style="width:3%;">Aufzeichnen</td>' +
+      '        <td style="width:8%;">ID:Typ</td>' +
+      '      </tr>' +
+      '    </thead>' +
+      '    <tbody id="ioAnalog">' +
+      '    </tbody>' +
+      '  </table>' +
       '  <div class="rounded-border seperatorTitle1">Weitere Sensoren</div>' +
       '  <table class="tableMultiCol">' +
       '    <thead>' +
@@ -253,6 +274,7 @@ function initIoSetup(valueFacts)
    document.getElementById("ioDigitalOut").innerHTML = "";
    document.getElementById("ioOneWire").innerHTML = "";
    document.getElementById("ioOther").innerHTML = "";
+   document.getElementById("ioAnalog").innerHTML = "";
    document.getElementById("ioScripts").innerHTML = "";
 
    for (var i = 0; i < valueFacts.length; i++)
@@ -277,7 +299,7 @@ function initIoSetup(valueFacts)
          case 'DO': root = document.getElementById("ioDigitalOut"); break
          case 'W1': root = document.getElementById("ioOneWire");    break
          case 'SP': root = document.getElementById("ioOther");      break
-         case 'AI': root = document.getElementById("ioOther");      break
+         case 'AI': root = document.getElementById("ioAnalog");     break
          case 'SC': root = document.getElementById("ioScripts");    break
       }
 

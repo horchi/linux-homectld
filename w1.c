@@ -90,7 +90,7 @@ int W1::scan()
 
 int W1::loop()
 {
-   const int updateCycle {60};   // 60 Sekunden
+   const int updateCycle {10};   // seconds
 
    while (!doShutDown())
    {

@@ -151,6 +151,11 @@ int Poold::hassPush(IoType iot, const char* name, const char* title, const char*
 
 int Poold::performMqttRequests()
 {
+   static time_t lastPoolRead {0};
+
+   if (!lastPoolRead)
+      lastPoolRead = time(0);
+
    mqttCheckConnection();
 
    MemoryStruct message;
@@ -191,77 +196,32 @@ int Poold::performMqttRequests()
 
    if (!isEmpty(poolMqttUrl) && mqttPoolReader->isConnected())
    {
-      static time_t lastW1Read {0};
-
-      if (!lastW1Read)
-         lastW1Read = time(0);
-
       // tell(0, "Try reading topic '%s'", mqttPoolReader->getTopic());
 
       while (mqttPoolReader->read(&message, 10) == success)
       {
-         // tell(0, "read w1 success [%s]", message.memory);
-         lastW1Read = time(0);
-
          if (isEmpty(message.memory))
             continue;
 
-         json_t* jArray = json_loads(message.memory, 0, &error);
-
-         if (!jArray)
-         {
-            tell(0, "Error: Can't parse json in '%s'", message.memory);
-            return fail;
-         }
+         lastPoolRead = time(0);
 
          std::string tp = mqttPoolReader->getLastReadTopic();
-
          tell(eloAlways, "<- (%s) [%s] retained %d", tp.c_str(), message.memory, mqttPoolReader->isRetained());
 
          if (strcmp(tp.c_str(), "poold2mqtt/w1") == 0)
-         {
-            size_t index {0};
-            json_t* jValue {nullptr};
-
-            json_array_foreach(jArray, index, jValue)
-            {
-               const char* name = getStringFromJson(jValue, "name");
-               double value = getDoubleFromJson(jValue, "value");
-               time_t stamp = getIntFromJson(jValue, "time");
-
-               if (stamp < time(0)-300)
-               {
-                  tell(eloAlways, "Skipping old (%ld seconds) w1 value", time(0)-stamp);
-                  continue;
-               }
-
-               updateW1(name, value, stamp);
-            }
-
-            cleanupW1();
-
-            // last successful W1 read at least in last 5 minutes?
-
-            if (lastW1Read < time(0)-300)
-            {
-               tell(eloAlways, "Error: No w1 update since '%s', disconnect from MQTT to force recover", l2pTime(lastW1Read).c_str());
-               mqttDisconnect();
-            }
-         }
+            dispatchW1Msg(message.memory);
          else if (strcmp(tp.c_str(), "poold2mqtt/arduino/out") == 0)
-         {
-            size_t index {0};
-            json_t* jValue {nullptr};
-
-            json_array_foreach(jArray, index, jValue)
-            {
-               const char* name = getStringFromJson(jValue, "name");
-               double value = getDoubleFromJson(jValue, "value");
-
-               updateAnalogInput(name, value, time(0));
-            }
-         }
+            dispatchArduinoMsg(message.memory);
       }
+   }
+
+   // last successful W1 read at least in last 5 minutes?
+
+   if (lastPoolRead < time(0)-300)
+   {
+      tell(eloAlways, "Error: No update from poolMQTT since '%s', "
+           "disconnect from MQTT to force recover", l2pTime(lastPoolRead).c_str());
+      mqttDisconnect();
    }
 
    return success;

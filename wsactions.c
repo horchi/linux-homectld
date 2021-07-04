@@ -498,7 +498,7 @@ int Poold::performChartData(json_t* oObject, long client)
    if (client == 0)
       return done;
 
-   int range = getIntFromJson(oObject, "range", 3);                // Anzahl der Tage
+   double range = getDoubleFromJson(oObject, "range", 1);          // Anzahl der Tage
    time_t rangeStart = getLongFromJson(oObject, "start", 0);       // Start Datum (unix timestamp)
    const char* sensors = getStringFromJson(oObject, "sensors");    // Kommata getrennte Liste der Sensoren
    const char* id = getStringFromJson(oObject, "id", "");
@@ -520,7 +520,7 @@ int Poold::performChartData(json_t* oObject, long client)
    else if (isEmpty(sensors))
       sensors = chartSensors;
 
-   tell(eloInfo, "Selecting chart data for sensors '%s' with range %d ..", sensors, range);
+   tell(eloInfo, "Selecting chart data for sensors '%s' with range %.1f ..", sensors, range);
 
    std::vector<std::string> sList;
 
@@ -534,7 +534,7 @@ int Poold::performChartData(json_t* oObject, long client)
       rangeStart = time(0) - (range*tmeSecondsPerDay);
 
    rangeFrom.setValue(rangeStart);
-   rangeTo.setValue(rangeStart + (range*tmeSecondsPerDay));
+   rangeTo.setValue(rangeStart + (int)(range*tmeSecondsPerDay));
 
    tableValueFacts->clear();
    tableValueFacts->setValue("STATE", "A");
@@ -1171,8 +1171,6 @@ int Poold::sensor2Json(json_t* obj, cDbTable* table)
    if (tablePeaks->find())
       peak = tablePeaks->getFloatValue("MAX");
 
-   tablePeaks->reset();
-
    json_object_set_new(obj, "address", json_integer((ulong)table->getIntValue("ADDRESS")));
    json_object_set_new(obj, "type", json_string(table->getStrValue("TYPE")));
    json_object_set_new(obj, "name", json_string(table->getStrValue("NAME")));
@@ -1186,7 +1184,14 @@ int Poold::sensor2Json(json_t* obj, cDbTable* table)
    json_object_set_new(obj, "scalemax", json_integer(table->getIntValue("MAXSCALE")));
    json_object_set_new(obj, "rights", json_integer(table->getIntValue("RIGHTS")));
 
-   json_object_set_new(obj, "peak", json_real(peak));
+   // don't show peaks für some sensors (spSolarPower, ..?)
+
+   if (!table->hasValue("ADDRESS", (long)spSolarWork) || !table->hasValue("TYPE", "SP"))
+   {
+      json_object_set_new(obj, "peak", json_real(peak));
+   }
+
+   tablePeaks->reset();
 
    return done;
 }

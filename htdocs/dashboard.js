@@ -18,8 +18,9 @@ function initDashboard(update = false)
    if (!update) {
       $('#stateContainer').addClass('hidden');
       $('#container').removeClass('hidden');
-      $("#container").height($(window).height() - $("#menu").height() - 8);
    }
+
+   $("#container").height($(window).height() - $("#menu").height() - 8);
 
    window.onresize = function() {
       $("#container").height($(window).height() - $("#menu").height() - 8);
@@ -128,10 +129,10 @@ function initDashboard(update = false)
       }
    }
 
-   updateDashboard(allWidgets);
+   updateDashboard(allWidgets, true);
 }
 
-function updateDashboard(widgets)
+function updateDashboard(widgets, refresh)
 {
    // console.log("updateDashboard");
 
@@ -175,13 +176,18 @@ function updateDashboard(widgets)
          else if (sensor.widgettype == 1)    // Chart
          {
             // var elem = $("#widget" + sensor.type + sensor.address);
-
-            $("#peak" + sensor.type + sensor.address).text(sensor.peak.toFixed(2) + " " + sensor.unit);
+            console.log("PEAK: " + sensor.peak);
+            if (sensor.peak != null)
+               $("#peak" + sensor.type + sensor.address).text(sensor.peak.toFixed(2) + " " + sensor.unit);
+            else
+               $("#peak" + sensor.type + sensor.address).text('');
             $("#value" + sensor.type + sensor.address).text(sensor.value.toFixed(2) + " " + sensor.unit);
 
-            var jsonRequest = {};
-            prepareChartRequest(jsonRequest, sensor.type + ":0x" + sensor.address.toString(16) , 0, 1, "chartwidget");
-            socket.send({ "event" : "chartdata", "object" : jsonRequest });
+            if (refresh) {
+               var jsonRequest = {};
+               prepareChartRequest(jsonRequest, sensor.type + ":0x" + sensor.address.toString(16) , 0, 1, "chartwidget");
+               socket.send({ "event" : "chartdata", "object" : jsonRequest });
+            }
          }
          else if (sensor.widgettype == 2)      // Text
          {
@@ -211,9 +217,11 @@ function updateDashboard(widgets)
             $("#pv" + sensor.type + sensor.address).attr("d", svg_circle_arc_path(500, 500, 450 /*radius*/, -90, ratio * 180.0 - 90));
             $("#pp" + sensor.type + sensor.address).attr("d", svg_circle_arc_path(500, 500, 450 /*radius*/, peak * 180.0 - 91, peak * 180.0 - 90));
 
-            var jsonRequest = {};
-            prepareChartRequest(jsonRequest, sensor.type + ":0x" + sensor.address.toString(16) , 0, 1, "chartwidget");
-            socket.send({ "event" : "chartdata", "object" : jsonRequest });
+            if (refresh) {
+               var jsonRequest = {};
+               prepareChartRequest(jsonRequest, sensor.type + ":0x" + sensor.address.toString(16) , 0, 1, "chartwidget");
+               socket.send({ "event" : "chartdata", "object" : jsonRequest });
+            }
          }
 
          // console.log(i + ": " + sensor.name + " / " + sensor.title);

@@ -8,6 +8,7 @@
 
 #include <dirent.h>
 #include <algorithm>
+#include <cmath>
 
 #include "lib/json.h"
 #include "poold.h"
@@ -598,7 +599,11 @@ int Poold::performChartData(json_t* oObject, long client)
          if (tableValueFacts->hasValue("TYPE", "DO"))
             json_object_set_new(oRow, "y", json_integer(maxValue.getIntValue()*10));
          else
+         {
+            // double avg = avgValue.getFloatValue();
+            // avg = std::llround(avg*20) / 20.0;                  // round to .05
             json_object_set_new(oRow, "y", json_real(avgValue.getFloatValue()));
+         }
       }
 
       select->freeResult();

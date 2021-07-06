@@ -176,12 +176,17 @@ function updateDashboard(widgets, refresh)
          else if (sensor.widgettype == 1)    // Chart
          {
             // var elem = $("#widget" + sensor.type + sensor.address);
-            console.log("PEAK: " + sensor.peak);
-            if (sensor.peak != null)
-               $("#peak" + sensor.type + sensor.address).text(sensor.peak.toFixed(2) + " " + sensor.unit);
-            else
-               $("#peak" + sensor.type + sensor.address).text('');
-            $("#value" + sensor.type + sensor.address).text(sensor.value.toFixed(2) + " " + sensor.unit);
+
+            $("#peak" + sensor.type + sensor.address).text(sensor.peak != null ? sensor.peak.toFixed(2) + " " + sensor.unit : "");
+
+            if (!sensor.disabled) {
+               $("#value" + sensor.type + sensor.address).text(sensor.value.toFixed(2) + " " + sensor.unit);
+               $("#value" + sensor.type + sensor.address).css('color', "var(--buttonFont)")
+            }
+            else {
+               $("#value" + sensor.type + sensor.address).css('color', "var(--caption2)")
+               $("#value" + sensor.type + sensor.address).text("(" + sensor.value.toFixed(2) + (sensor.unit!="" ? " " : "") + sensor.unit + ")");
+            }
 
             if (refresh) {
                var jsonRequest = {};

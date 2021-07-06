@@ -211,6 +211,7 @@ function dispatchMessage(message)
          for (var i = 0; i < jMessage.object.length; i++) {
             for (var w = 0; w < allWidgets.length; w++) {
                if (jMessage.object[i].name == allWidgets[w].name) {
+                  console.log("update '" + allWidgets[w].name);
                   console.log("update '" + allWidgets[w].name + "' to (" + jMessage.object[i].value.toFixed(2) + ") from (" + allWidgets[w].value.toFixed(2) + ")");
                   allWidgets[w] = jMessage.object[i];
                }

@@ -336,7 +336,7 @@ int Poold::init()
    addValueFact(spPhMinusDemand, "SP", "PH Minus Bedarf", "ml");
    addValueFact(spLastUpdate, "SP", "Aktualisiert", "");
    addValueFact(spSolarPower, "SP", "Solar Leistung", "W");
-   addValueFact(spSolarWork, "SP", "Solar Arbeit", "kWh");
+   addValueFact(spSolarWork, "SP", "Solar Energie (heute)", "kWh");
    addValueFact(aiPh, "AI", "PH", "");
    addValueFact(aiFilterPressure, "AI", "Druck", "bar");
 
@@ -1156,7 +1156,9 @@ int Poold::update(bool webOnly, long client)
             json_object_set_new(ojData, "value", json_real(aiSensors[addr].value));
             json_object_set_new(ojData, "widgettype", json_integer(wtChart));
 
-            if (!webOnly)
+            if (addr == aiPh && !phMeasurementActive())
+               json_object_set_new(ojData, "disabled", json_boolean(true));
+            else if (!webOnly)
                store(now, name, title, unit, type, addr, aiSensors[addr].value);
          }
          else
@@ -1266,17 +1268,17 @@ int Poold::update(bool webOnly, long client)
             if (!webOnly)
                store(now, name, title, unit, type, addr, tCurrentDelta);
          }
-         else if (addr == spPhMinusDemand)  // && !isEmpty(arduinoDevice))
+         else if (addr == spPhMinusDemand)
          {
             if (aiSensors[aiPh].value)
             {
-               int ml = calcPhMinusVolume(aiSensors[aiPh].value);
-
-               json_object_set_new(ojData, "value", json_real(ml));
+               json_object_set_new(ojData, "value", json_real(phMinusVolume));
                json_object_set_new(ojData, "widgettype", json_integer(wtChart));
 
-               if (!webOnly)
-                  store(now, name, title, unit, type, addr, ml);
+               if (!phMeasurementActive())
+                  json_object_set_new(ojData, "disabled", json_boolean(true));
+               else if (!webOnly)
+                  store(now, name, title, unit, type, addr, phMinusVolume);
             }
          }
       }
@@ -1305,6 +1307,14 @@ int Poold::update(bool webOnly, long client)
 
 int Poold::process()
 {
+   static time_t lastDay {midnightOf(time(0))};
+
+   if (lastDay != midnightOf(time(0)))
+   {
+      lastDay = midnightOf(time(0));
+      solarWork = 0.0;
+   }
+
    time_t tPoolLast, tSolarLast;
    tPool = valueOfW1(w1AddrPool, tPoolLast);
    tSolar = valueOfW1(w1AddrSolar, tSolarLast);
@@ -1323,10 +1333,7 @@ int Poold::process()
       //
 
       solarWork += pSolar * ((time(0)-pSolarSince) / 3600.0) / 1000.0;    // in kWh
-      // #TODO - reset solarWork daily
-
       setConfigItem("lastSolarWork", solarWork);
-
       tCurrentDelta = tSolar - tPool;
 
       const double termalCapacity = 4183.0; // Wärmekapazität Wasser bei 20°C [kJ·kg-1·K-1]
@@ -1348,7 +1355,16 @@ int Poold::process()
       tell(0, "W1 values NOT valid");
 
    // -----------
-   // Solar Pumps
+   // PH
+
+   if (aiSensors[aiPh].value == aiSensors[aiPh].value) // check for NaN
+   {
+      phMinusVolume = calcPhMinusVolume(aiSensors[aiPh].value);
+      publishSpecialValue(spPhMinusDemand, phMinusVolume);
+   }
+
+   // -----------
+   // Pumps Alert
 
    if (deactivatePumpsAtLowWater && waterLevel == 0)   // || waterLevel == fail ??
    {
@@ -1492,21 +1508,21 @@ int Poold::process()
 
 void Poold::logReport()
 {
-   tell(0, "------------------------");
+   tell(0, "# ------------------------");
 
-   tell(0, "Pool has %.2f °C; Solar has %.2f °C; Current delta is %.2f° (%.2f° configured)",
+   tell(0, "# Pool has %.2f °C; Solar has %.2f °C; Current delta is %.2f° (%.2f° configured)",
         tPool, tSolar, tCurrentDelta, tSolarDelta);
-   tell(0, "Solar power is %0.2f Watt; Solar work %0.2f kWh", pSolar, solarWork);
-   tell(0, "Solar pump is '%s/%s'", digitalOutputStates[pinSolarPump].state ? "running" : "stopped",
-        digitalOutputStates[pinSolarPump].mode == omAuto ? "auto" : "manual");
-   tell(0, "Filter pump is '%s/%s'", digitalOutputStates[pinFilterPump].state ? "running" : "stopped",
-        digitalOutputStates[pinFilterPump].mode == omAuto ? "auto" : "manual");
-   tell(0, "UV-C light is '%s/%s'", digitalOutputStates[pinUVC].state ? "on" : "off",
+   tell(0, "# Solar power is %0.2f Watt; Solar work (today) %0.2f kWh", pSolar, solarWork);
+   tell(0, "# Solar pump is '%s/%s' since '%s'", digitalOutputStates[pinSolarPump].state ? "running" : "stopped",
+        digitalOutputStates[pinSolarPump].mode == omAuto ? "auto" : "manual", l2pTime(digitalOutputStates[pinFilterPump].last).c_str());
+   tell(0, "# Filter pump is '%s/%s' since '%s'", digitalOutputStates[pinFilterPump].state ? "running" : "stopped",
+        digitalOutputStates[pinFilterPump].mode == omAuto ? "auto" : "manual", l2pTime(digitalOutputStates[pinFilterPump].last).c_str());
+   tell(0, "# UV-C light is '%s/%s'", digitalOutputStates[pinUVC].state ? "on" : "off",
         digitalOutputStates[pinUVC].mode == omAuto ? "auto" : "manual");
-   tell(0, "Pool light is '%s/%s'", digitalOutputStates[pinPoolLight].state ? "on" : "off",
+   tell(0, "# Pool light is '%s/%s'", digitalOutputStates[pinPoolLight].state ? "on" : "off",
         digitalOutputStates[pinPoolLight].mode == omAuto ? "auto" : "manual");
 
-   tell(0, "------------------------");
+   tell(0, "# ------------------------");
 }
 
 //***************************************************************************
@@ -1984,6 +2000,21 @@ int Poold::getWaterLevel()
 }
 
 //***************************************************************************
+// PH Measurement Active
+//***************************************************************************
+
+bool Poold::phMeasurementActive()
+{
+   if (digitalOutputStates[pinFilterPump].state &&
+       digitalOutputStates[pinFilterPump].last < time(0)-minPumpTimeForPh)
+   {
+      return true;
+   }
+
+   return false;
+}
+
+//***************************************************************************
 // Calc PH Minus Volume
 //***************************************************************************
 
@@ -2212,6 +2243,9 @@ void Poold::publishSpecialValue(int sp, double value)
       json_object_set_new(ojData, "value", json_real(value));
       json_object_set_new(ojData, "widgettype", json_integer(wtChart));
 
+      if (!phMeasurementActive() && sp == spPhMinusDemand)
+         json_object_set_new(ojData, "disabled", json_boolean(true));
+
       char* tupel {nullptr};
       asprintf(&tupel, "SP:0x%02x", sp);
       json_object_set_new(ojData, "dashboard", json_boolean(addrsDashboard.empty() || std::find(addrsDashboard.begin(), addrsDashboard.end(), tupel) != addrsDashboard.end()));
@@ -2400,6 +2434,9 @@ void Poold::updateAnalogInput(const char* id, int value, time_t stamp)
       sensor2Json(ojData, tableValueFacts);
       json_object_set_new(ojData, "value", json_real(aiSensors[input].value));
       json_object_set_new(ojData, "widgettype", json_integer(wtChart));
+
+      if (!phMeasurementActive() && input == aiPh)
+         json_object_set_new(ojData, "disabled", json_boolean(true));
 
       char* tupel {nullptr};
       asprintf(&tupel, "AI:0x%02x", input);

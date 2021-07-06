@@ -301,6 +301,7 @@ std::string executeCommand(const char* cmd);
 
 double usNow();
 int l2hhmm(time_t t);
+time_t midnightOf(time_t t);
 const char* toWeekdayName(uint day);
 unsigned int getHostId();
 byte crc(const byte* data, int size);

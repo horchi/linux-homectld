@@ -154,6 +154,20 @@ int l2hhmm(time_t t)
    return  tm.tm_hour * 100 + tm.tm_min;
 }
 
+time_t midnightOf(time_t t)
+{
+   struct tm tm;
+
+   localtime_r(&t, &tm);
+
+   tm.tm_hour = 0;
+   tm.tm_min = 0;
+   tm.tm_sec = 0;
+   tm.tm_isdst = -1;  // force DST auto detect
+
+   return mktime(&tm);
+}
+
 const char* toWeekdayName(uint day)
 {
    const char* dayNames[] =

@@ -240,6 +240,7 @@ class Poold : public cWebInterface
       bool doShutDown() { return shutdown; }
 
       int getWaterLevel();
+      bool phMeasurementActive();
       int calcPhMinusVolume(double ph);
       void gpioWrite(uint pin, bool state, bool store = true);
       bool gpioRead(uint pin);
@@ -405,13 +406,17 @@ class Poold : public cWebInterface
       int deactivatePumpsAtLowWater {no};
       int alertSwitchOffPressure {0};
 
+      // PH stuff
+
+      int phMinusVolume {0};           // aktull errechnete Menge um phReference zu erreichen
       int phInterval {0};
       double phMinusDensity {0.0};
-      int phMinusDemand01 {0};
+      int phMinusDemand01 {0};         // Menge zum Senken um 0,1 [g]
       int phMinusDayLimit {0};
       int phPumpDuration100 {0};
-      double phReference {0.0};
+      double phReference {0.0};        // PG Referenzwert (sollwert)
 
+      int minPumpTimeForPh { 10 * tmeSecondsPerMinute }; // [s] #TODO -> add to config?
       double phCalibratePointA {0.0};
       int phCalibratePointValueA {0};
       double phCalibratePointB {0.0};

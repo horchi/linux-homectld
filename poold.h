@@ -331,6 +331,7 @@ class Poold : public cWebInterface
       cDbStatement* selectSamplesRange {nullptr};
       cDbStatement* selectSamplesRange60 {nullptr};
       cDbStatement* selectScriptByPath {nullptr};
+      cDbStatement* selectSolarWorkPerDay {nullptr};
 
       cDbValue xmlTime;
       cDbValue rangeFrom;

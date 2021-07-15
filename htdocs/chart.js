@@ -13,7 +13,6 @@ function drawCharts(dataObject)
    var update = document.getElementById("chartTitle") != null;
 
    if (!update) {
-      $('#stateContainer').addClass('hidden');
       $('#container').removeClass('hidden');
 
       document.getElementById("container").innerHTML =
@@ -166,7 +165,6 @@ function getSensors()
 
    return sensors;
 }
-
 
 function updateChartBookmarks()
 {

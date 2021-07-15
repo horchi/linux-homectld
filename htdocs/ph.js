@@ -15,6 +15,8 @@ function requestActualPh()
 
 function updatePhCal(data)
 {
+   $('#container').removeClass('hidden');
+
    if (document.getElementById("inputCalMeasureValue1").value == "") {
       document.getElementById("inputCalMeasureValue1").value = data.calValue;
       document.getElementById("currentCalMeasureText1").innerHTML = "&nbsp;&nbsp;&nbsp;(Durchschnitt über&nbsp;"
@@ -31,6 +33,8 @@ function updatePhCal(data)
 
 function updatePhActual(data)
 {
+   $('#container').removeClass('hidden');
+
    if (document.getElementById("phShowActual") == null) {
       document.getElementById("container").innerHTML =
          '<div id="phShowActual" class="rounded-border phSetup">' +

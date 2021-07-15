@@ -21,6 +21,8 @@ var rights = [ "View",
 
 function initUserConfig(users)
 {
+   $('#container').removeClass('hidden');
+
    document.getElementById("container").innerHTML =
       '<div id="userContainer" class="rounded-border inputTableConfig">' +
       '<table class="tableMultiCol">' +

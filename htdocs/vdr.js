@@ -10,7 +10,6 @@
 
 function initVdr()
 {
-   $('#stateContainer').addClass('hidden');
    $('#container').removeClass('hidden');
 
    document.getElementById("container").innerHTML =

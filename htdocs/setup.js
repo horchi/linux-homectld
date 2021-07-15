@@ -10,7 +10,6 @@
 
 function initConfig(configuration)
 {
-   $('#stateContainer').addClass('hidden');
    $('#container').removeClass('hidden');
 
    $("#container").height($(window).height() - $("#menu").height() - 8);
@@ -186,6 +185,8 @@ function filterIoSetup()
 
 function initIoSetup(valueFacts)
 {
+   $('#container').removeClass('hidden');
+
    document.getElementById("container").innerHTML =
       '<div id="ioSetupContainer">' +
       '  <div class="rounded-border seperatorTitle1">Digitale Ausgänge</div>' +

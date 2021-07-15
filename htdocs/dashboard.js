@@ -16,7 +16,6 @@ function initDashboard(update = false)
    }
 
    if (!update) {
-      $('#stateContainer').addClass('hidden');
       $('#container').removeClass('hidden');
    }
 

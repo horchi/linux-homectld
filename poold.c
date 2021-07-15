@@ -702,6 +702,21 @@ int Poold::initDb()
    status += selectSamplesRange60->prepare();
 
    // ------------------
+   // select solar work per day
+   //    select date(time), max(value)
+   //      from samples
+   //      where type = 'SP' and address = 6 group by date(time);
+
+   selectSolarWorkPerDay = new cDbStatement(tableSamples);
+   selectSolarWorkPerDay->build("select ");
+   selectSolarWorkPerDay->bindTextFree("date(time)", tableSamples->getValue("time"), "", cDBS::bndOut);
+   selectSolarWorkPerDay->bindTextFree("max(value)", tableSamples->getValue("value"), ", ", cDBS::bndOut);
+   selectSolarWorkPerDay->build(" from %s where ", tableSamples->TableName());
+   selectSolarWorkPerDay->build(" TYPE = '%s' and ADDRESS = %d", "SP", spSolarWork);
+   selectSolarWorkPerDay->build(" group by date(time)");
+   status += selectSolarWorkPerDay->prepare();
+
+   // ------------------
    // select script by path
 
    selectScriptByPath = new cDbStatement(tableScripts);
@@ -723,19 +738,20 @@ int Poold::initDb()
 
 int Poold::exitDb()
 {
-   delete tableSamples;            tableSamples = 0;
-   delete tablePeaks;              tablePeaks = 0;
-   delete tableValueFacts;         tableValueFacts = 0;
-   delete tableConfig;             tableConfig = 0;
-   delete tableUsers;              tableUsers = 0;
-   delete selectActiveValueFacts;  selectActiveValueFacts = 0;
-   delete selectAllValueFacts;     selectAllValueFacts = 0;
-   delete selectAllConfig;         selectAllConfig = 0;
-   delete selectAllUser;           selectAllUser = 0;
-   delete selectMaxTime;           selectMaxTime = 0;
-   delete selectSamplesRange;      selectSamplesRange = 0;
-   delete selectSamplesRange60;    selectSamplesRange60 = 0;
-   delete connection;              connection = 0;
+   delete tableSamples;            tableSamples = nullptr;
+   delete tablePeaks;              tablePeaks = nullptr;
+   delete tableValueFacts;         tableValueFacts = nullptr;
+   delete tableConfig;             tableConfig = nullptr;
+   delete tableUsers;              tableUsers = nullptr;
+   delete selectActiveValueFacts;  selectActiveValueFacts = nullptr;
+   delete selectAllValueFacts;     selectAllValueFacts = nullptr;
+   delete selectAllConfig;         selectAllConfig = nullptr;
+   delete selectAllUser;           selectAllUser = nullptr;
+   delete selectMaxTime;           selectMaxTime = nullptr;
+   delete selectSamplesRange;      selectSamplesRange = nullptr;
+   delete selectSamplesRange60;    selectSamplesRange60 = nullptr;
+   delete selectSolarWorkPerDay;   selectSolarWorkPerDay = nullptr;
+   delete connection;              connection = nullptr;
 
    return done;
 }
@@ -1151,7 +1167,8 @@ int Poold::update(bool webOnly, long client)
       }
       else if (tableValueFacts->hasValue("TYPE", "AI"))     // Analog Input
       {
-         if (aiSensors[addr].value == aiSensors[addr].value) // check for NaN
+         if (aiSensors[addr].value == aiSensors[addr].value &&  // check for NaN
+             aiSensors[addr].last > time(0)-120)                // not older than 2 minutes
          {
             json_object_set_new(ojData, "value", json_real(aiSensors[addr].value));
             json_object_set_new(ojData, "widgettype", json_integer(wtChart));
@@ -1357,7 +1374,8 @@ int Poold::process()
    // -----------
    // PH
 
-   if (aiSensors[aiPh].value == aiSensors[aiPh].value) // check for NaN
+   if (aiSensors[aiPh].value == aiSensors[aiPh].value &&  // check for NaN
+       aiSensors[aiPh].last > time(0)-120)                // not older than 2 minutes
    {
       phMinusVolume = calcPhMinusVolume(aiSensors[aiPh].value);
       publishSpecialValue(spPhMinusDemand, phMinusVolume);
@@ -1508,21 +1526,37 @@ int Poold::process()
 
 void Poold::logReport()
 {
+   static time_t nextLogAt {0};
+   char buf[255+TB];
+
    tell(0, "# ------------------------");
 
    tell(0, "# Pool has %.2f °C; Solar has %.2f °C; Current delta is %.2f° (%.2f° configured)",
         tPool, tSolar, tCurrentDelta, tSolarDelta);
    tell(0, "# Solar power is %0.2f Watt; Solar work (today) %0.2f kWh", pSolar, solarWork);
    tell(0, "# Solar pump is '%s/%s' since '%s'", digitalOutputStates[pinSolarPump].state ? "running" : "stopped",
-        digitalOutputStates[pinSolarPump].mode == omAuto ? "auto" : "manual", l2pTime(digitalOutputStates[pinFilterPump].last).c_str());
+        digitalOutputStates[pinSolarPump].mode == omAuto ? "auto" : "manual", toElapsed(time(0)-digitalOutputStates[pinSolarPump].last, buf));
    tell(0, "# Filter pump is '%s/%s' since '%s'", digitalOutputStates[pinFilterPump].state ? "running" : "stopped",
-        digitalOutputStates[pinFilterPump].mode == omAuto ? "auto" : "manual", l2pTime(digitalOutputStates[pinFilterPump].last).c_str());
+        digitalOutputStates[pinFilterPump].mode == omAuto ? "auto" : "manual", toElapsed(time(0)-digitalOutputStates[pinFilterPump].last, buf));
    tell(0, "# UV-C light is '%s/%s'", digitalOutputStates[pinUVC].state ? "on" : "off",
         digitalOutputStates[pinUVC].mode == omAuto ? "auto" : "manual");
    tell(0, "# Pool light is '%s/%s'", digitalOutputStates[pinPoolLight].state ? "on" : "off",
         digitalOutputStates[pinPoolLight].mode == omAuto ? "auto" : "manual");
 
    tell(0, "# ------------------------");
+
+   if (time(0) > nextLogAt)
+   {
+      nextLogAt = time(0) + 5 * tmeSecondsPerMinute;
+
+      tell(0, "# Solar Work");
+
+      for (int f = selectSolarWorkPerDay->find(); f; f = selectSolarWorkPerDay->fetch())
+         tell(0, "  %s, %.2f", l2pTime(tableSamples->getTimeValue("TIME"), "%d.%m.%Y").c_str(), tableSamples->getFloatValue("VALUE"));
+
+      selectSolarWorkPerDay->freeResult();
+      tell(0, "# ------------------------");
+   }
 }
 
 //***************************************************************************
@@ -2317,6 +2351,11 @@ int Poold::loadStates()
       }
    }
 
+   // if filter pump is running assume its running at least 'minPumpTimeForPh'
+
+   if (digitalOutputStates[pinFilterPump].state)
+      digitalOutputStates[pinFilterPump].last = time(0)-minPumpTimeForPh;
+
    return done;
 }
 
@@ -2347,8 +2386,15 @@ int Poold::dispatchArduinoMsg(const char* message)
       {
          const char* name = getStringFromJson(jValue, "name");
          double value = getDoubleFromJson(jValue, "value");
+         time_t stamp = getIntFromJson(jValue, "time");
 
-         updateAnalogInput(name, value, time(0));
+         if (stamp < time(0)-300)
+         {
+            tell(eloAlways, "Skipping old (%ld seconds) arduino value", time(0)-stamp);
+            continue;
+         }
+
+         updateAnalogInput(name, value, stamp);
       }
 
       process();

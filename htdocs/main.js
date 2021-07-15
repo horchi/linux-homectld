@@ -1,7 +1,7 @@
 /*
  *  main.js
  *
- *  (c) 2020 Jörg Wendel
+ *  (c) 2020-2021 Jörg Wendel
  *
  * This code is distributed under the terms and conditions of the
  * GNU GENERAL PUBLIC LICENSE. See the file COPYING for details.
@@ -9,7 +9,6 @@
  */
 
 var WebSocketClient = window.WebSocketClient
-// import WebSocketClient from "./websocket.js"
 
 var storagePrefix = "p4d";
 var isActive = null;
@@ -382,6 +381,8 @@ function mainMenuSel(what)
    currentPage = what;
    console.log("switch to " + currentPage);
 
+   hideAllContainer();
+
    if (currentPage != lastPage && (currentPage == "vdr" || lastPage == "vdr")) {
       console.log("closing socket " + socket.protocol);
       socket.close();
@@ -398,6 +399,8 @@ function mainMenuSel(what)
 
       connectWebSocket(url, protocol);
    }
+
+   prepareMenu();
 
    if (currentPage != "vdr")
       socket.send({ "event" : "pagechange", "object" : { "page"  : currentPage }});
@@ -443,13 +446,10 @@ function mainMenuSel(what)
          phCalTimerhandle = null;
       }
    }
-
-   prepareMenu();
 }
 
 function initLogin()
 {
-   $('#stateContainer').addClass('hidden');
    $('#container').removeClass('hidden');
 
    document.getElementById("container").innerHTML =
@@ -470,6 +470,7 @@ function initLogin()
 
 function showSyslog(log)
 {
+   $('#container').removeClass('hidden');
    document.getElementById("container").innerHTML = '<div id="syslogContainer" class="log"></div>';
 
    var root = document.getElementById("syslogContainer");
@@ -521,6 +522,12 @@ function doLogout()
    localStorage.removeItem(storagePrefix + 'Rights');
    console.log("logout");
    mainMenuSel('login');
+}
+
+function hideAllContainer()
+{
+   $('#stateContainer').addClass('hidden');
+   $('#container').addClass('hidden');
 }
 
 // ---------------------------------

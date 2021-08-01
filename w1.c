@@ -10,6 +10,7 @@
 #include <dirent.h>
 #include <vector>
 #include <numeric>
+#include <cmath> 
 
 #include "w1.h"
 #include "lib/json.h"
@@ -170,7 +171,7 @@ int W1::update()
             {
                double sum = std::accumulate(sensors[it->first].values.cbegin(), sensors[it->first].values.cend(), 0);
                double average = sum / sensors[it->first].values.size();
-               double delta = ::abs(average - value);
+               double delta = std::abs(average - value);
 
                tell(1, "Info: %s : %0.2f, the average of the last %zd samples is %0.2f (delta is %0.2f)",
                     it->first.c_str(), value, sensors[it->first].values.size(), average, average - value);

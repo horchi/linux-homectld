@@ -1330,6 +1330,7 @@ int Poold::process()
    {
       lastDay = midnightOf(time(0));
       solarWork = 0.0;
+      setConfigItem("lastSolarWork", solarWork);
    }
 
    time_t tPoolLast, tSolarLast;

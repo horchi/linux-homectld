@@ -341,6 +341,17 @@ int removeFile(const char* filename);
 int loadFromFile(const char* infile, MemoryStruct* data);
 int loadLinesFromFile(const char* infile, std::vector<std::string>& lines, bool removeLF = true);
 
+struct FsStat
+{
+   double total;
+   double available;
+   double used;
+   unsigned int usedP;
+
+};
+
+int fsStat(const char* mount, FsStat* stat);
+
 struct FileInfo
 {
    std::string path;

@@ -424,9 +424,9 @@ class Poold : public cWebInterface
       int phCalibratePointValueB {0};
 
       double pressCalibratePointA {0.0};
-      int pressCalibratePointValueA {400};
+      int pressCalibratePointValueA {463};
       double pressCalibratePointB {0.6};
-      int pressCalibratePointValueB {2600};
+      int pressCalibratePointValueB {2290};
 
       std::vector<Range> filterPumpTimes;
       std::vector<Range> uvcLightTimes;

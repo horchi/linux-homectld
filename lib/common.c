@@ -825,6 +825,32 @@ int loadFromFile(const char* infile, MemoryStruct* data)
 }
 
 //***************************************************************************
+// Filesystem Stat
+//***************************************************************************
+
+#include <sys/statvfs.h>
+
+int fsStat(const char* mount, FsStat* stat)
+{
+   const unsigned int GB {1024 * 1024 * 1024};
+   struct statvfs statVFS;
+
+   if (statvfs(mount, &statVFS) != 0)
+      return fail;
+
+   stat->total = (double)(statVFS.f_blocks * statVFS.f_frsize);
+   stat->available = (double)(statVFS.f_bfree * statVFS.f_frsize);
+   stat->used = stat->total - stat->available;
+   stat->usedP = (stat->used / stat->total) * 100.0;
+
+   stat->total /= GB;
+   stat->available /= GB;
+   stat->used /= GB;
+
+   return success;
+}
+
+//***************************************************************************
 // TOOLS
 //***************************************************************************
 

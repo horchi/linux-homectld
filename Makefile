@@ -72,7 +72,7 @@ install-poold: install-config install-scripts
 	install --mode=755 -D $(ARDUINO_IF_CMD) $(BINDEST)/
 	make install-systemd
 	mkdir -p $(DESTDIR)$(PREFIX)/share/poold/
-	install --mode=644 -D arduino/build-nano-atmega328/ioctrl.hex $(DESTDIR)$(PREFIX)/share/poold/nano-atmega328-ioctrl.hex
+#	install --mode=644 -D arduino/build-nano-atmega328/ioctrl.hex $(DESTDIR)$(PREFIX)/share/poold/nano-atmega328-ioctrl.hex
 
 inst_restart: $(TARGET) install-config # install-scripts
 	systemctl stop poold

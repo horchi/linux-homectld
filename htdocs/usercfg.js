@@ -76,6 +76,8 @@ function initUserConfig(users)
 
 function initUser()
 {
+   $('#container').removeClass('hidden');
+
    document.getElementById("container").innerHTML =
       '<div id="userContainer" class="rounded-border inputTableConfig">' +
       '  <button class="rounded-border button2" onclick="doLogout()">Logout</button>' +

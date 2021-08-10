@@ -175,7 +175,7 @@ if the database is running remote, or you like to have remote access to the data
 ### install the build dependencies
 
 ```
-apt install build-essential cmake libssl-dev libxml2-dev libcurl4-openssl-dev uuid-dev
+apt install build-essential cmake libssl-dev libxml2-dev libcurl4-openssl-dev uuid-dev libcap-dev
 apt install libjansson-dev libssl-dev libmariadbclient-dev libmariadb-dev-compat wiringpi
 ```
 

@@ -15,8 +15,8 @@
 
 #include "settings.h"           // set your WiFi an MQTT connection data here!
 
-const char* topicIn  {"poold2mqtt/arduino/in"};
-const char* topicOut {"poold2mqtt/arduino/out"};
+const char* topicIn  {TOPIC "/arduino/in"};
+const char* topicOut {TOPIC "/arduino/out"};
 
 int ledPin {LED_BUILTIN};
 unsigned int updateInterval {30 * 1000};  // update/push sensor data every x seconds
@@ -210,7 +210,7 @@ void loop()
 }
 
 //***************************************************************************
-// Update
+// Update One Wire
 //***************************************************************************
 
 void update()

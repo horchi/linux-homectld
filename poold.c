@@ -1240,7 +1240,7 @@ int Poold::update(bool webOnly, long client)
             if (!webOnly)
                store(now, name, title, unit, type, addr, pSolar);
          }
-         if (addr == spSolarWork)
+         else if (addr == spSolarWork)
          {
             json_object_set_new(ojData, "value", json_real(solarWork));
             json_object_set_new(ojData, "widgettype", json_integer(wtChart));

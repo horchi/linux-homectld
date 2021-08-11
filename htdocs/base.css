@@ -123,7 +123,7 @@ button:focus {
 
 .seperatorTitle1
 {
-    background-color: var(--caption1);
+    background-color: var(--blueshade);
     color: var(--light2);
     padding: 5px 15px;
     font-weight: bold;
@@ -879,7 +879,7 @@ table.tableMultiCol tr:nth-child(odd)
 {
     justify-content: center;
     overflow: hidden;
-    width: 330px;
+    width: 260px;
     height: 212px;
     margin: 3px;
     background-color: var(--light1);
@@ -888,14 +888,20 @@ table.tableMultiCol tr:nth-child(odd)
 
 .widget
 {
-  display: grid;
-  grid-template-areas:
-    'title'
-    'main'
-    'progress';
-  grid-template-rows: 14% 82% 2%;
-  grid-gap: 1px;
-  box-shadow: 1px 1px 1px 0px var(--shadow);
+    display: grid;
+    grid-template-areas:
+        'title'
+        'main'
+        'progress';
+    grid-template-rows: 14% 82% 2%;
+    grid-gap: 1px;
+    box-shadow: 1px 1px 1px 0px var(--shadow);
+}
+
+.widgetPlain
+{
+    text-align: center;
+    box-shadow: 1px 1px 1px 0px var(--shadow);
 }
 
 .widgetManuel
@@ -903,24 +909,13 @@ table.tableMultiCol tr:nth-child(odd)
     background-color: #a27373 !important;
 }
 
-.widgetGauge
-{
-    display: grid;
-    grid-template-areas:
-      'title'
-       'main';
-    grid-template-rows: 15% 85%;
-    grid-gap: 1px;
-    box-shadow: 1px 1px 1px 0px var(--shadow);
-}
-
 .widgetCtrl
 {
     display: grid;
     grid-template-areas:
-      'title title'
-      'main main'
-      'ctrl1 ctrl2';
+        'title title'
+        'main main'
+        'ctrl1 ctrl2';
     grid-template-rows: 15% 66% 16%;
     grid-gap: 1px;
     box-shadow: 1px 1px 1px 0px var(--shadow);
@@ -930,9 +925,9 @@ table.tableMultiCol tr:nth-child(odd)
 {
     display: grid;
     grid-template-areas:
-      'title title'
-      'peak value'
-      'chart chart';
+        'title title'
+        'peak value'
+        'chart chart';
     grid-template-rows: 15% 16% 69%;
     grid-gap: 1px;
     box-shadow: 1px 1px 1px 0px var(--shadow);
@@ -984,7 +979,7 @@ table.tableMultiCol tr:nth-child(odd)
     background-color: Transparent;
     cursor: pointer;
     border: none;
-   /* width: inherit;*/
+    /* width: inherit; */
     color: var(--buttonFont);
     text-overflow: ellipsis;
 }
@@ -1025,6 +1020,67 @@ table.tableMultiCol tr:nth-child(odd)
     max-height: 100%;
 }
 
+.widget-main-gauge
+{
+    grid-area: main;
+    width: 100%;
+    align-self: center;
+}
+
+.widgetMeter
+{
+    display: grid;
+    grid-template-areas:
+        'title'
+        'main';
+    grid-template-rows: 15% 85%;
+    grid-gap: 1px;
+    box-shadow: 1px 1px 1px 0px var(--shadow);
+}
+
+.widgetMeterLinear
+{
+    display: grid;
+    grid-template-areas:
+        'title title'
+        'main value';
+    grid-template-rows: 15% 85%;
+    grid-gap: 1px;
+    box-shadow: 1px 1px 1px 0px var(--shadow);
+}
+
+.widget-main-meter
+{
+    grid-area: main;
+    width: 100%;
+    height: 100%;
+    align-self: center;
+}
+
+.widget-main-meter-lin
+{
+    grid-area: main;
+    width: 55%;
+    height: 100%;
+    align-self: center;
+    /*place-self: center;*/
+}
+
+.widget-main-value-lin
+{
+    grid-area: value;
+    font-size: 1.5em;
+    text-align: end;
+    font-weight: bold;
+    align-self: center;
+}
+
+.widget-main-meter > canvas
+{
+    width: 100%;
+    height: 100%;
+}
+
 .widget-value
 {
     grid-area: main;
@@ -1057,13 +1113,6 @@ table.tableMultiCol tr:nth-child(odd)
     cursor: pointer;
 }
 
-.widget-svg
-{
-    grid-area: main;
-    width: 100%;
-    align-self: center;
-}
-
 .widget > button > img
 {
     max-width: 100%;
@@ -1085,6 +1134,7 @@ table.tableMultiCol tr:nth-child(odd)
     font-size: 3.0em;
     fill: white;
 }
+
 .gauge-value
 {
     text-align: center;
@@ -1161,8 +1211,10 @@ dialog::backdrop, #backdrop
     .inputTableConfig > div > span:nth-child(3) { width: 25%; }
     .inputTableConfig > div > span              { width: 30%; }
 
-    .widgetContainer > div     { width: 185px; height: 160px; }
+    .widgetContainer > div     { width: 180px; height: 160px; }
     .widgetGauge               { grid-template-rows: 30% 70%; }
+    /* .widgetMeter            { grid-template-rows: 15% 85; } */
+    .widget-main-meter-lin     { width: 40%; }
     .widget                    { grid-template-rows: 30% 66% 4%; }
     .widgetChart               { grid-template-rows: 30% 20% 50%; }
     .widget-title              { font-size: 1.2em; }

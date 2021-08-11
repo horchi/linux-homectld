@@ -66,10 +66,10 @@ std::list<Poold::ConfigItemDef> Poold::configuration
    { "phMinusDayLimit",           ctInteger, "100",          false, "2 PH", "Obergrenze PH Minus/Tag [ml]", "Wie viel PH Minus wird pro Tag maximal zugegeben [ml] (default 100ml)" },
    { "phPumpDurationPer100",      ctInteger, "1000",         false, "2 PH", "Laufzeit Dosierpumpe/100ml [ms]", "Welche Zeit in Millisekunden benötigt die Dosierpumpe um 100ml zu fördern (default 1000ms)" },
 
-   { "phCalibratePointA",         ctNum,     "7.0",          false, "2 PH", "Kallibrier-Punkt A", "" },
-   { "phCalibratePointValueA",    ctInteger, "377",          false, "2 PH", "Wert (digits) am Kallibrier-Punkt A", "" },
-   { "phCalibratePointB",         ctNum,     "9.0",          false, "2 PH", "Kallibrier-Punkt B", "" },
-   { "phCalibratePointValueB",    ctInteger, "412",          false, "2 PH", "Wert (digits) am Kallibrier-Punkt B", "" },
+   // { "phCalibratePointA",         ctNum,     "7.0",          false, "2 PH", "Kallibrier-Punkt A", "" },
+   // { "phCalibratePointValueA",    ctInteger, "377",          false, "2 PH", "Wert (digits) am Kallibrier-Punkt A", "" },
+   // { "phCalibratePointB",         ctNum,     "9.0",          false, "2 PH", "Kallibrier-Punkt B", "" },
+   // { "phCalibratePointValueB",    ctInteger, "412",          false, "2 PH", "Wert (digits) am Kallibrier-Punkt B", "" },
 
    // web
 
@@ -92,6 +92,44 @@ std::list<Poold::ConfigItemDef> Poold::configuration
    { "errorMailTo",               ctString,  "",                        false, "5 Mail", "Fehler Mail Empfänger", "Komma getrennte Empfängerliste" },
    { "webUrl",                    ctString,  "",                        false, "5 Mail", "URL der Visualisierung", "kann mit %weburl% in die Mails eingefügt werden" },
 };
+
+//***************************************************************************
+// Service
+//***************************************************************************
+
+const char* Poold::widgetTypes[] =
+{
+   "Symbol",
+   "Chart",
+   "Text",
+   "Value",
+   "Gauge",
+   "Meter",
+   "MeterLevel",
+   "PlainText",
+   0
+};
+
+const char* Poold::toName(WidgetType type)
+{
+   if (type > wtUnknown && type < wtCount)
+      return widgetTypes[type];
+
+   return widgetTypes[wtText];
+}
+
+Poold::WidgetType Poold::toType(const char* name)
+{
+   if (!name)
+      return wtUnknown;
+
+   for (int t = wtUnknown+1; t < wtCount; t++)
+      if (strcasecmp(name, widgetTypes[t]) == 0)
+         return (WidgetType)t;
+
+   return wtText;
+}
+
 
 //***************************************************************************
 // Object
@@ -184,10 +222,30 @@ int Poold::pushDataUpdate(const char* title, long client)
       auto cl = wsClients[(void*)client];
       json_t* oWsJson = json_array();
 
-      for (auto sj : jsonSensorList)
-         json_array_append(oWsJson, sj.second);
+      if (cl.page == "dashboard")
+      {
+         if (addrsDashboard.size())
+         {
+            for (const auto sensor : addrsDashboard)
+               json_array_append(oWsJson, jsonSensorList[sensor]);
+         }
+         else
+            for (auto sj : jsonSensorList)
+               json_array_append(oWsJson, sj.second);
 
-      pushOutMessage(oWsJson, title, client);
+         pushOutMessage(oWsJson, title, client);
+      }
+      else if (cl.page == "list")
+      {
+         if (addrsList.size())
+            for (const auto sensor : addrsList)
+               json_array_append(oWsJson, jsonSensorList[sensor]);
+         else
+            for (auto sj : jsonSensorList)
+               json_array_append(oWsJson, sj.second);
+
+         pushOutMessage(oWsJson, title, client);
+      }
    }
    else
    {
@@ -195,9 +253,30 @@ int Poold::pushDataUpdate(const char* title, long client)
       {
          json_t* oWsJson = json_array();
 
-         for (auto sj : jsonSensorList)
-            json_array_append(oWsJson, sj.second);
+         if (cl.second.page == "dashboard")
+         {
+            if (addrsDashboard.size())
+            {
+               for (const auto sensor : addrsDashboard)
+                  json_array_append(oWsJson, jsonSensorList[sensor]);
+            }
+            else
+               for (auto sj : jsonSensorList)
+                  json_array_append(oWsJson, sj.second);
+         }
+         else if (cl.second.page == "list")
+         {
+            if (addrsList.size())
+               for (const auto sensor : addrsList)
+                  json_array_append(oWsJson, jsonSensorList[sensor]);
+            else
+               for (auto sj : jsonSensorList)
+                  json_array_append(oWsJson, sj.second);
+         }
+         else
+            continue;
 
+         // tell(1, "pushDataUpdate '%s' to client (%ld) count is (%zu)", title, (long)cl.first, wsClients.size());
          pushOutMessage(oWsJson, title, (long)cl.first);
       }
    }
@@ -296,7 +375,8 @@ int Poold::init()
       }
    }
 
-   readConfiguration();
+   readConfiguration(true);
+   initLocale();
 
    // ---------------------------------
    // setup GPIO
@@ -331,14 +411,27 @@ int Poold::init()
 
    // special values
 
-   addValueFact(spWaterLevel, "SP", "Water Level", "%");
-   addValueFact(spSolarDelta, "SP", "Solar Delta", "°C");
-   addValueFact(spPhMinusDemand, "SP", "PH Minus Bedarf", "ml");
-   addValueFact(spLastUpdate, "SP", "Aktualisiert", "");
-   addValueFact(spSolarPower, "SP", "Solar Leistung", "W");
-   addValueFact(spSolarWork, "SP", "Solar Energie (heute)", "kWh");
-   addValueFact(aiPh, "AI", "PH", "");
-   addValueFact(aiFilterPressure, "AI", "Druck", "bar");
+   addValueFact(spLastUpdate, "SP", "Aktualisiert", "", wtText);
+   addValueFact(spWaterLevel, "SP", "Water Level", "%", wtMeterLevel);
+   addValueFact(spSolarDelta, "SP", "Solar Delta", "°C", wtMeter);
+   addValueFact(spPhMinusDemand, "SP", "PH Minus Bedarf", "ml", wtMeter);
+   addValueFact(spSolarPower, "SP", "Solar Leistung", "W", wtMeter);
+   addValueFact(spSolarWork, "SP", "Solar Energie (heute)", "kWh", wtChart);
+   addValueFact(aiPh, "AI", "PH", "", wtMeter);
+   addValueFact(aiFilterPressure, "AI", "Druck", "bar", wtMeter);
+
+   // ---------------------------------
+   // move calibration to config!
+
+   aiSensors[aiPh].calPointA = 7.0;
+   aiSensors[aiPh].calPointB = 9.0;
+   aiSensors[aiPh].calPointValueA = 2070;
+   aiSensors[aiPh].calPointValueB = 3135;
+
+   aiSensors[aiFilterPressure].calPointA = 0.0;
+   aiSensors[aiFilterPressure].calPointB = 0.6;
+   aiSensors[aiFilterPressure].calPointValueA = 463;
+   aiSensors[aiFilterPressure].calPointValueB = 2290;
 
    // ---------------------------------
    // apply some configuration specials
@@ -353,13 +446,6 @@ int Poold::init()
       sleep(2);
    }
 
-   // init PH interface
-
-   // if (!isEmpty(arduinoDevice))
-   //    arduinoInterface.open(arduinoDevice);
-
-   //
-
    initScripts();
    loadStates();
    initArduino();
@@ -367,6 +453,30 @@ int Poold::init()
    initialized = true;
 
    return success;
+}
+
+int Poold::initLocale()
+{
+   // set a locale to "" means 'reset it to the environment'
+   // as defined by the ISO-C standard the locales after start are C
+
+   const char* locale {nullptr};
+
+   setlocale(LC_ALL, "");
+   locale = setlocale(LC_ALL, 0);  // 0 for query the setting
+
+   if (!locale)
+   {
+      tell(0, "Info: Detecting locale setting for LC_CTYPE failed");
+      return fail;
+   }
+
+   tell(1, "current locale is %s", locale);
+
+   if ((strcasestr(locale, "UTF-8") != 0) || (strcasestr(locale, "UTF8") != 0))
+      tell(1, "Detected UTF-8");
+
+   return done;
 }
 
 int Poold::exit()
@@ -411,7 +521,7 @@ int Poold::initOutput(uint pin, int opt, OutputMode mode, const char* name, uint
 
    pinMode(pin, OUTPUT);
    gpioWrite(pin, false, false);
-   addValueFact(pin, "DO", name, "", urControl);
+   addValueFact(pin, "DO", name, "", wtSymbol, 0, 0, na, urControl);
 
    return done;
 }
@@ -425,7 +535,7 @@ int Poold::initInput(uint pin, const char* name)
    pinMode(pin, INPUT);
 
    if (!isEmpty(name))
-      addValueFact(pin, "DI", name, "");
+      addValueFact(pin, "DI", name, "", wtSymbol, 0, 0);
 
    digitalInputStates[pin] = gpioRead(pin);
 
@@ -451,8 +561,19 @@ int Poold::initScripts()
       {
          char* scriptPath {nullptr};
          uint id {0};
+         const char* unit {""};
+         char* cmd {nullptr};
 
          asprintf(&scriptPath, "%s/%s", path, script.name.c_str());
+
+         asprintf(&cmd, "%s status", scriptPath);
+         std::string result = executeCommand(cmd);
+         tell(5, "Calling '%s'", cmd);
+         free(cmd);
+         json_t* oData = json_loads(result.c_str(), 0, 0);
+
+         if (oData)
+            unit = getStringFromJson(oData, "unit");
 
          tableScripts->clear();
          tableScripts->setValue("PATH", scriptPath);
@@ -463,15 +584,13 @@ int Poold::initScripts()
             id = tableScripts->getLastInsertId();
          }
          else
-         {
             id = tableScripts->getIntValue("ID");
-         }
 
          selectScriptByPath->freeResult();
 
-         addValueFact(id, "SC", script.name.c_str(), "", urControl);
+         addValueFact(id, "SC", script.name.c_str(), unit, wtSymbol, 0, 0, na, urControl);
 
-         tell(0, "Found script '%s' id is (%d)", scriptPath, id);
+         tell(0, "Found script '%s' id (%d), unit '%s'; result was [%s]", scriptPath, id, unit, result.c_str());
          free(scriptPath);
       }
    }
@@ -768,7 +887,7 @@ int Poold::initW1()
 
    for (const auto& it : w1Sensors)
    {
-      int res = addValueFact((int)toW1Id(it.first.c_str()), "W1", it.first.c_str(), "°C");
+      int res = addValueFact((int)toW1Id(it.first.c_str()), "W1", it.first.c_str(), "°C", wtMeter);
 
       if (res == 1)
          added++;
@@ -787,11 +906,15 @@ int Poold::initW1()
 // Read Configuration
 //***************************************************************************
 
-int Poold::readConfiguration()
+int Poold::readConfiguration(bool initial)
 {
    // init configuration
 
-   getConfigItem("loglevel", loglevel, 1);
+   if (!initial || loglevel == na)
+      getConfigItem("loglevel", loglevel, 1);
+
+   tell(0, "Info: LogLevel set to %d", loglevel);
+
    getConfigItem("interval", interval, interval);
    getConfigItem("webPort", webPort, 61109);
 
@@ -869,10 +992,10 @@ int Poold::readConfiguration()
    getConfigItem("phMinusDayLimit", phMinusDayLimit, 100);                // [ml]
    getConfigItem("phPumpDuration100", phPumpDuration100, 1000);           // [ms]
 
-   getConfigItem("phCalibratePointA", phCalibratePointA, 7.0);            // [ph]
-   getConfigItem("phCalibratePointValueA", phCalibratePointValueA, 377);  // [digits]
-   getConfigItem("phCalibratePointB", phCalibratePointB, 9.0);            // [ph]
-   getConfigItem("phCalibratePointValueB", phCalibratePointValueB, 412);  // [digits]
+   // getConfigItem("phCalibratePointA", phCalibratePointA, 7.0);            // [ph]
+   // getConfigItem("phCalibratePointValueA", phCalibratePointValueA, 377);  // [digits]
+   // getConfigItem("phCalibratePointB", phCalibratePointB, 9.0);            // [ph]
+   // getConfigItem("phCalibratePointValueB", phCalibratePointValueB, 412);  // [digits]
 
    /*
    // config of GPIO pins
@@ -1064,6 +1187,7 @@ int Poold::loop()
          mailBody = "";
          mailBodyHtml = "";
 
+         updateScriptSensors();
          update();
          process();
 
@@ -1121,6 +1245,9 @@ int Poold::update(bool webOnly, long client)
       const char* usrtitle = tableValueFacts->getStrValue("USRTITLE");
       const char* unit = tableValueFacts->getStrValue("UNIT");
       const char* name = tableValueFacts->getStrValue("NAME");
+      const char* imgOn = tableValueFacts->getStrValue("IMGON");
+      const char* imgOff = tableValueFacts->getStrValue("IMGOFF");
+      // WidgetType widgetType = toType(tableValueFacts->getStrValue("WIDGET"));
 
       if (!isEmpty(usrtitle))
          title = usrtitle;
@@ -1128,8 +1255,6 @@ int Poold::update(bool webOnly, long client)
       json_t* ojData = json_object();
       char* tupel {nullptr};
       asprintf(&tupel, "%s:0x%02x", type, addr);
-      json_object_set_new(ojData, "dashboard", json_boolean(addrsDashboard.empty() || std::find(addrsDashboard.begin(), addrsDashboard.end(), tupel) != addrsDashboard.end()));
-      json_object_set_new(ojData, "list", json_boolean(addrsList.empty() || std::find(addrsList.begin(), addrsList.end(), tupel) != addrsList.end()));
       jsonSensorList[tupel] = ojData;
       free(tupel);
 
@@ -1149,7 +1274,6 @@ int Poold::update(bool webOnly, long client)
          if (w1Exist && w1Last > time(0)-300)
          {
             json_object_set_new(ojData, "value", json_real(w1Value));
-            json_object_set_new(ojData, "widgettype", json_integer(wtChart));
 
             if (!webOnly)
                store(now, name, title, unit, type, addr, w1Value);
@@ -1162,7 +1286,6 @@ int Poold::update(bool webOnly, long client)
                tell(eloAlways, "Warning: Data of W1 sensor '%s' seems to be to old (%s)", name, l2pTime(w1Last).c_str());
 
             json_object_set_new(ojData, "text", json_string("missing sensor"));
-            json_object_set_new(ojData, "widgettype", json_integer(wtText));
          }
       }
       else if (tableValueFacts->hasValue("TYPE", "AI"))     // Analog Input
@@ -1171,7 +1294,6 @@ int Poold::update(bool webOnly, long client)
              aiSensors[addr].last > time(0)-120)                // not older than 2 minutes
          {
             json_object_set_new(ojData, "value", json_real(aiSensors[addr].value));
-            json_object_set_new(ojData, "widgettype", json_integer(wtChart));
 
             if (addr == aiPh && !phMeasurementActive())
                json_object_set_new(ojData, "disabled", json_boolean(true));
@@ -1181,61 +1303,40 @@ int Poold::update(bool webOnly, long client)
          else
          {
             json_object_set_new(ojData, "text", json_string("missing sensor"));
-            json_object_set_new(ojData, "widgettype", json_integer(wtText));
          }
       }
       else if (tableValueFacts->hasValue("TYPE", "DO"))    // Digital Output
       {
          json_object_set_new(ojData, "mode", json_string(digitalOutputStates[addr].mode == omManual ? "manual" : "auto"));
          json_object_set_new(ojData, "options", json_integer(digitalOutputStates[addr].opt));
-         json_object_set_new(ojData, "image", json_string(getImageOf(title, digitalOutputStates[addr].state)));
+         json_object_set_new(ojData, "image", json_string(digitalOutputStates[addr].state ? imgOn : imgOff));
          json_object_set_new(ojData, "value", json_integer(digitalOutputStates[addr].state));
          json_object_set_new(ojData, "last", json_integer(digitalOutputStates[addr].last));
          json_object_set_new(ojData, "next", json_integer(digitalOutputStates[addr].next));
-         json_object_set_new(ojData, "widgettype", json_integer(wtSymbol));
 
          if (!webOnly)
             store(now, name, title, unit, type, addr, digitalOutputStates[addr].state);
       }
       else if (tableValueFacts->hasValue("TYPE", "SC"))   // Script Sensor
       {
-         std::string result = callScript(addr, 0, "status").c_str();
-
-         auto pos = result.find(':');
-
-         if (pos == std::string::npos)
+         if (scSensors[addr].kind == "status")
          {
-            tell(0, "Error: Failed to parse result of script '%s' [%s]", title, result.c_str());
-            continue;
+            json_object_set_new(ojData, "value", json_integer(scSensors[addr].state));
+            json_object_set_new(ojData, "image", json_string(scSensors[addr].state ? imgOn : imgOff));
          }
-
-         std::string kind = result.substr(0, pos);
-         std::string value = result.substr(pos+1);
-
-         if (kind == "status")
+         else if (scSensors[addr].kind == "value")
          {
-            bool state = atoi(value.c_str());
-            json_object_set_new(ojData, "value", json_integer(state));
-            json_object_set_new(ojData, "image", json_string(getImageOf(title, state)));
-            json_object_set_new(ojData, "widgettype", json_integer(wtSymbol));
+            json_object_set_new(ojData, "value", json_real(scSensors[addr].value));
          }
-         else if (kind == "value")
-         {
-            json_object_set_new(ojData, "value", json_real(strtod(value.c_str(), nullptr)));
-            json_object_set_new(ojData, "widgettype", json_integer(wtChart));
-         }
-         else
-            tell(0, "Got unexpected script kind '%s' in '%s'", kind.c_str(), result.c_str());
 
          if (!webOnly)
-            store(now, name, title, unit, type, addr, strtod(value.c_str(), nullptr));
+            store(now, name, title, unit, type, addr, scSensors[addr].kind == "value" ? scSensors[addr].value : scSensors[addr].state);
       }
       else if (tableValueFacts->hasValue("TYPE", "SP"))            // Special Values
       {
          if (addr == spSolarPower)
          {
             json_object_set_new(ojData, "value", json_real(pSolar));
-            json_object_set_new(ojData, "widgettype", json_integer(wtChart));
 
             if (!webOnly)
                store(now, name, title, unit, type, addr, pSolar);
@@ -1243,15 +1344,13 @@ int Poold::update(bool webOnly, long client)
          else if (addr == spSolarWork)
          {
             json_object_set_new(ojData, "value", json_real(solarWork));
-            json_object_set_new(ojData, "widgettype", json_integer(wtChart));
 
             if (!webOnly)
                store(now, name, title, unit, type, addr, solarWork);
          }
          else if (addr == spLastUpdate)
          {
-            json_object_set_new(ojData, "text", json_string(l2pTime(time(0), "%T").c_str()));
-            json_object_set_new(ojData, "widgettype", json_integer(wtText));
+            json_object_set_new(ojData, "text", json_string(l2pTime(time(0), "%A\n\n%d. %b %Y\n%T").c_str()));
          }
          else if (addr == spWaterLevel)
          {
@@ -1266,12 +1365,10 @@ int Poold::update(bool webOnly, long client)
                   store(now, name, title, unit, type, addr, waterLevel, text);
 
                json_object_set_new(ojData, "text", json_string(text));
-               json_object_set_new(ojData, "widgettype", json_integer(wtText));
             }
             else
             {
                json_object_set_new(ojData, "value", json_integer(waterLevel));
-               json_object_set_new(ojData, "widgettype", json_integer(wtChart));
 
                if (!webOnly)
                   store(now, name, title, unit, type, addr, waterLevel);
@@ -1280,7 +1377,6 @@ int Poold::update(bool webOnly, long client)
          else if (addr == spSolarDelta)
          {
             json_object_set_new(ojData, "value", json_real(tCurrentDelta));
-            json_object_set_new(ojData, "widgettype", json_integer(wtChart));
 
             if (!webOnly)
                store(now, name, title, unit, type, addr, tCurrentDelta);
@@ -1290,7 +1386,6 @@ int Poold::update(bool webOnly, long client)
             if (aiSensors[aiPh].value)
             {
                json_object_set_new(ojData, "value", json_real(phMinusVolume));
-               json_object_set_new(ojData, "widgettype", json_integer(wtChart));
 
                if (!phMeasurementActive())
                   json_object_set_new(ojData, "disabled", json_boolean(true));
@@ -1528,36 +1623,90 @@ int Poold::process()
 void Poold::logReport()
 {
    static time_t nextLogAt {0};
+   static time_t nextDetailLogAt {0};
    char buf[255+TB];
-
-   tell(0, "# ------------------------");
-
-   tell(0, "# Pool has %.2f °C; Solar has %.2f °C; Current delta is %.2f° (%.2f° configured)",
-        tPool, tSolar, tCurrentDelta, tSolarDelta);
-   tell(0, "# Solar power is %0.2f Watt; Solar work (today) %0.2f kWh", pSolar, solarWork);
-   tell(0, "# Solar pump is '%s/%s' since '%s'", digitalOutputStates[pinSolarPump].state ? "running" : "stopped",
-        digitalOutputStates[pinSolarPump].mode == omAuto ? "auto" : "manual", toElapsed(time(0)-digitalOutputStates[pinSolarPump].last, buf));
-   tell(0, "# Filter pump is '%s/%s' since '%s'", digitalOutputStates[pinFilterPump].state ? "running" : "stopped",
-        digitalOutputStates[pinFilterPump].mode == omAuto ? "auto" : "manual", toElapsed(time(0)-digitalOutputStates[pinFilterPump].last, buf));
-   tell(0, "# UV-C light is '%s/%s'", digitalOutputStates[pinUVC].state ? "on" : "off",
-        digitalOutputStates[pinUVC].mode == omAuto ? "auto" : "manual");
-   tell(0, "# Pool light is '%s/%s'", digitalOutputStates[pinPoolLight].state ? "on" : "off",
-        digitalOutputStates[pinPoolLight].mode == omAuto ? "auto" : "manual");
-
-   tell(0, "# ------------------------");
 
    if (time(0) > nextLogAt)
    {
       nextLogAt = time(0) + 5 * tmeSecondsPerMinute;
 
+      tell(0, "# ------------------------");
+
+      tell(0, "# Pool has %.2f °C; Solar has %.2f °C; Current delta is %.2f° (%.2f° configured)",
+           tPool, tSolar, tCurrentDelta, tSolarDelta);
+      tell(0, "# Solar power is %0.2f Watt; Solar work (today) %0.2f kWh", pSolar, solarWork);
+      tell(0, "# Solar pump is '%s/%s' since '%s'", digitalOutputStates[pinSolarPump].state ? "running" : "stopped",
+           digitalOutputStates[pinSolarPump].mode == omAuto ? "auto" : "manual", toElapsed(time(0)-digitalOutputStates[pinSolarPump].last, buf));
+      tell(0, "# Filter pump is '%s/%s' since '%s'", digitalOutputStates[pinFilterPump].state ? "running" : "stopped",
+           digitalOutputStates[pinFilterPump].mode == omAuto ? "auto" : "manual", toElapsed(time(0)-digitalOutputStates[pinFilterPump].last, buf));
+      tell(0, "# UV-C light is '%s/%s'", digitalOutputStates[pinUVC].state ? "on" : "off",
+           digitalOutputStates[pinUVC].mode == omAuto ? "auto" : "manual");
+      tell(0, "# Pool light is '%s/%s'", digitalOutputStates[pinPoolLight].state ? "on" : "off",
+           digitalOutputStates[pinPoolLight].mode == omAuto ? "auto" : "manual");
+
+      tell(0, "# ------------------------");
+   }
+
+   if (time(0) > nextDetailLogAt)
+   {
+      nextDetailLogAt = time(0) + 1 * tmeSecondsPerMinute;
+
       tell(0, "# Solar Work");
 
       for (int f = selectSolarWorkPerDay->find(); f; f = selectSolarWorkPerDay->fetch())
-         tell(0, "  %s, %.2f", l2pTime(tableSamples->getTimeValue("TIME"), "%d.%m.%Y").c_str(), tableSamples->getFloatValue("VALUE"));
+         tell(0, "#   %s, %.2f", l2pTime(tableSamples->getTimeValue("TIME"), "%d.%m.%Y").c_str(), tableSamples->getFloatValue("VALUE"));
 
       selectSolarWorkPerDay->freeResult();
       tell(0, "# ------------------------");
    }
+}
+
+//***************************************************************************
+// Update Script Sensors
+//***************************************************************************
+
+void Poold::updateScriptSensors()
+{
+   tableValueFacts->clear();
+   tableValueFacts->setValue("STATE", "A");
+
+   tell(1, "Update script sensors");
+
+   for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
+   {
+      if (!tableValueFacts->hasValue("TYPE", "SC"))
+         continue;
+
+      uint addr = tableValueFacts->getIntValue("ADDRESS");
+      std::string result = callScript(addr, 0, "status").c_str();
+      json_error_t error;
+      json_t* oData = json_loads(result.c_str(), 0, &error);
+
+      if (!oData)
+      {
+         tell(0, "Error: Ignoring invalid script result [%s]", result.c_str());
+         tell(0, "Error decoding json: %s (%s, line %d column %d, position %d)",
+              error.text, error.source, error.line, error.column, error.position);
+         return ;
+      }
+
+      std::string kind = getStringFromJson(oData, "kind");
+      const char* unit = getStringFromJson(oData, "unit");
+      double value = getDoubleFromJson(oData, "value");
+
+      tell(1, "DEBUG: Got '%s' from script (kind:%s unit:%s value:%0.2f)", result.c_str(), kind.c_str(), unit, value);
+      scSensors[addr].kind = kind;
+      scSensors[addr].last = time(0);
+
+      if (kind == "status")
+         scSensors[addr].state = (bool)value;
+      else if (kind == "value")
+         scSensors[addr].value = value;
+      else
+         tell(0, "Got unexpected script kind '%s' in '%s'", kind.c_str(), result.c_str());
+   }
+
+   selectActiveValueFacts->freeResult();
 }
 
 //***************************************************************************
@@ -1823,9 +1972,11 @@ int Poold::loadHtmlHeader()
 // Add Value Fact
 //***************************************************************************
 
-int Poold::addValueFact(int addr, const char* type, const char* name, const char* unit, int rights)
+int Poold::addValueFact(int addr, const char* type, const char* name, const char* unit,
+                        WidgetType widgetType, int minScale, int maxScale, int critMin, int rights)
 {
-   int maxScale = unit[0] == '%' ? 100 : 45;
+   if (maxScale == na)
+      maxScale = unit[0] == '%' ? 100 : 45;
 
    tableValueFacts->clear();
    tableValueFacts->setValue("ADDRESS", addr);
@@ -1837,37 +1988,62 @@ int Poold::addValueFact(int addr, const char* type, const char* name, const char
            tableValueFacts->getIntValue("ADDRESS"), tableValueFacts->getStrValue("TYPE"));
 
       tableValueFacts->setValue("NAME", name);
+      tableValueFacts->setValue("TITLE", name);
+      tableValueFacts->setValue("UNIT", unit);
+
       tableValueFacts->setValue("RIGHTS", rights);
       tableValueFacts->setValue("STATE", "D");
-      tableValueFacts->setValue("UNIT", unit);
-      tableValueFacts->setValue("TITLE", name);
       tableValueFacts->setValue("MAXSCALE", maxScale);
+      tableValueFacts->setValue("MINSCALE", minScale);
+      tableValueFacts->setValue("CRITMIN", critMin);
+      tableValueFacts->setValue("WIDGET", toName(widgetType));
+
+      if (widgetType == wtSymbol)
+      {
+         tableValueFacts->setValue("IMGON", getImageFor(name, true));
+         tableValueFacts->setValue("IMGON", getImageFor(name, false));
+      }
 
       tableValueFacts->store();
-      return 1;    // 1 for 'added'
+      return 1;                               // 1 for 'added'
    }
-   else
+
+   tableValueFacts->clearChanged();
+
+   tableValueFacts->setValue("NAME", name);
+   tableValueFacts->setValue("TITLE", name);
+   tableValueFacts->setValue("UNIT", unit);
+
+   if (tableValueFacts->getValue("RIGHTS")->isNull())
+      tableValueFacts->setValue("RIGHTS", rights);
+
+   if (tableValueFacts->getValue("MAXSCALE")->isNull())
+      tableValueFacts->setValue("MAXSCALE", maxScale);
+
+   if (tableValueFacts->getValue("MINSCALE")->isNull())
+      tableValueFacts->setValue("MINSCALE", minScale);
+
+   if (tableValueFacts->getValue("CRITMIN")->isNull())
+      tableValueFacts->setValue("CRITMIN", critMin);
+
+   if (tableValueFacts->getValue("WIDGET")->isNull())
+      tableValueFacts->setValue("WIDGET", toName(widgetType));
+
+   if (widgetType == wtSymbol)
    {
-      tableValueFacts->clearChanged();
-
-      tableValueFacts->setValue("NAME", name);
-      tableValueFacts->setValue("UNIT", unit);
-      tableValueFacts->setValue("TITLE", name);
-
-      if (tableValueFacts->getValue("RIGHTS")->isNull())
-         tableValueFacts->setValue("RIGHTS", rights);
-
-      if (tableValueFacts->getValue("MAXSCALE")->isNull())
-         tableValueFacts->setValue("MAXSCALE", maxScale);
-
-      if (tableValueFacts->getChanges())
-      {
-         tableValueFacts->store();
-         return 2;  // 2 for 'modified'
-      }
+      if (tableValueFacts->getValue("IMGON")->isNull())
+         tableValueFacts->setValue("IMGON", getImageFor(name, true));
+      if (tableValueFacts->getValue("IMGOFF")->isNull())
+         tableValueFacts->setValue("IMGOFF", getImageFor(name, false));
    }
 
-   return fail;
+   if (tableValueFacts->getChanges())
+   {
+      tableValueFacts->store();
+      return 2;                                // 2 for 'modified'
+   }
+
+   return done;
 }
 
 //***************************************************************************
@@ -2062,12 +2238,12 @@ int Poold::calcPhMinusVolume(double ph)
 }
 
 //***************************************************************************
-// getImageOf
+// Get Image For
 //***************************************************************************
 
-const char* Poold::getImageOf(const char* title, int value)
+const char* Poold::getImageFor(const char* title, int value)
 {
-   const char* imagePath = "unknown.jpg";
+   const char* imagePath = "img/icon/unknown.png";
 
    if (strcasestr(title, "Pump"))
       imagePath = value ? "img/icon/pump-on.gif" : "img/icon/pump-off.png";
@@ -2101,16 +2277,22 @@ int Poold::toggleIo(uint addr, const char* type)
 
 int Poold::publishScriptResult(ulong addr, const char* type, std::string result)
 {
-   auto pos = result.find(':');
+   json_error_t error;
+   json_t* oData = json_loads(result.c_str(), 0, &error);
 
-   if (pos == std::string::npos)
+   if (!oData)
    {
-      tell(0, "Error: Failed to parse result of script (%ld) [%s]", addr, result.c_str());
+      tell(0, "Error: Ignoring invalid script result [%s]", result.c_str());
+      tell(0, "Error decoding json: %s (%s, line %d column %d, position %d)",
+           error.text, error.source, error.line, error.column, error.position);
       return fail;
    }
 
-   std::string kind = result.substr(0, pos);
-   std::string value = result.substr(pos+1);
+   tell(1, "DEBUG: Got '%s' from script", result.c_str());
+
+   std::string kind = getStringFromJson(oData, "kind");
+   // const char* unit = getStringFromJson(oData, "unit");
+   double value = getDoubleFromJson(oData, "value");
 
    tableValueFacts->clear();
    tableValueFacts->setValue("ADDRESS", (int)addr);
@@ -2122,6 +2304,9 @@ int Poold::publishScriptResult(ulong addr, const char* type, std::string result)
    const char* name = tableValueFacts->getStrValue("NAME");
    const char* title = tableValueFacts->getStrValue("TITLE");
    const char* usrtitle = tableValueFacts->getStrValue("USRTITLE");
+   WidgetType widgetType = toType(tableValueFacts->getStrValue("WIDGET"));
+   const char* imgOn = tableValueFacts->getStrValue("IMGON");
+   const char* imgOff = tableValueFacts->getStrValue("IMGOFF");
 
    if (!isEmpty(usrtitle))
       title = usrtitle;
@@ -2132,33 +2317,32 @@ int Poold::publishScriptResult(ulong addr, const char* type, std::string result)
       json_t* ojData = json_object();
       json_array_append_new(oJson, ojData);
 
-      char* tupel {nullptr};
-      asprintf(&tupel, "%s:0x%02lx", type, addr);
-      json_object_set_new(ojData, "dashboard", json_boolean(addrsDashboard.empty() || std::find(addrsDashboard.begin(), addrsDashboard.end(), tupel) != addrsDashboard.end()));
-      json_object_set_new(ojData, "list", json_boolean(addrsList.empty() || std::find(addrsList.begin(), addrsList.end(), tupel) != addrsList.end()));
-
       json_object_set_new(ojData, "address", json_integer((ulong)addr));
       json_object_set_new(ojData, "type", json_string(type));
       json_object_set_new(ojData, "name", json_string(name));
       json_object_set_new(ojData, "title", json_string(title));
+      json_object_set_new(ojData, "widgettype", json_integer(widgetType));
 
       if (kind == "status")
       {
-         bool state = atoi(value.c_str());
+         bool state = value; // atoi(value.c_str());
          json_object_set_new(ojData, "value", json_integer(state));
-         json_object_set_new(ojData, "image", json_string(getImageOf(title, state)));
-         json_object_set_new(ojData, "widgettype", json_integer(wtSymbol));
+         json_object_set_new(ojData, "image", json_string(state ? imgOn : imgOff));
       }
       else if (kind == "value")
       {
-         json_object_set_new(ojData, "value", json_real(strtod(value.c_str(), nullptr)));
-         json_object_set_new(ojData, "widgettype", json_integer(wtChart));
+         json_object_set_new(ojData, "value", json_real(value));
       }
 
-      pushOutMessage(oJson, "update");
+      char* tuple {nullptr};
+      asprintf(&tuple, "%s:0x%02x", type, (int)addr);
+      jsonSensorList[tuple] = ojData;
+      free(tuple);
+
+      pushDataUpdate("update", 0L);
    }
 
-   hassPush(iotLight, name, "", "", strtod(value.c_str(), nullptr), "", false /*forceConfig*/);
+   hassPush(iotLight, name, "", "", value, "", false /*forceConfig*/);
 
    tableValueFacts->reset();
 
@@ -2182,11 +2366,6 @@ int Poold::toggleIoNext(uint pin)
 
 void Poold::pin2Json(json_t* ojData, int pin)
 {
-   char* tupel {nullptr};
-   asprintf(&tupel, "DO:0x%02x", pin);
-   json_object_set_new(ojData, "dashboard", json_boolean(addrsDashboard.empty() || std::find(addrsDashboard.begin(), addrsDashboard.end(), tupel) != addrsDashboard.end()));
-   json_object_set_new(ojData, "list", json_boolean(addrsList.empty() || std::find(addrsList.begin(), addrsList.end(), tupel) != addrsList.end()));
-
    json_object_set_new(ojData, "address", json_integer(pin));
    json_object_set_new(ojData, "type", json_string("DO"));
    json_object_set_new(ojData, "name", json_string(digitalOutputStates[pin].name));
@@ -2196,8 +2375,8 @@ void Poold::pin2Json(json_t* ojData, int pin)
    json_object_set_new(ojData, "value", json_integer(digitalOutputStates[pin].state));
    json_object_set_new(ojData, "last", json_integer(digitalOutputStates[pin].last));
    json_object_set_new(ojData, "next", json_integer(digitalOutputStates[pin].next));
-   json_object_set_new(ojData, "image", json_string(getImageOf(digitalOutputStates[pin].title.c_str(), digitalOutputStates[pin].state)));
-   json_object_set_new(ojData, "widgettype", json_integer(wtSymbol));
+   json_object_set_new(ojData, "image", json_string(getImageFor(digitalOutputStates[pin].title.c_str(), digitalOutputStates[pin].state)));
+   json_object_set_new(ojData, "widgettype", json_integer(wtSymbol));  // #TODO get type from valuefacts
 }
 
 int Poold::toggleOutputMode(uint pin)
@@ -2276,15 +2455,12 @@ void Poold::publishSpecialValue(int sp, double value)
 
       sensor2Json(ojData, tableValueFacts);
       json_object_set_new(ojData, "value", json_real(value));
-      json_object_set_new(ojData, "widgettype", json_integer(wtChart));
 
       if (!phMeasurementActive() && sp == spPhMinusDemand)
          json_object_set_new(ojData, "disabled", json_boolean(true));
 
       char* tupel {nullptr};
       asprintf(&tupel, "SP:0x%02x", sp);
-      json_object_set_new(ojData, "dashboard", json_boolean(addrsDashboard.empty() || std::find(addrsDashboard.begin(), addrsDashboard.end(), tupel) != addrsDashboard.end()));
-      json_object_set_new(ojData, "list", json_boolean(addrsList.empty() || std::find(addrsList.begin(), addrsList.end(), tupel) != addrsList.end()));
       jsonSensorList[tupel] = ojData;
       free(tupel);
 
@@ -2442,59 +2618,46 @@ int Poold::initArduino()
 
 void Poold::updateAnalogInput(const char* id, int value, time_t stamp)
 {
-   // tell(0, "DEBUG: %s: %d", id, value);
-
    uint input = atoi(id+1);
-
-   if (input == aiPh)
-   {
-      double m = (phCalibratePointB - phCalibratePointA) / (phCalibratePointValueB - phCalibratePointValueA);
-      double b = phCalibratePointB - m * phCalibratePointValueB;
-      double dValue = m * value + b;
-      dValue = std::llround(dValue*50) / 50.0;  // round to .02
-      tell(2, "Rouned %.2f to %.2f", m * value + b, dValue);
-      aiSensors[input].value = dValue;
-   }
-   else if (input == aiFilterPressure)
-   {
-      double m = (pressCalibratePointB - pressCalibratePointA) / (pressCalibratePointValueB - pressCalibratePointValueA);
-      double b = pressCalibratePointB - m * pressCalibratePointValueB;
-      double dValue = m * value + b;
-      dValue = std::llround(dValue*20) / 20.0;  // round to .05
-      aiSensors[input].value = dValue;
-   }
-   else
-   {
-      aiSensors[input].value = value;
-   }
-
-   aiSensors[input].last = stamp;
-
-   json_t* ojData = json_object();
 
    tableValueFacts->clear();
    tableValueFacts->setValue("ADDRESS", (int)input);
    tableValueFacts->setValue("TYPE", "AI");
 
-   if (tableValueFacts->find())
+   if (!tableValueFacts->find() || !tableValueFacts->hasValue("STATE", "A"))
    {
-      sensor2Json(ojData, tableValueFacts);
-      json_object_set_new(ojData, "value", json_real(aiSensors[input].value));
-      json_object_set_new(ojData, "widgettype", json_integer(wtChart));
-
-      if (!phMeasurementActive() && input == aiPh)
-         json_object_set_new(ojData, "disabled", json_boolean(true));
-
-      char* tupel {nullptr};
-      asprintf(&tupel, "AI:0x%02x", input);
-
-      json_object_set_new(ojData, "dashboard", json_boolean(addrsDashboard.empty() || std::find(addrsDashboard.begin(), addrsDashboard.end(), tupel) != addrsDashboard.end()));
-      json_object_set_new(ojData, "list", json_boolean(addrsList.empty() || std::find(addrsList.begin(), addrsList.end(), tupel) != addrsList.end()));
-      jsonSensorList[tupel] = ojData;
-      free(tupel);
-
-      pushDataUpdate("update", 0L);
+      tableValueFacts->reset();
+      return ;
    }
+
+   double m = (aiSensors[input].calPointB - aiSensors[input].calPointA) / (aiSensors[input].calPointValueB - aiSensors[input].calPointValueA);
+   double b = aiSensors[input].calPointB - m * aiSensors[input].calPointValueB;
+   double dValue = m * value + b;
+
+   if (input == aiPh)
+      dValue = std::llround(dValue*50) / 50.0;  // round to .02
+   else
+      dValue = std::llround(dValue*20) / 20.0;  // round to .05
+
+   tell(2, "Rouned %.2f to %.2f", m * value + b, dValue);
+   aiSensors[input].value = dValue;
+   aiSensors[input].last = stamp;
+
+   tell(3, "Debug: Input A%d: %.3f", input, aiSensors[input].value);
+
+   // ----------------------------------
+
+   json_t* ojData = json_object();
+
+   sensor2Json(ojData, tableValueFacts);
+   json_object_set_new(ojData, "value", json_real(aiSensors[input].value));
+
+   char* tuple {nullptr};
+   asprintf(&tuple, "AI:0x%02x", input);
+   jsonSensorList[tuple] = ojData;
+   free(tuple);
+
+   pushDataUpdate("update", 0L);
 
    tableValueFacts->reset();
 }
@@ -2559,8 +2722,6 @@ void Poold::updateW1(const char* id, double value, time_t stamp)
 
       char* tupel {nullptr};
       asprintf(&tupel, "W1:0x%02x", toW1Id(id));
-      json_object_set_new(ojData, "dashboard", json_boolean(addrsDashboard.empty() || std::find(addrsDashboard.begin(), addrsDashboard.end(), tupel) != addrsDashboard.end()));
-      json_object_set_new(ojData, "list", json_boolean(addrsList.empty() || std::find(addrsList.begin(), addrsList.end(), tupel) != addrsList.end()));
       jsonSensorList[tupel] = ojData;
       free(tupel);
 

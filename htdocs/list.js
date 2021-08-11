@@ -65,23 +65,28 @@ function initList(update = false)
       var html = "";
       var widget = allWidgets[i];
       var id = "id=\"widget" + widget.type + widget.address + "\"";
+      var fact = valueFacts[widget.type + ":" + widget.address];
 
-      if (!widget.list)
+      if (fact == null || fact == undefined) {
+         console.log("Fact for widget '" + widget.type + ":" + widget.address + "' not found, ignoring");
          continue;
+      }
 
-      if (widget.widgettype == 1 || widget.widgettype == 3) {      // 1 Gauge or 3 Value
-         html += "<span class=\"listFirstCol\"" + id + ">" + widget.value.toFixed(2) + "&nbsp;" + widget.unit;
-         html += "&nbsp; <p style=\"display:inline;font-size:12px;font-style:italic;\">(" + widget.peak.toFixed(2) + ")</p>";
+      var title = fact.usrtitle != '' && fact.usrtitle != undefined ? fact.usrtitle : fact.title;
+
+      if (fact.widgettype == 1 || fact.widgettype == 3) {      // 1 Gauge or 3 Value
+         html += "<span class=\"listFirstCol\"" + id + ">" + widget.value.toFixed(2) + "&nbsp;" + fact.unit;
+         html += "&nbsp; <p style=\"display:inline;font-size:12px;font-style:italic;\">(" + (widget.peak != null ? widget.peak.toFixed(2) : "  ") + ")</p>";
          html += "</span>";
       }
-      else if (widget.widgettype == 0) {   // 0 Symbol
-         html += "   <div class=\"listFirstCol\" onclick=\"toggleIo(" + widget.address + ",'" + widget.type + "')\"><img " + id + "/></div>\n";
+      else if (fact.widgettype == 0) {   // 0 Symbol
+         html += "   <div class=\"listFirstCol\" onclick=\"toggleIo(" + fact.address + ",'" + fact.type + "')\"><img " + id + "/></div>\n";
       }
       else {   // 2 Text
          html += "<div class=\"listFirstCol\"" + id + "></div>";
       }
 
-      html += "<span class=\"listSecondCol listText\" >" + widget.title + "</span>";
+      html += "<span class=\"listSecondCol listText\" >" + title + "</span>";
 
       var elem = document.createElement("div");
       elem.className = "listRow";
@@ -99,23 +104,35 @@ function updateList(widgets)
 
    for (var i = 0; i < widgets.length; i++)
    {
-      var sensor = widgets[i];
-      var id = "#widget" + sensor.type + sensor.address;
+      var widget = widgets[i];
+      var fact = valueFacts[widget.type + ":" + widget.address];
 
-      if (!sensor.list)
+      if (fact == null || fact == undefined) {
+         console.log("Fact for widget '" + widget.type + ":" + widget.address + "' not found, ignoring");
          continue;
-
-      if (sensor.widgettype == 1 || sensor.widgettype == 3) {
-         $(id).html(sensor.value.toFixed(2) + "&nbsp;" + sensor.unit +
-                    "&nbsp; <p style=\"display:inline;font-size:12px;font-style:italic;\">(" + sensor.peak.toFixed(2) + ")</p>");
       }
-      else if (sensor.widgettype == 0)    // Symbol
-         $(id).attr("src", sensor.image);
-      else if (sensor.widgettype == 2)    // Text
-         $(id).html(sensor.text);
-      else
-         $(id).html(sensor.value.toFixed(0));
 
-      // console.log(i + ") " + sensor.widgettype + " : " + sensor.title + " / " + sensor.value + "(" + id + ")");
+      var id = "#widget" + fact.type + fact.address;
+
+      if (fact.widgettype == 1 || fact.widgettype == 3) {
+         var peak = widget.peak != null ? widget.peak.toFixed(2) : "  ";
+         $(id).html(widget.value.toFixed(2) + "&nbsp;" + fact.unit +
+                    "&nbsp; <p style=\"display:inline;font-size:12px;font-style:italic;\">(" + peak + ")</p>");
+      }
+      else if (fact.widgettype == 0) {   // Symbol
+         var image = widget.value != 0 ? fact.imgon : fact.imgoff;
+         $(id).attr("src", image);
+      }
+      else if (fact.widgettype == 2 || fact.widgettype == 7) {   // Text, PlainText
+         $(id).html(widget.text);
+      }
+      else {
+         if (widget.value == undefined)
+            console.log("Missing value for " + widget.type + ":" + widget.address);
+         else
+            $(id).html(widget.value.toFixed(0));
+      }
+
+      // console.log(i + ") " + fact.widgettype + " : " + title + " / " + widget.value + "(" + id + ")");
    }
 }

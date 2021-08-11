@@ -117,13 +117,21 @@ class Poold : public cWebInterface
 
       enum WidgetType
       {
-         wtDefault = -1,
+         wtUnknown = -1,
          wtSymbol  = 0,  // == 0
          wtChart,        // == 1
          wtText,         // == 2
          wtValue,        // == 3
-         wtGauge         // == 4
+         wtGauge,        // == 4
+         wtMeter,        // == 5
+         wtMeterLevel,   // == 6
+         wtPlainText,    // == 7   // without title
+         wtCount
       };
+
+      static const char* widgetTypes[];
+      static const char* toName(WidgetType type);
+      static WidgetType toType(const char* name);
 
       enum IoType
       {
@@ -189,12 +197,14 @@ class Poold : public cWebInterface
       std::map<int,bool> digitalInputStates;
 
       int exit();
+      int initLocale();
       int initDb();
       int exitDb();
-      int readConfiguration();
+      int readConfiguration(bool initial);
       int applyConfigurationSpecials();
 
-      int addValueFact(int addr, const char* type, const char* name, const char* unit, int rights = 0);
+      int addValueFact(int addr, const char* type, const char* name, const char* unit,
+                       WidgetType widgetType, int minScale = 0, int maxScale = na, int critMin = na, int rights = 0);
       int initOutput(uint pin, int opt, OutputMode mode, const char* name, uint rights = urControl);
       int initInput(uint pin, const char* name);
       int initScripts();
@@ -209,6 +219,7 @@ class Poold : public cWebInterface
       int performWebSocketPing();
       int dispatchClientRequest();
       bool checkRights(long client, Event event, json_t* oObject);
+      void updateScriptSensors();
       std::string callScript(int addr, const char* type, const char* command);
       int publishScriptResult(ulong addr, const char* type, std::string result);
       bool isInTimeRange(const std::vector<Range>* ranges, time_t t);
@@ -277,17 +288,20 @@ class Poold : public cWebInterface
       int performChartbookmarks(long client);
       int storeChartbookmarks(json_t* array, long client);
 
+      int widgetTypes2Json(json_t* obj);
       int config2Json(json_t* obj);
       int configDetails2Json(json_t* obj);
       int userDetails2Json(json_t* obj);
       int configChoice2json(json_t* obj, const char* name);
-      int valueFacts2Json(json_t* obj, bool filterActive);
+      int valueFacts2Json(json_t* obj);
       int daemonState2Json(json_t* obj);
       int sensor2Json(json_t* obj, cDbTable* table);
+      int images2Json(json_t* obj);
       void pin2Json(json_t* ojData, int pin);
       void publishSpecialValue(int sp, double value);
+      bool webFileExists(const char* file, const char* base = nullptr);
 
-      const char* getImageOf(const char* title, int value);
+      const char* getImageFor(const char* title, int value);
       int toggleIo(uint addr, const char* type);
       int toggleIoNext(uint pin);
       int toggleOutputMode(uint pin);
@@ -418,15 +432,15 @@ class Poold : public cWebInterface
       double phReference {0.0};        // PG Referenzwert (sollwert)
 
       int minPumpTimeForPh { 10 * tmeSecondsPerMinute }; // [s] #TODO -> add to config?
-      double phCalibratePointA {0.0};
-      int phCalibratePointValueA {0};
-      double phCalibratePointB {0.0};
-      int phCalibratePointValueB {0};
+      // double phCalibratePointA {0.0};
+      // int phCalibratePointValueA {0};
+      // double phCalibratePointB {0.0};
+      // int phCalibratePointValueB {0};
 
-      double pressCalibratePointA {0.0};
-      int pressCalibratePointValueA {463};
-      double pressCalibratePointB {0.6};
-      int pressCalibratePointValueB {2290};
+      // double pressCalibratePointA {0.0};
+      // int pressCalibratePointValueA {463};
+      // double pressCalibratePointB {0.6};
+      // int pressCalibratePointValueB {2290};
 
       std::vector<Range> filterPumpTimes;
       std::vector<Range> uvcLightTimes;
@@ -442,15 +456,29 @@ class Poold : public cWebInterface
       double solarWork {0.0};        // [kWh]
       double massPerSecond {0.0};    // Fördermeneg der Solarpumpe [kg·s-1] bzw. [l/s]
 
-      struct SensorData
+      struct AiSensorData
       {
          time_t last;
          double value;
+         double calPointA {0.0};
+         double calPointB {0.0};
+         double calPointValueA {0};
+         double calPointValueB {0};
       };
 
-      std::map<int, SensorData> aiSensors;
-      std::map<std::string, SensorData> w1Sensors;
-      std::map<std::string, json_t*> jsonSensorList;
+      std::map<int,AiSensorData> aiSensors;
+      std::map<std::string,AiSensorData> w1Sensors;
+      std::map<std::string,json_t*> jsonSensorList;
+
+      struct ScSensorData
+      {
+         std::string kind;
+         time_t last;
+         double value;
+         int state;
+      };
+
+      std::map<int,ScSensorData> scSensors;
 
       // statics
 

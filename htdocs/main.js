@@ -10,11 +10,15 @@
 
 var WebSocketClient = window.WebSocketClient
 
+var myProtocol = "poold";
 var storagePrefix = "p4d";
 var isActive = null;
 var socket = null;
 var config = {};
 var daemonState = {};
+var widgetTypes = {};
+var valueFacts = {};
+var images = [];
 var currentPage = "dashboard";
 var widgetCharts = {};
 var theChart = null;
@@ -22,7 +26,6 @@ var theChartRange = 1;
 var theChartStart = new Date(); theChartStart.setDate(theChartStart.getDate()-theChartRange);
 var chartDialogSensor = "";
 var chartBookmarks = {};
-var phCalTimerhandle = null;
 var allWidgets = [];
 
 $('document').ready(function() {
@@ -31,7 +34,7 @@ $('document').ready(function() {
    console.log("currentPage: " + currentPage);
 
    var url = "ws://" + location.hostname + ":" + location.port;
-   var protocol = "poold";
+   var protocol = myProtocol;
 
    connectWebSocket(url, protocol);
 });
@@ -61,12 +64,12 @@ function connectWebSocket(useUrl, protocol)
    socket = new WebSocketClient({
       url: useUrl,
       protocol: protocol,
-      autoReconnectInterval: protocol == 'poold' ? 1000 : 0,
+      autoReconnectInterval: protocol == myProtocol ? 1000 : 0,
       onopen: function (){
          console.log("socket opened " + socket.protocol);
          if (isActive === null)     // wurde beim Schliessen auf null gesetzt
             onSocketConnect(protocol);
-      }, onclose: function (){
+      }, onclose: function () {
          isActive = null;           // auf null setzen, dass ein neues login aufgerufen wird
       }, onmessage: function (msg) {
          dispatchMessage(msg.data)
@@ -210,8 +213,8 @@ function dispatchMessage(message)
          for (var i = 0; i < jMessage.object.length; i++) {
             for (var w = 0; w < allWidgets.length; w++) {
                if (jMessage.object[i].name == allWidgets[w].name) {
-                  console.log("update '" + allWidgets[w].name);
-                  console.log("update '" + allWidgets[w].name + "' to (" + jMessage.object[i].value.toFixed(2) + ") from (" + allWidgets[w].value.toFixed(2) + ")");
+                  //console.log("update '" + allWidgets[w].name);
+                  //console.log("update '" + allWidgets[w].name + "' to (" + jMessage.object[i].value.toFixed(2) + ") from (" + allWidgets[w].value.toFixed(2) + ")");
                   allWidgets[w] = jMessage.object[i];
                }
             }
@@ -246,12 +249,8 @@ function dispatchMessage(message)
    else if (event == "daemonstate") {
       daemonState = jMessage.object;
    }
-   else if (event == "phdata" && currentPage == 'ph') {
-      updatePhActual(jMessage.object);
-   }
-   else if (event == "phcal" && currentPage == 'ph') {
-      hideProgressDialog();
-      updatePhCal(jMessage.object);
+   else if (event == "widgettypes") {
+      widgetTypes = jMessage.object;
    }
    else if (event == "syslog") {
       showSyslog(jMessage.object);
@@ -268,8 +267,14 @@ function dispatchMessage(message)
             document.getElementById("confirm").innerHTML = "<div class=\"infoError\"><b><center>Login fehlgeschlagen</center></b></div>";
       }
    }
-   else if (event == "valuefacts" && currentPage == 'iosetup') {
-      initIoSetup(jMessage.object);
+   else if (event == "valuefactsios" && currentPage == 'iosetup') {
+      initIoSetup(valueFacts);
+   }
+   else if (event == "valuefacts") {
+      valueFacts = jMessage.object;
+   }
+   else if (event == "images") {
+      images = jMessage.object;
    }
    else if (event == "chartdata") {
       hideProgressDialog();
@@ -279,6 +284,9 @@ function dispatchMessage(message)
          drawCharts(jMessage.object);
       }
       else if (currentPage == 'dashboard' && id == "chartwidget") { // the dashboard widget
+         drawChartWidget(jMessage.object);
+      }
+      else if (currentPage == 'iosetup' && id == "chartwidget") { // the dashboard widget
          drawChartWidget(jMessage.object);
       }
 
@@ -313,14 +321,12 @@ function prepareMenu()
    if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10) {
       html += '<button class="rounded-border button1" onclick="mainMenuSel(\'setup\')">Setup</button>';
 
-      if (currentPage == "setup" || currentPage == "iosetup" || currentPage == "userdetails" || currentPage == "ph" || currentPage == "syslog") {
+      if (currentPage == "setup" || currentPage == "iosetup" || currentPage == "userdetails" || currentPage == "syslog") {
          html += "<div>";
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'setup\')">Allg. Konfiguration</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'iosetup\')">IO Setup</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'userdetails\')">User</button>';
-         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'ph\')">PH</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'syslog\')">Syslog</button>';
-         // html += "  <a href=\"ph.html\"><button class=\"rounded-border button2\">PH</button></a>";
          html += "</div>";
       }
    }
@@ -389,7 +395,7 @@ function mainMenuSel(what)
       // delete socket;
       socket = null;
 
-      var protocol = "poold";
+      var protocol = myProtocol;
       var url = "ws://" + location.hostname + ":" + location.port;
 
       if (currentPage == "vdr") {
@@ -411,13 +417,11 @@ function mainMenuSel(what)
    if (currentPage == "setup")
       event = "setup";
    else if (currentPage == "iosetup")
-      event = "iosetup";
+      initIoSetup(valueFacts);
    else if (currentPage == "user")
       initUser();
    else if (currentPage == "userdetails")
       event = "userdetails";
-   else if (currentPage == "ph")
-      event = "phall";
    else if (currentPage == "syslog")
       event = "syslog";
    else if (currentPage == "list")
@@ -431,20 +435,14 @@ function mainMenuSel(what)
       prepareChartRequest(jsonRequest, "", theChartStart, theChartRange, "chart");
    }
 
-   if (currentPage != "vdr") {
+   if (currentPage != "vdr" && currentPage != "iosetup") {
       if (jsonRequest != {})
          socket.send({ "event" : event, "object" : jsonRequest });
       else if (event != null)
          socket.send({ "event" : event, "object" : { } });
 
-      if (currentPage == 'login') {
+      if (currentPage == 'login')
          initLogin();
-      }
-
-      if (currentPage != "ph" && phCalTimerhandle != null) {
-         clearInterval(phCalTimerhandle);
-         phCalTimerhandle = null;
-      }
    }
 }
 

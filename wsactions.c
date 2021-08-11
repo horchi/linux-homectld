@@ -61,7 +61,6 @@ int Poold::dispatchClientRequest()
             case evToggleMode:      status = toggleOutputMode(addr);                 break;
             case evStoreConfig:     status = storeConfig(oObject, client);           break;
             case evSetup:           status = performConfigDetails(client);           break;
-            case evIoSetup:         status = performIoSettings(oObject, client);     break;
             case evStoreIoSetup:    status = storeIoSetup(oObject, client);          break;
             case evChartData:       status = performChartData(oObject, client);      break;
             case evUserDetails:     status = performUserDetails(client);             break;
@@ -78,13 +77,16 @@ int Poold::dispatchClientRequest()
             case evStoreChartbookmarks: status = storeChartbookmarks(oObject, client); break;
 
             default: tell(0, "Error: Received unexpected client request '%s' at [%s]",
-                          toName(event), messagesIn.front().c_str());
+                          cWebService::toName(event), messagesIn.front().c_str());
          }
       }
       else
       {
-         tell(0, "Insufficient rights to '%s' for user '%s'", getStringFromJson(oData, "event", "<null>"),
-              wsClients[(void*)client].user.c_str());
+         if (client == na)
+            tell(0, "Insufficient rights to '%s', missing login", getStringFromJson(oData, "event", "<null>"));
+         else
+            tell(0, "Insufficient rights to '%s' for user '%s'", getStringFromJson(oData, "event", "<null>"),
+                 wsClients[(void*)client].user.c_str());
       }
 
       json_decref(oData);      // free the json object
@@ -96,7 +98,11 @@ int Poold::dispatchClientRequest()
 
 bool Poold::checkRights(long client, Event event, json_t* oObject)
 {
-   uint rights = wsClients[(void*)client].rights;
+   uint rights = urView;
+   auto it = wsClients.find((void*)client);
+
+   if (it != wsClients.end())
+      rights = wsClients[(void*)client].rights;
 
    switch (event)
    {
@@ -110,7 +116,6 @@ bool Poold::checkRights(long client, Event event, json_t* oObject)
       case evToggleMode:          return rights & urFullControl;
       case evStoreConfig:         return rights & urSettings;
       case evSetup:               return rights & urView;
-      case evIoSetup:             return rights & urView;
       case evStoreIoSetup:        return rights & urSettings;
       case evChartData:           return rights & urView;
       case evStoreUserConfig:     return rights & urAdmin;
@@ -253,8 +258,20 @@ int Poold::performLogin(json_t* oObject)
    pushOutMessage(oJson, "config", client);
 
    oJson = json_object();
+   widgetTypes2Json(oJson);
+   pushOutMessage(oJson, "widgettypes", client);
+
+   oJson = json_object();
    daemonState2Json(oJson);
    pushOutMessage(oJson, "daemonstate", client);
+
+   oJson = json_object();
+   valueFacts2Json(oJson);
+   pushOutMessage(oJson, "valuefacts", client);
+
+   oJson = json_array();
+   images2Json(oJson);
+   pushOutMessage(oJson, "images", client);
 
    update(true, client);
 
@@ -465,27 +482,6 @@ int Poold::performUserDetails(long client)
    json_t* oJson = json_array();
    userDetails2Json(oJson);
    pushOutMessage(oJson, "userdetails", client);
-
-   return done;
-}
-
-//***************************************************************************
-// Perform WS IO Setting Data Request
-//***************************************************************************
-
-int Poold::performIoSettings(json_t* oObject, long client)
-{
-   if (client == 0)
-      return done;
-
-   bool filterActive = false;
-
-   if (oObject)
-      filterActive = getBoolFromJson(oObject, "filter", false);
-
-   json_t* oJson = json_array();
-   valueFacts2Json(oJson, filterActive);
-   pushOutMessage(oJson, "valuefacts", client);
 
    return done;
 }
@@ -919,6 +915,7 @@ int Poold::storeConfig(json_t* obj, long client)
    json_t* jValue {nullptr};
    int oldWebPort = webPort;
    char* oldStyle {nullptr};
+   int count {0};
 
    getConfigItem("style", oldStyle, "");
 
@@ -926,6 +923,7 @@ int Poold::storeConfig(json_t* obj, long client)
    {
       tell(3, "Debug: Storing config item '%s' with '%s'", key, json_string_value(jValue));
       setConfigItem(key, json_string_value(jValue));
+      count++;
    }
 
    // create link for the stylesheet
@@ -946,7 +944,7 @@ int Poold::storeConfig(json_t* obj, long client)
 
    // reload configuration
 
-   readConfiguration();
+   readConfiguration(false);
 
    json_t* oJson = json_object();
    config2Json(oJson);
@@ -954,9 +952,9 @@ int Poold::storeConfig(json_t* obj, long client)
 
    if (oldWebPort != webPort)
       replyResult(success, "Konfiguration gespeichert. Web Port geändert, bitte poold neu Starten!", client);
-   else if (strcmp(name, oldStyle) != 0)
+   else if (!isEmpty(name) && strcmp(name, oldStyle) != 0)
       replyResult(success, "Konfiguration gespeichert. Das Farbschema wurde geändert, mit STRG-Umschalt-r neu laden!", client);
-   else
+   else if (count > 1)  // on drag&drop its only onve parameter
       replyResult(success, "Konfiguration gespeichert", client);
 
    free(oldStyle);
@@ -973,9 +971,8 @@ int Poold::storeIoSetup(json_t* array, long client)
    {
       int addr = getIntFromJson(jObj, "address");
       const char* type = getStringFromJson(jObj, "type");
-      int state = getIntFromJson(jObj, "state");
-      const char* usrTitle = getStringFromJson(jObj, "usrtitle", "");
-      int maxScale = getIntFromJson(jObj, "scalemax");
+      bool state = getBoolFromJson(jObj, "state");
+      int widgetType = getIntFromJson(jObj, "widgettype", wtText);
 
       tableValueFacts->clear();
       tableValueFacts->setValue("ADDRESS", addr);
@@ -985,20 +982,37 @@ int Poold::storeIoSetup(json_t* array, long client)
          continue;
 
       tableValueFacts->clearChanged();
-      tableValueFacts->setValue("STATE", state ? "A" : "D");
-      tableValueFacts->setValue("USRTITLE", usrTitle);
 
-      if (maxScale >= 0)
-         tableValueFacts->setValue("MAXSCALE", maxScale);
+      if (isElementSet(jObj, "state"))
+         tableValueFacts->setValue("STATE", state ? "A" : "D");
+      if (isElementSet(jObj, "usrtitle"))
+         tableValueFacts->setValue("USRTITLE", getStringFromJson(jObj, "usrtitle"));
+
+      if (isElementSet(jObj, "scalemax"))
+         tableValueFacts->setValue("MAXSCALE", getIntFromJson(jObj, "scalemax"));
+      if (isElementSet(jObj, "scalemin"))
+         tableValueFacts->setValue("MINSCALE", getIntFromJson(jObj, "scalemin"));
+      if (isElementSet(jObj, "scalestep"))
+         tableValueFacts->setValue("SCALESTEP", getDoubleFromJson(jObj, "scalestep"));
+      if (isElementSet(jObj, "critmin"))
+         tableValueFacts->setValue("CRITMIN", getIntFromJson(jObj, "critmin"));
+      if (isElementSet(jObj, "widgettype"))
+         tableValueFacts->setValue("WIDGET", toName((WidgetType)widgetType));
+      if (isElementSet(jObj, "imgon"))
+         tableValueFacts->setValue("IMGON", getStringFromJson(jObj, "imgon"));
+      if (isElementSet(jObj, "imgoff"))
+         tableValueFacts->setValue("IMGOFF", getStringFromJson(jObj, "imgoff"));
 
       if (tableValueFacts->getChanges())
       {
          tableValueFacts->store();
-         tell(2, "STORED %s:%d - usrtitle: '%s'; scalemax: %d; state: %d", type, addr, usrTitle, maxScale, state);
+         tell(2, "STORED valuefact for %s:%d", type, addr);
       }
-
-      tell(3, "Debug: %s:%d - usrtitle: '%s'; scalemax: %d; state: %d", type, addr, usrTitle, maxScale, state);
    }
+
+   json_t* oJson = json_object();
+   valueFacts2Json(oJson);
+   pushOutMessage(oJson, "valuefacts", client);
 
    return replyResult(success, "Konfiguration gespeichert", client);
 }
@@ -1112,32 +1126,59 @@ int Poold::userDetails2Json(json_t* obj)
 // Value Facts 2 Json
 //***************************************************************************
 
-int Poold::valueFacts2Json(json_t* obj, bool filterActive)
+int Poold::valueFacts2Json(json_t* obj)
 {
    tableValueFacts->clear();
 
    for (int f = selectAllValueFacts->find(); f; f = selectAllValueFacts->fetch())
    {
-      if (filterActive && !tableValueFacts->hasValue("STATE", "A"))
-         continue;
-
+      char* key {nullptr};
+      asprintf(&key, "%s:%lu", tableValueFacts->getStrValue("TYPE"), (ulong)tableValueFacts->getIntValue("ADDRESS"));
       json_t* oData = json_object();
-      json_array_append_new(obj, oData);
+      json_object_set_new(obj, key, oData);
+      free(key);
 
       json_object_set_new(oData, "address", json_integer((ulong)tableValueFacts->getIntValue("ADDRESS")));
       json_object_set_new(oData, "type", json_string(tableValueFacts->getStrValue("TYPE")));
-      json_object_set_new(oData, "state", json_integer(tableValueFacts->hasValue("STATE", "A")));
+      json_object_set_new(oData, "state", json_boolean(tableValueFacts->hasValue("STATE", "A")));
       json_object_set_new(oData, "name", json_string(tableValueFacts->getStrValue("NAME")));
       json_object_set_new(oData, "title", json_string(tableValueFacts->getStrValue("TITLE")));
       json_object_set_new(oData, "usrtitle", json_string(tableValueFacts->getStrValue("USRTITLE")));
       json_object_set_new(oData, "unit", json_string(tableValueFacts->getStrValue("UNIT")));
       json_object_set_new(oData, "scalemax", json_integer(tableValueFacts->getIntValue("MAXSCALE")));
+      json_object_set_new(oData, "scalemin", json_integer(tableValueFacts->getIntValue("MINSCALE")));
+      json_object_set_new(oData, "scalestep", json_real(tableValueFacts->getFloatValue("SCALESTEP")));
+      json_object_set_new(oData, "critmin", json_integer(tableValueFacts->getIntValue("CRITMIN")));
+      json_object_set_new(oData, "widgettype", json_integer(toType(tableValueFacts->getStrValue("WIDGET"))));
+
+      if (webFileExists(tableValueFacts->getStrValue("IMGON"), ""))
+         json_object_set_new(oData, "imgon", json_string(tableValueFacts->getStrValue("IMGON")));
+      else
+         json_object_set_new(oData, "imgon", json_string("img/icon/unknown.png"));
+
+      if (webFileExists(tableValueFacts->getStrValue("IMGOFF"), ""))
+         json_object_set_new(oData, "imgoff", json_string(tableValueFacts->getStrValue("IMGOFF")));
+      else
+         json_object_set_new(oData, "imgoff", json_string("img/icon/unknown.png"));
    }
 
    selectAllValueFacts->freeResult();
 
    return done;
 }
+
+//***************************************************************************
+// Widget Types 2 Json
+//***************************************************************************
+
+int Poold::widgetTypes2Json(json_t* obj)
+{
+   for (int type = wtUnknown+1; type < wtCount; type++)
+      json_object_set_new(obj, toName((WidgetType)type), json_integer(type));
+
+   return done;
+}
+
 
 //***************************************************************************
 // Daemon Status 2 Json
@@ -1199,4 +1240,48 @@ int Poold::sensor2Json(json_t* obj, cDbTable* table)
    tablePeaks->reset();
 
    return done;
+}
+
+//***************************************************************************
+// images2Json
+//***************************************************************************
+
+int Poold::images2Json(json_t* obj)
+{
+   FileList images;
+   int count {0};
+   char* path {nullptr};
+
+   asprintf(&path, "%s/img/icon", httpPath);
+
+   json_array_append_new(obj, json_string(""));
+
+   if (getFileList(path, DT_REG, nullptr, false, &images, count) == success)
+   {
+      for (const auto& img : images)
+      {
+         char* imgPath {nullptr};
+         asprintf(&imgPath, "img/icon/%s", img.name.c_str());
+         json_array_append_new(obj, json_string(imgPath));
+         free(imgPath);
+      }
+   }
+
+   free(path);
+
+   return done;
+}
+
+//***************************************************************************
+// Web File Exists
+//***************************************************************************
+
+bool Poold::webFileExists(const char* file, const char* base)
+{
+   char* path {nullptr};
+   asprintf(&path, "%s/%s/%s", httpPath, base ? base : "", file);
+   bool exist = fileExists(path);
+   free(path);
+
+   return exist;
 }

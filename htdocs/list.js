@@ -33,14 +33,14 @@ function initList(update = false)
 
    if (daemonState.state != null && daemonState.state == 0)
    {
-      html +=  "<div id=\"aStateOk\"><span style=\"text-align: center;\">Pool Control ONLINE</span></div><br/>\n";
+      html +=  '<div id="aStateOk"><span style="text-align: center;">' + pageTitle + ' ONLINE</span></div><br/>';
       html +=  "<div><span>Läuft seit:</span><span>" + daemonState.runningsince + "</span>       </div>\n";
       html +=  "<div><span>Version:</span> <span>" + daemonState.version + "</span></div>\n";
       html +=  "<div><span>CPU-Last:</span><span>" + daemonState.average0 + " " + daemonState.average1 + " "  + daemonState.average2 + " " + "</span>           </div>\n";
    }
    else
    {
-      html += "<div id=\"aStateFail\">ACHTUNG:<br/>Pool Control OFFLINE</div>\n";
+      html += '<div id="aStateFail">ACHTUNG:<br/>' + pageTitle + ' OFFLINE</div>';
    }
 
    rootState.innerHTML = "";
@@ -74,12 +74,12 @@ function initList(update = false)
 
       var title = fact.usrtitle != '' && fact.usrtitle != undefined ? fact.usrtitle : fact.title;
 
-      if (fact.widgettype == 1 || fact.widgettype == 3) {      // 1 Gauge or 3 Value
-         html += "<span class=\"listFirstCol\"" + id + ">" + widget.value.toFixed(2) + "&nbsp;" + fact.unit;
+      if (fact.widget.widgettype == 1 || fact.widget.widgettype == 3) {      // 1 Gauge or 3 Value
+         html += "<span class=\"listFirstCol\"" + id + ">" + widget.value.toFixed(2) + "&nbsp;" + fact.widget.unit;
          html += "&nbsp; <p style=\"display:inline;font-size:12px;font-style:italic;\">(" + (widget.peak != null ? widget.peak.toFixed(2) : "  ") + ")</p>";
          html += "</span>";
       }
-      else if (fact.widgettype == 0) {   // 0 Symbol
+      else if (fact.widget.widgettype == 0) {   // 0 Symbol
          html += "   <div class=\"listFirstCol\" onclick=\"toggleIo(" + fact.address + ",'" + fact.type + "')\"><img " + id + "/></div>\n";
       }
       else {   // 2 Text
@@ -114,16 +114,16 @@ function updateList(widgets)
 
       var id = "#widget" + fact.type + fact.address;
 
-      if (fact.widgettype == 1 || fact.widgettype == 3) {
+      if (fact.widget.widgettype == 1 || fact.widget.widgettype == 3) {
          var peak = widget.peak != null ? widget.peak.toFixed(2) : "  ";
-         $(id).html(widget.value.toFixed(2) + "&nbsp;" + fact.unit +
+         $(id).html(widget.value.toFixed(2) + "&nbsp;" + fact.widget.unit +
                     "&nbsp; <p style=\"display:inline;font-size:12px;font-style:italic;\">(" + peak + ")</p>");
       }
-      else if (fact.widgettype == 0) {   // Symbol
-         var image = widget.value != 0 ? fact.imgon : fact.imgoff;
+      else if (fact.widget.widgettype == 0) {   // Symbol
+         var image = widget.value != 0 ? fact.widget.imgon : fact.widget.imgoff;
          $(id).attr("src", image);
       }
-      else if (fact.widgettype == 2 || fact.widgettype == 7) {   // Text, PlainText
+      else if (fact.widget.widgettype == 2 || fact.widget.widgettype == 7) {   // Text, PlainText
          $(id).html(widget.text);
       }
       else {
@@ -133,6 +133,6 @@ function updateList(widgets)
             $(id).html(widget.value.toFixed(0));
       }
 
-      // console.log(i + ") " + fact.widgettype + " : " + title + " / " + widget.value + "(" + id + ")");
+      // console.log(i + ") " + fact.widget.widgettype + " : " + title + " / " + widget.value + "(" + id + ")");
    }
 }

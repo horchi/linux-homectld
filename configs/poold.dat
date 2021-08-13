@@ -61,13 +61,7 @@ Table valuefacts
    NAME                 ""  name                 Ascii      100 Data,
    TITLE                ""  title                Ascii      100 Data,
    USRTITLE             ""  usrtitle             Ascii      100 Data,
-   MAXSCALE             ""  maxscale             Int          4 Data,
-   MINSCALE             ""  minscale             Int          4 Data,
-   SCALESTEP            ""  scalestep            Float      122 Data,
-   CRITMIN              ""  critmin              Int          4 Data,
-   WIDGET               ""  widget               Ascii       10 Data,
-   IMGON                ""  imgon                Ascii      100 Data,
-   IMGOFF               ""  imgoff               Ascii      100 Data,
+   WIDGETOPT            ""  widgetopt            Ascii     1000 Data,
    RIGHTS   "needed control rights" rights       Int          0 Data,
 }
 

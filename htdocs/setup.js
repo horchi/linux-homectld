@@ -211,9 +211,9 @@ function tableHeadline(title, id)
       '      <tr>' +
       '        <td style="width:20%;">Name</td>' +
       '        <td style="width:25%;">Bezeichnung</td>' +
+      '        <td style="width:4%;">Einheit</td>' +
       '        <td style="width:3%;">Aktiv</td>' +
       '        <td style="width:8%;">ID</td>' +
-      '        <td style="width:8%;">Widget' +
       '      </tr>' +
       '    </thead>' +
       '    <tbody id="' + id + '">' +
@@ -253,14 +253,11 @@ function initIoSetup(valueFacts)
       var root = null;
       var usrtitle = item.usrtitle != null ? item.usrtitle : "";
 
-      var html = "<td id=\"row_" + item.type + item.address + "\" data-address=\"" + item.address + "\" data-type=\"" + item.type + "\" >" + item.title + "</td>";
-      html += "<td class=\"tableMultiColCell\">";
-      html += "  <input id=\"usrtitle_" + item.type + item.address + "\" class=\"rounded-border inputSetting\" type=\"text\" value=\"" + usrtitle + "\"/>";
-      html += "</td>";
-
-      html += "<td><input id=\"state_" + item.type + item.address + "\" class=\"rounded-border inputSetting\" type=\"checkbox\" " + (item.state ? "checked" : "") + ' /><label for="state_' + item.type + item.address + '"></label></td>';
-      html += "<td>" + item.type + ":0x" + item.address.toString(16).padStart(2, '0') + "</td>";
-      html += '<td><button class="buttonOptions rounded-border" onclick="widgetSetup(\'' + key + '\')">Edit</button></td>';
+      var html = '<td id="row_' + item.type + item.address + '" data-address="' + item.address + '" data-type="' + item.type + '" >' + item.title + '</td>';
+      html += '<td class="tableMultiColCell"><input id="usrtitle_' + item.type + item.address + '" class="rounded-border inputSetting" type="text" value="' + usrtitle + '"/></td>';
+      html += '<td class="tableMultiColCell"><input id="unit_' + item.type + item.address + '" class="rounded-border inputSetting" type="text" value="' + item.unit + '"/></td>';
+      html += '<td><input id="state_' + item.type + item.address + '" class="rounded-border inputSetting" type="checkbox" ' + (item.state ? 'checked' : '') + ' /><label for="state_' + item.type + item.address + '"></label></td>';
+      html += '<td>' + item.type + ':0x' + item.address.toString(16).padStart(2, '0') + '</td>';
 
       switch (item.type) {
          case 'DO': root = document.getElementById("ioDigitalOut"); break
@@ -279,249 +276,6 @@ function initIoSetup(valueFacts)
    }
 }
 
-function widgetSetup(key)
-{
-   var item = valueFacts[key];
-   var form = document.createElement("div");
-
-   $(form).append($('<div></div>')
-                  .attr('id', 'widgetConfig')
-                  .css('minWidth', '60vh')
-                  .css('maxWidth', '80vh')
-                  .css('maxHeight', '60vh')
-                  .css('display', 'flex')
-                  .append($('<div></div>')
-                          .attr('id', 'preview')
-                          .addClass('widgetContainer')
-                          .css('width', '50%'))
-
-                  .append($('<div></div>')
-                          .css('width', '50%')
-                          .append($('<div></div>')
-                                  .css('display', 'flex')
-                                  .append($('<span></span>')
-                                          .css('width', '25%')
-                                          .css('text-align', 'end')
-                                          .css('align-self', 'center')
-                                          .css('margin-right', '10px')
-                                          .html('Widget'))
-                                  .append($('<span></span>')
-                                          .append($('<select></select>')
-                                                  .addClass('rounded-border inputSetting')
-                                                  .attr('id', 'widgettype')
-                                                 )))
-
-                          .append($('<div></div>')
-                                  .css('display', 'flex')
-                                  .append($('<span></span>')
-                                          .css('width', '25%')
-                                          .css('text-align', 'end')
-                                          .css('align-self', 'center')
-                                          .css('margin-right', '10px')
-                                          .html('Einheit'))
-                                  .append($('<span></span>')
-                                          .append($('<input></input>')
-                                                  .addClass('rounded-border inputSetting')
-                                                  .attr('id', 'unit')
-                                                  .val(item.unit)
-                                                 )))
-
-                          .append($('<div></div>')
-                                  .css('display', 'flex')
-                                  .append($('<span></span>')
-                                          .css('width', '25%')
-                                          .css('text-align', 'end')
-                                          .css('align-self', 'center')
-                                          .css('margin-right', '10px')
-                                          .html('Skala Min'))
-                                  .append($('<span></span>')
-                                          .append($('<input></input>')
-                                                  .addClass('rounded-border inputSetting')
-                                                  .attr('id', 'scalemin')
-                                                  .attr('type', 'number')
-                                                  .val(item.scalemin)
-                                                 )))
-
-                          .append($('<div></div>')
-                                  .css('display', 'flex')
-                                  .append($('<span></span>')
-                                          .css('width', '25%')
-                                          .css('text-align', 'end')
-                                          .css('align-self', 'center')
-                                          .css('margin-right', '10px')
-                                          .html('Skala Max'))
-                                  .append($('<span></span>')
-                                          .append($('<input></input>')
-                                                  .addClass('rounded-border inputSetting')
-                                                  .attr('id', 'scalemax')
-                                                  .attr('type', 'number')
-                                                  .val(item.scalemax)
-                                                 )))
-
-                          .append($('<div></div>')
-                                  .css('display', 'flex')
-                                  .append($('<span></span>')
-                                          .css('width', '25%')
-                                          .css('text-align', 'end')
-                                          .css('align-self', 'center')
-                                          .css('margin-right', '10px')
-                                          .html('Skala Step'))
-                                  .append($('<span></span>')
-                                          .append($('<input></input>')
-                                                  .addClass('rounded-border inputSetting')
-                                                  .attr('id', 'scalestep')
-                                                  .attr('type', 'number')
-                                                  .attr('step', '0.1')
-                                                  .val(item.scalestep)
-                                                 )))
-
-                          .append($('<div></div>')
-                                  .css('display', 'flex')
-                                  .append($('<span></span>')
-                                          .css('width', '25%')
-                                          .css('text-align', 'end')
-                                          .css('align-self', 'center')
-                                          .css('margin-right', '10px')
-                                          .html('Skala Crit'))
-                                  .append($('<span></span>')
-                                          .append($('<input></input>')
-                                                  .addClass('rounded-border inputSetting')
-                                                  .attr('id', 'critmin')
-                                                  .attr('type', 'number')
-                                                  .val(item.critmin)
-                                                 )))
-
-                          .append($('<div></div>')
-                                  .css('display', 'flex')
-                                  .append($('<span></span>')
-                                          .css('width', '25%')
-                                          .css('text-align', 'end')
-                                          .css('align-self', 'center')
-                                          .css('margin-right', '10px')
-                                          .html('Image On'))
-                                  .append($('<span></span>')
-                                          .append($('<select></select>')
-                                                  .addClass('rounded-border inputSetting')
-                                                  .attr('id', 'imgon')
-                                                 )))
-
-                          .append($('<div></div>')
-                                  .css('display', 'flex')
-                                  .append($('<span></span>')
-                                          .css('width', '25%')
-                                          .css('text-align', 'end')
-                                          .css('align-self', 'center')
-                                          .css('margin-right', '10px')
-                                          .html('Image On'))
-                                  .append($('<span></span>')
-                                          .append($('<select></select>')
-                                                  .addClass('rounded-border inputSetting')
-                                                  .attr('id', 'imgoff')
-                                                 )))
-                         ));
-
-   var widget = null;
-
-   for (var i = 0; i < allWidgets.length; i++)
-   {
-      console.log("check " + allWidgets[i].type + " - " + allWidgets[i].address);
-      if (allWidgets[i].type == item.type && allWidgets[i].address == item.address) {
-         widget = allWidgets[i];
-         break;
-      }
-   }
-
-   $(form).dialog({
-      modal: true,
-      width: "auto",
-      title: "Widget Konfiguration - " + (item.usrtitle ? item.usrtitle : item.title),
-      open: function() {
-         for (var wdKey in widgetTypes) {
-            $('#widgettype').append($('<option></option>')
-                                    .val(widgetTypes[wdKey])
-                                    .html(wdKey)
-                                    .attr('selected', widgetTypes[wdKey] == item.widgettype));
-         }
-
-         for (var img in images) {
-            $('#imgoff').append($('<option></option>')
-                                .val(images[img])
-                                .html(images[img])
-                                .attr('selected', item.imgoff == images[img]));
-            $('#imgon').append($('<option></option>')
-                               .val(images[img])
-                               .html(images[img])
-                               .attr('selected', item.imgon == images[img]));
-         }
-
-         if (widget != null) {
-            initWidget(widget, document.getElementById('preview'));
-            updateWidget(widget, false);
-         }
-         else
-            console.log("No widget for " + item.type + " - " + item.address + " found");
-      },
-      buttons: {
-         'Cancel': function () {
-            $(this).dialog('close');
-         },
-         'Update': function () {
-            if (widget != null) {
-               var e = document.getElementById('preview');
-               e.innerHTML = "";
-               fact = Object.create(valueFacts[item.type + ":" + item.address]);
-
-               if ($("#unit").length)
-                  fact.unit = $("#unit").val();
-               if ($("#scalemax").length)
-                  fact.scalemax = parseInt($("#scalemax").val());
-               if ($("#scalemin").length)
-                  fact.scalemin = parseInt($("#scalemin").val());
-               if ($("#scalestep").length)
-                  fact.scalestep = parseFloat($("#scalestep").val());
-               if ($("#critmin").length)
-                  fact.critmin = parseInt($("#critmin").val());
-               if ($("#imgon").length)
-                  fact.imgon = $("#imgon").val();
-               if ($("#imgoff").length)
-                  fact.imgoff = $("#imgoff").val();
-               fact.widgettype = parseInt($("#widgettype").val());
-
-               initWidget(widget, e, fact);
-               updateWidget(widget, true, fact);
-            }
-         },
-         'Ok': function () {
-            var jsonObj = {};
-            jsonObj["type"] = item.type;
-            jsonObj["address"] = item.address;
-            if ($("#unit").length)
-               jsonObj["unit"] = parseInt($("#unit").val());
-            if ($("#scalemax").length)
-               jsonObj["scalemax"] = parseInt($("#scalemax").val());
-            if ($("#scalemin").length)
-               jsonObj["scalemin"] = parseInt($("#scalemin").val());
-            if ($("#scalestep").length)
-               jsonObj["scalestep"] = parseFloat($("#scalestep").val());
-            if ($("#critmin").length)
-               jsonObj["critmin"] = parseInt($("#critmin").val());
-            if ($("#imgon").length)
-               jsonObj["imgon"] = $("#imgon").val();
-            if ($("#imgoff").length)
-               jsonObj["imgoff"] = $("#imgoff").val();
-            jsonObj["widgettype"] = parseInt($("#widgettype").val());
-
-            var jsonArray = [];
-            jsonArray[0] = jsonObj;
-            socket.send({ "event" : "storeiosetup", "object" : jsonArray });
-
-            $(this).dialog('close');
-         }
-      },
-      close: function() { $(this).dialog('destroy').remove(); }
-   });
-}
-
 function storeIoSetup()
 {
    var jsonArray = [];
@@ -537,6 +291,7 @@ function storeIoSetup()
       jsonObj["type"] = type;
       jsonObj["address"] = address;
       jsonObj["usrtitle"] = $("#usrtitle_" + type + address).val();
+      jsonObj["unit"] = $("#unit_" + type + address).val();
       jsonObj["state"] = $("#state_" + type + address).is(":checked");
       jsonArray[i] = jsonObj;
    }

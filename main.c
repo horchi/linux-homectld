@@ -173,8 +173,7 @@ int main(int argc, char** argv)
    if (readConfig() != success)
       return 1;
 
-   if (_level != na)
-      loglevel = _level;
+   argLoglevel = _level;
 
    // fork daemon
 

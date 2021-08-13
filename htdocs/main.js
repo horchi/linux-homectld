@@ -10,8 +10,7 @@
 
 var WebSocketClient = window.WebSocketClient
 
-var myProtocol = "poold";
-var storagePrefix = "p4d";
+var onSmalDevice = false;
 var isActive = null;
 var socket = null;
 var config = {};
@@ -27,6 +26,8 @@ var theChartStart = new Date(); theChartStart.setDate(theChartStart.getDate()-th
 var chartDialogSensor = "";
 var chartBookmarks = {};
 var allWidgets = [];
+
+var setupMode = false;
 
 $('document').ready(function() {
    daemonState.state = -1;
@@ -55,6 +56,9 @@ function onSocketConnect(protocol)
                });
 
    prepareMenu();
+   document.title = pageTitle;
+   onSmalDevice = window.matchMedia("(max-width: 740px)").matches;
+   console.log("onSmalDevice : " + onSmalDevice);
 }
 
 function connectWebSocket(useUrl, protocol)
@@ -81,26 +85,20 @@ function connectWebSocket(useUrl, protocol)
 }
 
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 var infoDialog = null;
 
 async function showInfoDialog(object, titleMsg, onCloseCallback)
 {
-   if (infoDialog) {
-      infoDialog.dialog('close');
-      infoDialog.dialog('destroy').remove();
-      infoDialog = null;
-   }
-
    var message = object.message;
    var titleMsg = "";
 
    if (object.status == -1)
-      titleMsg = "Error";
+      titleMsg = "ErrortitleMsg";
    else if (object.status < -1)
-      titleMsg = "Information (" + object.status + ")";
+      titleMsg = "Information (" + object.status + ")titleMsg";
    else if (object.status == 1) {
       var array = message.split("#:#");
       titleMsg = array[0];
@@ -116,6 +114,20 @@ async function showInfoDialog(object, titleMsg, onCloseCallback)
       msDuration = 20000;
       cls = "";
       align = "left";
+   }
+
+   $('#infoBox').removeClass('hidden');
+   $('#infoBox').html(titleMsg + " " + message);
+
+   setTimeout(function() {
+      $('#infoBox').addClass('hidden');
+   }, msDuration);
+
+   /*
+   if (infoDialog) {
+      infoDialog.dialog('close');
+      infoDialog.dialog('destroy').remove();
+      infoDialog = null;
    }
 
    var div = document.createElement("div");
@@ -145,7 +157,7 @@ async function showInfoDialog(object, titleMsg, onCloseCallback)
          $(this).dialog('destroy').remove();
          infoDialog = null;
       }
-   });
+   });*/
 }
 
 var progressDialog = null;
@@ -225,9 +237,8 @@ function dispatchMessage(message)
       else if (currentPage == 'list')
          updateList(jMessage.object);
    }
-   else if (event == "init" && currentPage == 'dashboard') {
+   else if (event == "init" && (currentPage == 'list' || currentPage == 'dashboard')) {
       allWidgets = jMessage.object;
-
       if (currentPage == 'dashboard')
          initDashboard();
       else if (currentPage == 'list')
@@ -301,7 +312,7 @@ function dispatchMessage(message)
 function prepareMenu()
 {
    var html = "";
-   var haveToken = localStorage.getItem(storagePrefix + 'Token') && localStorage.getItem(storagePrefix + 'Token') != "";
+   // var haveToken = localStorage.getItem(storagePrefix + 'Token') && localStorage.getItem(storagePrefix + 'Token') != "";
 
    console.log("prepareMenu: " + currentPage);
 
@@ -311,12 +322,12 @@ function prepareMenu()
    html += '<button class="rounded-border button1" onclick="mainMenuSel(\'chart\')">Charts</button>';
    html += '<button id="vdrMenu" class="rounded-border button1" onclick="mainMenuSel(\'vdr\')">VDR</button>';
 
-   html += "<div class=\"menuLogin\">";
-   if (haveToken)
-      html += '<button class="rounded-border button1" onclick="mainMenuSel(\'user\')">[' + localStorage.getItem(storagePrefix + 'User') + ']</button>';
-   else
-      html += '<button class="rounded-border button1" onclick="mainMenuSel(\'login\')">Login</button>';
-   html += "</div>";
+   html +=
+      '<button id="burgerMenu" class="rounded-border button1 menuLogin" onclick="menuBurger()">' +
+      ' <div></div>' +
+      ' <div></div>' +
+      ' <div></div>' +
+      '</button>';
 
    if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10) {
       html += '<button class="rounded-border button1" onclick="mainMenuSel(\'setup\')">Setup</button>';
@@ -381,12 +392,57 @@ function prepareMenu()
    }*/
 }
 
+function menuBurger()
+{
+   var haveToken = localStorage.getItem(storagePrefix + 'Token') && localStorage.getItem(storagePrefix + 'Token') != "";
+
+   var form = '<div id="burgerPopup" style="padding:0px;">';
+   if (haveToken)
+      form +=
+      '<button style="width:120px;" class="rounded-border button1" onclick="mainMenuSel(\'user\')">[' + localStorage.getItem(storagePrefix + 'User') + ']</button>' +
+      '  <br/>' +
+      '  <div><button style="width:120px;" class="rounded-border button1" onclick="setupDashboard()">' + (setupMode ? 'Stop Setup' : 'Start Setup') + '</button></div>';
+   else
+      form += '<button style="width:120px;" class="rounded-border button1" onclick="mainMenuSel(\'login\')">Login</button>';
+
+   form += '</div>';
+
+   $(form).dialog({
+      position: { my: "right top", at: "right bottom", of: document.getElementById("burgerMenu") },
+      minHeight: "auto",
+      width: "auto",
+      dialogClass: "no-titlebar rounded-border",
+		modal: true,
+      resizable: false,
+		closeOnEscape: true,
+      hide: "fade",
+      open: function(event, ui) {
+         $(event.target).parent().css('background-color', 'var(--light1)');
+         $('.ui-widget-overlay').bind('click', function()
+                                      { $("#burgerPopup").dialog('close'); });
+      },
+      close: function() {
+         $("body").off("click");
+         $(this).dialog('destroy').remove();
+      }
+   });
+}
+
+function setupDashboard()
+{
+   $("#burgerPopup").dialog("close");
+
+   setupMode = !setupMode;
+   initDashboard();
+}
+
 function mainMenuSel(what)
 {
+   $("#burgerPopup").dialog("close");
+
    var lastPage = currentPage;
    currentPage = what;
    console.log("switch to " + currentPage);
-
    hideAllContainer();
 
    if (currentPage != lastPage && (currentPage == "vdr" || lastPage == "vdr")) {

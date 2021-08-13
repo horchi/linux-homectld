@@ -35,6 +35,7 @@
 #endif
 
 int loglevel = 1;
+int argLoglevel = 1;
 int logstdout = no;
 int logstamp = no;
 
@@ -461,7 +462,16 @@ std::string strReplace(const std::string& what, double with, const std::string& 
 }
 
 //***************************************************************************
-//
+// isNan
+//***************************************************************************
+
+bool isNan(double value)
+{
+   return value != value;
+}
+
+//***************************************************************************
+// plural
 //***************************************************************************
 
 const char* plural(int n, const char* s)
@@ -914,6 +924,16 @@ int loadLinesFromFile(const char* infile, std::vector<std::string>& lines, bool 
    free(line);
 
    return success;
+}
+
+bool fctImageSort(FileInfo& v1, FileInfo& v2)
+{
+   return v1.name < v2.name;
+}
+
+void sortFileList(FileList& list)
+{
+   std::sort(list.begin(), list.end(), fctImageSort);
 }
 
 int getFileList(const char* path, int type, const char* extensions, int recursion, FileList* dirs, int& count)

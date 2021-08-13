@@ -19,9 +19,8 @@ function initDashboard(update = false)
       return;
    }
 
-   if (!update) {
+   if (!update)
       $('#container').removeClass('hidden');
-   }
 
    $("#container").height($(window).height() - $("#menu").height() - 8);
 
@@ -29,28 +28,22 @@ function initDashboard(update = false)
       $("#container").height($(window).height() - $("#menu").height() - 8);
    };
 
-   // clean page content
-
    document.getElementById("container").innerHTML = '<div id="widgetContainer" class="widgetContainer"></div>';
 
-   var root = document.getElementById("widgetContainer");
-
-   // build page content
-
    for (var i = 0; i < allWidgets.length; i++)
-   {
-      initWidget(allWidgets[i], root, null);
-   }
+      initWidget(allWidgets[i], null);
 
    updateDashboard(allWidgets, true);
 }
 
-function initWidget(widget, root, fact)
+function initWidget(widget, fact)
 {
+   var root = document.getElementById("widgetContainer");
+
    if (fact == null)
       fact = valueFacts[widget.type + ":" + widget.address];
 
-   console.log("initWidget " + widget.name);
+   // console.log("initWidget " + widget.name);
 
    if (fact == null || fact == undefined) {
       console.log("Fact for widget '" + widget.type + ":" + widget.address + "' not found, ignoring");
@@ -59,19 +52,33 @@ function initWidget(widget, root, fact)
 
    // console.log("fact: " + JSON.stringify(fact, undefined, 4));
 
-   var title = fact.usrtitle != '' && fact.usrtitle != undefined ? fact.usrtitle : fact.title;
-   var elem = document.createElement("div");
-   root.appendChild(elem);
-   elem.setAttribute('id', 'div_' + fact.type + ":0x" + fact.address.toString(16).padStart(2, '0'));
-   elem.setAttribute('draggable', true);
-   elem.dataset.droppoint = true;
-   elem.addEventListener('dragstart', function(event) {dragWidget(event)}, false);
-   elem.addEventListener('dragover', function(event) {event.preventDefault()}, false);
-   elem.addEventListener('drop', function(event) {dropWidget(event)}, false);
+   var editButton = '';
+   var id = 'div_' + fact.type + ":0x" + fact.address.toString(16).padStart(2, '0');
+   var elem = document.getElementById(id);
+   if (elem == null) {
+      // console.log("element '" + id + "' not found, creating");
+      elem = document.createElement("div");
+      root.appendChild(elem);
+      elem.setAttribute('id', 'div_' + fact.type + ":0x" + fact.address.toString(16).padStart(2, '0'));
+   }
 
-   switch (fact.widgettype) {
+   elem.innerHTML = "";
+
+   if (setupMode) {
+      elem.setAttribute('draggable', true);
+      elem.dataset.droppoint = true;
+      elem.addEventListener('dragstart', function(event) {dragWidget(event)}, false);
+      elem.addEventListener('dragover', function(event) {event.preventDefault()}, false);
+      elem.addEventListener('drop', function(event) {dropWidget(event)}, false);
+
+      editButton += '  <button class="widget-edit widget-title" onclick="widgetSetup(\'' + fact.type + ':' + fact.address + '\')">' + '&#128393' + '</button>';
+   }
+
+   var title = fact.usrtitle != '' && fact.usrtitle != undefined ? fact.usrtitle : fact.title;
+
+   switch (fact.widget.widgettype) {
       case 0:           // Symbol
-         var html = "";
+         var html = editButton;
          html += "  <button class=\"widget-title\" type=\"button\" onclick=\"toggleMode(" + fact.address + ", '" + fact.type + "')\">" + title + "</button>\n";
          html += "  <button class=\"widget-main\" type=\"button\" onclick=\"toggleIo(" + fact.address + ",'" + fact.type + "')\" >\n";
          html += '    <img id="widget' + fact.type + fact.address + '" draggable="false")/>';
@@ -86,19 +93,37 @@ function initWidget(widget, root, fact)
          break;
 
       case 1:          // Chart
-         var html = "  <div class=\"widget-title\">" + title + "</div>";
-
-         html += "<div id=\"peak" + fact.type + fact.address + "\" class=\"chart-peak\"></div>";
-         html += "<div id=\"value" + fact.type + fact.address + "\" class=\"chart-value\"></div>";
-         html += "<div class=\"chart-canvas-container\"><canvas id=\"widget" + fact.type + fact.address + "\" class=\"chart-canvas\"></canvas></div>";
-
          elem.className = "widgetChart rounded-border";
-         elem.setAttribute("onclick", "toggleChartDialog('" + fact.type + "'," + fact.address + ")");
-         elem.innerHTML = html;
+
+         var eTitle = document.createElement("div");
+         eTitle.className = "widget-title";
+         eTitle.innerHTML = title + editButton;
+         elem.appendChild(eTitle);
+
+         var ePeak = document.createElement("div");
+         ePeak.setAttribute('id', 'peak' + fact.type + fact.address);
+         ePeak.className = "chart-peak";
+         elem.appendChild(ePeak);
+
+         var eValue = document.createElement("div");
+         eValue.setAttribute('id', 'value' + fact.type + fact.address);
+         eValue.className = "chart-value";
+         elem.appendChild(eValue);
+
+         var eChart = document.createElement("div");
+         eChart.className = "chart-canvas-container";
+         eChart.setAttribute("onclick", "toggleChartDialog('" + fact.type + "'," + fact.address + ")");
+         elem.appendChild(eChart);
+
+         var eCanvas = document.createElement("canvas");
+         eCanvas.setAttribute('id', 'widget' + fact.type + fact.address);
+         eCanvas.className = "chart-canvas";
+         eChart.appendChild(eCanvas);
+
          break;
 
       case 4:           // Gauge
-         var html = "  <div class=\"widget-title\">" + title + "</div>";
+         var html = "  <div class=\"widget-title\">" + title + editButton + "</div>";
 
          html += "  <svg class=\"widget-main-gauge\" viewBox=\"0 0 1000 600\" preserveAspectRatio=\"xMidYMin slice\">\n";
          html += "    <path id=\"pb" + fact.type + fact.address + "\"/>\n";
@@ -110,18 +135,17 @@ function initWidget(widget, root, fact)
          html += "  </svg>\n";
 
          elem.className = "widgetGauge rounded-border participation";
-         elem.setAttribute("id", "widget" + fact.type + fact.address);
          elem.setAttribute("onclick", "toggleChartDialog('" + fact.type + "'," + fact.address + ")");
          elem.innerHTML = html;
          break;
 
       case 5:          // Meter
       case 6:          // MeterLevel
-         var radial = fact.widgettype == 5;
+         var radial = fact.widget.widgettype == 5;
          elem.className = radial ? "widgetMeter rounded-border" : "widgetMeterLinear rounded-border";
          var eTitle = document.createElement("div");
          eTitle.className = "widget-title";
-         eTitle.innerHTML = title;
+         eTitle.innerHTML = title + editButton;
          elem.appendChild(eTitle);
 
          var main = document.createElement("div");
@@ -139,12 +163,12 @@ function initWidget(widget, root, fact)
             elem.appendChild(value);
          }
 
-         if (fact.scalemin == undefined)
-            fact.scalemin = 0;
+         if (fact.widget.scalemin == undefined)
+            fact.widget.scalemin = 0;
 
          var ticks = [];
-         var scaleRange = fact.scalemax - fact.scalemin;
-         var stepWidth = fact.scalestep != undefined ? fact.scalestep : 0;
+         var scaleRange = fact.widget.scalemax - fact.widget.scalemin;
+         var stepWidth = fact.widget.scalestep != undefined ? fact.widget.scalestep : 0;
 
          if (!stepWidth) {
             var steps = 10;
@@ -152,34 +176,28 @@ function initWidget(widget, root, fact)
                steps = scaleRange % 10 == 0 ? 10 : scaleRange % 5 == 0 ? 5 : scaleRange;
             if (steps < 10)
                steps = 10;
-            if (!radial && fact.unit == '%')
+            if (!radial && fact.widget.unit == '%')
                steps = 4;
             stepWidth = scaleRange / steps;
          }
 
          if (stepWidth <= 0) stepWidth = 1;
-
-      for (var step = fact.scalemin; step.toFixed(2) <= fact.scalemax; step += stepWidth) {
+         stepWidth = Math.round(stepWidth*10) / 10;
+         var steps = -1;
+         for (var step = fact.widget.scalemin; step.toFixed(2) <= fact.widget.scalemax; step += stepWidth) {
             ticks.push(step % 1 ? parseFloat(step).toFixed(1) : parseInt(step));
-            console.log("added step " + ((step % 1) ? parseFloat(step).toFixed(1) : parseInt(step)) +
-                        " max scale is " + fact.scalemax + " stepWidth is " + stepWidth);
-            console.log(((step+stepWidth <= fact.scalemax) ? "cont" : "break")  + " due to next step is " + (step+stepWidth));
+            steps++;
          }
 
+         var scalemax = fact.widget.scalemin + stepWidth * steps; // cals real scale max based on stepWidth and step count!
          var highlights = {};
-
-         if (fact.critmin == -1) {
-            highlights = [
-               { from: fact.scalemin, to: 0,             color: 'rgba(0,0,255,.6)' },
-               { from: 0,             to: fact.scalemax, color: 'rgba(0,255,0,.6)' }
-            ];
-         }
-         else {
-            highlights = [
-               { from: fact.scalemin, to: fact.critmin,  color: 'rgba(255,0,0,.6)' },
-               { from: fact.critmin,  to: fact.scalemax, color: 'rgba(0,255,0,.6)' }
-            ];
-         }
+         var critmin = (fact.widget.critmin == undefined || fact.widget.critmin == -1) ? fact.widget.scalemin : fact.widget.critmin;
+         var critmax = (fact.widget.critmax == undefined || fact.widget.critmax == -1) ? scalemax : fact.widget.critmax;
+         highlights = [
+            { from: fact.widget.scalemin, to: critmin,  color: 'rgba(255,0,0,.6)' },
+            { from: critmin,              to: critmax,  color: 'rgba(0,255,0,.6)' },
+            { from: critmax,              to: scalemax, color: 'rgba(255,0,0,.6)' }
+         ];
 
          // console.log("widget: " + JSON.stringify(widget, undefined, 4));
          // console.log("ticks: " + ticks + " range; " + scaleRange);
@@ -187,11 +205,11 @@ function initWidget(widget, root, fact)
 
          options = {
             renderTo: 'widget' + fact.type + fact.address,
-            units: radial ? fact.unit : '',
-            // title: radial ? false : fact.unit
+            units: radial ? fact.widget.unit : '',
+            // title: radial ? false : fact.widget.unit
             colorTitle: 'white',
-            minValue: fact.scalemin,
-            maxValue: fact.scalemax,
+            minValue: fact.widget.scalemin,
+            maxValue: scalemax,
             majorTicks: ticks,
             minorTicks: 5,
             strokeTicks: false,
@@ -199,7 +217,7 @@ function initWidget(widget, root, fact)
             highlightsWidth: radial ? 8 : 6,
             colorPlate: radial ? '#2177AD' : 'rgba(0,0,0,0)',
             colorBar: 'gray',
-            colorBarProgress: fact.unit == '%' ? 'blue' : 'red',
+            colorBarProgress: fact.widget.unit == '%' ? 'blue' : 'red',
             colorBarStroke: 'red',
             colorMajorTicks: '#f5f5f5',
             colorMinorTicks: '#ddd',
@@ -208,7 +226,7 @@ function initWidget(widget, root, fact)
             colorNumbers: '#eee',
             colorNeedle: 'rgba(240, 128, 128, 1)',
             colorNeedleEnd: 'rgba(255, 160, 122, .9)',
-            fontNumbersSize: 30,
+            fontNumbersSize: radial ? 34 : (onSmalDevice ? 45 : 45),
             fontUnitsSize: 45,
             fontUnitsWeight: 'bold',
             borderOuterWidth: 0,
@@ -219,7 +237,7 @@ function initWidget(widget, root, fact)
             fontValueWeight: 'bold',
             valueBox: radial,
             valueInt: 0,
-            valueDec: 1,
+            valueDec: 2,
             colorValueText: 'white',
             colorValueBoxBackground: 'transparent',
             // colorValueBoxBackground: '#2177AD',
@@ -233,7 +251,7 @@ function initWidget(widget, root, fact)
 
             // linear gauge specials
 
-            barBeginCircle: fact.unit == '°C' ? 15 : 0,
+            barBeginCircle: fact.widget.unit == '°C' ? 15 : 0,
             tickSide: 'left',
             needleSide: 'right',
             numberSide: 'left',
@@ -251,14 +269,14 @@ function initWidget(widget, root, fact)
          break;
 
       case 7:     // 7 (PlainText)
-         var html = '<div id="widget' + fact.type + fact.address + '" class="widget-value" style="height:inherit;"></div>';
+         var html = '<div class="widget-title">' + editButton + '</div>';
+         html += '<div id="widget' + fact.type + fact.address + '" class="widget-value" style="height:inherit;"></div>' + editButton;
          elem.className = "widgetPlain rounded-border";
          elem.innerHTML = html;
          break;
 
       default:   // type 2(Text), 3(Value)
-         var html = "";
-         html += '<div class="widget-title">' + title + '</div>';
+         var html = '<div class="widget-title">' + title + editButton + '</div>';
          html += '<div id="widget' + fact.type + fact.address + '" class="widget-value"></div>\n';
          elem.className = "widget rounded-border";
          elem.innerHTML = html;
@@ -284,17 +302,17 @@ function updateWidget(sensor, refresh, fact)
    if (fact == null)
       fact = valueFacts[sensor.type + ":" + sensor.address];
 
-   console.log("updateWidget " + sensor.name + " of type " + fact.widgettype);
+   // console.log("updateWidget " + sensor.name + " of type " + fact.widget.widgettype);
 
    if (fact == null || fact == undefined) {
       console.log("Fact for widget '" + sensor.type + ":" + sensor.address + "' not found, ignoring");
       return ;
    }
 
-   if (fact.widgettype == 0)         // Symbol
+   if (fact.widget.widgettype == 0)         // Symbol
    {
       var modeStyle = sensor.options == 3 && sensor.mode == 'manual' ? "background-color: #a27373;" : "";
-      var image = sensor.value != 0 ? fact.imgon : fact.imgoff;
+      var image = sensor.value != 0 ? fact.widget.imgon : fact.widget.imgoff;
       if (image == null) image = 'img/icon/unknown.png';
       $("#widget" + fact.type + fact.address).attr("src", image);
 
@@ -325,19 +343,19 @@ function updateWidget(sensor, refresh, fact)
          }
       }
    }
-   else if (fact.widgettype == 1)    // Chart
+   else if (fact.widget.widgettype == 1)    // Chart
    {
       // var elem = $("#widget" + fact.type + fact.address);
 
-      $("#peak" + fact.type + fact.address).text(sensor.peak != null ? sensor.peak.toFixed(2) + " " + fact.unit : "");
+      $("#peak" + fact.type + fact.address).text(sensor.peak != null ? sensor.peak.toFixed(2) + " " + fact.widget.unit : "");
 
       if (!sensor.disabled) {
-         $("#value" + fact.type + fact.address).text(sensor.value.toFixed(2) + " " + fact.unit);
+         $("#value" + fact.type + fact.address).text(sensor.value.toFixed(2) + " " + fact.widget.unit);
          $("#value" + fact.type + fact.address).css('color', "var(--buttonFont)")
       }
       else {
          $("#value" + fact.type + fact.address).css('color', "var(--caption2)")
-         $("#value" + fact.type + fact.address).text("(" + sensor.value.toFixed(2) + (fact.unit!="" ? " " : "") + fact.unit + ")");
+         $("#value" + fact.type + fact.address).text("(" + sensor.value.toFixed(2) + (fact.widget.unit!="" ? " " : "") + fact.widget.unit + ")");
       }
 
       if (refresh) {
@@ -346,45 +364,46 @@ function updateWidget(sensor, refresh, fact)
          socket.send({ "event" : "chartdata", "object" : jsonRequest });
       }
    }
-   else if (fact.widgettype == 2 || fact.widgettype == 7)      // Text, PlainText
+   else if (fact.widget.widgettype == 2 || fact.widget.widgettype == 7)      // Text, PlainText
    {
       if (sensor.text != undefined) {
          var text = sensor.text.replace(/(?:\r\n|\r|\n)/g, '<br>');
          $("#widget" + fact.type + fact.address).html(text);
       }
    }
-   else if (fact.widgettype == 3)      // plain value
+   else if (fact.widget.widgettype == 3)      // plain value
    {
-      $("#widget" + fact.type + fact.address).html(sensor.value + " " + fact.unit);
+      $("#widget" + fact.type + fact.address).html(sensor.value + " " + fact.widget.unit);
    }
-   else if (fact.widgettype == 4)    // Gauge
+   else if (fact.widget.widgettype == 4)      // Gauge
    {
       var value = sensor.value.toFixed(2);
-      var scaleMax = !fact.scalemax || fact.unit == '%' ? 100 : fact.scalemax.toFixed(0);
+      var scaleMax = !fact.widget.scalemax || fact.widget.unit == '%' ? 100 : fact.widget.scalemax.toFixed(0);
       var scaleMin = value >= 0 ? "0" : Math.ceil(value / 5) * 5 - 5;
-
-      if (scaleMax < Math.ceil(value))       scaleMax = value;
-      if (scaleMax < Math.ceil(sensor.peak)) scaleMax = sensor.peak.toFixed(0);
+      var _peak = sensor.peak != null ? sensor.peak : 0;
+      if (scaleMax < Math.ceil(value)) scaleMax = value;
+      if (scaleMax < Math.ceil(_peak))  scaleMax = _peak.toFixed(0);
 
       $("#sMin" + fact.type + fact.address).text(scaleMin);
       $("#sMax" + fact.type + fact.address).text(scaleMax);
-      $("#value" + fact.type + fact.address).text(value + " " + fact.unit);
+      $("#value" + fact.type + fact.address).text(value + " " + fact.widget.unit);
 
       var ratio = (value - scaleMin) / (scaleMax - scaleMin);
-      var peak = (sensor.peak.toFixed(2) - scaleMin) / (scaleMax - scaleMin);
+      var peak = (_peak.toFixed(2) - scaleMin) / (scaleMax - scaleMin);
 
       $("#pb" + fact.type + fact.address).attr("d", "M 950 500 A 450 450 0 0 0 50 500");
       $("#pv" + fact.type + fact.address).attr("d", svg_circle_arc_path(500, 500, 450 /*radius*/, -90, ratio * 180.0 - 90));
       $("#pp" + fact.type + fact.address).attr("d", svg_circle_arc_path(500, 500, 450 /*radius*/, peak * 180.0 - 91, peak * 180.0 - 90));
    }
-   else if (fact.widgettype == 5 || fact.widgettype == 6)    // Meter
+   else if (fact.widget.widgettype == 5 || fact.widget.widgettype == 6)    // Meter
    {
-      // console.log("DEBUG: Update " + '#widget' + fact.type + fact.address + " to: " + sensor.value);
       if (sensor.value != undefined) {
-         $('#widgetValue' + fact.type + fact.address).html(sensor.value.toFixed(fact.unit == '%' ? 0 : 1) + ' ' + fact.unit);
+         var value = (fact.widget.factor != undefined && fact.widget.factor) ? fact.widget.factor*sensor.value : sensor.value;
+         console.log("DEBUG: Update " + '#widget' + fact.type + fact.address + " to: " + value + " (" + sensor.value +")");
+         $('#widgetValue' + fact.type + fact.address).html(value.toFixed(fact.widget.unit == '%' ? 0 : 1) + ' ' + fact.widget.unit);
          var gauge = $('#widget' + fact.type + fact.address).data('gauge');
          if (gauge != null)
-            gauge.value = sensor.value;
+            gauge.value = value;
          else
             console.log("Missing gauge instance for " + '#widget' + fact.type + fact.address);
       }
@@ -479,11 +498,283 @@ function dropWidget(ev)
 
    var list = '';
    $('#widgetContainer > div').each(function () {
-      // console.log(" - " + $(this).attr('id'));
       var sensor = $(this).attr('id').substring($(this).attr('id').indexOf("_") + 1);
+      // console.log(" add " + sensor + " for sensor " + $(this).attr('id'));
       list += sensor + ',';
    });
 
    socket.send({ "event" : "storeconfig", "object" : { "addrsDashboard" : list } });
    console.log(" - " + list);
+}
+
+function widgetSetup(key)
+{
+   var item = valueFacts[key];
+   var form = document.createElement("div");
+
+   $(form).append($('<div></div>')
+                  .css('z-index', '9999')
+                  .css('minWidth', '40vh')
+
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('width', '25%')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('Widget'))
+                          .append($('<span></span>')
+                                  .append($('<select></select>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'widgettype')
+                                         )))
+
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('width', '25%')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('Einheit'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'unit')
+                                          .val(item.widget.unit)
+                                         )))
+
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('width', '25%')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('Faktor'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'factor')
+                                          .attr('type', 'number')
+                                          .attr('step', '0.1')
+                                          .val(item.widget.factor)
+                                         )))
+
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('width', '25%')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('Skala Min'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'scalemin')
+                                          .attr('type', 'number')
+                                          .attr('step', '0.1')
+                                          .val(item.widget.scalemin)
+                                         )))
+
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('width', '25%')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('Skala Max'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'scalemax')
+                                          .attr('type', 'number')
+                                          .attr('step', '0.1')
+                                          .val(item.widget.scalemax)
+                                         )))
+
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('width', '25%')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('Skala Step'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'scalestep')
+                                          .attr('type', 'number')
+                                          .attr('step', '0.1')
+                                          .val(item.widget.scalestep)
+                                         )))
+
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('width', '25%')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('Skala Crit Min'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'critmin')
+                                          .attr('type', 'number')
+                                          .attr('step', '0.1')
+                                          .val(item.widget.critmin)
+                                         )))
+
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('width', '25%')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('Skala Crit Max'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'critmax')
+                                          .attr('type', 'number')
+                                          .attr('step', '0.1')
+                                          .val(item.widget.critmax)
+                                         )))
+
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('width', '25%')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('Image On'))
+                          .append($('<span></span>')
+                                  .append($('<select></select>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'imgon')
+                                         )))
+
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('width', '25%')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('Image Off'))
+                          .append($('<span></span>')
+                                  .append($('<select></select>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'imgoff')
+                                         )))
+                 );
+
+   var widget = null;
+
+   for (var i = 0; i < allWidgets.length; i++)
+   {
+      console.log("check " + allWidgets[i].type + " - " + allWidgets[i].address);
+      if (allWidgets[i].type == item.type && allWidgets[i].address == item.address) {
+         widget = allWidgets[i];
+         break;
+      }
+   }
+
+   $(form).dialog({
+      modal: true,
+      resizable: false,
+      closeOnEscape: true,
+      hide: "fade",
+      width: "auto",
+      title: "Widget Konfiguration - " + (item.usrtitle ? item.usrtitle : item.title),
+      open: function() {
+         for (var wdKey in widgetTypes) {
+            $('#widgettype').append($('<option></option>')
+                                    .val(widgetTypes[wdKey])
+                                    .html(wdKey)
+                                    .attr('selected', widgetTypes[wdKey] == item.widget.widgettype));
+         }
+
+         for (var img in images) {
+            $('#imgoff').append($('<option></option>')
+                                .val(images[img])
+                                .html(images[img])
+                                .attr('selected', item.widget.imgoff == images[img]));
+            $('#imgon').append($('<option></option>')
+                               .val(images[img])
+                               .html(images[img])
+                               .attr('selected', item.widget.imgon == images[img]));
+         }
+
+         if (widget != null) {
+            initWidget(widget, null);
+            updateWidget(widget, false);
+         }
+         else
+            console.log("No widget for " + item.type + " - " + item.address + " found");
+      },
+      buttons: {
+         'Cancel': function () {
+            $(this).dialog('close');
+         },
+         'Preview': function () {
+            if (widget != null) {
+               fact = Object.create(valueFacts[item.type + ":" + item.address]);
+
+               fact.widget.unit = $("#unit").val();
+               fact.widget.scalemax = parseFloat($("#factor").val()) || 1.0;
+               fact.widget.scalemax = parseFloat($("#scalemax").val()) || 0.0;
+               fact.widget.scalemin = parseFloat($("#scalemin").val()) || 0.0;
+               fact.widget.scalestep = parseFloat($("#scalestep").val()) || 0.0;
+               fact.widget.critmin = parseFloat($("#critmin").val()) || -1;
+               fact.widget.critmax = parseFloat($("#critmax").val()) || -1;
+               fact.widget.imgon = $("#imgon").val();
+               fact.widget.imgoff = $("#imgoff").val();
+               fact.widget.widgettype = parseInt($("#widgettype").val());
+
+               initWidget(widget, fact);
+               updateWidget(widget, true, fact);
+            }
+         },
+         'Ok': function () {
+            var jsonObj = {};
+            jsonObj["widget"] = {};
+            jsonObj["type"] = item.type;
+            jsonObj["address"] = item.address;
+            if ($("#unit").length)
+               jsonObj["widget"]["unit"] = $("#unit").val();
+            if ($("#factor").length)
+               jsonObj["widget"]["factor"] = parseFloat($("#factor").val());
+            if ($("#scalemax").length)
+               jsonObj["widget"]["scalemax"] = parseFloat($("#scalemax").val());
+            if ($("#scalemin").length)
+               jsonObj["widget"]["scalemin"] = parseFloat($("#scalemin").val());
+            if ($("#scalestep").length)
+               jsonObj["widget"]["scalestep"] = parseFloat($("#scalestep").val());
+            if ($("#critmin").length)
+               jsonObj["widget"]["critmin"] = parseFloat($("#critmin").val());
+            if ($("#critmax").length)
+               jsonObj["widget"]["critmax"] = parseFloat($("#critmax").val());
+            if ($("#imgon").length)
+               jsonObj["widget"]["imgon"] = $("#imgon").val();
+            if ($("#imgoff").length)
+               jsonObj["widget"]["imgoff"] = $("#imgoff").val();
+            jsonObj["widget"]["widgettype"] = parseInt($("#widgettype").val());
+
+            var jsonArray = [];
+            jsonArray[0] = jsonObj;
+            socket.send({ "event" : "storeiosetup", "object" : jsonArray });
+
+            $(this).dialog('close');
+         }
+      },
+      close: function() { $(this).dialog('destroy').remove(); }
+   });
 }

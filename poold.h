@@ -204,7 +204,7 @@ class Poold : public cWebInterface
       int applyConfigurationSpecials();
 
       int addValueFact(int addr, const char* type, const char* name, const char* unit,
-                       WidgetType widgetType, int minScale = 0, int maxScale = na, int critMin = na, int rights = 0);
+                       WidgetType widgetType, int minScale = 0, int maxScale = na, int rights = 0);
       int initOutput(uint pin, int opt, OutputMode mode, const char* name, uint rights = urControl);
       int initInput(uint pin, const char* name);
       int initScripts();
@@ -458,8 +458,8 @@ class Poold : public cWebInterface
 
       struct AiSensorData
       {
-         time_t last;
-         double value;
+         time_t last {0};
+         double value {0.0};
          double calPointA {0.0};
          double calPointB {0.0};
          double calPointValueA {0};
@@ -473,9 +473,9 @@ class Poold : public cWebInterface
       struct ScSensorData
       {
          std::string kind;
-         time_t last;
-         double value;
-         int state;
+         time_t last {0};
+         double value {0.0};
+         int state {0};
       };
 
       std::map<int,ScSensorData> scSensors;

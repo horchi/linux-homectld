@@ -205,7 +205,6 @@ int Poold::pushOutMessage(json_t* oContents, const char* title, long client)
    }
 
    webSock->pushOutMessage(p, (lws*)client);
-   tell(2, "DEBUG: PushMessage [%s]", p);
    free(p);
 
    webSock->performData(cWebSock::mtData);
@@ -276,7 +275,6 @@ int Poold::pushDataUpdate(const char* title, long client)
          else
             continue;
 
-         // tell(1, "pushDataUpdate '%s' to client (%ld) count is (%zu)", title, (long)cl.first, wsClients.size());
          pushOutMessage(oWsJson, title, (long)cl.first);
       }
    }
@@ -521,7 +519,7 @@ int Poold::initOutput(uint pin, int opt, OutputMode mode, const char* name, uint
 
    pinMode(pin, OUTPUT);
    gpioWrite(pin, false, false);
-   addValueFact(pin, "DO", name, "", wtSymbol, 0, 0, na, urControl);
+   addValueFact(pin, "DO", name, "", wtSymbol, 0, 0, urControl);
 
    return done;
 }
@@ -588,7 +586,7 @@ int Poold::initScripts()
 
          selectScriptByPath->freeResult();
 
-         addValueFact(id, "SC", script.name.c_str(), unit, wtSymbol, 0, 0, na, urControl);
+         addValueFact(id, "SC", script.name.c_str(), unit, wtSymbol, 0, 0, urControl);
 
          tell(0, "Found script '%s' id (%d), unit '%s'; result was [%s]", scriptPath, id, unit, result.c_str());
          free(scriptPath);
@@ -910,7 +908,9 @@ int Poold::readConfiguration(bool initial)
 {
    // init configuration
 
-   if (!initial || loglevel == na)
+   if (argLoglevel != na)
+      loglevel = argLoglevel;
+   else
       getConfigItem("loglevel", loglevel, 1);
 
    tell(0, "Info: LogLevel set to %d", loglevel);
@@ -1245,9 +1245,6 @@ int Poold::update(bool webOnly, long client)
       const char* usrtitle = tableValueFacts->getStrValue("USRTITLE");
       const char* unit = tableValueFacts->getStrValue("UNIT");
       const char* name = tableValueFacts->getStrValue("NAME");
-      const char* imgOn = tableValueFacts->getStrValue("IMGON");
-      const char* imgOff = tableValueFacts->getStrValue("IMGOFF");
-      // WidgetType widgetType = toType(tableValueFacts->getStrValue("WIDGET"));
 
       if (!isEmpty(usrtitle))
          title = usrtitle;
@@ -1309,7 +1306,6 @@ int Poold::update(bool webOnly, long client)
       {
          json_object_set_new(ojData, "mode", json_string(digitalOutputStates[addr].mode == omManual ? "manual" : "auto"));
          json_object_set_new(ojData, "options", json_integer(digitalOutputStates[addr].opt));
-         json_object_set_new(ojData, "image", json_string(digitalOutputStates[addr].state ? imgOn : imgOff));
          json_object_set_new(ojData, "value", json_integer(digitalOutputStates[addr].state));
          json_object_set_new(ojData, "last", json_integer(digitalOutputStates[addr].last));
          json_object_set_new(ojData, "next", json_integer(digitalOutputStates[addr].next));
@@ -1320,14 +1316,9 @@ int Poold::update(bool webOnly, long client)
       else if (tableValueFacts->hasValue("TYPE", "SC"))   // Script Sensor
       {
          if (scSensors[addr].kind == "status")
-         {
             json_object_set_new(ojData, "value", json_integer(scSensors[addr].state));
-            json_object_set_new(ojData, "image", json_string(scSensors[addr].state ? imgOn : imgOff));
-         }
          else if (scSensors[addr].kind == "value")
-         {
             json_object_set_new(ojData, "value", json_real(scSensors[addr].value));
-         }
 
          if (!webOnly)
             store(now, name, title, unit, type, addr, scSensors[addr].kind == "value" ? scSensors[addr].value : scSensors[addr].state);
@@ -1973,7 +1964,7 @@ int Poold::loadHtmlHeader()
 //***************************************************************************
 
 int Poold::addValueFact(int addr, const char* type, const char* name, const char* unit,
-                        WidgetType widgetType, int minScale, int maxScale, int critMin, int rights)
+                        WidgetType widgetType, int minScale, int maxScale, int rights)
 {
    if (maxScale == na)
       maxScale = unit[0] == '%' ? 100 : 45;
@@ -1984,25 +1975,20 @@ int Poold::addValueFact(int addr, const char* type, const char* name, const char
 
    if (!tableValueFacts->find())
    {
-      tell(0, "Add ValueFact '%ld' '%s'",
-           tableValueFacts->getIntValue("ADDRESS"), tableValueFacts->getStrValue("TYPE"));
+      tell(0, "Add ValueFact '%ld' '%s'", tableValueFacts->getIntValue("ADDRESS"), tableValueFacts->getStrValue("TYPE"));
 
       tableValueFacts->setValue("NAME", name);
       tableValueFacts->setValue("TITLE", name);
-      tableValueFacts->setValue("UNIT", unit);
-
       tableValueFacts->setValue("RIGHTS", rights);
       tableValueFacts->setValue("STATE", "D");
-      tableValueFacts->setValue("MAXSCALE", maxScale);
-      tableValueFacts->setValue("MINSCALE", minScale);
-      tableValueFacts->setValue("CRITMIN", critMin);
-      tableValueFacts->setValue("WIDGET", toName(widgetType));
+      tableValueFacts->setValue("UNIT", unit);
 
-      if (widgetType == wtSymbol)
-      {
-         tableValueFacts->setValue("IMGON", getImageFor(name, true));
-         tableValueFacts->setValue("IMGON", getImageFor(name, false));
-      }
+      char* opt {nullptr};
+      asprintf(&opt, "{\"unit\": \"%s\", \"scalemax\": %d, \"scalemin\": %d, \"scalestep\": %.2f, \"imgon\": \"%s\", \"imgoff\": \"%s\", \"widgettype\": %d}}",
+               unit, maxScale, minScale, 0.0, getImageFor(name, true), getImageFor(name, false), widgetType);
+      tableValueFacts->setValue("WIDGETOPT", opt);
+      free(opt);
+
 
       tableValueFacts->store();
       return 1;                               // 1 for 'added'
@@ -2012,30 +1998,9 @@ int Poold::addValueFact(int addr, const char* type, const char* name, const char
 
    tableValueFacts->setValue("NAME", name);
    tableValueFacts->setValue("TITLE", name);
-   tableValueFacts->setValue("UNIT", unit);
 
    if (tableValueFacts->getValue("RIGHTS")->isNull())
       tableValueFacts->setValue("RIGHTS", rights);
-
-   if (tableValueFacts->getValue("MAXSCALE")->isNull())
-      tableValueFacts->setValue("MAXSCALE", maxScale);
-
-   if (tableValueFacts->getValue("MINSCALE")->isNull())
-      tableValueFacts->setValue("MINSCALE", minScale);
-
-   if (tableValueFacts->getValue("CRITMIN")->isNull())
-      tableValueFacts->setValue("CRITMIN", critMin);
-
-   if (tableValueFacts->getValue("WIDGET")->isNull())
-      tableValueFacts->setValue("WIDGET", toName(widgetType));
-
-   if (widgetType == wtSymbol)
-   {
-      if (tableValueFacts->getValue("IMGON")->isNull())
-         tableValueFacts->setValue("IMGON", getImageFor(name, true));
-      if (tableValueFacts->getValue("IMGOFF")->isNull())
-         tableValueFacts->setValue("IMGOFF", getImageFor(name, false));
-   }
 
    if (tableValueFacts->getChanges())
    {
@@ -2304,9 +2269,7 @@ int Poold::publishScriptResult(ulong addr, const char* type, std::string result)
    const char* name = tableValueFacts->getStrValue("NAME");
    const char* title = tableValueFacts->getStrValue("TITLE");
    const char* usrtitle = tableValueFacts->getStrValue("USRTITLE");
-   WidgetType widgetType = toType(tableValueFacts->getStrValue("WIDGET"));
-   const char* imgOn = tableValueFacts->getStrValue("IMGON");
-   const char* imgOff = tableValueFacts->getStrValue("IMGOFF");
+   // WidgetType widgetType = toType(tableValueFacts->getStrValue("WIDGET"));
 
    if (!isEmpty(usrtitle))
       title = usrtitle;
@@ -2321,18 +2284,12 @@ int Poold::publishScriptResult(ulong addr, const char* type, std::string result)
       json_object_set_new(ojData, "type", json_string(type));
       json_object_set_new(ojData, "name", json_string(name));
       json_object_set_new(ojData, "title", json_string(title));
-      json_object_set_new(ojData, "widgettype", json_integer(widgetType));
+      // json_object_set_new(ojData, "widgettype", json_integer(widgetType));
 
       if (kind == "status")
-      {
-         bool state = value; // atoi(value.c_str());
-         json_object_set_new(ojData, "value", json_integer(state));
-         json_object_set_new(ojData, "image", json_string(state ? imgOn : imgOff));
-      }
+         json_object_set_new(ojData, "value", json_integer((bool)value));
       else if (kind == "value")
-      {
          json_object_set_new(ojData, "value", json_real(value));
-      }
 
       char* tuple {nullptr};
       asprintf(&tuple, "%s:0x%02x", type, (int)addr);

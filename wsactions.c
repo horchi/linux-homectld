@@ -954,7 +954,7 @@ int Poold::storeConfig(json_t* obj, long client)
       replyResult(success, "Konfiguration gespeichert. Web Port geändert, bitte poold neu Starten!", client);
    else if (!isEmpty(name) && strcmp(name, oldStyle) != 0)
       replyResult(success, "Konfiguration gespeichert. Das Farbschema wurde geändert, mit STRG-Umschalt-r neu laden!", client);
-   else if (count > 1)  // on drag&drop its only onve parameter
+   else if (count > 1)  // on drag&drop its only one parameter
       replyResult(success, "Konfiguration gespeichert", client);
 
    free(oldStyle);
@@ -972,7 +972,6 @@ int Poold::storeIoSetup(json_t* array, long client)
       int addr = getIntFromJson(jObj, "address");
       const char* type = getStringFromJson(jObj, "type");
       bool state = getBoolFromJson(jObj, "state");
-      int widgetType = getIntFromJson(jObj, "widgettype", wtText);
 
       tableValueFacts->clear();
       tableValueFacts->setValue("ADDRESS", addr);
@@ -987,21 +986,19 @@ int Poold::storeIoSetup(json_t* array, long client)
          tableValueFacts->setValue("STATE", state ? "A" : "D");
       if (isElementSet(jObj, "usrtitle"))
          tableValueFacts->setValue("USRTITLE", getStringFromJson(jObj, "usrtitle"));
+      if (isElementSet(jObj, "unit"))
+         tableValueFacts->setValue("UNIT", getStringFromJson(jObj, "unit"));
 
-      if (isElementSet(jObj, "scalemax"))
-         tableValueFacts->setValue("MAXSCALE", getIntFromJson(jObj, "scalemax"));
-      if (isElementSet(jObj, "scalemin"))
-         tableValueFacts->setValue("MINSCALE", getIntFromJson(jObj, "scalemin"));
-      if (isElementSet(jObj, "scalestep"))
-         tableValueFacts->setValue("SCALESTEP", getDoubleFromJson(jObj, "scalestep"));
-      if (isElementSet(jObj, "critmin"))
-         tableValueFacts->setValue("CRITMIN", getIntFromJson(jObj, "critmin"));
-      if (isElementSet(jObj, "widgettype"))
-         tableValueFacts->setValue("WIDGET", toName((WidgetType)widgetType));
-      if (isElementSet(jObj, "imgon"))
-         tableValueFacts->setValue("IMGON", getStringFromJson(jObj, "imgon"));
-      if (isElementSet(jObj, "imgoff"))
-         tableValueFacts->setValue("IMGOFF", getStringFromJson(jObj, "imgoff"));
+      if (isElementSet(jObj, "widget"))
+      {
+         json_t* oWidgetOptions = getObjectFromJson(jObj, "widget");
+
+         if (oWidgetOptions)
+         {
+            char* widgetOptions = json_dumps(oWidgetOptions, JSON_REAL_PRECISION(4));
+            tableValueFacts->setValue("WIDGETOPT", widgetOptions);
+         }
+      }
 
       if (tableValueFacts->getChanges())
       {
@@ -1133,7 +1130,7 @@ int Poold::valueFacts2Json(json_t* obj)
    for (int f = selectAllValueFacts->find(); f; f = selectAllValueFacts->fetch())
    {
       char* key {nullptr};
-      asprintf(&key, "%s:%lu", tableValueFacts->getStrValue("TYPE"), (ulong)tableValueFacts->getIntValue("ADDRESS"));
+      asprintf(&key, "%s:%lu", tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"));
       json_t* oData = json_object();
       json_object_set_new(obj, key, oData);
       free(key);
@@ -1145,21 +1142,13 @@ int Poold::valueFacts2Json(json_t* obj)
       json_object_set_new(oData, "title", json_string(tableValueFacts->getStrValue("TITLE")));
       json_object_set_new(oData, "usrtitle", json_string(tableValueFacts->getStrValue("USRTITLE")));
       json_object_set_new(oData, "unit", json_string(tableValueFacts->getStrValue("UNIT")));
-      json_object_set_new(oData, "scalemax", json_integer(tableValueFacts->getIntValue("MAXSCALE")));
-      json_object_set_new(oData, "scalemin", json_integer(tableValueFacts->getIntValue("MINSCALE")));
-      json_object_set_new(oData, "scalestep", json_real(tableValueFacts->getFloatValue("SCALESTEP")));
-      json_object_set_new(oData, "critmin", json_integer(tableValueFacts->getIntValue("CRITMIN")));
-      json_object_set_new(oData, "widgettype", json_integer(toType(tableValueFacts->getStrValue("WIDGET"))));
 
-      if (webFileExists(tableValueFacts->getStrValue("IMGON"), ""))
-         json_object_set_new(oData, "imgon", json_string(tableValueFacts->getStrValue("IMGON")));
-      else
-         json_object_set_new(oData, "imgon", json_string("img/icon/unknown.png"));
-
-      if (webFileExists(tableValueFacts->getStrValue("IMGOFF"), ""))
-         json_object_set_new(oData, "imgoff", json_string(tableValueFacts->getStrValue("IMGOFF")));
-      else
-         json_object_set_new(oData, "imgoff", json_string("img/icon/unknown.png"));
+      const char* widgetOptions = tableValueFacts->getStrValue("WIDGETOPT");
+      if (isEmpty(widgetOptions))
+         widgetOptions = "{}";
+      json_t* oWidgetOptions = json_loads(widgetOptions, 0, nullptr);
+      if (oWidgetOptions)
+         json_object_set_new(oData, "widget", oWidgetOptions);
    }
 
    selectAllValueFacts->freeResult();
@@ -1226,16 +1215,12 @@ int Poold::sensor2Json(json_t* obj, cDbTable* table)
    else
       json_object_set_new(obj, "title", json_string(table->getStrValue("TITLE")));
 
-   json_object_set_new(obj, "unit", json_string(table->getStrValue("UNIT")));
-   json_object_set_new(obj, "scalemax", json_integer(table->getIntValue("MAXSCALE")));
    json_object_set_new(obj, "rights", json_integer(table->getIntValue("RIGHTS")));
 
    // don't show peaks für some sensors (spSolarPower, ..?)
 
    if (!table->hasValue("ADDRESS", (long)spSolarWork) || !table->hasValue("TYPE", "SP"))
-   {
       json_object_set_new(obj, "peak", json_real(peak));
-   }
 
    tablePeaks->reset();
 
@@ -1258,6 +1243,8 @@ int Poold::images2Json(json_t* obj)
 
    if (getFileList(path, DT_REG, nullptr, false, &images, count) == success)
    {
+      sortFileList(images);
+
       for (const auto& img : images)
       {
          char* imgPath {nullptr};

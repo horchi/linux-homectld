@@ -73,6 +73,7 @@ int Poold::dispatchClientRequest()
             case evPhSetCal:        status = performPhSetCal(oObject, client);       break;
             case evSendMail:        status = performSendMail(oObject, client);       break;
             case evSyslog:          status = performSyslog(oObject, client);         break;
+            case evForceRefresh:    status = update(true, client);                   break;
             case evChartbookmarks:  status = performChartbookmarks(client);            break;
             case evStoreChartbookmarks: status = storeChartbookmarks(oObject, client); break;
 
@@ -124,6 +125,7 @@ bool Poold::checkRights(long client, Event event, json_t* oObject)
       case evResetPeaks:          return rights & urAdmin;
       case evSendMail:            return rights & urSettings;
       case evSyslog:              return rights & urAdmin;
+      case evForceRefresh:        return true;
 
       case evPh:
       case evPhAll:
@@ -1146,9 +1148,14 @@ int Poold::valueFacts2Json(json_t* obj)
       const char* widgetOptions = tableValueFacts->getStrValue("WIDGETOPT");
       if (isEmpty(widgetOptions))
          widgetOptions = "{}";
+      json_error_t error;
       json_t* oWidgetOptions = json_loads(widgetOptions, 0, nullptr);
       if (oWidgetOptions)
          json_object_set_new(oData, "widget", oWidgetOptions);
+      else
+         tell(1, "Error decoding json: %s (%s, line %d column %d, position %d) [%s]",
+              error.text, error.source, error.line, error.column, error.position,
+              widgetOptions);
    }
 
    selectAllValueFacts->freeResult();

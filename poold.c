@@ -73,8 +73,7 @@ std::list<Poold::ConfigItemDef> Poold::configuration
 
    // web
 
-   { "addrsDashboard",            ctString,  "",             false, "3 WEB Interface", "Sensoren 'Dashboard'", "Komma getrennte Liste aus ID:Typ siehe 'IO Setup'" },
-   { "addrsList",                 ctString,  "",             false, "3 WEB Interface", "Sensoren 'Liste'", "Komma getrennte Liste aus ID:Typ siehe 'IO Setup'" },
+   // { "addrsList",                 ctString,  "",             false, "3 WEB Interface", "Sensoren 'Liste'", "Komma getrennte Liste aus ID:Typ siehe 'IO Setup'" },
    { "style",                     ctChoice,  "dark",         false, "3 WEB Interface", "Farbschema", "" },
    { "vdr",                       ctBool,    "0",            false, "3 WEB Interface", "VDR (Video Disk Recorder) OSD verfügbar", "" },
 
@@ -1317,6 +1316,8 @@ int Poold::update(bool webOnly, long client)
       {
          if (scSensors[addr].kind == "status")
             json_object_set_new(ojData, "value", json_integer(scSensors[addr].state));
+         else if (scSensors[addr].kind == "text")
+            json_object_set_new(ojData, "text", json_string(scSensors[addr].text.c_str()));
          else if (scSensors[addr].kind == "value")
             json_object_set_new(ojData, "value", json_real(scSensors[addr].value));
 
@@ -1684,6 +1685,7 @@ void Poold::updateScriptSensors()
       std::string kind = getStringFromJson(oData, "kind");
       const char* unit = getStringFromJson(oData, "unit");
       double value = getDoubleFromJson(oData, "value");
+      const char* text = getStringFromJson(oData, "text");
 
       tell(1, "DEBUG: Got '%s' from script (kind:%s unit:%s value:%0.2f)", result.c_str(), kind.c_str(), unit, value);
       scSensors[addr].kind = kind;
@@ -1691,6 +1693,8 @@ void Poold::updateScriptSensors()
 
       if (kind == "status")
          scSensors[addr].state = (bool)value;
+      else if (kind == "text")
+         scSensors[addr].text = text;
       else if (kind == "value")
          scSensors[addr].value = value;
       else
@@ -1984,8 +1988,8 @@ int Poold::addValueFact(int addr, const char* type, const char* name, const char
       tableValueFacts->setValue("UNIT", unit);
 
       char* opt {nullptr};
-      asprintf(&opt, "{\"unit\": \"%s\", \"scalemax\": %d, \"scalemin\": %d, \"scalestep\": %.2f, \"imgon\": \"%s\", \"imgoff\": \"%s\", \"widgettype\": %d}}",
-               unit, maxScale, minScale, 0.0, getImageFor(name, true), getImageFor(name, false), widgetType);
+      asprintf(&opt, "{\"unit\": \"%s\", \"scalemax\": %d, \"scalemin\": %d, \"scalestep\": %d, \"imgon\": \"%s\", \"imgoff\": \"%s\", \"widgettype\": %d}",
+               unit, maxScale, minScale, 0, getImageFor(name, true), getImageFor(name, false), widgetType);
       tableValueFacts->setValue("WIDGETOPT", opt);
       free(opt);
 
@@ -2258,6 +2262,7 @@ int Poold::publishScriptResult(ulong addr, const char* type, std::string result)
    std::string kind = getStringFromJson(oData, "kind");
    // const char* unit = getStringFromJson(oData, "unit");
    double value = getDoubleFromJson(oData, "value");
+   const char* text = getStringFromJson(oData, "text");
 
    tableValueFacts->clear();
    tableValueFacts->setValue("ADDRESS", (int)addr);
@@ -2269,7 +2274,6 @@ int Poold::publishScriptResult(ulong addr, const char* type, std::string result)
    const char* name = tableValueFacts->getStrValue("NAME");
    const char* title = tableValueFacts->getStrValue("TITLE");
    const char* usrtitle = tableValueFacts->getStrValue("USRTITLE");
-   // WidgetType widgetType = toType(tableValueFacts->getStrValue("WIDGET"));
 
    if (!isEmpty(usrtitle))
       title = usrtitle;
@@ -2284,10 +2288,11 @@ int Poold::publishScriptResult(ulong addr, const char* type, std::string result)
       json_object_set_new(ojData, "type", json_string(type));
       json_object_set_new(ojData, "name", json_string(name));
       json_object_set_new(ojData, "title", json_string(title));
-      // json_object_set_new(ojData, "widgettype", json_integer(widgetType));
 
       if (kind == "status")
          json_object_set_new(ojData, "value", json_integer((bool)value));
+      else if (kind == "text")
+         json_object_set_new(ojData, "text", json_string(text));
       else if (kind == "value")
          json_object_set_new(ojData, "value", json_real(value));
 

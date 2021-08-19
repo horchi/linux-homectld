@@ -55,6 +55,7 @@ class cWebService
          evStoreChartbookmarks,
          evSendMail,
          evSyslog,
+         evForceRefresh,
 
          evCount
       };

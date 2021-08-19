@@ -63,6 +63,7 @@ const char* cWebService::events[] =
    "storechartbookmarks",
    "sendmail",
    "syslog",
+   "forcerefresh",
 
    0
 };

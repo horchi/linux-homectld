@@ -33,6 +33,23 @@ function initDashboard(update = false)
    for (var i = 0; i < allWidgets.length; i++)
       initWidget(allWidgets[i], null);
 
+   if (setupMode) {
+      var fact = {
+         "address": 999,
+         "type": "SP",
+         "state": true,
+         "name": "add",
+         "title": "add",
+         "widget": {
+            "imgon": "",
+            "imgoff": "",
+            "widgettype": 999
+         }
+      }
+
+      initWidget({"address": 999, "type": "SP"}, fact);
+   }
+
    updateDashboard(allWidgets, true);
 }
 
@@ -47,6 +64,10 @@ function initWidget(widget, fact)
 
    if (fact == null || fact == undefined) {
       console.log("Fact for widget '" + widget.type + ":" + widget.address + "' not found, ignoring");
+      return;
+   }
+   if (fact.widget == null || fact.widget == undefined) {
+      console.log("fact.widget '" + widget.type + ":" + widget.address + "' not found, ignoring");
       return;
    }
 
@@ -270,8 +291,16 @@ function initWidget(widget, fact)
 
       case 7:     // 7 (PlainText)
          var html = '<div class="widget-title">' + editButton + '</div>';
-         html += '<div id="widget' + fact.type + fact.address + '" class="widget-value" style="height:inherit;"></div>' + editButton;
+         html += '<div id="widget' + fact.type + fact.address + '" class="widget-value" style="height:inherit;"></div>';
          elem.className = "widgetPlain rounded-border";
+         elem.innerHTML = html;
+         break;
+
+      case 999:     // 999 (Add Widget)
+         var html = '<div class="widget-title"></div>';
+         html += '<div id="widget' + fact.type + fact.address + '" class="widget-value" style="height:inherit;font-size:6em;">+</div>';
+         elem.className = "widgetPlain rounded-border";
+         elem.addEventListener('click', function(event) {addWidget();}, false);
          elem.innerHTML = html;
          break;
 
@@ -291,9 +320,7 @@ function updateDashboard(widgets, refresh)
    if (widgets)
    {
       for (var i = 0; i < widgets.length; i++)
-      {
          updateWidget(widgets[i], refresh)
-      }
    }
 }
 
@@ -307,6 +334,10 @@ function updateWidget(sensor, refresh, fact)
    if (fact == null || fact == undefined) {
       console.log("Fact for widget '" + sensor.type + ":" + sensor.address + "' not found, ignoring");
       return ;
+   }
+   if (fact.widget == null || fact.widget == undefined) {
+      console.log("fact.widget '" + fact.type + ":" + fact.address + "' not found, ignoring");
+      return;
    }
 
    if (fact.widget.widgettype == 0)         // Symbol
@@ -399,7 +430,7 @@ function updateWidget(sensor, refresh, fact)
    {
       if (sensor.value != undefined) {
          var value = (fact.widget.factor != undefined && fact.widget.factor) ? fact.widget.factor*sensor.value : sensor.value;
-         console.log("DEBUG: Update " + '#widget' + fact.type + fact.address + " to: " + value + " (" + sensor.value +")");
+         // console.log("DEBUG: Update " + '#widget' + fact.type + fact.address + " to: " + value + " (" + sensor.value +")");
          $('#widgetValue' + fact.type + fact.address).html(value.toFixed(fact.widget.unit == '%' ? 0 : 1) + ' ' + fact.widget.unit);
          var gauge = $('#widget' + fact.type + fact.address).data('gauge');
          if (gauge != null)
@@ -411,6 +442,74 @@ function updateWidget(sensor, refresh, fact)
          console.log("Missing value for " + '#widget' + fact.type + fact.address);
       //  = fact.address != 4 ? value = sensor.value : 45;  // for test
    }
+}
+
+function addWidget()
+{
+   console.log("add widget");
+
+   var form = document.createElement("div");
+
+   $(form).append($('<div></div>')
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('width', '25%')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('Widget'))
+                          .append($('<span></span>')
+                                  .append($('<select></select>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'widgetId')
+                                         )))
+                 );
+
+
+   $(form).dialog({
+      modal: true,
+      resizable: false,
+      closeOnEscape: true,
+      hide: "fade",
+      width: "auto",
+      title: "Add Widget",
+      open: function() {
+         for (var fKey in valueFacts) {
+            console.log(fKey);
+            var found = false;
+            for (var i = 0; i < allWidgets.length; i++) {
+               if (allWidgets[i].type + ':' + allWidgets[i].address == fKey) {
+                  found = true;
+                  break;
+               }
+            }
+            if (!found)
+               $('#widgetId').append($('<option></option>')
+                                     .val(valueFacts[fKey].type + ":0x" + valueFacts[fKey].address.toString(16).padStart(2, '0'))
+                                     .html(valueFacts[fKey].usrtitle ? valueFacts[fKey].usrtitle : valueFacts[fKey].title));
+         }
+      },
+      buttons: {
+         'Cancel': function () {
+            $(this).dialog('close');
+         },
+         'Ok': function () {
+            var list = '';
+            $('#widgetContainer > div').each(function () {
+               var sensor = $(this).attr('id').substring($(this).attr('id').indexOf("_") + 1);
+               list += sensor + ',';
+            });
+            list += $("#widgetId").val();
+            socket.send({ "event" : "storeconfig", "object" : { "addrsDashboard" : list } });
+            console.log(" - " + list);
+            socket.send({ "event" : "forcerefresh", "object" : {} });
+            $(this).dialog('close');
+         }
+      },
+      close: function() { $(this).dialog('destroy').remove(); }
+   });
+
 }
 
 function toggleChartDialog(type, address)

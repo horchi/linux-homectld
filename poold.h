@@ -125,7 +125,8 @@ class Poold : public cWebInterface
          wtGauge,        // == 4
          wtMeter,        // == 5
          wtMeterLevel,   // == 6
-         wtPlainText,    // == 7   // without title
+         wtPlainText,    // == 7  without title
+         wtChoice,       // == 8  option choice
          wtCount
       };
 
@@ -476,6 +477,7 @@ class Poold : public cWebInterface
          time_t last {0};
          double value {0.0};
          int state {0};
+         std::string text;
       };
 
       std::map<int,ScSensorData> scSensors;

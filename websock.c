@@ -46,7 +46,6 @@ const char* cWebService::events[] =
    "storeconfig",
    "gettoken",
    "setup",
-   "iosetup",
    "storeiosetup",
    "chartdata",
    "logmessage",
@@ -55,10 +54,6 @@ const char* cWebService::events[] =
    "changepasswd",
    "resetpeaks",
    "groupconfig",
-   "ph",
-   "phall",
-   "phcal",
-   "phsetcal",
    "chartbookmarks",
    "storechartbookmarks",
    "sendmail",
@@ -304,17 +299,21 @@ int cWebSock::performData(MsgType type)
 void getClientInfo(lws* wsi, std::string* clientInfo)
 {
    char clientName[100+TB] = "unknown";
-   char clientIp[50+TB] = "";
+   // char clientIp[50+TB] = "";
 
    if (wsi)
    {
-      int fd;
+      // int fd {0};
+      // lws_get_peer_addresses take up to 10 seconds on some environments !!
+      // if ((fd = lws_get_socket_fd(wsi)))
+      //    lws_get_peer_addresses(wsi, fd, clientName, sizeof(clientName), clientIp, sizeof(clientIp));
 
-      if ((fd = lws_get_socket_fd(wsi)))
-         lws_get_peer_addresses(wsi, fd, clientName, sizeof(clientName), clientIp, sizeof(clientIp));
+      // we can use lws_get_peer_simple instead
+
+      lws_get_peer_simple(wsi, clientName, sizeof(clientName));
    }
 
-   *clientInfo = clientName + std::string("/") + clientIp;
+   *clientInfo = clientName; //  + std::string("/") + clientIp;
 }
 
 //***************************************************************************
@@ -410,7 +409,7 @@ int cWebSock::callbackHttp(lws* wsi, lws_callback_reasons reason, void* user, vo
          {
             // data request
 
-            tell(0, "Gpt unexpected HTTP request!");
+            tell(0, "Got unexpected HTTP request!");
             res = dispatchDataRequest(wsi, sessionData, url);
 
             if (res < 0 || (res > 0 && lws_http_transaction_completed(wsi)))
@@ -501,7 +500,10 @@ int cWebSock::serveFile(lws* wsi, const char* path)
       else if (strcmp(suffix, "html") == 0)  mime = "text/html";
       else if (strcmp(suffix, "css") == 0)   mime = "text/css";
       else if (strcmp(suffix, "js") == 0)    mime = "application/javascript";
+      else if (strcmp(suffix, "map") == 0)   mime = "application/json";
    }
+
+   // printf("serve file '%s' with mime type '%s'\n", path, mime);
 
    return lws_serve_http_file(wsi, path, mime, 0, 0);
 }

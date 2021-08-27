@@ -61,6 +61,7 @@ Table valuefacts
    NAME                 ""  name                 Ascii      100 Data,
    TITLE                ""  title                Ascii      100 Data,
    USRTITLE             ""  usrtitle             Ascii      100 Data,
+   CHOICES              ""  choices              Ascii      250 Data,
    WIDGETOPT            ""  widgetopt            Ascii     1000 Data,
    RIGHTS   "needed control rights" rights       Int          0 Data,
 }

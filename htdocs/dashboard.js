@@ -296,6 +296,20 @@ function initWidget(widget, fact)
          elem.innerHTML = html;
          break;
 
+      case 8:     // 8 (Choice)
+         var html = '<div class="widget-title">' + title + editButton + '</div>';
+         html += '<div id="widget' + fact.type + fact.address + '" class="widget-value"></div>\n';
+         elem.className = "widget rounded-border";
+         elem.style.cursor = 'pointer';
+         elem.addEventListener('click', function(event) {
+             socket.send({ "event": "toggleio", "object":
+                           { "address": fact.address,
+                             "type": fact.type }
+                         });
+            ;}, false);
+         elem.innerHTML = html;
+         break;
+
       case 999:     // 999 (Add Widget)
          var html = '<div class="widget-title"></div>';
          html += '<div id="widget' + fact.type + fact.address + '" class="widget-value" style="height:inherit;font-size:6em;">+</div>';
@@ -330,6 +344,7 @@ function updateWidget(sensor, refresh, fact)
       fact = valueFacts[sensor.type + ":" + sensor.address];
 
    // console.log("updateWidget " + sensor.name + " of type " + fact.widget.widgettype);
+   console.log("updateWidget" + JSON.stringify(sensor, undefined, 4));
 
    if (fact == null || fact == undefined) {
       console.log("Fact for widget '" + sensor.type + ":" + sensor.address + "' not found, ignoring");
@@ -378,7 +393,8 @@ function updateWidget(sensor, refresh, fact)
    {
       // var elem = $("#widget" + fact.type + fact.address);
 
-      $("#peak" + fact.type + fact.address).text(sensor.peak != null ? sensor.peak.toFixed(2) + " " + fact.widget.unit : "");
+      if (fact.widget.showpeak != undefined && fact.widget.showpeak)
+         $("#peak" + fact.type + fact.address).text(sensor.peak != null ? sensor.peak.toFixed(2) + " " + fact.widget.unit : "");
 
       if (!sensor.disabled) {
          $("#value" + fact.type + fact.address).text(sensor.value.toFixed(2) + " " + fact.widget.unit);
@@ -395,7 +411,7 @@ function updateWidget(sensor, refresh, fact)
          socket.send({ "event" : "chartdata", "object" : jsonRequest });
       }
    }
-   else if (fact.widget.widgettype == 2 || fact.widget.widgettype == 7)      // Text, PlainText
+   else if (fact.widget.widgettype == 2 || fact.widget.widgettype == 7 || fact.widget.widgettype == 8)      // Text, PlainText
    {
       if (sensor.text != undefined) {
          var text = sensor.text.replace(/(?:\r\n|\r|\n)/g, '<br>');
@@ -413,7 +429,9 @@ function updateWidget(sensor, refresh, fact)
       var scaleMin = value >= 0 ? "0" : Math.ceil(value / 5) * 5 - 5;
       var _peak = sensor.peak != null ? sensor.peak : 0;
       if (scaleMax < Math.ceil(value)) scaleMax = value;
-      if (scaleMax < Math.ceil(_peak))  scaleMax = _peak.toFixed(0);
+
+      if (fact.widget.showpeak != undefined && fact.widget.showpeak && scaleMax < Math.ceil(_peak))
+         scaleMax = _peak.toFixed(0);
 
       $("#sMin" + fact.type + fact.address).text(scaleMin);
       $("#sMax" + fact.type + fact.address).text(scaleMax);
@@ -424,7 +442,8 @@ function updateWidget(sensor, refresh, fact)
 
       $("#pb" + fact.type + fact.address).attr("d", "M 950 500 A 450 450 0 0 0 50 500");
       $("#pv" + fact.type + fact.address).attr("d", svg_circle_arc_path(500, 500, 450 /*radius*/, -90, ratio * 180.0 - 90));
-      $("#pp" + fact.type + fact.address).attr("d", svg_circle_arc_path(500, 500, 450 /*radius*/, peak * 180.0 - 91, peak * 180.0 - 90));
+      if (fact.widget.showpeak != undefined && fact.widget.showpeak)
+         $("#pp" + fact.type + fact.address).attr("d", svg_circle_arc_path(500, 500, 450 /*radius*/, peak * 180.0 - 91, peak * 180.0 - 90));
    }
    else if (fact.widget.widgettype == 5 || fact.widget.widgettype == 6)    // Meter
    {
@@ -773,6 +792,25 @@ function widgetSetup(key)
                                           .addClass('rounded-border inputSetting')
                                           .attr('id', 'imgoff')
                                          )))
+
+
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('width', '25%')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('Peak'))
+                          .append($('<span></span>')
+                                  .append($('<input></select>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'peak')
+                                          .attr('type', 'checkbox')
+                                          .prop('checked', item.widget.showpeak))
+                                  .append($('<label></label>')
+                                          .prop('for', 'peak')
+                                         )))
                  );
 
    var widget = null;
@@ -837,6 +875,7 @@ function widgetSetup(key)
                fact.widget.imgon = $("#imgon").val();
                fact.widget.imgoff = $("#imgoff").val();
                fact.widget.widgettype = parseInt($("#widgettype").val());
+               fact.widget.showpeak = $("#peak").is(':checked');
 
                initWidget(widget, fact);
                updateWidget(widget, true, fact);
@@ -866,6 +905,7 @@ function widgetSetup(key)
             if ($("#imgoff").length)
                jsonObj["widget"]["imgoff"] = $("#imgoff").val();
             jsonObj["widget"]["widgettype"] = parseInt($("#widgettype").val());
+            jsonObj["widget"]["showpeak"] = $("#peak").is(':checked');
 
             var jsonArray = [];
             jsonArray[0] = jsonObj;

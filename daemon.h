@@ -1,16 +1,12 @@
 //***************************************************************************
-// poold / Linux - Pool Steering
-// File poold.h
+// Automation Control
+// File daemon.h
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
 // Date 16.04.2020 - Jörg Wendel
 //***************************************************************************
 
 #pragma once
-
-//***************************************************************************
-// Includes
-//***************************************************************************
 
 #include <queue>
 #include <jansson.h>
@@ -20,11 +16,9 @@
 #include "lib/mqtt.h"
 
 #include "HISTORY.h"
-
 #include "websock.h"
-//#include "arduinoif.h"
 
-#define confDirDefault "/etc/poold"
+#define confDirDefault "/etc/" TARGET
 
 extern char dbHost[];
 extern int  dbPort;
@@ -35,10 +29,10 @@ extern char dbPass[];
 extern char* confDir;
 
 //***************************************************************************
-// Class Pool Daemon
+// Class Daemon
 //***************************************************************************
 
-class Poold : public cWebInterface
+class Daemon : public cWebInterface
 {
    public:
 
@@ -104,13 +98,13 @@ class Poold : public cWebInterface
 
       // object
 
-      Poold();
-      virtual ~Poold();
+      Daemon();
+      virtual ~Daemon();
 
       int init();
       int loop();
 
-      const char* myName() override  { return "poold"; }
+      const char* myName() override  { return TARGET; }
       static void downF(int aSignal) { shutdown = true; }
 
    protected:
@@ -151,7 +145,7 @@ class Poold : public cWebInterface
       enum OutputOptions
       {
          ooUser = 0x01,        // Output can contolled by user
-         ooAuto = 0x02         // Output can contolled by poold
+         ooAuto = 0x02         // Output automatic contolled
       };
 
       struct OutputState
@@ -205,7 +199,7 @@ class Poold : public cWebInterface
       int applyConfigurationSpecials();
 
       int addValueFact(int addr, const char* type, const char* name, const char* unit,
-                       WidgetType widgetType, int minScale = 0, int maxScale = na, int rights = 0);
+                       WidgetType widgetType, int minScale = 0, int maxScale = na, int rights = 0, const char* choices = nullptr);
       int initOutput(uint pin, int opt, OutputMode mode, const char* name, uint rights = urControl);
       int initInput(uint pin, const char* name);
       int initScripts();
@@ -276,13 +270,9 @@ class Poold : public cWebInterface
       int performSendMail(json_t* oObject, long client);
       int performConfigDetails(long client);
       int performUserDetails(long client);
-      int performIoSettings(json_t* oObject, long client);
       int performChartData(json_t* oObject, long client);
       int storeUserConfig(json_t* oObject, long client);
       int performPasswChange(json_t* oObject, long client);
-      int performPh(long client, bool all);
-      int performPhCal(json_t* obj, long client);
-      int performPhSetCal(json_t* oObject, long client);
       int storeConfig(json_t* obj, long client);
       int storeIoSetup(json_t* array, long client);
       int resetPeaks(json_t* obj, long client);
@@ -367,7 +357,7 @@ class Poold : public cWebInterface
       cWebSock* webSock {nullptr};
       time_t nextWebSocketPing {0};
       int webSocketPingTime {60};
-      const char* httpPath {"/var/lib/pool"};
+      const char* httpPath {"/var/lib/" TARGET};
 
       struct WsClient    // Web Socket Client
       {
@@ -381,22 +371,23 @@ class Poold : public cWebInterface
 
       // MQTT stuff
 
-      Mqtt* mqttWriter {nullptr};
-      Mqtt* mqttReader {nullptr};
-      Mqtt* mqttCommandReader {nullptr};
-      Mqtt* mqttPoolReader {nullptr};
+      Mqtt* mqttHassWriter {nullptr};         // for HASS (Home Assistant, ...)
+      Mqtt* mqttHassReader {nullptr};         // for HASS (Home Assistant, ...)
+      Mqtt* mqttHassCommandReader {nullptr};  // for HASS (Home Assistant, ...)
+      Mqtt* mqttReader {nullptr};             // my own mqtt instance
 
       // config
 
       int interval {60};
+      int arduinoInterval {10};
       int webPort {61109};
       char* webUrl {nullptr};
       int aggregateInterval {15};         // aggregate interval in minutes
       int aggregateHistory {0};           // history in days
-      char* poolMqttUrl {nullptr};
       char* mqttUrl {nullptr};
-      char* mqttUser {nullptr};
-      char* mqttPassword {nullptr};
+      char* mqttHassUrl {nullptr};
+      char* mqttHassUser {nullptr};
+      char* mqttHassPassword {nullptr};
 
       time_t lastMqttConnectAt {0};
       std::map<std::string,std::string> hassCmdTopicMap; // 'topic' to 'name' map
@@ -425,7 +416,6 @@ class Poold : public cWebInterface
       // PH stuff
 
       int phMinusVolume {0};           // aktull errechnete Menge um phReference zu erreichen
-      int phInterval {0};
       double phMinusDensity {0.0};
       int phMinusDemand01 {0};         // Menge zum Senken um 0,1 [g]
       int phMinusDayLimit {0};
@@ -433,15 +423,6 @@ class Poold : public cWebInterface
       double phReference {0.0};        // PG Referenzwert (sollwert)
 
       int minPumpTimeForPh { 10 * tmeSecondsPerMinute }; // [s] #TODO -> add to config?
-      // double phCalibratePointA {0.0};
-      // int phCalibratePointValueA {0};
-      // double phCalibratePointB {0.0};
-      // int phCalibratePointValueB {0};
-
-      // double pressCalibratePointA {0.0};
-      // int pressCalibratePointValueA {463};
-      // double pressCalibratePointB {0.6};
-      // int pressCalibratePointValueB {2290};
 
       std::vector<Range> filterPumpTimes;
       std::vector<Range> uvcLightTimes;

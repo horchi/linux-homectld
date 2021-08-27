@@ -1,5 +1,5 @@
 //***************************************************************************
-// poold / Linux - Pool Steering
+// Automation Control
 // File main.c
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
@@ -12,7 +12,7 @@
 #include <signal.h>
 #include <string.h>
 
-#include "poold.h"
+#include "daemon.h"
 
 char* confDir = (char*)confDirDefault;
 
@@ -20,9 +20,9 @@ char* confDir = (char*)confDirDefault;
 
 char dbHost[100+TB] = "localhost";
 int  dbPort;
-char dbName[100+TB] = "pool";
-char dbUser[100+TB] = "pool";
-char dbPass[100+TB] = "pool";
+char dbName[100+TB] = TARGET;
+char dbUser[100+TB] = TARGET;
+char dbPass[100+TB] = TARGET;
 
 //***************************************************************************
 // Configuration
@@ -55,7 +55,7 @@ int readConfig()
    char* name;
    char* fileName;
 
-   asprintf(&fileName, "%s/poold.conf", confDir);
+   asprintf(&fileName, "%s/daemon.conf", confDir);
 
    if (!fileName || access(fileName, F_OK) != 0)
    {
@@ -130,7 +130,7 @@ void showUsage(const char* bin)
 
 int main(int argc, char** argv)
 {
-   DEAMON* job;
+   Daemon* job;
    int nofork = no;
    int pid;
    int _stdout = na;
@@ -195,7 +195,7 @@ int main(int argc, char** argv)
 
    // int AFTER fork !!!
 
-   job = new DEAMON();
+   job = new Daemon();
 
    if (job->init() != success)
    {
@@ -206,9 +206,9 @@ int main(int argc, char** argv)
 
    // register SIGINT
 
-   ::signal(SIGINT, DEAMON::downF);
-   ::signal(SIGTERM, DEAMON::downF);
-   // ::signal(SIGHUP, DEAMON::triggerF);
+   ::signal(SIGINT, Daemon::downF);
+   ::signal(SIGTERM, Daemon::downF);
+   // ::signal(SIGHUP, Daemon::triggerF);
 
    // do work ...
 

@@ -1,5 +1,5 @@
 //***************************************************************************
-// poold / Linux - Pool Steering
+// Automation Control
 // File w1.h
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
@@ -57,7 +57,7 @@ class W1
       SensorList sensors;
       const char* mqttUrl {nullptr};
       const char* mqttTopic {nullptr};
-      Mqtt* mqttWriter {nullptr};
+      Mqtt* mqttW1Writer {nullptr};
 
       static bool shutdown;
 };

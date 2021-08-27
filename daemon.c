@@ -1,6 +1,6 @@
 //***************************************************************************
-// poold / Linux - Pool Steering
-// File poold.c
+// Automation Control
+// File daemon.c
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
 // Date 16.04.2021 - Jörg Wendel
@@ -13,75 +13,71 @@
 #include <algorithm>
 #include <cmath>
 
-#include <wiringPi.h>
+#ifndef _NO_RASPBERRY_PI_
+#  include <wiringPi.h>
+#endif
 
 #include "lib/json.h"
-#include "poold.h"
+#include "daemon.h"
 
-bool Poold::shutdown {false};
+bool Daemon::shutdown {false};
 
 //***************************************************************************
 // Configuration Items
 //***************************************************************************
 
-std::list<Poold::ConfigItemDef> Poold::configuration
+std::list<Daemon::ConfigItemDef> Daemon::configuration
 {
-   // poold
+   // daemon
 
-   { "interval",                  ctInteger, "60",           false, "1 Pool Daemon", "Intervall der Aufzeichung", "Datenbank Aufzeichung [s]" },
-   { "webPort",                   ctInteger, "61109",        false, "1 Pool Daemon", "Port des Web Interfaces", "" },
-   { "loglevel",                  ctInteger, "1",            false, "1 Pool Daemon", "Log level", "" },
-   { "filterPumpTimes",           ctRange,   "10:00-17:00",  false, "1 Pool Daemon", "Zeiten Filter Pumpe", "[hh:mm] - [hh:mm]" },
-   { "uvcLightTimes",             ctRange,   "",             false, "1 Pool Daemon", "Zeiten UV-C Licht", "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!" },
-   { "poolLightTimes",            ctRange,   "",             false, "1 Pool Daemon", "Zeiten Pool Licht", "[hh:mm] - [hh:mm] (ansonsten manuell schalten)" },
-   { "poolLightColorToggle",      ctBool,    "0",            false, "1 Pool Daemon", "Pool Licht Farb-Toggel", "" },
+   { "interval",                  ctInteger, "60",           false, "1 Daemon", "Intervall der Aufzeichung", "Datenbank Aufzeichung [s]" },
+   { "arduinoInterval",           ctInteger, "10",           false, "1 Daemon", "Intervall der Arduino Messungen", "[s]" },
+   { "webPort",                   ctInteger, "61109",        false, "1 Daemon", "Port des Web Interfaces", "" },
+   { "loglevel",                  ctInteger, "1",            false, "1 Daemon", "Log level", "" },
+   { "filterPumpTimes",           ctRange,   "10:00-17:00",  false, "1 Daemon", "Zeiten Filter Pumpe", "[hh:mm] - [hh:mm]" },
+   { "uvcLightTimes",             ctRange,   "",             false, "1 Daemon", "Zeiten UV-C Licht", "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!" },
+   { "poolLightTimes",            ctRange,   "",             false, "1 Daemon", "Zeiten Pool Licht", "[hh:mm] - [hh:mm] (ansonsten manuell schalten)" },
+   { "poolLightColorToggle",      ctBool,    "0",            false, "1 Daemon", "Pool Licht Farb-Toggel", "" },
 
-   { "alertSwitchOffPressure",    ctInteger, "0",            false, "1 Pool Daemon", "Trockenlaufschutz unter x bar", "Deaktiviert Pumpen nach 5 Minuten (0 deaktiviert)" },
+   { "alertSwitchOffPressure",    ctInteger, "0",            false, "1 Daemon", "Trockenlaufschutz unter x bar", "Deaktiviert Pumpen nach 5 Minuten (0 deaktiviert)" },
 
-   { "tPoolMax",                  ctNum,     "28.0",         false, "1 Pool Daemon", "Pool max Temperatur", "" },
-   { "tSolarDelta",               ctNum,     "5.0",          false, "1 Pool Daemon", "Einschaltdifferenz Solarpumpe", "" },
-   { "showerDuration",            ctInteger, "20",           false, "1 Pool Daemon", "Laufzeit der Dusche", "Laufzeit [s]" },
-   { "minSolarPumpDuration",      ctInteger, "10",           false, "1 Pool Daemon", "Mindestlaufzeit der Solarpumpe [m]", "" },
-   { "deactivatePumpsAtLowWater", ctBool,    "0",            false, "1 Pool Daemon", "Pumpen bei geringem Wasserstand deaktivieren", "" },
+   { "tPoolMax",                  ctNum,     "28.0",         false, "1 Daemon", "Pool max Temperatur", "" },
+   { "tSolarDelta",               ctNum,     "5.0",          false, "1 Daemon", "Einschaltdifferenz Solarpumpe", "" },
+   { "showerDuration",            ctInteger, "20",           false, "1 Daemon", "Laufzeit der Dusche", "Laufzeit [s]" },
+   { "minSolarPumpDuration",      ctInteger, "10",           false, "1 Daemon", "Mindestlaufzeit der Solarpumpe [m]", "" },
+   { "deactivatePumpsAtLowWater", ctBool,    "0",            false, "1 Daemon", "Pumpen bei geringem Wasserstand deaktivieren", "" },
 
-   { "invertDO",                  ctBool,    "1",            false, "1 Pool Daemon", "Digitalaugänge invertieren", "" },
-   { "w1AddrAir",                 ctString,  "",             false, "1 Pool Daemon", "Adresse Fühler Temperatur Luft", "" },
-   { "w1AddrPool",                ctString,  "",             false, "1 Pool Daemon", "Adresse Fühler Temperatur Pool", "" },
-   { "w1AddrSolar",               ctString,  "",             false, "1 Pool Daemon", "Adresse Fühler Temperatur Kollektor", "" },
-   { "w1AddrSuctionTube",         ctString,  "",             false, "1 Pool Daemon", "Adresse Fühler Temperatur Saugleitung", "" },
-   { "poolMqttUrl",               ctString,  "tcp://localhost:1883",  false, "1 Pool Daemon", "Url des MQTT Message Broker für den Pool Daemon", "Wird zur Kommunikation mit dem one-wire Interface Service (w1mqtt) sowie dem Arduino verwendet. Beispiel: 'tcp://localhost:1883'" },
+   { "invertDO",                  ctBool,    "1",            false, "1 Daemon", "Digitalaugänge invertieren", "" },
+   { "w1AddrAir",                 ctString,  "",             false, "1 Daemon", "Adresse Fühler Temperatur Luft", "" },
+   { "w1AddrPool",                ctString,  "",             false, "1 Daemon", "Adresse Fühler Temperatur Pool", "" },
+   { "w1AddrSolar",               ctString,  "",             false, "1 Daemon", "Adresse Fühler Temperatur Kollektor", "" },
+   { "w1AddrSuctionTube",         ctString,  "",             false, "1 Daemon", "Adresse Fühler Temperatur Saugleitung", "" },
+   { "mqttUrl",                   ctString,  "tcp://localhost:1883",  false, "1 Daemon", "Url des MQTT Message Broker für den Daemon", "Wird zur Kommunikation mit dem one-wire Interface Service (w1mqtt) sowie dem Arduino verwendet. Beispiel: 'tcp://localhost:1883'" },
 
-   { "aggregateHistory",          ctInteger, "0",            false, "1 Pool Daemon", "Historie [Tage]", "history for aggregation in days (default 0 days -> aggegation turned OFF)" },
-   { "aggregateInterval",         ctInteger, "15",           false, "1 Pool Daemon", "Intervall [m]", "aggregation interval in minutes - 'one sample per interval will be build'" },
-   { "peakResetAt",               ctString,  "",             true,  "1 Pool Daemon", "", "" },
+   { "aggregateHistory",          ctInteger, "0",            false, "1 Daemon", "Historie [Tage]", "history for aggregation in days (default 0 days -> aggegation turned OFF)" },
+   { "aggregateInterval",         ctInteger, "15",           false, "1 Daemon", "Intervall [m]", "aggregation interval in minutes - 'one sample per interval will be build'" },
+   { "peakResetAt",               ctString,  "",             true,  "1 Daemon", "", "" },
 
-   { "massPerSecond",             ctNum,     "11.0",         false, "1 Pool Daemon", "Durchfluss Solar", "[Liter/min]" },
+   { "massPerSecond",             ctNum,     "11.0",         false, "1 Daemon", "Durchfluss Solar", "[Liter/min]" },
 
    // PH stuff
 
-   { "phInterval",                ctInteger, "15",           false, "2 PH", "Intervall der PH Messung", "[s]" },
    { "phReference",               ctNum,     "7.2",          false, "2 PH", "PH Sollwert", "Sollwert [PH] (default 7,2)" },
    { "phMinusDensity",            ctNum,     "1.4",          false, "2 PH", "Dichte PH Minus [kg/l]", "Wie viel kg wiegt ein Liter PH Minus (default 1,4)" },
    { "phMinusDemand01",           ctInteger, "85",           false, "2 PH", "Menge zum Senken um 0,1 [g]", "Wie viel Gramm PH Minus wird zum Senken des PH Wertes um 0,1 für das vorhandene Pool Volumen benötigt (default 60g)" },
    { "phMinusDayLimit",           ctInteger, "100",          false, "2 PH", "Obergrenze PH Minus/Tag [ml]", "Wie viel PH Minus wird pro Tag maximal zugegeben [ml] (default 100ml)" },
    { "phPumpDurationPer100",      ctInteger, "1000",         false, "2 PH", "Laufzeit Dosierpumpe/100ml [ms]", "Welche Zeit in Millisekunden benötigt die Dosierpumpe um 100ml zu fördern (default 1000ms)" },
 
-   // { "phCalibratePointA",         ctNum,     "7.0",          false, "2 PH", "Kallibrier-Punkt A", "" },
-   // { "phCalibratePointValueA",    ctInteger, "377",          false, "2 PH", "Wert (digits) am Kallibrier-Punkt A", "" },
-   // { "phCalibratePointB",         ctNum,     "9.0",          false, "2 PH", "Kallibrier-Punkt B", "" },
-   // { "phCalibratePointValueB",    ctInteger, "412",          false, "2 PH", "Wert (digits) am Kallibrier-Punkt B", "" },
-
    // web
 
-   // { "addrsList",                 ctString,  "",             false, "3 WEB Interface", "Sensoren 'Liste'", "Komma getrennte Liste aus ID:Typ siehe 'IO Setup'" },
    { "style",                     ctChoice,  "dark",         false, "3 WEB Interface", "Farbschema", "" },
    { "vdr",                       ctBool,    "0",            false, "3 WEB Interface", "VDR (Video Disk Recorder) OSD verfügbar", "" },
 
    // mqtt interface
 
-   { "mqttUrl",                   ctString,  "",             false, "4 MQTT Interface", "Url des MQTT Message Broker", "Deiser kann z.B. zur Kommunikation mit Hausautomatisierungen verwendet werden. Beispiel: 'tcp://localhost:1883'" },
-   { "mqttUser",                  ctString,  "",             false, "4 MQTT Interface", "User", "" },
-   { "mqttPassword",              ctString,  "",             false, "4 MQTT Interface", "Password", "" },
+   { "hassMqttUrl",                   ctString,  "",             false, "4 MQTT Interface", "Url des MQTT Message Broker", "Deiser kann z.B. zur Kommunikation mit Hausautomatisierungen verwendet werden. Beispiel: 'tcp://localhost:1883'" },
+   { "hassMqttUser",                  ctString,  "",             false, "4 MQTT Interface", "User", "" },
+   { "hassMqttPassword",              ctString,  "",             false, "4 MQTT Interface", "Password", "" },
 
    // mail
 
@@ -96,7 +92,7 @@ std::list<Poold::ConfigItemDef> Poold::configuration
 // Service
 //***************************************************************************
 
-const char* Poold::widgetTypes[] =
+const char* Daemon::widgetTypes[] =
 {
    "Symbol",
    "Chart",
@@ -106,10 +102,11 @@ const char* Poold::widgetTypes[] =
    "Meter",
    "MeterLevel",
    "PlainText",
+   "Choice",
    0
 };
 
-const char* Poold::toName(WidgetType type)
+const char* Daemon::toName(WidgetType type)
 {
    if (type > wtUnknown && type < wtCount)
       return widgetTypes[type];
@@ -117,7 +114,7 @@ const char* Poold::toName(WidgetType type)
    return widgetTypes[wtText];
 }
 
-Poold::WidgetType Poold::toType(const char* name)
+Daemon::WidgetType Daemon::toType(const char* name)
 {
    if (!name)
       return wtUnknown;
@@ -129,12 +126,11 @@ Poold::WidgetType Poold::toType(const char* name)
    return wtText;
 }
 
-
 //***************************************************************************
 // Object
 //***************************************************************************
 
-Poold::Poold()
+Daemon::Daemon()
 {
    nextRefreshAt = time(0) + 5;
    startedAt = time(0);
@@ -150,13 +146,13 @@ Poold::Poold()
    webSock = new cWebSock(this, httpPath);
 }
 
-Poold::~Poold()
+Daemon::~Daemon()
 {
    exit();
 
-   delete mqttWriter;
-   delete mqttReader;
-   delete mqttCommandReader;
+   delete mqttHassWriter;
+   delete mqttHassReader;
+   delete mqttHassCommandReader;
    delete webSock;
 
    free(mailScript);
@@ -166,15 +162,14 @@ Poold::~Poold()
    free(w1AddrSuctionTube);
    free(w1AddrAir);
 
-   //arduinoInterface.close();
    cDbConnection::exit();
 }
 
 //***************************************************************************
-// Push In Message (from WS to poold)
+// Push In Message (from WS to daemon)
 //***************************************************************************
 
-int Poold::pushInMessage(const char* data)
+int Daemon::pushInMessage(const char* data)
 {
    cMyMutexLock lock(&messagesInMutex);
 
@@ -184,10 +179,10 @@ int Poold::pushInMessage(const char* data)
 }
 
 //***************************************************************************
-// Push Out Message (from poold to WS)
+// Push Out Message (from daemon to WS)
 //***************************************************************************
 
-int Poold::pushOutMessage(json_t* oContents, const char* title, long client)
+int Daemon::pushOutMessage(json_t* oContents, const char* title, long client)
 {
    json_t* obj = json_object();
 
@@ -211,7 +206,7 @@ int Poold::pushOutMessage(json_t* oContents, const char* title, long client)
    return done;
 }
 
-int Poold::pushDataUpdate(const char* title, long client)
+int Daemon::pushDataUpdate(const char* title, long client)
 {
    // push all in the jsonSensorList to the 'interested' clients
 
@@ -290,6 +285,47 @@ int Poold::pushDataUpdate(const char* title, long client)
 
 volatile int showerSwitch {0};
 
+// ----------------------------------
+// dummies to be removed
+// ----------------------------------
+
+#ifdef _NO_RASPBERRY_PI_
+
+#define PUD_UP 0
+#define INT_EDGE_FALLING 0
+#define OUTPUT 0
+#define INPUT 0
+
+int wiringPiISR(int, int, void (*)())
+{
+   return 0;
+}
+
+void pinMode(int, int)
+{
+}
+
+void pullUpDnControl(int pin, int value)
+{
+}
+
+int digitalWrite(uint pin, bool value)
+{
+   return 0;
+}
+
+int digitalRead(uint pin)
+{
+   return 0;
+}
+
+int wiringPiSetupPhys()
+{
+   return 0;
+}
+#endif // _NO_RASPBERRY_PI_
+// ----------------------------------
+
 //***************************************************************************
 // IO Interrupt Handler
 //***************************************************************************
@@ -300,7 +336,7 @@ void ioInterrupt()
 
    // detect only once a second
 
-   if (cTimeMs::Now() > lastShowerSwitch + 1000 && !digitalRead(Poold::pinShowerSwitch))
+   if (cTimeMs::Now() > lastShowerSwitch + 1000 && !digitalRead(Daemon::pinShowerSwitch))
    {
       tell(2, "Info: Shower key detected");
       showerSwitch++;
@@ -312,14 +348,16 @@ void ioInterrupt()
 // Init / Exit
 //***************************************************************************
 
-int Poold::init()
+int Daemon::init()
 {
    int status {success};
    char* dictPath = 0;
 
+   initLocale();
+
    // initialize the dictionary
 
-   asprintf(&dictPath, "%s/poold.dat", confDir);
+   asprintf(&dictPath, "%s/database.dat", confDir);
 
    if (dbDict.in(dictPath) != success)
    {
@@ -344,12 +382,12 @@ int Poold::init()
 
    if (userCount <= 0)
    {
-      tell(0, "Initially adding default user (pool/pool)");
+      tell(0, "Initially adding default user (" TARGET "/" TARGET ")");
 
       md5Buf defaultPwd;
-      createMd5("pool", defaultPwd);
+      createMd5(TARGET, defaultPwd);
       tableUsers->clear();
-      tableUsers->setValue("USER", "pool");
+      tableUsers->setValue("USER", TARGET);
       tableUsers->setValue("PASSWD", defaultPwd);
       tableUsers->setValue("TOKEN", "dein&&secret12login34token");
       tableUsers->setValue("RIGHTS", 0xff);  // all rights
@@ -373,7 +411,6 @@ int Poold::init()
    }
 
    readConfiguration(true);
-   initLocale();
 
    // ---------------------------------
    // setup GPIO
@@ -452,7 +489,7 @@ int Poold::init()
    return success;
 }
 
-int Poold::initLocale()
+int Daemon::initLocale()
 {
    // set a locale to "" means 'reset it to the environment'
    // as defined by the ISO-C standard the locales after start are C
@@ -476,7 +513,7 @@ int Poold::initLocale()
    return done;
 }
 
-int Poold::exit()
+int Daemon::exit()
 {
    for (auto it = digitalOutputStates.begin(); it != digitalOutputStates.end(); ++it)
       gpioWrite(it->first, false, false);
@@ -490,7 +527,7 @@ int Poold::exit()
 // Init digital Output
 //***************************************************************************
 
-int Poold::initOutput(uint pin, int opt, OutputMode mode, const char* name, uint rights)
+int Daemon::initOutput(uint pin, int opt, OutputMode mode, const char* name, uint rights)
 {
    digitalOutputStates[pin].opt = opt;
    digitalOutputStates[pin].mode = mode;
@@ -527,7 +564,7 @@ int Poold::initOutput(uint pin, int opt, OutputMode mode, const char* name, uint
 // Init digital Input
 //***************************************************************************
 
-int Poold::initInput(uint pin, const char* name)
+int Daemon::initInput(uint pin, const char* name)
 {
    pinMode(pin, INPUT);
 
@@ -543,7 +580,7 @@ int Poold::initInput(uint pin, const char* name)
 // Init Scripts
 //***************************************************************************
 
-int Poold::initScripts()
+int Daemon::initScripts()
 {
    char* path {nullptr};
    int count {0};
@@ -559,10 +596,10 @@ int Poold::initScripts()
          char* scriptPath {nullptr};
          uint id {0};
          const char* unit {""};
+         const char* choices {nullptr};
          char* cmd {nullptr};
 
          asprintf(&scriptPath, "%s/%s", path, script.name.c_str());
-
          asprintf(&cmd, "%s status", scriptPath);
          std::string result = executeCommand(cmd);
          tell(5, "Calling '%s'", cmd);
@@ -570,7 +607,10 @@ int Poold::initScripts()
          json_t* oData = json_loads(result.c_str(), 0, 0);
 
          if (oData)
+         {
             unit = getStringFromJson(oData, "unit");
+            choices = getStringFromJson(oData, "choices");
+         }
 
          tableScripts->clear();
          tableScripts->setValue("PATH", scriptPath);
@@ -585,7 +625,7 @@ int Poold::initScripts()
 
          selectScriptByPath->freeResult();
 
-         addValueFact(id, "SC", script.name.c_str(), unit, wtSymbol, 0, 0, urControl);
+         addValueFact(id, "SC", script.name.c_str(), unit, wtSymbol, 0, 0, urControl, choices);
 
          tell(0, "Found script '%s' id (%d), unit '%s'; result was [%s]", scriptPath, id, unit, result.c_str());
          free(scriptPath);
@@ -601,7 +641,7 @@ int Poold::initScripts()
 // Call Script
 //***************************************************************************
 
-std::string Poold::callScript(int addr, const char* type, const char* command)
+std::string Daemon::callScript(int addr, const char* type, const char* command)
 {
    char* cmd {nullptr};
 
@@ -639,9 +679,9 @@ cDbFieldDef rangeToDef("RANGE_TO", "rto", cDBS::ffDateTime, 0, cDBS::ftData);
 cDbFieldDef avgValueDef("AVG_VALUE", "avalue", cDBS::ffFloat, 122, cDBS::ftData);
 cDbFieldDef maxValueDef("MAX_VALUE", "mvalue", cDBS::ffInt, 0, cDBS::ftData);
 
-int Poold::initDb()
+int Daemon::initDb()
 {
-   static int initial = yes;
+   static int initial {yes};
    int status {success};
 
    if (connection)
@@ -852,7 +892,7 @@ int Poold::initDb()
    return status;
 }
 
-int Poold::exitDb()
+int Daemon::exitDb()
 {
    delete tableSamples;            tableSamples = nullptr;
    delete tablePeaks;              tablePeaks = nullptr;
@@ -876,7 +916,7 @@ int Poold::exitDb()
 // Init one wire sensors
 //***************************************************************************
 
-int Poold::initW1()
+int Daemon::initW1()
 {
    int count {0};
    int added {0};
@@ -903,7 +943,7 @@ int Poold::initW1()
 // Read Configuration
 //***************************************************************************
 
-int Poold::readConfiguration(bool initial)
+int Daemon::readConfiguration(bool initial)
 {
    // init configuration
 
@@ -915,8 +955,8 @@ int Poold::readConfiguration(bool initial)
    tell(0, "Info: LogLevel set to %d", loglevel);
 
    getConfigItem("interval", interval, interval);
+   getConfigItem("arduinoInterval", arduinoInterval, 10);
    getConfigItem("webPort", webPort, 61109);
-
    getConfigItem("webUrl", webUrl);
 
    char* port {nullptr};
@@ -942,20 +982,20 @@ int Poold::readConfiguration(bool initial)
    getConfigItem("aggregateInterval", aggregateInterval, 15);
    getConfigItem("aggregateHistory", aggregateHistory, 0);
 
-   std::string url = poolMqttUrl ? poolMqttUrl : "";
-   getConfigItem("poolMqttUrl", poolMqttUrl);
-
-   if (url != poolMqttUrl)
-      mqttDisconnect();
-
-   url = mqttUrl ? mqttUrl : "";
+   std::string url = mqttUrl ? mqttUrl : "";
    getConfigItem("mqttUrl", mqttUrl);
 
    if (url != mqttUrl)
       mqttDisconnect();
 
-   getConfigItem("mqttUser", mqttUser, nullptr);
-   getConfigItem("mqttPassword", mqttPassword, nullptr);
+   url = mqttHassUrl ? mqttHassUrl : "";
+   getConfigItem("hassMqttUrl", mqttHassUrl);
+
+   if (url != mqttHassUrl)
+      mqttDisconnect();
+
+   getConfigItem("hassMqttUser", mqttHassUser, nullptr);
+   getConfigItem("hassMqttPassword", mqttHassPassword, nullptr);
 
    // more special
 
@@ -984,17 +1024,11 @@ int Poold::readConfiguration(bool initial)
 
    // PH stuff
 
-   getConfigItem("phInterval", phInterval, 15);
    getConfigItem("phReference", phReference, 7.2);
    getConfigItem("phMinusDensity", phMinusDensity, 1.4);                  // [kg/l]
    getConfigItem("phMinusDemand01", phMinusDemand01, 85);                 // [ml]
    getConfigItem("phMinusDayLimit", phMinusDayLimit, 100);                // [ml]
    getConfigItem("phPumpDuration100", phPumpDuration100, 1000);           // [ms]
-
-   // getConfigItem("phCalibratePointA", phCalibratePointA, 7.0);            // [ph]
-   // getConfigItem("phCalibratePointValueA", phCalibratePointValueA, 377);  // [digits]
-   // getConfigItem("phCalibratePointB", phCalibratePointB, 9.0);            // [ph]
-   // getConfigItem("phCalibratePointValueB", phCalibratePointValueB, 412);  // [digits]
 
    /*
    // config of GPIO pins
@@ -1014,7 +1048,7 @@ int Poold::readConfiguration(bool initial)
    return done;
 }
 
-int Poold::applyConfigurationSpecials()
+int Daemon::applyConfigurationSpecials()
 {
    uint opt = ooUser;
 
@@ -1034,7 +1068,7 @@ int Poold::applyConfigurationSpecials()
 // Store
 //***************************************************************************
 
-int Poold::store(time_t now, const char* name, const char* title, const char* unit,
+int Daemon::store(time_t now, const char* name, const char* title, const char* unit,
                  const char* type, int address, double value, const char* text)
 {
    tableSamples->clear();
@@ -1087,7 +1121,7 @@ int Poold::store(time_t now, const char* name, const char* title, const char* un
 // standby
 //***************************************************************************
 
-int Poold::standby(int t)
+int Daemon::standby(int t)
 {
    time_t end = time(0) + t;
 
@@ -1100,7 +1134,7 @@ int Poold::standby(int t)
    return done;
 }
 
-int Poold::standbyUntil(time_t until)
+int Daemon::standbyUntil(time_t until)
 {
    while (time(0) < until && !doShutDown())
    {
@@ -1115,7 +1149,7 @@ int Poold::standbyUntil(time_t until)
 // Meanwhile
 //***************************************************************************
 
-int Poold::meanwhile()
+int Daemon::meanwhile()
 {
    if (!initialized)
       return done;
@@ -1123,7 +1157,7 @@ int Poold::meanwhile()
    if (!connection || !connection->isConnected())
       return fail;
 
-   tell(3, "loop ...");
+   tell(6, "loop ...");
 
    if (showerSwitch > 0)
    {
@@ -1146,7 +1180,7 @@ int Poold::meanwhile()
 // Loop
 //***************************************************************************
 
-int Poold::loop()
+int Daemon::loop()
 {
    // init
 
@@ -1206,7 +1240,7 @@ int Poold::loop()
 // Update
 //***************************************************************************
 
-int Poold::update(bool webOnly, long client)
+int Daemon::update(bool webOnly, long client)
 {
    static size_t w1Count = 0;
    time_t now = time(0);
@@ -1236,8 +1270,6 @@ int Poold::update(bool webOnly, long client)
 
    for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
-      char text[1000];
-
       uint addr = tableValueFacts->getIntValue("ADDRESS");
       const char* type = tableValueFacts->getStrValue("TYPE");
       const char* title = tableValueFacts->getStrValue("TITLE");
@@ -1249,10 +1281,10 @@ int Poold::update(bool webOnly, long client)
          title = usrtitle;
 
       json_t* ojData = json_object();
-      char* tupel {nullptr};
-      asprintf(&tupel, "%s:0x%02x", type, addr);
-      jsonSensorList[tupel] = ojData;
-      free(tupel);
+      char* tuple {nullptr};
+      asprintf(&tuple, "%s:0x%02x", type, addr);
+      jsonSensorList[tuple] = ojData;
+      free(tuple);
 
       sensor2Json(ojData, tableValueFacts);
 
@@ -1342,7 +1374,7 @@ int Poold::update(bool webOnly, long client)
          }
          else if (addr == spLastUpdate)
          {
-            json_object_set_new(ojData, "text", json_string(l2pTime(time(0), "%A\n\n%d. %b %Y\n%T").c_str()));
+            json_object_set_new(ojData, "text", json_string(l2pTime(time(0), "%A\n%d. %b %Y\n\n%T").c_str()));
          }
          else if (addr == spWaterLevel)
          {
@@ -1350,6 +1382,7 @@ int Poold::update(bool webOnly, long client)
 
             if (waterLevel == fail)
             {
+               char text[255+TB];
                sprintf(text, "ERROR:Sensor Fehler <br/>(%d/%d/%d)", digitalInputStates[pinLevel1],
                        digitalInputStates[pinLevel2], digitalInputStates[pinLevel3]);
 
@@ -1409,7 +1442,7 @@ int Poold::update(bool webOnly, long client)
 // Process
 //***************************************************************************
 
-int Poold::process()
+int Daemon::process()
 {
    static time_t lastDay {midnightOf(time(0))};
 
@@ -1596,7 +1629,7 @@ int Poold::process()
 
          char* body;
          asprintf(&body, "Filter pressure is %.2f bar and pump is running!\n Pumps switched off now!", aiSensors[aiFilterPressure].value);
-         tell(0, body);
+         tell(0, "%s", body);
          if (sendMail(stateMailTo, "Pool pump alert", body, "text/plain") != success)
             tell(eloAlways, "Error: Sending alert mail failed");
          free(body);
@@ -1612,7 +1645,7 @@ int Poold::process()
 // Report Actual State
 //***************************************************************************
 
-void Poold::logReport()
+void Daemon::logReport()
 {
    static time_t nextLogAt {0};
    static time_t nextDetailLogAt {0};
@@ -1657,7 +1690,7 @@ void Poold::logReport()
 // Update Script Sensors
 //***************************************************************************
 
-void Poold::updateScriptSensors()
+void Daemon::updateScriptSensors()
 {
    tableValueFacts->clear();
    tableValueFacts->setValue("STATE", "A");
@@ -1708,7 +1741,7 @@ void Poold::updateScriptSensors()
 // Perform Jobs
 //***************************************************************************
 
-int Poold::performJobs()
+int Daemon::performJobs()
 {
    // check timed shower duration
 
@@ -1733,7 +1766,7 @@ int Poold::performJobs()
 // Is In Time Range
 //***************************************************************************
 
-bool Poold::isInTimeRange(const std::vector<Range>* ranges, time_t t)
+bool Daemon::isInTimeRange(const std::vector<Range>* ranges, time_t t)
 {
    for (auto it = ranges->begin(); it != ranges->end(); ++it)
    {
@@ -1751,7 +1784,7 @@ bool Poold::isInTimeRange(const std::vector<Range>* ranges, time_t t)
 // Schedule Aggregate
 //***************************************************************************
 
-int Poold::scheduleAggregate()
+int Daemon::scheduleAggregate()
 {
    struct tm tm = {0};
    time_t now {0};
@@ -1786,7 +1819,7 @@ int Poold::scheduleAggregate()
 // Aggregate
 //***************************************************************************
 
-int Poold::aggregate()
+int Daemon::aggregate()
 {
    char* stmt {nullptr};
    time_t history = time(0) - (aggregateHistory * tmeSecondsPerDay);
@@ -1843,7 +1876,7 @@ int Poold::aggregate()
 // Send State Mail
 //***************************************************************************
 
-int Poold::sendStateMail()
+int Daemon::sendStateMail()
 {
    std::string subject = "Status: ";
 
@@ -1887,7 +1920,7 @@ int Poold::sendStateMail()
    return result;
 }
 
-int Poold::sendMail(const char* receiver, const char* subject, const char* body, const char* mimeType)
+int Daemon::sendMail(const char* receiver, const char* subject, const char* body, const char* mimeType)
 {
    char* command {nullptr};
    int result {0};
@@ -1905,7 +1938,7 @@ int Poold::sendMail(const char* receiver, const char* subject, const char* body,
 // Load Html Header
 //***************************************************************************
 
-int Poold::loadHtmlHeader()
+int Daemon::loadHtmlHeader()
 {
    char* file {nullptr};
 
@@ -1967,8 +2000,8 @@ int Poold::loadHtmlHeader()
 // Add Value Fact
 //***************************************************************************
 
-int Poold::addValueFact(int addr, const char* type, const char* name, const char* unit,
-                        WidgetType widgetType, int minScale, int maxScale, int rights)
+int Daemon::addValueFact(int addr, const char* type, const char* name, const char* unit,
+                        WidgetType widgetType, int minScale, int maxScale, int rights, const char* choices)
 {
    if (maxScale == na)
       maxScale = unit[0] == '%' ? 100 : 45;
@@ -1987,6 +2020,9 @@ int Poold::addValueFact(int addr, const char* type, const char* name, const char
       tableValueFacts->setValue("STATE", "D");
       tableValueFacts->setValue("UNIT", unit);
 
+      if (!isEmpty(choices))
+         tableValueFacts->setValue("CHOICES", choices);
+
       char* opt {nullptr};
       asprintf(&opt, "{\"unit\": \"%s\", \"scalemax\": %d, \"scalemin\": %d, \"scalestep\": %d, \"imgon\": \"%s\", \"imgoff\": \"%s\", \"widgettype\": %d}",
                unit, maxScale, minScale, 0, getImageFor(name, true), getImageFor(name, false), widgetType);
@@ -2002,6 +2038,9 @@ int Poold::addValueFact(int addr, const char* type, const char* name, const char
 
    tableValueFacts->setValue("NAME", name);
    tableValueFacts->setValue("TITLE", name);
+
+   if (!isEmpty(choices))
+      tableValueFacts->setValue("CHOICES", choices);
 
    if (tableValueFacts->getValue("RIGHTS")->isNull())
       tableValueFacts->setValue("RIGHTS", rights);
@@ -2019,7 +2058,7 @@ int Poold::addValueFact(int addr, const char* type, const char* name, const char
 // Config Data
 //***************************************************************************
 
-int Poold::getConfigItem(const char* name, char*& value, const char* def)
+int Daemon::getConfigItem(const char* name, char*& value, const char* def)
 {
    free(value);
    value = nullptr;
@@ -2043,7 +2082,7 @@ int Poold::getConfigItem(const char* name, char*& value, const char* def)
    return success;
 }
 
-int Poold::setConfigItem(const char* name, const char* value)
+int Daemon::setConfigItem(const char* name, const char* value)
 {
    tell(2, "Debug: Storing '%s' with value '%s'", name, value);
    tableConfig->clear();
@@ -2054,12 +2093,12 @@ int Poold::setConfigItem(const char* name, const char* value)
    return tableConfig->store();
 }
 
-int Poold::getConfigItem(const char* name, int& value, int def)
+int Daemon::getConfigItem(const char* name, int& value, int def)
 {
    return getConfigItem(name, (long&)value, (long)def);
 }
 
-int Poold::getConfigItem(const char* name, long& value, long def)
+int Daemon::getConfigItem(const char* name, long& value, long def)
 {
    char* txt {nullptr};
 
@@ -2080,7 +2119,7 @@ int Poold::getConfigItem(const char* name, long& value, long def)
    return success;
 }
 
-int Poold::setConfigItem(const char* name, long value)
+int Daemon::setConfigItem(const char* name, long value)
 {
    char txt[16];
 
@@ -2089,7 +2128,7 @@ int Poold::setConfigItem(const char* name, long value)
    return setConfigItem(name, txt);
 }
 
-int Poold::getConfigItem(const char* name, double& value, double def)
+int Daemon::getConfigItem(const char* name, double& value, double def)
 {
    char* txt {nullptr};
 
@@ -2110,7 +2149,7 @@ int Poold::getConfigItem(const char* name, double& value, double def)
    return success;
 }
 
-int Poold::setConfigItem(const char* name, double value)
+int Daemon::setConfigItem(const char* name, double value)
 {
    char txt[16+TB];
 
@@ -2123,7 +2162,7 @@ int Poold::setConfigItem(const char* name, double value)
 // Get Config Time Range Item
 //***************************************************************************
 
-int Poold::getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges)
+int Daemon::getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges)
 {
    char* tmp {nullptr};
 
@@ -2157,7 +2196,7 @@ int Poold::getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges)
 // Get Water Level [%]
 //***************************************************************************
 
-int Poold::getWaterLevel()
+int Daemon::getWaterLevel()
 {
    bool l1 = gpioRead(pinLevel1);
    bool l2 = gpioRead(pinLevel2);
@@ -2183,7 +2222,7 @@ int Poold::getWaterLevel()
 // PH Measurement Active
 //***************************************************************************
 
-bool Poold::phMeasurementActive()
+bool Daemon::phMeasurementActive()
 {
    if (digitalOutputStates[pinFilterPump].state &&
        digitalOutputStates[pinFilterPump].last < time(0)-minPumpTimeForPh)
@@ -2198,7 +2237,7 @@ bool Poold::phMeasurementActive()
 // Calc PH Minus Volume
 //***************************************************************************
 
-int Poold::calcPhMinusVolume(double ph)
+int Daemon::calcPhMinusVolume(double ph)
 {
    double phLack = ph - phReference;
    double mlPer01 = phMinusDemand01 * (1.0/phMinusDensity);
@@ -2210,7 +2249,7 @@ int Poold::calcPhMinusVolume(double ph)
 // Get Image For
 //***************************************************************************
 
-const char* Poold::getImageFor(const char* title, int value)
+const char* Daemon::getImageFor(const char* title, int value)
 {
    const char* imagePath = "img/icon/unknown.png";
 
@@ -2234,7 +2273,7 @@ const char* Poold::getImageFor(const char* title, int value)
 // Digital IO Stuff
 //***************************************************************************
 
-int Poold::toggleIo(uint addr, const char* type)
+int Daemon::toggleIo(uint addr, const char* type)
 {
    if (strcmp(type, "DO") == 0)
       gpioWrite(addr, !digitalOutputStates[addr].state);
@@ -2244,7 +2283,7 @@ int Poold::toggleIo(uint addr, const char* type)
    return success;
 }
 
-int Poold::publishScriptResult(ulong addr, const char* type, std::string result)
+int Daemon::publishScriptResult(ulong addr, const char* type, std::string result)
 {
    json_error_t error;
    json_t* oData = json_loads(result.c_str(), 0, &error);
@@ -2311,7 +2350,7 @@ int Poold::publishScriptResult(ulong addr, const char* type, std::string result)
    return success;
 }
 
-int Poold::toggleIoNext(uint pin)
+int Daemon::toggleIoNext(uint pin)
 {
    if (digitalOutputStates[pin].state)
    {
@@ -2326,7 +2365,7 @@ int Poold::toggleIoNext(uint pin)
    return success;
 }
 
-void Poold::pin2Json(json_t* ojData, int pin)
+void Daemon::pin2Json(json_t* ojData, int pin)
 {
    json_object_set_new(ojData, "address", json_integer(pin));
    json_object_set_new(ojData, "type", json_string("DO"));
@@ -2341,7 +2380,7 @@ void Poold::pin2Json(json_t* ojData, int pin)
    json_object_set_new(ojData, "widgettype", json_integer(wtSymbol));  // #TODO get type from valuefacts
 }
 
-int Poold::toggleOutputMode(uint pin)
+int Daemon::toggleOutputMode(uint pin)
 {
    // allow mode toggle only if more than one option is given
 
@@ -2363,7 +2402,7 @@ int Poold::toggleOutputMode(uint pin)
    return success;
 }
 
-void Poold::gpioWrite(uint pin, bool state, bool store)
+void Daemon::gpioWrite(uint pin, bool state, bool store)
 {
    digitalOutputStates[pin].state = state;
    digitalOutputStates[pin].last = time(0);
@@ -2393,7 +2432,7 @@ void Poold::gpioWrite(uint pin, bool state, bool store)
    hassPush(iotLight, digitalOutputStates[pin].name, "", "", digitalOutputStates[pin].state, "", false /*forceConfig*/);
 }
 
-bool Poold::gpioRead(uint pin)
+bool Daemon::gpioRead(uint pin)
 {
    digitalInputStates[pin] = digitalRead(pin);
    return digitalInputStates[pin];
@@ -2403,7 +2442,7 @@ bool Poold::gpioRead(uint pin)
 // Set Special Value
 //***************************************************************************
 
-void Poold::publishSpecialValue(int sp, double value)
+void Daemon::publishSpecialValue(int sp, double value)
 {
    // send update to WS
 
@@ -2421,10 +2460,10 @@ void Poold::publishSpecialValue(int sp, double value)
       if (!phMeasurementActive() && sp == spPhMinusDemand)
          json_object_set_new(ojData, "disabled", json_boolean(true));
 
-      char* tupel {nullptr};
-      asprintf(&tupel, "SP:0x%02x", sp);
-      jsonSensorList[tupel] = ojData;
-      free(tupel);
+      char* tuple {nullptr};
+      asprintf(&tuple, "SP:0x%02x", sp);
+      jsonSensorList[tuple] = ojData;
+      free(tuple);
 
       pushDataUpdate("update", 0L);
    }
@@ -2437,7 +2476,7 @@ void Poold::publishSpecialValue(int sp, double value)
 //  used to recover at restart
 //***************************************************************************
 
-int Poold::storeStates()
+int Daemon::storeStates()
 {
    long value {0};
    long mode {0};
@@ -2459,7 +2498,7 @@ int Poold::storeStates()
    return done;
 }
 
-int Poold::loadStates()
+int Daemon::loadStates()
 {
    long value {0};
    long mode {0};
@@ -2502,7 +2541,7 @@ int Poold::loadStates()
 // Arduino Stuff ...
 //***************************************************************************
 
-int Poold::dispatchArduinoMsg(const char* message)
+int Daemon::dispatchArduinoMsg(const char* message)
 {
    json_error_t error;
    json_t* jObject = json_loads(message, 0, &error);
@@ -2550,17 +2589,17 @@ int Poold::dispatchArduinoMsg(const char* message)
    return success;
 }
 
-int Poold::initArduino()
+int Daemon::initArduino()
 {
    mqttCheckConnection();
 
-   if (isEmpty(poolMqttUrl) || !mqttPoolReader->isConnected())
+   if (isEmpty(mqttUrl) || !mqttReader->isConnected())
       return fail;
 
    json_t* oJson = json_object();
 
    json_object_set_new(oJson, "event", json_string("setUpdateInterval"));
-   json_object_set_new(oJson, "parameter", json_integer(phInterval));
+   json_object_set_new(oJson, "parameter", json_integer(arduinoInterval));
 
    char* p = json_dumps(oJson, JSON_REAL_PRECISION(4));
    json_decref(oJson);
@@ -2571,16 +2610,18 @@ int Poold::initArduino()
       return fail;
    }
 
-   mqttPoolReader->write("poold2mqtt/arduino/in", p);
+   mqttReader->write(TARGET "2mqtt/arduino/in", p);
    tell(1, "DEBUG: PushMessage to arduino [%s]", p);
    free(p);
 
    return success;
 }
 
-void Poold::updateAnalogInput(const char* id, int value, time_t stamp)
+void Daemon::updateAnalogInput(const char* id, int value, time_t stamp)
 {
    uint input = atoi(id+1);
+
+   // the Ardoino read the analog inputs with a resolution of 12 bits (3.3V => 4095)
 
    tableValueFacts->clear();
    tableValueFacts->setValue("ADDRESS", (int)input);
@@ -2628,7 +2669,7 @@ void Poold::updateAnalogInput(const char* id, int value, time_t stamp)
 // W1 Stuff ...
 //***************************************************************************
 
-int Poold::dispatchW1Msg(const char* message)
+int Daemon::dispatchW1Msg(const char* message)
 {
    json_error_t error;
    json_t* jArray = json_loads(message, 0, &error);
@@ -2663,7 +2704,7 @@ int Poold::dispatchW1Msg(const char* message)
    return success;
 }
 
-void Poold::updateW1(const char* id, double value, time_t stamp)
+void Daemon::updateW1(const char* id, double value, time_t stamp)
 {
    tell(2, "w1: %s : %0.2f", id, value);
 
@@ -2680,12 +2721,11 @@ void Poold::updateW1(const char* id, double value, time_t stamp)
 
       sensor2Json(ojData, tableValueFacts);
       json_object_set_new(ojData, "value", json_real(value));
-      json_object_set_new(ojData, "widgettype", json_integer(wtChart));
 
-      char* tupel {nullptr};
-      asprintf(&tupel, "W1:0x%02x", toW1Id(id));
-      jsonSensorList[tupel] = ojData;
-      free(tupel);
+      char* tuple {nullptr};
+      asprintf(&tuple, "W1:0x%02x", toW1Id(id));
+      jsonSensorList[tuple] = ojData;
+      free(tuple);
 
       pushDataUpdate("update", 0L);
    }
@@ -2693,18 +2733,20 @@ void Poold::updateW1(const char* id, double value, time_t stamp)
    tableValueFacts->reset();
 }
 
-void Poold::cleanupW1()
+void Daemon::cleanupW1()
 {
    uint detached {0};
 
-   for (auto it = w1Sensors.begin(); it != w1Sensors.end(); it++)
+   for (auto it = w1Sensors.begin(); it != w1Sensors.end();)
    {
       if (it->second.last < time(0) - 5*tmeSecondsPerMinute)
       {
          tell(0, "Info: Missing sensor '%s', removing it from list", it->first.c_str());
          detached++;
-         w1Sensors.erase(it--);
+         it = w1Sensors.erase(it--);
       }
+      else
+         it++;
    }
 
    if (detached)
@@ -2716,7 +2758,7 @@ void Poold::cleanupW1()
    }
 }
 
-bool Poold::existW1(const char* id)
+bool Daemon::existW1(const char* id)
 {
    if (isEmpty(id))
       return false;
@@ -2726,7 +2768,7 @@ bool Poold::existW1(const char* id)
    return it != w1Sensors.end();
 }
 
-double Poold::valueOfW1(const char* id, time_t& last)
+double Daemon::valueOfW1(const char* id, time_t& last)
 {
    last = 0;
 
@@ -2743,7 +2785,7 @@ double Poold::valueOfW1(const char* id, time_t& last)
    return w1Sensors[id].value;
 }
 
-uint Poold::toW1Id(const char* name)
+uint Daemon::toW1Id(const char* name)
 {
    const char* p;
    int len = strlen(name);

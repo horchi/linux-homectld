@@ -8,10 +8,6 @@
 
 #pragma once
 
-//***************************************************************************
-// Includes
-//***************************************************************************
-
 #include <queue>
 #include <jansson.h>
 #include <libwebsockets.h>
@@ -38,7 +34,6 @@ class cWebService
          evStoreConfig,
          evGetToken,
          evSetup,
-         evIoSetup,
          evStoreIoSetup,
          evChartData,
          evLogMessage,
@@ -47,10 +42,6 @@ class cWebService
          evChangePasswd,
          evResetPeaks,
          evGroupConfig,
-         evPh,
-         evPhAll,
-         evPhCal,
-         evPhSetCal,
          evChartbookmarks,
          evStoreChartbookmarks,
          evSendMail,

@@ -6,12 +6,18 @@
 // Date 2020-2021 - Jörg Wendel
 //***************************************************************************
 
-#include <NTPClient.h>
+#include <ADS1115_WE.h>
+#include <Wire.h>
+#define I2C_ADDRESS 0x48
+ADS1115_WE adc = ADS1115_WE(I2C_ADDRESS);
+
+bool adsPresent {false};
+
 #include <WiFiNINA.h>
 #include <MQTT.h>
 #include <ArduinoJson.h>
 
-#include "Sodaq_wdt.h"
+#include "Sodaq_wdt.h"          // the watchdog
 
 #include "settings.h"           // set your WiFi an MQTT connection data here!
 
@@ -26,6 +32,11 @@ const byte inputCount {7};
 unsigned int sampleCount[inputCount] {0};
 unsigned int sampleSum[inputCount] {0};
 
+unsigned int adsInputOffset {7};
+const byte inputCountAds {4};
+unsigned int sampleCountAds[inputCountAds] {0};
+float sampleSumAds[inputCountAds] {0};
+
 // MQTT
 
 WiFiClient net;
@@ -33,10 +44,13 @@ MQTTClient mqtt(1024);
 
 // NTP
 
-WiFiUDP ntpUDP;
-// NTPClient       (WiFiUDP, server, offset [s], update interval [ms])
-//NTPClient ntpClient(ntpUDP, "europe.pool.ntp.org", 0, 60 * 1000);
-//bool isTimeSet {false};
+#ifdef _USE_NTP
+  #include <NTPClient.h>
+  WiFiUDP ntpUDP;
+  // NTPClient       (WiFiUDP, server, offset [s], update interval [ms])
+  NTPClient ntpClient(ntpUDP, "europe.pool.ntp.org", 0, 60 * 1000);
+  bool isTimeSet {false};
+#endif
 
 //***************************************************************************
 // RGB LED
@@ -55,14 +69,37 @@ void rgbLed(byte r, byte g, byte b)
 
 void setup()
 {
+   // LED
+
    pinMode(ledPin, OUTPUT);
    digitalWrite(ledPin, LOW);
+
+   // rgb LED
 
    WiFiDrv::pinMode(25, OUTPUT);
    WiFiDrv::pinMode(26, OUTPUT);
    WiFiDrv::pinMode(27, OUTPUT);
    rgbLed(20, 0, 0);
+
+   // setup ADS1115
+
    analogReadResolution(12);
+
+   // setup ADS1115
+
+   Wire.begin();
+
+   if (adc.init())
+   {
+      adsPresent = true;
+
+      adc.setCompareChannels(ADS1115_COMP_0_GND);
+      adc.setConvRate(ADS1115_128_SPS);
+      adc.setMeasureMode(ADS1115_CONTINUOUS);
+      adc.setPermanentAutoRangeMode(true);
+   }
+
+   // check/setup serial interface
 
    unsigned long timeoutAt = millis() + 1500;
    Serial.begin(115200);
@@ -134,9 +171,11 @@ void connect()
    mqtt.onMessage(atMessage);
    mqtt.subscribe(topicIn);
 
-   //ntpClient.begin();    // start NTP
-   //delay(500);
-   //isTimeSet = ntpClient.forceUpdate();
+#ifdef _USE_NTP
+   ntpClient.begin();    // start NTP
+   delay(500);
+   isTimeSet = ntpClient.forceUpdate();
+#endif
 
    sodaq_wdt_disable();
    sodaq_wdt_enable(WDT_PERIOD_2X);  // enable Watchdog with period of 2 seconds
@@ -159,7 +198,20 @@ int intToA(int num)
       case 6: return A6;
    }
 
-   return A0; // ??
+   return A0;
+}
+
+ADS1115_MUX intToAds(int num)
+{
+   switch (num)
+   {
+      case 0: return ADS1115_COMP_0_GND;
+      case 1: return ADS1115_COMP_1_GND;
+      case 2: return ADS1115_COMP_2_GND;
+      case 3: return ADS1115_COMP_3_GND;
+   }
+
+   return ADS1115_COMP_0_GND;
 }
 
 //***************************************************************************
@@ -171,7 +223,10 @@ unsigned long nextAt = 0;
 void loop()
 {
    mqtt.loop();
-   // isTimeSet += ntpClient.update();
+
+#ifdef _USE_NTP
+   isTimeSet += ntpClient.update();
+#endif
 
    if (nextAt > millis())
       return;
@@ -220,6 +275,15 @@ void update()
       sampleSum[inp] += analogRead(intToA(inp));
       sampleCount[inp]++;
    }
+
+   if (adsPresent)
+   {
+      for (int inp = 0; inp < inputCountAds; inp++)
+      {
+         sampleSumAds[inp] += readAdsChannel(intToAds(inp));
+         sampleCountAds[inp]++;
+      }
+   }
 }
 
 //***************************************************************************
@@ -246,8 +310,30 @@ void send()
 
       doc["analog"][inp]["name"] = String("A") + inp;
       doc["analog"][inp]["value"] = avg;
-//      if (isTimeSet)
-//         doc["analog"][inp]["time"] = ntpClient.getEpochTime();
+      doc["analog"][inp]["unit"] = "dig";
+#ifdef _USE_NTP
+      if (isTimeSet)
+         doc["analog"][inp]["time"] = ntpClient.getEpochTime();
+#endif
+   }
+
+   if (adsPresent)
+   {
+      for (int inp = 0; inp < inputCountAds; inp++)
+      {
+         float avg = sampleSumAds[inp] / sampleCountAds[inp];
+         sampleSumAds[inp] = 0.0;
+         sampleCountAds[inp] = 0;
+
+         unsigned int jInput = inp + adsInputOffset;
+         doc["analog"][jInput]["name"] = String("A") + jInput;
+         doc["analog"][jInput]["value"] = avg;
+         doc["analog"][jInput]["unit"] = "mV";
+#ifdef _USE_NTP
+         if (isTimeSet)
+            doc["analog"][jInput]["time"] = ntpClient.getEpochTime();
+#endif
+      }
    }
 
    publish(&doc, true);
@@ -306,4 +392,12 @@ void atMessage(String& topic, String& payload)
       updateInterval = parameter.toInt() * 1000;
    else if (strcmp(event, "triggerUpdate") == 0)
       send();
+}
+
+float readAdsChannel(ADS1115_MUX channel)
+{
+   float voltage {0.0};
+   adc.setCompareChannels(channel);
+   voltage = adc.getResult_mV();
+   return voltage;
 }

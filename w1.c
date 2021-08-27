@@ -1,5 +1,5 @@
 //***************************************************************************
-// poold / Linux - Pool Steering
+// Automation Control
 // File w1.c
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
@@ -10,7 +10,7 @@
 #include <dirent.h>
 #include <vector>
 #include <numeric>
-#include <cmath> 
+#include <cmath>
 
 #include "w1.h"
 #include "lib/json.h"
@@ -20,7 +20,7 @@ bool W1::shutdown {false};
 W1::W1(const char* aUrl)
 {
    w1Path = strdup("/sys/bus/w1/devices");
-   mqttTopic = "poold2mqtt/w1";
+   mqttTopic = TARGET "2mqtt/w1";
    mqttUrl = aUrl;
 }
 
@@ -214,7 +214,7 @@ int W1::update()
    json_decref(oJson);
 
    if (count)
-      mqttWriter->writeRetained(mqttTopic, p);
+      mqttW1Writer->writeRetained(mqttTopic, p);
 
    free(p);
 
@@ -229,12 +229,12 @@ int W1::update()
 
 int W1::mqttConnection()
 {
-   if (!mqttWriter)
-      mqttWriter = new Mqtt();
+   if (!mqttW1Writer)
+      mqttW1Writer = new Mqtt();
 
-   if (!mqttWriter->isConnected())
+   if (!mqttW1Writer->isConnected())
    {
-      if (mqttWriter->connect(mqttUrl) != success)
+      if (mqttW1Writer->connect(mqttUrl) != success)
       {
          tell(0, "Error: MQTT: Connecting publisher to '%s' failed", mqttUrl);
          return fail;

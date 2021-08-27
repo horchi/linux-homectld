@@ -152,7 +152,7 @@ apt install mariadb-server
 Set the database root (db admin) password during installation!
 
 ### Local database setup:
-If the database server is located locally (on same host as the poold):
+If the database server is located locally (on same host as the daemon):
 
 ```
 > mysql -u root -Dmysql -p

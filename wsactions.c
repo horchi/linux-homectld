@@ -1,5 +1,5 @@
 //***************************************************************************
-// poold / Linux - Pool Steering
+// Automation Control
 // File wsactions.c
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
@@ -11,14 +11,13 @@
 #include <cmath>
 
 #include "lib/json.h"
-#include "poold.h"
-#include "arduinoif.h"
+#include "daemon.h"
 
 //***************************************************************************
 // Dispatch Client Requests
 //***************************************************************************
 
-int Poold::dispatchClientRequest()
+int Daemon::dispatchClientRequest()
 {
    int status = fail;
    json_error_t error;
@@ -67,10 +66,6 @@ int Poold::dispatchClientRequest()
             case evStoreUserConfig: status = storeUserConfig(oObject, client);       break;
             case evChangePasswd:    status = performPasswChange(oObject, client);    break;
             case evResetPeaks:      status = resetPeaks(oObject, client);            break;
-            case evPh:              status = performPh(client, false);               break;
-            case evPhAll:           status = performPh(client, true);                break;
-            case evPhCal:           status = performPhCal(oObject, client);          break;
-            case evPhSetCal:        status = performPhSetCal(oObject, client);       break;
             case evSendMail:        status = performSendMail(oObject, client);       break;
             case evSyslog:          status = performSyslog(oObject, client);         break;
             case evForceRefresh:    status = update(true, client);                   break;
@@ -97,7 +92,7 @@ int Poold::dispatchClientRequest()
    return status;
 }
 
-bool Poold::checkRights(long client, Event event, json_t* oObject)
+bool Daemon::checkRights(long client, Event event, json_t* oObject)
 {
    uint rights = urView;
    auto it = wsClients.find((void*)client);
@@ -127,11 +122,6 @@ bool Poold::checkRights(long client, Event event, json_t* oObject)
       case evSyslog:              return rights & urAdmin;
       case evForceRefresh:        return true;
 
-      case evPh:
-      case evPhAll:
-      case evPhCal:
-      case evPhSetCal:            return rights & urAdmin;
-
       case evChartbookmarks:      return rights & urView;
       case evStoreChartbookmarks: return rights & urSettings;
 
@@ -158,7 +148,7 @@ bool Poold::checkRights(long client, Event event, json_t* oObject)
 // WS Ping
 //***************************************************************************
 
-int Poold::performWebSocketPing()
+int Daemon::performWebSocketPing()
 {
    if (nextWebSocketPing < time(0))
    {
@@ -173,7 +163,7 @@ int Poold::performWebSocketPing()
 // Reply Result
 //***************************************************************************
 
-int Poold::replyResult(int status, const char* message, long client)
+int Daemon::replyResult(int status, const char* message, long client)
 {
    if (status != success)
       tell(0, "Error: Web request failed with '%s' (%d)", message, status);
@@ -190,7 +180,7 @@ int Poold::replyResult(int status, const char* message, long client)
 // Reply Result - the new version!!!
 //***************************************************************************
 /*
-int Poold::replyResult(int status, long client, const char* format, ...)
+int Daemon::replyResult(int status, long client, const char* format, ...)
 {
    if (!client)
       return done;
@@ -219,7 +209,7 @@ int Poold::replyResult(int status, long client, const char* format, ...)
 // Perform WS Client Login / Logout
 //***************************************************************************
 
-int Poold::performLogin(json_t* oObject)
+int Daemon::performLogin(json_t* oObject)
 {
    long client = getLongFromJson(oObject, "client");
    const char* user = getStringFromJson(oObject, "user", "");
@@ -231,6 +221,8 @@ int Poold::performLogin(json_t* oObject)
 
    wsClients[(void*)client].user = user;
    wsClients[(void*)client].page = page;
+
+   // tell(eloAlways, "Now %zu clients in list", wsClients.size());
 
    if (tableUsers->find() && tableUsers->hasValue("TOKEN", token))
    {
@@ -284,7 +276,7 @@ int Poold::performLogin(json_t* oObject)
 // Perform Page Change
 //***************************************************************************
 
-int Poold::performPageChange(json_t* oObject, long client)
+int Daemon::performPageChange(json_t* oObject, long client)
 {
    const char* page = getStringFromJson(oObject, "page", "");
 
@@ -293,7 +285,7 @@ int Poold::performPageChange(json_t* oObject, long client)
    return done;
 }
 
-int Poold::performLogout(json_t* oObject)
+int Daemon::performLogout(json_t* oObject)
 {
    long client = getLongFromJson(oObject, "client");
    tell(0, "Logout of client 0x%x", (unsigned int)client);
@@ -305,7 +297,7 @@ int Poold::performLogout(json_t* oObject)
 // Perform WS Token Request
 //***************************************************************************
 
-int Poold::performTokenRequest(json_t* oObject, long client)
+int Daemon::performTokenRequest(json_t* oObject, long client)
 {
    json_t* oJson = json_object();
    const char* user = getStringFromJson(oObject, "user", "");
@@ -357,9 +349,9 @@ int Poold::performTokenRequest(json_t* oObject, long client)
 // Perform WS Syslog Request
 //***************************************************************************
 
-int Poold::performSyslog(json_t* oObject, long client)
+int Daemon::performSyslog(json_t* oObject, long client)
 {
-   const char* name {"/var/log/poold.log"};
+   const char* name {"/var/log/" TARGET ".log"};
 
    if (client == 0)
       return done;
@@ -400,7 +392,7 @@ int Poold::performSyslog(json_t* oObject, long client)
 // Perform Send Mail
 //***************************************************************************
 
-int Poold::performSendMail(json_t* oObject, long client)
+int Daemon::performSendMail(json_t* oObject, long client)
 {
 /*   int alertid = getIntFromJson(oObject, "alertid", na);
 
@@ -460,7 +452,7 @@ int Poold::performSendMail(json_t* oObject, long client)
 // Perform WS Config Data Request
 //***************************************************************************
 
-int Poold::performConfigDetails(long client)
+int Daemon::performConfigDetails(long client)
 {
    if (client == 0)
       return done;
@@ -476,7 +468,7 @@ int Poold::performConfigDetails(long client)
 // Perform WS User Data Request
 //***************************************************************************
 
-int Poold::performUserDetails(long client)
+int Daemon::performUserDetails(long client)
 {
    if (client == 0)
       return done;
@@ -492,7 +484,7 @@ int Poold::performUserDetails(long client)
 // Perform WS ChartData request
 //***************************************************************************
 
-int Poold::performChartData(json_t* oObject, long client)
+int Daemon::performChartData(json_t* oObject, long client)
 {
    if (client == 0)
       return done;
@@ -512,7 +504,7 @@ int Poold::performChartData(json_t* oObject, long client)
 
    if (strcmp(id, "chart") == 0 && !isEmpty(sensors))
    {
-      tell(0, "storing sensors '%s' for chart", sensors);
+      tell(2, "storing sensors '%s' for chart", sensors);
       setConfigItem("chart", sensors);
       getConfigItem("chart", chartSensors);
    }
@@ -584,6 +576,11 @@ int Poold::performChartData(json_t* oObject, long client)
       tableSamples->setValue("TYPE", tableValueFacts->getStrValue("TYPE"));
       tableSamples->setValue("ADDRESS", tableValueFacts->getIntValue("ADDRESS"));
 
+      tell(5, "Selecting [%s] ..", select->asText());
+      tell(5, " .. for '%s' (%ld) with range %ld - %ld",
+           tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"),
+           rangeFrom.getTimeValue(), rangeTo.getTimeValue());
+
       for (int f = select->find(); f; f = select->fetch())
       {
          // tell(eloAlways, "0x%x: '%s' : %0.2f", (uint)tableSamples->getStrValue("ADDRESS"),
@@ -623,7 +620,7 @@ int Poold::performChartData(json_t* oObject, long client)
 // Chart Bookmarks
 //***************************************************************************
 
-int Poold::storeChartbookmarks(json_t* array, long client)
+int Daemon::storeChartbookmarks(json_t* array, long client)
 {
    char* bookmarks = json_dumps(array, JSON_REAL_PRECISION(4));
    setConfigItem("chartBookmarks", bookmarks);
@@ -634,7 +631,7 @@ int Poold::storeChartbookmarks(json_t* array, long client)
    return done; // replyResult(success, "Bookmarks gespeichert", client);
 }
 
-int Poold::performChartbookmarks(long client)
+int Daemon::performChartbookmarks(long client)
 {
    char* bookmarks {nullptr};
    getConfigItem("chartBookmarks", bookmarks, "{[]}");
@@ -650,7 +647,7 @@ int Poold::performChartbookmarks(long client)
 // Store User Configuration
 //***************************************************************************
 
-int Poold::storeUserConfig(json_t* oObject, long client)
+int Daemon::storeUserConfig(json_t* oObject, long client)
 {
    if (client == 0)
       return done;
@@ -737,130 +734,10 @@ int Poold::storeUserConfig(json_t* oObject, long client)
 }
 
 //***************************************************************************
-// Perform PH Request
-//***************************************************************************
-
-int Poold::performPh(long client, bool all)
-{
-   if (client == 0)
-      return done;
-
-   // json_t* oJson = json_object();
-   // cArduinoInterface::AnalogValue phValue;
-   // cArduinoInterface::CalSettings calSettings;
-
-   // if (all)
-   // {
-   //    if (arduinoInterface.requestCalGet(calSettings, 0) == success)
-   //    {
-   //       json_object_set_new(oJson, "currentPhA", json_real(calSettings.valueA));
-   //       json_object_set_new(oJson, "currentPhB", json_real(calSettings.valueB));
-   //       json_object_set_new(oJson, "currentCalA", json_real(calSettings.digitsA));
-   //       json_object_set_new(oJson, "currentCalB", json_real(calSettings.digitsB));
-   //    }
-   //    else
-   //    {
-   //       json_object_set_new(oJson, "currentPhA", json_string("--"));
-   //       json_object_set_new(oJson, "currentPhB", json_string("--"));
-   //       json_object_set_new(oJson, "currentCalA", json_string("--"));
-   //       json_object_set_new(oJson, "currentCalB", json_string("--"));
-   //    }
-   // }
-
-   // if (arduinoInterface.requestAi(phValue, 0) == success)
-   // {
-   //    json_object_set_new(oJson, "currentPh", json_real(phValue.value));
-   //    json_object_set_new(oJson, "currentPhValue", json_integer(phValue.digits));
-   //    json_object_set_new(oJson, "currentPhMinusDemand", json_integer(calcPhMinusVolume(phValue.value)));
-   // }
-   // else
-   // {
-   //    json_object_set_new(oJson, "currentPh", json_string("--"));
-   //    json_object_set_new(oJson, "currentPhValue", json_string("--"));
-   //    json_object_set_new(oJson, "currentPhMinusDemand", json_string("--"));
-   // }
-
-   // pushOutMessage(oJson, "phdata", client);
-
-   return done;
-}
-
-//***************************************************************************
-// Perform PH Calibration Request
-//***************************************************************************
-
-int Poold::performPhCal(json_t* oObject, long client)
-{
-   if (client == 0)
-      return done;
-
-   // json_t* oJson = json_object();
-   // int duration = getIntFromJson(oObject, "duration");
-   // cArduinoInterface::CalResponse calResp;
-
-   // if (duration > 30)
-   // {
-   //    tell(0, "Limit duration to 30, %d was requested", duration);
-   //    duration = 30;
-   // }
-
-   // if (arduinoInterface.requestCalibration(calResp, 0, duration) == success)
-   //    json_object_set_new(oJson, "calValue", json_integer(calResp.digits));
-   // else
-   //    json_object_set_new(oJson, "calValue", json_string("request failed"));
-
-   // json_object_set_new(oJson, "duration", json_integer(duration));
-   // pushOutMessage(oJson, "phcal", client);
-
-   return done;
-}
-
-//***************************************************************************
-// Perform Request for setting PH Calibration Data
-//***************************************************************************
-
-int Poold::performPhSetCal(json_t* oObject, long client)
-{
-   if (client == 0)
-      return done;
-
-   // cArduinoInterface::CalSettings calSettings;
-
-   // // first get the actual settings
-
-   // if (arduinoInterface.requestCalGet(calSettings, 0) == success)
-   // {
-   //    // now update what we get from the WS client
-
-   //    if (getIntFromJson(oObject, "currentPhA", na) != na)
-   //    {
-   //       calSettings.valueA = getIntFromJson(oObject, "currentPhA");
-   //       calSettings.digitsA = getIntFromJson(oObject, "currentCalA");
-   //    }
-
-   //    if (getIntFromJson(oObject, "currentPhB", na) != na)
-   //    {
-   //       calSettings.valueB = getIntFromJson(oObject, "currentPhB");
-   //       calSettings.digitsB = getIntFromJson(oObject, "currentCalB");
-   //    }
-
-   //    // and store
-
-   //    if (arduinoInterface.requestCalSet(calSettings, 0) != success)
-   //       replyResult(fail, "Speichern fehlgeschlagen", client);
-   //    else
-   //       replyResult(success, "gespeichert", client);
-   // }
-
-   // return performPh(client, true);
-   return done;
-}
-
-//***************************************************************************
 // Perform password Change
 //***************************************************************************
 
-int Poold::performPasswChange(json_t* oObject, long client)
+int Daemon::performPasswChange(json_t* oObject, long client)
 {
    if (client == 0)
       return done;
@@ -895,7 +772,7 @@ int Poold::performPasswChange(json_t* oObject, long client)
 // Reset Peaks
 //***************************************************************************
 
-int Poold::resetPeaks(json_t* obj, long client)
+int Daemon::resetPeaks(json_t* obj, long client)
 {
    tablePeaks->truncate();
    setConfigItem("peakResetAt", l2pTime(time(0)).c_str());
@@ -911,7 +788,7 @@ int Poold::resetPeaks(json_t* obj, long client)
 // Store Configuration
 //***************************************************************************
 
-int Poold::storeConfig(json_t* obj, long client)
+int Daemon::storeConfig(json_t* obj, long client)
 {
    const char* key {nullptr};
    json_t* jValue {nullptr};
@@ -953,7 +830,7 @@ int Poold::storeConfig(json_t* obj, long client)
    pushOutMessage(oJson, "config", client);
 
    if (oldWebPort != webPort)
-      replyResult(success, "Konfiguration gespeichert. Web Port geändert, bitte poold neu Starten!", client);
+      replyResult(success, "Konfiguration gespeichert. Web Port geändert, bitte " TARGET " neu Starten!", client);
    else if (!isEmpty(name) && strcmp(name, oldStyle) != 0)
       replyResult(success, "Konfiguration gespeichert. Das Farbschema wurde geändert, mit STRG-Umschalt-r neu laden!", client);
    else if (count > 1)  // on drag&drop its only one parameter
@@ -964,7 +841,7 @@ int Poold::storeConfig(json_t* obj, long client)
    return done;
 }
 
-int Poold::storeIoSetup(json_t* array, long client)
+int Daemon::storeIoSetup(json_t* array, long client)
 {
    size_t index {0};
    json_t* jObj {nullptr};
@@ -1020,7 +897,7 @@ int Poold::storeIoSetup(json_t* array, long client)
 // Config 2 Json
 //***************************************************************************
 
-int Poold::config2Json(json_t* obj)
+int Daemon::config2Json(json_t* obj)
 {
    for (const auto& it : configuration)
    {
@@ -1041,7 +918,7 @@ int Poold::config2Json(json_t* obj)
 // Config Details 2 Json
 //***************************************************************************
 
-int Poold::configDetails2Json(json_t* obj)
+int Daemon::configDetails2Json(json_t* obj)
 {
    for (const auto& it : configuration)
    {
@@ -1073,7 +950,7 @@ int Poold::configDetails2Json(json_t* obj)
    return done;
 }
 
-int Poold::configChoice2json(json_t* obj, const char* name)
+int Daemon::configChoice2json(json_t* obj, const char* name)
 {
    if (strcmp(name, "style") == 0)
    {
@@ -1105,7 +982,7 @@ int Poold::configChoice2json(json_t* obj, const char* name)
 // User Details 2 Json
 //***************************************************************************
 
-int Poold::userDetails2Json(json_t* obj)
+int Daemon::userDetails2Json(json_t* obj)
 {
    for (int f = selectAllUser->find(); f; f = selectAllUser->fetch())
    {
@@ -1125,7 +1002,7 @@ int Poold::userDetails2Json(json_t* obj)
 // Value Facts 2 Json
 //***************************************************************************
 
-int Poold::valueFacts2Json(json_t* obj)
+int Daemon::valueFacts2Json(json_t* obj)
 {
    tableValueFacts->clear();
 
@@ -1145,11 +1022,14 @@ int Poold::valueFacts2Json(json_t* obj)
       json_object_set_new(oData, "usrtitle", json_string(tableValueFacts->getStrValue("USRTITLE")));
       json_object_set_new(oData, "unit", json_string(tableValueFacts->getStrValue("UNIT")));
 
+      if (!tableValueFacts->getValue("CHOICES")->isNull())
+         json_object_set_new(oData, "choices", json_string(tableValueFacts->getStrValue("CHOICES")));
+
       const char* widgetOptions = tableValueFacts->getStrValue("WIDGETOPT");
       if (isEmpty(widgetOptions))
          widgetOptions = "{}";
       json_error_t error;
-      json_t* oWidgetOptions = json_loads(widgetOptions, 0, nullptr);
+      json_t* oWidgetOptions = json_loads(widgetOptions, 0, &error);
       if (oWidgetOptions)
          json_object_set_new(oData, "widget", oWidgetOptions);
       else
@@ -1167,7 +1047,7 @@ int Poold::valueFacts2Json(json_t* obj)
 // Widget Types 2 Json
 //***************************************************************************
 
-int Poold::widgetTypes2Json(json_t* obj)
+int Daemon::widgetTypes2Json(json_t* obj)
 {
    for (int type = wtUnknown+1; type < wtCount; type++)
       json_object_set_new(obj, toName((WidgetType)type), json_integer(type));
@@ -1175,12 +1055,11 @@ int Poold::widgetTypes2Json(json_t* obj)
    return done;
 }
 
-
 //***************************************************************************
 // Daemon Status 2 Json
 //***************************************************************************
 
-int Poold::daemonState2Json(json_t* obj)
+int Daemon::daemonState2Json(json_t* obj)
 {
    double averages[3] {0.0, 0.0, 0.0};
    char d[100];
@@ -1202,7 +1081,7 @@ int Poold::daemonState2Json(json_t* obj)
 // Sensor 2 Json
 //***************************************************************************
 
-int Poold::sensor2Json(json_t* obj, cDbTable* table)
+int Daemon::sensor2Json(json_t* obj, cDbTable* table)
 {
    double peak {0.0};
 
@@ -1223,11 +1102,7 @@ int Poold::sensor2Json(json_t* obj, cDbTable* table)
       json_object_set_new(obj, "title", json_string(table->getStrValue("TITLE")));
 
    json_object_set_new(obj, "rights", json_integer(table->getIntValue("RIGHTS")));
-
-   // don't show peaks für some sensors (spSolarPower, ..?)
-
-   if (!table->hasValue("ADDRESS", (long)spSolarWork) || !table->hasValue("TYPE", "SP"))
-      json_object_set_new(obj, "peak", json_real(peak));
+   json_object_set_new(obj, "peak", json_real(peak));
 
    tablePeaks->reset();
 
@@ -1238,15 +1113,14 @@ int Poold::sensor2Json(json_t* obj, cDbTable* table)
 // images2Json
 //***************************************************************************
 
-int Poold::images2Json(json_t* obj)
+int Daemon::images2Json(json_t* obj)
 {
    FileList images;
    int count {0};
    char* path {nullptr};
 
-   asprintf(&path, "%s/img/icon", httpPath);
-
    json_array_append_new(obj, json_string(""));
+   asprintf(&path, "%s/img/icon", httpPath);
 
    if (getFileList(path, DT_REG, nullptr, false, &images, count) == success)
    {
@@ -1270,7 +1144,7 @@ int Poold::images2Json(json_t* obj)
 // Web File Exists
 //***************************************************************************
 
-bool Poold::webFileExists(const char* file, const char* base)
+bool Daemon::webFileExists(const char* file, const char* base)
 {
    char* path {nullptr};
    asprintf(&path, "%s/%s/%s", httpPath, base ? base : "", file);

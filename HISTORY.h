@@ -1,12 +1,12 @@
 /*
  * -----------------------------------
- * pool Daemon /  Revision History
+ * Daemon /  Revision History
  * -----------------------------------
  *
  */
 
 #define _VERSION     "0.0.2"
-#define VERSION_DATE "25.05.2021"
+#define VERSION_DATE "01.08.2021"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV

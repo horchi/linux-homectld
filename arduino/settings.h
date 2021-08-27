@@ -1,9 +1,11 @@
 
-const char* wifiSsid  = "hierimhaus";
-const char* wifiPass  = "";
+// #define TOPIC "womod2mqtt"
+#define TOPIC "poold2mqtt"
+
+const char* wifiSsid   = "hierimhaus";
+const char* wifiPass   = "";
 
 const char* mqttServer = "mqtt";       // change to yout mqtt host or IP or add add to your local DNS
 const int mqttPort     = 1883;         // mqtt port
 const char* key        = "";           // mqtt user if required
 const char* secret     = "";           // mqtt passwd if required
-

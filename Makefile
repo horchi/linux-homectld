@@ -5,19 +5,15 @@
 
 include Make.config
 
-TARGET         = poold
 W1TARGET       = w1mqtt
-ARDUINO_IF_CMD = poolai
 HISTFILE       = "HISTORY.h"
 
 LIBS += $(shell mysql_config --libs_r) -lrt -lcrypto -lcurl -lpthread -luuid
 
-DEFINES += -D_GNU_SOURCE -DTARGET='"$(TARGET)"'
-
 VERSION      = $(shell grep 'define _VERSION ' $(HISTFILE) | awk '{ print $$3 }' | sed -e 's/[";]//g')
 ARCHIVE      = $(TARGET)-$(VERSION)
 DEB_BASE_DIR = /root/debs
-DEB_DEST     = $(DEB_BASE_DIR)/poold-$(VERSION)
+DEB_DEST     = $(DEB_BASE_DIR)/$(TARGET)-$(VERSION)
 
 LASTHIST     = $(shell grep '^20[0-3][0-9]' $(HISTFILE) | head -1)
 LASTCOMMENT  = $(subst |,\n,$(shell sed -n '/$(LASTHIST)/,/^ *$$/p' $(HISTFILE) | tr '\n' '|'))
@@ -29,13 +25,11 @@ GIT_REV      = $(shell git describe --always 2>/dev/null)
 
 LOBJS        = lib/db.o lib/dbdict.o lib/common.o lib/serial.o lib/curl.o lib/thread.o lib/json.o
 MQTTOBJS     = lib/mqtt.o lib/mqtt_c.o lib/mqtt_pal.o
-OBJS         = $(MQTTOBJS) $(LOBJS) main.o gpio.o hass.o websock.o arduinoif.o
+OBJS         = $(MQTTOBJS) $(LOBJS) main.o gpio.o hass.o websock.o
 
 CFLAGS    	+= $(shell mysql_config --include)
-DEFINES   	+= -DDEAMON=Poold
-OBJS      	+= poold.o wsactions.o
+OBJS      	+= daemon.o wsactions.o
 W1OBJS      = w1.o lib/common.o lib/thread.o $(MQTTOBJS)
-AIOBJS      = aicmd.o arduinoif.o lib/common.o lib/serial.o
 
 ifdef WIRINGPI
   LIBS += -lwiringPi
@@ -55,12 +49,10 @@ $(TARGET) : $(OBJS) $(W1TARGET)
 $(W1TARGET): $(W1OBJS)
 	$(doLink) $(W1OBJS) $(LIBS) -o $@
 
-$(ARDUINO_IF_CMD): $(AIOBJS)
-	$(doLink) $(AIOBJS) $(LIBS) -o $@
+install: $(TARGET) $(W1TARGET) install-daemon install-web
 
-install: $(TARGET) $(W1TARGET) install-poold install-web
-
-install-poold: install-config install-scripts
+install-daemon: install-config install-scripts
+	@echo install $(TARGET)
    ifneq ($(DESTDIR),)
 	   @cp -r contrib/DEBIAN $(DESTDIR)
 	   @chown root:root -R $(DESTDIR)/DEBIAN
@@ -69,27 +61,29 @@ install-poold: install-config install-scripts
    endif
 	install --mode=755 -D $(TARGET) $(BINDEST)/
 	install --mode=755 -D $(W1TARGET) $(BINDEST)/
-	install --mode=755 -D $(ARDUINO_IF_CMD) $(BINDEST)/
 	make install-systemd
-	mkdir -p $(DESTDIR)$(PREFIX)/share/poold/
-#	install --mode=644 -D arduino/build-nano-atmega328/ioctrl.hex $(DESTDIR)$(PREFIX)/share/poold/nano-atmega328-ioctrl.hex
+	mkdir -p $(DESTDIR)$(PREFIX)/share/$(TARGET)/
+	@echo installed
+#	install --mode=644 -D arduino/build-nano-atmega328/ioctrl.hex $(DESTDIR)$(PREFIX)/share/$(TARGET)/nano-atmega328-ioctrl.hex
 
 inst_restart: $(TARGET) install-config # install-scripts
-	systemctl stop poold
+	systemctl stop $(TARGET)
 	@cp -p $(TARGET) $(BINDEST)
-	systemctl start poold
+	systemctl start $(TARGET)
 
 install-systemd:
-	cat contrib/poold.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/poold.service
+	@echo install systemd
+	cat contrib/daemon.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/$(TARGET).service
 	cat contrib/w1mqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/w1mqtt.service
-	chmod a+r $(SYSTEMDDEST)/poold.service
+	chmod a+r $(SYSTEMDDEST)/$(TARGET).service
 	chmod a+r $(SYSTEMDDEST)/w1mqtt.service
    ifeq ($(DESTDIR),)
 	   systemctl daemon-reload
-	   systemctl enable poold
+	   systemctl enable $(TARGET)
    endif
 
 install-config:
+	@echo install config
 	if ! test -d $(CONFDEST); then \
 	   mkdir -p $(CONFDEST); \
 	   mkdir -p $(CONFDEST)/scripts.d; \
@@ -99,29 +93,33 @@ install-config:
 	if ! test -f $(DESTDIR)/etc/msmtprc; then \
 	   install --mode=644 -D ./configs/msmtprc $(DESTDIR)/etc/; \
 	fi
-	if ! test -f $(CONFDEST)/poold.conf; then \
-	   install --mode=644 -D ./configs/poold.conf $(CONFDEST)/; \
+	if ! test -f $(CONFDEST)/daemon.conf; then \
+	   install --mode=644 -D ./configs/daemon.conf $(CONFDEST)/; \
 	fi
+	install --mode=644 -D ./configs/*.dat $(CONFDEST)/;
 	mkdir -p $(DESTDIR)/etc/rsyslog.d
-	@cp contrib/rsyslog-poold.conf $(DESTDIR)/etc/rsyslog.d/10-poold.conf
+	@cp contrib/rsyslog.conf $(DESTDIR)/etc/rsyslog.d/10-$(TARGET).conf
 	mkdir -p $(DESTDIR)/etc/logrotate.d
-	@cp contrib/logrotate-poold $(DESTDIR)/etc/logrotate.d/poold
+	@cp contrib/logrotate $(DESTDIR)/etc/logrotate.d/$(TARGET)
 	mkdir -p $(DESTDIR)/etc/default
 	if ! test -f $(DESTDIR)/etc/default/w1mqtt; then \
 	   cp contrib/w1mqtt $(DESTDIR)/etc/default/w1mqtt; \
 	fi
-	install --mode=644 -D ./configs/poold.dat $(CONFDEST)/;
 
 install-scripts:
+	@echo install scripts
 	if ! test -d $(BINDEST); then \
 		mkdir -p "$(BINDEST)" \
 	   chmod a+rx $(BINDEST); \
 	fi
-	install -D ./scripts/poold-* $(BINDEST)/
+	for f in ./scripts/*.sh; do \
+		cp -v "$$f" $(BINDEST)/$(TARGET)-`basename "$$f"`; \
+	done
 
 iw: install-web
 
 install-web:
+	@echo install web
 	(cd htdocs; $(MAKE) install)
 
 dist: clean
@@ -151,17 +149,17 @@ upload:
 
 build-deb:
 	rm -rf $(DEB_DEST)
-	make -s install-poold DESTDIR=$(DEB_DEST) PREFIX=/usr INIT_AFTER=mysql.service
+	make -s install-$(TARGET) DESTDIR=$(DEB_DEST) PREFIX=/usr INIT_AFTER=mysql.service
 	make -s install-web DESTDIR=$(DEB_DEST) PREFIX=/usr
-	dpkg-deb --build $(DEB_BASE_DIR)/poold-$(VERSION)
+	dpkg-deb --build $(DEB_BASE_DIR)/$(TARGET)-$(VERSION)
 
 publish-deb:
-	echo 'put $(DEB_BASE_DIR)/poold-${VERSION}.deb' | sftp -i ~/.ssh/id_rsa2 p7583735@home26485763.1and1-data.host:poold
-	echo 'put contrib/install-deb.sh' | sftp -i ~/.ssh/id_rsa2 p7583735@home26485763.1and1-data.host:poold
-	echo 'rm poold-latest.deb' | sftp -i ~/.ssh/id_rsa2 p7583735@home26485763.1and1-data.host:poold
-	echo 'ln -s poold-${VERSION}.deb poold-latest.deb' | sftp -i ~/.ssh/id_rsa2 p7583735@home26485763.1and1-data.host:poold
-	echo 'chmod 644 poold-${VERSION}.deb' | sftp -i ~/.ssh/id_rsa2 p7583735@home26485763.1and1-data.host:poold
-	echo 'chmod 755 install-deb.sh' | sftp -i ~/.ssh/id_rsa2 p7583735@home26485763.1and1-data.host:poold
+	echo 'put $(DEB_BASE_DIR)/$(TARGET)-${VERSION}.deb' | sftp -i ~/.ssh/id_rsa2 p7583735@home26485763.1and1-data.host:$(TARGET)
+	echo 'put contrib/install-deb.sh' | sftp -i ~/.ssh/id_rsa2 p7583735@home26485763.1and1-data.host:$(TARGET)
+	echo 'rm $(TARGET)-latest.deb' | sftp -i ~/.ssh/id_rsa2 p7583735@home26485763.1and1-data.host:$(TARGET)
+	echo 'ln -s $(TARGET)-${VERSION}.deb $(TARGET)-latest.deb' | sftp -i ~/.ssh/id_rsa2 p7583735@home26485763.1and1-data.host:$(TARGET)
+	echo 'chmod 644 $(TARGET)-${VERSION}.deb' | sftp -i ~/.ssh/id_rsa2 p7583735@home26485763.1and1-data.host:$(TARGET)
+	echo 'chmod 755 install-deb.sh' | sftp -i ~/.ssh/id_rsa2 p7583735@home26485763.1and1-data.host:$(TARGET)
 
 #***************************************************************************
 # dependencies
@@ -178,14 +176,13 @@ lib/mqtt.o      :  lib/mqtt.c      lib/mqtt.h lib/mqtt_c.h
 lib/mqtt_c.o    :  lib/mqtt_c.c    lib/mqtt_c.h
 lib/mqtt_pal.o  :  lib/mqtt_pal.c  lib/mqtt_c.h
 
-main.o          :  main.c          $(HEADER) poold.h HISTORY.h
-poold.o         :  poold.c         $(HEADER) poold.h w1.h lib/mqtt.h websock.h aiservice.h
+main.o          :  main.c          $(HEADER) daemon.h HISTORY.h
+daemon.o        :  daemon.c        $(HEADER) daemon.h w1.h lib/mqtt.h websock.h
 w1.o            :  w1.c            $(HEADER) w1.h lib/mqtt.h
-gpio.o          :  gpio.c          $(HEADER)
-hass.o          :  hass.c          poold.h
+gpio.o          :  gpio.c          $(HEADER) daemon.h
+wsactions.o     :  wsactions.c     $(HEADER) daemon.h
+hass.o          :  hass.c          daemon.h
 websock.o       :  websock.c       websock.h
-arduinoif.o     :  arduinoif.c     arduinoif.h lib/serial.h aiservice.h
-aicmd.o         :  aicmd.c         arduinoif.h lib/serial.h aiservice.h
 
 # ------------------------------------------------------
 # Git / Versioning / Tagging

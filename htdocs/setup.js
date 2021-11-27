@@ -140,8 +140,13 @@ function storeConfig()
    var elements = rootConfig.querySelectorAll("[id^='input_']");
 
    for (var i = 0; i < elements.length; i++) {
-      var name = elements[i].id.substring(elements[i].id.indexOf("_") + 1);
-      jsonObj[name] = elements[i].value;
+      var name = elements[i].id.substring(elements[i].id.indexOf("_") + 1); {
+         if (elements[i].getAttribute('type') == 'number' && elements[i].getAttribute('step') != undefined &&
+             Number.isInteger(elements[i].getAttribute('step')) && elements[i].value != '')
+            jsonObj[name] = parseFloat(elements[i].value).toLocaleString("de-DE");
+         else
+            jsonObj[name] = elements[i].value;
+      }
    }
 
    var elements = rootConfig.querySelectorAll("[id^='checkbox_']");
@@ -158,7 +163,7 @@ function storeConfig()
       if (name.match("0From$")) {
          name = name.substring(0, name.indexOf("0From"));
          jsonObj[name] = toTimeRangesString("range_" + name);
-         console.log("value: " + jsonObj[name]);
+         // console.log("value: " + jsonObj[name]);
       }
    }
 
@@ -188,7 +193,7 @@ function toTimeRangesString(base)
 
 window.resetPeaks = function()
 {
-   socket.send({ "event" : "resetpeaks", "object" : { "what" : "all" } });
+   socket.send({ "event" : "reset", "object" : { "what" : "peaks" } });
 }
 
 var filterActive = false;

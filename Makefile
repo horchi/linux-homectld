@@ -5,7 +5,6 @@
 
 include Make.config
 
-W1TARGET       = w1mqtt
 HISTFILE       = "HISTORY.h"
 
 LIBS += $(shell mysql_config --libs_r) -lrt -lcrypto -lcurl -lpthread -luuid
@@ -25,10 +24,10 @@ GIT_REV      = $(shell git describe --always 2>/dev/null)
 
 LOBJS        = lib/db.o lib/dbdict.o lib/common.o lib/serial.o lib/curl.o lib/thread.o lib/json.o
 MQTTOBJS     = lib/mqtt.o lib/mqtt_c.o lib/mqtt_pal.o
-OBJS         = $(MQTTOBJS) $(LOBJS) main.o gpio.o hass.o websock.o
+OBJS         = $(MQTTOBJS) $(LOBJS) main.o daemon.o wsactions.o gpio.o hass.o websock.o pysensor.o
 
 CFLAGS    	+= $(shell mysql_config --include)
-OBJS      	+= daemon.o wsactions.o
+OBJS      	+= specific.o
 W1OBJS      = w1.o lib/common.o lib/thread.o $(MQTTOBJS)
 
 ifdef WIRINGPI
@@ -73,7 +72,7 @@ inst_restart: $(TARGET) install-config # install-scripts
 
 install-systemd:
 	@echo install systemd
-	cat contrib/daemon.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/$(TARGET).service
+	cat contrib/daemon.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | sed s:"<TARGET>":"$(TARGET)":g | sed s:"<CLASS>":"$(CLASS)":g |install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/$(TARGET).service
 	cat contrib/w1mqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/w1mqtt.service
 	chmod a+r $(SYSTEMDDEST)/$(TARGET).service
 	chmod a+r $(SYSTEMDDEST)/w1mqtt.service
@@ -94,7 +93,7 @@ install-config:
 	   install --mode=644 -D ./configs/msmtprc $(DESTDIR)/etc/; \
 	fi
 	if ! test -f $(CONFDEST)/daemon.conf; then \
-	   install --mode=644 -D ./configs/daemon.conf $(CONFDEST)/; \
+	   cat configs/daemon.conf | sed s:"<NAME>":$(NAME):g | install --mode=644 -C -D /dev/stdin $(CONFDEST)/daemon.conf; \
 	fi
 	install --mode=644 -D ./configs/*.dat $(CONFDEST)/;
 	mkdir -p $(DESTDIR)/etc/rsyslog.d
@@ -136,6 +135,18 @@ clean:
 	rm -f com2
 
 build: clean all
+
+clean-install:
+	rm -rf $(CONFDEST)
+	rm -rf $(WEBDEST)
+	rm -rf $(SYSTEMDDEST)/$(TARGET).service
+	rm -rf $(SYSTEMDDEST)/w1mqtt.service
+	rm -rf $(DESTDIR)/etc/default/w1mqtt;
+	rm -rf $(DESTDIR)/etc/rsyslog.d/10-$(TARGET).conf
+	rm -rf $(DESTDIR)/etc/logrotate.d/$(TARGET)
+	rm -rf $(DESTDIR)/etc/default/w1mqtt;
+	rm -rf $(BINDEST)/$(TARGET)*
+	rm -rf $(BINDEST)/$(W1TARGET)
 
 activate: install
 	systemctl restart $(TARGET)
@@ -183,6 +194,9 @@ gpio.o          :  gpio.c          $(HEADER) daemon.h
 wsactions.o     :  wsactions.c     $(HEADER) daemon.h
 hass.o          :  hass.c          daemon.h
 websock.o       :  websock.c       websock.h
+pysensor.o      : pysensor.c      $(HEADER) pysensor.h
+
+specific.o      : specific.c      $(HEADER) daemon.h specific.h
 
 # ------------------------------------------------------
 # Git / Versioning / Tagging

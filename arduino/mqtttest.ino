@@ -32,7 +32,7 @@ const byte inputCount {7};
 unsigned int sampleCount[inputCount] {0};
 unsigned int sampleSum[inputCount] {0};
 
-unsigned int adsInputOffset {7};
+unsigned int adsInputOffset {7};   // offset vor name (A7, A8, ...)
 const byte inputCountAds {4};
 unsigned int sampleCountAds[inputCountAds] {0};
 float sampleSumAds[inputCountAds] {0};
@@ -224,10 +224,6 @@ void loop()
 {
    mqtt.loop();
 
-#ifdef _USE_NTP
-   isTimeSet += ntpClient.update();
-#endif
-
    if (nextAt > millis())
       return;
 
@@ -238,6 +234,12 @@ void loop()
    // trigger watchdog
 
    sodaq_wdt_reset();
+
+   // refresh NTP
+
+#ifdef _USE_NTP
+   isTimeSet += ntpClient.update();
+#endif
 
    // check connection
 

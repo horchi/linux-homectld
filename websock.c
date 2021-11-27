@@ -52,7 +52,7 @@ const char* cWebService::events[] =
    "userdetails",
    "storeuserconfig",
    "changepasswd",
-   "resetpeaks",
+   "reset",
    "groupconfig",
    "chartbookmarks",
    "storechartbookmarks",

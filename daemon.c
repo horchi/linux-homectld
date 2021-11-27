@@ -12,6 +12,7 @@
 #include <libxml/parser.h>
 #include <algorithm>
 #include <cmath>
+#include <libgen.h>
 
 #ifndef _NO_RASPBERRY_PI_
 #  include <wiringPi.h>
@@ -21,72 +22,6 @@
 #include "daemon.h"
 
 bool Daemon::shutdown {false};
-
-//***************************************************************************
-// Configuration Items
-//***************************************************************************
-
-std::list<Daemon::ConfigItemDef> Daemon::configuration
-{
-   // daemon
-
-   { "interval",                  ctInteger, "60",           false, "1 Daemon", "Intervall der Aufzeichung", "Datenbank Aufzeichung [s]" },
-   { "arduinoInterval",           ctInteger, "10",           false, "1 Daemon", "Intervall der Arduino Messungen", "[s]" },
-   { "webPort",                   ctInteger, "61109",        false, "1 Daemon", "Port des Web Interfaces", "" },
-   { "loglevel",                  ctInteger, "1",            false, "1 Daemon", "Log level", "" },
-   { "filterPumpTimes",           ctRange,   "10:00-17:00",  false, "1 Daemon", "Zeiten Filter Pumpe", "[hh:mm] - [hh:mm]" },
-   { "uvcLightTimes",             ctRange,   "",             false, "1 Daemon", "Zeiten UV-C Licht", "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!" },
-   { "poolLightTimes",            ctRange,   "",             false, "1 Daemon", "Zeiten Pool Licht", "[hh:mm] - [hh:mm] (ansonsten manuell schalten)" },
-   { "poolLightColorToggle",      ctBool,    "0",            false, "1 Daemon", "Pool Licht Farb-Toggel", "" },
-
-   { "alertSwitchOffPressure",    ctInteger, "0",            false, "1 Daemon", "Trockenlaufschutz unter x bar", "Deaktiviert Pumpen nach 5 Minuten (0 deaktiviert)" },
-
-   { "tPoolMax",                  ctNum,     "28.0",         false, "1 Daemon", "Pool max Temperatur", "" },
-   { "tSolarDelta",               ctNum,     "5.0",          false, "1 Daemon", "Einschaltdifferenz Solarpumpe", "" },
-   { "showerDuration",            ctInteger, "20",           false, "1 Daemon", "Laufzeit der Dusche", "Laufzeit [s]" },
-   { "minSolarPumpDuration",      ctInteger, "10",           false, "1 Daemon", "Mindestlaufzeit der Solarpumpe [m]", "" },
-   { "deactivatePumpsAtLowWater", ctBool,    "0",            false, "1 Daemon", "Pumpen bei geringem Wasserstand deaktivieren", "" },
-
-   { "invertDO",                  ctBool,    "1",            false, "1 Daemon", "Digitalaugänge invertieren", "" },
-   { "w1AddrAir",                 ctString,  "",             false, "1 Daemon", "Adresse Fühler Temperatur Luft", "" },
-   { "w1AddrPool",                ctString,  "",             false, "1 Daemon", "Adresse Fühler Temperatur Pool", "" },
-   { "w1AddrSolar",               ctString,  "",             false, "1 Daemon", "Adresse Fühler Temperatur Kollektor", "" },
-   { "w1AddrSuctionTube",         ctString,  "",             false, "1 Daemon", "Adresse Fühler Temperatur Saugleitung", "" },
-   { "mqttUrl",                   ctString,  "tcp://localhost:1883",  false, "1 Daemon", "Url des MQTT Message Broker für den Daemon", "Wird zur Kommunikation mit dem one-wire Interface Service (w1mqtt) sowie dem Arduino verwendet. Beispiel: 'tcp://localhost:1883'" },
-
-   { "aggregateHistory",          ctInteger, "0",            false, "1 Daemon", "Historie [Tage]", "history for aggregation in days (default 0 days -> aggegation turned OFF)" },
-   { "aggregateInterval",         ctInteger, "15",           false, "1 Daemon", "Intervall [m]", "aggregation interval in minutes - 'one sample per interval will be build'" },
-   { "peakResetAt",               ctString,  "",             true,  "1 Daemon", "", "" },
-
-   { "massPerSecond",             ctNum,     "11.0",         false, "1 Daemon", "Durchfluss Solar", "[Liter/min]" },
-
-   // PH stuff
-
-   { "phReference",               ctNum,     "7.2",          false, "2 PH", "PH Sollwert", "Sollwert [PH] (default 7,2)" },
-   { "phMinusDensity",            ctNum,     "1.4",          false, "2 PH", "Dichte PH Minus [kg/l]", "Wie viel kg wiegt ein Liter PH Minus (default 1,4)" },
-   { "phMinusDemand01",           ctInteger, "85",           false, "2 PH", "Menge zum Senken um 0,1 [g]", "Wie viel Gramm PH Minus wird zum Senken des PH Wertes um 0,1 für das vorhandene Pool Volumen benötigt (default 60g)" },
-   { "phMinusDayLimit",           ctInteger, "100",          false, "2 PH", "Obergrenze PH Minus/Tag [ml]", "Wie viel PH Minus wird pro Tag maximal zugegeben [ml] (default 100ml)" },
-   { "phPumpDurationPer100",      ctInteger, "1000",         false, "2 PH", "Laufzeit Dosierpumpe/100ml [ms]", "Welche Zeit in Millisekunden benötigt die Dosierpumpe um 100ml zu fördern (default 1000ms)" },
-
-   // web
-
-   { "style",                     ctChoice,  "dark",         false, "3 WEB Interface", "Farbschema", "" },
-   { "vdr",                       ctBool,    "0",            false, "3 WEB Interface", "VDR (Video Disk Recorder) OSD verfügbar", "" },
-
-   // mqtt interface
-
-   { "hassMqttUrl",                   ctString,  "",             false, "4 MQTT Interface", "Url des MQTT Message Broker", "Deiser kann z.B. zur Kommunikation mit Hausautomatisierungen verwendet werden. Beispiel: 'tcp://localhost:1883'" },
-   { "hassMqttUser",                  ctString,  "",             false, "4 MQTT Interface", "User", "" },
-   { "hassMqttPassword",              ctString,  "",             false, "4 MQTT Interface", "Password", "" },
-
-   // mail
-
-   { "mail",                      ctBool,    "0",                       false, "5 Mail", "Mail Benachrichtigung", "Mail Benachrichtigungen aktivieren/deaktivieren" },
-   { "mailScript",                ctString,  BIN_PATH "/poold-mail.sh", false, "5 Mail", "poold sendet Mails über das Skript", "" },
-   { "stateMailTo",               ctString,  "",                        false, "5 Mail", "Status Mail Empfänger", "Komma getrennte Empfängerliste" },
-   { "errorMailTo",               ctString,  "",                        false, "5 Mail", "Fehler Mail Empfänger", "Komma getrennte Empfängerliste" },
-   { "webUrl",                    ctString,  "",                        false, "5 Mail", "URL der Visualisierung", "kann mit %weburl% in die Mails eingefügt werden" },
-};
 
 //***************************************************************************
 // Service
@@ -157,10 +92,6 @@ Daemon::~Daemon()
 
    free(mailScript);
    free(stateMailTo);
-   free(w1AddrPool);
-   free(w1AddrSolar);
-   free(w1AddrSuctionTube);
-   free(w1AddrAir);
 
    cDbConnection::exit();
 }
@@ -283,67 +214,6 @@ int Daemon::pushDataUpdate(const char* title, long client)
    return success;
 }
 
-volatile int showerSwitch {0};
-
-// ----------------------------------
-// dummies to be removed
-// ----------------------------------
-
-#ifdef _NO_RASPBERRY_PI_
-
-#define PUD_UP 0
-#define INT_EDGE_FALLING 0
-#define OUTPUT 0
-#define INPUT 0
-
-int wiringPiISR(int, int, void (*)())
-{
-   return 0;
-}
-
-void pinMode(int, int)
-{
-}
-
-void pullUpDnControl(int pin, int value)
-{
-}
-
-int digitalWrite(uint pin, bool value)
-{
-   return 0;
-}
-
-int digitalRead(uint pin)
-{
-   return 0;
-}
-
-int wiringPiSetupPhys()
-{
-   return 0;
-}
-#endif // _NO_RASPBERRY_PI_
-// ----------------------------------
-
-//***************************************************************************
-// IO Interrupt Handler
-//***************************************************************************
-
-void ioInterrupt()
-{
-   static uint64_t lastShowerSwitch = cTimeMs::Now();
-
-   // detect only once a second
-
-   if (cTimeMs::Now() > lastShowerSwitch + 1000 && !digitalRead(Daemon::pinShowerSwitch))
-   {
-      tell(2, "Info: Shower key detected");
-      showerSwitch++;
-      lastShowerSwitch = cTimeMs::Now();
-   }
-}
-
 //***************************************************************************
 // Init / Exit
 //***************************************************************************
@@ -397,7 +267,7 @@ int Daemon::init()
    // ---------------------------------
    // Update/Read configuration from config table
 
-   for (const auto& it : configuration)
+   for (const auto& it : *getConfiguration())
    {
       tableConfig->clear();
       tableConfig->setValue("OWNER", myName());
@@ -419,56 +289,8 @@ int Daemon::init()
    // wiringPiSetup();      // to use the 'special' wiringPi PIN numbers
    // wiringPiSetupGpio();  // to use the 'GPIO' PIN numbers
 
-   initOutput(pinFilterPump, ooAuto|ooUser, omAuto, "Filter Pump", urFullControl);
-   initOutput(pinSolarPump, ooAuto|ooUser, omAuto, "Solar Pump", urFullControl);
-   initOutput(pinPoolLight, ooUser, omManual, "Pool Light");
-   initOutput(pinUVC, ooAuto|ooUser, omAuto, "UV-C Light", urFullControl);
-   initOutput(pinShower, ooAuto|ooUser, omAuto, "Shower");
-   initOutput(pinUserOut1, ooUser, omManual, "User 1");
-   initOutput(pinUserOut2, ooUser, omManual, "User 2");
-   initOutput(pinUserOut3, ooUser, omManual, "User 3");
-   initOutput(pinUserOut4, ooUser, omManual, "User 4");
-   initOutput(pinW1Power, ooAuto, omAuto, "W1 Power", urFullControl);
-
-   gpioWrite(pinW1Power, true, false);
-
-   // init input IO
-
-   initInput(pinLevel1, 0);
-   initInput(pinLevel2, 0);
-   initInput(pinLevel3, 0);
-   initInput(pinShowerSwitch, 0);
-   pullUpDnControl(pinShowerSwitch, PUD_UP);
-
-   if (wiringPiISR(pinShowerSwitch, INT_EDGE_FALLING, &ioInterrupt) < 0)
-      tell(0, "Error: Unable to setup ISR: %s", strerror(errno));
-
-   // special values
-
-   addValueFact(spLastUpdate, "SP", "Aktualisiert", "", wtText);
-   addValueFact(spWaterLevel, "SP", "Water Level", "%", wtMeterLevel);
-   addValueFact(spSolarDelta, "SP", "Solar Delta", "°C", wtMeter);
-   addValueFact(spPhMinusDemand, "SP", "PH Minus Bedarf", "ml", wtMeter);
-   addValueFact(spSolarPower, "SP", "Solar Leistung", "W", wtMeter);
-   addValueFact(spSolarWork, "SP", "Solar Energie (heute)", "kWh", wtChart);
-   addValueFact(aiPh, "AI", "PH", "", wtMeter);
-   addValueFact(aiFilterPressure, "AI", "Druck", "bar", wtMeter);
-
    // ---------------------------------
-   // move calibration to config!
-
-   aiSensors[aiPh].calPointA = 7.0;
-   aiSensors[aiPh].calPointB = 9.0;
-   aiSensors[aiPh].calPointValueA = 2070;
-   aiSensors[aiPh].calPointValueB = 3135;
-
-   aiSensors[aiFilterPressure].calPointA = 0.0;
-   aiSensors[aiFilterPressure].calPointB = 0.6;
-   aiSensors[aiFilterPressure].calPointValueA = 463;
-   aiSensors[aiFilterPressure].calPointValueB = 2290;
-
-   // ---------------------------------
-   // apply some configuration specials
+   // apply configuration specials
 
    applyConfigurationSpecials();
 
@@ -480,9 +302,10 @@ int Daemon::init()
       sleep(2);
    }
 
+   initArduino();
+   performMqttRequests();
    initScripts();
    loadStates();
-   initArduino();
 
    initialized = true;
 
@@ -501,7 +324,7 @@ int Daemon::initLocale()
 
    if (!locale)
    {
-      tell(0, "Info: Detecting locale setting for LC_CTYPE failed");
+      tell(0, "Info: Detecting locale setting for LC_ALL failed");
       return fail;
    }
 
@@ -533,25 +356,20 @@ int Daemon::initOutput(uint pin, int opt, OutputMode mode, const char* name, uin
    digitalOutputStates[pin].mode = mode;
    digitalOutputStates[pin].name = name;
 
-   tableValueFacts->clear();
+   cDbRow* fact = valueFactOf("DO", pin);
 
-   tableValueFacts->setValue("ADDRESS", (int)pin);
-   tableValueFacts->setValue("TYPE", "DO");
-
-   if (tableValueFacts->find())
+   if (fact)
    {
-      if (!tableValueFacts->getValue("USRTITLE")->isEmpty())
-         digitalOutputStates[pin].title = tableValueFacts->getStrValue("USRTITLE");
+      if (!fact->getValue("USRTITLE")->isEmpty())
+         digitalOutputStates[pin].title = fact->getStrValue("USRTITLE");
       else
-         digitalOutputStates[pin].title = tableValueFacts->getStrValue("TITLE");
+         digitalOutputStates[pin].title = fact->getStrValue("TITLE");
    }
    else
    {
       digitalOutputStates[pin].title = name;
       tableValueFacts->setValue("RIGHTS", (int)rights);
    }
-
-   tableValueFacts->reset();
 
    pinMode(pin, OUTPUT);
    gpioWrite(pin, false, false);
@@ -587,30 +405,58 @@ int Daemon::initScripts()
    FileList scripts;
 
    asprintf(&path, "%s/scripts.d", confDir);
-   int status = getFileList(path, DT_REG, "sh", false, &scripts, count);
+   int status = getFileList(path, DT_REG, "sh py", false, &scripts, count);
 
    if (status == success)
    {
       for (const auto& script : scripts)
       {
          char* scriptPath {nullptr};
-         uint id {0};
-         const char* unit {""};
-         const char* choices {nullptr};
+         uint addr {0};
          char* cmd {nullptr};
+         std::string result;
+         PySensor* pySensor {nullptr};
 
          asprintf(&scriptPath, "%s/%s", path, script.name.c_str());
-         asprintf(&cmd, "%s status", scriptPath);
-         std::string result = executeCommand(cmd);
-         tell(5, "Calling '%s'", cmd);
-         free(cmd);
-         json_t* oData = json_loads(result.c_str(), 0, 0);
 
-         if (oData)
+         if (strstr(script.name.c_str(), ".py"))
          {
-            unit = getStringFromJson(oData, "unit");
-            choices = getStringFromJson(oData, "choices");
+            pySensor = new PySensor(this, path, script.name.c_str());
+
+            if (pySensor->init() != success || (result = executePython(pySensor, "status")) == "")
+            {
+               tell(0, "Initialized python script '%s' failed", script.name.c_str());
+               delete pySensor;
+               continue;
+            }
          }
+         else
+         {
+            asprintf(&cmd, "%s status", scriptPath);
+            result = executeCommand(cmd);
+            tell(5, "Calling '%s'", cmd);
+            free(cmd);
+         }
+
+         json_error_t error;
+         json_t* oData = json_loads(result.c_str(), 0, &error);
+
+         if (!oData)
+         {
+            tell(0, "Error: Ignoring invalid script result [%s]", result.c_str());
+            tell(0, "Error decoding json: %s (%s, line %d column %d, position %d)",
+                 error.text, error.source, error.line, error.column, error.position);
+            delete pySensor;
+            continue;
+         }
+
+         std::string kind = getStringFromJson(oData, "kind", "status");
+         const char* title = getStringFromJson(oData, "title");
+         const char* unit = getStringFromJson(oData, "unit");
+         const char* choices = getStringFromJson(oData, "choices");
+         double value = getDoubleFromJson(oData, "value");
+         bool valid = getBoolFromJson(oData, "valid", false);
+         const char* text = getStringFromJson(oData, "text");
 
          tableScripts->clear();
          tableScripts->setValue("PATH", scriptPath);
@@ -618,16 +464,32 @@ int Daemon::initScripts()
          if (!selectScriptByPath->find())
          {
             tableScripts->store();
-            id = tableScripts->getLastInsertId();
+            addr = tableScripts->getLastInsertId();
          }
          else
-            id = tableScripts->getIntValue("ID");
+            addr = tableScripts->getIntValue("ID");
 
          selectScriptByPath->freeResult();
 
-         addValueFact(id, "SC", script.name.c_str(), unit, wtSymbol, 0, 0, urControl, choices);
+         addValueFact(addr, "SC", !isEmpty(title) ? title : script.name.c_str(), unit,
+                      kind == "status" ? wtSymbol : kind == "text" ? wtText : wtValue,
+                      0, 0, urControl, choices);
 
-         tell(0, "Found script '%s' id (%d), unit '%s'; result was [%s]", scriptPath, id, unit, result.c_str());
+         tell(0, "Init script value of 'SC:%d' to %.2f", addr, value);
+
+         scSensors[addr].kind = kind;
+         scSensors[addr].pySensor = pySensor;
+         scSensors[addr].last = time(0);
+         scSensors[addr].valid = valid;
+
+         if (kind == "status")
+            scSensors[addr].state = (bool)value;
+         else if (kind == "text")
+            scSensors[addr].text = text;
+         else if (kind == "value")
+            scSensors[addr].value = value;
+
+         tell(0, "Found script '%s' addr (%d), unit '%s'; result was [%s]", scriptPath, addr, unit, result.c_str());
          free(scriptPath);
       }
    }
@@ -641,7 +503,7 @@ int Daemon::initScripts()
 // Call Script
 //***************************************************************************
 
-std::string Daemon::callScript(int addr, const char* type, const char* command)
+int Daemon::callScript(int addr, const char* command, const char* name, const char* title)
 {
    char* cmd {nullptr};
 
@@ -651,22 +513,211 @@ std::string Daemon::callScript(int addr, const char* type, const char* command)
    if (!tableScripts->find())
    {
       tell(0, "Fatal: Script with id (%d) not found", addr);
-      return "0";
+      return fail;
    }
 
    asprintf(&cmd, "%s %s", tableScripts->getStrValue("PATH"), command);
 
-   tableScripts->reset();
-
+   std::string result;
    tell(2, "Info: Calling '%s'", cmd);
-   std::string result = executeCommand(cmd);
+
+   if (scSensors[addr].pySensor != nullptr)
+      result = executePython(scSensors[addr].pySensor, command);
+   else
+      result = executeCommand(cmd);
+
+   tableScripts->reset();
    tell(2, "Debug: Result of script '%s' was [%s]", cmd, result.c_str());
    free(cmd);
 
-   if (!isEmpty(type))
-      publishScriptResult(addr, type, result);
+   json_error_t error;
+   json_t* oData = json_loads(result.c_str(), 0, &error);
 
-   return result;
+   if (!oData)
+   {
+      tell(0, "Error: Ignoring invalid script result [%s]", result.c_str());
+      tell(0, "Error decoding json: %s (%s, line %d column %d, position %d)",
+           error.text, error.source, error.line, error.column, error.position);
+      return fail;
+   }
+
+   std::string kind = getStringFromJson(oData, "kind", "status");
+   const char* unit = getStringFromJson(oData, "unit");
+   double value = getDoubleFromJson(oData, "value");
+   const char* text = getStringFromJson(oData, "text");
+   bool valid = getBoolFromJson(oData, "valid", false);
+
+   tell(3, "DEBUG: Got '%s' from script (kind:%s unit:%s value:%0.2f) [SC:%d]", result.c_str(), kind.c_str(), unit, value, addr);
+
+   scSensors[addr].kind = kind;
+   scSensors[addr].last = time(0);
+   scSensors[addr].valid = valid;
+
+   if (kind == "status")
+      scSensors[addr].state = (bool)value;
+   else if (kind == "text")
+      scSensors[addr].text = text;
+   else if (kind == "value")
+      scSensors[addr].value = value;
+   else
+      tell(0, "Got unexpected script kind '%s' in '%s'", kind.c_str(), result.c_str());
+
+   // update WS
+   {
+      json_t* oJson = json_array();
+      json_t* ojData = json_object();
+      json_array_append_new(oJson, ojData);
+
+      json_object_set_new(ojData, "address", json_integer((ulong)addr));
+      json_object_set_new(ojData, "type", json_string("SC"));
+      json_object_set_new(ojData, "name", json_string(name));
+      json_object_set_new(ojData, "title", json_string(title));
+
+      if (kind == "status")
+         json_object_set_new(ojData, "value", json_integer((bool)value));
+      else if (kind == "text")
+         json_object_set_new(ojData, "text", json_string(text));
+      else if (kind == "value")
+         json_object_set_new(ojData, "value", json_real(value));
+
+      char* tuple {nullptr};
+      asprintf(&tuple, "%s:0x%02x", "SC", (int)addr);
+      jsonSensorList[tuple] = ojData;
+      free(tuple);
+
+      pushDataUpdate("update", 0L);
+   }
+
+   hassPush(iotLight, name, "", "", value, "", false /*forceConfig*/);
+
+   return success;
+}
+
+//***************************************************************************
+// Execute Python Sensor Script
+//***************************************************************************
+
+std::string Daemon::executePython(PySensor* pySensor, const char* command)
+{
+   pySensor->execute(command);
+
+   return pySensor->getResult();
+}
+
+//***************************************************************************
+// Value Fact Of
+//***************************************************************************
+
+cDbRow* Daemon::valueFactOf(const char* type, int addr)
+{
+   tableValueFacts->clear();
+
+   tableValueFacts->setValue("ADDRESS", addr);
+   tableValueFacts->setValue("TYPE", type);
+
+   if (!tableValueFacts->find())
+      return nullptr;
+
+   return tableValueFacts->getRow();
+}
+
+//***************************************************************************
+// Set Special Value
+//***************************************************************************
+
+void Daemon::setSpecialValue(uint addr, double value, const std::string& text)
+{
+   spSensors[addr].last = time(0);
+   spSensors[addr].value = value;
+   spSensors[addr].text = text;
+   spSensors[addr].kind = text == "" ? "value" : "text";
+   spSensors[addr].valid = spSensors[addr].kind == "text" ? true : !isNan(value);
+}
+
+//***************************************************************************
+// Sensor Json String Of
+//***************************************************************************
+
+std::string Daemon::sensorJsonStringOf(const char* type, uint addr)
+{
+   cDbRow* fact = valueFactOf(type, addr);
+
+   if (!fact)
+      return "";
+
+   json_t* ojData = json_object();
+
+   sensor2Json(ojData, tableValueFacts);
+
+   if (strcmp(type, "W1") == 0)
+   {
+      bool w1Exist = existW1(fact->getStrValue("NAME"));
+      time_t w1Last {0};
+      double w1Value {0};
+
+      if (w1Exist)
+         w1Value = valueOfW1(fact->getStrValue("NAME"), w1Last);
+
+      json_object_set_new(ojData, "value", json_real(w1Value));
+      json_object_set_new(ojData, "last", json_integer(w1Last));
+      json_object_set_new(ojData, "valid", json_boolean(w1Exist && w1Last > time(0)-300));
+   }
+   else if (strcmp(type, "AI") == 0)
+   {
+      json_object_set_new(ojData, "value", json_real(aiSensors[addr].value));
+      json_object_set_new(ojData, "last", json_integer(aiSensors[addr].last));
+      json_object_set_new(ojData, "valid", json_boolean(aiSensors[addr].valid));
+      if (aiSensors[addr].disabled)
+         json_object_set_new(ojData, "disabled", json_boolean(true));
+   }
+   else if (strcmp(type, "DO") == 0)
+   {
+      json_object_set_new(ojData, "value", json_integer(digitalOutputStates[addr].state));
+      json_object_set_new(ojData, "last", json_integer(digitalOutputStates[addr].last));
+      json_object_set_new(ojData, "valid", json_boolean(digitalOutputStates[addr].valid));
+   }
+   else if (strcmp(type, "SC") == 0)
+   {
+      if (scSensors[addr].kind == "status")
+         json_object_set_new(ojData, "value", json_integer(scSensors[addr].state));
+      else if (scSensors[addr].kind == "text")
+         json_object_set_new(ojData, "text", json_string(scSensors[addr].text.c_str()));
+      else if (scSensors[addr].kind == "value")
+         json_object_set_new(ojData, "value", json_real(scSensors[addr].value));
+
+      json_object_set_new(ojData, "last", json_integer(scSensors[addr].last));
+      json_object_set_new(ojData, "valid", json_boolean(scSensors[addr].valid));
+
+      if (scSensors[addr].disabled)
+         json_object_set_new(ojData, "disabled", json_boolean(true));
+   }
+   else if (strcmp(type, "SP") == 0)
+   {
+      if (spSensors[addr].kind == "text")
+         json_object_set_new(ojData, "text", json_string(spSensors[addr].text.c_str()));
+      else if (spSensors[addr].kind == "value")
+         json_object_set_new(ojData, "value", json_real(spSensors[addr].value));
+
+      json_object_set_new(ojData, "last", json_integer(spSensors[addr].last));
+      json_object_set_new(ojData, "valid", json_integer(spSensors[addr].valid));
+
+      if (spSensors[addr].disabled)
+         json_object_set_new(ojData, "disabled", json_boolean(true));
+   }
+
+   char* p = json_dumps(ojData, JSON_REAL_PRECISION(4));
+   json_decref(ojData);
+
+   if (!p)
+   {
+      tell(0, "Error: Dumping json message in 'sensorJsonStringOf' failed");
+      return "";
+   }
+
+   std::string str = p;
+   free(p);
+
+   return str;
 }
 
 //***************************************************************************
@@ -858,21 +909,6 @@ int Daemon::initDb()
    status += selectSamplesRange60->prepare();
 
    // ------------------
-   // select solar work per day
-   //    select date(time), max(value)
-   //      from samples
-   //      where type = 'SP' and address = 6 group by date(time);
-
-   selectSolarWorkPerDay = new cDbStatement(tableSamples);
-   selectSolarWorkPerDay->build("select ");
-   selectSolarWorkPerDay->bindTextFree("date(time)", tableSamples->getValue("time"), "", cDBS::bndOut);
-   selectSolarWorkPerDay->bindTextFree("max(value)", tableSamples->getValue("value"), ", ", cDBS::bndOut);
-   selectSolarWorkPerDay->build(" from %s where ", tableSamples->TableName());
-   selectSolarWorkPerDay->build(" TYPE = '%s' and ADDRESS = %d", "SP", spSolarWork);
-   selectSolarWorkPerDay->build(" group by date(time)");
-   status += selectSolarWorkPerDay->prepare();
-
-   // ------------------
    // select script by path
 
    selectScriptByPath = new cDbStatement(tableScripts);
@@ -906,7 +942,6 @@ int Daemon::exitDb()
    delete selectMaxTime;           selectMaxTime = nullptr;
    delete selectSamplesRange;      selectSamplesRange = nullptr;
    delete selectSamplesRange60;    selectSamplesRange60 = nullptr;
-   delete selectSolarWorkPerDay;   selectSolarWorkPerDay = nullptr;
    delete connection;              connection = nullptr;
 
    return done;
@@ -955,8 +990,8 @@ int Daemon::readConfiguration(bool initial)
    tell(0, "Info: LogLevel set to %d", loglevel);
 
    getConfigItem("interval", interval, interval);
-   getConfigItem("arduinoInterval", arduinoInterval, 10);
-   getConfigItem("webPort", webPort, 61109);
+   getConfigItem("arduinoInterval", arduinoInterval, arduinoInterval);
+   getConfigItem("webPort", webPort, webPort);
    getConfigItem("webUrl", webUrl);
 
    char* port {nullptr};
@@ -967,6 +1002,8 @@ int Daemon::readConfiguration(bool initial)
       setConfigItem("webUrl", webUrl);
    }
    free(port);
+
+   getConfigItem("invertDO", invertDO, yes);
 
    char* addrs {nullptr};
    getConfigItem("addrsDashboard", addrs, "");
@@ -979,8 +1016,8 @@ int Daemon::readConfiguration(bool initial)
    getConfigItem("mailScript", mailScript);
    getConfigItem("stateMailTo", stateMailTo);
 
-   getConfigItem("aggregateInterval", aggregateInterval, 15);
-   getConfigItem("aggregateHistory", aggregateHistory, 0);
+   getConfigItem("aggregateInterval", aggregateInterval, aggregateInterval);
+   getConfigItem("aggregateHistory", aggregateHistory, aggregateHistory);
 
    std::string url = mqttUrl ? mqttUrl : "";
    getConfigItem("mqttUrl", mqttUrl);
@@ -994,72 +1031,8 @@ int Daemon::readConfiguration(bool initial)
    if (url != mqttHassUrl)
       mqttDisconnect();
 
-   getConfigItem("hassMqttUser", mqttHassUser, nullptr);
-   getConfigItem("hassMqttPassword", mqttHassPassword, nullptr);
-
-   // more special
-
-   getConfigItem("poolLightColorToggle", poolLightColorToggle, no);
-
-   getConfigItem("w1AddrPool", w1AddrPool, "");
-   getConfigItem("w1AddrSolar", w1AddrSolar, "");
-   getConfigItem("w1AddrSuctionTube", w1AddrSuctionTube, "");
-   getConfigItem("w1AddrAir", w1AddrAir, "");
-
-   getConfigItem("tPoolMax", tPoolMax, tPoolMax);
-   getConfigItem("tSolarDelta", tSolarDelta, tSolarDelta);
-   getConfigItem("lastSolarWork", solarWork, 0);
-
-   getConfigItem("showerDuration", showerDuration, 20);
-   getConfigItem("minSolarPumpDuration", minSolarPumpDuration, 10);
-   getConfigItem("deactivatePumpsAtLowWater", deactivatePumpsAtLowWater, no);
-   getConfigItem("alertSwitchOffPressure", alertSwitchOffPressure, 0);
-
-   getConfigItem("invertDO", invertDO, yes);
-
-   // Solar stuff
-
-   getConfigItem("massPerSecond", massPerSecond, 11.0);                  // [Liter/min]
-   massPerSecond /= 60.0;                                                // => [l/s]
-
-   // PH stuff
-
-   getConfigItem("phReference", phReference, 7.2);
-   getConfigItem("phMinusDensity", phMinusDensity, 1.4);                  // [kg/l]
-   getConfigItem("phMinusDemand01", phMinusDemand01, 85);                 // [ml]
-   getConfigItem("phMinusDayLimit", phMinusDayLimit, 100);                // [ml]
-   getConfigItem("phPumpDuration100", phPumpDuration100, 1000);           // [ms]
-
-   /*
-   // config of GPIO pins
-
-   getConfigItem("gpioFilterPump", gpioFilterPump, gpioFilterPump);
-   getConfigItem("gpioSolarPump", gpioSolarPump, gpioSolarPump);
-   */
-
-   // Time ranges
-
-   getConfigTimeRangeItem("filterPumpTimes", filterPumpTimes);
-   getConfigTimeRangeItem("uvcLightTimes", uvcLightTimes);
-   getConfigTimeRangeItem("poolLightTimes", poolLightTimes);
-
-   performMqttRequests();
-
-   return done;
-}
-
-int Daemon::applyConfigurationSpecials()
-{
-   uint opt = ooUser;
-
-   if (poolLightTimes.size() > 0)
-      opt |= ooAuto;
-
-   if (digitalOutputStates[pinPoolLight].opt != opt)
-   {
-      digitalOutputStates[pinPoolLight].opt = opt;
-      digitalOutputStates[pinPoolLight].mode = opt & ooAuto ? omAuto : omManual;
-   }
+   getConfigItem("hassMqttUser", mqttHassUser, mqttHassUser);
+   getConfigItem("hassMqttPassword", mqttHassPassword, mqttHassPassword);
 
    return done;
 }
@@ -1159,17 +1132,9 @@ int Daemon::meanwhile()
 
    tell(6, "loop ...");
 
-   if (showerSwitch > 0)
-   {
-      toggleIo(pinShower, "DO");
-      showerSwitch = 0;
-   }
+   atMeanwhile();
 
-   // webSock->service();       // takes around 1 second :o
    dispatchClientRequest();
-   // webSock->performData(cWebSock::mtData);
-   // performWebSocketPing();
-
    performMqttRequests();
    performJobs();
 
@@ -1182,8 +1147,6 @@ int Daemon::meanwhile()
 
 int Daemon::loop()
 {
-   // init
-
    scheduleAggregate();
 
    while (!doShutDown())
@@ -1221,8 +1184,8 @@ int Daemon::loop()
          mailBodyHtml = "";
 
          updateScriptSensors();
-         update();
          process();
+         update();
 
          // mail
 
@@ -1318,14 +1281,14 @@ int Daemon::update(bool webOnly, long client)
       }
       else if (tableValueFacts->hasValue("TYPE", "AI"))     // Analog Input
       {
-         if (aiSensors[addr].value == aiSensors[addr].value &&  // check for NaN
-             aiSensors[addr].last > time(0)-120)                // not older than 2 minutes
+         if (aiSensors[addr].disabled)
+            json_object_set_new(ojData, "disabled", json_boolean(true));
+
+         if (!isNan(aiSensors[addr].value) && aiSensors[addr].last > time(0)-120) // not older than 2 minutes
          {
             json_object_set_new(ojData, "value", json_real(aiSensors[addr].value));
 
-            if (addr == aiPh && !phMeasurementActive())
-               json_object_set_new(ojData, "disabled", json_boolean(true));
-            else if (!webOnly)
+            if (!webOnly && !aiSensors[addr].disabled)
                store(now, name, title, unit, type, addr, aiSensors[addr].value);
          }
          else
@@ -1353,71 +1316,31 @@ int Daemon::update(bool webOnly, long client)
          else if (scSensors[addr].kind == "value")
             json_object_set_new(ojData, "value", json_real(scSensors[addr].value));
 
-         if (!webOnly)
+         if (scSensors[addr].disabled)
+            json_object_set_new(ojData, "disabled", json_boolean(true));
+
+         if (!webOnly && !scSensors[addr].disabled)
             store(now, name, title, unit, type, addr, scSensors[addr].kind == "value" ? scSensors[addr].value : scSensors[addr].state);
       }
       else if (tableValueFacts->hasValue("TYPE", "SP"))            // Special Values
       {
-         if (addr == spSolarPower)
+         if (spSensors[addr].kind == "text")
          {
-            json_object_set_new(ojData, "value", json_real(pSolar));
+            json_object_set_new(ojData, "text", json_string(spSensors[addr].text.c_str()));
 
-            if (!webOnly)
-               store(now, name, title, unit, type, addr, pSolar);
+            if (!webOnly && !spSensors[addr].disabled)
+               store(now, name, title, unit, type, addr, spSensors[addr].value, spSensors[addr].text.c_str());
          }
-         else if (addr == spSolarWork)
+         else if (spSensors[addr].kind == "value")
          {
-            json_object_set_new(ojData, "value", json_real(solarWork));
+            json_object_set_new(ojData, "value", json_integer(spSensors[addr].value));
 
-            if (!webOnly)
-               store(now, name, title, unit, type, addr, solarWork);
+            if (!webOnly && !spSensors[addr].disabled)
+               store(now, name, title, unit, type, addr, spSensors[addr].value);
          }
-         else if (addr == spLastUpdate)
-         {
-            json_object_set_new(ojData, "text", json_string(l2pTime(time(0), "%A\n%d. %b %Y\n\n%T").c_str()));
-         }
-         else if (addr == spWaterLevel)
-         {
-            getWaterLevel();
 
-            if (waterLevel == fail)
-            {
-               char text[255+TB];
-               sprintf(text, "ERROR:Sensor Fehler <br/>(%d/%d/%d)", digitalInputStates[pinLevel1],
-                       digitalInputStates[pinLevel2], digitalInputStates[pinLevel3]);
-
-               if (!webOnly)
-                  store(now, name, title, unit, type, addr, waterLevel, text);
-
-               json_object_set_new(ojData, "text", json_string(text));
-            }
-            else
-            {
-               json_object_set_new(ojData, "value", json_integer(waterLevel));
-
-               if (!webOnly)
-                  store(now, name, title, unit, type, addr, waterLevel);
-            }
-         }
-         else if (addr == spSolarDelta)
-         {
-            json_object_set_new(ojData, "value", json_real(tCurrentDelta));
-
-            if (!webOnly)
-               store(now, name, title, unit, type, addr, tCurrentDelta);
-         }
-         else if (addr == spPhMinusDemand)
-         {
-            if (aiSensors[aiPh].value)
-            {
-               json_object_set_new(ojData, "value", json_real(phMinusVolume));
-
-               if (!phMeasurementActive())
-                  json_object_set_new(ojData, "disabled", json_boolean(true));
-               else if (!webOnly)
-                  store(now, name, title, unit, type, addr, phMinusVolume);
-            }
-         }
+         if (spSensors[addr].disabled)
+            json_object_set_new(ojData, "disabled", json_boolean(true));
       }
 
       count++;
@@ -1439,254 +1362,6 @@ int Daemon::update(bool webOnly, long client)
 }
 
 //***************************************************************************
-// Process
-//***************************************************************************
-
-int Daemon::process()
-{
-   static time_t lastDay {midnightOf(time(0))};
-
-   if (lastDay != midnightOf(time(0)))
-   {
-      lastDay = midnightOf(time(0));
-      solarWork = 0.0;
-      setConfigItem("lastSolarWork", solarWork);
-   }
-
-   time_t tPoolLast, tSolarLast;
-   tPool = valueOfW1(w1AddrPool, tPoolLast);
-   tSolar = valueOfW1(w1AddrSolar, tSolarLast);
-
-   // use W1 values only if not older than 2 cycles
-
-   bool w1Valid = tPoolLast > time(0) - 2*interval && tSolarLast > time(0) - 2*interval;
-
-   tell(0, "Process ...");
-
-   // ------------
-   // Solar State
-
-   if (w1Valid)
-   {
-      //
-
-      solarWork += pSolar * ((time(0)-pSolarSince) / 3600.0) / 1000.0;    // in kWh
-      setConfigItem("lastSolarWork", solarWork);
-      tCurrentDelta = tSolar - tPool;
-
-      const double termalCapacity = 4183.0; // Wärmekapazität Wasser bei 20°C [kJ·kg-1·K-1]
-
-      if (digitalOutputStates[pinSolarPump].state)
-         pSolar = termalCapacity * massPerSecond * tCurrentDelta;
-      else
-         pSolar = 0.0;
-
-      pSolarSince = time(0);
-
-      // publish
-
-      publishSpecialValue(spSolarDelta, tCurrentDelta);
-      publishSpecialValue(spSolarPower, pSolar);
-      publishSpecialValue(spSolarWork, solarWork);
-   }
-   else
-      tell(0, "W1 values NOT valid");
-
-   // -----------
-   // PH
-
-   if (aiSensors[aiPh].value == aiSensors[aiPh].value &&  // check for NaN
-       aiSensors[aiPh].last > time(0)-120)                // not older than 2 minutes
-   {
-      phMinusVolume = calcPhMinusVolume(aiSensors[aiPh].value);
-      publishSpecialValue(spPhMinusDemand, phMinusVolume);
-   }
-
-   // -----------
-   // Pumps Alert
-
-   if (deactivatePumpsAtLowWater && waterLevel == 0)   // || waterLevel == fail ??
-   {
-      if (digitalOutputStates[pinSolarPump].state || digitalOutputStates[pinFilterPump].state)
-      {
-         tell(0, "Warning: Deactivating pumps due to low water condition!");
-
-         gpioWrite(pinFilterPump, false);
-         gpioWrite(pinSolarPump, false);
-
-         digitalOutputStates[pinFilterPump].mode = omManual;
-         digitalOutputStates[pinSolarPump].mode = omManual;
-
-         char* body;
-         asprintf(&body, "Water level is 'low'\n Pumps switched off now!");
-         if (sendMail(stateMailTo, "Pool pump alert", body, "text/plain") != success)
-            tell(eloAlways, "Error: Sending alert mail failed");
-         free(body);
-      }
-   }
-   else
-   {
-      // -----------
-      // Solar Pump
-
-      if (w1Valid && digitalOutputStates[pinSolarPump].mode == omAuto)
-      {
-         if (!isEmpty(w1AddrPool) && !isEmpty(w1AddrSolar) && existW1(w1AddrPool) && existW1(w1AddrSolar))
-         {
-            if (tPool > tPoolMax)
-            {
-               // switch OFF solar pump
-
-               if (digitalOutputStates[pinSolarPump].state)
-               {
-                  tell(0, "Configured pool maximum of %.2f°C reached, pool has is %.2f°C, stopping solar pump!", tPoolMax, tPool);
-                  gpioWrite(pinSolarPump, false);
-               }
-            }
-            else if (tCurrentDelta > tSolarDelta)
-            {
-               // switch ON solar pump
-
-               if (!digitalOutputStates[pinSolarPump].state)
-               {
-                  tell(0, "Solar delta of %.2f°C reached, pool has %.2f°C, starting solar pump", tSolarDelta, tPool);
-                  gpioWrite(pinSolarPump, true);
-               }
-            }
-            else
-            {
-               // switch OFF solar pump
-
-               if (digitalOutputStates[pinSolarPump].state && digitalOutputStates[pinSolarPump].last < time(0) - minSolarPumpDuration*tmeSecondsPerMinute)
-               {
-                  tell(0, "Solar delta (%.2f°C) lower than %.2f°C, pool has %.2f°C, stopping solar pump", tCurrentDelta, tSolarDelta, tPool);
-                  gpioWrite(pinSolarPump, false);
-               }
-            }
-         }
-         else
-         {
-            tell(0, "Warning: Missing at least one sensor, switching solar pump off!");
-            gpioWrite(pinSolarPump, false);
-         }
-      }
-      else if (!w1Valid)
-      {
-         gpioWrite(pinSolarPump, false);
-         tell(0, "Warning: Solar pump switched OFF, sensor values older than %d seconds!", 2*interval);
-      }
-
-      // -----------
-      // Filter Pump
-
-      if (digitalOutputStates[pinFilterPump].mode == omAuto)
-      {
-         bool activate = isInTimeRange(&filterPumpTimes, time(0));
-
-         if (digitalOutputStates[pinFilterPump].state != activate)
-            gpioWrite(pinFilterPump, activate);
-      }
-   }
-
-   // -----------
-   // UV-C Light (only if Filter Pump is running)
-
-   if (digitalOutputStates[pinUVC].mode == omAuto)
-   {
-      bool activate = digitalOutputStates[pinFilterPump].state && isInTimeRange(&uvcLightTimes, time(0));
-
-      if (digitalOutputStates[pinUVC].state != activate)
-         gpioWrite(pinUVC, activate);
-   }
-
-   // -----------
-   // Pool Light
-
-   if (digitalOutputStates[pinPoolLight].mode == omAuto)
-   {
-      bool activate = isInTimeRange(&poolLightTimes, time(0));
-
-      if (digitalOutputStates[pinPoolLight].state != activate)
-         gpioWrite(pinPoolLight, activate);
-   }
-
-   // --------------------
-   // check pump condition
-
-   if (alertSwitchOffPressure != 0 && aiSensors[aiFilterPressure].value < alertSwitchOffPressure)
-   {
-      // pressure is less than configured value
-
-      if (digitalOutputStates[pinFilterPump].state &&
-          digitalOutputStates[pinFilterPump].last < time(0) - 5*tmeSecondsPerMinute)
-      {
-         // and pump is runnning longer than 5 minutes
-
-         gpioWrite(pinFilterPump, false);
-         gpioWrite(pinSolarPump, false);
-         digitalOutputStates[pinFilterPump].mode = omManual;
-         digitalOutputStates[pinSolarPump].mode = omManual;
-
-         char* body;
-         asprintf(&body, "Filter pressure is %.2f bar and pump is running!\n Pumps switched off now!", aiSensors[aiFilterPressure].value);
-         tell(0, "%s", body);
-         if (sendMail(stateMailTo, "Pool pump alert", body, "text/plain") != success)
-            tell(eloAlways, "Error: Sending alert mail failed");
-         free(body);
-      }
-   }
-
-   logReport();
-
-   return success;
-}
-
-//***************************************************************************
-// Report Actual State
-//***************************************************************************
-
-void Daemon::logReport()
-{
-   static time_t nextLogAt {0};
-   static time_t nextDetailLogAt {0};
-   char buf[255+TB];
-
-   if (time(0) > nextLogAt)
-   {
-      nextLogAt = time(0) + 5 * tmeSecondsPerMinute;
-
-      tell(0, "# ------------------------");
-
-      tell(0, "# Pool has %.2f °C; Solar has %.2f °C; Current delta is %.2f° (%.2f° configured)",
-           tPool, tSolar, tCurrentDelta, tSolarDelta);
-      tell(0, "# Solar power is %0.2f Watt; Solar work (today) %0.2f kWh", pSolar, solarWork);
-      tell(0, "# Solar pump is '%s/%s' since '%s'", digitalOutputStates[pinSolarPump].state ? "running" : "stopped",
-           digitalOutputStates[pinSolarPump].mode == omAuto ? "auto" : "manual", toElapsed(time(0)-digitalOutputStates[pinSolarPump].last, buf));
-      tell(0, "# Filter pump is '%s/%s' since '%s'", digitalOutputStates[pinFilterPump].state ? "running" : "stopped",
-           digitalOutputStates[pinFilterPump].mode == omAuto ? "auto" : "manual", toElapsed(time(0)-digitalOutputStates[pinFilterPump].last, buf));
-      tell(0, "# UV-C light is '%s/%s'", digitalOutputStates[pinUVC].state ? "on" : "off",
-           digitalOutputStates[pinUVC].mode == omAuto ? "auto" : "manual");
-      tell(0, "# Pool light is '%s/%s'", digitalOutputStates[pinPoolLight].state ? "on" : "off",
-           digitalOutputStates[pinPoolLight].mode == omAuto ? "auto" : "manual");
-
-      tell(0, "# ------------------------");
-   }
-
-   if (time(0) > nextDetailLogAt)
-   {
-      nextDetailLogAt = time(0) + 1 * tmeSecondsPerMinute;
-
-      tell(0, "# Solar Work");
-
-      for (int f = selectSolarWorkPerDay->find(); f; f = selectSolarWorkPerDay->fetch())
-         tell(0, "#   %s, %.2f", l2pTime(tableSamples->getTimeValue("TIME"), "%d.%m.%Y").c_str(), tableSamples->getFloatValue("VALUE"));
-
-      selectSolarWorkPerDay->freeResult();
-      tell(0, "# ------------------------");
-   }
-}
-
-//***************************************************************************
 // Update Script Sensors
 //***************************************************************************
 
@@ -1703,63 +1378,16 @@ void Daemon::updateScriptSensors()
          continue;
 
       uint addr = tableValueFacts->getIntValue("ADDRESS");
-      std::string result = callScript(addr, 0, "status").c_str();
-      json_error_t error;
-      json_t* oData = json_loads(result.c_str(), 0, &error);
+      const char* name = tableValueFacts->getStrValue("NAME");
+      const char* title = tableValueFacts->getStrValue("USRTITLE");
 
-      if (!oData)
-      {
-         tell(0, "Error: Ignoring invalid script result [%s]", result.c_str());
-         tell(0, "Error decoding json: %s (%s, line %d column %d, position %d)",
-              error.text, error.source, error.line, error.column, error.position);
-         return ;
-      }
+      if (isEmpty(title))
+         title = tableValueFacts->getStrValue("TITLE");
 
-      std::string kind = getStringFromJson(oData, "kind");
-      const char* unit = getStringFromJson(oData, "unit");
-      double value = getDoubleFromJson(oData, "value");
-      const char* text = getStringFromJson(oData, "text");
-
-      tell(1, "DEBUG: Got '%s' from script (kind:%s unit:%s value:%0.2f)", result.c_str(), kind.c_str(), unit, value);
-      scSensors[addr].kind = kind;
-      scSensors[addr].last = time(0);
-
-      if (kind == "status")
-         scSensors[addr].state = (bool)value;
-      else if (kind == "text")
-         scSensors[addr].text = text;
-      else if (kind == "value")
-         scSensors[addr].value = value;
-      else
-         tell(0, "Got unexpected script kind '%s' in '%s'", kind.c_str(), result.c_str());
+      callScript(addr, "status", name, title);
    }
 
    selectActiveValueFacts->freeResult();
-}
-
-//***************************************************************************
-// Perform Jobs
-//***************************************************************************
-
-int Daemon::performJobs()
-{
-   // check timed shower duration
-
-   if (digitalOutputStates[pinShower].state && digitalOutputStates[pinShower].mode == omAuto)
-   {
-      if (digitalOutputStates[pinShower].last < time(0) - showerDuration)
-      {
-         tell(eloAlways, "Shower of after %ld seconds", time(0)-digitalOutputStates[pinShower].last);
-         digitalOutputStates[pinShower].next = 0;
-         gpioWrite(pinShower, false, true);
-      }
-      else
-      {
-         digitalOutputStates[pinShower].next = digitalOutputStates[pinShower].last + showerDuration;
-      }
-   }
-
-   return done;
 }
 
 //***************************************************************************
@@ -2029,7 +1657,6 @@ int Daemon::addValueFact(int addr, const char* type, const char* name, const cha
       tableValueFacts->setValue("WIDGETOPT", opt);
       free(opt);
 
-
       tableValueFacts->store();
       return 1;                               // 1 for 'added'
    }
@@ -2193,59 +1820,6 @@ int Daemon::getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges)
 }
 
 //***************************************************************************
-// Get Water Level [%]
-//***************************************************************************
-
-int Daemon::getWaterLevel()
-{
-   bool l1 = gpioRead(pinLevel1);
-   bool l2 = gpioRead(pinLevel2);
-   bool l3 = gpioRead(pinLevel3);
-
-   if (l1 && l2 && l3)
-      waterLevel = 100;
-   else if (l1 && l2 && !l3)
-      waterLevel = 66;
-   else if (l1 && !l2 && !l3)
-      waterLevel = 33;
-   else if (!l1 && !l2 && !l3)
-      waterLevel = 0;
-   else
-      waterLevel = fail;
-
-   tell(eloDetail, "Water level is %d (%d/%d/%d)", waterLevel, l1, l2, l3);
-
-   return waterLevel;
-}
-
-//***************************************************************************
-// PH Measurement Active
-//***************************************************************************
-
-bool Daemon::phMeasurementActive()
-{
-   if (digitalOutputStates[pinFilterPump].state &&
-       digitalOutputStates[pinFilterPump].last < time(0)-minPumpTimeForPh)
-   {
-      return true;
-   }
-
-   return false;
-}
-
-//***************************************************************************
-// Calc PH Minus Volume
-//***************************************************************************
-
-int Daemon::calcPhMinusVolume(double ph)
-{
-   double phLack = ph - phReference;
-   double mlPer01 = phMinusDemand01 * (1.0/phMinusDensity);
-
-   return (phLack/0.1) * mlPer01;
-}
-
-//***************************************************************************
 // Get Image For
 //***************************************************************************
 
@@ -2275,77 +1849,25 @@ const char* Daemon::getImageFor(const char* title, int value)
 
 int Daemon::toggleIo(uint addr, const char* type)
 {
+   cDbRow* fact = valueFactOf(type, addr);
+
+   if (!fact)
+      return fail;
+
+   const char* name = fact->getStrValue("NAME");
+   const char* title = fact->getStrValue("USRTITLE");
+
+   if ((isEmpty(title)))
+      title = fact->getStrValue("TITLE");
+
    if (strcmp(type, "DO") == 0)
+   {
       gpioWrite(addr, !digitalOutputStates[addr].state);
+   }
    else if (strcmp(type, "SC") == 0)
-      callScript(addr, type, "toggle");
-
-   return success;
-}
-
-int Daemon::publishScriptResult(ulong addr, const char* type, std::string result)
-{
-   json_error_t error;
-   json_t* oData = json_loads(result.c_str(), 0, &error);
-
-   if (!oData)
    {
-      tell(0, "Error: Ignoring invalid script result [%s]", result.c_str());
-      tell(0, "Error decoding json: %s (%s, line %d column %d, position %d)",
-           error.text, error.source, error.line, error.column, error.position);
-      return fail;
+      callScript(addr, "toggle", name, title);
    }
-
-   tell(1, "DEBUG: Got '%s' from script", result.c_str());
-
-   std::string kind = getStringFromJson(oData, "kind");
-   // const char* unit = getStringFromJson(oData, "unit");
-   double value = getDoubleFromJson(oData, "value");
-   const char* text = getStringFromJson(oData, "text");
-
-   tableValueFacts->clear();
-   tableValueFacts->setValue("ADDRESS", (int)addr);
-   tableValueFacts->setValue("TYPE", type);
-
-   if (!tableValueFacts->find())
-      return fail;
-
-   const char* name = tableValueFacts->getStrValue("NAME");
-   const char* title = tableValueFacts->getStrValue("TITLE");
-   const char* usrtitle = tableValueFacts->getStrValue("USRTITLE");
-
-   if (!isEmpty(usrtitle))
-      title = usrtitle;
-
-   // update WS
-   {
-      json_t* oJson = json_array();
-      json_t* ojData = json_object();
-      json_array_append_new(oJson, ojData);
-
-      json_object_set_new(ojData, "address", json_integer((ulong)addr));
-      json_object_set_new(ojData, "type", json_string(type));
-      json_object_set_new(ojData, "name", json_string(name));
-      json_object_set_new(ojData, "title", json_string(title));
-
-      if (kind == "status")
-         json_object_set_new(ojData, "value", json_integer((bool)value));
-      else if (kind == "text")
-         json_object_set_new(ojData, "text", json_string(text));
-      else if (kind == "value")
-         json_object_set_new(ojData, "value", json_real(value));
-
-      char* tuple {nullptr};
-      asprintf(&tuple, "%s:0x%02x", type, (int)addr);
-      jsonSensorList[tuple] = ojData;
-      free(tuple);
-
-      pushDataUpdate("update", 0L);
-   }
-
-   hassPush(iotLight, name, "", "", value, "", false /*forceConfig*/);
-
-   tableValueFacts->reset();
 
    return success;
 }
@@ -2406,6 +1928,7 @@ void Daemon::gpioWrite(uint pin, bool state, bool store)
 {
    digitalOutputStates[pin].state = state;
    digitalOutputStates[pin].last = time(0);
+   digitalOutputStates[pin].valid = true;
 
    if (!state)
       digitalOutputStates[pin].next = 0;
@@ -2439,36 +1962,34 @@ bool Daemon::gpioRead(uint pin)
 }
 
 //***************************************************************************
-// Set Special Value
+// Publish Special Value
 //***************************************************************************
 
-void Daemon::publishSpecialValue(int sp, double value)
+void Daemon::publishSpecialValue(int addr)
 {
-   // send update to WS
+   cDbRow* fact = valueFactOf("SP", addr);
 
-   tableValueFacts->clear();
-   tableValueFacts->setValue("ADDRESS", sp);
-   tableValueFacts->setValue("TYPE", "SP");
-
-   if (tableValueFacts->find())
+   if (fact)
    {
       json_t* ojData = json_object();
 
       sensor2Json(ojData, tableValueFacts);
-      json_object_set_new(ojData, "value", json_real(value));
 
-      if (!phMeasurementActive() && sp == spPhMinusDemand)
+      if (spSensors[addr].kind == "text")
+         json_object_set_new(ojData, "text", json_string(spSensors[addr].text.c_str()));
+      else if (spSensors[addr].kind == "value")
+         json_object_set_new(ojData, "value", json_real(spSensors[addr].value));
+
+      if (spSensors[addr].disabled)
          json_object_set_new(ojData, "disabled", json_boolean(true));
 
       char* tuple {nullptr};
-      asprintf(&tuple, "SP:0x%02x", sp);
+      asprintf(&tuple, "SP:0x%02x", addr);
       jsonSensorList[tuple] = ojData;
       free(tuple);
 
       pushDataUpdate("update", 0L);
    }
-
-   tableValueFacts->reset();
 }
 
 //***************************************************************************
@@ -2529,11 +2050,6 @@ int Daemon::loadStates()
       }
    }
 
-   // if filter pump is running assume its running at least 'minPumpTimeForPh'
-
-   if (digitalOutputStates[pinFilterPump].state)
-      digitalOutputStates[pinFilterPump].last = time(0)-minPumpTimeForPh;
-
    return done;
 }
 
@@ -2564,7 +2080,10 @@ int Daemon::dispatchArduinoMsg(const char* message)
       {
          const char* name = getStringFromJson(jValue, "name");
          double value = getDoubleFromJson(jValue, "value");
-         time_t stamp = getIntFromJson(jValue, "time");
+         time_t stamp = getIntFromJson(jValue, "time", 0);
+
+         if (!stamp)
+            stamp = time(0);
 
          if (stamp < time(0)-300)
          {
@@ -2617,7 +2136,7 @@ int Daemon::initArduino()
    return success;
 }
 
-void Daemon::updateAnalogInput(const char* id, int value, time_t stamp)
+void Daemon::updateAnalogInput(const char* id, double value, time_t stamp)
 {
    uint input = atoi(id+1);
 
@@ -2637,16 +2156,17 @@ void Daemon::updateAnalogInput(const char* id, int value, time_t stamp)
    double b = aiSensors[input].calPointB - m * aiSensors[input].calPointValueB;
    double dValue = m * value + b;
 
-   if (input == aiPh)
-      dValue = std::llround(dValue*50) / 50.0;  // round to .02
-   else
-      dValue = std::llround(dValue*20) / 20.0;  // round to .05
+   if (aiSensors[input].round)
+   {
+      dValue = std::llround(dValue*aiSensors[input].round) / aiSensors[input].round;
+      tell(2, "Rouned %.2f to %.2f", m * value + b, dValue);
+   }
 
-   tell(2, "Rouned %.2f to %.2f", m * value + b, dValue);
    aiSensors[input].value = dValue;
    aiSensors[input].last = stamp;
+   aiSensors[input].valid = true;
 
-   tell(3, "Debug: Input A%d: %.3f", input, aiSensors[input].value);
+   tell(1, "Debug: Input A%d: %.3f%s [%.2f]", input, aiSensors[input].value, tableValueFacts->getStrValue("UNIT"), value);
 
    // ----------------------------------
 

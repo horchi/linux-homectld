@@ -26,6 +26,7 @@ var theChartStart = new Date(); theChartStart.setDate(theChartStart.getDate()-th
 var chartDialogSensor = "";
 var chartBookmarks = {};
 var allWidgets = [];
+var infoDialogTimer = null;
 
 var setupMode = false;
 
@@ -90,15 +91,19 @@ function sleep(ms) {
 
 var infoDialog = null;
 
-async function showInfoDialog(object, titleMsg, onCloseCallback)
+async function showInfoDialog(object)
 {
    var message = object.message;
    var titleMsg = "";
 
-   if (object.status == -1)
-      titleMsg = "ErrortitleMsg";
+   hideInfoDialog();
+
+   if (object.status == -1) {
+      titleMsg = "Error";
+      $('#infoBox').addClass('error-border');
+   }
    else if (object.status < -1)
-      titleMsg = "Information (" + object.status + ")titleMsg";
+      titleMsg = "Information (" + object.status + ")";
    else if (object.status == 1) {
       var array = message.split("#:#");
       titleMsg = array[0];
@@ -111,53 +116,53 @@ async function showInfoDialog(object, titleMsg, onCloseCallback)
    var align = "center";
 
    if (object.status != 0) {
-      msDuration = 20000;
+      msDuration = 8000;
       cls = "";
       align = "left";
    }
 
    $('#infoBox').removeClass('hidden');
-   $('#infoBox').html(titleMsg + " " + message);
 
-   setTimeout(function() {
-      $('#infoBox').addClass('hidden');
+   var progress = ($('<div></div>')
+                   .addClass('progress-smaller')
+                   .click(function() { hideInfoDialog(); }));
+
+   $('#infoBox').append($('<div></div>')
+                        .css('overflow', 'hidden')
+                        .css('display', 'inline-flex')
+                        .click(function() {
+                           clearTimeout(infoDialogTimer);
+                           infoDialogTimer = null;
+                           progress.addClass('hidden');
+                           $('#progressButton').removeClass('hidden');
+                        })
+                        .append($('<span></span>')
+                                .append($('<button></button>')
+                                        .attr('id', 'progressButton')
+                                        .addClass('rounded-border')
+                                        .addClass('hidden')
+                                        .click(function() { hideInfoDialog(); })
+                                        .html('x')))
+                        .append($('<span></span>')
+                                .append(progress))
+                        .append($('<span></span>')
+                                .css('margin-left', '10px')
+                                .css('align-self', 'center')
+                                .html(titleMsg + ' ' + message)
+                               ));
+
+   infoDialogTimer = setTimeout(function() {
+      hideInfoDialog();
    }, msDuration);
+}
 
-   /*
-   if (infoDialog) {
-      infoDialog.dialog('close');
-      infoDialog.dialog('destroy').remove();
-      infoDialog = null;
-   }
+function hideInfoDialog()
+{
+   infoDialogTimer = null;
 
-   var div = document.createElement("div");
-   div.style.textAlign = align;
-   div.style.whiteSpace = "pre";
-   div.style.backgroundColor = bgColor;
-   div.className = object.status ? "error-border" : "";
-   div.textContent = message;
-
-   $(div).dialog({
-      dialogClass: cls,
-      width: "60%",
-      title: titleMsg,
-		modal: true,
-      resizable: false,
-		closeOnEscape: true,
-      minHeight: "0px",
-      hide: "fade",
-      open: function() {
-         infoDialog = $(this);
-         setTimeout(function() {
-            if (infoDialog)
-               infoDialog.dialog('close');
-            infoDialog = null }, msDuration);
-      },
-      close: function() {
-         $(this).dialog('destroy').remove();
-         infoDialog = null;
-      }
-   });*/
+   $('#infoBox').html('');
+   $('#infoBox').addClass('hidden');
+   $('#infoBox').removeClass('error-border');
 }
 
 var progressDialog = null;
@@ -401,7 +406,7 @@ function menuBurger()
       form +=
       '<button style="width:120px;" class="rounded-border button1" onclick="mainMenuSel(\'user\')">[' + localStorage.getItem(storagePrefix + 'User') + ']</button>' +
       '  <br/>' +
-      '  <div><button style="width:120px;" class="rounded-border button1" onclick="setupDashboard()">' + (setupMode ? 'Stop Setup' : 'Start Setup') + '</button></div>';
+      '  <div><button style="width:120px;" class="rounded-border button1" onclick="setupDashboard()">' + (setupMode ? 'Stop Setup' : 'Setup Dashboard') + '</button></div>';
    else
       form += '<button style="width:120px;" class="rounded-border button1" onclick="mainMenuSel(\'login\')">Login</button>';
 

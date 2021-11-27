@@ -16,6 +16,8 @@
 #include "lib/mqtt.h"
 
 #include "HISTORY.h"
+
+#include "pysensor.h"
 #include "websock.h"
 
 #define confDirDefault "/etc/" TARGET
@@ -38,62 +40,53 @@ class Daemon : public cWebInterface
 
       enum Pins       // we use the 'physical' PIN numbers here!
       {
-         // 1  - 3.3 V
-         // 2  - 5 V
-         // 3  - GPIO2 (SDA)
-         // 4  - 5 V
-         // 5  - GPIO2 (SCL)
-         // 6  - GND
-         pinW1           = 7,      // GPIO4
-         pinSerialTx     = 8,      // GPIO14 (TX)
-         // 9  - GND
-         pinSerialRx     = 10,     // GPIO15 (RX)
-         pinFilterPump   = 11,     // GPIO17
-         pinSolarPump    = 12,     // GPIO18
-         pinPoolLight    = 13,     // GPIO27
-         // 14  - GND
-         pinUVC          = 15,     // GPIO22
-         pinUserOut1     = 16,     // GPIO23
-         // 17  - 3.3 V
-         pinUserOut2     = 18,     // GPIO24
-         pinW1Power      = 19,     // GPIO10
-         // 20  - GND
-         pinUserOut4     = 21,     // GPIO9
-         pinShower       = 22,     // GPIO25
-         pinUserOut3     = 23,     // GPIO11
-         // 24  - GPIO8 (SPI)
-         // 25  - GND
-         // 26  - GPIO7 (ID EEPROM)
-         // 27  - ID_SD
-         // 28  - ID_SC
-         pinFree1        = 29,     // GPIO5
-         // 30  - GND
-         pinLevel1       = 31,     // GPIO6
-         pinLevel2       = 32,     // GPIO12
-         pinLevel3       = 33,     // GPIO13
-         // 34  - GND
-         pinShowerSwitch = 35,     // GPIO19
-         pinFree2        = 36,     // GPIO16
-         pinFree3        = 37,     // GPIO26
-         pinFree4        = 38,     // GPIO20
-         // 39  - GND
-         pinFree5        = 40      // GPIO21
-      };
+         //               1         3.3 V
+         //               2         5 V
+         pinGpio02     =  3,     // GPIO2 (SDA)
+         //               4         5 V
+         pinGpio03     =  5,     // GPIO3 (SCL)
+         //               6         GND
+         pinGpio04     =  7,     // GPIO4 (W1)
+         pinGpio14     =  8,     // GPIO14 (TX)
+         //               9         GND
+         pinGpio15     = 10,     // GPIO15 (RX)
+         pinGpio17     = 11,     // GPIO17
+         pinGpio18     = 12,     // GPIO18
+         pinGpio27     = 13,     // GPIO27
+         //              14         GND
+         pinGpio22     = 15,     // GPIO22
+         pinGpio23     = 16,     // GPIO23
+         //              17         3.3 V
+         pinGpio24     = 18,     // GPIO24
+         pinGpio10     = 19,     // GPIO10
+         //              20         GND
+         pinGpio09     = 21,     // GPIO9
+         pinGpio25     = 22,     // GPIO25
+         pinGpio11     = 23,     // GPIO11
+         pinGpio08     = 24,     // GPIO8 (SPI)
+         //              25         GND
+         pinGpio07     = 26,     // GPIO7 (ID EEPROM)
+         pinIdSd       = 27,     // ID_SD
+         pinIdSc       = 28,     // ID_SC
+         pinGpio05     = 29,     // GPIO5
+         //              30         GND
+         pinGpio06     = 31,     // GPIO6
+         pinGpio12     = 32,     // GPIO12
+         pinGpio13     = 33,     // GPIO13
+         //              34         GND
+         pinGpio19     = 35,     // GPIO19
+         pinGpio16     = 36,     // GPIO16
+         pinGpio26     = 37,     // GPIO26
+         pinGpio20     = 38,     // GPIO20
+         //              39         GND
+         pinGpio21     = 40,     // GPIO21
 
-      enum AnalogInputs
-      {
-         aiPh = 0,         // addr 0x00
-         aiFilterPressure  // addr 0x01
-      };
+         // aliases
 
-      enum SpecialValues  // 'SP'
-      {
-         spWaterLevel = 1,
-         spSolarDelta,
-         spPhMinusDemand,
-         spLastUpdate,
-         spSolarPower,
-         spSolarWork
+         pinW1       = pinGpio04,
+         pinSerialTx = pinGpio14,
+         pinSerialRx = pinGpio15,
+         pinW1Power  = pinGpio10
       };
 
       // object
@@ -101,11 +94,15 @@ class Daemon : public cWebInterface
       Daemon();
       virtual ~Daemon();
 
-      int init();
+      virtual int init();
       int loop();
 
       const char* myName() override  { return TARGET; }
       static void downF(int aSignal) { shutdown = true; }
+
+      // public interface for Python
+
+      std::string sensorJsonStringOf(const char* type, uint address);
 
    protected:
 
@@ -134,8 +131,6 @@ class Daemon : public cWebInterface
          iotLight
       };
 
-      // moved here for debugging !!
-
       enum OutputMode
       {
          omAuto = 0,
@@ -155,8 +150,9 @@ class Daemon : public cWebInterface
          uint opt {ooUser};
          const char* name {nullptr};     // crash on init with nullptr :o
          std::string title;
-         time_t last {0};      // last switch time
-         time_t next {0};      // calculated next switch time
+         time_t last {0};                // last switch time
+         time_t next {0};                // calculated next switch time
+         bool valid {false};             // set if the value is valid
       };
 
       struct Range
@@ -193,10 +189,10 @@ class Daemon : public cWebInterface
 
       int exit();
       int initLocale();
-      int initDb();
-      int exitDb();
-      int readConfiguration(bool initial);
-      int applyConfigurationSpecials();
+      virtual int initDb();
+      virtual int exitDb();
+      virtual int readConfiguration(bool initial);
+      virtual int applyConfigurationSpecials() { return done; }
 
       int addValueFact(int addr, const char* type, const char* name, const char* unit,
                        WidgetType widgetType, int minScale = 0, int maxScale = na, int rights = 0, const char* choices = nullptr);
@@ -207,18 +203,21 @@ class Daemon : public cWebInterface
       int standby(int t);
       int standbyUntil(time_t until);
       int meanwhile();
+      virtual int atMeanwhile() { return done; }
 
       int update(bool webOnly = false, long client = 0);   // called each (at least) 'interval'
-      int process();                                       // called each 'interval'
-      int performJobs();                                   // called every loop (1 second)
+      virtual int process() { return done; }               // called each 'interval'
+      virtual int performJobs() { return done; }           // called every loop (1 second)
       int performWebSocketPing();
       int dispatchClientRequest();
       bool checkRights(long client, Event event, json_t* oObject);
       void updateScriptSensors();
-      std::string callScript(int addr, const char* type, const char* command);
-      int publishScriptResult(ulong addr, const char* type, std::string result);
+      int callScript(int addr, const char* command, const char* name, const char* title);
+      std::string executePython(PySensor* pySensor, const char* command);
       bool isInTimeRange(const std::vector<Range>* ranges, time_t t);
       int store(time_t now, const char* name, const char* title, const char* unit, const char* type, int address, double value, const char* text = 0);
+      cDbRow* valueFactOf(const char* type, int addr);
+      void setSpecialValue(uint addr, double value, const std::string& text = "");
 
       int performMqttRequests();
       int hassPush(IoType iot, const char* name, const char* title, const char* unit, double theValue, const char* text = 0, bool forceConfig = false);
@@ -245,12 +244,9 @@ class Daemon : public cWebInterface
 
       bool doShutDown() { return shutdown; }
 
-      int getWaterLevel();
-      bool phMeasurementActive();
-      int calcPhMinusVolume(double ph);
       void gpioWrite(uint pin, bool state, bool store = true);
       bool gpioRead(uint pin);
-      void logReport();
+      virtual void logReport() { return ; }
 
       // web
 
@@ -275,7 +271,7 @@ class Daemon : public cWebInterface
       int performPasswChange(json_t* oObject, long client);
       int storeConfig(json_t* obj, long client);
       int storeIoSetup(json_t* array, long client);
-      int resetPeaks(json_t* obj, long client);
+      virtual int performReset(json_t* obj, long client);
       int performChartbookmarks(long client);
       int storeChartbookmarks(json_t* array, long client);
 
@@ -289,7 +285,7 @@ class Daemon : public cWebInterface
       int sensor2Json(json_t* obj, cDbTable* table);
       int images2Json(json_t* obj);
       void pin2Json(json_t* ojData, int pin);
-      void publishSpecialValue(int sp, double value);
+      void publishSpecialValue(int addr);
       bool webFileExists(const char* file, const char* base = nullptr);
 
       const char* getImageFor(const char* title, int value);
@@ -297,15 +293,15 @@ class Daemon : public cWebInterface
       int toggleIoNext(uint pin);
       int toggleOutputMode(uint pin);
 
-      int storeStates();
-      int loadStates();
+      virtual int storeStates();
+      virtual int loadStates();
 
       // arduino
 
       int dispatchArduinoMsg(const char* message);
       int dispatchW1Msg(const char* message);
       int initArduino();
-      void updateAnalogInput(const char* id, int value, time_t stamp);
+      void updateAnalogInput(const char* id, double value, time_t stamp);
 
       // W1
 
@@ -336,7 +332,6 @@ class Daemon : public cWebInterface
       cDbStatement* selectSamplesRange {nullptr};
       cDbStatement* selectSamplesRange60 {nullptr};
       cDbStatement* selectScriptByPath {nullptr};
-      cDbStatement* selectSolarWorkPerDay {nullptr};
 
       cDbValue xmlTime;
       cDbValue rangeFrom;
@@ -353,6 +348,8 @@ class Daemon : public cWebInterface
       std::string mailBody;
       std::string mailBodyHtml;
       bool initialRun {true};
+
+      // PySensor* pyScript {nullptr};
 
       cWebSock* webSock {nullptr};
       time_t nextWebSocketPing {0};
@@ -380,10 +377,10 @@ class Daemon : public cWebInterface
 
       int interval {60};
       int arduinoInterval {10};
-      int webPort {61109};
+      int webPort {0};
       char* webUrl {nullptr};
-      int aggregateInterval {15};         // aggregate interval in minutes
-      int aggregateHistory {0};           // history in days
+      int aggregateInterval {15};             // aggregate interval in minutes
+      int aggregateHistory {0};               // history in days
       char* mqttUrl {nullptr};
       char* mqttHassUrl {nullptr};
       char* mqttHassUser {nullptr};
@@ -399,72 +396,53 @@ class Daemon : public cWebInterface
       MemoryStruct htmlHeader;
 
       int invertDO {no};
-      int poolLightColorToggle {no};
-      char* w1AddrPool {nullptr};
-      char* w1AddrSolar {nullptr};
-      char* w1AddrSuctionTube {nullptr};
-      char* w1AddrAir {nullptr};
 
-      double tPoolMax {28.0};
-      double tSolarDelta {5.0};
-      int waterLevel {0};
-      int showerDuration {20};         // seconds
-      int minSolarPumpDuration {10};   // minutes
-      int deactivatePumpsAtLowWater {no};
-      int alertSwitchOffPressure {0};
-
-      // PH stuff
-
-      int phMinusVolume {0};           // aktull errechnete Menge um phReference zu erreichen
-      double phMinusDensity {0.0};
-      int phMinusDemand01 {0};         // Menge zum Senken um 0,1 [g]
-      int phMinusDayLimit {0};
-      int phPumpDuration100 {0};
-      double phReference {0.0};        // PG Referenzwert (sollwert)
-
-      int minPumpTimeForPh { 10 * tmeSecondsPerMinute }; // [s] #TODO -> add to config?
-
-      std::vector<Range> filterPumpTimes;
-      std::vector<Range> uvcLightTimes;
-      std::vector<Range> poolLightTimes;
-
-      // actual state and data
-
-      double tPool {0.0};
-      double tSolar {0.0};
-      double tCurrentDelta {0.0};
-      double pSolar {0.0};           // solar power [W]
-      time_t pSolarSince {0};
-      double solarWork {0.0};        // [kWh]
-      double massPerSecond {0.0};    // Fördermeneg der Solarpumpe [kg·s-1] bzw. [l/s]
+      // live data
 
       struct AiSensorData
       {
          time_t last {0};
          double value {0.0};
          double calPointA {0.0};
-         double calPointB {0.0};
+         double calPointB {10.0};
          double calPointValueA {0};
-         double calPointValueB {0};
+         double calPointValueB {10};
+         double round {0.0};                // e.g. 50.0 -> 0.02; 20.0 -> 0.05;
+         bool disabled {false};
+         bool valid {false};                // set if the value is valid
       };
 
       std::map<int,AiSensorData> aiSensors;
-      std::map<std::string,AiSensorData> w1Sensors;
-      std::map<std::string,json_t*> jsonSensorList;
 
-      struct ScSensorData
+      struct W1SensorData
       {
-         std::string kind;
          time_t last {0};
          double value {0.0};
-         int state {0};
-         std::string text;
+         bool valid {false};                // set if the value is valid
       };
 
-      std::map<int,ScSensorData> scSensors;
+      std::map<std::string,W1SensorData> w1Sensors;
+
+      struct SensorData        // Sensor Data
+      {
+         std::string kind {"value"};
+         time_t last {0};
+         double value {0.0};
+         bool state {0};
+         std::string text;
+         bool disabled {false};
+         bool valid {false};                // set if the value, text or state is valid
+         PySensor* pySensor {nullptr};
+      };
+
+      std::map<int,SensorData> spSensors;
+      std::map<int,SensorData> scSensors;
+
+      std::map<std::string,json_t*> jsonSensorList;
+
+      virtual std::list<ConfigItemDef>* getConfiguration() = 0;
 
       // statics
 
-      static std::list<ConfigItemDef> configuration;
       static bool shutdown;
 };

@@ -12,7 +12,7 @@
 #include <signal.h>
 #include <string.h>
 
-#include "daemon.h"
+#include "specific.h"
 
 char* confDir = (char*)confDirDefault;
 
@@ -130,7 +130,7 @@ void showUsage(const char* bin)
 
 int main(int argc, char** argv)
 {
-   Daemon* job;
+   CLASS* job;
    int nofork = no;
    int pid;
    int _stdout = na;
@@ -195,7 +195,7 @@ int main(int argc, char** argv)
 
    // int AFTER fork !!!
 
-   job = new Daemon();
+   job = new CLASS();
 
    if (job->init() != success)
    {
@@ -206,9 +206,9 @@ int main(int argc, char** argv)
 
    // register SIGINT
 
-   ::signal(SIGINT, Daemon::downF);
-   ::signal(SIGTERM, Daemon::downF);
-   // ::signal(SIGHUP, Daemon::triggerF);
+   ::signal(SIGINT, CLASS::downF);
+   ::signal(SIGTERM, CLASS::downF);
+   // ::signal(SIGHUP, CLASS::triggerF);
 
    // do work ...
 

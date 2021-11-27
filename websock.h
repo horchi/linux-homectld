@@ -40,7 +40,7 @@ class cWebService
          evUserDetails,
          evStoreUserConfig,
          evChangePasswd,
-         evResetPeaks,
+         evReset,
          evGroupConfig,
          evChartbookmarks,
          evStoreChartbookmarks,

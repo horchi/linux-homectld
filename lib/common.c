@@ -7,6 +7,7 @@
 
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <math.h>
 
 #ifdef USEUUID
 #  include <uuid/uuid.h>
@@ -467,7 +468,7 @@ std::string strReplace(const std::string& what, double with, const std::string& 
 
 bool isNan(double value)
 {
-   return value != value;
+   return isnan(value);
 }
 
 //***************************************************************************

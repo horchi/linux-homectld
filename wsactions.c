@@ -65,7 +65,7 @@ int Daemon::dispatchClientRequest()
             case evUserDetails:     status = performUserDetails(client);             break;
             case evStoreUserConfig: status = storeUserConfig(oObject, client);       break;
             case evChangePasswd:    status = performPasswChange(oObject, client);    break;
-            case evResetPeaks:      status = resetPeaks(oObject, client);            break;
+            case evReset:           status = performReset(oObject, client);            break;
             case evSendMail:        status = performSendMail(oObject, client);       break;
             case evSyslog:          status = performSyslog(oObject, client);         break;
             case evForceRefresh:    status = update(true, client);                   break;
@@ -117,7 +117,7 @@ bool Daemon::checkRights(long client, Event event, json_t* oObject)
       case evStoreUserConfig:     return rights & urAdmin;
       case evUserDetails:         return rights & urAdmin;
       case evChangePasswd:        return true;   // check will done in performPasswChange()
-      case evResetPeaks:          return rights & urAdmin;
+      case evReset:               return rights & urAdmin;
       case evSendMail:            return rights & urSettings;
       case evSyslog:              return rights & urAdmin;
       case evForceRefresh:        return true;
@@ -576,8 +576,8 @@ int Daemon::performChartData(json_t* oObject, long client)
       tableSamples->setValue("TYPE", tableValueFacts->getStrValue("TYPE"));
       tableSamples->setValue("ADDRESS", tableValueFacts->getIntValue("ADDRESS"));
 
-      tell(5, "Selecting [%s] ..", select->asText());
-      tell(5, " .. for '%s' (%ld) with range %ld - %ld",
+      tell(1, "Selecting [%s] ..", select->asText());
+      tell(4, " .. for '%s' (%ld) with range %ld - %ld",
            tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"),
            rangeFrom.getTimeValue(), rangeTo.getTimeValue());
 
@@ -769,17 +769,22 @@ int Daemon::performPasswChange(json_t* oObject, long client)
 }
 
 //***************************************************************************
-// Reset Peaks
+// Perform Reset
 //***************************************************************************
 
-int Daemon::resetPeaks(json_t* obj, long client)
+int Daemon::performReset(json_t* obj, long client)
 {
-   tablePeaks->truncate();
-   setConfigItem("peakResetAt", l2pTime(time(0)).c_str());
+   std::string what = getStringFromJson(obj, "what");
 
-   json_t* oJson = json_object();
-   config2Json(oJson);
-   pushOutMessage(oJson, "config", client);
+   if (what == "peaks")
+   {
+      tablePeaks->truncate();
+      setConfigItem("peakResetAt", l2pTime(time(0)).c_str());
+
+      json_t* oJson = json_object();
+      config2Json(oJson);
+      pushOutMessage(oJson, "config", client);
+   }
 
    return done;
 }
@@ -899,7 +904,7 @@ int Daemon::storeIoSetup(json_t* array, long client)
 
 int Daemon::config2Json(json_t* obj)
 {
-   for (const auto& it : configuration)
+   for (const auto& it : *getConfiguration())
    {
       tableConfig->clear();
       tableConfig->setValue("OWNER", myName());
@@ -920,7 +925,7 @@ int Daemon::config2Json(json_t* obj)
 
 int Daemon::configDetails2Json(json_t* obj)
 {
-   for (const auto& it : configuration)
+   for (const auto& it : *getConfiguration())
    {
       if (it.internal)
          continue;
@@ -1095,6 +1100,7 @@ int Daemon::sensor2Json(json_t* obj, cDbTable* table)
    json_object_set_new(obj, "address", json_integer((ulong)table->getIntValue("ADDRESS")));
    json_object_set_new(obj, "type", json_string(table->getStrValue("TYPE")));
    json_object_set_new(obj, "name", json_string(table->getStrValue("NAME")));
+   json_object_set_new(obj, "unit", json_string(tableValueFacts->getStrValue("UNIT")));
 
    if (!table->getValue("USRTITLE")->isEmpty())
       json_object_set_new(obj, "title", json_string(table->getStrValue("USRTITLE")));

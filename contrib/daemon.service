@@ -1,6 +1,6 @@
 [Unit]
 
-Description = Pool Control Deamon
+Description = <CLASS> Control Deamon
 After = network.target <AFTER>
 StartLimitInterval = 200
 StartLimitBurst = 5
@@ -8,7 +8,7 @@ StartLimitBurst = 5
 [Service]
 
 Type = forking
-ExecStart = <BINDEST>/poold
+ExecStart = <BINDEST>/<TARGET>
 Restart = always
 RestartSec = 30
 

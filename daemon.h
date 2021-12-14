@@ -3,7 +3,7 @@
 // File daemon.h
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
-// Date 16.04.2020 - Jörg Wendel
+// Date 04.11.2010 - 01.12.2021  Jörg Wendel
 //***************************************************************************
 
 #pragma once
@@ -98,6 +98,7 @@ class Daemon : public cWebInterface
       int loop();
 
       const char* myName() override  { return TARGET; }
+      virtual const char* myTitle()  { return "Daemon"; }
       static void downF(int aSignal) { shutdown = true; }
 
       // public interface for Python
@@ -118,6 +119,7 @@ class Daemon : public cWebInterface
          wtMeterLevel,   // == 6
          wtPlainText,    // == 7  without title
          wtChoice,       // == 8  option choice
+         wtSymbolValue,  // == 9
          wtCount
       };
 
@@ -170,7 +172,8 @@ class Daemon : public cWebInterface
          ctString,
          ctBool,
          ctRange,
-         ctChoice
+         ctChoice,
+         ctMultiSelect
       };
 
       struct ConfigItemDef
@@ -184,6 +187,23 @@ class Daemon : public cWebInterface
          const char* description {nullptr};
       };
 
+      struct DefaultWidgetProperty
+      {
+         std::string type;
+         int address {na};
+         std::string unit;
+
+         WidgetType widgetType {wtMeter};
+         int minScale {0};
+         int maxScale {100};
+         int scaleStep {0};
+         bool showPeak {false};
+      };
+
+      static DefaultWidgetProperty defaultWidgetProperties[];
+      static DefaultWidgetProperty* getDefalutProperty(const char* type, const char* unit, int address = 0);
+      std::string toWidgetOptionString(const char* type, const char* unit, const char* name, int address = 0);
+
       std::map<uint,OutputState> digitalOutputStates;
       std::map<int,bool> digitalInputStates;
 
@@ -194,8 +214,9 @@ class Daemon : public cWebInterface
       virtual int readConfiguration(bool initial);
       virtual int applyConfigurationSpecials() { return done; }
 
-      int addValueFact(int addr, const char* type, const char* name, const char* unit,
-                       WidgetType widgetType, int minScale = 0, int maxScale = na, int rights = 0, const char* choices = nullptr);
+      int addValueFact(int addr, const char* type, int factor, const char* name, const char* unit = "",
+                       const char* title = nullptr, int rights = 0, const char* choices = nullptr);
+
       int initOutput(uint pin, int opt, OutputMode mode, const char* name, uint rights = urControl);
       int initInput(uint pin, const char* name);
       int initScripts();
@@ -206,31 +227,44 @@ class Daemon : public cWebInterface
       virtual int atMeanwhile() { return done; }
 
       int update(bool webOnly = false, long client = 0);   // called each (at least) 'interval'
+      virtual int onUpdate(bool webOnly, cDbTable* table, time_t lastSampleTime, json_t* ojData) { return done; }
+      void updateScriptSensors();
+      virtual int updateState() { return done; }
+      virtual void afterUpdate();
       virtual int process() { return done; }               // called each 'interval'
       virtual int performJobs() { return done; }           // called every loop (1 second)
       int performWebSocketPing();
       int dispatchClientRequest();
+      virtual int dispatchSpecialRequest(Event event, json_t* oObject, long client) { return ignore; }
+      virtual int dispatchMqttHaCommandRequest(json_t* jData, const char* topic);
+      virtual int dispatchNodeRedCommand(json_t* jObject);
       bool checkRights(long client, Event event, json_t* oObject);
-      void updateScriptSensors();
+      virtual bool onCheckRights(long client, Event event, uint rights) { return false; }
       int callScript(int addr, const char* command, const char* name, const char* title);
       std::string executePython(PySensor* pySensor, const char* command);
       bool isInTimeRange(const std::vector<Range>* ranges, time_t t);
-      int store(time_t now, const char* name, const char* title, const char* unit, const char* type, int address, double value, const char* text = 0);
+
+      int store(time_t now, const char* name, const char* title, const char* unit, const char* type, int address,
+                double value, uint factor, uint groupid, const char* text = 0);
+
       cDbRow* valueFactOf(const char* type, int addr);
       void setSpecialValue(uint addr, double value, const std::string& text = "");
 
       int performMqttRequests();
-      int hassPush(IoType iot, const char* name, const char* title, const char* unit, double theValue, const char* text = 0, bool forceConfig = false);
       int mqttCheckConnection();
       int mqttDisconnect();
+      int mqttHaPublishSensor(IoType iot, const char* name, const char* title, const char* unit, double value, const char* text = nullptr, bool forceConfig = false);
+      int mqttNodeRedPublishSensor(const char* type, uint address, IoType iot, const char* name, const char* title, const char* unit, double value, const char* text = nullptr);
+      int mqttHaWrite(json_t* obj, uint groupid);
+      int jsonAddValue(json_t* obj, const char* name, const char* title, const char* unit, double theValue, uint groupid, const char* text = 0, bool forceConfig = false);
+      int updateSchemaConfTable();
 
       int scheduleAggregate();
       int aggregate();
 
-      int sendStateMail();
-      int sendMail(const char* receiver, const char* subject, const char* body, const char* mimeType);
-
       int loadHtmlHeader();
+      int sendMail(const char* receiver, const char* subject, const char* body, const char* mimeType);
+      virtual void addParameter2Mail(const char* name, const char* value) { }
 
       int getConfigItem(const char* name, char*& value, const char* def = "");
       int setConfigItem(const char* name, const char* value);
@@ -239,6 +273,8 @@ class Daemon : public cWebInterface
       int setConfigItem(const char* name, long value);
       int getConfigItem(const char* name, double& value, double def = na);
       int setConfigItem(const char* name, double value);
+      int getConfigItem(const char* name, bool& value, bool def = false);
+      int setConfigItem(const char* name, bool value);
 
       int getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges);
 
@@ -250,37 +286,49 @@ class Daemon : public cWebInterface
 
       // web
 
-      int pushOutMessage(json_t* obj, const char* title, long client = 0);
-      int pushDataUpdate(const char* title, long client);
+      int pushOutMessage(json_t* obj, const char* event, long client = 0);
+      int pushDataUpdate(const char* event, long client);
 
       int pushInMessage(const char* data) override;
       std::queue<std::string> messagesIn;
       cMyMutex messagesInMutex;
 
       int replyResult(int status, const char* message, long client);
-      int performLogin(json_t* oObject);
+      virtual int performLogin(json_t* oObject);
       int performLogout(json_t* oObject);
       int performTokenRequest(json_t* oObject, long client);
       int performPageChange(json_t* oObject, long client);
       int performSyslog(json_t* oObject, long client);
-      int performSendMail(json_t* oObject, long client);
       int performConfigDetails(long client);
-      int performUserDetails(long client);
+      int performGroups(long client);
+      int performSendMail(json_t* oObject, long client);
+
       int performChartData(json_t* oObject, long client);
+      int performUserDetails(long client);
       int storeUserConfig(json_t* oObject, long client);
       int performPasswChange(json_t* oObject, long client);
+      int performForceRefresh(json_t* obj, long client);
       int storeConfig(json_t* obj, long client);
-      int storeIoSetup(json_t* array, long client);
-      virtual int performReset(json_t* obj, long client);
+      int storeDashboards(json_t* obj, long client);
+      virtual int storeIoSetup(json_t* array, long client);
+      int storeGroups(json_t* array, long client);
       int performChartbookmarks(long client);
       int storeChartbookmarks(json_t* array, long client);
+      int performImageConfig(json_t* obj, long client);
+      int performSchema(json_t* oObject, long client);
+      int storeSchema(json_t* oObject, long client);
+      virtual int performReset(json_t* obj, long client);
+      virtual int performAlertTestMail(int id, long client) { return done; }
 
       int widgetTypes2Json(json_t* obj);
       int config2Json(json_t* obj);
       int configDetails2Json(json_t* obj);
       int userDetails2Json(json_t* obj);
-      int configChoice2json(json_t* obj, const char* name);
-      int valueFacts2Json(json_t* obj);
+      virtual int configChoice2json(json_t* obj, const char* name);
+
+      int valueFacts2Json(json_t* obj, bool filterActive);
+      int dashboards2Json(json_t* obj);
+      int groups2Json(json_t* obj);
       int daemonState2Json(json_t* obj);
       int sensor2Json(json_t* obj, cDbTable* table);
       int images2Json(json_t* obj);
@@ -299,7 +347,6 @@ class Daemon : public cWebInterface
       // arduino
 
       int dispatchArduinoMsg(const char* message);
-      int dispatchW1Msg(const char* message);
       int initArduino();
       void updateAnalogInput(const char* id, double value, time_t stamp);
 
@@ -307,6 +354,7 @@ class Daemon : public cWebInterface
 
       int initW1();
       bool existW1(const char* id);
+      int dispatchW1Msg(const char* message);
       double valueOfW1(const char* id, time_t& last);
       uint toW1Id(const char* name);
       void updateW1(const char* id, double value, time_t stamp);
@@ -323,15 +371,27 @@ class Daemon : public cWebInterface
       cDbTable* tableConfig {nullptr};
       cDbTable* tableScripts {nullptr};
       cDbTable* tableUsers {nullptr};
+      cDbTable* tableGroups {nullptr};
+      cDbTable* tableDashboards {nullptr};
+      cDbTable* tableDashboardWidgets {nullptr};
+      cDbTable* tableSchemaConf {nullptr};
 
+      cDbStatement* selectAllGroups {nullptr};
       cDbStatement* selectActiveValueFacts {nullptr};
+      cDbStatement* selectValueFactsByType {nullptr};
       cDbStatement* selectAllValueFacts {nullptr};
       cDbStatement* selectAllConfig {nullptr};
       cDbStatement* selectAllUser {nullptr};
       cDbStatement* selectMaxTime {nullptr};
-      cDbStatement* selectSamplesRange {nullptr};
-      cDbStatement* selectSamplesRange60 {nullptr};
+      cDbStatement* selectSamplesRange {nullptr};     // for chart
+      cDbStatement* selectSamplesRange60 {nullptr};   // for chart
       cDbStatement* selectScriptByPath {nullptr};
+      cDbStatement* selectScripts {nullptr};
+      cDbStatement* selectDashboards {nullptr};
+      cDbStatement* selectDashboardById {nullptr};
+      cDbStatement* selectDashboardWidgetsFor {nullptr};
+      cDbStatement* selectSchemaConfByState {nullptr};
+      cDbStatement* selectAllSchemaConf {nullptr};
 
       cDbValue xmlTime;
       cDbValue rangeFrom;
@@ -342,14 +402,15 @@ class Daemon : public cWebInterface
       time_t nextRefreshAt {0};
       time_t startedAt {0};
       time_t nextAggregateAt {0};
+      time_t lastSampleTime {0};
 
       std::vector<std::string> addrsDashboard;
       std::vector<std::string> addrsList;
-      std::string mailBody;
+
       std::string mailBodyHtml;
       bool initialRun {true};
 
-      // PySensor* pyScript {nullptr};
+      // WS Interface stuff
 
       cWebSock* webSock {nullptr};
       time_t nextWebSocketPing {0};
@@ -368,33 +429,60 @@ class Daemon : public cWebInterface
 
       // MQTT stuff
 
+      enum MqttInterfaceStyle
+      {
+         misNone,
+         misSingleTopic,     // one topic for all sensors
+         misMultiTopic,      // separate topic for each sensors
+         misGroupedTopic     // one topic for each group (Baugruppe)
+      };
+
+      struct Group
+      {
+         std::string name;
+         json_t* oJson {nullptr};
+      };
+
+      char* mqttUrl {nullptr};
+      Mqtt* mqttReader {nullptr};             // my own mqtt instance
+
+      char* mqttNodeRedUrl {nullptr};
+      Mqtt* mqttNodeRedWriter {nullptr};
+      Mqtt* mqttNodeRedReader {nullptr};
+
+      char* mqttHassUrl {nullptr};
+      char* mqttHassUser {nullptr};
+      char* mqttHassPassword {nullptr};
+      char* mqttDataTopic {nullptr};
+      bool mqttHaveConfigTopic {true};
+      MqttInterfaceStyle mqttInterfaceStyle {misNone};
       Mqtt* mqttHassWriter {nullptr};         // for HASS (Home Assistant, ...)
       Mqtt* mqttHassReader {nullptr};         // for HASS (Home Assistant, ...)
       Mqtt* mqttHassCommandReader {nullptr};  // for HASS (Home Assistant, ...)
-      Mqtt* mqttReader {nullptr};             // my own mqtt instance
+
+      time_t lastMqttConnectAt {0};
+      std::map<std::string,std::string> hassCmdTopicMap; // 'topic' to 'name' map
+
+      json_t* oJson {nullptr};
+      std::map<int,Group> groups;
 
       // config
 
       int interval {60};
       int arduinoInterval {10};
+
       int webPort {0};
       char* webUrl {nullptr};
+      bool webSsl {false};
+      char* iconSet {nullptr};
       int aggregateInterval {15};             // aggregate interval in minutes
       int aggregateHistory {0};               // history in days
-      char* mqttUrl {nullptr};
-      char* mqttHassUrl {nullptr};
-      char* mqttHassUser {nullptr};
-      char* mqttHassPassword {nullptr};
-
-      time_t lastMqttConnectAt {0};
-      std::map<std::string,std::string> hassCmdTopicMap; // 'topic' to 'name' map
-      char* chartSensors {nullptr};
 
       int mail {no};
       char* mailScript {nullptr};
       char* stateMailTo {nullptr};
+      char* errorMailTo {nullptr};
       MemoryStruct htmlHeader;
-
       int invertDO {no};
 
       // live data
@@ -437,10 +525,14 @@ class Daemon : public cWebInterface
 
       std::map<int,SensorData> spSensors;
       std::map<int,SensorData> scSensors;
+      std::map<int,SensorData> vaSensors;
 
       std::map<std::string,json_t*> jsonSensorList;
 
       virtual std::list<ConfigItemDef>* getConfiguration() = 0;
+
+      std::string alertMailBody;
+      std::string alertMailSubject;
 
       // statics
 

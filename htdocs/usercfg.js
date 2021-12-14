@@ -8,7 +8,7 @@
  *
  */
 
-// !!  sync this arry with UserRights of websock.h  !!
+// !! sync this arry with UserRights of websock.h !!
 
 var rights = [ "View",
                "Control",
@@ -56,10 +56,10 @@ function initUserConfig(users)
       }
       html += "</td>";
       html += "<td>";
-      html += "<button class=\"rounded-border\" style=\"margin-right:10px;\" onclick=\"userConfig('" + item.user + "', 'store')\">Speichern</button>";
-      html += "<button class=\"rounded-border\" style=\"margin-right:10px;\" onclick=\"userConfig('" + item.user + "', 'resettoken')\">Reset Token</button>";
-      html += "<button class=\"rounded-border\" style=\"margin-right:10px;\" onclick=\"userConfig('" + item.user + "', 'resetpwd')\">Reset Passwort</button>";
-      html += "<button class=\"rounded-border\" style=\"margin-right:10px;\" onclick=\"userConfig('" + item.user + "', 'delete')\">Löschen</button>";
+      html += "<button class=\"rounded-border button2\" style=\"margin:5px;\" onclick=\"userConfig('" + item.user + "', 'store')\">Speichern</button>";
+      html += "<button class=\"rounded-border button2\" style=\"margin:5px;\" onclick=\"userConfig('" + item.user + "', 'resettoken')\">Reset Token</button>";
+      html += "<button class=\"rounded-border button2\" style=\"margin:5px;\" onclick=\"userConfig('" + item.user + "', 'resetpwd')\">Reset Passwort</button>";
+      html += "<button class=\"rounded-border button2\" style=\"margin:5px;\" onclick=\"userConfig('" + item.user + "', 'delete')\">Löschen</button>";
       html += "</td>";
 
       var elem = document.createElement("tr");
@@ -143,10 +143,10 @@ window.chpwd  = function()
          $("#input_passwd2").val("");
       }
       else
-         showInfoDialog("Passwords not match or empty");
+         showInfoDialog({'message' : 'Passwords not match or empty'});
    }
    else
-      showInfoDialog("Missing login!");
+      showInfoDialog({'message' : 'Missing login!'});
 }
 
 window.addUser = function()

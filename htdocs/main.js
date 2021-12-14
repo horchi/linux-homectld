@@ -9,24 +9,29 @@
  */
 
 var WebSocketClient = window.WebSocketClient
+var colorStyle = null;
 
 var onSmalDevice = false;
 var isActive = null;
 var socket = null;
 var config = {};
 var daemonState = {};
+
 var widgetTypes = {};
 var valueFacts = {};
+var dashboards = {};
+var allSensors = [];
+
 var images = [];
 var currentPage = "dashboard";
 var widgetCharts = {};
 var theChart = null;
-var theChartRange = 1;
-var theChartStart = new Date(); theChartStart.setDate(theChartStart.getDate()-theChartRange);
+var theChartRange = null;
+var theChartStart = null;
 var chartDialogSensor = "";
 var chartBookmarks = {};
-var allWidgets = [];
 var infoDialogTimer = null;
+var grouplist = {};
 
 var setupMode = false;
 
@@ -34,11 +39,17 @@ $('document').ready(function() {
    daemonState.state = -1;
 
    console.log("currentPage: " + currentPage);
+   var url = "";
 
-   var url = "ws://" + location.hostname + ":" + location.port;
+   if (window.location.href.startsWith("https"))
+      url = "wss://" + location.hostname + ":" + location.port;
+   else
+      url = "ws://" + location.hostname + ":" + location.port;
+
    var protocol = myProtocol;
 
    connectWebSocket(url, protocol);
+   colorStyle = getComputedStyle(document.body);
 });
 
 function onSocketConnect(protocol)
@@ -69,7 +80,7 @@ function connectWebSocket(useUrl, protocol)
    socket = new WebSocketClient({
       url: useUrl,
       protocol: protocol,
-      autoReconnectInterval: protocol == myProtocol ? 1000 : 0,
+      autoReconnectInterval: 1000,
       onopen: function (){
          console.log("socket opened " + socket.protocol);
          if (isActive === null)     // wurde beim Schliessen auf null gesetzt
@@ -100,14 +111,18 @@ async function showInfoDialog(object)
 
    if (object.status == -1) {
       titleMsg = "Error";
+      message = message.replace(/\n/g, "<br/>");
       $('#infoBox').addClass('error-border');
    }
-   else if (object.status < -1)
+   else if (object.status < -1) {
+      message = message.replace(/\n/g, "<br/>");
       titleMsg = "Information (" + object.status + ")";
+      $('#infoBox').addClass('error-border');
+   }
    else if (object.status == 1) {
       var array = message.split("#:#");
       titleMsg = array[0];
-      message = array[1];
+      message = array[1].replace(/\n/g, "<br/>");;
    }
 
    var msDuration = 2000;
@@ -116,20 +131,20 @@ async function showInfoDialog(object)
    var align = "center";
 
    if (object.status != 0) {
-      msDuration = 8000;
+      msDuration = 30000;
       cls = "";
       align = "left";
    }
 
-   $('#infoBox').removeClass('hidden');
-
    var progress = ($('<div></div>')
                    .addClass('progress-smaller')
+                   .css('margin-right', '15px')
                    .click(function() { hideInfoDialog(); }));
 
    $('#infoBox').append($('<div></div>')
                         .css('overflow', 'hidden')
                         .css('display', 'inline-flex')
+                        .css('align-items', 'center')
                         .click(function() {
                            clearTimeout(infoDialogTimer);
                            infoDialogTimer = null;
@@ -139,6 +154,7 @@ async function showInfoDialog(object)
                         .append($('<span></span>')
                                 .append($('<button></button>')
                                         .attr('id', 'progressButton')
+                                        .css('margin-right', '15px')
                                         .addClass('rounded-border')
                                         .addClass('hidden')
                                         .click(function() { hideInfoDialog(); })
@@ -146,10 +162,16 @@ async function showInfoDialog(object)
                         .append($('<span></span>')
                                 .append(progress))
                         .append($('<span></span>')
-                                .css('margin-left', '10px')
-                                .css('align-self', 'center')
-                                .html(titleMsg + ' ' + message)
-                               ));
+                                .append($('<span></span>')
+                                        .css('font-weight', 'bold')
+                                        .html(titleMsg))
+                                .append($('<br></br>')
+                                        .addClass(titleMsg == '' ? 'hidden' : ''))
+                                .append($('<span></span>')
+                                        .html(message)))
+                       );
+
+   $('#infoBox').addClass('infoBox-active');
 
    infoDialogTimer = setTimeout(function() {
       hideInfoDialog();
@@ -160,8 +182,11 @@ function hideInfoDialog()
 {
    infoDialogTimer = null;
 
+   if ($('#progressDiv') != null)
+      $('#progressDiv').css("visibility", "hidden");
+
    $('#infoBox').html('');
-   $('#infoBox').addClass('hidden');
+   $('#infoBox').removeClass('infoBox-active');
    $('#infoBox').removeClass('error-border');
 }
 
@@ -178,10 +203,12 @@ async function hideProgressDialog()
 
 async function showProgressDialog()
 {
-   hideProgressDialog();
+   while (progressDialog)
+      await sleep(100);
 
-   var msDuration = 30000;   // timeout 30 seconds
-   var form = document.createElement("form");
+   var msDuration = 300000;   // timeout 5 minutes
+
+   var form = document.createElement("div");
    form.style.overflow = "hidden";
    var div = document.createElement("div");
    form.appendChild(div);
@@ -195,11 +222,12 @@ async function showProgressDialog()
       title: "",
 		modal: true,
       resizable: false,
-		closeOnEscape: false,
+		closeOnEscape: true,
       minHeight: "0px",
       hide: "fade",
       open: function() {
-         progressDialog = $(this); setTimeout(function() {
+         progressDialog = $(this);
+         setTimeout(function() {
             if (progressDialog)
                progressDialog.dialog('close');
             progressDialog = null }, msDuration);
@@ -223,31 +251,33 @@ function dispatchMessage(message)
       hideProgressDialog();
       showInfoDialog(jMessage.object);
    }
-   else if ((event == "update" || event == "all")) {
-      if (event == "all")
-         allWidgets = jMessage.object;
-      else {
-         for (var i = 0; i < jMessage.object.length; i++) {
-            for (var w = 0; w < allWidgets.length; w++) {
-               if (jMessage.object[i].name == allWidgets[w].name) {
-                  //console.log("update '" + allWidgets[w].name);
-                  //console.log("update '" + allWidgets[w].name + "' to (" + jMessage.object[i].value.toFixed(2) + ") from (" + allWidgets[w].value.toFixed(2) + ")");
-                  allWidgets[w] = jMessage.object[i];
-               }
-            }
-         }
-      }
-      if (currentPage == 'dashboard')
-         updateDashboard(jMessage.object, event == "all");
-      else if (currentPage == 'list')
-         updateList(jMessage.object);
-   }
-   else if (event == "init" && (currentPage == 'list' || currentPage == 'dashboard')) {
-      allWidgets = jMessage.object;
+   else if (event == "init") {
+      allSensors = jMessage.object;
       if (currentPage == 'dashboard')
          initDashboard();
+      else if (currentPage == 'schema')
+         updateSchema();
       else if (currentPage == 'list')
          initList();
+   }
+   else if (event == "update" || event == "all") {
+      if (event == "all") {
+         allSensors = jMessage.object;
+      }
+      else {
+         for (var key in jMessage.object)
+            allSensors[key] = jMessage.object[key];
+               }
+      if (currentPage == 'dashboard')
+         updateDashboard(jMessage.object, event == "all");
+      else if (currentPage == 'schema')
+         updateSchema();
+      else if (currentPage == 'list')
+         updateList();
+   }
+   else if (event == "schema") {
+      initSchema(jMessage.object);
+      // console.log("schema " + JSON.stringify(jMessage.object, undefined, 4));
    }
    else if (event == "chartbookmarks") {
       chartBookmarks = jMessage.object;
@@ -283,14 +313,20 @@ function dispatchMessage(message)
             document.getElementById("confirm").innerHTML = "<div class=\"infoError\"><b><center>Login fehlgeschlagen</center></b></div>";
       }
    }
-   else if (event == "valuefactsios" && currentPage == 'iosetup') {
-      initIoSetup(valueFacts);
+   else if (event == "dashboards") {
+      dashboards = jMessage.object;
+      // console.log("dashboards " + JSON.stringify(dashboards, undefined, 4));
    }
+
    else if (event == "valuefacts") {
       valueFacts = jMessage.object;
+      // console.log("valueFacts " + JSON.stringify(valueFacts, undefined, 4));
    }
    else if (event == "images") {
       images = jMessage.object;
+      if (currentPage == 'images')
+         initImages();
+      // console.log("images " + JSON.stringify(images, undefined, 4));
    }
    else if (event == "chartdata") {
       hideProgressDialog();
@@ -302,13 +338,21 @@ function dispatchMessage(message)
       else if (currentPage == 'dashboard' && id == "chartwidget") { // the dashboard widget
          drawChartWidget(jMessage.object);
       }
-      else if (currentPage == 'iosetup' && id == "chartwidget") { // the dashboard widget
-         drawChartWidget(jMessage.object);
-      }
-
       else if (currentPage == 'dashboard' && id == "chartdialog") { // the dashboard chart dialog
          drawChartDialog(jMessage.object);
       }
+   }
+   else if (event == "groups") {
+      initGroupSetup(jMessage.object);
+   }
+   else if (event == "grouplist") {
+      grouplist = jMessage.object;
+   }
+   else if (event == "alerts") {
+      initAlerts(jMessage.object);
+   }
+   else if (event == "errors") {
+      initErrors(jMessage.object);
    }
 
    // console.log("event: " + event + " dispatched");
@@ -321,11 +365,14 @@ function prepareMenu()
 
    console.log("prepareMenu: " + currentPage);
 
-   // html += "<a href=\"index.html\"><button class=\"rounded-border button1\">Dashboard</button></a>";
-   html += '<button class="rounded-border button1" onclick="mainMenuSel(\'dashboard\')">Dashboard</button>';
+   html += '<button class="rounded-border button1" onclick="mainMenuSel(\'dashboard\')">Dashboards</button>';
    html += '<button class="rounded-border button1" onclick="mainMenuSel(\'list\')">Liste</button>';
    html += '<button class="rounded-border button1" onclick="mainMenuSel(\'chart\')">Charts</button>';
+   html += '<button class="rounded-border button1" onclick="mainMenuSel(\'schema\')">Schema</button>';
    html += '<button id="vdrMenu" class="rounded-border button1" onclick="mainMenuSel(\'vdr\')">VDR</button>';
+
+   if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10)
+      html += '<button class="rounded-border button1" onclick="mainMenuSel(\'setup\')">Setup</button>';
 
    html +=
       '<button id="burgerMenu" class="rounded-border button1 menuLogin" onclick="menuBurger()">' +
@@ -334,67 +381,65 @@ function prepareMenu()
       ' <div></div>' +
       '</button>';
 
-   if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10) {
-      html += '<button class="rounded-border button1" onclick="mainMenuSel(\'setup\')">Setup</button>';
+   // buttons below menu
 
-      if (currentPage == "setup" || currentPage == "iosetup" || currentPage == "userdetails" || currentPage == "syslog") {
+   if (currentPage == "setup" || currentPage == "iosetup" || currentPage == "userdetails" || currentPage == "groups" || currentPage == "alerts" || currentPage == "syslog" || currentPage == "images") {
+      if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10) {
          html += "<div>";
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'setup\')">Allg. Konfiguration</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'iosetup\')">IO Setup</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'userdetails\')">User</button>';
+         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'alerts\')">Sensor Alerts</button>';
+         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'groups\')">Baugruppen</button>';
+         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'images\')">Images</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'syslog\')">Syslog</button>';
          html += "</div>";
       }
    }
 
-   // buttons below menu
-
-   if (currentPage == "iosetup") {
-      html += "<div class=\"confirmDiv\">";
-      html += "  <button class=\"rounded-border buttonOptions\" onclick=\"storeIoSetup()\">Speichern</button>";
-      html += "  <button class=\"rounded-border buttonOptions\" id=\"filterIoSetup\" onclick=\"filterIoSetup()\">[alle]</button>";
-      html += "</div>";
-   }
-   else if (currentPage == "setup") {
+   if (currentPage == "setup") {
       html += "<div class=\"confirmDiv\">";
       html += "  <button class=\"rounded-border buttonOptions\" onclick=\"storeConfig()\">Speichern</button>";
       html += "  <button class=\"rounded-border buttonOptions\" title=\"Letzter Reset: " + config.peakResetAt + "\" id=\"buttonResPeaks\" onclick=\"resetPeaks()\">Reset Peaks</button>";
       html += "  <button class=\"rounded-border buttonOptions\" onclick=\"sendMail('Test Mail', 'test')\">Test Mail</button>";
       html += "</div>";
    }
+   else if (currentPage == "iosetup") {
+      html += "<div class=\"confirmDiv\">";
+      html += "  <button class=\"rounded-border buttonOptions\" onclick=\"storeIoSetup()\">Speichern</button>";
+      html += "  <button class=\"rounded-border buttonOptions\" id=\"filterIoSetup\" onclick=\"filterIoSetup()\">[alle]</button>";
+      html += '  <input id="incSearchName" class="input rounded-border clearableOD" placeholder="filter..." type="search" oninput="doIncrementalFilterIoSetup()"</input>';
+      html += "</div>";
+   }
+   else if (currentPage == "groups") {
+      html += "<div class=\"confirmDiv\">";
+      html += "  <button class=\"rounded-border buttonOptions\" onclick=\"storeGroups()\">Speichern</button>";
+      html += "</div>";
+   }
+   else if (currentPage == "alerts") {
+      html += "<div class=\"confirmDiv\">";
+      html += "  <button class=\"rounded-border buttonOptions\" onclick=\"storeAlerts()\">Speichern</button>";
+      html += "</div>";
+   }
+
    else if (currentPage == "login") {
       html += '<div id="confirm" class="confirmDiv"/>';
    }
 
+   if (currentPage == "schema") {
+      if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10) {
+         html += "<div class=\"confirmDiv\">";
+         html += "  <button class=\"rounded-border buttonOptions\" onclick=\"schemaEditModeToggle()\">Anpassen</button>";
+         html += "  <button class=\"rounded-border buttonOptions\" id=\"buttonSchemaAddItem\" title=\"Konstante (Text) hinzufügen\" style=\"visibility:hidden;\" onclick=\"schemaAddItem()\">&#10010;</button>";
+         html += "  <button class=\"rounded-border buttonOptions\" id=\"buttonSchemaStore\" style=\"visibility:hidden;\" onclick=\"schemaStore()\">Speichern</button>";
+         html += "</div>";
+      }
+   }
+
    $("#navMenu").html(html);
 
-/*   if (config.vdr == 1 && currentPage == "vdr") {
-      if (haveToken) {
-         var url = "ws://" + location.hostname + ":4444";
-
-         console.log("osd2web try to open: " + url);
-
-         var s = new WebSocketClient( {
-            url: url,
-            protocol: "osd2vdr",
-            autoReconnectInterval: 0,
-            onopen: function (){
-               document.getElementById("vdrMenu").style.visibility = "visible";
-               document.getElementById("vdrMenu").style.width = "auto";
-               document.getElementById("vdrMenu").disabled = false;
-               s.ws.close();
-            }, onclose: function (){
-               // console.log("osd2web socket closed");
-            }, onmessage: function (msg){
-            }
-         });
-      }
-      else {
-         document.getElementById("vdrMenu").style.visibility = "hidden";
-         document.getElementById("vdrMenu").style.width = "0px";
-         document.getElementById("vdrMenu").disabled = true;
-      }
-   }*/
+   // var msg = "DEBUG: Browser: '" + $.browser.name + "' : '" + $.browser.versionNumber + "' : '" + $.browser.version + "'";
+   // socket.send({ "event" : "logmessage", "object" : { "message" : msg } });
 }
 
 function menuBurger()
@@ -402,11 +447,11 @@ function menuBurger()
    var haveToken = localStorage.getItem(storagePrefix + 'Token') && localStorage.getItem(storagePrefix + 'Token') != "";
 
    var form = '<div id="burgerPopup" style="padding:0px;">';
-   if (haveToken)
-      form +=
-      '<button style="width:120px;" class="rounded-border button1" onclick="mainMenuSel(\'user\')">[' + localStorage.getItem(storagePrefix + 'User') + ']</button>' +
-      '  <br/>' +
-      '  <div><button style="width:120px;" class="rounded-border button1" onclick="setupDashboard()">' + (setupMode ? 'Stop Setup' : 'Setup Dashboard') + '</button></div>';
+   if (haveToken) {
+      form += '<button style="width:120px;" class="rounded-border button1" onclick="mainMenuSel(\'user\')">[' + localStorage.getItem(storagePrefix + 'User') + ']</button>';
+      if (currentPage == 'dashboard')
+         form += '  <br/><div><button style="width:120px;color" class="rounded-border button1 mdi mdi-lead-pencil" onclick=" setupDashboard()">' + (setupMode ? ' Stop Setup' : ' Setup Dashboard') + '</button></div>';
+   }
    else
       form += '<button style="width:120px;" class="rounded-border button1" onclick="mainMenuSel(\'login\')">Login</button>';
 
@@ -431,14 +476,6 @@ function menuBurger()
          $(this).dialog('destroy').remove();
       }
    });
-}
-
-function setupDashboard()
-{
-   $("#burgerPopup").dialog("close");
-
-   setupMode = !setupMode;
-   initDashboard();
 }
 
 function mainMenuSel(what)
@@ -483,8 +520,12 @@ function mainMenuSel(what)
       initUser();
    else if (currentPage == "userdetails")
       event = "userdetails";
-   else if (currentPage == "syslog")
+   else if (currentPage == "images")
+      initImages();
+   else if (currentPage == "syslog") {
+      showProgressDialog();
       event = "syslog";
+   }
    else if (currentPage == "list")
       initList();
    else if (currentPage == "dashboard")
@@ -492,12 +533,28 @@ function mainMenuSel(what)
    else if (currentPage == "vdr")
       initVdr();
    else if (currentPage == "chart") {
-      event = "chartdata"
-      prepareChartRequest(jsonRequest, "", theChartStart, theChartRange, "chart");
+      event = "chartdata";
+      // console.log("config.chartSensors: " + config.chartSensors);
+      // console.log("1 config.chartRange " + config.chartRange.replace(',', '.') + " :" + parseFloat(config.chartRange.replace(',', '.')));
+      if (!theChartRange) {
+         theChartRange = parseFloat(config.chartRange.replace(',', '.'));
+         theChartStart = new Date().subHours(theChartRange * 24);
+      }
+      else if (!theChartStart)
+         theChartStart = new Date().subHours(theChartRange * 24);
+
+      prepareChartRequest(jsonRequest, config.chartSensors, theChartStart, theChartRange, "chart");
+      currentRequest = jsonRequest;
    }
+   else if (currentPage == "groups")
+      event = "groups";
+   else if (currentPage == "alerts")
+      event = "alerts";
+   else if (currentPage == "schema")
+      event = "schema";
 
    if (currentPage != "vdr" && currentPage != "iosetup") {
-      if (jsonRequest != {})
+      if (jsonRequest != {} && event != null)
          socket.send({ "event" : event, "object" : jsonRequest });
       else if (event != null)
          socket.send({ "event" : event, "object" : { } });
@@ -505,6 +562,19 @@ function mainMenuSel(what)
       if (currentPage == 'login')
          initLogin();
    }
+}
+
+function setupDashboard()
+{
+   $("#burgerPopup").dialog("close");
+
+   setupMode = !setupMode;
+   initDashboard();
+}
+
+function resetBatt(what)
+{
+   socket.send({ "event" : "reset", what : {}});
 }
 
 function initLogin()
@@ -533,7 +603,8 @@ function showSyslog(log)
    document.getElementById("container").innerHTML = '<div id="syslogContainer" class="log"></div>';
 
    var root = document.getElementById("syslogContainer");
-   root.innerHTML = log.lines.replace(/(?:\r\n|\r|\n)/g, '<br>');
+   root.innerHTML = log.lines.replace(/(?:\r\n|\r|\n)/g, '<br/>');
+   hideProgressDialog();
 }
 
 window.sendMail = function(subject, body)
@@ -585,6 +656,7 @@ function doLogout()
 
 function hideAllContainer()
 {
+   $('#dashboardMenu').addClass('hidden');
    $('#stateContainer').addClass('hidden');
    $('#container').addClass('hidden');
 }
@@ -648,25 +720,51 @@ function drawChartWidget(dataObject)
          scales: {
             xAxes: [{
                type: "time",
+               time: {
+                  unit: 'hour',
+                  unitStepSize: 1,
+                  displayFormats: {
+                     hour: 'HH:mm',
+                     day: 'HH:mm'
+                  }},
                distribution: "linear",
-               display: false
+               display: true,
+               gridLines: {
+                  color: "gray"
+               },
+               ticks: {
+                  padding: 10,
+                  maxTicksLimit: 6,
+                  maxRotation: 0,
+                  fontColor: "darkgray"
+               }
+
             }],
             yAxes: [{
-               display: false
+               display: true,
+               gridLines: {
+                  color: "darkgray",
+                  zeroLineColor: 'darkgray'
+               },
+               ticks: {
+                  padding: 10,
+                  maxTicksLimit: 5,
+                  fontColor: "darkgray"
+               }
             }]
          }
       }
    };
 
-   for (var i = 0; i < dataObject.rows.length; i++)
-   {
+   for (var i = 0; i < dataObject.rows.length; i++) {
       var dataset = {};
 
       dataset["data"] = dataObject.rows[i].data;
       dataset["backgroundColor"] = "#415969";  // fill color
       dataset["borderColor"] = "#3498db";      // line color
-      dataset["fill"] = true;
-      dataset["pointRadius"] = 2.0;
+      dataset["borderWidth"] = 1;
+      dataset["fill"] = false;
+      dataset["pointRadius"] = 1.5;
       data.data.datasets.push(dataset);
    }
 
@@ -692,8 +790,16 @@ function drawChartDialog(dataObject)
          datasets: []
       },
       options: {
+         tooltips: {
+            mode: "index",
+            intersect: false,
+         },
          legend: {
             display: true
+         },
+         hover: {
+            mode: "nearest",
+            intersect: true
          },
          responsive: true,
          maintainAspectRatio: false,
@@ -701,21 +807,19 @@ function drawChartDialog(dataObject)
          scales: {
             xAxes: [{
                type: "time",
-               time: { displayFormats: {
-                  millisecond: 'MMM DD - HH:MM',
-                  second: 'MMM DD - HH:MM',
-                  minute: 'HH:MM',
-                  hour: 'MMM DD - HH:MM',
-                  day: 'HH:MM',
-                  week: 'MMM DD - HH:MM',
-                  month: 'MMM DD - HH:MM',
-                  quarter: 'MMM DD - HH:MM',
-                  year: 'MMM DD - HH:MM' } },
+               time: {
+                  unit: 'hour',
+                  unitStepSize: 1,
+                  displayFormats: {
+                     hour: 'HH:mm',
+                     day: 'HH:mm',
+                  }},
                distribution: "linear",
                display: true,
                ticks: {
-                  maxTicksLimit: 25,
+                  maxTicksLimit: 12,
                   padding: 10,
+                  maxRotation: 0,
                   fontColor: "white"
                },
                gridLines: {
@@ -757,7 +861,8 @@ function drawChartDialog(dataObject)
       dataset["data"] = dataObject.rows[i].data;
       dataset["backgroundColor"] = "#415969";  // fill color
       dataset["borderColor"] = "#3498db";      // line color
-      dataset["fill"] = true;
+      dataset["borderWidth"] = 1;
+      dataset["fill"] = false;
       dataset["label"] = dataObject.rows[i].title;
       dataset["pointRadius"] = 0;
       data.data.datasets.push(dataset);
@@ -766,3 +871,58 @@ function drawChartDialog(dataObject)
    var canvas = root.querySelector("#chartDialog");
    theChart = new Chart(canvas, data);
 }
+
+function toKey(type, address)
+{
+   return type + ":0x" + address.toString(16).padStart(2, '0');
+}
+
+function parseBool(val)
+{
+   if ((typeof val === 'string' && (val.toLowerCase() === 'true' || val.toLowerCase() === 'yes' || val.toLowerCase() === 'ja')) || val === 1)
+      return true;
+   else if ((typeof val === 'string' && (val.toLowerCase() === 'false' || val.toLowerCase() === 'no' || val.toLowerCase() === 'nein')) || val === 0)
+      return false;
+
+   return null;
+}
+
+Number.prototype.pad = function(size)
+{
+  var s = String(this);
+  while (s.length < (size || 2)) {s = "0" + s;}
+  return s;
+}
+
+Date.prototype.toDatetimeLocal = function toDatetimeLocal()
+{
+   var date = this,
+       ten = function (i) {
+          return (i < 10 ? '0' : '') + i;
+       },
+       YYYY = date.getFullYear(),
+       MM = ten(date.getMonth() + 1),
+       DD = ten(date.getDate()),
+       HH = ten(date.getHours()),
+       II = ten(date.getMinutes()),
+       SS = ten(date.getSeconds()),
+       MS = date.getMilliseconds()
+   ;
+
+   return YYYY + '-' + MM + '-' + DD + 'T' +
+      HH + ':' + II + ':' + SS; //  + ',' + MS;
+};
+
+Date.prototype.toDateLocal = function toDateLocal()
+{
+   var date = this,
+       ten = function (i) {
+          return (i < 10 ? '0' : '') + i;
+       },
+       YYYY = date.getFullYear(),
+       MM = ten(date.getMonth() + 1),
+       DD = ten(date.getDate())
+   ;
+
+   return YYYY + '-' + MM + '-' + DD;
+};

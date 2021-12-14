@@ -3,7 +3,7 @@
 // File daemon.c
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
-// Date 16.04.2021 - Jörg Wendel
+// Date 04.11.2010 - 25.04.2020  Jörg Wendel
 //***************************************************************************
 
 #include <stdio.h>
@@ -16,6 +16,8 @@
 
 #ifndef _NO_RASPBERRY_PI_
 #  include <wiringPi.h>
+#else
+#  include "gpio.h"
 #endif
 
 #include "lib/json.h"
@@ -24,12 +26,76 @@
 bool Daemon::shutdown {false};
 
 //***************************************************************************
-// Service
+// Web Service
+//***************************************************************************
+
+const char* cWebService::events[] =
+{
+   "unknown",
+   "login",
+   "logout",
+   "pagechange",
+   "data",
+   "init",
+   "toggleio",
+   "toggleionext",
+   "togglemode",
+   "storeconfig",
+   "gettoken",
+   "setup",
+   "storeiosetup",
+   "chartdata",
+   "logmessage",
+
+   "userdetails",
+   "storeuserconfig",
+   "changepasswd",
+
+   "reset",
+   "groups",
+   "groupconfig",
+   "chartbookmarks",
+   "storechartbookmarks",
+   "sendmail",
+   "syslog",
+   "forcerefresh",
+   "storedashboards",
+   "alerts",
+   "storealerts",
+   "imageconfig",
+   "schema",
+   "storeschema",
+
+   0
+};
+
+const char* cWebService::toName(Event event)
+{
+   if (event >= evUnknown && event < evCount)
+      return events[event];
+
+   return events[evUnknown];
+}
+
+cWebService::Event cWebService::toEvent(const char* name)
+{
+   if (!name)
+      return evUnknown;
+
+   for (int e = evUnknown; e < evCount; e++)
+      if (strcasecmp(name, events[e]) == 0)
+         return (Event)e;
+
+   return evUnknown;
+}
+
+//***************************************************************************
+// Widgets
 //***************************************************************************
 
 const char* Daemon::widgetTypes[] =
 {
-   "Symbol",
+   "Image",
    "Chart",
    "Text",
    "Value",
@@ -38,6 +104,7 @@ const char* Daemon::widgetTypes[] =
    "MeterLevel",
    "PlainText",
    "Choice",
+   "SymbolValue",
    0
 };
 
@@ -59,6 +126,75 @@ Daemon::WidgetType Daemon::toType(const char* name)
          return (WidgetType)t;
 
    return wtText;
+}
+
+//***************************************************************************
+// Widgets - Default Properties
+//***************************************************************************
+
+Daemon::DefaultWidgetProperty Daemon::defaultWidgetProperties[] =
+{
+   // type, address,  unit,  widgetType, minScale, maxScale scaleStep, showPeak
+
+   {  "-",       na,   "*",      wtMeter,        0,        45,      10, false },
+   { "DO",       na,   "*",     wtSymbol,        0,         0,       0, false },
+   { "DI",       na,   "*",     wtSymbol,        0,         0,       0, false },
+   { "AO",       na,   "*",      wtMeter,        0,        45,      10, false },
+   { "AI",       na,   "*",      wtMeter,        0,        45,      10, false },
+   { "SD",       na,   "*",      wtChart,        0,      2000,       0, true },
+   { "SC",       na,    "",       wtText,        0,         0,       0, false },
+   { "SC",       na, "zst",     wtSymbol,        0,         0,       0, false },
+   { "SC",       na,   "*",      wtMeter,        0,        40,       5, true },
+   { "SP",       na,    "",       wtText,        0,         0,       0, false },
+   { "SP",       na,   "%", wtMeterLevel,        0,       100,       5, false },
+   { "SP",       na, "kWh",      wtChart,        0,        50,       0, true },
+   { "SP",       na,   "W",      wtMeter,        0,      3000,       0, true },
+   { "SP",       na,   "*",      wtMeter,        0,       100,      10, true },
+// { "UD",  udState, "zst",     wtSymbol,        0,         0,       0, false },
+// { "UD",   udMode, "zst",       wtText,        0,         0,       0, false },
+// { "UD",   udTime,   "T",       wtText,        0,         0,       0, false },
+   { "UD",       na,   "*",       wtText,        0,         0,       0, false },
+   { "W1",       na,   "*", wtMeterLevel,        0,        40,       5, true },
+   { "VA",       na,   "%", wtMeterLevel,        0,       100,      10, true },
+   { "VA",       na,   "*",      wtMeter,        0,        45,      10, true },
+   { "" }
+};
+
+Daemon::DefaultWidgetProperty* Daemon::getDefalutProperty(const char* type, const char* unit, int address)
+{
+   for (int i = 0; defaultWidgetProperties[i].type != ""; i++)
+   {
+      if (defaultWidgetProperties[i].type == type)
+      {
+         bool addressMatch = defaultWidgetProperties[i].address == na || defaultWidgetProperties[i].address == address;
+         bool unitMatch = defaultWidgetProperties[i].unit == "*" || defaultWidgetProperties[i].unit == unit;
+
+         if (unitMatch && addressMatch)
+            return &defaultWidgetProperties[i];
+      }
+   }
+
+   return &defaultWidgetProperties[0]; // the default of the defaluts
+}
+
+//***************************************************************************
+//
+//***************************************************************************
+
+std::string Daemon::toWidgetOptionString(const char* type, const char* unit, const char* name, int address)
+{
+   std::string result;
+   char* opt {nullptr};
+
+   DefaultWidgetProperty* defProperty = getDefalutProperty(type, unit, address);
+
+   asprintf(&opt, "{\"unit\": \"%s\", \"scalemax\": %d, \"scalemin\": %d, \"scalestep\": %d, \"showpeak\": %s, \"imgon\": \"%s\", \"imgoff\": \"%s\", \"widgettype\": %d}",
+            unit, defProperty->maxScale, defProperty->minScale, defProperty->scaleStep, defProperty->showPeak ? "true" : "false",
+            getImageFor(name, true), getImageFor(name, false), defProperty->widgetType);
+   result = opt;
+   free(opt);
+
+   return result;
 }
 
 //***************************************************************************
@@ -85,6 +221,7 @@ Daemon::~Daemon()
 {
    exit();
 
+   delete mqttReader;
    delete mqttHassWriter;
    delete mqttHassReader;
    delete mqttHassCommandReader;
@@ -92,6 +229,7 @@ Daemon::~Daemon()
 
    free(mailScript);
    free(stateMailTo);
+   free(errorMailTo);
 
    cDbConnection::exit();
 }
@@ -113,11 +251,11 @@ int Daemon::pushInMessage(const char* data)
 // Push Out Message (from daemon to WS)
 //***************************************************************************
 
-int Daemon::pushOutMessage(json_t* oContents, const char* title, long client)
+int Daemon::pushOutMessage(json_t* oContents, const char* event, long client)
 {
    json_t* obj = json_object();
 
-   addToJson(obj, "event", title);
+   addToJson(obj, "event", event);
    json_object_set_new(obj, "object", oContents);
 
    char* p = json_dumps(obj, JSON_REAL_PRECISION(4));
@@ -125,7 +263,7 @@ int Daemon::pushOutMessage(json_t* oContents, const char* title, long client)
 
    if (!p)
    {
-      tell(0, "Error: Dumping json message failed");
+      tell(0, "Error: Dumping json message for event '%s' failed", event);
       return fail;
    }
 
@@ -137,74 +275,43 @@ int Daemon::pushOutMessage(json_t* oContents, const char* title, long client)
    return done;
 }
 
-int Daemon::pushDataUpdate(const char* title, long client)
+int Daemon::pushDataUpdate(const char* event, long client)
 {
    // push all in the jsonSensorList to the 'interested' clients
+
+   json_t* oJson = json_object();
+   daemonState2Json(oJson);
+   pushOutMessage(oJson, "daemonstate", client);
 
    if (client)
    {
       auto cl = wsClients[(void*)client];
-      json_t* oWsJson = json_array();
 
-      if (cl.page == "dashboard")
-      {
-         if (addrsDashboard.size())
-         {
-            for (const auto sensor : addrsDashboard)
-               json_array_append(oWsJson, jsonSensorList[sensor]);
-         }
-         else
-            for (auto sj : jsonSensorList)
-               json_array_append(oWsJson, sj.second);
+      json_t* oJson = json_object();
 
-         pushOutMessage(oWsJson, title, client);
-      }
-      else if (cl.page == "list")
-      {
-         if (addrsList.size())
-            for (const auto sensor : addrsList)
-               json_array_append(oWsJson, jsonSensorList[sensor]);
-         else
-            for (auto sj : jsonSensorList)
-               json_array_append(oWsJson, sj.second);
+            for (auto& sj : jsonSensorList)
+         json_object_set(oJson, sj.first.c_str(), sj.second);
 
-         pushOutMessage(oWsJson, title, client);
-      }
+      pushOutMessage(oJson, event, client);
    }
    else
    {
-      for (const auto cl : wsClients)
+      for (const auto& cl : wsClients)
       {
-         json_t* oWsJson = json_array();
+         json_t* oJson = json_object();
 
-         if (cl.second.page == "dashboard")
-         {
-            if (addrsDashboard.size())
-            {
-               for (const auto sensor : addrsDashboard)
-                  json_array_append(oWsJson, jsonSensorList[sensor]);
-            }
-            else
-               for (auto sj : jsonSensorList)
-                  json_array_append(oWsJson, sj.second);
-         }
-         else if (cl.second.page == "list")
-         {
-            if (addrsList.size())
-               for (const auto sensor : addrsList)
-                  json_array_append(oWsJson, jsonSensorList[sensor]);
-            else
-               for (auto sj : jsonSensorList)
-                  json_array_append(oWsJson, sj.second);
-         }
-         else
-            continue;
+               for (auto& sj : jsonSensorList)
+            json_object_set(oJson, sj.first.c_str(), sj.second);
 
-         pushOutMessage(oWsJson, title, (long)cl.first);
+         pushOutMessage(oJson, event, (long)cl.first);
       }
    }
 
    // cleanup
+
+   // since we use the references more than once we have to do it
+   //  by calling json_object_set instead of json_object_set_new
+   //  therefore we have to free it by json_decref()
 
    for (auto sj : jsonSensorList)
       json_decref(sj.second);
@@ -221,12 +328,12 @@ int Daemon::pushDataUpdate(const char* title, long client)
 int Daemon::init()
 {
    int status {success};
-   char* dictPath = 0;
 
    initLocale();
 
    // initialize the dictionary
 
+   char* dictPath {nullptr};
    asprintf(&dictPath, "%s/database.dat", confDir);
 
    if (dbDict.in(dictPath) != success)
@@ -296,7 +403,7 @@ int Daemon::init()
 
    // init web socket ...
 
-   while (webSock->init(webPort, webSocketPingTime) != success)
+   while (webSock->init(webPort, webSocketPingTime, confDir, webSsl) != success)
    {
       tell(0, "Retrying in 2 seconds");
       sleep(2);
@@ -373,7 +480,7 @@ int Daemon::initOutput(uint pin, int opt, OutputMode mode, const char* name, uin
 
    pinMode(pin, OUTPUT);
    gpioWrite(pin, false, false);
-   addValueFact(pin, "DO", name, "", wtSymbol, 0, 0, urControl);
+   addValueFact(pin, "DO", 1, name, "", "", urControl);
 
    return done;
 }
@@ -387,7 +494,7 @@ int Daemon::initInput(uint pin, const char* name)
    pinMode(pin, INPUT);
 
    if (!isEmpty(name))
-      addValueFact(pin, "DI", name, "", wtSymbol, 0, 0);
+      addValueFact(pin, "DI", 1, name);
 
    digitalInputStates[pin] = gpioRead(pin);
 
@@ -402,101 +509,155 @@ int Daemon::initScripts()
 {
    char* path {nullptr};
    int count {0};
+
+   // clear removed scripts ...
+
+   tableScripts->clear();
+
+   for (int f = selectScripts->find(); f; f = selectScripts->fetch())
+   {
+      if (!fileExists(tableScripts->getStrValue("PATH")))
+      {
+         char* stmt {nullptr};
+         asprintf(&stmt, "%s = '%s'", tableScripts->getField("PATH")->getDbName(), tableScripts->getStrValue("PATH"));
+         tableScripts->deleteWhere(stmt);
+         free(stmt);
+         tell(eloAlways, "Removed script '%s'", tableScripts->getStrValue("PATH"));
+      }
+   }
+
+   tableValueFacts->clear();
+   tableValueFacts->setValue("TYPE", "SC");
+
+   for (int f = selectValueFactsByType->find(); f; f = selectValueFactsByType->fetch())
+   {
+      tableScripts->setValue("ID", tableValueFacts->getIntValue("ADDRESS"));
+
+      if (!tableScripts->find())
+      {
+         char* stmt {nullptr};
+         asprintf(&stmt, "%s = %ld and %s = 'SC'",
+                  tableValueFacts->getField("ADDRESS")->getDbName(), tableValueFacts->getIntValue("ADDRESS"),
+                  tableValueFacts->getField("TYPE")->getDbName());
+         tableValueFacts->deleteWhere(stmt);
+         free(stmt);
+         tell(eloAlways, "Removed valuefact 'SC/%ld'", tableValueFacts->getIntValue("ADDRESS"));
+      }
+   }
+
+   tableValueFacts->reset();
+
+   // check for new scripts
+
    FileList scripts;
 
    asprintf(&path, "%s/scripts.d", confDir);
    int status = getFileList(path, DT_REG, "sh py", false, &scripts, count);
 
-   if (status == success)
+   if (status != success)
    {
-      for (const auto& script : scripts)
+      free(path);
+      return status;
+   }
+
+   for (const auto& script : scripts)
+   {
+      char* scriptPath {nullptr};
+      uint addr {0};
+      char* cmd {nullptr};
+      std::string result;
+      PySensor* pySensor {nullptr};
+
+      // tell(eloAlways, "Found script '%s'", script.name.c_str());
+
+      asprintf(&scriptPath, "%s/%s", path, script.name.c_str());
+
+      if (strstr(script.name.c_str(), ".py"))
       {
-         char* scriptPath {nullptr};
-         uint addr {0};
-         char* cmd {nullptr};
-         std::string result;
-         PySensor* pySensor {nullptr};
+         int status {success};
+         pySensor = new PySensor(this, path, script.name.c_str());
 
-         asprintf(&scriptPath, "%s/%s", path, script.name.c_str());
-
-         if (strstr(script.name.c_str(), ".py"))
+         if ((status = pySensor->init()) != success || (result = executePython(pySensor, "status")) == "")
          {
-            pySensor = new PySensor(this, path, script.name.c_str());
-
-            if (pySensor->init() != success || (result = executePython(pySensor, "status")) == "")
-            {
-               tell(0, "Initialized python script '%s' failed", script.name.c_str());
-               delete pySensor;
-               continue;
-            }
-         }
-         else
-         {
-            asprintf(&cmd, "%s status", scriptPath);
-            result = executeCommand(cmd);
-            tell(5, "Calling '%s'", cmd);
-            free(cmd);
-         }
-
-         json_error_t error;
-         json_t* oData = json_loads(result.c_str(), 0, &error);
-
-         if (!oData)
-         {
-            tell(0, "Error: Ignoring invalid script result [%s]", result.c_str());
-            tell(0, "Error decoding json: %s (%s, line %d column %d, position %d)",
-                 error.text, error.source, error.line, error.column, error.position);
+            tell(0, "Initialized python script '%s' failed, status was %d, result was '%s'",
+                 script.name.c_str(), status, result.c_str());
             delete pySensor;
             continue;
          }
-
-         std::string kind = getStringFromJson(oData, "kind", "status");
-         const char* title = getStringFromJson(oData, "title");
-         const char* unit = getStringFromJson(oData, "unit");
-         const char* choices = getStringFromJson(oData, "choices");
-         double value = getDoubleFromJson(oData, "value");
-         bool valid = getBoolFromJson(oData, "valid", false);
-         const char* text = getStringFromJson(oData, "text");
-
-         tableScripts->clear();
-         tableScripts->setValue("PATH", scriptPath);
-
-         if (!selectScriptByPath->find())
-         {
-            tableScripts->store();
-            addr = tableScripts->getLastInsertId();
-         }
-         else
-            addr = tableScripts->getIntValue("ID");
-
-         selectScriptByPath->freeResult();
-
-         addValueFact(addr, "SC", !isEmpty(title) ? title : script.name.c_str(), unit,
-                      kind == "status" ? wtSymbol : kind == "text" ? wtText : wtValue,
-                      0, 0, urControl, choices);
-
-         tell(0, "Init script value of 'SC:%d' to %.2f", addr, value);
-
-         scSensors[addr].kind = kind;
-         scSensors[addr].pySensor = pySensor;
-         scSensors[addr].last = time(0);
-         scSensors[addr].valid = valid;
-
-         if (kind == "status")
-            scSensors[addr].state = (bool)value;
-         else if (kind == "text")
-            scSensors[addr].text = text;
-         else if (kind == "value")
-            scSensors[addr].value = value;
-
-         tell(0, "Found script '%s' addr (%d), unit '%s'; result was [%s]", scriptPath, addr, unit, result.c_str());
-         free(scriptPath);
       }
+      else
+      {
+         asprintf(&cmd, "%s status", scriptPath);
+         result = executeCommand(cmd);
+         tell(5, "Calling '%s'", cmd);
+         free(cmd);
+      }
+
+      json_error_t error;
+      json_t* oData = json_loads(result.c_str(), 0, &error);
+
+      if (!oData)
+      {
+         tell(0, "Error: Ignoring invalid script result [%s]", result.c_str());
+         tell(0, "Error decoding json: %s (%s, line %d column %d, position %d)",
+              error.text, error.source, error.line, error.column, error.position);
+         delete pySensor;
+         continue;
+      }
+
+      std::string kind = getStringFromJson(oData, "kind", "status");
+      const char* title = getStringFromJson(oData, "title");
+      const char* unit = getStringFromJson(oData, "unit");
+      const char* choices = getStringFromJson(oData, "choices");
+      double value = getDoubleFromJson(oData, "value");
+      bool valid = getBoolFromJson(oData, "valid", false);
+      const char* text = getStringFromJson(oData, "text");
+
+      tableScripts->clear();
+      tableScripts->setValue("PATH", scriptPath);
+
+      if (!selectScriptByPath->find())
+      {
+         tableScripts->store();
+         addr = tableScripts->getLastInsertId();
+      }
+      else
+         addr = tableScripts->getIntValue("ID");
+
+      selectScriptByPath->freeResult();
+
+      if (kind == "text")
+         unit = "";
+      else if (kind == "status")
+         unit = "zst";
+
+      auto tuple = split(script.name, '.');
+      addValueFact(addr, "SC", 1, !isEmpty(title) ? title : script.name.c_str(), unit,
+                   tuple[0].c_str(), urControl, choices);
+
+      tell(0, "Init script value of 'SC:%d' to %.2f", addr, value);
+
+      scSensors[addr].kind = kind;
+      scSensors[addr].pySensor = pySensor;
+      scSensors[addr].last = time(0);
+      scSensors[addr].valid = valid;
+
+      if (kind == "status")
+         scSensors[addr].state = (bool)value;
+      else if (kind == "trigger")
+         scSensors[addr].state = (bool)value;
+      else if (kind == "text")
+         scSensors[addr].text = text;
+      else if (kind == "value")
+         scSensors[addr].value = value;
+
+      tell(0, "Found script '%s' addr (%d), unit '%s'; result was [%s]", scriptPath, addr, unit, result.c_str());
+      free(scriptPath);
    }
 
    free(path);
 
-   return status;
+   return success;
 }
 
 //***************************************************************************
@@ -546,6 +707,7 @@ int Daemon::callScript(int addr, const char* command, const char* name, const ch
    double value = getDoubleFromJson(oData, "value");
    const char* text = getStringFromJson(oData, "text");
    bool valid = getBoolFromJson(oData, "valid", false);
+   IoType iot = iotSensor;
 
    tell(3, "DEBUG: Got '%s' from script (kind:%s unit:%s value:%0.2f) [SC:%d]", result.c_str(), kind.c_str(), unit, value, addr);
 
@@ -553,20 +715,32 @@ int Daemon::callScript(int addr, const char* command, const char* name, const ch
    scSensors[addr].last = time(0);
    scSensors[addr].valid = valid;
 
+   bool changed {false};
+
    if (kind == "status")
+   {
+      changed = scSensors[addr].state != (bool)value;
       scSensors[addr].state = (bool)value;
+      iot = iotLight;
+   }
    else if (kind == "text")
+   {
+      changed = scSensors[addr].text != text;
       scSensors[addr].text = text;
+      iot = iotSensor;
+   }
    else if (kind == "value")
+   {
+      changed = scSensors[addr].value != value;
       scSensors[addr].value = value;
+      iot = iotSensor;
+   }
    else
       tell(0, "Got unexpected script kind '%s' in '%s'", kind.c_str(), result.c_str());
 
    // update WS
    {
-      json_t* oJson = json_array();
       json_t* ojData = json_object();
-      json_array_append_new(oJson, ojData);
 
       json_object_set_new(ojData, "address", json_integer((ulong)addr));
       json_object_set_new(ojData, "type", json_string("SC"));
@@ -588,7 +762,10 @@ int Daemon::callScript(int addr, const char* command, const char* name, const ch
       pushDataUpdate("update", 0L);
    }
 
-   hassPush(iotLight, name, "", "", value, "", false /*forceConfig*/);
+   mqttHaPublishSensor(iotLight, name, "", "", value, "", false /*forceConfig*/);
+
+   if (changed)
+      mqttNodeRedPublishSensor("SC", addr, iot, name, "", "", value, "");
 
    return success;
 }
@@ -809,6 +986,18 @@ int Daemon::initDb()
    tableUsers = new cDbTable(connection, "users");
    if (tableUsers->open() != success) return fail;
 
+   tableGroups = new cDbTable(connection, "groups");
+   if (tableGroups->open() != success) return fail;
+
+   tableDashboards = new cDbTable(connection, "dashboards");
+   if (tableDashboards->open() != success) return fail;
+
+   tableDashboardWidgets = new cDbTable(connection, "dashboardwidgets");
+   if (tableDashboardWidgets->open() != success) return fail;
+
+   tableSchemaConf = new cDbTable(connection, "schemaconf");
+   if (tableSchemaConf->open() != success) return fail;
+
    // prepare statements
 
    selectActiveValueFacts = new cDbStatement(tableValueFacts);
@@ -819,6 +1008,17 @@ int Daemon::initDb()
    selectActiveValueFacts->bind("STATE", cDBS::bndIn | cDBS::bndSet);
 
    status += selectActiveValueFacts->prepare();
+
+   // ------------------
+
+   selectValueFactsByType = new cDbStatement(tableValueFacts);
+
+   selectValueFactsByType->build("select ");
+   selectValueFactsByType->bindAllOut();
+   selectValueFactsByType->build(" from %s where ", tableValueFacts->TableName());
+   selectValueFactsByType->bind("TYPE", cDBS::bndIn | cDBS::bndSet);
+
+   status += selectValueFactsByType->prepare();
 
    // ------------------
 
@@ -854,6 +1054,17 @@ int Daemon::initDb()
    status += selectAllUser->prepare();
 
    // ------------------
+   // Groups
+
+   selectAllGroups = new cDbStatement(tableGroups);
+
+   selectAllGroups->build("select ");
+   selectAllGroups->bindAllOut();
+   selectAllGroups->build(" from %s", tableGroups->TableName());
+
+   status += selectAllGroups->prepare();
+
+   // ------------------
    // select max(time) from samples
 
    selectMaxTime = new cDbStatement(tableSamples);
@@ -866,6 +1077,7 @@ int Daemon::initDb()
 
    // ------------------
    // select samples for chart data
+   // ein sample avg / 5 Minuten
 
    rangeFrom.setField(&rangeFromDef);
    rangeTo.setField(&rangeToDef);
@@ -890,6 +1102,10 @@ int Daemon::initDb()
 
    status += selectSamplesRange->prepare();
 
+   // ------------------
+   // select samples for chart data (for dashboard widget and rage > 15)
+   // ein sample avg / 60 Minuten
+
    selectSamplesRange60 = new cDbStatement(tableSamples);
 
    selectSamplesRange60->build("select ");
@@ -909,6 +1125,17 @@ int Daemon::initDb()
    status += selectSamplesRange60->prepare();
 
    // ------------------
+   // select all scripts
+
+   selectScripts = new cDbStatement(tableScripts);
+
+   selectScripts->build("select ");
+   selectScripts->bindAllOut();
+   selectScripts->build(" from %s", tableScripts->TableName());
+
+   status += selectScripts->prepare();
+
+   // ------------------
    // select script by path
 
    selectScriptByPath = new cDbStatement(tableScripts);
@@ -922,8 +1149,136 @@ int Daemon::initDb()
 
    // ------------------
 
+   selectDashboards = new cDbStatement(tableDashboards);
+
+   selectDashboards->build("select ");
+   selectDashboards->bindAllOut();
+   selectDashboards->build(" from %s order by ord", tableDashboards->TableName());
+
+   status += selectDashboards->prepare();
+
+   // ------------------
+
+   selectDashboardById = new cDbStatement(tableDashboards);
+
+   selectDashboardById->build("select ");
+   selectDashboardById->bind("ID", cDBS::bndOut);
+   selectDashboardById->build(" from %s where ", tableDashboards->TableName());
+   selectDashboardById->bind("TITLE", cDBS::bndIn | cDBS::bndSet);
+
+   status += selectDashboardById->prepare();
+
+   // ------------------
+
+   selectDashboardWidgetsFor = new cDbStatement(tableDashboardWidgets);
+
+   selectDashboardWidgetsFor->build("select ");
+   selectDashboardWidgetsFor->bind("TYPE", cDBS::bndOut);
+   selectDashboardWidgetsFor->bind("ADDRESS", cDBS::bndOut, ", ");
+   selectDashboardWidgetsFor->bind("WIDGETOPTS", cDBS::bndOut, ", ");
+   selectDashboardWidgetsFor->build(" from %s where ", tableDashboardWidgets->TableName());
+   selectDashboardWidgetsFor->bind("DASHBOARDID", cDBS::bndIn | cDBS::bndSet);
+   selectDashboardWidgetsFor->build(" order by ord");
+
+   status += selectDashboardWidgetsFor->prepare();
+
+   // ------------------
+
+   selectSchemaConfByState = new cDbStatement(tableSchemaConf);
+
+   selectSchemaConfByState->build("select ");
+   selectSchemaConfByState->bindAllOut();
+   selectSchemaConfByState->build(" from %s where ", tableSchemaConf->TableName());
+   selectSchemaConfByState->bind("STATE", cDBS::bndIn | cDBS::bndSet);
+
+   status += selectSchemaConfByState->prepare();
+
+   // ------------------
+
+   selectAllSchemaConf = new cDbStatement(tableSchemaConf);
+
+   selectAllSchemaConf->build("select ");
+   selectAllSchemaConf->bindAllOut();
+   selectAllSchemaConf->build(" from %s", tableSchemaConf->TableName());
+
+   status += selectAllSchemaConf->prepare();
+
+   // ------------------
+
    if (status == success)
       tell(eloAlways, "Connection to database established");
+
+   int gCount {0};
+
+   if (connection->query(gCount, "select * from groups") == success)
+   {
+      if (!gCount)
+      {
+         connection->query("insert into groups set name='Heizung'");
+         connection->query("update valuefacts set groupid = 1 where groupid is null or groupid = 0");
+      }
+   }
+
+   // check about old and new dashboards and port if possible
+
+   tableDashboards->clear();
+   tableDashboardWidgets->clear();
+
+   char* dashboards {nullptr};
+   getConfigItem("dashboards", dashboards, "");
+   json_t* oDashboards = json_loads(dashboards, 0, nullptr);
+   free(dashboards);
+
+   int count {0};
+   tableDashboards->countWhere("1=1", count);
+
+   if (!count && oDashboards)
+   {
+      json_t* oDashboard = getObjectFromJson(oDashboards, "dashboard");
+
+      if (oDashboard)
+      {
+         const char* key {nullptr};
+         json_t* jValue {nullptr};
+
+         tableDashboards->setValue("TITLE", "dashboard");
+         tableDashboards->store();
+         int dashboardId = tableDashboards->getLastInsertId();
+         int ord {0};
+         json_object_foreach(oDashboard, key, jValue)
+         {
+            auto tuple = split(key, ':');
+
+            tableValueFacts->clear();
+            tableValueFacts->setValue("TYPE", tuple[0].c_str());
+            tableValueFacts->setValue("ADDRESS", strtol(tuple[1].c_str(), nullptr, 0));
+
+            if (tableValueFacts->find())
+            {
+               std::string widgetOptionsDefault = toWidgetOptionString(tuple[0].c_str(), tableValueFacts->getStrValue("UNIT"),
+                                                                       tableValueFacts->getStrValue("NAME"), strtol(tuple[1].c_str(), nullptr, 0));
+
+               tableDashboardWidgets->clear();
+               tableDashboardWidgets->setValue("DASHBOARDID", dashboardId);
+               tableDashboardWidgets->setValue("ORDER", ord++);
+               tableDashboardWidgets->setValue("TYPE", tuple[0].c_str());
+               tableDashboardWidgets->setValue("ADDRESS", strtol(tuple[1].c_str(), nullptr, 0));
+               tableDashboardWidgets->setValue("WIDGETOPTS", widgetOptionsDefault.c_str());
+               tableDashboardWidgets->store();
+               tell(0, "Ported dashboard widget '%s' [%s]", key, widgetOptionsDefault.c_str());
+            }
+         }
+      }
+   }
+
+   tableDashboards->countWhere("1=1", count);
+
+   if (!count)
+   {
+      tell(0, "Starting with empty dashboard");
+      tableDashboards->setValue("TITLE", "dashboard");
+      tableDashboards->store();
+   }
 
    return status;
 }
@@ -935,13 +1290,29 @@ int Daemon::exitDb()
    delete tableValueFacts;         tableValueFacts = nullptr;
    delete tableConfig;             tableConfig = nullptr;
    delete tableUsers;              tableUsers = nullptr;
+   delete tableGroups;                tableGroups = nullptr;
+   delete tableDashboards;            tableDashboards = nullptr;
+   delete tableDashboardWidgets;      tableDashboardWidgets = nullptr;
+   delete tableSchemaConf;            tableSchemaConf = nullptr;
+
+   delete selectAllGroups;            selectAllGroups = nullptr;
    delete selectActiveValueFacts;  selectActiveValueFacts = nullptr;
+   delete selectValueFactsByType;     selectValueFactsByType = nullptr;
    delete selectAllValueFacts;     selectAllValueFacts = nullptr;
    delete selectAllConfig;         selectAllConfig = nullptr;
    delete selectAllUser;           selectAllUser = nullptr;
    delete selectMaxTime;           selectMaxTime = nullptr;
    delete selectSamplesRange;      selectSamplesRange = nullptr;
    delete selectSamplesRange60;    selectSamplesRange60 = nullptr;
+   delete selectScriptByPath;      selectScriptByPath = nullptr;
+   delete selectScripts;              selectScripts = nullptr;
+   delete selectDashboards;           selectDashboards = nullptr;
+   delete selectDashboardById;        selectDashboardById = nullptr;
+   delete selectSchemaConfByState;    selectSchemaConfByState = nullptr;
+   delete selectAllSchemaConf;        selectAllSchemaConf = nullptr;
+
+   delete selectDashboardWidgetsFor;  selectDashboardWidgetsFor = nullptr;
+
    delete connection;              connection = nullptr;
 
    return done;
@@ -959,7 +1330,7 @@ int Daemon::initW1()
 
    for (const auto& it : w1Sensors)
    {
-      int res = addValueFact((int)toW1Id(it.first.c_str()), "W1", it.first.c_str(), "°C", wtMeter);
+      int res = addValueFact((int)toW1Id(it.first.c_str()), "W1", 1, it.first.c_str(), "°C");
 
       if (res == 1)
          added++;
@@ -993,12 +1364,18 @@ int Daemon::readConfiguration(bool initial)
    getConfigItem("arduinoInterval", arduinoInterval, arduinoInterval);
    getConfigItem("webPort", webPort, webPort);
    getConfigItem("webUrl", webUrl);
+   getConfigItem("webSsl", webSsl);
+   getConfigItem("iconSet", iconSet, "light");
+
+   char* tmp {nullptr};
+   getConfigItem("schema", tmp);
+   free(tmp);
 
    char* port {nullptr};
    asprintf(&port, "%d", webPort);
    if (isEmpty(webUrl) || !strstr(webUrl, port))
    {
-      asprintf(&webUrl, "http://%s:%d", getFirstIp(), webPort);
+      asprintf(&webUrl, "http%s://%s:%d", webSsl ? "s" : "", getFirstIp(), webPort);
       setConfigItem("webUrl", webUrl);
    }
    free(port);
@@ -1008,16 +1385,19 @@ int Daemon::readConfiguration(bool initial)
    char* addrs {nullptr};
    getConfigItem("addrsDashboard", addrs, "");
    addrsDashboard = split(addrs, ',');
-   getConfigItem("addrsList", addrs, "");
-   addrsList = split(addrs, ',');
+   // getConfigItem("addrsList", addrs, "");
+   // addrsList = split(addrs, ',');
    free(addrs);
 
    getConfigItem("mail", mail, no);
    getConfigItem("mailScript", mailScript);
    getConfigItem("stateMailTo", stateMailTo);
+   getConfigItem("errorMailTo", errorMailTo);
 
    getConfigItem("aggregateInterval", aggregateInterval, aggregateInterval);
    getConfigItem("aggregateHistory", aggregateHistory, aggregateHistory);
+
+   // MQTT
 
    std::string url = mqttUrl ? mqttUrl : "";
    getConfigItem("mqttUrl", mqttUrl);
@@ -1025,14 +1405,44 @@ int Daemon::readConfiguration(bool initial)
    if (url != mqttUrl)
       mqttDisconnect();
 
+   // Node-Red
+
+   url = mqttNodeRedUrl ? mqttNodeRedUrl : "";
+   getConfigItem("mqttNodeRedUrl", mqttNodeRedUrl);
+
+   if (url != mqttNodeRedUrl)
+      mqttDisconnect();
+
+   // Home Automation MQTT
+
    url = mqttHassUrl ? mqttHassUrl : "";
-   getConfigItem("hassMqttUrl", mqttHassUrl);
+   getConfigItem("mqttHassUrl", mqttHassUrl);
 
    if (url != mqttHassUrl)
       mqttDisconnect();
 
-   getConfigItem("hassMqttUser", mqttHassUser, mqttHassUser);
-   getConfigItem("hassMqttPassword", mqttHassPassword, mqttHassPassword);
+   getConfigItem("mqttHassUser", mqttHassUser, mqttHassUser);
+   getConfigItem("mqttHassPassword", mqttHassPassword, mqttHassPassword);
+
+   getConfigItem("mqttDataTopic", mqttDataTopic, TARGET "2mqtt/<TYPE>/<NAME>/state");
+   getConfigItem("mqttHaveConfigTopic", mqttHaveConfigTopic, yes);
+
+   if (mqttDataTopic[strlen(mqttDataTopic)-1] == '/')
+      mqttDataTopic[strlen(mqttDataTopic)-1] = '\0';
+
+   if (isEmpty(mqttDataTopic) || isEmpty(mqttHassUrl))
+      mqttInterfaceStyle = misNone;
+   else if (strstr(mqttDataTopic, "<NAME>"))
+      mqttInterfaceStyle = misMultiTopic;
+   else if (strstr(mqttDataTopic, "<GROUP>"))
+      mqttInterfaceStyle = misGroupedTopic;
+   else
+      mqttInterfaceStyle = misSingleTopic;
+
+   for (int f = selectAllGroups->find(); f; f = selectAllGroups->fetch())
+      groups[tableGroups->getIntValue("ID")].name = tableGroups->getStrValue("NAME");
+
+   selectAllGroups->freeResult();
 
    return done;
 }
@@ -1042,8 +1452,11 @@ int Daemon::readConfiguration(bool initial)
 //***************************************************************************
 
 int Daemon::store(time_t now, const char* name, const char* title, const char* unit,
-                 const char* type, int address, double value, const char* text)
+                  const char* type, int address, double value,
+                  uint factor, uint groupid, const char* text)
 {
+   double theValue = value / (double)factor;
+
    tableSamples->clear();
 
    tableSamples->setValue("TIME", now);
@@ -1051,7 +1464,7 @@ int Daemon::store(time_t now, const char* name, const char* title, const char* u
    tableSamples->setValue("TYPE", type);
    tableSamples->setValue("AGGREGATE", "S");
 
-   tableSamples->setValue("VALUE", value);
+   tableSamples->setValue("VALUE", theValue);
    tableSamples->setValue("TEXT", text);
    tableSamples->setValue("SAMPLES", 1);
 
@@ -1066,17 +1479,17 @@ int Daemon::store(time_t now, const char* name, const char* title, const char* u
 
    if (!tablePeaks->find())
    {
-      tablePeaks->setValue("MIN", value);
-      tablePeaks->setValue("MAX", value);
+      tablePeaks->setValue("MIN", theValue);
+      tablePeaks->setValue("MAX", theValue);
       tablePeaks->store();
    }
    else
    {
-      if (value > tablePeaks->getFloatValue("MAX"))
-         tablePeaks->setValue("MAX", value);
+      if (theValue > tablePeaks->getFloatValue("MAX"))
+         tablePeaks->setValue("MAX", theValue);
 
-      if (value < tablePeaks->getFloatValue("MIN"))
-         tablePeaks->setValue("MIN", value);
+      if (theValue < tablePeaks->getFloatValue("MIN"))
+         tablePeaks->setValue("MIN", theValue);
 
       tablePeaks->store();
    }
@@ -1085,7 +1498,12 @@ int Daemon::store(time_t now, const char* name, const char* title, const char* u
 
    IoType iot = strcmp(type, "DO") == 0 ? iotLight : iotSensor;
 
-   hassPush(iot, name, title, unit, value, text, initialRun /*forceConfig*/);
+   if (mqttInterfaceStyle == misSingleTopic)
+      jsonAddValue(oJson, name, title, unit, theValue, groupid, text, initialRun /*forceConfig*/);
+   else if (mqttInterfaceStyle == misGroupedTopic)
+      jsonAddValue(groups[groupid].oJson, name, title, unit, theValue, 0, text, initialRun /*forceConfig*/);
+   else if (mqttInterfaceStyle == misMultiTopic)
+      mqttHaPublishSensor(iot, name, title, unit, theValue, text);
 
    return success;
 }
@@ -1101,7 +1519,7 @@ int Daemon::standby(int t)
    while (time(0) < end && !doShutDown())
    {
       meanwhile();
-      usleep(50000);
+      usleep(5000);
    }
 
    return done;
@@ -1112,7 +1530,7 @@ int Daemon::standbyUntil(time_t until)
    while (time(0) < until && !doShutDown())
    {
       meanwhile();
-      usleep(50000);
+      usleep(5000);
    }
 
    return done;
@@ -1163,10 +1581,10 @@ int Daemon::loop()
          standby(10);
       }
 
-      standbyUntil(nextRefreshAt);
-
       if (doShutDown())
          break;
+
+      standbyUntil(nextRefreshAt);
 
       // aggregate
 
@@ -1175,25 +1593,20 @@ int Daemon::loop()
 
       // refresh expected?
 
-      if (time(0) >= nextRefreshAt)
-      {
-         // perform update
+      if (time(0) < nextRefreshAt)
+         continue;
 
-         nextRefreshAt = time(0) + interval;
-         mailBody = "";
-         mailBodyHtml = "";
+      // perform update
 
-         updateScriptSensors();
-         process();
-         update();
+      nextRefreshAt = time(0) + interval;
 
-         // mail
+      updateScriptSensors();
+      process();
+      update();
 
-         if (mail)
-            sendStateMail();
+      afterUpdate();
 
-         initialRun = false;
-      }
+      initialRun = false;
    }
 
    return success;
@@ -1205,12 +1618,12 @@ int Daemon::loop()
 
 int Daemon::update(bool webOnly, long client)
 {
-   static size_t w1Count = 0;
-   time_t now = time(0);
    int count {0};
 
    if (!webOnly)
    {
+      static size_t w1Count {0};
+
       if (w1Count < w1Sensors.size())
       {
          initW1();
@@ -1218,6 +1631,7 @@ int Daemon::update(bool webOnly, long client)
       }
    }
 
+   lastSampleTime = time(0);
    tell(eloDetail, "Update ...");
 
    tableValueFacts->clear();
@@ -1231,17 +1645,28 @@ int Daemon::update(bool webOnly, long client)
 
    jsonSensorList.clear();
 
+   if (mqttInterfaceStyle == misSingleTopic)
+       oJson = json_object();
+
    for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
       uint addr = tableValueFacts->getIntValue("ADDRESS");
       const char* type = tableValueFacts->getStrValue("TYPE");
+      double factor = tableValueFacts->getIntValue("FACTOR");
       const char* title = tableValueFacts->getStrValue("TITLE");
       const char* usrtitle = tableValueFacts->getStrValue("USRTITLE");
       const char* unit = tableValueFacts->getStrValue("UNIT");
       const char* name = tableValueFacts->getStrValue("NAME");
+      uint groupid = tableValueFacts->getIntValue("GROUPID");
 
       if (!isEmpty(usrtitle))
          title = usrtitle;
+
+      if (mqttInterfaceStyle == misGroupedTopic)
+      {
+         if (!groups[groupid].oJson)
+            groups[groupid].oJson = json_object();
+      }
 
       json_t* ojData = json_object();
       char* tuple {nullptr};
@@ -1251,7 +1676,7 @@ int Daemon::update(bool webOnly, long client)
 
       sensor2Json(ojData, tableValueFacts);
 
-      if (tableValueFacts->hasValue("TYPE", "W1"))       // One Wire Sensor
+      if (tableValueFacts->hasValue("TYPE", "W1"))
       {
          bool w1Exist = existW1(name);
          time_t w1Last {0};
@@ -1267,7 +1692,7 @@ int Daemon::update(bool webOnly, long client)
             json_object_set_new(ojData, "value", json_real(w1Value));
 
             if (!webOnly)
-               store(now, name, title, unit, type, addr, w1Value);
+               store(lastSampleTime, name, title, unit, type, addr, w1Value, factor, groupid);
          }
          else
          {
@@ -1279,6 +1704,41 @@ int Daemon::update(bool webOnly, long client)
             json_object_set_new(ojData, "text", json_string("missing sensor"));
          }
       }
+      else if (tableValueFacts->hasValue("TYPE", "SC"))
+      {
+         if (scSensors[addr].kind == "status")
+            json_object_set_new(ojData, "value", json_integer(scSensors[addr].state));
+         else if (scSensors[addr].kind == "text")
+            json_object_set_new(ojData, "text", json_string(scSensors[addr].text.c_str()));
+         else if (scSensors[addr].kind == "value")
+            json_object_set_new(ojData, "value", json_real(scSensors[addr].value));
+
+         if (scSensors[addr].disabled)
+            json_object_set_new(ojData, "disabled", json_boolean(true));
+
+         if (!webOnly && !scSensors[addr].disabled)
+            store(lastSampleTime, name, title, unit, type, addr, scSensors[addr].kind == "value" ? scSensors[addr].value : scSensors[addr].state, factor, groupid);
+      }
+      else if (tableValueFacts->hasValue("TYPE", "SP"))            // Special Values
+      {
+         if (spSensors[addr].kind == "text")
+         {
+            json_object_set_new(ojData, "text", json_string(spSensors[addr].text.c_str()));
+
+            if (!webOnly && !spSensors[addr].disabled)
+               store(lastSampleTime, name, title, unit, type, addr, spSensors[addr].value, factor, groupid, spSensors[addr].text.c_str());
+         }
+         else if (spSensors[addr].kind == "value")
+         {
+            json_object_set_new(ojData, "value", json_integer(spSensors[addr].value));
+
+            if (!webOnly && !spSensors[addr].disabled)
+               store(lastSampleTime, name, title, unit, type, addr, spSensors[addr].value, factor, groupid);
+         }
+
+         if (spSensors[addr].disabled)
+            json_object_set_new(ojData, "disabled", json_boolean(true));
+      }
       else if (tableValueFacts->hasValue("TYPE", "AI"))     // Analog Input
       {
          if (aiSensors[addr].disabled)
@@ -1289,7 +1749,7 @@ int Daemon::update(bool webOnly, long client)
             json_object_set_new(ojData, "value", json_real(aiSensors[addr].value));
 
             if (!webOnly && !aiSensors[addr].disabled)
-               store(now, name, title, unit, type, addr, aiSensors[addr].value);
+               store(lastSampleTime, name, title, unit, type, addr, aiSensors[addr].value, factor, groupid);
          }
          else
          {
@@ -1305,43 +1765,10 @@ int Daemon::update(bool webOnly, long client)
          json_object_set_new(ojData, "next", json_integer(digitalOutputStates[addr].next));
 
          if (!webOnly)
-            store(now, name, title, unit, type, addr, digitalOutputStates[addr].state);
+            store(lastSampleTime, name, title, unit, type, addr, digitalOutputStates[addr].state, factor, groupid);
       }
-      else if (tableValueFacts->hasValue("TYPE", "SC"))   // Script Sensor
-      {
-         if (scSensors[addr].kind == "status")
-            json_object_set_new(ojData, "value", json_integer(scSensors[addr].state));
-         else if (scSensors[addr].kind == "text")
-            json_object_set_new(ojData, "text", json_string(scSensors[addr].text.c_str()));
-         else if (scSensors[addr].kind == "value")
-            json_object_set_new(ojData, "value", json_real(scSensors[addr].value));
-
-         if (scSensors[addr].disabled)
-            json_object_set_new(ojData, "disabled", json_boolean(true));
-
-         if (!webOnly && !scSensors[addr].disabled)
-            store(now, name, title, unit, type, addr, scSensors[addr].kind == "value" ? scSensors[addr].value : scSensors[addr].state);
-      }
-      else if (tableValueFacts->hasValue("TYPE", "SP"))            // Special Values
-      {
-         if (spSensors[addr].kind == "text")
-         {
-            json_object_set_new(ojData, "text", json_string(spSensors[addr].text.c_str()));
-
-            if (!webOnly && !spSensors[addr].disabled)
-               store(now, name, title, unit, type, addr, spSensors[addr].value, spSensors[addr].text.c_str());
-         }
-         else if (spSensors[addr].kind == "value")
-         {
-            json_object_set_new(ojData, "value", json_integer(spSensors[addr].value));
-
-            if (!webOnly && !spSensors[addr].disabled)
-               store(now, name, title, unit, type, addr, spSensors[addr].value);
-         }
-
-         if (spSensors[addr].disabled)
-            json_object_set_new(ojData, "disabled", json_boolean(true));
-      }
+      else
+         onUpdate(webOnly, tableValueFacts, lastSampleTime, ojData);
 
       count++;
    }
@@ -1357,6 +1784,30 @@ int Daemon::update(bool webOnly, long client)
 
    if (!webOnly)
       tell(eloAlways, "Updated %d samples", count);
+
+   // MQTT
+
+   if (mqttInterfaceStyle == misSingleTopic)
+   {
+      mqttHaWrite(oJson, 0);
+      json_decref(oJson);
+      oJson = nullptr;
+   }
+
+   else if (mqttInterfaceStyle == misGroupedTopic)
+   {
+      tell(1, "Writing MQTT for %zu groups", groups.size());
+
+      for (auto it : groups)
+      {
+         if (it.second.oJson)
+         {
+            mqttHaWrite(it.second.oJson, it.first);
+            json_decref(groups[it.first].oJson);
+            groups[it.first].oJson = nullptr;
+         }
+      }
+   }
 
    return success;
 }
@@ -1391,6 +1842,67 @@ void Daemon::updateScriptSensors()
 }
 
 //***************************************************************************
+// After Update
+//***************************************************************************
+
+void Daemon::afterUpdate()
+{
+   char* path = 0;
+
+   asprintf(&path, "%s/after-update.sh", confDir);
+
+   if (fileExists(path))
+   {
+      tell(0, "Calling '%s'", path);
+      system(path);
+   }
+
+   free(path);
+}
+
+//***************************************************************************
+// Update Conf Tables
+//***************************************************************************
+
+int Daemon::updateSchemaConfTable()
+{
+   const int step = 20;
+   int y = 50;
+   int added = 0;
+
+   tableValueFacts->clear();
+   tableValueFacts->setValue("STATE", "A");
+
+   for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
+   {
+      int addr = tableValueFacts->getIntValue("ADDRESS");
+      const char* type = tableValueFacts->getStrValue("TYPE");
+      y += step;
+
+      tableSchemaConf->clear();
+      tableSchemaConf->setValue("ADDRESS", addr);
+      tableSchemaConf->setValue("TYPE", type);
+
+      if (!tableSchemaConf->find())
+      {
+         tableSchemaConf->setValue("KIND", "value");
+         tableSchemaConf->setValue("STATE", "A");
+         tableSchemaConf->setValue("COLOR", "black");
+         tableSchemaConf->setValue("XPOS", 12);
+         tableSchemaConf->setValue("YPOS", y);
+
+         tableSchemaConf->store();
+         added++;
+      }
+   }
+
+   selectActiveValueFacts->freeResult();
+   tell(eloAlways, "Added %d html schema configurations", added);
+
+   return success;
+}
+
+//***************************************************************************
 // Is In Time Range
 //***************************************************************************
 
@@ -1418,7 +1930,10 @@ int Daemon::scheduleAggregate()
    time_t now {0};
 
    if (!aggregateHistory)
+   {
+      tell(0, "NO aggregateHistory configured!");
       return done;
+   }
 
    // calc today at 01:00:00
 
@@ -1474,8 +1989,6 @@ int Daemon::aggregate()
 
    if (connection->query(aggCount, "%s", stmt) == success)
    {
-      int delCount = 0;
-
       tell(eloDebug, "Aggregation: [%s]", stmt);
       free(stmt);
 
@@ -1483,11 +1996,10 @@ int Daemon::aggregate()
 
       asprintf(&stmt, "aggregate != 'A' and time <= from_unixtime(%ld)", history);
 
-      if (tableSamples->deleteWhere(stmt, delCount) == success)
+      if (tableSamples->deleteWhere(stmt) == success)
       {
          tell(eloAlways, "Aggregation with interval of %d minutes done; "
-              "Created %d aggregation rows, deleted %d sample rows",
-              aggregateInterval, aggCount, delCount);
+              "Created %d aggregation rows", aggregateInterval, aggCount);
       }
    }
 
@@ -1500,64 +2012,19 @@ int Daemon::aggregate()
    return success;
 }
 
-//***************************************************************************
-// Send State Mail
-//***************************************************************************
-
-int Daemon::sendStateMail()
-{
-   std::string subject = "Status: ";
-
-   // check
-
-   if (isEmpty(mailScript) || !mailBody.length() || isEmpty(stateMailTo))
-      return done;
-
-   // HTML mail
-
-   char* html {nullptr};
-
-   loadHtmlHeader();
-
-   asprintf(&html,
-            "<html>\n"
-            " %s\n"
-            "  <body>\n"
-            "   <font face=\"Arial\"><br/>WEB Interface: <a href=\"%s\">S 3200</a><br/></font>\n"
-            "   <br/>\n"
-            "   <table>\n"
-            "     <thead>\n"
-            "       <tr class=\"head\">\n"
-            "         <th><font>Parameter</font></th>\n"
-            "         <th><font>Wert</font></th>\n"
-            "       </tr>\n"
-            "     </thead>\n"
-            "     <tbody>\n"
-            "%s"
-            "     </tbody>\n"
-            "   </table>\n"
-            "   <br/>\n"
-            "  </body>\n"
-            "</html>\n",
-            htmlHeader.memory, webUrl, mailBodyHtml.c_str());
-
-   int result = sendMail(stateMailTo, subject.c_str(), html, "text/html");
-
-   free(html);
-
-   return result;
-}
-
 int Daemon::sendMail(const char* receiver, const char* subject, const char* body, const char* mimeType)
 {
    char* command {nullptr};
    int result {0};
 
-   asprintf(&command, "%s '%s' '%s' '%s' %s", mailScript, subject, body, mimeType, receiver);
+   asprintf(&command, "%s '%s' '%s' '%s' '%s'", mailScript, subject, body, mimeType, receiver);
    result = system(command);
    free(command);
 
-   tell(eloAlways, "Send mail '%s' with [%s] to '%s'", subject, body, receiver);
+   if (loglevel >= eloDebug)
+      tell(eloAlways, "Send mail '%s' with [%s] to '%s'", subject, body, receiver);
+   else
+      tell(eloAlways, "Send mail '%s' to '%s'", subject, receiver);
 
    return result;
 }
@@ -1628,11 +2095,11 @@ int Daemon::loadHtmlHeader()
 // Add Value Fact
 //***************************************************************************
 
-int Daemon::addValueFact(int addr, const char* type, const char* name, const char* unit,
-                        WidgetType widgetType, int minScale, int maxScale, int rights, const char* choices)
+int Daemon::addValueFact(int addr, const char* type, int factor, const char* name, const char* unit,
+                         const char* aTitle, int rights, const char* choices)
+
 {
-   if (maxScale == na)
-      maxScale = unit[0] == '%' ? 100 : 45;
+   const char* title = !isEmpty(aTitle) ? aTitle : name;
 
    tableValueFacts->clear();
    tableValueFacts->setValue("ADDRESS", addr);
@@ -1643,19 +2110,14 @@ int Daemon::addValueFact(int addr, const char* type, const char* name, const cha
       tell(0, "Add ValueFact '%ld' '%s'", tableValueFacts->getIntValue("ADDRESS"), tableValueFacts->getStrValue("TYPE"));
 
       tableValueFacts->setValue("NAME", name);
-      tableValueFacts->setValue("TITLE", name);
+      tableValueFacts->setValue("TITLE", title);
+      tableValueFacts->setValue("FACTOR", factor);
       tableValueFacts->setValue("RIGHTS", rights);
       tableValueFacts->setValue("STATE", "D");
       tableValueFacts->setValue("UNIT", unit);
 
       if (!isEmpty(choices))
          tableValueFacts->setValue("CHOICES", choices);
-
-      char* opt {nullptr};
-      asprintf(&opt, "{\"unit\": \"%s\", \"scalemax\": %d, \"scalemin\": %d, \"scalestep\": %d, \"imgon\": \"%s\", \"imgoff\": \"%s\", \"widgettype\": %d}",
-               unit, maxScale, minScale, 0, getImageFor(name, true), getImageFor(name, false), widgetType);
-      tableValueFacts->setValue("WIDGETOPT", opt);
-      free(opt);
 
       tableValueFacts->store();
       return 1;                               // 1 for 'added'
@@ -1664,7 +2126,8 @@ int Daemon::addValueFact(int addr, const char* type, const char* name, const cha
    tableValueFacts->clearChanged();
 
    tableValueFacts->setValue("NAME", name);
-   tableValueFacts->setValue("TITLE", name);
+   tableValueFacts->setValue("TITLE", title);
+   tableValueFacts->setValue("FACTOR", factor);
 
    if (!isEmpty(choices))
       tableValueFacts->setValue("CHOICES", choices);
@@ -1679,6 +2142,61 @@ int Daemon::addValueFact(int addr, const char* type, const char* name, const cha
    }
 
    return done;
+}
+
+//***************************************************************************
+// Dispatch Mqtt Command Request
+//   Format: {"state": "OFF", "brightness": 255}
+//***************************************************************************
+
+int Daemon::dispatchMqttHaCommandRequest(json_t* jData, const char* topic)
+{
+   auto it = hassCmdTopicMap.find(topic);
+
+   if (it != hassCmdTopicMap.end())
+   {
+      const char* state = getStringFromJson(jData, "state", "");
+
+      if (isEmpty(state))
+         return fail;
+
+      for (auto itOutput = digitalOutputStates.begin(); itOutput != digitalOutputStates.end(); ++itOutput)
+      {
+         bool bState = strcmp(state, "ON") == 0;
+
+         if (strcmp(it->second.c_str(), itOutput->second.name) == 0)
+         {
+            gpioWrite(itOutput->first, bState);
+            break;
+         }
+      }
+   }
+
+   return success;
+}
+
+//***************************************************************************
+// Dispatch Node-Red Command Request
+//   Format:  '{ "command" : "set", "id" : 'SC:0x9', "value" : "on|off" }'
+//***************************************************************************
+
+int Daemon::dispatchNodeRedCommand(json_t* jObject)
+{
+   const char* command = getStringFromJson(jObject, "command", "set");
+   const char* key = getStringFromJson(jObject, "id", "");
+
+   if (isEmpty(key))
+   {
+      tell(0, "Error: Node-Red: Got unexpected id '%s' from node-red, commad was '%s'", key, command);
+      return fail;
+   }
+
+   const char* sState = getStringFromJson(jObject, "state", "");
+   bool state = strcasecmp(sState, "on") == 0;
+
+   tell(0, "Node-Red: switch %s to %d", key, state);
+
+   return success;
 }
 
 //***************************************************************************
@@ -1773,6 +2291,8 @@ int Daemon::getConfigItem(const char* name, double& value, double def)
 
    free(txt);
 
+   // tell(0, "getConfigItem '%s' now %.2f\n", name, value);
+
    return success;
 }
 
@@ -1781,6 +2301,34 @@ int Daemon::setConfigItem(const char* name, double value)
    char txt[16+TB];
 
    snprintf(txt, sizeof(txt), "%.2f", value);
+
+   return setConfigItem(name, txt);
+}
+
+int Daemon::getConfigItem(const char* name, bool& value, bool def)
+{
+   char* txt {nullptr};
+
+   getConfigItem(name, txt);
+
+   if (!isEmpty(txt))
+      value = atoi(txt);
+   else if (isEmpty(txt))
+   {
+      value = def;
+      setConfigItem(name, value);
+   }
+
+   free(txt);
+
+   return success;
+}
+
+int Daemon::setConfigItem(const char* name, bool value)
+{
+   char txt[16];
+
+   snprintf(txt, sizeof(txt), "%d", value);
 
    return setConfigItem(name, txt);
 }
@@ -1829,7 +2377,7 @@ const char* Daemon::getImageFor(const char* title, int value)
 
    if (strcasestr(title, "Pump"))
       imagePath = value ? "img/icon/pump-on.gif" : "img/icon/pump-off.png";
-   else if (strcasestr(title, "Steckdose"))
+   else if (strcasestr(title, "Steckdose") || strcasestr(title, "Plug") )
       imagePath = value ? "img/icon/plug-on.png" : "img/icon/plug-off.png";
    else if (strcasestr(title, "UV-C"))
       imagePath = value ? "img/icon/uvc-on.png" : "img/icon/uvc-off.png";
@@ -1837,6 +2385,19 @@ const char* Daemon::getImageFor(const char* title, int value)
       imagePath = value ? "img/icon/light-on.png" : "img/icon/light-off.png";
    else if (strcasestr(title, "Shower") || strcasestr(title, "Dusche"))
       imagePath = value ? "img/icon/shower-on.png" : "img/icon/shower-off.png";
+   else if (strcasestr(title, "VDR"))
+      imagePath = value ? "img/icon/vdr-on.png" : "img/icon/vdr-off.png";
+   else if (strcasestr(title, "VPN"))
+      imagePath = value ? "img/icon/vpn-on.png" : "img/icon/vpn-off.png";
+   else if (strcasestr(title, "SATIP"))
+      imagePath = value ? "img/icon/satip-on.png" : "img/icon/satip-off.png";
+   else if (strcasestr(title, "Music") || strcasestr(title, "Musik"))
+      imagePath = value ? "img/icon/note-on.png" : "img/icon/note-off.png";
+   else if (strcasestr(title, "Fan") || strcasestr(title, "Lüfter"))
+      imagePath = value ? "img/icon/fan-on.png" : "img/icon/fan-off.png";
+   else if (strcasestr(title, "Desktop"))
+      imagePath = value ? "img/icon/desktop-on.png" : "img/icon/desktop-off.png";
+
    else
       imagePath = value ? "img/icon/boolean-on.png" : "img/icon/boolean-off.png";
 
@@ -1898,7 +2459,7 @@ void Daemon::pin2Json(json_t* ojData, int pin)
    json_object_set_new(ojData, "value", json_integer(digitalOutputStates[pin].state));
    json_object_set_new(ojData, "last", json_integer(digitalOutputStates[pin].last));
    json_object_set_new(ojData, "next", json_integer(digitalOutputStates[pin].next));
-   json_object_set_new(ojData, "image", json_string(getImageFor(digitalOutputStates[pin].title.c_str(), digitalOutputStates[pin].state)));
+// needed?   json_object_set_new(ojData, "image", json_string(getImageFor(digitalOutputStates[pin].title.c_str(), digitalOutputStates[pin].state)));
    json_object_set_new(ojData, "widgettype", json_integer(wtSymbol));  // #TODO get type from valuefacts
 }
 
@@ -1913,12 +2474,17 @@ int Daemon::toggleOutputMode(uint pin)
 
       storeStates();
 
-      json_t* oJson = json_array();
+      // json_t* oJson = json_array();
       json_t* ojData = json_object();
-      json_array_append_new(oJson, ojData);
+      // json_array_append_new(oJson, ojData);
       pin2Json(ojData, pin);
 
-      pushOutMessage(oJson, "update");
+      char* tuple {nullptr};
+      asprintf(&tuple, "%s:0x%02x", "DO", pin);
+      jsonSensorList[tuple] = ojData;
+      free(tuple);
+
+      pushDataUpdate("update", 0L);
    }
 
    return success;
@@ -1944,15 +2510,22 @@ void Daemon::gpioWrite(uint pin, bool state, bool store)
 
    // send update to WS
    {
-      json_t* oJson = json_array();
+      // json_t* oJson = json_array();
       json_t* ojData = json_object();
-      json_array_append_new(oJson, ojData);
+      // json_array_append_new(oJson, ojData);
       pin2Json(ojData, pin);
 
-      pushOutMessage(oJson, "update");
+      char* tuple {nullptr};
+      asprintf(&tuple, "%s:0x%02x", "DO", pin);
+      jsonSensorList[tuple] = ojData;
+      free(tuple);
+
+      pushDataUpdate("update", 0L);
+      // pushOutMessage(oJson, "update");
    }
 
-   hassPush(iotLight, digitalOutputStates[pin].name, "", "", digitalOutputStates[pin].state, "", false /*forceConfig*/);
+   mqttHaPublishSensor(iotLight, digitalOutputStates[pin].name, "", "", digitalOutputStates[pin].state, "", false /*forceConfig*/);
+   mqttNodeRedPublishSensor("DO", pin, iotLight, digitalOutputStates[pin].name, "", "", digitalOutputStates[pin].state, "");
 }
 
 bool Daemon::gpioRead(uint pin)
@@ -2228,6 +2801,8 @@ void Daemon::updateW1(const char* id, double value, time_t stamp)
 {
    tell(2, "w1: %s : %0.2f", id, value);
 
+   bool changed = w1Sensors[id].value != value;
+
    w1Sensors[id].value = value;
    w1Sensors[id].last = stamp;
 
@@ -2248,6 +2823,9 @@ void Daemon::updateW1(const char* id, double value, time_t stamp)
       free(tuple);
 
       pushDataUpdate("update", 0L);
+
+      if (changed)
+         mqttNodeRedPublishSensor("W1", (int)toW1Id(id), iotSensor, "", "", "", value, "");
    }
 
    tableValueFacts->reset();

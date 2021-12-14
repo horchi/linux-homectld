@@ -1,53 +1,50 @@
 /*
  *  list.js
  *
- *  (c) 2020 Jörg Wendel
+ *  (c) 2020-2021 Jörg Wendel
  *
  * This code is distributed under the terms and conditions of the
  * GNU GENERAL PUBLIC LICENSE. See the file COPYING for details.
  *
  */
 
-function initList(update = false)
+function initList()
 {
-   if (!allWidgets)
+   if (allSensors == null)
    {
-      console.log("Fatal: Missing payload!");
+      console.log("Fatal: Missing widgets!");
       return;
    }
 
-   if (!update) {
-      $('#stateContainer').removeClass('hidden');
-      $('#container').removeClass('hidden');
+   $('#stateContainer').removeClass('hidden');
+   $('#container').removeClass('hidden');
 
-      // ...
-   }
-
-   document.getElementById("container").innerHTML = '<div id="listContainer" class="rounded-border listContainer"</div>>';
+   document.getElementById("container").innerHTML = '<div id="listContainer" class="rounded-border listContainer"</div>';
    var root = document.getElementById("listContainer");
 
-   // deamon state
+   // state
 
-   var rootState = document.getElementById("stateContainer");
-   var html = "";
+   document.getElementById("stateContainer").innerHTML =
+      '<div id="stateContainerDaemon" class="rounded-border daemonState"></div>';
+
+   // daemon state
+
+   var rootStateP4 = document.getElementById("stateContainerDaemon");
 
    if (daemonState.state != null && daemonState.state == 0)
    {
-      html +=  '<div id="aStateOk"><span style="text-align: center;">' + pageTitle + ' ONLINE</span></div><br/>';
-      html +=  "<div><span>Läuft seit:</span><span>" + daemonState.runningsince + "</span>       </div>\n";
-      html +=  "<div><span>Version:</span> <span>" + daemonState.version + "</span></div>\n";
-      html +=  "<div><span>CPU-Last:</span><span>" + daemonState.average0 + " " + daemonState.average1 + " "  + daemonState.average2 + " " + "</span>           </div>\n";
+      html =  '<div id="aStateOk"><span style="text-align: center;">Heating Control ONLINE</span></div>';
+      html +=  '<br/>\n';
+      html +=  '<div style="display:flex;"><span style="width:30%;display:inline-block;">Läuft seit:</span><span display="inline-block">' + daemonState.runningsince + '</span></div>\n';
+      html +=  '<div style="display:flex;"><span style="width:30%;display:inline-block;">Version:</span> <span display="inline-block">' + daemonState.version + '</span></div>\n';
+      html +=  '<div style="display:flex;"><span style="width:30%;display:inline-block;">CPU-Last:</span><span display="inline-block">' + daemonState.average0 + " " + daemonState.average1 + ' '  + daemonState.average2 + ' ' + '</span></div>\n';
    }
    else
    {
-      html += '<div id="aStateFail">ACHTUNG:<br/>' + pageTitle + ' OFFLINE</div>';
+      html = '<div id="aStateFail">ACHTUNG:<br/>Heating Control OFFLINE</div>\n';
    }
 
-   rootState.innerHTML = "";
-   var elem = document.createElement("div");
-   elem.className = "rounded-border daemonState";
-   elem.innerHTML = html;
-   rootState.appendChild(elem);
+   rootStateP4.innerHTML = html;
 
    // clean page content
 
@@ -55,84 +52,80 @@ function initList(update = false)
 
    var elem = document.createElement("div");
    elem.className = "chartTitle rounded-border";
-   elem.innerHTML = "<center id=\"refreshTime\" \>";
-   root.appendChild(elem);
 
    // build page content
 
-   for (var i = 0; i < allWidgets.length; i++)
-   {
-      var html = "";
-      var widget = allWidgets[i];
-      var id = "id=\"widget" + widget.type + widget.address + "\"";
-      var fact = valueFacts[widget.type + ":" + widget.address];
+   for (var key in allSensors) {
+      var sensor = allSensors[key];
+      var elemId = key.replace(':', '_'); // don't know why but : not working for image :o
+      var fact = valueFacts[key];
 
-      if (fact == null || fact == undefined) {
-         console.log("Fact for widget '" + widget.type + ":" + widget.address + "' not found, ignoring");
+      if (fact == null) {
+         console.log("Fact for sensor '" + key + "' not found, ignoring");
          continue;
       }
 
-      var title = fact.usrtitle != '' && fact.usrtitle != undefined ? fact.usrtitle : fact.title;
+      var title = fact.usrtitle != '' && fact.usrtitle != null ? fact.usrtitle : fact.title;
+      var html = "";
 
-      if (fact.widget.widgettype == 1 || fact.widget.widgettype == 3) {      // 1 Gauge or 3 Value
-         html += "<span class=\"listFirstCol\"" + id + ">" + widget.value.toFixed(2) + "&nbsp;" + fact.widget.unit;
-         html += "&nbsp; <p style=\"display:inline;font-size:12px;font-style:italic;\">(" + (widget.peak != null ? widget.peak.toFixed(2) : "  ") + ")</p>";
-         html += "</span>";
+      if (fact.widget.widgettype == 0) {                                             // Symbol
+         if (localStorage.getItem(storagePrefix + 'Rights') & fact.rights)
+            html += '   <div class="listFirstCol" onclick="toggleIo(' + fact.address + ",'" + fact.type + '\')"><img id="widget' + elemId + '"/></div>\n';
+         else
+            html += '   <div class="listFirstCol"><img id="widget' + elemId + '"/></div>\n';
       }
-      else if (fact.widget.widgettype == 0) {   // 0 Symbol
-         html += "   <div class=\"listFirstCol\" onclick=\"toggleIo(" + fact.address + ",'" + fact.type + "')\"><img " + id + "/></div>\n";
+      else if (fact.widget.widgettype == 2 || fact.widget.widgettype == 8) {         // Text, Choice
+         html += '<div class="listFirstCol" id="widget' + elemId + '"></div>';
       }
-      else {   // 2 Text
-         html += "<div class=\"listFirstCol\"" + id + "></div>";
+      else {
+         html += '<span class="listFirstCol" id=widget' + elemId + '">' + (sensor.value ? sensor.value.toFixed(2) : '-') + '&nbsp;' + fact.widget.unit;
+         html += '&nbsp; <p style="display:inline;font-size:12px;font-style:italic;">(' + (sensor.peak != null ? sensor.peak.toFixed(2) : '  ') + ')</p>';
+         html += '</span>';
       }
 
-      html += "<span class=\"listSecondCol listText\" >" + title + "</span>";
+      html += '<span class="listSecondCol listText" >' + title + '</span>';
 
-      var elem = document.createElement("div");
-      elem.className = "listRow";
+      var elem = document.createElement('div');
+      elem.className = 'listRow';
       elem.innerHTML = html;
       root.appendChild(elem);
    }
 
-   updateList(allWidgets);
+   updateList();
 }
 
-function updateList(widgets)
+function updateList()
 {
-   var d = new Date();     // #TODO use SP:0x4 instead of Date()
-   document.getElementById("refreshTime").innerHTML = "Messwerte von " + d.toLocaleTimeString();
+   for (var key in allSensors) {
+      var sensor = allSensors[key];
+      var fact = valueFacts[key];
 
-   for (var i = 0; i < widgets.length; i++)
-   {
-      var widget = widgets[i];
-      var fact = valueFacts[widget.type + ":" + widget.address];
-
-      if (fact == null || fact == undefined) {
-         console.log("Fact for widget '" + widget.type + ":" + widget.address + "' not found, ignoring");
+      if (fact == null) {
+         console.log("Fact for widget '" + key + "' not found, ignoring");
          continue;
       }
 
-      var id = "#widget" + fact.type + fact.address;
+      var elemId = "#widget" + key.replace(':', '_');
 
       if (fact.widget.widgettype == 1 || fact.widget.widgettype == 3) {
-         var peak = widget.peak != null ? widget.peak.toFixed(2) : "  ";
-         $(id).html(widget.value.toFixed(2) + "&nbsp;" + fact.widget.unit +
-                    "&nbsp; <p style=\"display:inline;font-size:12px;font-style:italic;\">(" + peak + ")</p>");
+         var peak = sensor.peak != null ? sensor.peak.toFixed(2) : "  ";
+         $(elemId).html(sensor.value.toFixed(2) + "&nbsp;" + fact.widget.unit +
+                        "&nbsp; <p style=\"display:inline;font-size:12px;font-style:italic;\">(" + peak + ")</p>");
       }
       else if (fact.widget.widgettype == 0) {   // Symbol
-         var image = widget.value != 0 ? fact.widget.imgon : fact.widget.imgoff;
-         $(id).attr("src", image);
+         var image = sensor.value != 0 ? fact.widget.imgon : fact.widget.imgoff;
+         $(elemId).attr("src", image);
       }
       else if (fact.widget.widgettype == 2 || fact.widget.widgettype == 7) {   // Text, PlainText
-         $(id).html(widget.text);
+         $(elemId).html(sensor.text);
       }
       else {
-         if (widget.value == undefined)
-            console.log("Missing value for " + widget.type + ":" + widget.address);
+         if (sensor.value == null)
+            console.log("Missing value for " + key);
          else
-            $(id).html(widget.value.toFixed(0));
+            $(elemId).html(sensor.value.toFixed(0));
       }
 
-      // console.log(i + ") " + fact.widget.widgettype + " : " + title + " / " + widget.value + "(" + id + ")");
+      // console.log(i + ") " + fact.widget.widgettype + " : " + title + " / " + sensor.value + "(" + id + ")");
    }
 }

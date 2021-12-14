@@ -5,7 +5,7 @@
 
 include Make.config
 
-HISTFILE       = "HISTORY.h"
+HISTFILE = "HISTORY.h"
 
 LIBS += $(shell mysql_config --libs_r) -lrt -lcrypto -lcurl -lpthread -luuid
 
@@ -27,11 +27,15 @@ MQTTOBJS     = lib/mqtt.o lib/mqtt_c.o lib/mqtt_pal.o
 OBJS         = $(MQTTOBJS) $(LOBJS) main.o daemon.o wsactions.o gpio.o hass.o websock.o pysensor.o
 
 CFLAGS    	+= $(shell mysql_config --include)
-OBJS      	+= specific.o
-W1OBJS      = w1.o lib/common.o lib/thread.o $(MQTTOBJS)
+OBJS        += specific.o
+W1OBJS       = w1.o lib/common.o lib/thread.o $(MQTTOBJS)
 
 ifdef WIRINGPI
   LIBS += -lwiringPi
+endif
+
+ifdef TEST_MODE
+	DEFINES += -D__TEST
 endif
 
 ifdef GIT_REV
@@ -42,7 +46,7 @@ endif
 
 all: $(TARGET) $(W1TARGET) $(ARDUINO_IF_CMD)
 
-$(TARGET) : $(OBJS) $(W1TARGET)
+$(TARGET) : $(OBJS)
 	$(doLink) $(OBJS) $(LIBS) -o $@
 
 $(W1TARGET): $(W1OBJS)
@@ -62,23 +66,23 @@ install-daemon: install-config install-scripts
 	install --mode=755 -D $(W1TARGET) $(BINDEST)/
 	make install-systemd
 	mkdir -p $(DESTDIR)$(PREFIX)/share/$(TARGET)/
-	@echo installed
 #	install --mode=644 -D arduino/build-nano-atmega328/ioctrl.hex $(DESTDIR)$(PREFIX)/share/$(TARGET)/nano-atmega328-ioctrl.hex
 
-inst_restart: $(TARGET) install-config # install-scripts
-	systemctl stop $(TARGET)
-	@cp -p $(TARGET) $(BINDEST)
-	systemctl start $(TARGET)
+restart: $(TARGET) install
+	systemctl restart $(TARGET)
 
 install-systemd:
 	@echo install systemd
 	cat contrib/daemon.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | sed s:"<TARGET>":"$(TARGET)":g | sed s:"<CLASS>":"$(CLASS)":g |install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/$(TARGET).service
 	cat contrib/w1mqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/w1mqtt.service
+	install --mode=755 -D contrib/mosquitto-log.service $(SYSTEMDDEST)/
 	chmod a+r $(SYSTEMDDEST)/$(TARGET).service
 	chmod a+r $(SYSTEMDDEST)/w1mqtt.service
    ifeq ($(DESTDIR),)
 	   systemctl daemon-reload
 	   systemctl enable $(TARGET)
+	   systemctl enable $(W1TARGET)
+	   systemctl enable mosquitto-log.service
    endif
 
 install-config:
@@ -89,6 +93,8 @@ install-config:
 	   chmod a+rx $(CONFDEST); \
 	fi
 	install --mode=755 -D ./configs/sysctl $(CONFDEST)/scripts.d
+	install --mode=755 -D ./configs/example.sh $(CONFDEST)/scripts.d
+	install --mode=755 -D ./configs/sensorExample.py $(CONFDEST)/scripts.d
 	if ! test -f $(DESTDIR)/etc/msmtprc; then \
 	   install --mode=644 -D ./configs/msmtprc $(DESTDIR)/etc/; \
 	fi
@@ -112,7 +118,7 @@ install-scripts:
 	   chmod a+rx $(BINDEST); \
 	fi
 	for f in ./scripts/*.sh; do \
-		cp -v "$$f" $(BINDEST)/$(TARGET)-`basename "$$f"`; \
+		cp -v "$$f" $(BINDEST)/`basename "$$f"`; \
 	done
 
 iw: install-web
@@ -150,7 +156,7 @@ clean-install:
 
 activate: install
 	systemctl restart $(TARGET)
-	tail -f /var/log/$(TARGET).log
+#	tail -f /var/log/$(TARGET).log
 
 cppchk:
 	cppcheck --template="{file}:{line}:{severity}:{message}" --language=c++ --force *.c *.h
@@ -160,7 +166,7 @@ upload:
 
 build-deb:
 	rm -rf $(DEB_DEST)
-	make -s install-$(TARGET) DESTDIR=$(DEB_DEST) PREFIX=/usr INIT_AFTER=mysql.service
+	make -s install-daemon DESTDIR=$(DEB_DEST) PREFIX=/usr INIT_AFTER=mysql.service
 	make -s install-web DESTDIR=$(DEB_DEST) PREFIX=/usr
 	dpkg-deb --build $(DEB_BASE_DIR)/$(TARGET)-$(VERSION)
 

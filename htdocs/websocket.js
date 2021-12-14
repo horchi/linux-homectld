@@ -10,7 +10,6 @@
    });
 */
 
-
 // export default function WebSocketClient(opt)
 
 window.WebSocketClient = function(opt)

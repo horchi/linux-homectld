@@ -1,7 +1,7 @@
 /**
  *  websock.c
  *
- *  (c) 2017-2020 Jörg Wendel
+ *  (c) 2017-2021 Jörg Wendel
  *
  * This code is distributed under the terms and conditions of the
  * GNU GENERAL PUBLIC LICENSE. See the file COPYING for details.
@@ -15,10 +15,11 @@
 
 #include "websock.h"
 
-int cWebSock::wsLogLevel {LLL_ERR | LLL_WARN}; // LLL_INFO | LLL_NOTICE | LLL_WARN | LLL_ERR
+// LLL_ERR | LLL_WARN | LLL_NOTICE | LLL_INFO | LLL_DEBUG | LLL_PARSER |
+// LLL_HEADER | LLL_EXT | LLL_CLIENT | LLL_LATENCY | LLL_USER | LLL_THREAD
+
+int cWebSock::wsLogLevel {LLL_ERR | LLL_WARN};
 lws_context* cWebSock::context {nullptr};
-char* cWebSock::msgBuffer {nullptr};
-int cWebSock::msgBufferSize {0};
 int cWebSock::timeout {0};
 cWebSock::MsgType cWebSock::msgType {mtNone};
 std::map<void*,cWebSock::Client> cWebSock::clients;
@@ -27,61 +28,6 @@ cMyMutex cWebSock::clientsMutex;
 char* cWebSock::httpPath {nullptr};
 
 cWebInterface* cWebSock::singleton {nullptr};
-
-//***************************************************************************
-// Web Service
-//***************************************************************************
-
-const char* cWebService::events[] =
-{
-   "unknown",
-   "login",
-   "logout",
-   "pagechange",
-   "data",
-   "init",
-   "toggleio",
-   "toggleionext",
-   "togglemode",
-   "storeconfig",
-   "gettoken",
-   "setup",
-   "storeiosetup",
-   "chartdata",
-   "logmessage",
-   "userdetails",
-   "storeuserconfig",
-   "changepasswd",
-   "reset",
-   "groupconfig",
-   "chartbookmarks",
-   "storechartbookmarks",
-   "sendmail",
-   "syslog",
-   "forcerefresh",
-
-   0
-};
-
-const char* cWebService::toName(Event event)
-{
-   if (event >= evUnknown && event < evCount)
-      return events[event];
-
-   return events[evUnknown];
-}
-
-cWebService::Event cWebService::toEvent(const char* name)
-{
-   if (!name)
-      return evUnknown;
-
-   for (int e = evUnknown; e < evCount; e++)
-      if (strcasecmp(name, events[e]) == 0)
-         return (Event)e;
-
-   return evUnknown;
-}
 
 //***************************************************************************
 // Web Socket
@@ -96,12 +42,12 @@ cWebSock::cWebSock(cWebInterface* aProcess, const char* aHttpPath)
 cWebSock::~cWebSock()
 {
    exit();
-
+   free(certFile);
+   free(certKeyFile);
    free(httpPath);
-   free(msgBuffer);
 }
 
-int cWebSock::init(int aPort, int aTimeout)
+int cWebSock::init(int aPort, int aTimeout, const char* confDir, bool ssl)
 {
    lws_context_creation_info info {0};
 
@@ -120,7 +66,8 @@ int cWebSock::init(int aPort, int aTimeout)
    protocols[1].name = singleton->myName();
    protocols[1].callback = callbackWs;
    protocols[1].per_session_data_size = 0;
-   protocols[1].rx_buffer_size = 80*1024;
+   protocols[1].rx_buffer_size = 128*1024;
+   protocols[1].tx_packet_size = 0;
 
    protocols[2].name = 0;
    protocols[2].callback = 0;
@@ -129,22 +76,32 @@ int cWebSock::init(int aPort, int aTimeout)
 
    // mounts
 
+   bool noStore {false};       // for debugging on iOS
    lws_http_mount mount {0};
 
    mount.mount_next = (lws_http_mount*)nullptr;
    mount.mountpoint = "/";
    mount.origin = httpPath;
    mount.mountpoint_len = 1;
-   mount.cache_max_age = true ? 86400 : 604800;
-   mount.cache_reusable = 1;
-   mount.cache_revalidate = true ? 1 : 0;
+   mount.cache_max_age = noStore ? 0 : 86400;
+   mount.cache_reusable = !noStore;       // 0 => no-store
+   mount.cache_revalidate = 1;
    mount.cache_intermediaries = 1;
+
+#ifdef LWS_FEATURE_MOUNT_NO_CACHE
+   mount.cache_no = noStore ? 0 : 1;
+#endif
    mount.origin_protocol = LWSMPRO_FILE;
+   mount.basic_auth_login_file = nullptr;
    mounts[0] = mount;
 
    // setup websocket context info
 
    memset(&info, 0, sizeof(info));
+   info.options = 0;
+   info.mounts = mounts;
+   info.gid = -1;
+   info.uid = -1;
    info.port = port;
    info.protocols = protocols;
 #if defined (LWS_LIBRARY_VERSION_MAJOR) && (LWS_LIBRARY_VERSION_MAJOR < 4)
@@ -153,6 +110,19 @@ int cWebSock::init(int aPort, int aTimeout)
    info.ssl_cert_filepath = nullptr;
    info.ssl_private_key_filepath = nullptr;
 
+   if (ssl)
+   {
+      free(certFile);
+      free(certKeyFile);
+      asprintf(&certFile, "%s/" TARGET ".cert", confDir);
+      asprintf(&certKeyFile, "%s/" TARGET ".key", confDir);
+      tell(eloAlways, "Starting SSL mode with '%s' / '%s'", certFile, certKeyFile);
+
+      info.ssl_cert_filepath = certFile;
+      info.ssl_private_key_filepath = certKeyFile;
+      info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT; // | LWS_SERVER_OPTION_HTTP_HEADERS_SECURITY_BEST_PRACTICES_ENFORCE;
+   }
+
 #if defined (LWS_LIBRARY_VERSION_MAJOR) && (LWS_LIBRARY_VERSION_MAJOR >= 4)
    retry.secs_since_valid_ping = timeout;
    retry.secs_since_valid_hangup = timeout + 10;
@@ -160,11 +130,6 @@ int cWebSock::init(int aPort, int aTimeout)
 #else
    info.ws_ping_pong_interval = timeout;
 #endif
-
-   info.gid = -1;
-   info.uid = -1;
-   info.options = 0;
-   info.mounts = mounts;
 
    // create libwebsocket context representing this server
 
@@ -176,8 +141,8 @@ int cWebSock::init(int aPort, int aTimeout)
       return fail;
    }
 
-   tell(0, "Listener at port (%d) established", port);
-   tell(1, "using libwebsocket version '%s'", lws_get_library_version());
+   tell(0, "WebSocket Listener at port (%d) established", port);
+   tell(1, "Using libwebsocket version '%s'", lws_get_library_version());
 
    threadCtl.webSock = this;
    threadCtl.timeout = timeout;
@@ -194,7 +159,7 @@ int cWebSock::init(int aPort, int aTimeout)
 void cWebSock::writeLog(int level, const char* line)
 {
    std::string message = strReplace("\n", "", line);
-   tell(0, "WS: %s", message.c_str());
+   tell(0, "WS: (%d) %s", level, message.c_str());
 }
 
 int cWebSock::exit()
@@ -231,6 +196,8 @@ void* cWebSock::syncFct(void* user)
    ThreadControl* threadCtl = (ThreadControl*)user;
    threadCtl->active = true;
 
+   // tell(0, " :: started syncThread");
+
    while (!threadCtl->close)
    {
       service(threadCtl);
@@ -251,8 +218,7 @@ int cWebSock::service(ThreadControl* threadCtl)
    static time_t nextWebSocketPing {0};
 
 #if defined (LWS_LIBRARY_VERSION_MAJOR) && (LWS_LIBRARY_VERSION_MAJOR >= 4)
-   // timeout parameter is not supported by the lib anymore
-   lws_service(context, 0);
+   lws_service(context, 0);   // timeout parameter is not supported by the lib anymore
 #else
    lws_service(context, 100);
 #endif
@@ -274,7 +240,7 @@ int cWebSock::service(ThreadControl* threadCtl)
 
 int cWebSock::performData(MsgType type)
 {
-   int count = 0;
+   int count {0};
 
    cMyMutexLock lock(&clientsMutex);
 
@@ -349,7 +315,7 @@ int cWebSock::callbackHttp(lws* wsi, lws_callback_reasons reason, void* user, vo
 
       case LWS_CALLBACK_CLIENT_WRITEABLE:
       {
-         tell(2, "HTTP: Client writeable");
+         tell(4, "HTTP: Client writeable");
          break;
       }
 
@@ -382,7 +348,7 @@ int cWebSock::callbackHttp(lws* wsi, lws_callback_reasons reason, void* user, vo
          if (res < 0)
             tell(0, "Failed writing '%s'", sessionData->buffer+sizeLwsPreFrame);
          else
-            tell(2, "WROTE '%s' (%d)", sessionData->buffer+sizeLwsPreFrame, res);
+            tell(3, "WROTE '%s' (%d)", sessionData->buffer+sizeLwsPreFrame, res);
 
          free(sessionData->buffer);
          memset(sessionData, 0, sizeof(SessionData));
@@ -466,7 +432,11 @@ int cWebSock::callbackHttp(lws* wsi, lws_callback_reasons reason, void* user, vo
 #if LWS_LIBRARY_VERSION_MAJOR >= 3
       case LWS_CALLBACK_HTTP_CONFIRM_UPGRADE:
       case LWS_CALLBACK_EVENT_WAIT_CANCELLED:
+      case LWS_CALLBACK_HTTP_BODY_COMPLETION:
 #endif
+         break;
+      case LWS_CALLBACK_OPENSSL_LOAD_EXTRA_CLIENT_VERIFY_CERTS: // 21,
+      case LWS_CALLBACK_OPENSSL_LOAD_EXTRA_SERVER_VERIFY_CERTS: // 22,
          break;
 
       default:
@@ -541,51 +511,74 @@ int cWebSock::callbackWs(lws* wsi, lws_callback_reasons reason, void* user, void
          if (msgType == mtPing)
          {
             char buffer[sizeLwsFrame];
-
             tell(4, "DEBUG: Write 'PING' to '%s' (%p)", clientInfo.c_str(), (void*)wsi);
-               lws_write(wsi, (unsigned char*)buffer + sizeLwsPreFrame, 0, LWS_WRITE_PING);
+            lws_write(wsi, (unsigned char*)buffer + sizeLwsPreFrame, 0, LWS_WRITE_PING);
          }
 
          else if (msgType == mtData)
          {
-            while (!clients[wsi].messagesOut.empty() && !lws_send_pipe_choked(wsi))
+            if (!clients[wsi].msgBufferDataPending() && clients[wsi].messagesOut.empty())
+               return 0;
+            if (lws_send_pipe_choked(wsi))
+               return 0;
+
+            if (!clients[wsi].msgBufferDataPending() && !clients[wsi].messagesOut.empty())
             {
-               int res;
-               std::string msg;  // take a copy of the message for short mutex lock!
-
-               // mutex lock context
-               {
-                  cMyMutexLock clock(&clientsMutex);
-                  cMyMutexLock lock(&clients[wsi].messagesOutMutex);
-                  msg = clients[wsi].messagesOut.front();
-                  clients[wsi].messagesOut.pop();
-               }
-
-               int msgSize = strlen(msg.c_str());
+               cMyMutexLock clock(&clientsMutex);
+               cMyMutexLock lock(&clients[wsi].messagesOutMutex);
+               const char* msg = clients[wsi].messagesOut.front().c_str();
+               int msgSize = clients[wsi].messagesOut.front().length();
                int neededSize = sizeLwsFrame + msgSize;
-               char* newBuffer = 0;
+               unsigned char* newBuffer {nullptr};
 
-               if (neededSize > msgBufferSize)
+               if (neededSize > clients[wsi].msgBufferSize)
                {
-                  if (!(newBuffer = (char*)realloc(msgBuffer, neededSize)))
+                  // tell(0, "Debug: re-allocate buffer to %d bytes", neededSize);
+
+                  if (!(newBuffer = (unsigned char*)realloc(clients[wsi].msgBuffer, neededSize)))
                   {
-                     tell(0, "Fatal: Can't allocate memory!");
-                     break;
+                     // tell(0, "Fatal: Can't allocate memory!");
+                     return -1;
                   }
 
-                  msgBuffer = newBuffer;
-                  msgBufferSize = neededSize;
+                  clients[wsi].msgBuffer = newBuffer;
+                  clients[wsi].msgBufferSize = neededSize;
                }
 
-               strncpy(msgBuffer + sizeLwsPreFrame, msg.c_str(), msgSize);
+               strncpy((char*)clients[wsi].msgBuffer + sizeLwsPreFrame, msg, msgSize);
+               clients[wsi].msgBufferPayloadSize = msgSize;
+               clients[wsi].msgBufferSendOffset = 0;
+               clients[wsi].messagesOut.pop();  // remove sent message
 
-               tell(2, "DEBUG: Write (%d) -> %.*s -> to '%s' (%p)\n", msgSize, msgSize,
-                    msgBuffer+sizeLwsPreFrame, clientInfo.c_str(), (void*)wsi);
+               tell(2, "=> (%d) %.*s -> to '%s' (%p)\n", msgSize, msgSize,
+                    clients[wsi].msgBuffer+sizeLwsPreFrame, clientInfo.c_str(), (void*)wsi);
+            }
 
-               res = lws_write(wsi, (unsigned char*)msgBuffer + sizeLwsPreFrame, msgSize, LWS_WRITE_TEXT);
+            enum { maxChunk = 10*1024 };
 
-               if (res != msgSize)
-                  tell(0, "Error: Only (%d) bytes of (%d) sended", res, msgSize);
+            if (clients[wsi].msgBufferPayloadSize)
+            {
+               unsigned char* p = clients[wsi].msgBuffer + sizeLwsPreFrame + clients[wsi].msgBufferSendOffset;
+               int pending = clients[wsi].msgBufferPayloadSize - clients[wsi].msgBufferSendOffset;
+               int chunkSize = pending > maxChunk ? maxChunk : pending;
+               int flags = lws_write_ws_flags(LWS_WRITE_TEXT, !clients[wsi].msgBufferSendOffset, pending <= maxChunk);
+               int res = lws_write(wsi, p, chunkSize, (lws_write_protocol)flags);
+
+               if (res < 0)
+               {
+                  tell(0, "Error: lws_write chunk failed with (%d) to (%p) failed (%d) [%.*s]", res, (void*)wsi, chunkSize, chunkSize, p);
+                  return -1;
+               }
+
+               clients[wsi].msgBufferSendOffset += chunkSize;
+
+               if (clients[wsi].msgBufferSendOffset >= clients[wsi].msgBufferPayloadSize)
+               {
+                  clients[wsi].msgBufferPayloadSize = 0;
+                  clients[wsi].msgBufferSendOffset = 0;
+               }
+               else
+                  lws_callback_on_writable(wsi);
             }
          }
 
@@ -598,7 +591,7 @@ int cWebSock::callbackWs(lws* wsi, lws_callback_reasons reason, void* user, void
          json_error_t error;
          Event event;
 
-         tell(3, "DEBUG: 'LWS_CALLBACK_RECEIVE' [%.*s]", (int)len, (const char*)in);
+         tell(4, "DEBUG: 'LWS_CALLBACK_RECEIVE' [%.*s]", (int)len, (const char*)in);
 
          {
             cMyMutexLock lock(&clientsMutex);
@@ -610,7 +603,7 @@ int cWebSock::callbackWs(lws* wsi, lws_callback_reasons reason, void* user, void
 
             if (!lws_is_final_fragment(wsi))
             {
-               tell(3, "DEBUG: Got %zd bytes, have now %zd -> more to get", len, clients[wsi].buffer.length());
+               tell(4, "DEBUG: Got %zd bytes, have now %zd -> more to get", len, clients[wsi].buffer.length());
                break;
             }
 
@@ -632,7 +625,7 @@ int cWebSock::callbackWs(lws* wsi, lws_callback_reasons reason, void* user, void
          event = cWebService::toEvent(strEvent);
          oObject = json_object_get(oData, "object");
 
-         tell(3, "DEBUG: Got '%s'", message);
+         tell(3, "GOT '%s'", message);
 
          if (event == evLogin)                              // { "event" : "login", "object" : { "type" : "foo" } }
          {
@@ -640,7 +633,6 @@ int cWebSock::callbackWs(lws* wsi, lws_callback_reasons reason, void* user, void
          }
          else if (event == evLogout)                         // { "event" : "logout", "object" : { } }
          {
-            tell(3, "DEBUG: Got '%s'", message);
             clients[wsi].cleanupMessageQueue();
          }
          else if (event == evGetToken)                       // { "event" : "gettoken", "object" : { "user" : "" : "password" : md5 } }
@@ -696,7 +688,7 @@ int cWebSock::callbackWs(lws* wsi, lws_callback_reasons reason, void* user, void
 
       case LWS_CALLBACK_RECEIVE_PONG:                      // ping / pong
       {
-         tell(2, "DEBUG: Got 'PONG' from client '%s' (%p)", clientInfo.c_str(), (void*)wsi);
+         tell(4, "DEBUG: Got 'PONG' from client '%s' (%p)", clientInfo.c_str(), (void*)wsi);
          break;
       }
 

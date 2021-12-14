@@ -1,6 +1,6 @@
 //***************************************************************************
 // Automation Control
-// File womo.h
+// File specific.h
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
 // Date 16.04.2020 - Jörg Wendel
@@ -21,6 +21,7 @@ class Pool : public Daemon
       Pool();
       virtual ~Pool();
 
+      const char* myTitle() override { return "Pool"; }
       int init() override;
 
       enum PinMappings

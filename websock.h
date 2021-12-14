@@ -37,16 +37,25 @@ class cWebService
          evStoreIoSetup,
          evChartData,
          evLogMessage,
+
          evUserDetails,
          evStoreUserConfig,
          evChangePasswd,
+
          evReset,
+         evGroups,
          evGroupConfig,
          evChartbookmarks,
          evStoreChartbookmarks,
          evSendMail,
          evSyslog,
          evForceRefresh,
+         evStoreDashboards,
+         evAlerts,
+         evStoreAlerts,
+         evImageConfig,
+         evSchema,
+         evStoreSchema,
 
          evCount
       };
@@ -116,11 +125,23 @@ class cWebSock : public cWebService
 
       struct Client
       {
+         ~Client() { free(msgBuffer); }
+
          ClientType type;
          int tftprio;
          std::queue<std::string> messagesOut;
          cMyMutex messagesOutMutex;
          void* wsi;
+
+         // buffer to send the payload in chunks
+
+         unsigned char* msgBuffer {nullptr};
+         int msgBufferSize {0};
+         int msgBufferPayloadSize {0};
+         int msgBufferSendOffset {0};
+         bool msgBufferDataPending() { return msgBufferSendOffset < msgBufferPayloadSize; }
+
+         // push next message
 
          void pushMessage(const char* p)
          {
@@ -146,7 +167,7 @@ class cWebSock : public cWebService
       cWebSock(cWebInterface* aProcess, const char* aHttpPath);
       virtual ~cWebSock();
 
-      int init(int aPort, int aTimeout);
+      int init(int aPort, int aTimeout, const char* confDir, bool ssl = false);
       int exit();
 
       int performData(MsgType type);
@@ -181,6 +202,8 @@ class cWebSock : public cWebService
       //
 
       int port {na};
+      char* certFile {nullptr};
+      char* certKeyFile {nullptr};
       lws_protocols protocols[3];
       lws_http_mount mounts[1];
 #if defined (LWS_LIBRARY_VERSION_MAJOR) && (LWS_LIBRARY_VERSION_MAJOR >= 4)
@@ -214,9 +237,4 @@ class cWebSock : public cWebService
       static cMyMutex clientsMutex;
       static MsgType msgType;
       static std::map<std::string, std::string> htmlTemplates;
-
-      // only used in callback
-
-      static char* msgBuffer;
-      static int msgBufferSize;
 };

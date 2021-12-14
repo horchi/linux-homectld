@@ -3,7 +3,7 @@
 // File hass.c
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
-// Date 16.04.2020  Jörg Wendel
+// Date 04.11.2010 - 25.04.2020  Jörg Wendel
 //***************************************************************************
 
 #include <jansson.h>
@@ -15,8 +15,8 @@
 // Push Value to MQTT for Home Automation Systems
 //***************************************************************************
 
-int Daemon::hassPush(IoType iot, const char* name, const char* title, const char* unit,
-                     double value, const char* text, bool forceConfig)
+int Daemon::mqttHaPublishSensor(IoType iot, const char* name, const char* title, const char* unit,
+                                double value, const char* text, bool forceConfig)
 {
    // check/prepare reader/writer connection
 
@@ -38,10 +38,13 @@ int Daemon::hassPush(IoType iot, const char* name, const char* title, const char
    sName = strReplace("ä", "ae", sName);
    sName = strReplace(" ", "_", sName);
 
-   char* stateTopic {nullptr};
-   asprintf(&stateTopic, TARGET "2mqtt/%s/%s/state", iot == iotLight ? "light" : "sensor", sName.c_str());
+   // mqttDataTopic like "XXX2mqtt/<TYPE>/<NAME>/state"
 
-   if (!isEmpty(title))
+   std::string sDataTopic = mqttDataTopic;
+   sDataTopic = strReplace("<NAME>", sName, sDataTopic);
+   sDataTopic = strReplace("<TYPE>", iot == iotLight ? "light" : "sensor", sDataTopic);
+
+   if (mqttHaveConfigTopic && !isEmpty(title))
    {
       if (!mqttHassReader->isConnected())
          return fail;
@@ -49,14 +52,16 @@ int Daemon::hassPush(IoType iot, const char* name, const char* title, const char
       // Interface description:
       //   https://www.home-assistant.io/docs/mqtt/discovery/
 
-      mqttHassReader->subscribe(stateTopic);
+      mqttHassReader->subscribe(sDataTopic.c_str());
       status = mqttHassReader->read(&message, 100);
       tp = mqttHassReader->getLastReadTopic();
+
+      tell(eloDebug, "config topic '%s', state %d", tp.c_str(), status);
 
       if (status != success && status != Mqtt::wrnTimeout)
          return fail;
 
-      if (forceConfig || status == Mqtt::wrnTimeout)
+      if (forceConfig || status != success || !tp.length())
       {
          char* configTopic {nullptr};
          char* configJson {nullptr};
@@ -73,24 +78,26 @@ int Daemon::hassPush(IoType iot, const char* name, const char* title, const char
                   strcmp(unit, "T") == 0)
             unit = "";
 
-         tell(1, "Info: Sensor '%s' not found at home assistants MQTT, sendig config message", sName.c_str());
+         tell(1, "Info: Sensor '%s' not found at home assistants MQTT, "
+              "sendig config message", sName.c_str());
 
-         asprintf(&configTopic, "homeassistant/%s/pool/%s/config", iot == iotLight ? "light" : "sensor", sName.c_str());
+         asprintf(&configTopic, "homeassistant/%s/%s/%s/config",
+                  iot == iotLight ? "light" : "sensor", myTitle(), sName.c_str());
 
          if (iot == iotLight)
          {
-            char* cmdTopic;
+            char* cmdTopic {nullptr};
             asprintf(&cmdTopic, TARGET "2mqtt/light/%s/set", sName.c_str());
 
             asprintf(&configJson, "{"
                      "\"state_topic\"         : \"" TARGET "2mqtt/light/%s/state\","
                      "\"command_topic\"       : \"%s\","
-                     "\"name\"                : \"Pool %s\","
+                     "\"name\"                : \"%s %s\","
                      "\"unique_id\"           : \"%s_" TARGET "2mqtt\","
                      "\"schema\"              : \"json\","
                      "\"brightness\"          : \"false\""
                      "}",
-                     sName.c_str(), cmdTopic, title, sName.c_str());
+                     sName.c_str(), cmdTopic, myTitle(), title, sName.c_str());
 
             hassCmdTopicMap[cmdTopic] = name;
             free(cmdTopic);
@@ -101,10 +108,10 @@ int Daemon::hassPush(IoType iot, const char* name, const char* title, const char
                      "\"unit_of_measurement\" : \"%s\","
                      "\"value_template\"      : \"{{ value_json.value }}\","
                      "\"state_topic\"         : \"" TARGET "2mqtt/sensor/%s/state\","
-                     "\"name\"                : \"Pool %s\","
+                     "\"name\"                : \"%s %s\","
                      "\"unique_id\"           : \"%s_" TARGET "2mqtt\""
                      "}",
-                     unit, sName.c_str(), title, sName.c_str());
+                     unit, sName.c_str(), title, myTitle(), sName.c_str());
          }
 
          mqttHassWriter->writeRetained(configTopic, configJson);
@@ -113,7 +120,7 @@ int Daemon::hassPush(IoType iot, const char* name, const char* title, const char
          free(configJson);
       }
 
-      mqttHassReader->unsubscribe(stateTopic);
+      mqttHassReader->unsubscribe(sDataTopic.c_str());
    }
 
    // publish actual value
@@ -133,10 +140,9 @@ int Daemon::hassPush(IoType iot, const char* name, const char* title, const char
    else
       json_object_set_new(oValue, "value", json_real(value));
 
-   char* j = json_dumps(oValue, JSON_REAL_PRECISION(4));
-   mqttHassWriter->writeRetained(stateTopic, j);
-
-   free(stateTopic);
+   char* j = json_dumps(oValue, JSON_PRESERVE_ORDER); // |JSON_REAL_PRECISION(5));
+   mqttHassWriter->writeRetained(sDataTopic.c_str(), j);
+   json_decref(oValue);
 
    return success;
 }
@@ -151,47 +157,33 @@ int Daemon::hassPush(IoType iot, const char* name, const char* title, const char
 
 int Daemon::performMqttRequests()
 {
-   static time_t lastPoolRead {0};
+   static time_t lastMqttRead {0};
    static time_t lastMqttRecover {0};
 
-   if (!lastPoolRead)
-      lastPoolRead = time(0);
+   if (!lastMqttRead)
+      lastMqttRead = time(0);
 
    mqttCheckConnection();
 
    MemoryStruct message;
-   json_error_t error;
 
    if (!isEmpty(mqttHassUrl) && mqttHassCommandReader->isConnected())
    {
       if (mqttHassCommandReader->read(&message, 10) == success)
       {
+         json_error_t error;
          json_t* jData = json_loads(message.memory, 0, &error);
 
          if (!jData)
          {
-            tell(0, "Error: Can't parse json in '%s'", message.memory);
+            tell(0, "Error: Ignoring invalid json in '%s'", message.memory);
+            tell(0, "Error decoding json: %s (%s, line %d column %d, position %d)",
+                 error.text, error.source, error.line, error.column, error.position);
             return fail;
          }
 
          tell(eloAlways, "<- (%s) [%s]", mqttHassCommandReader->getLastReadTopic().c_str(), message.memory);
-
-         auto it = hassCmdTopicMap.find(mqttHassCommandReader->getLastReadTopic().c_str());
-
-         if (it != hassCmdTopicMap.end())
-         {
-            for (auto itOutput = digitalOutputStates.begin(); itOutput != digitalOutputStates.end(); ++itOutput)
-            {
-               const char* s = getStringFromJson(jData, "state", "");
-               int state = strcmp(s, "ON") == 0;
-
-               if (strcmp(it->second.c_str(), itOutput->second.name) == 0)
-               {
-                  gpioWrite(itOutput->first, state);
-                  break;
-               }
-            }
-         }
+         dispatchMqttHaCommandRequest(jData, mqttHassCommandReader->getLastReadTopic().c_str());
       }
    }
 
@@ -204,25 +196,50 @@ int Daemon::performMqttRequests()
          if (isEmpty(message.memory))
             continue;
 
-         lastPoolRead = time(0);
+         lastMqttRead = time(0);
 
          std::string tp = mqttReader->getLastReadTopic();
          tell(eloAlways, "<- (%s) [%s] retained %d", tp.c_str(), message.memory, mqttReader->isRetained());
 
-         if (strcmp(tp.c_str(), TARGET "2mqtt/w1") == 0)
+         if (strcmp(tp.c_str(), TARGET "2mqtt/w1/ping") == 0)
+            ;
+         else if (strcmp(tp.c_str(), TARGET "2mqtt/w1") == 0)
             dispatchW1Msg(message.memory);
          else if (strcmp(tp.c_str(), TARGET "2mqtt/arduino/out") == 0)
             dispatchArduinoMsg(message.memory);
       }
    }
 
+   if (!isEmpty(mqttNodeRedUrl) && mqttNodeRedReader->isConnected())
+   {
+      while (mqttNodeRedReader->read(&message, 10) == success)
+      {
+         if (isEmpty(message.memory))
+            continue;
+
+         tell(eloAlways, "<- (node-red) [%s]", message.memory);
+
+         json_error_t error;
+         json_t* jData = json_loads(message.memory, 0, &error);
+
+         if (!jData)
+         {
+            tell(0, "Error: Ignoring invalid json in '%s'", message.memory);
+            tell(0, "Error decoding json: %s (%s, line %d column %d, position %d)",
+                 error.text, error.source, error.line, error.column, error.position);
+            return fail;
+         }
+
+         dispatchNodeRedCommand(jData);
+      }
+   }
+
    // last successful W1 read at least in last 5 minutes?
 
-   if (lastPoolRead < time(0)-300 && lastMqttRecover < time(0)-60)
+   if (lastMqttRead < time(0)-300 && lastMqttRecover < time(0)-60)
    {
       lastMqttRecover = time(0);
-      tell(eloAlways, "Error: No update from poolMQTT since '%s', "
-           "disconnect from MQTT to force recover", l2pTime(lastPoolRead).c_str());
+      tell(eloAlways, "Info: No update from MQTT since '%s', disconnect from MQTT to force recover", l2pTime(lastMqttRead).c_str());
       mqttDisconnect();
    }
 
@@ -230,17 +247,21 @@ int Daemon::performMqttRequests()
 }
 
 //***************************************************************************
-// Check MQTT Connection
+// Check MQTT Disconnect
 //***************************************************************************
 
 int Daemon::mqttDisconnect()
 {
    if (mqttReader)               mqttReader->disconnect();
+   if (mqttNodeRedReader)        mqttNodeRedReader->disconnect();
+   if (mqttNodeRedWriter)        mqttNodeRedWriter->disconnect();
    if (mqttHassCommandReader)    mqttHassCommandReader->disconnect();
    if (mqttHassWriter)           mqttHassWriter->disconnect();
    if (mqttHassReader)           mqttHassReader->disconnect();
 
    delete mqttReader;            mqttReader = nullptr;
+   delete mqttNodeRedReader;     mqttNodeRedReader = nullptr;
+   delete mqttNodeRedWriter;     mqttNodeRedWriter = nullptr;
    delete mqttHassCommandReader; mqttHassCommandReader = nullptr;
    delete mqttHassWriter;        mqttHassWriter = nullptr;
    delete mqttHassReader;        mqttHassReader = nullptr;
@@ -259,6 +280,12 @@ int Daemon::mqttCheckConnection()
    if (!mqttReader)
       mqttReader = new Mqtt();
 
+   if (!mqttNodeRedReader)
+      mqttNodeRedReader = new Mqtt();
+
+   if (!mqttNodeRedWriter)
+      mqttNodeRedWriter = new Mqtt();
+
    if (!mqttHassCommandReader)
       mqttHassCommandReader = new Mqtt();
 
@@ -272,6 +299,12 @@ int Daemon::mqttCheckConnection()
       renonnectNeeded = true;
 
    if (!isEmpty(mqttUrl) && !mqttReader->isConnected())
+      renonnectNeeded = true;
+
+   if (!isEmpty(mqttNodeRedUrl) && !mqttNodeRedReader->isConnected())
+      renonnectNeeded = true;
+
+   if (!isEmpty(mqttNodeRedUrl) && !mqttNodeRedWriter->isConnected())
       renonnectNeeded = true;
 
    if (!renonnectNeeded)
@@ -326,12 +359,152 @@ int Daemon::mqttCheckConnection()
          }
          else
          {
-            mqttReader->subscribe(TARGET "2mqtt/w1");
-            tell(0, "MQTT: Connecting subscriber to '%s' - '%s' succeeded", mqttUrl, TARGET "2mqtt/w1");
+            mqttReader->subscribe(TARGET "2mqtt/w1/#");
+            tell(0, "MQTT: Connecting subscriber to '%s' - '%s' succeeded", mqttUrl, TARGET "2mqtt/w1/#");
             mqttReader->subscribe(TARGET "2mqtt/arduino/out");
             tell(0, "MQTT: Connecting subscriber to '%s' - '%s' succeeded", mqttUrl, TARGET "2mqtt/arduino/out");
          }
       }
+   }
+
+   if (!isEmpty(mqttNodeRedUrl))
+   {
+      if (!mqttNodeRedReader->isConnected())
+      {
+         if (mqttNodeRedReader->connect(mqttNodeRedUrl) != success)
+         {
+            tell(0, "Error: MQTT: Connecting node-red subscriber to '%s' failed", mqttNodeRedUrl);
+         }
+         else
+         {
+            mqttNodeRedReader->subscribe(TARGET "2mqtt/command/#");
+            tell(0, "MQTT: Connecting node-red subscriber to '%s' - '%s' succeeded", mqttNodeRedUrl, TARGET "2mqtt/command/#");
+         }
+      }
+
+      if (!mqttNodeRedWriter->isConnected())
+      {
+         if (mqttNodeRedWriter->connect(mqttNodeRedUrl) != success)
+            tell(0, "Error: MQTT: Connecting node-red publisher to '%s' failed", mqttNodeRedUrl);
+         else
+            tell(0, "MQTT: Connecting node-red publisher to '%s' succeeded", mqttNodeRedUrl);
+      }
+   }
+
+   return success;
+}
+
+//***************************************************************************
+// MQTT Write (to Home Automation Systems)
+//***************************************************************************
+
+int Daemon::mqttHaWrite(json_t* obj, uint groupid)
+{
+   std::string sDataTopic = mqttDataTopic;
+
+   // check/prepare connection
+
+   if (mqttCheckConnection() != success)
+      return fail;
+
+   char* message = json_dumps(obj, JSON_REAL_PRECISION(4));
+   tell(3, "Debug: JSON: [%s]", message);
+
+   if (mqttInterfaceStyle == misGroupedTopic)
+      sDataTopic = strReplace("<GROUP>", groups[groupid].name, sDataTopic);
+
+   int status = mqttHassWriter->write(sDataTopic.c_str(), message);
+   free(message);
+
+   return status;
+}
+
+//***************************************************************************
+// Publish to Node-Red (on change)
+//***************************************************************************
+
+int Daemon::mqttNodeRedPublishSensor(const char* type, uint address, IoType iot, const char* name,
+                                     const char* title, const char* unit, double value, const char* text)
+{
+   if (!mqttNodeRedWriter || !mqttNodeRedWriter->isConnected())
+       return done;
+
+   json_t* oJson = json_object();
+
+   char* key {nullptr};
+   asprintf(&key, "%s:0x%02x", type, address);
+   json_object_set_new(oJson, "id", json_string(key));
+   json_object_set_new(oJson, "type", json_string(type));
+   json_object_set_new(oJson, "address", json_integer(address));
+
+   if (iot == iotLight)
+      json_object_set_new(oJson, "state", json_string(value ? "on" : "off"));
+   else
+      json_object_set_new(oJson, "value", json_real(value));
+
+   char* message = json_dumps(oJson, JSON_REAL_PRECISION(4));
+   tell(2, "Debug: -> node-red (%s) [%s]", TARGET "2mqtt/changes", message);
+
+   int status = mqttNodeRedWriter->write(TARGET "2mqtt/changes", message);
+   free(message);
+
+   return status;
+}
+
+//***************************************************************************
+// Json Add Value
+//***************************************************************************
+
+int Daemon::jsonAddValue(json_t* obj, const char* name, const char* title, const char* unit,
+                         double theValue, uint groupid, const char* text, bool forceConfig)
+{
+   std::string sName = name;
+   bool newGroup {false};
+   json_t* oGroup {nullptr};
+   json_t* oSensor = json_object();
+
+   if (mqttInterfaceStyle == misSingleTopic)
+   {
+      oGroup = json_object_get(obj, groups[groupid].name.c_str());
+
+      if (!oGroup)
+      {
+         oGroup = json_object();
+         newGroup = true;
+      }
+   }
+
+   sName = strReplace("ß", "ss", sName);
+   sName = strReplace("ü", "ue", sName);
+   sName = strReplace("ö", "oe", sName);
+   sName = strReplace("ä", "ae", sName);
+
+   if (!isEmpty(text))
+      json_object_set_new(oSensor, "value", json_string(text));
+   else
+      json_object_set_new(oSensor, "value", json_real(theValue));
+
+   if (strcmp(unit, "°") == 0)
+      unit = "°C";
+
+   // create json
+
+   if (forceConfig)
+   {
+      json_object_set_new(oSensor, "unit", json_string(unit));
+      json_object_set_new(oSensor, "description", json_string(title));
+   }
+
+   if (oGroup)
+   {
+      json_object_set_new(oGroup, sName.c_str(), oSensor);
+
+      if (newGroup)
+         json_object_set_new(obj, groups[groupid].name.c_str(), oGroup);
+   }
+   else
+   {
+      json_object_set_new(obj, sName.c_str(), oSensor);
    }
 
    return success;

@@ -3,7 +3,7 @@
 - wenn Pumpe > x Minuten Aus PH blass anzeigen,
   die Berechung des Ph-Minus stoppen und Säurepumpe deaktivieren
 
-- Kontrolle der Säurepunpe in Arduino implementieren
+- Kontrolle der Säurepumpe in Arduino implementieren
   -> dazu Json Command mit Laufzeit vom Raspi senden
   - Not Begrenzung der Laufzeit im Raspi
 

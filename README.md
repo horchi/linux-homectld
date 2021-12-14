@@ -176,7 +176,7 @@ if the database is running remote, or you like to have remote access to the data
 
 ```
 apt install build-essential cmake libssl-dev libxml2-dev libcurl4-openssl-dev uuid-dev libcap-dev
-apt install libjansson-dev libssl-dev libmariadbclient-dev libmariadb-dev-compat wiringpi
+apt install libjansson-dev libssl-dev libmariadbclient-dev libmariadb-dev-compat python3-dev wiringpi
 ```
 
 ### get and install libwebsock

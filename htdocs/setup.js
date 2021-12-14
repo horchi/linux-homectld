@@ -8,10 +8,13 @@
  *
  */
 
+var configCategories = {};
+var ioSections = {};
+var theConfiguration = null;
+
 function initConfig(configuration)
 {
    $('#container').removeClass('hidden');
-
    $("#container").height($(window).height() - $("#menu").height() - 8);
 
    window.onresize = function() {
@@ -24,6 +27,14 @@ function initConfig(configuration)
    var root = document.getElementById("setupContainer");
    var lastCat = "";
    root.innerHTML = "";
+   theConfiguration = configuration;
+
+   $('#btnInitMenu').bind('click', function(event) {
+      if (event.ctrlKey)
+         initTables('menu-force');
+      else
+         initTables('menu');
+   });
 
    // console.log(JSON.stringify(configuration, undefined, 4));
 
@@ -31,20 +42,25 @@ function initConfig(configuration)
       return a.category.localeCompare(b.category);
    });
 
-   for (var i = 0; i < configuration.length; i++)
-   {
+   for (var i = 0; i < configuration.length; i++) {
       var item = configuration[i];
       var html = "";
 
-      if (lastCat != item.category)
-      {
-         html += "<div class=\"rounded-border seperatorTitle1\">" + item.category + "</div>";
+      if (lastCat != item.category) {
+         if (!configCategories.hasOwnProperty(item.category))
+            configCategories[item.category] = true;
+
+         var sign = configCategories[item.category] ? '&#11013;' : '&#11015;';
+         html += '<div class="rounded-border seperatorFold" onclick="foldCategory(\'' + item.category + '\')">' + sign + ' ' + item.category + "</div>";
          var elem = document.createElement("div");
          elem.innerHTML = html;
          root.appendChild(elem);
          html = "";
          lastCat = item.category;
       }
+
+      if (!configCategories[item.category])
+         continue;
 
       html += "    <span>" + item.title + ":</span>\n";
 
@@ -113,14 +129,25 @@ function initConfig(configuration)
          html += '<span>\n';
          html += '  <select id="input_' + item.name + '" class="rounded-border input" name="style">\n';
 
+         if (item.options != null) {
          for (var o = 0; o < item.options.length; o++) {
             var option = item.options[o];
             var sel = item.value == option ? 'SELECTED' : '';
             html += '    <option value="' + option + '" ' + sel + '>' + option + '</option>\n';
          }
+         }
 
          html += '  </select>\n';
          html += '</span>\n';
+         break;
+
+      case 6:    // MultiSelect
+         html += '<span style="width:75%;">\n';
+         html += '  <input style="width:inherit;" class="rounded-border input" ' +
+            ' id="mselect_' + item.name + '" data-index="' + i +
+            '" data-value="' + item.value + '" type="text" value=""/>\n';
+         html += '</span>\n';
+
          break;
       }
 
@@ -128,6 +155,23 @@ function initConfig(configuration)
       elem.innerHTML = html;
       root.appendChild(elem);
    }
+
+   $('input[id^="mselect_"]').each(function () {
+      var item = configuration[$(this).data("index")];
+      $(this).autocomplete({
+         source: item.options,
+         multiselect: true});
+      if ($(this).data("value").trim() != "") {
+         // console.log("set", $(this).data("value"));
+         setAutoCompleteValues($(this), $(this).data("value").trim().split(","));
+      }
+   });
+}
+
+function initTables(what)
+{
+   showProgressDialog();
+   socket.send({ "event" : "inittables", "object" : { "action" : what } });
 }
 
 function storeConfig()
@@ -165,6 +209,17 @@ function storeConfig()
          jsonObj[name] = toTimeRangesString("range_" + name);
          // console.log("value: " + jsonObj[name]);
       }
+   }
+
+   // data type 6 - 'MultiSelect' -> as string
+
+   var elements = rootConfig.querySelectorAll("[id^='mselect_']");
+
+   for (var i = 0; i < elements.length; i++) {
+      var name = elements[i].id.substring(elements[i].id.indexOf("_") + 1);
+      var value = getAutoCompleteValues($("#mselect_" + name));
+      value = value.replace(/ /g, ',');
+      jsonObj[name] = value;
    }
 
    // console.log(JSON.stringify(jsonObj, undefined, 4));
@@ -205,12 +260,36 @@ function filterIoSetup()
 
    $("#filterIoSetup").html(filterActive ? "[aktive]" : "[alle]");
    initIoSetup(valueFacts);
-   // socket.send({ "event" : "iosetup", "object" : { "filter" : filterActive } });
 }
 
-function tableHeadline(title, id)
+function doIncrementalFilterIoSetup()
 {
-   return '  <div class="rounded-border seperatorTitle1">' + title + '</div>' +
+   initIoSetup(valueFacts);
+}
+
+function foldCategory(category)
+{
+   configCategories[category] = !configCategories[category];
+   console.log(category + ' : ' + configCategories[category]);
+   initConfig(theConfiguration)
+}
+
+function foldSection(sectionId)
+{
+   ioSections[sectionId] = !ioSections[sectionId];
+   console.log(sectionId + ' : ' + ioSections[sectionId]);
+   initIoSetup(valueFacts);
+}
+
+function tableHeadline(title, sectionId)
+{
+   if (!ioSections.hasOwnProperty(sectionId))
+      ioSections[sectionId] = true;
+
+   if (!ioSections[sectionId])
+      return '  <div id="fold_' + sectionId + '" class="rounded-border seperatorFold" onclick="foldSection(\'' + sectionId + '\')">' + '&#11015; ' + title + '</div>';
+
+   return '  <div id="fold_' + sectionId + '" class="rounded-border seperatorFold" onclick="foldSection(\'' + sectionId + '\')">' + '&#11013; ' + title + '</div>' +
       '  <table class="tableMultiCol">' +
       '    <thead>' +
       '      <tr>' +
@@ -218,59 +297,85 @@ function tableHeadline(title, id)
       '        <td style="width:25%;">Bezeichnung</td>' +
       '        <td style="width:4%;">Einheit</td>' +
       '        <td style="width:3%;">Aktiv</td>' +
-      '        <td style="width:8%;">ID</td>' +
+      '        <td style="width:6%;">ID</td>' +
+      '        <td style="width:10%;">Gruppe</td>' +
       '      </tr>' +
       '    </thead>' +
-      '    <tbody id="' + id + '">' +
+      '    <tbody id="' + sectionId + '">' +
       '    </tbody>' +
       '  </table>';
 }
 
 function initIoSetup(valueFacts)
 {
+   // console.log(JSON.stringify(valueFacts, undefined, 4));
+   
    $('#container').removeClass('hidden');
 
    document.getElementById("container").innerHTML =
       '<div id="ioSetupContainer">' +
       tableHeadline('Digitale Ausgänge', 'ioDigitalOut') +
+      tableHeadline('Digitale Eingänge', 'ioDigitalIn') +
       tableHeadline('One Wire Sensoren', 'ioOneWire') +
       tableHeadline('Skripte', 'ioScripts') +
+      tableHeadline('Analog Ausgänge', 'ioAnalogOut') +
       tableHeadline('Analog Eingänge (arduino)', 'ioAnalog') +
       tableHeadline('Weitere Sensoren', 'ioOther') +
       '</div>';
 
-   var root = document.getElementById("ioSetupContainer");
+   for (var key in ioSections) {
+      if (ioSections[key])
+         document.getElementById(key).innerHTML = "";
+   }
 
-   // console.log(JSON.stringify(valueFacts, undefined, 4));
+   var filterExpression = null;
 
-   document.getElementById("ioDigitalOut").innerHTML = "";
-   document.getElementById("ioOneWire").innerHTML = "";
-   document.getElementById("ioOther").innerHTML = "";
-   document.getElementById("ioAnalog").innerHTML = "";
-   document.getElementById("ioScripts").innerHTML = "";
+   if ($("#incSearchName").val() != "")
+      filterExpression = new RegExp($("#incSearchName").val());
 
    for (var key in valueFacts) {
+      var sectionId = "";
       var item = valueFacts[key];
+      var usrtitle = item.usrtitle != null ? item.usrtitle : "";
 
       if (!item.state && filterActive)
          continue;
 
-      var root = null;
-      var usrtitle = item.usrtitle != null ? item.usrtitle : "";
+      if (filterExpression != null && !filterExpression.test(item.title) && !filterExpression.test(usrtitle))
+         continue;
+
+      switch (item.type) {
+         case 'VA': sectionId = "ioValues";         break
+         case 'SD': sectionId = "ioStateDurations"; break
+         case 'DO': sectionId = "ioDigitalOut";     break
+         case 'DI': sectionId = "ioDigitalIn";      break
+         case 'W1': sectionId = "ioOneWire";        break
+         case 'SP': sectionId = "ioOther";          break
+         case 'AO': sectionId = "ioAnalogOut";      break
+         case 'AI': sectionId = "ioAnalog";         break
+         case 'SC': sectionId = "ioScripts";        break
+      }
+
+      if (!ioSections[sectionId])
+         continue;
 
       var html = '<td id="row_' + item.type + item.address + '" data-address="' + item.address + '" data-type="' + item.type + '" >' + item.title + '</td>';
       html += '<td class="tableMultiColCell"><input id="usrtitle_' + item.type + item.address + '" class="rounded-border inputSetting" type="text" value="' + usrtitle + '"/></td>';
       html += '<td class="tableMultiColCell"><input id="unit_' + item.type + item.address + '" class="rounded-border inputSetting" type="text" value="' + item.unit + '"/></td>';
       html += '<td><input id="state_' + item.type + item.address + '" class="rounded-border inputSetting" type="checkbox" ' + (item.state ? 'checked' : '') + ' /><label for="state_' + item.type + item.address + '"></label></td>';
-      html += '<td>' + item.type + ':0x' + item.address.toString(16).padStart(2, '0') + '</td>';
+      html += '<td>' + key + '</td>';
 
-      switch (item.type) {
-         case 'DO': root = document.getElementById("ioDigitalOut"); break
-         case 'W1': root = document.getElementById("ioOneWire");    break
-         case 'SP': root = document.getElementById("ioOther");      break
-         case 'AI': root = document.getElementById("ioAnalog");     break
-         case 'SC': root = document.getElementById("ioScripts");    break
+      html += '<td><select id="group_' + item.type + item.address + '" class="rounded-border inputSetting" name="group">';
+      if (grouplist != null) {
+         for (var g = 0; g < grouplist.length; g++) {
+            var group = grouplist[g];
+            var sel = item.groupid == group.id ? 'SELECTED' : '';
+            html += '    <option value="' + group.id + '" ' + sel + '>' + group.name + '</option>';
+         }
       }
+      html += '  </select></td>';
+
+      var root = document.getElementById(sectionId);
 
       if (root != null)
       {
@@ -293,11 +398,14 @@ function storeIoSetup()
       var jsonObj = {};
       var type = $(elements[i]).data("type");
       var address = $(elements[i]).data("address");
+
       jsonObj["type"] = type;
       jsonObj["address"] = address;
       jsonObj["usrtitle"] = $("#usrtitle_" + type + address).val();
       jsonObj["unit"] = $("#unit_" + type + address).val();
       jsonObj["state"] = $("#state_" + type + address).is(":checked");
+      jsonObj["groupid"] = parseInt($("#group_" + type + address).val());
+
       jsonArray[i] = jsonObj;
    }
 

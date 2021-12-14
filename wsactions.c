@@ -19,7 +19,7 @@
 
 int Daemon::dispatchClientRequest()
 {
-   int status = fail;
+   int status {fail};
    json_error_t error;
    json_t *oData, *oObject;
 
@@ -28,9 +28,9 @@ int Daemon::dispatchClientRequest()
    while (!messagesIn.empty())
    {
       // dispatch message like
-      // { "event" : "toggleio", "object" : { "address" : "122", "type" : "DO" } }
+      //   => { "event" : "toggleio", "object" : { "address" : "122", "type" : "DO" } }
 
-      tell(2, "DEBUG: Got '%s'", messagesIn.front().c_str());
+      tell(2, "<= '%s'", messagesIn.front().c_str());
       oData = json_loads(messagesIn.front().c_str(), 0, &error);
 
       // get the request
@@ -60,20 +60,32 @@ int Daemon::dispatchClientRequest()
             case evToggleMode:      status = toggleOutputMode(addr);                 break;
             case evStoreConfig:     status = storeConfig(oObject, client);           break;
             case evSetup:           status = performConfigDetails(client);           break;
+
             case evStoreIoSetup:    status = storeIoSetup(oObject, client);          break;
             case evChartData:       status = performChartData(oObject, client);      break;
             case evUserDetails:     status = performUserDetails(client);             break;
             case evStoreUserConfig: status = storeUserConfig(oObject, client);       break;
             case evChangePasswd:    status = performPasswChange(oObject, client);    break;
-            case evReset:           status = performReset(oObject, client);            break;
+            case evGroups:          status = performGroups(client);                  break;
+            case evGroupConfig:     status = storeGroups(oObject, client);           break;
+            case evStoreDashboards: status = storeDashboards(oObject, client);       break;
+
+            case evReset:           status = performReset(oObject, client);          break;
             case evSendMail:        status = performSendMail(oObject, client);       break;
             case evSyslog:          status = performSyslog(oObject, client);         break;
-            case evForceRefresh:    status = update(true, client);                   break;
-            case evChartbookmarks:  status = performChartbookmarks(client);            break;
+            case evForceRefresh:    status = performForceRefresh(oObject, client);   break;
+            case evChartbookmarks:  status = performChartbookmarks(client);          break;
             case evStoreChartbookmarks: status = storeChartbookmarks(oObject, client); break;
+            case evImageConfig:         status = performImageConfig(oObject, client);  break;
+            case evSchema:            status = performSchema(oObject, client);         break;
+            case evStoreSchema:       status = storeSchema(oObject, client);           break;
 
-            default: tell(0, "Error: Received unexpected client request '%s' at [%s]",
-                          cWebService::toName(event), messagesIn.front().c_str());
+            default:
+            {
+               if (dispatchSpecialRequest(event,oObject, client) == ignore)
+                  tell(0, "Error: Received unexpected client request '%s' at [%s]",
+                       cWebService::toName(event), messagesIn.front().c_str());
+            }
          }
       }
       else
@@ -83,6 +95,7 @@ int Daemon::dispatchClientRequest()
          else
             tell(0, "Insufficient rights to '%s' for user '%s'", getStringFromJson(oData, "event", "<null>"),
                  wsClients[(void*)client].user.c_str());
+         replyResult(fail, "Insufficient rights", client);
       }
 
       json_decref(oData);      // free the json object
@@ -113,20 +126,32 @@ bool Daemon::checkRights(long client, Event event, json_t* oObject)
       case evStoreConfig:         return rights & urSettings;
       case evSetup:               return rights & urView;
       case evStoreIoSetup:        return rights & urSettings;
+      case evGroupConfig:         return rights & urSettings;
       case evChartData:           return rights & urView;
       case evStoreUserConfig:     return rights & urAdmin;
       case evUserDetails:         return rights & urAdmin;
       case evChangePasswd:        return true;   // check will done in performPasswChange()
-      case evReset:               return rights & urAdmin;
+      case evReset:               return rights & urFullControl;
       case evSendMail:            return rights & urSettings;
       case evSyslog:              return rights & urAdmin;
       case evForceRefresh:        return true;
 
       case evChartbookmarks:      return rights & urView;
       case evStoreChartbookmarks: return rights & urSettings;
+      case evAlerts:              return rights & urSettings;
+      case evStoreAlerts:         return rights & urSettings;
+      case evStoreDashboards:     return rights & urSettings;
+      case evGroups:              return rights & urSettings;
+      case evImageConfig:         return rights & urSettings;
+
+      case evSchema:              return rights & urView;
+      case evStoreSchema:         return rights & urSettings;
 
       default: break;
    }
+
+   if (onCheckRights(client, event, rights) == success)
+      return true;
 
    if (event == evToggleIo && rights & urControl)
    {
@@ -138,7 +163,10 @@ bool Daemon::checkRights(long client, Event event, json_t* oObject)
       tableValueFacts->setValue("TYPE", type);
 
       if (tableValueFacts->find())
+      {
+         tableValueFacts->reset();
          return rights & tableValueFacts->getIntValue("RIGHTS");
+      }
    }
 
    return false;
@@ -242,7 +270,8 @@ int Daemon::performLogin(json_t* oObject)
       pushOutMessage(oJson, "token", client);
    }
 
-   tell(0, "Login of client 0x%x; user '%s'; type is %d", (unsigned int)client, user, wsClients[(void*)client].type);
+   tell(0, "Login of client 0x%x; user '%s'; type is %d; page %s", (unsigned int)client, user,
+        wsClients[(void*)client].type, wsClients[(void*)client].page.c_str());
    webSock->setClientType((lws*)client, wsClients[(void*)client].type);
 
    //
@@ -260,12 +289,20 @@ int Daemon::performLogin(json_t* oObject)
    pushOutMessage(oJson, "daemonstate", client);
 
    oJson = json_object();
-   valueFacts2Json(oJson);
+   valueFacts2Json(oJson, false);
    pushOutMessage(oJson, "valuefacts", client);
+
+   oJson = json_object();
+   dashboards2Json(oJson);
+   pushOutMessage(oJson, "dashboards", client);
 
    oJson = json_array();
    images2Json(oJson);
    pushOutMessage(oJson, "images", client);
+
+   oJson = json_array();
+   groups2Json(oJson);
+   pushOutMessage(oJson, "grouplist", client);
 
    update(true, client);
 
@@ -346,7 +383,7 @@ int Daemon::performTokenRequest(json_t* oObject, long client)
 }
 
 //***************************************************************************
-// Perform WS Syslog Request
+// Perform Syslog Request
 //***************************************************************************
 
 int Daemon::performSyslog(json_t* oObject, long client)
@@ -387,6 +424,53 @@ int Daemon::performSyslog(json_t* oObject, long client)
    return done;
 }
 
+//***************************************************************************
+// Perform Config Data Request
+//***************************************************************************
+
+int Daemon::performConfigDetails(long client)
+{
+   if (client == 0)
+      return done;
+
+   json_t* oJson = json_array();
+   configDetails2Json(oJson);
+   pushOutMessage(oJson, "configdetails", client);
+
+   return done;
+}
+
+//***************************************************************************
+// Perform WS User Data Request
+//***************************************************************************
+
+int Daemon::performUserDetails(long client)
+{
+   if (client == 0)
+      return done;
+
+   json_t* oJson = json_array();
+   userDetails2Json(oJson);
+   pushOutMessage(oJson, "userdetails", client);
+
+   return done;
+}
+
+//***************************************************************************
+// Perform WS Groups Data Request
+//***************************************************************************
+
+int Daemon::performGroups(long client)
+{
+   if (client == 0)
+      return done;
+
+   json_t* oJson = json_array();
+   groups2Json(oJson);
+   pushOutMessage(oJson, "groups", client);
+
+   return done;
+}
 
 //***************************************************************************
 // Perform Send Mail
@@ -394,11 +478,10 @@ int Daemon::performSyslog(json_t* oObject, long client)
 
 int Daemon::performSendMail(json_t* oObject, long client)
 {
-/*   int alertid = getIntFromJson(oObject, "alertid", na);
+   int alertid = getIntFromJson(oObject, "alertid", na);
 
    if (alertid != na)
       return performAlertTestMail(alertid, client);
-*/
 
    const char* subject = getStringFromJson(oObject, "subject");
    const char* body = getStringFromJson(oObject, "body");
@@ -449,38 +532,6 @@ int Daemon::performSendMail(json_t* oObject, long client)
 }
 
 //***************************************************************************
-// Perform WS Config Data Request
-//***************************************************************************
-
-int Daemon::performConfigDetails(long client)
-{
-   if (client == 0)
-      return done;
-
-   json_t* oJson = json_array();
-   configDetails2Json(oJson);
-   pushOutMessage(oJson, "configdetails", client);
-
-   return done;
-}
-
-//***************************************************************************
-// Perform WS User Data Request
-//***************************************************************************
-
-int Daemon::performUserDetails(long client)
-{
-   if (client == 0)
-      return done;
-
-   json_t* oJson = json_array();
-   userDetails2Json(oJson);
-   pushOutMessage(oJson, "userdetails", client);
-
-   return done;
-}
-
-//***************************************************************************
 // Perform WS ChartData request
 //***************************************************************************
 
@@ -502,14 +553,16 @@ int Daemon::performChartData(json_t* oObject, long client)
    if (!widget)
       performChartbookmarks(client);
 
-   if (strcmp(id, "chart") == 0 && !isEmpty(sensors))
+   if (strcmp(id, "chart") == 0)
    {
-      tell(2, "storing sensors '%s' for chart", sensors);
-      setConfigItem("chart", sensors);
-      getConfigItem("chart", chartSensors);
+      setConfigItem("chartRange", range);
+
+      if (!isEmpty(sensors))
+      {
+         tell(2, "storing sensors '%s' for chart", sensors);
+         setConfigItem("chartSensors", sensors);
+      }
    }
-   else if (isEmpty(sensors))
-      sensors = chartSensors;
 
    tell(eloInfo, "Selecting chart data for sensors '%s' with range %.1f ..", sensors, range);
 
@@ -576,10 +629,12 @@ int Daemon::performChartData(json_t* oObject, long client)
       tableSamples->setValue("TYPE", tableValueFacts->getStrValue("TYPE"));
       tableSamples->setValue("ADDRESS", tableValueFacts->getIntValue("ADDRESS"));
 
-      tell(1, "Selecting [%s] ..", select->asText());
-      tell(4, " .. for '%s' (%ld) with range %ld - %ld",
-           tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"),
-           rangeFrom.getTimeValue(), rangeTo.getTimeValue());
+      tell(eloDebug, " selecting '%s - %s' for '%s:0x%02lx'",
+           l2pTime(rangeFrom.getTimeValue()).c_str(),
+           l2pTime(rangeTo.getTimeValue()).c_str(),
+           tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"));
+
+      uint count {0};
 
       for (int f = select->find(); f; f = select->fetch())
       {
@@ -599,8 +654,10 @@ int Daemon::performChartData(json_t* oObject, long client)
             // avg = std::llround(avg*20) / 20.0;                  // round to .05
             json_object_set_new(oRow, "y", json_real(avgValue.getFloatValue()));
          }
+         count++;
       }
 
+      tell(eloDebug, " collected %d samples'", count);
       select->freeResult();
    }
 
@@ -649,6 +706,8 @@ int Daemon::performChartbookmarks(long client)
 
 int Daemon::storeUserConfig(json_t* oObject, long client)
 {
+   int count {0};
+
    if (client == 0)
       return done;
 
@@ -664,7 +723,7 @@ int Daemon::storeUserConfig(json_t* oObject, long client)
    if (strcmp(action, "add") == 0)
    {
       if (exists)
-         tell(0, "User alredy exists, ignoring 'add' request");
+         replyResult(fail, "User alredy exists, ignoring 'add' request", client);
       else
       {
          char* token {nullptr};
@@ -674,45 +733,50 @@ int Daemon::storeUserConfig(json_t* oObject, long client)
          tableUsers->setValue("TOKEN", token);
          tableUsers->setValue("RIGHTS", urView);
          tableUsers->store();
+         count++;
          free(token);
       }
    }
    else if (strcmp(action, "store") == 0)
    {
       if (!exists)
-         tell(0, "User not exists, ignoring 'store' request");
+         replyResult(fail, "User not exists, ignoring 'store' request", client);
       else
       {
          tell(0, "Store settings for user '%s'", user);
          tableUsers->setValue("RIGHTS", rights);
          tableUsers->store();
+         count++;
       }
    }
    else if (strcmp(action, "del") == 0)
    {
       if (!exists)
-         tell(0, "User not exists, ignoring 'del' request");
+         replyResult(fail, "User not exists, ignoring 'del' request", client);
       else
       {
          tell(0, "Delete user '%s'", user);
          tableUsers->deleteWhere(" user = '%s'", user);
+         count++;
       }
    }
    else if (strcmp(action, "resetpwd") == 0)
    {
       if (!exists)
-         tell(0, "User not exists, ignoring 'resetpwd' request");
+         replyResult(fail, "User not exists, ignoring 'resetpwd' request", client);
       else
       {
          tell(0, "Reset password of user '%s'", user);
          tableUsers->setValue("PASSWD", passwd);
          tableUsers->store();
+         replyResult(success, "Passwort gespeichert", client);
+         count++;
       }
    }
    else if (strcmp(action, "resettoken") == 0)
    {
       if (!exists)
-         tell(0, "User not exists, ignoring 'resettoken' request");
+         replyResult(fail, "User not exists, ignoring 'resettoken' request", client);
       else
       {
          char* token {nullptr};
@@ -720,9 +784,13 @@ int Daemon::storeUserConfig(json_t* oObject, long client)
          tell(0, "Reset token of user '%s' to '%s'", user, token);
          tableUsers->setValue("TOKEN", token);
          tableUsers->store();
+         count++;
          free(token);
       }
    }
+
+   if (count)
+      replyResult(success, "Gespeichert", client);
 
    tableUsers->reset();
 
@@ -786,6 +854,116 @@ int Daemon::performReset(json_t* obj, long client)
       pushOutMessage(oJson, "config", client);
    }
 
+   return replyResult(success, "Peaks zurückgesetzt", client);
+}
+
+//***************************************************************************
+// Perform Schema Data
+//***************************************************************************
+
+int Daemon::performSchema(json_t* oObject, long client)
+{
+   if (client == 0)
+      return done;
+
+   json_t* oArray = json_array();
+
+   tableSchemaConf->clear();
+
+   for (int f = selectAllSchemaConf->find(); f; f = selectAllSchemaConf->fetch())
+   {
+      tableValueFacts->clear();
+      tableValueFacts->setValue("ADDRESS", tableSchemaConf->getIntValue("ADDRESS"));
+      tableValueFacts->setValue("TYPE", tableSchemaConf->getStrValue("TYPE"));
+
+      if (!tableSchemaConf->hasValue("TYPE", "UC") && (!tableValueFacts->find() || !tableValueFacts->hasValue("STATE", "A")))
+         continue;
+
+      json_t* oData = json_object();
+      json_array_append_new(oArray, oData);
+
+      addFieldToJson(oData, tableSchemaConf, "ADDRESS");
+      addFieldToJson(oData, tableSchemaConf, "TYPE");
+      addFieldToJson(oData, tableSchemaConf, "STATE");
+      addFieldToJson(oData, tableSchemaConf, "KIND");
+      addFieldToJson(oData, tableSchemaConf, "WIDTH");
+      addFieldToJson(oData, tableSchemaConf, "HEIGHT");
+      addFieldToJson(oData, tableSchemaConf, "SHOWUNIT");
+      addFieldToJson(oData, tableSchemaConf, "SHOWTITLE");
+      addFieldToJson(oData, tableSchemaConf, "USRTEXT");
+      addFieldToJson(oData, tableSchemaConf, "FUNCTION", true, "fct");
+
+      const char* properties = tableSchemaConf->getStrValue("PROPERTIES");
+      if (isEmpty(properties))
+         properties = "{}";
+      json_error_t error;
+      json_t* o = json_loads(properties, 0, &error);
+      json_object_set_new(oData, "properties", o);
+   }
+
+   selectAllSchemaConf->freeResult();
+
+   pushOutMessage(oArray, "schema", client);
+   update(true, client);     // push the data ('init')
+
+   return done;
+}
+
+//***************************************************************************
+// Store Schema
+//***************************************************************************
+
+int Daemon::storeSchema(json_t* oObject, long client)
+{
+   if (!client)
+      return done;
+
+   size_t index {0};
+   json_t* jObj {nullptr};
+
+   json_array_foreach(oObject, index, jObj)
+   {
+      int address = getIntFromJson(jObj, "address");
+      const char* type = getStringFromJson(jObj, "type");
+      int deleted = getBoolFromJson(jObj, "deleted");
+
+      tableSchemaConf->clear();
+      tableSchemaConf->setValue("ADDRESS", address);
+      tableSchemaConf->setValue("TYPE", type);
+
+      if (tableSchemaConf->find() && deleted)
+      {
+         tableSchemaConf->deleteWhere("%s = '%s' and %s = %d",
+                                      tableSchemaConf->getField("TYPE")->getName(), type,
+                                      tableSchemaConf->getField("ADDRESS")->getName(), address);
+         continue;
+      }
+
+      tableSchemaConf->setValue("FUNCTION", getStringFromJson(jObj, "fct"));
+      tableSchemaConf->setValue("USRTEXT", getStringFromJson(jObj, "usrtext"));
+      tableSchemaConf->setValue("KIND", getIntFromJson(jObj, "kind"));
+      tableSchemaConf->setValue("WIDTH", getIntFromJson(jObj, "width"));
+      tableSchemaConf->setValue("HEIGHT", getIntFromJson(jObj, "height"));
+      tableSchemaConf->setValue("SHOWTITLE", getIntFromJson(jObj, "showtitle"));
+      tableSchemaConf->setValue("SHOWUNIT", getIntFromJson(jObj, "showunit"));
+      tableSchemaConf->setValue("STATE", getStringFromJson(jObj, "state"));
+
+      json_t* jProp = json_object_get(jObj, "properties");
+      char* p = json_dumps(jProp, JSON_REAL_PRECISION(4));
+
+      if (tableSchemaConf->getField("PROPERTIES")->getSize() < (int)strlen(p))
+         tell(0, "Warning, Ignoring properties of %s:0x%x due to field limit of %d bytes",
+              type, address, tableSchemaConf->getField("PROPERTIES")->getSize());
+      else
+         tableSchemaConf->setValue("PROPERTIES", p);
+
+      tableSchemaConf->store();
+      free(p);
+   }
+
+   tableSchemaConf->reset();
+   replyResult(success, "Konfiguration gespeichert", client);
+
    return done;
 }
 
@@ -846,6 +1024,156 @@ int Daemon::storeConfig(json_t* obj, long client)
    return done;
 }
 
+//***************************************************************************
+// Store Dashboards
+//***************************************************************************
+
+int Daemon::storeDashboards(json_t* obj, long client)
+{
+   const char* action = getStringFromJson(obj, "action", "");
+
+   if (strcmp(action, "order") == 0)
+   {
+      // {"action": "order", "order": ["16", "25", "14", "27"]},
+
+      size_t index {0};
+      json_t* jId {nullptr};
+      json_t* array = getObjectFromJson(obj, "order");
+
+      json_array_foreach(array, index, jId)
+      {
+         int dashboardId = json_integer_value(jId);
+         tableDashboards->clear();
+         tableDashboards->setValue("ID", dashboardId);
+
+         if (tableDashboards->find())
+         {
+            tableDashboards->setValue("ORDER", (long)index);
+            tableDashboards->store();
+         }
+      }
+   }
+   else
+   {
+      const char* dashboardIdStr {nullptr};
+      json_t* jObj {nullptr};
+
+      json_object_foreach(obj, dashboardIdStr, jObj)
+      {
+         long dashboardId = atol(dashboardIdStr);
+         const char* dashboardTitle = getStringFromJson(jObj, "title", "<new>");
+         const char* dashboardSymbol = getStringFromJson(jObj, "symbol");
+         const char* action = getStringFromJson(jObj, "action", "store");
+
+         if (strcmp(action, "delete") == 0)
+         {
+            tell(2, "Debug: Deleting dashboard '%ld'", dashboardId);
+
+            tableDashboards->deleteWhere("%s = %ld", tableDashboards->getField("ID")->getDbName(), dashboardId);
+            tableDashboardWidgets->deleteWhere("%s = %ld", tableDashboardWidgets->getField("DASHBOARDID")->getDbName(), dashboardId);
+            return done;
+         }
+
+         if (dashboardId == -1)
+         {
+            tableDashboards->clear();
+            tableDashboards->setValue("TITLE", dashboardTitle);
+            if (dashboardSymbol)
+               tableDashboards->setValue("SYMBOL", dashboardSymbol);
+            tableDashboards->store();
+            tell(eloAlways, "Created new dashboard '%ld/%s'!", dashboardId, dashboardTitle);
+            dashboardId = tableDashboards->getLastInsertId();
+         }
+
+         tableDashboards->clear();
+         tableDashboards->setValue("ID", dashboardId);
+
+         if (!tableDashboards->find())
+         {
+            tell(1, "Debug: Storing dashboard '%s' failed", dashboardTitle);
+            return fail;
+         }
+
+         tableDashboards->setValue("TITLE", dashboardTitle);
+         if (dashboardSymbol)
+            tableDashboards->setValue("SYMBOL", dashboardSymbol);
+         tableDashboards->store();
+         tableDashboards->reset();
+
+         int ord {0};
+         const char* id {nullptr};
+         json_t* jData {nullptr};
+         json_t* jWidgets = getObjectFromJson(jObj, "widgets");
+
+         if (jWidgets)
+         {
+            tell(1, "Debug: Storing widgets of dashboard '%s'", dashboardTitle);
+            tableDashboardWidgets->deleteWhere("%s = %ld", tableDashboardWidgets->getField("DASHBOARDID")->getDbName(), dashboardId);
+
+            json_object_foreach(jWidgets, id, jData)
+            {
+               auto tuple = split(id, ':');
+               char* opts = json_dumps(jData, JSON_REAL_PRECISION(4));
+
+               tableDashboardWidgets->clear();
+               tableDashboardWidgets->setValue("DASHBOARDID", dashboardId);
+               tableDashboardWidgets->setValue("ORDER", ord++);
+               tableDashboardWidgets->setValue("TYPE", tuple[0].c_str());
+               tableDashboardWidgets->setValue("ADDRESS", strtol(tuple[1].c_str(), nullptr, 0));
+
+               if (!opts)
+               {
+                  tableValueFacts->clear();
+                  tableValueFacts->setValue("TYPE", tuple[0].c_str());
+                  tableValueFacts->setValue("ADDRESS", strtol(tuple[1].c_str(), nullptr, 0));
+
+                  if (tableValueFacts->find())
+                  {
+                     const char* title = !tableValueFacts->getValue("USRTITLE")->isEmpty() ? tableValueFacts->getStrValue("USRTITLE") : tableValueFacts->getStrValue("NAME");
+
+                     std::string widgetOptionsDefault = toWidgetOptionString(tableValueFacts->getStrValue("TYPE"),
+                                                                             tableValueFacts->getStrValue("UNIT"),
+                                                                             title,
+                                                                             tableValueFacts->getIntValue("ADDRESS"));
+
+                     asprintf(&opts, "%s", widgetOptionsDefault.c_str());
+                  }
+                  else
+                     strdup("{}");
+               }
+
+               tableDashboardWidgets->setValue("WIDGETOPTS", opts);
+               tableDashboardWidgets->store();
+
+               tell(1, "Debug: Dashboard widget '%s' with [%s]", id, opts);
+               free(opts);
+            }
+         }
+      }
+   }
+
+   return done;
+}
+
+//***************************************************************************
+// Perform Force Refresh
+//***************************************************************************
+
+int Daemon::performForceRefresh(json_t* obj, long client)
+{
+   oJson = json_object();
+   dashboards2Json(oJson);
+   pushOutMessage(oJson, "dashboards", client);
+
+   update(true, client);
+
+   return done;
+}
+
+//***************************************************************************
+// Store IO Setup
+//***************************************************************************
+
 int Daemon::storeIoSetup(json_t* array, long client)
 {
    size_t index {0};
@@ -872,17 +1200,8 @@ int Daemon::storeIoSetup(json_t* array, long client)
          tableValueFacts->setValue("USRTITLE", getStringFromJson(jObj, "usrtitle"));
       if (isElementSet(jObj, "unit"))
          tableValueFacts->setValue("UNIT", getStringFromJson(jObj, "unit"));
-
-      if (isElementSet(jObj, "widget"))
-      {
-         json_t* oWidgetOptions = getObjectFromJson(jObj, "widget");
-
-         if (oWidgetOptions)
-         {
-            char* widgetOptions = json_dumps(oWidgetOptions, JSON_REAL_PRECISION(4));
-            tableValueFacts->setValue("WIDGETOPT", widgetOptions);
-         }
-      }
+      if (isElementSet(jObj, "groupid"))
+         tableValueFacts->setValue("GROUPID", getIntFromJson(jObj, "groupid"));
 
       if (tableValueFacts->getChanges())
       {
@@ -892,10 +1211,133 @@ int Daemon::storeIoSetup(json_t* array, long client)
    }
 
    json_t* oJson = json_object();
-   valueFacts2Json(oJson);
+   valueFacts2Json(oJson, false);
    pushOutMessage(oJson, "valuefacts", client);
+   updateSchemaConfTable();
 
    return replyResult(success, "Konfiguration gespeichert", client);
+}
+
+//***************************************************************************
+// Store Groups
+//***************************************************************************
+
+int Daemon::storeGroups(json_t* oObject, long client)
+{
+   const char* action = getStringFromJson(oObject, "action");
+
+   if (strcmp(action, "store") == 0)
+   {
+      json_t* array = json_object_get(oObject, "groups");
+      json_t* jObj {nullptr};
+      size_t index {0};
+
+      if (!array)
+         return fail;
+
+      json_array_foreach(array, index, jObj)
+      {
+         int id = getIntFromJson(jObj, "id");
+         const char* name = getStringFromJson(jObj, "name", "");
+
+         tableGroups->clear();
+         tableGroups->setValue("ID", id);
+
+         if (!tableGroups->find())
+         {
+            tell(0, "Error: Group (%d) not found!", id);
+            continue;
+         }
+
+         tableGroups->clearChanged();
+         tableGroups->setValue("NAME", name);
+
+         if (tableGroups->getChanges())
+         {
+            tableGroups->store();
+            tell(2, "STORED %d - name '%s'", id, name);
+         }
+      }
+   }
+   else if (strcmp(action, "add") == 0)
+   {
+      const char* name = getStringFromJson(oObject, "group");
+      tell(0, "Add group '%s'", name);
+
+      tableGroups->clear();
+      tableGroups->setValue("NAME", name);
+      tableGroups->insert();
+   }
+   else if (strcmp(action, "del") == 0)
+   {
+      int id = getIntFromJson(oObject, "id");
+      tell(0, "delete group '%d'", id);
+
+      tableGroups->clear();
+      tableGroups->setValue("ID", id);
+
+      if (!tableGroups->find())
+         tell(0, "Group not exists, ignoring 'del' request");
+      else
+      {
+         tell(0, "Delete group %d", id);
+         tableGroups->deleteWhere(" id = '%d'", id);
+      }
+   }
+
+   performGroups(client);
+
+   return replyResult(success, "Konfiguration gespeichert", client);
+}
+
+//***************************************************************************
+// Perform Image Config
+//***************************************************************************
+
+#include "lib/base64.h"
+
+int Daemon::performImageConfig(json_t* obj, long client)
+{
+   const char* action = getStringFromJson(obj, "action");
+
+   if (strcmp(action, "upload") == 0)
+   {
+      const char* name = getStringFromJson(obj, "name");
+      const char* data = getStringFromJson(obj, "data");
+      const char* p = strchr(data, ',');
+
+      if (p)
+      {
+         // "data:image/png;base64,/9j/4AAQSkZJRg........."
+
+         const char* mediaTpe = strchr(data, '/');
+         mediaTpe++;
+         char suffix[20];
+         sprintf(suffix, "%.*s", strchr(mediaTpe, ';') - mediaTpe, mediaTpe);
+
+         p++;
+
+         std::string out;
+         macaron::Base64::Decode(p, out);
+
+         char* tmp {nullptr};
+         asprintf(&tmp, "%s/img/user/%s.%s", httpPath, name, suffix);
+
+         if (out.size())
+         {
+            storeToFile(tmp, out.c_str(), out.size());
+            tell(0, "Stored image to '%s' with %d bytes", tmp, out.size());
+         }
+
+         free(tmp);
+      }
+
+      oJson = json_array();
+      images2Json(oJson);
+      pushOutMessage(oJson, "images", client);
+   }
+
+   return done;
 }
 
 //***************************************************************************
@@ -939,7 +1381,7 @@ int Daemon::configDetails2Json(json_t* obj)
       json_object_set_new(oDetail, "title", json_string(it.title));
       json_object_set_new(oDetail, "descrtiption", json_string(it.description));
 
-      if (it.type == ctChoice)
+      if (it.type == ctChoice || it.type == ctMultiSelect)
          configChoice2json(oDetail, it.name.c_str());
 
       tableConfig->clear();
@@ -954,6 +1396,10 @@ int Daemon::configDetails2Json(json_t* obj)
 
    return done;
 }
+
+//***************************************************************************
+// Config Choice to Json
+//***************************************************************************
 
 int Daemon::configChoice2json(json_t* obj, const char* name)
 {
@@ -974,10 +1420,59 @@ int Daemon::configChoice2json(json_t* obj, const char* name)
             char* p = strdup(strchr(opt.name.c_str(), '-'));
             *(strrchr(p, '.')) = '\0';
             json_array_append_new(oArray, json_string(p+1));
+            free(p);
          }
 
          json_object_set_new(obj, "options", oArray);
       }
+   }
+   else if (strcmp(name, "schema") == 0)
+   {
+      FileList options;
+      int count {0};
+      char* path {nullptr};
+
+      asprintf(&path, "%s/img/schema", httpPath);
+
+      if (getFileList(path, DT_REG, "png", false, &options, count) == success)
+      {
+         json_t* oArray = json_array();
+
+         for (const auto& opt : options)
+         {
+            if (strncmp(opt.name.c_str(), "schema-", strlen("schema-")) != 0)
+               continue;
+
+            char* p = strdup(strchr(opt.name.c_str(), '-'));
+            *(strrchr(p, '.')) = '\0';
+            json_array_append_new(oArray, json_string(p+1));
+            free(p);
+         }
+
+         json_object_set_new(obj, "options", oArray);
+      }
+
+      free(path);
+   }
+   else if (strcmp(name, "iconSet") == 0)
+   {
+      FileList options;
+      int count {0};
+      char* path {nullptr};
+
+      asprintf(&path, "%s/img/state", httpPath);
+
+      if (getFileList(path, DT_DIR, nullptr, false, &options, count) == success)
+      {
+         json_t* oArray = json_array();
+
+         for (const auto& opt : options)
+            json_array_append_new(oArray, json_string(opt.name.c_str()));
+
+         json_object_set_new(obj, "options", oArray);
+      }
+
+      free(path);
    }
 
    return done;
@@ -1007,14 +1502,17 @@ int Daemon::userDetails2Json(json_t* obj)
 // Value Facts 2 Json
 //***************************************************************************
 
-int Daemon::valueFacts2Json(json_t* obj)
+int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
 {
    tableValueFacts->clear();
 
    for (int f = selectAllValueFacts->find(); f; f = selectAllValueFacts->fetch())
    {
+      if (filterActive && !tableValueFacts->hasValue("STATE", "A"))
+         continue;
+
       char* key {nullptr};
-      asprintf(&key, "%s:%lu", tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"));
+      asprintf(&key, "%s:0x%02lx", tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"));
       json_t* oData = json_object();
       json_object_set_new(obj, key, oData);
       free(key);
@@ -1026,24 +1524,101 @@ int Daemon::valueFacts2Json(json_t* obj)
       json_object_set_new(oData, "title", json_string(tableValueFacts->getStrValue("TITLE")));
       json_object_set_new(oData, "usrtitle", json_string(tableValueFacts->getStrValue("USRTITLE")));
       json_object_set_new(oData, "unit", json_string(tableValueFacts->getStrValue("UNIT")));
+      json_object_set_new(oData, "rights", json_integer(tableValueFacts->getIntValue("RIGHTS")));
 
       if (!tableValueFacts->getValue("CHOICES")->isNull())
          json_object_set_new(oData, "choices", json_string(tableValueFacts->getStrValue("CHOICES")));
 
-      const char* widgetOptions = tableValueFacts->getStrValue("WIDGETOPT");
-      if (isEmpty(widgetOptions))
-         widgetOptions = "{}";
+      // widget in valuefacts only used or list view!
+
+      std::string widgetOptionsDefault = toWidgetOptionString(tableValueFacts->getStrValue("TYPE"),
+                                                              tableValueFacts->getStrValue("UNIT"),
+                                                              tableValueFacts->getStrValue("NAME"),
+                                                              tableValueFacts->getIntValue("ADDRESS"));
       json_error_t error;
-      json_t* oWidgetOptions = json_loads(widgetOptions, 0, &error);
+      json_t* oWidgetOptions = json_loads(widgetOptionsDefault.c_str(), 0, &error);
       if (oWidgetOptions)
          json_object_set_new(oData, "widget", oWidgetOptions);
       else
          tell(1, "Error decoding json: %s (%s, line %d column %d, position %d) [%s]",
-              error.text, error.source, error.line, error.column, error.position,
-              widgetOptions);
+              error.text, error.source, error.line, error.column, error.position, widgetOptionsDefault.c_str());
+
+      tableGroups->clear();
+      tableGroups->setValue("ID", tableValueFacts->getIntValue("GROUPID"));
+
+      if (tableGroups->find())
+      {
+         json_object_set_new(oData, "groupid", json_integer(tableGroups->getIntValue("ID")));
+         json_object_set_new(oData, "group", json_string(tableGroups->getStrValue("NAME")));
+      }
+
+      tableGroups->reset();
    }
 
    selectAllValueFacts->freeResult();
+
+   return done;
+}
+
+//***************************************************************************
+// Dashboards 2 Json
+//***************************************************************************
+
+int Daemon::dashboards2Json(json_t* obj)
+{
+   tableDashboards->clear();
+
+   for (int f = selectDashboards->find(); f; f = selectDashboards->fetch())
+   {
+      json_t* oDashboard = json_object();
+      char* tmp {nullptr};
+      asprintf(&tmp, "%ld", tableDashboards->getIntValue("ID"));
+      json_object_set_new(obj, tmp, oDashboard);
+      free(tmp);
+      json_object_set_new(oDashboard, "title", json_string(tableDashboards->getStrValue("TITLE")));
+      json_object_set_new(oDashboard, "symbol", json_string(tableDashboards->getStrValue("SYMBOL")));
+      json_object_set_new(oDashboard, "order", json_integer(tableDashboards->getIntValue("ORDER")));
+
+      json_t* oWidgets = json_object();
+      json_object_set_new(oDashboard, "widgets", oWidgets);
+
+      tableDashboardWidgets->clear();
+      tableDashboardWidgets->setValue("DASHBOARDID", tableDashboards->getIntValue("ID"));
+
+      for (int w = selectDashboardWidgetsFor->find(); w; w = selectDashboardWidgetsFor->fetch())
+      {
+         char* key {nullptr};
+         asprintf(&key, "%s:0x%02lx", tableDashboardWidgets->getStrValue("TYPE"), tableDashboardWidgets->getIntValue("ADDRESS"));
+         json_t* oWidgetOpts = json_loads(tableDashboardWidgets->getStrValue("WIDGETOPTS"), 0, nullptr);
+         json_object_set_new(oWidgets, key, oWidgetOpts);
+         free(key);
+      }
+
+      selectDashboardWidgetsFor->freeResult();
+   }
+
+   selectDashboards->freeResult();
+
+   return done;
+}
+//***************************************************************************
+// Groups 2 Json
+//***************************************************************************
+
+int Daemon::groups2Json(json_t* obj)
+{
+   tableGroups->clear();
+
+   for (int f = selectAllGroups->find(); f; f = selectAllGroups->fetch())
+   {
+      json_t* oData = json_object();
+      json_array_append_new(obj, oData);
+
+      json_object_set_new(oData, "id", json_integer((ulong)tableGroups->getIntValue("ID")));
+      json_object_set_new(oData, "name", json_string(tableGroups->getStrValue("NAME")));
+   }
+
+   selectAllGroups->freeResult();
 
    return done;
 }
@@ -1088,29 +1663,37 @@ int Daemon::daemonState2Json(json_t* obj)
 
 int Daemon::sensor2Json(json_t* obj, cDbTable* table)
 {
-   double peak {0.0};
+   double peakMax {0.0};
+   double peakMin {0.0};
 
    tablePeaks->clear();
    tablePeaks->setValue("ADDRESS", table->getIntValue("ADDRESS"));
    tablePeaks->setValue("TYPE", table->getStrValue("TYPE"));
 
    if (tablePeaks->find())
-      peak = tablePeaks->getFloatValue("MAX");
+   {
+      peakMax = tablePeaks->getFloatValue("MAX");
+      peakMin = tablePeaks->getFloatValue("MIN");
+   }
+
+   tablePeaks->reset();
 
    json_object_set_new(obj, "address", json_integer((ulong)table->getIntValue("ADDRESS")));
    json_object_set_new(obj, "type", json_string(table->getStrValue("TYPE")));
    json_object_set_new(obj, "name", json_string(table->getStrValue("NAME")));
-   json_object_set_new(obj, "unit", json_string(tableValueFacts->getStrValue("UNIT")));
 
    if (!table->getValue("USRTITLE")->isEmpty())
       json_object_set_new(obj, "title", json_string(table->getStrValue("USRTITLE")));
    else
       json_object_set_new(obj, "title", json_string(table->getStrValue("TITLE")));
 
-   json_object_set_new(obj, "rights", json_integer(table->getIntValue("RIGHTS")));
-   json_object_set_new(obj, "peak", json_real(peak));
+   const char* unit = table->getStrValue("UNIT");
+   json_object_set_new(obj, "unit", json_string(strcmp(unit, "°") == 0 ? "°C" : unit));
 
-   tablePeaks->reset();
+   json_object_set_new(obj, "rights", json_integer(table->getIntValue("RIGHTS")));
+
+   json_object_set_new(obj, "peak", json_real(peakMax));
+   json_object_set_new(obj, "peakmin", json_real(peakMin));
 
    return done;
 }
@@ -1126,16 +1709,16 @@ int Daemon::images2Json(json_t* obj)
    char* path {nullptr};
 
    json_array_append_new(obj, json_string(""));
-   asprintf(&path, "%s/img/icon", httpPath);
+   asprintf(&path, "%s/img", httpPath);
 
-   if (getFileList(path, DT_REG, nullptr, false, &images, count) == success)
+   if (getFileList(path, DT_REG, nullptr, true, &images, count) == success)
    {
       sortFileList(images);
 
       for (const auto& img : images)
       {
          char* imgPath {nullptr};
-         asprintf(&imgPath, "img/icon/%s", img.name.c_str());
+         asprintf(&imgPath, "%s/%s", img.path.c_str()+strlen(httpPath)+1, img.name.c_str());
          json_array_append_new(obj, json_string(imgPath));
          free(imgPath);
       }

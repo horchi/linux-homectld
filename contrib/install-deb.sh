@@ -53,9 +53,7 @@ apt -y install /tmp/poold-latest.deb || exit 1
 
 if [ ${update} != 1 ]; then
    grep -q '^alias pooldb=' ~/.bashrc   || echo "alias pooldb='mysql -u pool -D pool -ppool'" >> ~/.bashrc
-   grep -q '^alias vl=' ~/.bashrc       || echo "alias vl='tail -f /var/log/poold.log'" >> ~/.bashrc
-
-   # w1 config
+   grep -q '^alias vp=' ~/.bashrc       || echo "alias vp='tail -f /var/log/poold.log'" >> ~/.bashrc
 
    poold-patch-raspi-config.sh
 
@@ -63,15 +61,15 @@ if [ ${update} != 1 ]; then
    echo -e "${BLUE}- The installation is completed and will be available after reboot${NC}"
    echo -e "${BLUE}- ${NC}"
    echo -e "${BLUE}- You can reach the web interface at http://<raspi-ip>:61109${NC}"
-   echo -e "${BLUE}- Your IP seems to be ${IP} therefore you acn try:${NC} ${BWHITE}http://${IP}:61109${NC}"
+   echo -e "${BLUE}- Your IP seems to be ${IP} therefore you can try:${NC} ${BWHITE}http://${IP}:61109${NC}"
    echo -e "${BLUE}- Default user/password is pool/pool${NC}"
    echo -e "${BLUE}- ${NC}"
    echo -e "${BLUE}- Added aliases for convenience:${NC}"
    echo -e "${BLUE}-  pooldb  - go to the SQL prompt${NC}"
-   echo -e "${BLUE}-  vl    - view syslog (abort with CTRL-C)${NC}"
+   echo -e "${BLUE}-  vp    - view daemon log (abort with CTRL-C)${NC}"
    echo -e "${BLUE}-------------------------------------------------------------------------------------------${NC}"
-   echo -e "${WHITE}- to permit poold sending mails: ${NC}"
-   echo -e "${WHITE}-   setup your SMTP account in /etc/msmtprc properly${NC}"
+   echo -e "${WHITE}- to permit the daemon sending mails: ${NC}"
+   echo -e "${WHITE}-   setup your mail account in /etc/msmtprc properly${NC}"
    echo -e "${WHITE}-   and check your setting with:${NC}"
    echo -e "${WHITE}-    #> ${CYAN}poold-mail.sh 'Test Mail' 'just a test' text/plain your@mail.de${NC}"
    echo -e "${BLUE}-------------------------------------------------------------------------------------------${NC}"

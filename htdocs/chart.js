@@ -8,6 +8,8 @@
  *
  */
 
+var currentRequest = null;
+
 function drawCharts(dataObject)
 {
    var update = document.getElementById("chartTitle") != null;
@@ -25,7 +27,7 @@ function drawCharts(dataObject)
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'now\')">Jetzt</button>' +
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'next\')">Tag &gt;</button>' +
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'nextmonth\')">Monat &gt;</button>' +
-         '  <div>Tage </div><input class="rounded-border chartButton" style="width:90px;" onchange="chartSelect(\'range\')" id="chartRange" type="number" step="0.25" min="0.25" value="1"></input>' +
+         '  <div>Tage </div><input class="rounded-border chartButton" style="width:90px;" onchange="chartSelect(\'range\')" id="chartRange" type="number" step="0.25" min="0.25" value="' + theChartRange + '"></input>' +
          '</div>' +
          '<div id="chartSelector" class="chartSelectors"></div>';
    }
@@ -166,6 +168,30 @@ function getSensors()
    return sensors;
 }
 
+var refreshTimer = null;
+
+function setRefreshTimer()
+{
+   if (refreshTimer)
+      clearTimeout(refreshTimer);
+
+   if ($('#refresh').is(":checked")) {
+      refreshTimer = setTimeout(function() {
+         refresh();
+         console.log("refresh");
+      }, 120000);
+   }
+}
+
+function refresh()
+{
+   console.log("do refresh");
+   if (currentRequest != null) {
+      socket.send({ "event" : "chartdata", "object" : currentRequest });
+      showProgressDialog();
+   }
+}
+
 function updateChartBookmarks()
 {
    if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10)
@@ -185,6 +211,12 @@ function updateChartBookmarks()
       html += "</div>"
       $("#chartBookmarks").append(html);
    }
+
+   var html = ' <div style="display:flex;margin-left:60px;text-align:right;align-items: center;"><span style="align-self:center;width:120px;">Refresh:</span><span><input id="refresh" style="width:auto;" type="checkbox"' + (refreshTimer != null ? ' checked' : '') + '/><label for="refresh"></label></span></div>';
+   $("#chartBookmarks").append(html);
+   $("#refresh").click(function() {setRefreshTimer()});
+
+   setRefreshTimer();
 }
 
 function dragBm(ev, name)
@@ -240,14 +272,12 @@ function chartSelect(action)
       theChartStart.setFullYear(theChartStart.getFullYear(), theChartStart.getMonth(), theChartStart.getDate()-30);
    else if (action == "now")
       theChartStart.setFullYear(now.getFullYear(), now.getMonth(), now.getDate()-theChartRange);
-   else if (action == "range"){
-      theChartStart = new Date().subHours(theChartRange * 24); //  setFullYear(now.getFullYear(), now.getMonth(), now.getDate()-theChartRange);
-   }
 
    // console.log("sensors:  '" + sensors + "'" + ' Range:' + theChartRange);
 
    var jsonRequest = {};
    prepareChartRequest(jsonRequest, sensors, theChartStart, theChartRange, "chart");
+   currentRequest = jsonRequest;
    socket.send({ "event" : "chartdata", "object" : jsonRequest });
    showProgressDialog();
 }
@@ -258,6 +288,7 @@ function chartSelectBookmark(sensors)
 
    var jsonRequest = {};
    prepareChartRequest(jsonRequest, sensors, theChartStart, theChartRange, "chart");
+   currentRequest = jsonRequest;
    socket.send({ "event" : "chartdata", "object" : jsonRequest });
    showProgressDialog();
 }

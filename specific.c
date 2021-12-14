@@ -8,8 +8,11 @@
 
 #ifndef _NO_RASPBERRY_PI_
 #  include <wiringPi.h>
+#else
+#  include "gpio.h"
 #endif
 
+#include "lib/json.h"
 #include "specific.h"
 
 volatile int showerSwitch {0};
@@ -62,22 +65,33 @@ std::list<Daemon::ConfigItemDef> Pool::configuration
 
    // web
 
+   { "webSSL",                    ctBool,    "",             false, "3 WEB Interface", "Use SSL for WebInterface" },
    { "style",                     ctChoice,  "dark",         false, "3 WEB Interface", "Farbschema", "" },
+   { "iconSet",                   ctChoice,  "",             true,  "3 WEB Interface", "Status Icon Set", "" },
+   { "schema",                    ctChoice,  "schema.jpg",   false, "3 WEB Interface", "Schematische Darstellung", "" },
    { "vdr",                       ctBool,    "0",            false, "3 WEB Interface", "VDR (Video Disk Recorder) OSD verfügbar", "" },
+   { "chartRange",                ctNum,     "1.5",           true, "3 WEB Interface", "Chart Range", "" },
+   { "chartSensors",              ctNum,     "VA:0x0",        true, "3 WEB Interface", "Chart Sensors", "" },
 
    // mqtt interface
 
-   { "hassMqttUrl",                   ctString,  "",             false, "4 MQTT Interface", "Url des MQTT Message Broker", "Deiser kann z.B. zur Kommunikation mit Hausautomatisierungen verwendet werden. Beispiel: 'tcp://localhost:1883'" },
-   { "hassMqttUser",                  ctString,  "",             false, "4 MQTT Interface", "User", "" },
-   { "hassMqttPassword",              ctString,  "",             false, "4 MQTT Interface", "Password", "" },
+   { "mqttHassUrl",               ctString,  "",  false, "4 MQTT Interface", "Url des MQTT Message Broker", "Deiser kann z.B. zur Kommunikation mit Hausautomatisierungen verwendet werden. Beispiel: 'tcp://localhost:1883'" },
+   { "mqttHassUser",              ctString,  "",  false, "4 MQTT Interface", "User", "" },
+   { "mqttHassPassword",          ctString,  "",  false, "4 MQTT Interface", "Password", "" },
+   { "mqttDataTopic",             ctString,  "",  false, "4 MQTT Interface", "MQTT Data Topic Name", "&lt;NAME&gt; wird gegen den Messwertnamen und &lt;GROUP&gt; gegen den Namen der Gruppe ersetzt. Beispiel: poold2mqtt/sensor/&lt;NAME&gt;/state" },
+   { "mqttHaveConfigTopic",       ctBool,    "1", false, "4 MQTT Interface", "Config Topic", "Speziell für HomeAssistant" },
+
+   // node-red MQTT interface
+
+   { "mqttNodeRedUrl",            ctString,  "",  false, "4 MQTT Interface", "MQTT Node-Red Broker Url", "Optional. Beispiel: 'tcp://127.0.0.1:1883'" },
 
    // mail
 
-   { "mail",                      ctBool,    "0",                       false, "5 Mail", "Mail Benachrichtigung", "Mail Benachrichtigungen aktivieren/deaktivieren" },
-   { "mailScript",                ctString,  BIN_PATH "/poold-mail.sh", false, "5 Mail", "poold sendet Mails über das Skript", "" },
-   { "stateMailTo",               ctString,  "",                        false, "5 Mail", "Status Mail Empfänger", "Komma getrennte Empfängerliste" },
-   { "errorMailTo",               ctString,  "",                        false, "5 Mail", "Fehler Mail Empfänger", "Komma getrennte Empfängerliste" },
-   { "webUrl",                    ctString,  "",                        false, "5 Mail", "URL der Visualisierung", "kann mit %weburl% in die Mails eingefügt werden" },
+   { "mail",                      ctBool,    "0",                  false, "5 Mail", "Mail Benachrichtigung", "Mail Benachrichtigungen aktivieren/deaktivieren" },
+   { "mailScript",                ctString,  BIN_PATH "/mail.sh",  false, "5 Mail", "poold sendet Mails über das Skript", "" },
+   { "stateMailTo",               ctString,  "",                   false, "5 Mail", "Status Mail Empfänger", "Komma getrennte Empfängerliste" },
+   { "errorMailTo",               ctString,  "",                   false, "5 Mail", "Fehler Mail Empfänger", "Komma getrennte Empfängerliste" },
+   { "webUrl",                    ctString,  "",                   false, "5 Mail", "URL der Visualisierung", "kann mit %weburl% in die Mails eingefügt werden" },
 };
 
 //***************************************************************************
@@ -271,17 +285,17 @@ int Pool::applyConfigurationSpecials()
 
    // special values
 
-   addValueFact(spLastUpdate, "SP", "Aktualisiert", "", wtText);
-   addValueFact(spWaterLevel, "SP", "Water Level", "%", wtMeterLevel);
-   addValueFact(spSolarDelta, "SP", "Solar Delta", "°C", wtMeter);
-   addValueFact(spPhMinusDemand, "SP", "PH Minus Bedarf", "ml", wtMeter);
-   addValueFact(spSolarPower, "SP", "Solar Leistung", "W", wtMeter);
-   addValueFact(spSolarWork, "SP", "Solar Energie (heute)", "kWh", wtChart);
+   addValueFact(spLastUpdate, "SP", 1, "Aktualisiert", "");
+   addValueFact(spWaterLevel, "SP", 1, "Water Level", "%");
+   addValueFact(spSolarDelta, "SP", 1, "Solar Delta", "°C");
+   addValueFact(spPhMinusDemand, "SP", 1, "PH Minus Bedarf", "ml");
+   addValueFact(spSolarPower, "SP", 1, "Solar Leistung", "W");
+   addValueFact(spSolarWork, "SP", 1, "Solar Energie (heute)", "kWh");
 
    // analog inputs
 
-   addValueFact(aiPh, "AI", "PH", "", wtMeter);
-   addValueFact(aiFilterPressure, "AI", "Druck", "bar", wtMeter);
+   addValueFact(aiPh, "AI", 1, "PH", "");
+   addValueFact(aiFilterPressure, "AI", 1, "Druck", "bar");
 
    // ---------------------------------
    // move calibration to config!

@@ -89,7 +89,7 @@ int Serial::open(const char* dev)
       return fail;
    }
 
-   tell(eloAlways, "Opening '%s' succeeded!", deviceName);
+   tell(eloDetail, "Opening '%s' succeeded!", deviceName);
 
    // configure serial line with 8 data bits, no parity, 1 stop bit
 
@@ -270,3 +270,4 @@ int Serial::read(void* buf, size_t count, uint timeoutMs)
 
    return nRead;
 }
+

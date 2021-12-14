@@ -1,4 +1,4 @@
-/etc/poold/poold.conf
+/etc/poold/daemon.conf
 /etc/default/w1mqtt
 /etc/rsyslog.d/10-poold.conf
 /etc/logrotate.d/poold

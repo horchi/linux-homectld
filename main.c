@@ -3,7 +3,7 @@
 // File main.c
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
-// Date 16.04.2020 Jörg Wendel
+// Date 04.11.2010 - 01.12.2021  Jörg Wendel
 //***************************************************************************
 
 #include <unistd.h>
@@ -119,6 +119,7 @@ void showUsage(const char* bin)
    printf("Usage: %s [-n][-c <config-dir>][-l <log-level>][-t]\n", bin);
    printf("    -n              don't daemonize\n");
    printf("    -t              log to stdout\n");
+   printf("    -T              log to stdout during init\n");
    printf("    -v              show version\n");
    printf("    -c <config-dir> use config in <config-dir>\n");
    printf("    -l <log-level>  set log level\n");
@@ -133,10 +134,11 @@ int main(int argc, char** argv)
    CLASS* job;
    int nofork = no;
    int pid;
-   int _stdout = na;
+   bool _stdout {false};
+   bool _stdoutOnInit {false};
    int _level = na;
 
-   logstdout = yes;
+   logstdout = true;
 
    // Usage ..
 
@@ -156,17 +158,16 @@ int main(int argc, char** argv)
       switch (argv[i][1])
       {
          case 'l': if (argv[i+1]) _level = atoi(argv[i+1]); break;
-         case 't': _stdout = yes;                           break;
+         case 't': _stdout = true;                          break;
+         case 'T': _stdoutOnInit = true;                    break;
          case 'n': nofork = yes;                            break;
          case 'c': if (argv[i+1]) confDir = argv[i+1];      break;
          case 'v': printf("Version %s\n", VERSION);         return 1;
       }
    }
 
-   if (_stdout != na)
+   if (!_stdoutOnInit)
       logstdout = _stdout;
-   else
-      logstdout = no;
 
    // read configuration ..
 
@@ -209,6 +210,10 @@ int main(int argc, char** argv)
    ::signal(SIGINT, CLASS::downF);
    ::signal(SIGTERM, CLASS::downF);
    // ::signal(SIGHUP, CLASS::triggerF);
+
+   // after init ... switch to log file
+
+   logstdout = _stdout;
 
    // do work ...
 

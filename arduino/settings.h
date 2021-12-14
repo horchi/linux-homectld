@@ -1,5 +1,4 @@
 
-// #define TOPIC "womod2mqtt"
 #define TOPIC "poold2mqtt"
 
 const char* wifiSsid   = "hierimhaus";

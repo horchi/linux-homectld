@@ -520,7 +520,7 @@ int Daemon::initScripts()
       {
          char* stmt {nullptr};
          asprintf(&stmt, "%s = '%s'", tableScripts->getField("PATH")->getDbName(), tableScripts->getStrValue("PATH"));
-         tableScripts->deleteWhere(stmt);
+         tableScripts->deleteWhere("%s", stmt);
          free(stmt);
          tell(eloAlways, "Removed script '%s'", tableScripts->getStrValue("PATH"));
       }
@@ -539,7 +539,7 @@ int Daemon::initScripts()
          asprintf(&stmt, "%s = %ld and %s = 'SC'",
                   tableValueFacts->getField("ADDRESS")->getDbName(), tableValueFacts->getIntValue("ADDRESS"),
                   tableValueFacts->getField("TYPE")->getDbName());
-         tableValueFacts->deleteWhere(stmt);
+         tableValueFacts->deleteWhere("%s", stmt);
          free(stmt);
          tell(eloAlways, "Removed valuefact 'SC/%ld'", tableValueFacts->getIntValue("ADDRESS"));
       }
@@ -1996,7 +1996,7 @@ int Daemon::aggregate()
 
       asprintf(&stmt, "aggregate != 'A' and time <= from_unixtime(%ld)", history);
 
-      if (tableSamples->deleteWhere(stmt) == success)
+      if (tableSamples->deleteWhere("%s", stmt) == success)
       {
          tell(eloAlways, "Aggregation with interval of %d minutes done; "
               "Created %d aggregation rows", aggregateInterval, aggCount);

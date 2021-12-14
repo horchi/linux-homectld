@@ -1313,7 +1313,7 @@ int Daemon::performImageConfig(json_t* obj, long client)
          const char* mediaTpe = strchr(data, '/');
          mediaTpe++;
          char suffix[20];
-         sprintf(suffix, "%.*s", strchr(mediaTpe, ';') - mediaTpe, mediaTpe);
+         sprintf(suffix, "%.*s", (int)(strchr(mediaTpe, ';') - mediaTpe), mediaTpe);
 
          p++;
 
@@ -1326,7 +1326,7 @@ int Daemon::performImageConfig(json_t* obj, long client)
          if (out.size())
          {
             storeToFile(tmp, out.c_str(), out.size());
-            tell(0, "Stored image to '%s' with %d bytes", tmp, out.size());
+            tell(0, "Stored image to '%s' with %zu bytes", tmp, out.size());
          }
 
          free(tmp);

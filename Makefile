@@ -34,10 +34,6 @@ ifdef WIRINGPI
   LIBS += -lwiringPi
 endif
 
-ifdef TEST_MODE
-	DEFINES += -D__TEST
-endif
-
 ifdef GIT_REV
    DEFINES += -DGIT_REV='"$(GIT_REV)"'
 endif

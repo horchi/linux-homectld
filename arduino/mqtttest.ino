@@ -1,5 +1,5 @@
 //***************************************************************************
-// poold / Arduino Sketch
+// Arduino Sketch for homed
 // File main.ino
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
@@ -23,6 +23,7 @@ bool adsPresent {false};
 
 const char* topicIn  {TOPIC "/arduino/in"};
 const char* topicOut {TOPIC "/arduino/out"};
+const char* mqttUrl  {MQTT_URL};
 
 int ledPin {LED_BUILTIN};
 unsigned int updateInterval {30 * 1000};  // update/push sensor data every x seconds
@@ -155,7 +156,7 @@ void connect()
       rgbLed(0, 0, b);
       delay(500);
 
-      while (WiFi.status() == WL_CONNECTED && !mqtt.connect("poold-arduino", key, secret))
+      while (WiFi.status() == WL_CONNECTED && !mqtt.connect(mqttUrl, key, secret))
       {
          b = b ? 0 : 20;
          rgbLed(0, 0, b);

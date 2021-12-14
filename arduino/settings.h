@@ -1,5 +1,6 @@
 
 #define TOPIC "poold2mqtt"
+#define MQTT_URL "poold-arduino"
 
 const char* wifiSsid   = "hierimhaus";
 const char* wifiPass   = "";

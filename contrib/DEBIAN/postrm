@@ -1,6 +1,6 @@
 #!/usr//bin/env bash
 #
-# postrm script for poold
+# postrm script for homectld
 #
 
 set -e
@@ -22,14 +22,14 @@ set -e
 case "$1" in
     purge)
         systemctl daemon-reload
-        echo -n "Drop the pool database (collected data will be lost and should be backuped manually before)? [y/N] "
+        echo -n "Drop the homectl database (collected data will be lost and should be backuped manually before)? [y/N] "
         echo ""
         read -n 1 c
         echo ""
 
         if [ "${c}" == "y" ]; then
-            echo "drop database pool;" | mysql -u root -Dmysql
-            echo "drop user pool@localhost;" | mysql -u root -Dmysql
+            echo "drop database homectl;" | mysql -u root -Dmysql
+            echo "drop user homectl@localhost;" | mysql -u root -Dmysql
             echo "database droped!"
         else
             echo "droping database aborted!"

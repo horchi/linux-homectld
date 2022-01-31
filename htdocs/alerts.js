@@ -38,6 +38,13 @@ function initAlerts(alerts)
    var elem = document.createElement("div");
    elem.innerHTML = html;
    root.appendChild(elem);
+
+   // calc container size
+
+   $("#container").height($(window).height() - getTotalHeightOf('menu') - 10);
+   window.onresize = function() {
+      $("#container").height($(window).height() - getTotalHeightOf('menu') - 10);
+   };
 }
 
 function printAlert(item)
@@ -46,7 +53,7 @@ function printAlert(item)
    html += '<div id="row_' + item.id + '" data-id="' + item.id + '" class="rounded-border inputTableAlert">\n';
    html += ' <div>\n';
    html += '   <span>Aktiv</span>\n';
-   html += '   <span><input id="state" type="checkbox" name="state" ' + (item.state == 'A' ? "checked" : "") + '></input><label for="state"></label></span>\n';
+   html += '   <span><input id="state_' + item.id + '" type="checkbox" name="state" ' + (item.state == 'A' ? "checked" : "") + '></input><label for="state_' + item.id + '"></label></span>\n';
    html += '   <span><button class="rounded-border button2" type="button" onclick="sendAlertMail(' + item.id + ')">Test Mail</button></span>\n';
    html += '   <span><button class="rounded-border button2" type="button" onclick="deleteAlert(' + item.id +  ')">Löschen</button></span>\n';
    html += ' </div>\n';
@@ -108,11 +115,11 @@ function printAlert(item)
 function storeAlerts()
 {
    var jsonArray = [];
-   var alertContainer = document.getElementById("alertContainer");
+   var container = document.getElementById("container");
 
    console.log("storeAlerts");
 
-   var elements = alertContainer.querySelectorAll("[id^='row_']");
+   var elements = container.querySelectorAll("[id^='row_']");
    var n = 0;
 
    for (var e = 0; e < elements.length; e++) {
@@ -148,5 +155,9 @@ function deleteAlert(alertId)
 
 function sendAlertMail(alertId)
 {
-   socket.send({ "event" : "sendmail", "object" : { "alertid" : alertId} });
+   socket.send({ "event" : "command", "object" :
+                 {
+                    "what" : "testmail",
+                    "alertid" : alertId
+                 }});
 }

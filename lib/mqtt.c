@@ -34,8 +34,8 @@ Mqtt::Mqtt(int aHeartBeat)
 
 Mqtt::~Mqtt()
 {
-   delete sendbuf;
-   delete recvbuf;
+   delete[] sendbuf;
+   delete[] recvbuf;
    delete mqttClient;
 }
 
@@ -50,7 +50,7 @@ void Mqtt::publishCallback(void** user, mqtt_response_publish* published)
 #ifdef __MQTT_DEBUG
    std::sting topic;
    topic.assign((const char*)published->topic_name, published->topic_name_size);
-   tell(0, "Received at '%s' (%d) %.*s\n", topic.c_str(), published->dup_flag,
+   tell(eloAlways, "Received at '%s' (%d) %.*s\n", topic.c_str(), published->dup_flag,
         (int)published->application_message_size, (const char*)published->application_message);
 #endif
 }
@@ -65,13 +65,13 @@ void* Mqtt::refreshFct(void* client)
    {
       if ((result = mqtt_sync(cl)) != MQTT_OK)
       {
-         tell(0, "Error: mqtt_sync for connection '%s' failed, result was %d '%s'",
+         tell(eloAlways, "Error: mqtt_sync for connection '%s' failed, result was %d '%s'",
               mqtt->theTopic.c_str(), result, mqtt_error_str((MQTTErrors)result));
          mqtt->disconnect();
       }
 
       cCondWait::SleepMs(10);
-      // tell(0, "refreshFct '%s' tid: %ld", mqtt->theTopic.c_str(), syscall(__NR_gettid));
+      // tell(eloAlways, "refreshFct '%s' tid: %ld", mqtt->theTopic.c_str(), syscall(__NR_gettid));
    }
 
    cl->close_now = 2;
@@ -128,12 +128,12 @@ int Mqtt::connect(const char* aUrl, const char* user, const char* password)
 
    if (sockfd == -1)
    {
-      tell(0, "Error: Failed to open socket '%s'", strerror(errno));
+      tell(eloAlways, "Error: Failed to open socket '%s'", strerror(errno));
       return fail;
    }
 
-   delete sendbuf;
-   delete recvbuf;
+   delete[] sendbuf;
+   delete[] recvbuf;
 
    sizeSendBuf = 1024 * 1024;
    sendbuf = new uint8_t[sizeSendBuf];
@@ -144,7 +144,7 @@ int Mqtt::connect(const char* aUrl, const char* user, const char* password)
 
    if (pthread_create(&refreshThread, NULL, refreshFct, this))
    {
-      tell(0, "Error: Failed to start client daemon thread");
+      tell(eloAlways, "Error: Failed to start client daemon thread");
       close(sockfd);
       sockfd = -1;
       return fail;
@@ -159,7 +159,7 @@ int Mqtt::connect(const char* aUrl, const char* user, const char* password)
 
    if (lastResult != MQTT_OK)
    {
-      tell(0, "Error: Initializing client failed");
+      tell(eloAlways, "Error: Initializing client failed");
       return fail;
    }
 
@@ -169,7 +169,7 @@ int Mqtt::connect(const char* aUrl, const char* user, const char* password)
 
    if (lastResult != MQTT_OK)
    {
-      tell(0, "Error: Connecting to '%s:%d' failed with code (%ld)", hostname, port, lastResult);
+      tell(eloAlways, "Error: Connecting to '%s:%d' failed with code (%ld)", hostname, port, lastResult);
       close(sockfd);
       return fail;
    }
@@ -191,7 +191,7 @@ int Mqtt::disconnect()
       return success;
 
    connected = false;
-   tell(0, "Info: Disconnecting '%s'", theTopic.c_str());
+   tell(eloDebug, "Debug: Disconnecting from MQTT");
    mqttClient->close_now = 1;
 
    time_t endWait = time(0) + 10;
@@ -201,7 +201,8 @@ int Mqtt::disconnect()
 
    // stop the refresh thread
 
-   tell(2, "Info: Stopping refresh thread for '%s'", theTopic.c_str());
+   tell(eloDebug, "Info: Stopping refresh thread for '%s' - '%s'", theTopic.c_str(),
+        mqttClient->close_now == 2 ? "succeeded" : "aborted");
 
    if (mqttClient->close_now == 2)
       pthread_join(refreshThread, 0);
@@ -232,7 +233,7 @@ int Mqtt::subscribe(const char* topic)
 
    if (!isConnected() || isEmpty(topic))
    {
-      tell(0, "Error: Can't subscribe, not connected or topic '%s' missing", topic);
+      tell(eloAlways, "Error: Can't subscribe, not connected or topic '%s' missing", topic);
       return fail;
    }
 
@@ -240,13 +241,13 @@ int Mqtt::subscribe(const char* topic)
 
    if (lastResult != MQTT_OK)
    {
-      tell(0, "Error: Subscribing to '%s' failed", topic);
+      tell(eloAlways, "Error: Subscribing to '%s' failed", topic);
       disconnect();
       return fail;
    }
 
    theTopic = topic;
-   tell(4, "Debug: Subscribing to topic '%s' succeeded", topic);
+   tell(eloDebug, "Debug: Subscribing to topic '%s' succeeded", topic);
 
    return success;
 }
@@ -262,11 +263,11 @@ int Mqtt::unsubscribe(const char* topic)
 
    if (lastResult != MQTT_OK)
    {
-      tell(0, "Error: Unsubscribing to '%s' failed", topic);
+      tell(eloAlways, "Error: Unsubscribing to '%s' failed", topic);
       return fail;
    }
 
-   tell(4, "Debug: Unsubscribing from topic '%s' succeeded", topic);
+   tell(eloDebug, "Debug: Unsubscribing from topic '%s' succeeded", topic);
 
    return success;
 }
@@ -335,7 +336,10 @@ int Mqtt::write(const char* topic, const char* message, int len)
 int Mqtt::writeRetained(const char* topic, const char* message)
 {
    if (isEmpty(topic))
+   {
+      tell(eloAlways, "Error: Aborting write, missing topic");
       return wrnEmptyMessage;
+   }
 
    // we can also write NULL messages !!
 
@@ -344,20 +348,26 @@ int Mqtt::writeRetained(const char* topic, const char* message)
 
 int Mqtt::write(const char* topic, const char* message, size_t len, uint8_t flags)
 {
+   if (!isConnected())
+   {
+      tell(eloAlways, "Error: MQTT: Can't write to topic '%s', not connected", topic);
+      return fail;
+   }
+
    theTopic.clear();
 
    lastResult = mqtt_publish(mqttClient, topic, message, len, flags);
 
    if (lastResult != MQTT_OK)
    {
-      tell(0, "Error: Writing '%.*s' (%zd) to topic '%s' failed, result was %lu '%s'", (int)len,
+      tell(eloAlways, "Error: Writing '%.*s' (%zd) to topic '%s' failed, result was %lu '%s'", (int)len,
            message, len, topic, lastResult, mqtt_error_str((MQTTErrors)lastResult));
       disconnect();
       return fail;
    }
 
    theTopic = topic;
-   tell(1, "-> (%s)[%s]", topic, message);
+   tell(eloMqtt, "-> (%s)[%s]", topic, message);
 
    return success;
 }

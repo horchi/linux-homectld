@@ -11,17 +11,17 @@
 #include "daemon.h"
 
 //***************************************************************************
-// Class Pool
+// Class HomeCtl
 //***************************************************************************
 
-class Pool : public Daemon
+class HomeCtl : public Daemon
 {
    public:
 
-      Pool();
-      virtual ~Pool();
+      HomeCtl();
+      virtual ~HomeCtl();
 
-      const char* myTitle() override { return "Pool"; }
+      const char* myTitle() override { return "HomeCtl"; }
       int init() override;
 
       enum PinMappings

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 DEVICE="/dev/ttyUSB0"
-HEX="/usr/share/poold/nano-atmega328-ioctrl.hex"
+HEX="/usr/share/homectld/nano-atmega328-ioctrl.hex"
 
 if [[ -n "$1" ]]; then
    DEVICE="$1"

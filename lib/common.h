@@ -51,10 +51,6 @@
 //***************************************************************************
 
 class MemoryStruct;
-extern int loglevel;
-extern int argLoglevel;
-extern int logstdout;
-extern int logstamp;
 
 typedef unsigned char byte;
 typedef unsigned short word;
@@ -97,16 +93,45 @@ enum Misc
 
 enum Eloquence
 {
-   eloOff = na,              // -1
-   eloAlways,                // 0
-   eloInfo,                  // 1
-   eloDetail,                // 2
-   eloDebug,                 // 3
-   eloDebug2,                // 4
-   eloDebug3                 // 5
+   eloInfo           = 0x0001,
+   eloDetail         = 0x0002,
+   eloDebug          = 0x0004,
+   eloDebug2         = 0x0008,
+   eloWebSock        = 0x0010,
+   eloDebugWebSock   = 0x0020,
+   eloMqtt           = 0x0040,
+   eloDb             = 0x0080,
+   eloDebugDb        = 0x0100,
+
+   eloNodeRed        = 0x0200,   // node-red MQTT topics
+   eloDeconz         = 0x0400,
+   eloDebugDeconz    = 0x0800,
+   eloWeather        = 0x1000,
+   eloHomeMatic      = 0x4000,
+   eloDebugHomeMatic = 0x8000,
+
+   eloAlways         = 0x0000,
 };
 
-void __attribute__ ((format(printf, 2, 3))) tell(int eloquence, const char* format, ...);
+class Elo
+{
+   public:
+
+      static const char* eloquences[];
+      static Eloquence stringToEloquence(const std::string string);
+      static int toEloquence(const char* str);
+};
+
+extern Eloquence eloquence;
+extern Eloquence argEloquence;
+extern bool logstdout;
+extern bool logstamp;
+
+void __attribute__ ((format(printf, 2, 3))) tell(Eloquence eloquence, const char* format, ...);
+
+//***************************************************************************
+//
+//***************************************************************************
 
 char* srealloc(void* ptr, size_t size);
 
@@ -164,12 +189,24 @@ class MemoryStruct
          return success;
       }
 
-      int append(const char* buf, int len = 0)
+      int append(const char* buf)
       {
-         if (!len) len = strlen(buf);
+         size_t len = strlen(buf);
          memory = srealloc(memory, size+len);
          memcpy(memory+size, buf, len);
          size += len;
+
+         return success;
+      }
+
+      int append(const char* buf, int len)
+      {
+         if (len > 0)
+         {
+            memory = srealloc(memory, size+len);
+            memcpy(memory+size, buf, len);
+            size += len;
+         }
 
          return success;
       }
@@ -201,7 +238,7 @@ class MemoryStruct
          {
             free(zmemory);
             zsize = 0;
-            tell(0, "Error gzip failed!");
+            tell(eloAlways, "Error gzip failed!");
 
             return fail;
          }
@@ -214,10 +251,10 @@ class MemoryStruct
       void clear()
       {
          free(memory);
-         memory = 0;
+         memory = nullptr;
          size = 0;
          free(zmemory);
-         zmemory = 0;
+         zmemory = nullptr;
          zsize = 0;
          *tag = 0;
          *name = 0;
@@ -252,6 +289,24 @@ class MemoryStruct
       time_t expireAt;
       std::map<std::string, std::string> headers;
 };
+
+//***************************************************************************
+// Wrapper for Regual Expression Library
+//***************************************************************************
+
+enum Option
+{
+   repUseRegularExpression = 1,
+   repIgnoreCase = 2
+};
+
+int rep(const char* string, const char* expression, Option options = repUseRegularExpression);
+
+int rep(const char* string, const char* expression,
+        const char*& s_location, Option options = repUseRegularExpression);
+
+int rep(const char* string, const char* expression, const char*& s_location,
+        const char*& e_location, Option options = repUseRegularExpression);
 
 //***************************************************************************
 // cMyMutex
@@ -300,6 +355,7 @@ std::string executeCommand(const char* cmd);
   const char* getUniqueId();
 #endif
 
+const char* bytesPretty(double bytes, int precision = 0);
 double usNow();
 int l2hhmm(time_t t);
 time_t midnightOf(time_t t);
@@ -332,6 +388,8 @@ char* eos(char* s);
 const char* toElapsed(int seconds, char* buf);
 // #to-be-implemented: splitToInts(const char* string, char c, int& i1, int& i2);
 std::vector<std::string> split(const std::string& str, char delim);
+std::string getStringBetween(std::string str, const char* begin, const char* end);
+std::string getStringBefore(std::string str, const char* begin);
 int fileExists(const char* path);
 const char* suffixOf(const char* path);
 int createLink(const char* link, const char* dest, int force);
@@ -432,7 +490,7 @@ typedef cTimeMs cMyTimeMs;
 //   char_smart p("init");
 //
 //   printf("char: %s\n", p.c_str());
-//
+//   printf("char: %s\n", (const char*)p);
 //   asprintf(&p, "%s", "test");
 //   printf("char: %s\n", p.c_str());
 //***************************************************************************
@@ -476,7 +534,6 @@ class char_smart
       char* p {nullptr};
 };
 
-
 //***************************************************************************
 // Log Duration
 //***************************************************************************
@@ -485,7 +542,7 @@ class LogDuration
 {
    public:
 
-      LogDuration(const char* aMessage, int aLogLevel = 2);
+      LogDuration(const char* aMessage, Eloquence aLogLevel = eloDetail);
       ~LogDuration();
 
       void show(const char* label = "");
@@ -494,7 +551,7 @@ class LogDuration
 
       char message[1000];
       uint64_t durationStart;
-      int logLevel;
+      Eloquence logLevel;
 };
 
 //***************************************************************************
@@ -509,7 +566,6 @@ class Sem
 
       Sem(int aKey)
       {
-         locked = no;
          key = aKey;
 
          if ((id = semget(key, 1, 0666 | IPC_CREAT)) == -1)
@@ -540,13 +596,12 @@ class Sem
 
          if (semop(id, sops, 2) == -1)
          {
-            tell(eloAlways, "Error: Can't lock semaphore, errno (%d) '%s'",
-                 errno, strerror(errno));
+            tell(eloAlways, "Error: Can't lock semaphore '0x%x', errno (%d) '%s'", key, errno, strerror(errno));
 
             return fail;
          }
 
-         locked = yes;
+         locked = true;
 
          return success;
       }
@@ -562,13 +617,13 @@ class Sem
          if (semop(id, sops, 1) == -1)
          {
             if (errno != EAGAIN)
-               tell(0, "Error: Can't lock semaphore, errno was (%d) '%s'",
+               tell(eloAlways, "Error: Can't lock semaphore, errno was (%d) '%s'",
                     errno, strerror(errno));
 
             return fail;
          }
 
-         locked = yes;
+         locked = true;
 
          return success;
       }
@@ -595,7 +650,7 @@ class Sem
          if (semop(id, sops, 1) == -1)
          {
             if (errno != EAGAIN)
-               tell(0, "Error: Can't lock semaphore, errno was (%d) '%s'",
+               tell(eloAlways, "Error: Can't lock semaphore, errno was (%d) '%s'",
                     errno, strerror(errno));
 
             return fail;
@@ -623,14 +678,14 @@ class Sem
             return fail;
          }
 
-         locked = no;
+         locked = false;
 
          return success;
       }
 
    private:
 
-      int key;
-      int id;
-      int locked;
+      int key {0};
+      int id {0};
+      bool locked {false};
 };

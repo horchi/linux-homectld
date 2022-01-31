@@ -12,74 +12,7 @@
 #include <jansson.h>
 #include <libwebsockets.h>
 
-//***************************************************************************
-// Class Web Service
-//***************************************************************************
-
-class cWebService
-{
-   public:
-
-      enum Event
-      {
-         evUnknown,
-         evLogin,
-         evLogout,
-         evPageChange,
-         evData,
-         evInit,
-         evToggleIo,
-         evToggleIoNext,
-         evToggleMode,
-         evStoreConfig,
-         evGetToken,
-         evSetup,
-         evStoreIoSetup,
-         evChartData,
-         evLogMessage,
-
-         evUserDetails,
-         evStoreUserConfig,
-         evChangePasswd,
-
-         evReset,
-         evGroups,
-         evGroupConfig,
-         evChartbookmarks,
-         evStoreChartbookmarks,
-         evSendMail,
-         evSyslog,
-         evForceRefresh,
-         evStoreDashboards,
-         evAlerts,
-         evStoreAlerts,
-         evImageConfig,
-         evSchema,
-         evStoreSchema,
-
-         evCount
-      };
-
-      enum ClientType
-      {
-         ctWithLogin = 0,
-         ctActive
-      };
-
-      enum UserRights
-      {
-         urView        = 0x01,
-         urControl     = 0x02,
-         urFullControl = 0x04,
-         urSettings    = 0x08,
-         urAdmin       = 0x10
-      };
-
-      static const char* toName(Event event);
-      static Event toEvent(const char* name);
-
-      static const char* events[];
-};
+#include "webservice.h"
 
 //***************************************************************************
 // Class Web Interface
@@ -155,7 +88,7 @@ class cWebSock : public cWebService
 
             // just in case client is not connected and wasted messages are pending
 
-            tell(0, "Info: Flushing (%zu) old 'wasted' messages of client (%p)", messagesOut.size(), wsi);
+            tell(eloAlways, "Info: Flushing (%zu) old 'wasted' messages of client (%p)", messagesOut.size(), wsi);
 
             while (!messagesOut.empty())
                messagesOut.pop();

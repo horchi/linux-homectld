@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <zlib.h>
 #include <dirent.h>
+#include <regex.h>
 
 #include <algorithm>
 
@@ -35,18 +36,65 @@
   cMutex logMutex;
 #endif
 
-int loglevel = 1;
-int argLoglevel = 1;
-int logstdout = no;
-int logstamp = no;
+Eloquence eloquence {eloAlways};
+Eloquence argEloquence {eloAlways};
+bool logstdout {false};
+bool logstamp {false};
 
 //***************************************************************************
-// Debug
+// Logging
 //***************************************************************************
 
-void tell(int eloquence, const char* format, ...)
+const char* Elo::eloquences[] =
 {
-   if (loglevel < eloquence)
+   "Info",
+   "Detail",
+   "Debug",
+   "Debug2",
+   "WebSock",
+   "DebugWebSock",
+   "Mqtt",
+   "Db",
+   "DebugDb",
+   "NodeRed",
+   "Deconz",
+   "DebugDeconz",
+   "Weather",
+
+   "HomeMatic",
+   "DebugHomeMatic",
+
+   nullptr
+};
+
+Eloquence Elo::stringToEloquence(const std::string string)
+{
+   int elo {0};
+   int n {0};
+
+   auto elos = split(string, ',');
+
+   for (const auto& e : elos)
+   {
+      if ((n = toEloquence(e.c_str())) != na)
+         elo |= n;
+   }
+
+   return (Eloquence)elo;
+}
+
+int Elo::toEloquence(const char* str)
+{
+   for (int i = 0; eloquences[i]; i++)
+      if (strcasecmp(eloquences[i], str) == 0)
+         return (Eloquence)pow(2, i);
+
+   return na;
+}
+
+void tell(Eloquence elo, const char* format, ...)
+{
+   if (elo && !(eloquence & elo))
       return ;
 
    const int sizeBuffer = 100000;
@@ -87,7 +135,7 @@ void tell(int eloquence, const char* format, ...)
    }
    else
    {
-      int prio = eloquence == 0 ? LOG_ERR : LOG_NOTICE;
+      int prio = elo == eloAlways ? LOG_ERR : LOG_NOTICE;
       syslog(prio, "%s", t);
    }
 
@@ -141,6 +189,44 @@ double usNow()
    gettimeofday(&tp, 0);
 
    return tp.tv_sec * 1000000.0 + tp.tv_usec;
+}
+
+//***************************************************************************
+// Bytes Pretty
+//***************************************************************************
+
+const char* bytesPretty(double bytes, int precision)
+{
+   const char* unit= "B";
+
+   if (bytes > 1024)
+   {
+      bytes /= 1024;
+      unit= "kB";
+   }
+
+   if (bytes > 1024)
+   {
+      bytes /= 1024;
+      unit= "MB";
+   }
+
+   if (bytes > 1024)
+   {
+      bytes /= 1024;
+      unit= "GB";
+   }
+
+   if (bytes > 1024)
+   {
+      bytes /= 1024;
+      unit= "TB";
+   }
+
+   static char res[100];
+   sprintf(res, "%.*f %s", precision, bytes, unit);
+
+   return res;
 }
 
 //***************************************************************************
@@ -236,7 +322,7 @@ int createMd5OfFile(const char* path, const char* name, md5* md5)
 
    if (!(f = fopen(file, "r")))
    {
-      tell(0, "Fatal: Can't access '%s'; %s", file, strerror(errno));
+      tell(eloAlways, "Fatal: Can't access '%s'; %s", file, strerror(errno));
       free(file);
       return fail;
    }
@@ -636,6 +722,31 @@ std::vector<std::string> split(const std::string& str, char delim)
 }
 
 //***************************************************************************
+// Get String Before
+//***************************************************************************
+
+std::string getStringBefore(std::string str, const char* begin)
+{
+   size_t pos = str.find(begin);
+   return str.substr(0, pos);
+}
+
+//***************************************************************************
+// Get String Between
+//***************************************************************************
+
+std::string getStringBetween(std::string str, const char* begin, const char* end)
+{
+   size_t first = str.find(begin);
+   size_t last = str.find(end, first);
+
+   if (first == str.npos || last == str.npos)
+      return "";
+
+   return str.substr(first+1, last-(first+1));
+}
+
+//***************************************************************************
 // End Of String
 //***************************************************************************
 
@@ -718,7 +829,7 @@ int isLink(const char* path)
    if (lstat(path, &sb) == 0)
       return S_ISLNK(sb.st_mode);
 
-   tell(0, "Error: Detecting state for '%s' failed, error was '%s'", path, strerror(errno));
+   tell(eloAlways, "Error: Detecting state for '%s' failed, error was '%s'", path, strerror(errno));
 
    return false;
 }
@@ -749,7 +860,7 @@ int createLink(const char* link, const char* dest, int force)
 
       if (symlink(dest, link) != 0)
       {
-         tell(0, "Failed to create symlink '%s', error was '%s'", link, strerror(errno));
+         tell(eloAlways, "Failed to create symlink '%s', error was '%s'", link, strerror(errno));
          return fail;
       }
    }
@@ -766,12 +877,12 @@ int removeFile(const char* filename)
 {
    if (unlink(filename) != 0)
    {
-      tell(0, "Can't remove file '%s', '%s'", filename, strerror(errno));
+      tell(eloAlways, "Can't remove file '%s', '%s'", filename, strerror(errno));
 
       return 1;
    }
 
-   tell(2, "Removed file '%s'", filename);
+   tell(eloDebug, "Removed file '%s'", filename);
 
    return 0;
 }
@@ -786,11 +897,11 @@ int chkDir(const char* path)
 
    if (stat(path, &fs) != 0 || !S_ISDIR(fs.st_mode))
    {
-      tell(0, "Creating directory '%s'", path);
+      tell(eloAlways, "Creating directory '%s'", path);
 
       if (mkdir(path, ACCESSPERMS) == -1)
       {
-         tell(0, "Can't create directory '%s'", strerror(errno));
+         tell(eloAlways, "Can't create directory '%s'", strerror(errno));
          return fail;
       }
    }
@@ -811,13 +922,13 @@ int loadFromFile(const char* infile, MemoryStruct* data)
 
    if (!fileExists(infile))
    {
-      tell(0, "File '%s' not found'", infile);
+      tell(eloAlways, "File '%s' not found'", infile);
       return fail;
    }
 
    if (stat(infile, &sb) < 0)
    {
-      tell(0, "Can't get info of '%s', error was '%s'", infile, strerror(errno));
+      tell(eloAlways, "Can't get info of '%s', error was '%s'", infile, strerror(errno));
       return fail;
    }
 
@@ -850,7 +961,7 @@ int loadFromFile(const char* infile, MemoryStruct* data)
    }
    else
    {
-      tell(0, "Error, can't open '%s' for reading, error was '%s'", infile, strerror(errno));
+      tell(eloAlways, "Error, can't open '%s' for reading, error was '%s'", infile, strerror(errno));
       return fail;
    }
 
@@ -883,7 +994,6 @@ int storeToFile(const char* filename, const char* data, int size)
 
 int fsStat(const char* mount, FsStat* stat)
 {
-   const unsigned int GB {1024 * 1024 * 1024};
    struct statvfs statVFS;
 
    if (statvfs(mount, &statVFS) != 0)
@@ -893,10 +1003,6 @@ int fsStat(const char* mount, FsStat* stat)
    stat->available = (double)(statVFS.f_bfree * statVFS.f_frsize);
    stat->used = stat->total - stat->available;
    stat->usedP = (stat->used / stat->total) * 100.0;
-
-   stat->total /= GB;
-   stat->available /= GB;
-   stat->used /= GB;
 
    return success;
 }
@@ -939,13 +1045,13 @@ int loadLinesFromFile(const char* infile, std::vector<std::string>& lines, bool 
 
    if (!fileExists(infile))
    {
-      tell(0, "File '%s' not found'", infile);
+      tell(eloAlways, "File '%s' not found'", infile);
       return fail;
    }
 
    if (!(fp = fopen(infile, "r")))
    {
-      tell(0, "Error, can't open '%s' for reading, error was '%s'", infile, strerror(errno));
+      tell(eloAlways, "Error, can't open '%s' for reading, error was '%s'", infile, strerror(errno));
       return fail;
    }
 
@@ -981,9 +1087,11 @@ int getFileList(const char* path, int type, const char* extensions, int recursio
 {
    DIR* dir {nullptr};
 
+   tell(eloDebug2, "Scanning directory '%s' with extensions '%s'", path, extensions);
+
    if (!(dir = opendir(path)))
    {
-      tell(1, "Can't open directory '%s', '%s'", path, strerror(errno));
+      tell(eloDetail, "Can't open directory '%s', '%s'", path, strerror(errno));
       return fail;
    }
 
@@ -1027,7 +1135,7 @@ int getFileList(const char* path, int type, const char* extensions, int recursio
 
          if (isEmpty(ext) || !strcasestr(extensions, ext))
          {
-            tell(4, "Skipping file '%s' with extension '%s'", pEntry->d_name, ext);
+            tell(eloDebug2, "Skipping file '%s' with extension '%s'", pEntry->d_name, ext);
             continue;
          }
       }
@@ -1183,11 +1291,11 @@ void tellZipError(int errorCode, const char* op, const char* msg)
    {
       case Z_OK:           return;
       case Z_STREAM_END:   return;
-      case Z_MEM_ERROR:    tell(0, "Error: Not enough memory to unzip file%s!\n", op); return;
-      case Z_BUF_ERROR:    tell(0, "Error: Couldn't unzip data due to output buffer size problem%s!\n", op); return;
-      case Z_DATA_ERROR:   tell(0, "Error: Zipped input data corrupted%s! Details: %s\n", op, msg); return;
-      case Z_STREAM_ERROR: tell(0, "Error: Invalid stream structure%s. Details: %s\n", op, msg); return;
-      default:             tell(0, "Error: Couldn't unzip data for unknown reason (%6d)%s!\n", errorCode, op); return;
+      case Z_MEM_ERROR:    tell(eloAlways, "Error: Not enough memory to unzip file%s!\n", op); return;
+      case Z_BUF_ERROR:    tell(eloAlways, "Error: Couldn't unzip data due to output buffer size problem%s!\n", op); return;
+      case Z_DATA_ERROR:   tell(eloAlways, "Error: Zipped input data corrupted%s! Details: %s\n", op, msg); return;
+      case Z_STREAM_ERROR: tell(eloAlways, "Error: Invalid stream structure%s. Details: %s\n", op, msg); return;
+      default:             tell(eloAlways, "Error: Couldn't unzip data for unknown reason (%6d)%s!\n", errorCode, op); return;
    }
 }
 
@@ -1218,7 +1326,7 @@ const char* getFirstIp()
 
    if (getifaddrs(&ifaddr) == -1)
    {
-      tell(0, "getifaddrs() failed");
+      tell(eloAlways, "getifaddrs() failed");
       return "";
    }
 
@@ -1240,7 +1348,7 @@ const char* getFirstIp()
 
          if (res)
          {
-            tell(0, "getnameinfo() failed: %s", gai_strerror(res));
+            tell(eloAlways, "getnameinfo() failed: %s", gai_strerror(res));
             return "";
          }
 
@@ -1249,7 +1357,7 @@ const char* getFirstIp()
          if (strcmp(host, "127.0.0.1") == 0)
             continue;
 
-         tell(5, "%-8s %-15s %s", ifa->ifa_name, host,
+         tell(eloDebug2, "%-8s %-15s %s", ifa->ifa_name, host,
               ifa->ifa_addr->sa_family == AF_INET   ? " (AF_INET)" :
               ifa->ifa_addr->sa_family == AF_INET6  ? " (AF_INET6)" : "");
       }
@@ -1302,7 +1410,7 @@ int toUTF8(char* out, int outMax, const char* in, const char* from_code)
 
    if (ret == (size_t)-1)
    {
-      tell(0, "Converting [%s] from '%s' to '%s' failed", fromPtr, from_code, to_code);
+      tell(eloAlways, "Converting [%s] from '%s' to '%s' failed", fromPtr, from_code, to_code);
 		return fail;
    }
 
@@ -1327,6 +1435,67 @@ byte crc(const byte* data, int size)
    }
 
    return crc;
+}
+
+//**************************************************************************
+//  Regular Expression Searching
+//**************************************************************************
+
+int rep(const char* string, const char* expression, Option options)
+{
+  const char* tmpA;
+  const char* tmpB;
+
+  return rep(string, expression, tmpA, tmpB, options);
+}
+
+int rep(const char* string, const char* expression, const char*& s_location,
+        Option options)
+{
+  const char* tmpA;
+
+  return rep(string, expression, s_location, tmpA, options);
+}
+
+
+int rep(const char* string, const char* expression, const char*& s_location,
+        const char*& e_location, Option options)
+{
+   regex_t reg;
+   regmatch_t rm;
+   int status;
+   int opt = 0;
+
+   // Vorbereiten von reg fuer die Expressionsuche mit regexec
+   // Flags:  REG_EXTENDED = Use Extended Regular Expressions
+   //         REG_ICASE    = Ignore case in match.
+
+   reg.re_nsub = 0;
+
+   // Options umwandeln
+   if (options & repUseRegularExpression)
+     opt = opt | REG_EXTENDED;
+   if (options & repIgnoreCase)
+     opt = opt | REG_ICASE;
+
+   if (regcomp(&reg, expression, opt) != 0)
+      return fail;
+
+   // Suchen des ersten Vorkommens von reg in string
+
+   status = regexec(&reg, string, 1, &rm, 0);
+   regfree(&reg);
+
+   if (status != 0)
+      return fail;
+
+   // Suche erfolgreich =>
+   // Setzen der ermittelten Start- und Endpositionen
+
+   s_location = (char*)(string + rm.rm_so);
+   e_location = (char*)(string + rm.rm_eo);
+
+   return success;
 }
 
 //***************************************************************************
@@ -1471,7 +1640,7 @@ uint64_t cTimeMs::Elapsed(void)
 // Class LogDuration
 //***************************************************************************
 
-LogDuration::LogDuration(const char* aMessage, int aLogLevel)
+LogDuration::LogDuration(const char* aMessage, Eloquence aLogLevel)
 {
    logLevel = aLogLevel;
    strcpy(message, aMessage);

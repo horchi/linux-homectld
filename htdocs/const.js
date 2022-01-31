@@ -1,4 +1,4 @@
 
-var myProtocol = "poold";
-var storagePrefix = "poold";
-var pageTitle = 'Pool Control';
+var myProtocol = "homectld";
+var storagePrefix = "homectld";
+var pageTitle = 'Home Control';

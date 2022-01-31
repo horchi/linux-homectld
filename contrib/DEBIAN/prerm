@@ -1,5 +1,5 @@
 #!/bin/sh
-# prerm script for poold
+# prerm script for homectld
 #
 # see: dh_installdeb(1)
 
@@ -19,8 +19,8 @@ set -e
 
 case "$1" in
     remove|upgrade|deconfigure)
-        systemctl disable poold
-        systemctl stop poold
+        systemctl disable homectld
+        systemctl stop homectld
     ;;
 
     failed-upgrade)

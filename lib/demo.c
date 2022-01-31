@@ -6,6 +6,7 @@
  */
 
 #include "common.h"
+#include "json.h"
 
 #include "db.h"
 
@@ -18,7 +19,7 @@ const char* logPrefix = "";
 
 void initConnection()
 {
-   cDbConnection::init(0x3db00012);
+   cDbConnection::init();
 
    cDbConnection::setEncoding("utf8");
    cDbConnection::setHost("localhost");
@@ -50,14 +51,14 @@ int demoStatement()
 
    cDbTable* eventsDb = new cDbTable(connection, "events");
 
-   tell(0, "------------------- attach table ---------------");
+   tell(eloAlways, "------------------- attach table ---------------");
 
    // open table (attach)
 
    if (eventsDb->open() != success)
       return fail;
 
-   tell(0, "---------------- prepare select statement -------------");
+   tell(eloAlways, "---------------- prepare select statement -------------");
 
    // vorbereiten (prepare) eines statement, am besten einmal bei programmstart!
    // ----------
@@ -86,9 +87,9 @@ int demoStatement()
       return fail;
    }
 
-   tell(0, "------------------ prepare done ----------------------");
+   tell(eloAlways, "------------------ prepare done ----------------------");
 
-   tell(0, "------------------ create some rows  ----------------------");
+   tell(eloAlways, "------------------ create some rows  ----------------------");
 
    eventsDb->clear();     // alle values löschen
 
@@ -108,18 +109,18 @@ int demoStatement()
       free(title);
    }
 
-   tell(0, "------------------ done  ----------------------");
+   tell(eloAlways, "------------------ done  ----------------------");
 
-   tell(0, "-------- select all where eventid > 1000 -------------");
+   tell(eloAlways, "-------- select all where eventid > 1000 -------------");
 
    eventsDb->clear();     // alle values löschen
    eventsDb->setValue(eventsDb->getField("EventId"), 1000);
 
    for (int f = selectByCompTitle->find(); f; f = selectByCompTitle->fetch())
    {
-      tell(0, "id: %ld", eventsDb->getIntValue(eventsDb->getField("EventId")));
-      tell(0, "channel: %s", eventsDb->getStrValue(eventsDb->getField("ChannelId")));
-      tell(0, "titel: %s", eventsDb->getStrValue(eventsDb->getField("Title")));
+      tell(eloAlways, "id: %ld", eventsDb->getIntValue(eventsDb->getField("EventId")));
+      tell(eloAlways, "channel: %s", eventsDb->getStrValue(eventsDb->getField("ChannelId")));
+      tell(eloAlways, "titel: %s", eventsDb->getStrValue(eventsDb->getField("Title")));
    }
 
    // freigeben der Ergebnissmenge !!
@@ -163,7 +164,7 @@ int joinDemo()
 
    // F_INIT(events, EventId); // ergibt: cDbFieldDef* eventsEventId; dbDict.init(eventsEventId, "events", "EventId");
 
-   tell(0, "----------------- open table connection ---------------");
+   tell(eloAlways, "----------------- open table connection ---------------");
 
    // open tables (attach)
 
@@ -176,7 +177,7 @@ int joinDemo()
    if (imageRefDb->open() != success)
       return fail;
 
-   tell(0, "---------------- prepare select statement -------------");
+   tell(eloAlways, "---------------- prepare select statement -------------");
 
    // all images
 
@@ -237,10 +238,10 @@ int joinDemo()
       return fail;
    }
 
-   tell(0, "------------------ prepare done ----------------------");
+   tell(eloAlways, "------------------ prepare done ----------------------");
 
 
-   tell(0, "------------------ select ----------------------");
+   tell(eloAlways, "------------------ select ----------------------");
 
    time_t since = 0; //time(0) - 60 * 60;
    imageRefDb->clear();
@@ -256,10 +257,10 @@ int joinDemo()
       int lfn = imageRefDb->getIntValue(imageRefDb->getField("Lfn"));
       int size = imageSize.getIntValue();
 
-      tell(0, "Found (%d) '%s', %d, %d", eventid, imageName, lfn, size);
+      tell(eloAlways, "Found (%d) '%s', %d, %d", eventid, imageName, lfn, size);
    }
 
-   tell(0, "------------------ done ----------------------");
+   tell(eloAlways, "------------------ done ----------------------");
 
    // freigeben der Ergebnissmenge !!
 
@@ -290,12 +291,39 @@ int insertDemo()
 
    if (timerDb->insert() == success)
    {
-      tell(0, "Insert succeeded with ID %d", timerDb->getLastInsertId());
+      tell(eloAlways, "Insert succeeded with ID %d", timerDb->getLastInsertId());
    }
 
    delete timerDb;
 
    return done;
+}
+
+void jsonExample()
+{
+   printf("-------------\n");
+   printf("jsonExample\n");
+   printf("-------------\n");
+
+   json_t* j = jsonLoad("{\"foo\" : [{ \"bar\" : 12.21 }, { \"bar\" : 44.21 }] }");
+
+   if (!j)
+   {
+      tell(eloAlways, "failed to parse json\n");
+      return;
+   }
+
+   const char* xPath = "foo[1]/bar";
+
+   if (getObjectByPath(j, xPath))
+   {
+      double bar = getDoubleByPath(j, xPath);
+      printf("bar: %.2f\n", bar);
+   }
+   else
+   {
+      printf("path '%s' not found\n", xPath);
+   }
 }
 
 //***************************************************************************
@@ -304,18 +332,22 @@ int insertDemo()
 
 int main(int argc, char** argv)
 {
+   logstdout = true;
+
+   jsonExample();
+
+   return done;
+
    const char* path = "/etc/epgd/epg.dat";
 
    if (argc > 1)
       path = argv[1];
 
-   // read deictionary
+   // read dictionary
 
-   dbDict.setFilterFromNameFct(toFieldFilter);
-
-   if (dbDict.in(path, ffEpgd) != success)
+   if (dbDict.in(path) != success)
    {
-      tell(0, "Invalid dictionary configuration, aborting!");
+      tell(eloAlways, "Invalid dictionary configuration, aborting!");
       return 1;
    }
 
@@ -329,7 +361,7 @@ int main(int argc, char** argv)
    // joinDemo();
    // insertDemo();
 
-   tell(0, "uuid: '%s'", getUniqueId());
+   tell(eloAlways, "uuid: '%s'", getUniqueId());
 
    exitConnection();
 

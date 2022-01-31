@@ -5,9 +5,9 @@
  *
  */
 
-#include "json.h"
-
 #ifdef USEJSON
+
+#include "json.h"
 
 const char* charset = "utf-8";  // #TODO, move to configuration?
 
@@ -31,6 +31,27 @@ int json2Data(json_t* obj, MemoryStruct* data, const char* encoding)
       status = data->toGzip();
 
    return status;
+}
+
+//***************************************************************************
+// Load JSON Object from String
+//***************************************************************************
+
+json_t* jsonLoad(const char* data)
+{
+   json_error_t error;
+   json_t* jData = json_loads(data, 0, &error);
+
+   if (!jData)
+   {
+      tell(eloAlways, "Error: Ignoring invalid json in '%s'", data);
+      tell(eloAlways, "Error decoding json: %s (%s, line %d column %d, position %d)",
+           error.text, error.source, error.line, error.column, error.position);
+      return nullptr;
+   }
+
+   return jData;
+
 }
 
 #ifdef USEDB
@@ -222,6 +243,84 @@ json_t* getObjectFromJson(json_t* obj, const char* name, json_t* def)
    return o;
 }
 
+json_t* getObjectByPath(json_t* jData, const char* aPath, json_t* def)
+{
+   json_t* jElement {jData};
+   const auto vPath = split(aPath, '/');
+
+   for (const auto& tag : vPath)
+   {
+      // chek if array like weather[0]
+
+      std::string sPos = getStringBetween(tag, "[", "]");
+
+      if (sPos != "")
+      {
+         size_t nElement = atoi(sPos.c_str());
+         std::string t = getStringBefore(tag, "[");
+
+         jElement = getObjectFromJson(jElement, t.c_str());
+
+         if (!jElement || !json_is_array(jElement))
+            return def;
+
+         jElement = json_array_get(jElement, nElement);
+      }
+      else
+      {
+         jElement = getObjectFromJson(jElement, tag.c_str());
+      }
+
+      if (!jElement)
+         return def;
+   }
+
+   return jElement;
+}
+
+bool getBoolByPath(json_t* jData, const char* aPath, bool def)
+{
+   json_t* jObj = getObjectByPath(jData, aPath);
+
+   if (!jObj)
+      return def;
+
+   return json_boolean_value(jObj);
+}
+
+int getIntByPath(json_t* jData, const char* aPath, int def)
+{
+   json_t* jObj = getObjectByPath(jData, aPath);
+
+   if (!jObj)
+      return def;
+
+   return json_integer_value(jObj);
+}
+
+double getDoubleByPath(json_t* jData, const char* aPath, double def)
+{
+   json_t* jObj = getObjectByPath(jData, aPath);
+
+   if (!jObj)
+      return def;
+
+   if (json_is_integer(jObj))
+      return json_integer_value(jObj);
+
+   return json_real_value(jObj);
+}
+
+const char* getStringByPath(json_t* jData, const char* aPath, const char* def)
+{
+   json_t* jObj = getObjectByPath(jData, aPath);
+
+   if (!jObj)
+      return def;
+
+   return json_string_value(jObj);
+}
+
 int jStringValid(const char* s)
 {
    json_t* obj = json_string(s);
@@ -258,10 +357,14 @@ int addToJson(json_t* obj, const char* name, int value)
    return json_object_set_new(obj, name, json_integer(value));
 }
 
+int addToJson(json_t* obj, const char* name, double value)
+{
+   return json_object_set_new(obj, name, json_real(value));
+}
+
 int addToJson(json_t* obj, const char* name, json_t* o)
 {
    return json_object_set_new(obj, name, o);
 }
 
-//***************************************************************************
-#endif // USEJSON
+#endif

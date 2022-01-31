@@ -15,8 +15,7 @@ NC='\033[0m'
 update=0
 
 echo -e "${BLUE}-------------------------------------------------------------------------------------------${NC}"
-echo -e "${BLUE}- Starting the installation (or update) of poold deamon${NC}"
-echo -e "${BLUE}-    Deamon to control almost everything around your pool {NC}"
+echo -e "${BLUE}- Starting the installation (or update) of homectld 'home control deamon'${NC}"
 echo -e "${BLUE}-------------------------------------------------------------------------------------------${NC}"
 
 echo -e -n "${BLUE}Continue? [y/N] ${NC}"
@@ -46,32 +45,32 @@ if [ ${update} != 1 ]; then
       update-locale LANG=$SET_LANG
 fi
 
-wget www.jwendel.de/poold/poold-latest.deb -O /tmp/poold-latest.deb || exit 1
+wget www.jwendel.de/homectld/homectld-latest.deb -O /tmp/homectld-latest.deb || exit 1
 
-apt -y remove poold
-apt -y install /tmp/poold-latest.deb || exit 1
+apt -y remove homectld
+apt -y install /tmp/homectld-latest.deb || exit 1
 
 if [ ${update} != 1 ]; then
-   grep -q '^alias pooldb=' ~/.bashrc   || echo "alias pooldb='mysql -u pool -D pool -ppool'" >> ~/.bashrc
-   grep -q '^alias vp=' ~/.bashrc       || echo "alias vp='tail -f /var/log/poold.log'" >> ~/.bashrc
+   grep -q '^alias homectldb=' ~/.bashrc   || echo "alias homectldb='mysql -u homectl -D homectl -phomectl'" >> ~/.bashrc
+   grep -q '^alias vp=' ~/.bashrc          || echo "alias vp='tail -f /var/log/homectld.log'" >> ~/.bashrc
 
-   poold-patch-raspi-config.sh
+   homectld-patch-raspi-config.sh
 
    echo -e "${BLUE}-------------------------------------------------------------------------------------------${NC}"
    echo -e "${BLUE}- The installation is completed and will be available after reboot${NC}"
    echo -e "${BLUE}- ${NC}"
    echo -e "${BLUE}- You can reach the web interface at http://<raspi-ip>:61109${NC}"
    echo -e "${BLUE}- Your IP seems to be ${IP} therefore you can try:${NC} ${BWHITE}http://${IP}:61109${NC}"
-   echo -e "${BLUE}- Default user/password is pool/pool${NC}"
+   echo -e "${BLUE}- Default user/password is homectl/homectl${NC}"
    echo -e "${BLUE}- ${NC}"
    echo -e "${BLUE}- Added aliases for convenience:${NC}"
-   echo -e "${BLUE}-  pooldb  - go to the SQL prompt${NC}"
+   echo -e "${BLUE}-  homectlddb  - go to the SQL prompt${NC}"
    echo -e "${BLUE}-  vp    - view daemon log (abort with CTRL-C)${NC}"
    echo -e "${BLUE}-------------------------------------------------------------------------------------------${NC}"
    echo -e "${WHITE}- to permit the daemon sending mails: ${NC}"
    echo -e "${WHITE}-   setup your mail account in /etc/msmtprc properly${NC}"
    echo -e "${WHITE}-   and check your setting with:${NC}"
-   echo -e "${WHITE}-    #> ${CYAN}poold-mail.sh 'Test Mail' 'just a test' text/plain your@mail.de${NC}"
+   echo -e "${WHITE}-    #> ${CYAN}homectld-mail.sh 'Test Mail' 'just a test' text/plain your@mail.de${NC}"
    echo -e "${BLUE}-------------------------------------------------------------------------------------------${NC}"
    echo -e -n "${CYAN}Reboot now? [y/N] ${NC}"
    echo ""

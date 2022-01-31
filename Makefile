@@ -7,7 +7,7 @@ include Make.config
 
 HISTFILE = "HISTORY.h"
 
-LIBS += $(shell mysql_config --libs_r) -lrt -lcrypto -lcurl -lpthread -luuid
+LIBS += $(shell $(SQLCFG) --libs_r) -lrt -lcrypto -lcurl -lpthread -luuid
 
 VERSION      = $(shell grep 'define _VERSION ' $(HISTFILE) | awk '{ print $$3 }' | sed -e 's/[";]//g')
 ARCHIVE      = $(TARGET)-$(VERSION)
@@ -24,15 +24,11 @@ GIT_REV      = $(shell git describe --always 2>/dev/null)
 
 LOBJS        = lib/db.o lib/dbdict.o lib/common.o lib/serial.o lib/curl.o lib/thread.o lib/json.o
 MQTTOBJS     = lib/mqtt.o lib/mqtt_c.o lib/mqtt_pal.o
-OBJS         = $(MQTTOBJS) $(LOBJS) main.o daemon.o wsactions.o gpio.o hass.o websock.o pysensor.o
+OBJS         = $(MQTTOBJS) $(LOBJS) main.o daemon.o wsactions.o gpio.o hass.o websock.o webservice.o deconz.o
 
-CFLAGS    	+= $(shell mysql_config --include)
+CFLAGS    	+= $(shell $(SQLCFG) --include)
 OBJS        += specific.o
 W1OBJS       = w1.o lib/common.o lib/thread.o $(MQTTOBJS)
-
-ifdef WIRINGPI
-  LIBS += -lwiringPi
-endif
 
 ifdef GIT_REV
    DEFINES += -DGIT_REV='"$(GIT_REV)"'
@@ -71,7 +67,7 @@ install-systemd:
 	@echo install systemd
 	cat contrib/daemon.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | sed s:"<TARGET>":"$(TARGET)":g | sed s:"<CLASS>":"$(CLASS)":g |install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/$(TARGET).service
 	cat contrib/w1mqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/w1mqtt.service
-	install --mode=755 -D contrib/mosquitto-log.service $(SYSTEMDDEST)/
+	install --mode=664 -D contrib/mosquitto-log.service $(SYSTEMDDEST)/
 	chmod a+r $(SYSTEMDDEST)/$(TARGET).service
 	chmod a+r $(SYSTEMDDEST)/w1mqtt.service
    ifeq ($(DESTDIR),)
@@ -89,8 +85,8 @@ install-config:
 	   chmod a+rx $(CONFDEST); \
 	fi
 	install --mode=755 -D ./configs/sysctl $(CONFDEST)/scripts.d
-	install --mode=755 -D ./configs/example.sh $(CONFDEST)/scripts.d
-	install --mode=755 -D ./configs/sensorExample.py $(CONFDEST)/scripts.d
+	install --mode=755 -D ./configs/example_switch.sh $(CONFDEST)/scripts.d
+	install --mode=755 -D ./configs/example_sensor.sh $(CONFDEST)/scripts.d
 	if ! test -f $(DESTDIR)/etc/msmtprc; then \
 	   install --mode=644 -D ./configs/msmtprc $(DESTDIR)/etc/; \
 	fi
@@ -99,9 +95,9 @@ install-config:
 	fi
 	install --mode=644 -D ./configs/*.dat $(CONFDEST)/;
 	mkdir -p $(DESTDIR)/etc/rsyslog.d
-	@cp contrib/rsyslog.conf $(DESTDIR)/etc/rsyslog.d/10-$(TARGET).conf
+	cat contrib/rsyslog.conf | sed s:"<TARGET>":$(TARGET):g | install --mode=644 -C -D /dev/stdin $(DESTDIR)/etc/rsyslog.d/10-$(TARGET).conf; \
 	mkdir -p $(DESTDIR)/etc/logrotate.d
-	@cp contrib/logrotate $(DESTDIR)/etc/logrotate.d/$(TARGET)
+	cat contrib/logrotate | sed s:"<TARGET>":$(TARGET):g | install --mode=644 -C -D /dev/stdin $(DESTDIR)/etc/logrotate.d/$(TARGET); \
 	mkdir -p $(DESTDIR)/etc/default
 	if ! test -f $(DESTDIR)/etc/default/w1mqtt; then \
 	   cp contrib/w1mqtt $(DESTDIR)/etc/default/w1mqtt; \
@@ -155,7 +151,7 @@ activate: install
 #	tail -f /var/log/$(TARGET).log
 
 cppchk:
-	cppcheck --template="{file}:{line}:{severity}:{message}" --language=c++ --force *.c *.h
+	cppcheck --template="{file}:{line}:{severity}:{message}" --std=c++20 --language=c++ --force *.c *.h
 
 upload:
 	avrdude -q -V -p atmega328p -D -c arduino -b 57600 -P $(AVR_DEVICE) -U flash:w:arduino/build-nano-atmega328/ioctrl.hex:i
@@ -195,10 +191,10 @@ w1.o            :  w1.c            $(HEADER) w1.h lib/mqtt.h
 gpio.o          :  gpio.c          $(HEADER) daemon.h
 wsactions.o     :  wsactions.c     $(HEADER) daemon.h
 hass.o          :  hass.c          daemon.h
-websock.o       :  websock.c       websock.h
-pysensor.o      : pysensor.c      $(HEADER) pysensor.h
-
-specific.o      : specific.c      $(HEADER) daemon.h specific.h
+websock.o       :  websock.c       websock.h webservice.h
+webservice.o    :  webservice.c    webservice.h
+deconz.o        :  deconz.c        deconz.h
+specific.o      :  specific.c      $(HEADER) daemon.h specific.h
 
 # ------------------------------------------------------
 # Git / Versioning / Tagging

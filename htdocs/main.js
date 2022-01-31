@@ -10,14 +10,18 @@
 
 var WebSocketClient = window.WebSocketClient
 var colorStyle = null;
+var isDaytime = false;
+var daytimeCalcAt = null;
 
 var onSmalDevice = false;
 var isActive = null;
 var socket = null;
 var config = {};
+var commands = {};
 var daemonState = {};
 
 var widgetTypes = {};
+var valueTypes = [];
 var valueFacts = {};
 var dashboards = {};
 var allSensors = [];
@@ -34,11 +38,18 @@ var infoDialogTimer = null;
 var grouplist = {};
 
 var setupMode = false;
+var kioskMode = false;
+var kioskBackTime = 0;
 
 $('document').ready(function() {
    daemonState.state = -1;
 
+   const urlParams = new URLSearchParams(window.location.href);
+   kioskMode = urlParams.get('kiosk') == 1;
+   kioskBackTime = urlParams.get('backTime');
+   console.log("kioskMode" + " : " + kioskMode);
    console.log("currentPage: " + currentPage);
+
    var url = "";
 
    if (window.location.href.startsWith("https"))
@@ -48,6 +59,7 @@ $('document').ready(function() {
 
    var protocol = myProtocol;
 
+   moment.locale('de');
    connectWebSocket(url, protocol);
    colorStyle = getComputedStyle(document.body);
 });
@@ -67,7 +79,7 @@ function onSocketConnect(protocol)
                    "token" : token }
                });
 
-   prepareMenu();
+   // prepareMenu();
    document.title = pageTitle;
    onSmalDevice = window.matchMedia("(max-width: 740px)").matches;
    console.log("onSmalDevice : " + onSmalDevice);
@@ -244,14 +256,15 @@ function dispatchMessage(message)
    var jMessage = JSON.parse(message);
    var event = jMessage.event;
 
-   if (event != "chartdata")
-      console.log("got event: " + event);
+   // if (event != "chartdata")
+   //    console.log("got event: " + event);
 
    if (event == "result") {
       hideProgressDialog();
       showInfoDialog(jMessage.object);
    }
    else if (event == "init") {
+      // console.log("init " + JSON.stringify(jMessage.object, undefined, 4));
       allSensors = jMessage.object;
       if (currentPage == 'dashboard')
          initDashboard();
@@ -261,13 +274,14 @@ function dispatchMessage(message)
          initList();
    }
    else if (event == "update" || event == "all") {
+      // console.log("update " + JSON.stringify(jMessage.object, undefined, 4));
       if (event == "all") {
          allSensors = jMessage.object;
       }
       else {
          for (var key in jMessage.object)
             allSensors[key] = jMessage.object[key];
-               }
+      }
       if (currentPage == 'dashboard')
          updateDashboard(jMessage.object, event == "all");
       else if (currentPage == 'schema')
@@ -283,8 +297,19 @@ function dispatchMessage(message)
       chartBookmarks = jMessage.object;
       updateChartBookmarks();
    }
+   else if (event == "commands") {
+      commands = jMessage.object;
+      // console.log("commands " + JSON.stringify(commands, undefined, 4));
+   }
    else if (event == "config") {
       config = jMessage.object;
+      // console.log("config " + JSON.stringify(config, undefined, 4));
+      if (config.background != '') {
+         // $(document.body).addClass('body-background');
+         $(document.body).css('background', 'transparent url(' + config.background + ') no-repeat 50% 0 fixed');
+         $(document.body).css('background-size', 'cover');
+      }
+      prepareMenu();
    }
    else if (event == "configdetails" && currentPage == 'setup') {
       initConfig(jMessage.object)
@@ -301,6 +326,9 @@ function dispatchMessage(message)
    else if (event == "syslog") {
       showSyslog(jMessage.object);
    }
+   else if (event == "system") {
+      showSystem(jMessage.object);
+   }
    else if (event == "token") {
       localStorage.setItem(storagePrefix + 'Token', jMessage.object.value);
       localStorage.setItem(storagePrefix + 'User', jMessage.object.user);
@@ -316,6 +344,11 @@ function dispatchMessage(message)
    else if (event == "dashboards") {
       dashboards = jMessage.object;
       // console.log("dashboards " + JSON.stringify(dashboards, undefined, 4));
+   }
+
+   else if (event == "valuetypes") {
+      valueTypes = jMessage.object;
+      // console.log("valueTypes " + JSON.stringify(valueTypes, undefined, 4));
    }
 
    else if (event == "valuefacts") {
@@ -351,9 +384,6 @@ function dispatchMessage(message)
    else if (event == "alerts") {
       initAlerts(jMessage.object);
    }
-   else if (event == "errors") {
-      initErrors(jMessage.object);
-   }
 
    // console.log("event: " + event + " dispatched");
 }
@@ -363,13 +393,20 @@ function prepareMenu()
    var html = "";
    // var haveToken = localStorage.getItem(storagePrefix + 'Token') && localStorage.getItem(storagePrefix + 'Token') != "";
 
+   if (kioskMode)
+      return ;
+
+   document.title = 'Home Control';
+
    console.log("prepareMenu: " + currentPage);
 
    html += '<button class="rounded-border button1" onclick="mainMenuSel(\'dashboard\')">Dashboards</button>';
    html += '<button class="rounded-border button1" onclick="mainMenuSel(\'list\')">Liste</button>';
    html += '<button class="rounded-border button1" onclick="mainMenuSel(\'chart\')">Charts</button>';
    html += '<button class="rounded-border button1" onclick="mainMenuSel(\'schema\')">Schema</button>';
-   html += '<button id="vdrMenu" class="rounded-border button1" onclick="mainMenuSel(\'vdr\')">VDR</button>';
+
+   if (config.vdr === '1')
+      html += '<button id="vdrMenu" class="rounded-border button1" onclick="mainMenuSel(\'vdr\')">VDR</button>';
 
    if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10)
       html += '<button class="rounded-border button1" onclick="mainMenuSel(\'setup\')">Setup</button>';
@@ -383,7 +420,8 @@ function prepareMenu()
 
    // buttons below menu
 
-   if (currentPage == "setup" || currentPage == "iosetup" || currentPage == "userdetails" || currentPage == "groups" || currentPage == "alerts" || currentPage == "syslog" || currentPage == "images") {
+   if (currentPage == "setup" || currentPage == "iosetup" || currentPage == "userdetails" || currentPage == "groups" ||
+       currentPage == "alerts" || currentPage == "syslog" || currentPage == "system" || currentPage == "images" || currentPage == "commands") {
       if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10) {
          html += "<div>";
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'setup\')">Allg. Konfiguration</button>';
@@ -393,6 +431,8 @@ function prepareMenu()
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'groups\')">Baugruppen</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'images\')">Images</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'syslog\')">Syslog</button>';
+         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'system\')">System</button>';
+         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'commands\')">Commands</button>';
          html += "</div>";
       }
    }
@@ -400,14 +440,12 @@ function prepareMenu()
    if (currentPage == "setup") {
       html += "<div class=\"confirmDiv\">";
       html += "  <button class=\"rounded-border buttonOptions\" onclick=\"storeConfig()\">Speichern</button>";
-      html += "  <button class=\"rounded-border buttonOptions\" title=\"Letzter Reset: " + config.peakResetAt + "\" id=\"buttonResPeaks\" onclick=\"resetPeaks()\">Reset Peaks</button>";
-      html += "  <button class=\"rounded-border buttonOptions\" onclick=\"sendMail('Test Mail', 'test')\">Test Mail</button>";
       html += "</div>";
    }
    else if (currentPage == "iosetup") {
       html += "<div class=\"confirmDiv\">";
       html += "  <button class=\"rounded-border buttonOptions\" onclick=\"storeIoSetup()\">Speichern</button>";
-      html += "  <button class=\"rounded-border buttonOptions\" id=\"filterIoSetup\" onclick=\"filterIoSetup()\">[alle]</button>";
+      html += "  <button class=\"rounded-border buttonOptions\" title=\"filter alle/aktive\" id=\"filterIoSetup\" onclick=\"filterIoSetup()\">[alle]</button>";
       html += '  <input id="incSearchName" class="input rounded-border clearableOD" placeholder="filter..." type="search" oninput="doIncrementalFilterIoSetup()"</input>';
       html += "</div>";
    }
@@ -445,15 +483,15 @@ function prepareMenu()
 function menuBurger()
 {
    var haveToken = localStorage.getItem(storagePrefix + 'Token') && localStorage.getItem(storagePrefix + 'Token') != "";
-
    var form = '<div id="burgerPopup" style="padding:0px;">';
-   if (haveToken) {
+
+   if (haveToken)
       form += '<button style="width:120px;" class="rounded-border button1" onclick="mainMenuSel(\'user\')">[' + localStorage.getItem(storagePrefix + 'User') + ']</button>';
-      if (currentPage == 'dashboard')
-         form += '  <br/><div><button style="width:120px;color" class="rounded-border button1 mdi mdi-lead-pencil" onclick=" setupDashboard()">' + (setupMode ? ' Stop Setup' : ' Setup Dashboard') + '</button></div>';
-   }
    else
       form += '<button style="width:120px;" class="rounded-border button1" onclick="mainMenuSel(\'login\')">Login</button>';
+
+   if (currentPage == 'dashboard' && localStorage.getItem(storagePrefix + 'Rights') & 0x10)
+      form += '  <br/><div><button style="width:120px;color" class="rounded-border button1 mdi mdi-lead-pencil" onclick=" setupDashboard()">' + (setupMode ? ' Stop Setup' : ' Setup Dashboard') + '</button></div>';
 
    form += '</div>';
 
@@ -516,6 +554,8 @@ function mainMenuSel(what)
       event = "setup";
    else if (currentPage == "iosetup")
       initIoSetup(valueFacts);
+   else if (currentPage == "commands")
+      initCommands();
    else if (currentPage == "user")
       initUser();
    else if (currentPage == "userdetails")
@@ -526,6 +566,8 @@ function mainMenuSel(what)
       showProgressDialog();
       event = "syslog";
    }
+   else if (currentPage == "system")
+      event = "system";
    else if (currentPage == "list")
       initList();
    else if (currentPage == "dashboard")
@@ -572,11 +614,6 @@ function setupDashboard()
    initDashboard();
 }
 
-function resetBatt(what)
-{
-   socket.send({ "event" : "reset", what : {}});
-}
-
 function initLogin()
 {
    $('#container').removeClass('hidden');
@@ -607,9 +644,45 @@ function showSyslog(log)
    hideProgressDialog();
 }
 
-window.sendMail = function(subject, body)
+function showSystem(system)
 {
-   socket.send({ "event" : "sendmail", "object" : { "subject" : subject, "body" : body } });
+   console.log("system: " + JSON.stringify(system, undefined, 2));
+
+   $('#container').removeClass('hidden');
+   $('#container').html('<div id="systemContainer"></div>');
+
+   var html = '<div>';
+
+   html += '  <div class="rounded-border seperatorFold">Tabellen</div>';
+   html += '  <table class="tableMultiCol">' +
+      '    <thead>' +
+      '     <tr style="height:30px;font-weight:bold;">' +
+      '       <td style="width:20%;">Name</td>' +
+      '       <td style="width:10%;">Table</td>' +
+      '       <td style="width:10%;">Index</td>' +
+      '       <td style="width:10%;">Rows</td>' +
+      '     </tr>' +
+      '    </thead>' +
+      '    <tbody>';
+
+   for (var i = 0; i < system.tables.length; i++) {
+      var table = system.tables[i];
+
+      html += '<tr style="height:28px;">';
+      html += ' <td>' + table.name + '</td>';
+      html += ' <td>' + table.tblsize + '</td>';
+      html += ' <td>' + table.idxsize + '</td>';
+      html += '<td>' + table.rows.toLocaleString() + '</td>';
+      html += '</tr>';
+   }
+
+   html += '    </tbody>' +
+      '  </table>';
+
+   html += '</div>';
+
+   $('#systemContainer').html(html);
+
 }
 
 window.toggleMode = function(address, type)
@@ -620,11 +693,14 @@ window.toggleMode = function(address, type)
                });
 }
 
-window.toggleIo = function(address, type)
+function toggleIo(address, type, scale = -1)
 {
    socket.send({ "event": "toggleio", "object":
-                 { "address": address,
-                   "type": type }
+                 {
+                    'action': scale == -1 ? 'toggle' : 'dim',
+                    'value': scale,
+                    'address': address,
+                    'type': type }
                });
 }
 
@@ -733,7 +809,7 @@ function drawChartWidget(dataObject)
                   color: "gray"
                },
                ticks: {
-                  padding: 10,
+                  padding: 0,
                   maxTicksLimit: 6,
                   maxRotation: 0,
                   fontColor: "darkgray"
@@ -747,7 +823,7 @@ function drawChartWidget(dataObject)
                   zeroLineColor: 'darkgray'
                },
                ticks: {
-                  padding: 10,
+                  padding: 5,
                   maxTicksLimit: 5,
                   fontColor: "darkgray"
                }
@@ -760,10 +836,10 @@ function drawChartWidget(dataObject)
       var dataset = {};
 
       dataset["data"] = dataObject.rows[i].data;
-      dataset["backgroundColor"] = "#415969";  // fill color
-      dataset["borderColor"] = "#3498db";      // line color
+      dataset["backgroundColor"] = kioskMode ? "#3498db33" : "#3498db1A";  // fill color
+      dataset["borderColor"] = "#3498db";        // line color
       dataset["borderWidth"] = 1;
-      dataset["fill"] = false;
+      dataset["fill"] = true;
       dataset["pointRadius"] = 1.5;
       data.data.datasets.push(dataset);
    }
@@ -818,7 +894,7 @@ function drawChartDialog(dataObject)
                display: true,
                ticks: {
                   maxTicksLimit: 12,
-                  padding: 10,
+                  padding: 5,
                   maxRotation: 0,
                   fontColor: "white"
                },
@@ -835,7 +911,7 @@ function drawChartDialog(dataObject)
             yAxes: [{
                display: true,
                ticks: {
-                  padding: 10,
+                  padding: 5,
                   maxTicksLimit: 20,
                   fontColor: "white"
                },
@@ -854,19 +930,25 @@ function drawChartDialog(dataObject)
       }
    };
 
+   var key = '';
+
    for (var i = 0; i < dataObject.rows.length; i++)
    {
       var dataset = {};
 
       dataset["data"] = dataObject.rows[i].data;
-      dataset["backgroundColor"] = "#415969";  // fill color
+      dataset["backgroundColor"] = kioskMode ? "#3498db33" : "#3498db1A";  // fill color
       dataset["borderColor"] = "#3498db";      // line color
       dataset["borderWidth"] = 1;
-      dataset["fill"] = false;
+      dataset["fill"] = true;
       dataset["label"] = dataObject.rows[i].title;
       dataset["pointRadius"] = 0;
       data.data.datasets.push(dataset);
+
+      key = dataObject.rows[i].key;  // we have olny one row here!
    }
+
+   data.options.scales.yAxes[0].scaleLabel.labelString = '[' + valueFacts[key].unit + ']';
 
    var canvas = root.querySelector("#chartDialog");
    theChart = new Chart(canvas, data);
@@ -926,3 +1008,16 @@ Date.prototype.toDateLocal = function toDateLocal()
 
    return YYYY + '-' + MM + '-' + DD;
 };
+
+function fileExist(url)
+{
+   var xhr = new XMLHttpRequest();
+   xhr.open('HEAD', url, false);
+   xhr.send();
+   return xhr.status != "404";
+}
+
+function getTotalHeightOf(id)
+{
+   return $('#' + id).outerHeight();
+}

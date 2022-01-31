@@ -1,9 +1,9 @@
-# Linux - Pool Control Daemon (poold)
+# Linux - Home Control Daemon (homectld)
 
 Written by: *Jörg Wendel (linux at jwendel dot de)*
-Project page: https://github.com/horchi/linux-poold
+Project page: https://github.com/horchi/linux-homectld
 
-![](contrib/poold.jpg?raw=true "Title")
+![](contrib/homectld.jpg?raw=true "Title")
 
 ## License
 This code is distributed under the terms and conditions of the GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
@@ -22,7 +22,7 @@ If you like the project and want to support it
 [![paypal](https://www.paypalobjects.com/de_DE/DE/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=KUF9ZAQ5UTHUN)
 
 ## Prerequisites:
-The described installation method is tested with Raspbian Buster, the poold should work also with other Linux distributions and versions but the installation process should adapted to them, for example they use other init processes or use different tools for the package management, other package names, ...
+The described installation method is tested with Raspbian Buster, the homectld should work also with other Linux distributions and versions but the installation process should adapted to them, for example they use other init processes or use different tools for the package management, other package names, ...
 
 Language package 'de_DE.UTF-8' is required as language package (`dpkg-reconfigure locales`)
 
@@ -107,27 +107,27 @@ The first number below is the *physical* pin in brackets the GIPO port.
 ### install
 
 ```
-wget www.jwendel.de/poold/install-deb.sh -O /tmp/install-deb.sh
+wget www.jwendel.de/homectld/install-deb.sh -O /tmp/install-deb.sh
 sudo bash /tmp/install-deb.sh
 ```
 
 ## after the first install or an update of the arduino software
 ```
-systemctl stop poold
-poold-upload-arduino
-systemctl start poold
+systemctl stop homectld
+homectld-upload-arduino
+systemctl start homectld
 ```
 ### uninstall
 
 ```
-dpkg --remove poold
+dpkg --remove homectld
 ```
 
 
-### uninstall (with remove of all configurations, data and the poold database)
+### uninstall (with remove of all configurations, data and the homectl database)
 
 ```
-dpkg --purge poold`
+dpkg --purge homectld`
 ```
 
 # Building and installing by source
@@ -156,9 +156,9 @@ If the database server is located locally (on same host as the daemon):
 
 ```
 > mysql -u root -Dmysql -p
-  CREATE DATABASE pool charset utf8;
-  CREATE USER 'pool'@'localhost' IDENTIFIED BY 'pool';
-  GRANT ALL PRIVILEGES ON pool.* TO 'pool'@'localhost' IDENTIFIED BY 'pool';
+  CREATE DATABASE homectl charset utf8;
+  CREATE USER 'homectl'@'localhost' IDENTIFIED BY 'homectl';
+  GRANT ALL PRIVILEGES ON homectl.* TO 'homectl'@'localhost' IDENTIFIED BY 'homectl';
   flush privileges;
 ```
 
@@ -166,17 +166,17 @@ If the database server is located locally (on same host as the daemon):
 if the database is running remote, or you like to have remote access to the database:
 ```
 > mysql -u root -Dmysql -p
- CREATE DATABASE pool charset utf8;
- CREATE USER 'pool'@'%' IDENTIFIED BY 'pool';
- GRANT ALL PRIVILEGES ON pool.* TO 'pool'@'%' IDENTIFIED BY 'pool';
+ CREATE DATABASE homectl charset utf8;
+ CREATE USER 'homectl'@'%' IDENTIFIED BY 'homectl';
+ GRANT ALL PRIVILEGES ON homectl.* TO 'homectl'@'%' IDENTIFIED BY 'homectl';
  flush privileges;
 ```
 
 ### install the build dependencies
 
 ```
-apt install build-essential cmake libssl-dev libxml2-dev libcurl4-openssl-dev uuid-dev libcap-dev
-apt install libjansson-dev libssl-dev libmariadbclient-dev libmariadb-dev-compat python3-dev wiringpi
+apt install build-essential libssl-dev libcurl4-openssl-dev uuid-dev libcap-dev
+apt install libjansson-dev libmariadb-dev wiringpi
 ```
 
 ### get and install libwebsock
@@ -193,17 +193,17 @@ make install
 ldconfig
 ```
 
-### get, build and install the poold
+### get, build and install the homectld
 
 ```
 cd /usr/src/
-git clone https://github.com/horchi/linux-poold/
-cd linux-poold
+git clone https://github.com/horchi/linux-homectld/
+cd linux-homectld
 make clean all
 make install
 ```
-Now the pool daemon is installed in folder `/usr/local/bin`
-Check `/etc/poold/poold.conf` file for setting of your database login. If you have used the defaults above no change is needed.
+Now the home control daemon is installed in folder `/usr/local/bin`
+Check `/etc/homectld/daemon.conf` file for setting of your database login. If you have used the defaults above no change is needed.
 
 # One Wire Sensors:
 
@@ -219,32 +219,32 @@ echo "dtoverlay=w1-gpio,gpioin=4,pullup=on" >> /boot/config.txt
 
 Reboot to apply this settings!
 
-The poold checks automatically if there are 'One Wire Sensors' connected, each detected sensor will be
+The homectld checks automatically if there are 'One Wire Sensors' connected, each detected sensor will be
 configurable via the web interface.
 
-# Time to first start of poold
+# Time to first start of homectld
 ```
-systemctl start poold
+systemctl start homectld
 ```
 
 # And enable it for automatic start at boot
 ```
-systemctl enable poold
+systemctl enable homectld
 ```
 
 
 ### to check it's current state call
 
 ```
-systemctl status poold
+systemctl status homectld
 ```
 
 it should now 'enabled' and in state 'running'!
 
-### also check the syslog about errors of the poold, this will show all its current log messages
+### also check the syslog about errors of the homectld, this will show all its current log messages
 
 ```
-grep "poold:" /var/log/syslog
+grep -i "error" /var/log/homectld.log
 ```
 
 
@@ -252,8 +252,8 @@ grep "poold:" /var/log/syslog
 
 The default username and password for login to the web interface is:
 ```
-User: pool
-Password: pool
+User: homectl
+Password: homectl
 ```
 
 ### Fist steps to enable data logging:
@@ -263,14 +263,14 @@ Password: pool
 3. Select the values you like to display and record and store your settings
 
 ### Points to check
-- reboot the device to check if poold is starting automatically during startup
+- reboot the device to check if homectld is starting automatically during startup
 
 
 # Backup
-Backup the data of the poold database including all recorded values:
+Backup the data of the homectl database including all recorded values:
 
 ```
-poold-backup
+homectld-backup.sh
 ```
 
 This will create the following files:
@@ -293,14 +293,18 @@ scripts-dump.sql.gz
 To import the backup:
 ```
 gunzip NAME-dump.sql.gz
-mysql -u pool -ppool -Dpool <  NAME-dump.sql
+mysql -u homectl -phomectl -homectl <  NAME-dump.sql.gz
 ```
 replace NAME with the name of the dump
 
 # Additional information
 
 ## MySQL HINTS
-If you cannot figure out why you get Access denied, remove all entries from the user table that have Host values with wildcards contained (entries that match `%` or `_` characters). A very common error is to insert a new entry with `Host='%'` and `User='some_user'`, thinking that this allows you to specify localhost to connect from the same machine. The reason that this does not work is that the default privileges include an entry with `Host='localhost'` and `User=''`. Because that entry has a Host value `localhost` that is more specific than `%`, it is used in preference to the new entry when connecting from localhost! The correct procedure is to insert a second entry with `Host='localhost'` and `User='some_user'`, or to delete the entry with `Host='localhost'` and `User=''`. After deleting the entry, remember to issue a `FLUSH PRIVILEGES` statement to reload the grant tables.
+If you cannot figure out why you get Access denied, remove all entries from the user table that
+have Host values with wildcards contained (entries that match `%` or `_` characters).
+ A very common error is to insert a new entry with `Host='%'` and `User='some_user'`, thinking that this allows you to specify localhost to connect from the same machine.
+The reason that this does not work is that the default privileges include an entry with `Host='localhost'` and `User=''`. Because that entry has a Host value `localhost` that is more specific than `%`, it is used in preference to the new entry when connecting from localhost! The correct procedure is to insert a second entry with `Host='localhost'` and `User='some_user'`, or to delete the entry with `Host='localhost'` and `User=''`.
+After deleting the entry, remember to issue a `FLUSH PRIVILEGES` statement to reload the grant tables.
 
 To analyze this you can show all users:
 ```

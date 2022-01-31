@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# postinst script for poold
+# postinst script for homectld
 
 set -e
 
@@ -16,24 +16,26 @@ set -e
 # for details, see https://www.debian.org/doc/debian-policy/ or
 # the debian-policy package
 
-COMMAND="CREATE DATABASE IF NOT EXISTS pool charset utf8;
-     CREATE USER IF NOT EXISTS 'pool'@'localhost' IDENTIFIED BY 'pool';
-     GRANT INDEX, CREATE ROUTINE, ALTER ROUTINE, TRIGGER, REFERENCES, LOCK TABLES, INDEX, CREATE VIEW, EXECUTE, CREATE TEMPORARY TABLES, ALTER, SELECT, INSERT, DELETE, CREATE, DROP, UPDATE ON pool.* TO 'pool'@'localhost' IDENTIFIED BY 'pool';
-     GRANT INDEX, CREATE ROUTINE, ALTER ROUTINE, TRIGGER, REFERENCES, LOCK TABLES, INDEX, CREATE VIEW, EXECUTE, CREATE TEMPORARY TABLES, ALTER, SELECT, INSERT, DELETE, CREATE, DROP, UPDATE ON pool.* TO 'pool'@'%' IDENTIFIED BY 'pool';
+COMMAND="CREATE DATABASE IF NOT EXISTS homectl charset utf8;
+     CREATE USER IF NOT EXISTS 'homectl'@'localhost' IDENTIFIED BY 'homectl';
+     GRANT INDEX, CREATE ROUTINE, ALTER ROUTINE, TRIGGER, REFERENCES, LOCK TABLES, INDEX, CREATE VIEW, EXECUTE, CREATE TEMPORARY TABLES, ALTER, SELECT, INSERT, DELETE, CREATE, DROP, UPDATE ON homectl.* TO 'homectl'@'localhost' IDENTIFIED BY 'homectl';
+     GRANT INDEX, CREATE ROUTINE, ALTER ROUTINE, TRIGGER, REFERENCES, LOCK TABLES, INDEX, CREATE VIEW, EXECUTE, CREATE TEMPORARY TABLES, ALTER, SELECT, INSERT, DELETE, CREATE, DROP, UPDATE ON homectl.* TO 'homectl'@'%' IDENTIFIED BY 'homectl';
      FLUSH PRIVILEGES;"
 
 case "$1" in
     configure)
         echo "postinst called for configure" >&2
-        if pgrep mysqld; then
+        if pgrep mariadbd; then
            echo "Enter your database root password:" >&2
            echo ${COMMAND} | mysql -u root -Dmysql -p
         else
-           echo "No local databse found, skipping db setup" >&2
+           echo "No local database found, skipping db setup" >&2
         fi
-        systemctl daemon-reload && systemctl enable poold
-        systemctl daemon-reload && systemctl enable w1mqtt
+        systemctl daemon-reload && systemctl enable homectld.service
+        systemctl daemon-reload && systemctl enable w1mqtt.service
         systemctl daemon-reload && systemctl enable mosquitto-log.service
+        systemctl restart rsyslog.service
+        systemctl restart logrotate.service
         ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)

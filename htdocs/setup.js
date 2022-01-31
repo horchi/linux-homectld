@@ -10,16 +10,13 @@
 
 var configCategories = {};
 var ioSections = {};
-var theConfiguration = null;
+var theConfigdetails = {}
 
-function initConfig(configuration)
+function initConfig(configdetails)
 {
-   $('#container').removeClass('hidden');
-   $("#container").height($(window).height() - $("#menu").height() - 8);
+   theConfigdetails = configdetails;
 
-   window.onresize = function() {
-      $("#container").height($(window).height() - $("#menu").height() - 8);
-   };
+   $('#container').removeClass('hidden');
 
    document.getElementById("container").innerHTML =
       '<div id="setupContainer" class="rounded-border inputTableConfig">';
@@ -27,7 +24,6 @@ function initConfig(configuration)
    var root = document.getElementById("setupContainer");
    var lastCat = "";
    root.innerHTML = "";
-   theConfiguration = configuration;
 
    $('#btnInitMenu').bind('click', function(event) {
       if (event.ctrlKey)
@@ -36,14 +32,10 @@ function initConfig(configuration)
          initTables('menu');
    });
 
-   // console.log(JSON.stringify(configuration, undefined, 4));
+   // console.log(JSON.stringify(configdetails, undefined, 4));
 
-   configuration.sort(function(a, b) {
-      return a.category.localeCompare(b.category);
-   });
-
-   for (var i = 0; i < configuration.length; i++) {
-      var item = configuration[i];
+   for (var i = 0; i < configdetails.length; i++) {
+      var item = configdetails[i];
       var html = "";
 
       if (lastCat != item.category) {
@@ -59,35 +51,37 @@ function initConfig(configuration)
          lastCat = item.category;
       }
 
-      if (!configCategories[item.category])
+      if (!configCategories[item.category]) {
+         console.log("!!!! skip category: " + item.category)
          continue;
+      }
 
       html += "    <span>" + item.title + ":</span>\n";
 
-      if (item.descrtiption == "")
-         item.descrtiption = "&nbsp;";  // on totally empty the line height not fit :(
+      if (item.description == "")
+         item.description = "&nbsp;";  // on totally empty the line height not fit :(
 
       switch (item.type) {
       case 0:     // integer
          html += "    <span><input id=\"input_" + item.name + "\" class=\"rounded-border inputNum\" type=\"number\" value=\"" + item.value + "\"/></span>\n";
-         html += "    <span class=\"inputComment\">" + item.descrtiption + "</span>\n";
+         html += "    <span class=\"inputComment\">" + item.description + "</span>\n";
          break;
 
       case 1:     // number (float)
-         html += "    <span><input id=\"input_" + item.name + "\" class=\"rounded-border inputFloat\" type=\"number\" step=\"0.1\" value=\"" + item.value + "\"/></span>\n";
-         html += "    <span class=\"inputComment\">" + item.descrtiption + "</span>\n";
+         html += "    <span><input id=\"input_" + item.name + "\" class=\"rounded-border inputFloat\" type=\"number\" step=\"0.1\" value=\"" + parseFloat(item.value.replace(',', '.')) + "\"/></span>\n";
+         html += "    <span class=\"inputComment\">" + item.description + "</span>\n";
          break;
 
       case 2:     // string
 
-         html += "    <span><input id=\"input_" + item.name + "\" class=\"rounded-border input\" type=\"text\" value=\"" + item.value + "\"/></span>\n";
-         html += "    <span class=\"inputComment\">" + item.descrtiption + "</span>\n";
+         html += "    <span><input id=\"input_" + item.name + "\" class=\"rounded-border input\" type=\"search\" value=\"" + item.value + "\"/></span>\n";
+         html += "    <span class=\"inputComment\">" + item.description + "</span>\n";
          break;
 
       case 3:     // boolean
          html += "    <span><input id=\"checkbox_" + item.name + "\" class=\"rounded-border input\" style=\"width:auto;\" type=\"checkbox\" " + (item.value == 1 ? "checked" : "") + "/>" +
             '<label for="checkbox_' + item.name + '"></label></span></span>\n';
-         html += "    <span class=\"inputComment\">" + item.descrtiption + "</span>\n";
+         html += "    <span class=\"inputComment\">" + item.description + "</span>\n";
          break;
 
       case 4:     // range
@@ -106,8 +100,8 @@ function initConfig(configuration)
                if (!range[1]) range[1] = "";
                if (n > 0) html += "  <span/>  </span>\n";
                html += "   <span>\n";
-               html += "     <input id=\"range_" + nameFrom + "\" type=\"text\" class=\"rounded-border inputTime\" value=\"" + range[0] + "\"/> -";
-               html += "     <input id=\"range_" + nameTo + "\" type=\"text\" class=\"rounded-border inputTime\" value=\"" + range[1] + "\"/>\n";
+               html += "     <input id=\"range_" + nameFrom + "\" type=\"search\" class=\"rounded-border inputTime\" value=\"" + range[0] + "\"/> -";
+               html += "     <input id=\"range_" + nameTo + "\" type=\"search\" class=\"rounded-border inputTime\" value=\"" + range[1] + "\"/>\n";
                html += "   </span>\n";
                html += "   <span></span>\n";
             }
@@ -118,10 +112,10 @@ function initConfig(configuration)
 
          if (n > 0) html += "  <span/>  </span>\n";
          html += "  <span>\n";
-         html += "    <input id=\"range_" + nameFrom + "\" value=\"\" type=\"text\" class=\"rounded-border inputTime\" /> -";
-         html += "    <input id=\"range_" + nameTo + "\" value=\"\" type=\"text\" class=\"rounded-border inputTime\" />\n";
+         html += "    <input id=\"range_" + nameFrom + "\" value=\"\" type=\"search\" class=\"rounded-border inputTime\" /> -";
+         html += "    <input id=\"range_" + nameTo + "\" value=\"\" type=\"search\" class=\"rounded-border inputTime\" />\n";
          html += "  </span>\n";
-         html += "  <span class=\"inputComment\">" + item.descrtiption + "</span>\n";
+         html += "  <span class=\"inputComment\">" + item.description + "</span>\n";
 
          break;
 
@@ -130,11 +124,11 @@ function initConfig(configuration)
          html += '  <select id="input_' + item.name + '" class="rounded-border input" name="style">\n';
 
          if (item.options != null) {
-         for (var o = 0; o < item.options.length; o++) {
-            var option = item.options[o];
-            var sel = item.value == option ? 'SELECTED' : '';
-            html += '    <option value="' + option + '" ' + sel + '>' + option + '</option>\n';
-         }
+            for (var o = 0; o < item.options.length; o++) {
+               var option = item.options[o];
+               var sel = item.value == option ? 'SELECTED' : '';
+               html += '    <option value="' + option + '" ' + sel + '>' + option + '</option>\n';
+            }
          }
 
          html += '  </select>\n';
@@ -147,6 +141,24 @@ function initConfig(configuration)
             ' id="mselect_' + item.name + '" data-index="' + i +
             '" data-value="' + item.value + '" type="text" value=""/>\n';
          html += '</span>\n';
+         break;
+
+      case 7:    // BitSelect
+         html += '<span id="bmaskgroup_' + item.name + '" style="width:75%;">';
+
+         var array = item.value.split(',');
+
+         for (var o = 0; o < item.options.length; o++) {
+            var checked = false;
+            for (var n = 0; n < array.length; n++) {
+               if (array[n] == item.options[o])
+                  checked = true;
+            }
+            html += '<input class="rounded-border input" id="bmask' + item.name + '_' + item.options[o] + '"' +
+               ' type="checkbox" ' + (checked ? 'checked' : '') + '/>' +
+               '<label for="bmask' + item.name + '_' + item.options[o] + '">' + item.options[o] + '</label>';
+         }
+         html += '</span>';
 
          break;
       }
@@ -157,7 +169,7 @@ function initConfig(configuration)
    }
 
    $('input[id^="mselect_"]').each(function () {
-      var item = configuration[$(this).data("index")];
+      var item = configdetails[$(this).data("index")];
       $(this).autocomplete({
          source: item.options,
          multiselect: true});
@@ -166,6 +178,11 @@ function initConfig(configuration)
          setAutoCompleteValues($(this), $(this).data("value").trim().split(","));
       }
    });
+
+   $("#container").height($(window).height() - $("#menu").height() - 8);
+   window.onresize = function() {
+      $("#container").height($(window).height() - $("#menu").height() - 8);
+   };
 }
 
 function initTables(what)
@@ -186,7 +203,7 @@ function storeConfig()
    for (var i = 0; i < elements.length; i++) {
       var name = elements[i].id.substring(elements[i].id.indexOf("_") + 1); {
          if (elements[i].getAttribute('type') == 'number' && elements[i].getAttribute('step') != undefined &&
-             Number.isInteger(elements[i].getAttribute('step')) && elements[i].value != '')
+             elements[i].value != '')
             jsonObj[name] = parseFloat(elements[i].value).toLocaleString("de-DE");
          else
             jsonObj[name] = elements[i].value;
@@ -222,6 +239,24 @@ function storeConfig()
       jsonObj[name] = value;
    }
 
+   // data type 7 - 'BitSelect' -> as string
+
+   var elements = rootConfig.querySelectorAll("[id^='bmaskgroup_']");
+
+   for (var i = 0; i < elements.length; i++) {
+      var name = elements[i].id.substring(elements[i].id.indexOf("_") + 1);
+      var bits = rootConfig.querySelectorAll("[id^='bmask" + name + "_']");
+      var value = '';
+
+      for (var i = 0; i < bits.length; i++) {
+         var o = bits[i].id.substring(bits[i].id.indexOf("_") + 1);
+         if (bits[i].checked)
+            value += o + ','
+      }
+      console.log("store bitmak: " + value);
+      jsonObj[name] = value;
+   }
+
    // console.log(JSON.stringify(jsonObj, undefined, 4));
 
    socket.send({ "event" : "storeconfig", "object" : jsonObj });
@@ -248,7 +283,8 @@ function toTimeRangesString(base)
 
 window.resetPeaks = function()
 {
-   socket.send({ "event" : "reset", "object" : { "what" : "peaks" } });
+   if (confirm("Peaks zurücksetzen?"))
+      socket.send({ "event" : "reset", "object" : { "what" : "peaks" } });
 }
 
 var filterActive = false;
@@ -271,22 +307,19 @@ function foldCategory(category)
 {
    configCategories[category] = !configCategories[category];
    console.log(category + ' : ' + configCategories[category]);
-   initConfig(theConfiguration)
+   initConfig(theConfigdetails);
 }
 
 function foldSection(sectionId)
 {
-   ioSections[sectionId] = !ioSections[sectionId];
-   console.log(sectionId + ' : ' + ioSections[sectionId]);
+   ioSections[sectionId].visible = !ioSections[sectionId].visible;
+   console.log(sectionId + ' : ' + ioSections[sectionId].visible);
    initIoSetup(valueFacts);
 }
 
 function tableHeadline(title, sectionId)
 {
-   if (!ioSections.hasOwnProperty(sectionId))
-      ioSections[sectionId] = true;
-
-   if (!ioSections[sectionId])
+   if (!ioSections[sectionId].visible)
       return '  <div id="fold_' + sectionId + '" class="rounded-border seperatorFold" onclick="foldSection(\'' + sectionId + '\')">' + '&#11015; ' + title + '</div>';
 
    return '  <div id="fold_' + sectionId + '" class="rounded-border seperatorFold" onclick="foldSection(\'' + sectionId + '\')">' + '&#11013; ' + title + '</div>' +
@@ -294,9 +327,10 @@ function tableHeadline(title, sectionId)
       '    <thead>' +
       '      <tr>' +
       '        <td style="width:20%;">Name</td>' +
-      '        <td style="width:25%;">Bezeichnung</td>' +
+      '        <td style="width:25%;">Titel</td>' +
       '        <td style="width:4%;">Einheit</td>' +
       '        <td style="width:3%;">Aktiv</td>' +
+      '        <td style="width:3%;">Aufzeichnen</td>' +
       '        <td style="width:6%;">ID</td>' +
       '        <td style="width:10%;">Gruppe</td>' +
       '      </tr>' +
@@ -309,22 +343,31 @@ function tableHeadline(title, sectionId)
 function initIoSetup(valueFacts)
 {
    // console.log(JSON.stringify(valueFacts, undefined, 4));
-   
+
    $('#container').removeClass('hidden');
 
-   document.getElementById("container").innerHTML =
-      '<div id="ioSetupContainer">' +
-      tableHeadline('Digitale Ausgänge', 'ioDigitalOut') +
-      tableHeadline('Digitale Eingänge', 'ioDigitalIn') +
-      tableHeadline('One Wire Sensoren', 'ioOneWire') +
-      tableHeadline('Skripte', 'ioScripts') +
-      tableHeadline('Analog Ausgänge', 'ioAnalogOut') +
-      tableHeadline('Analog Eingänge (arduino)', 'ioAnalog') +
-      tableHeadline('Weitere Sensoren', 'ioOther') +
-      '</div>';
+   for (var key in ioSections)
+      ioSections[key].exist = false;
+
+   var html = '<div id="ioSetupContainer">';
+
+   for (var i = 0; i < valueTypes.length; i++) {
+      var section = 'io' + valueTypes[i].title.replace(' ', '');
+      if (!ioSections.hasOwnProperty(section)) {
+         ioSections[section] = {};
+         ioSections[section].visible = true;
+      }
+      if (!ioSections[section].exist) {
+         html += tableHeadline(valueTypes[i].title, section);
+         ioSections[section].exist = true;
+      }
+   }
+
+   html += '</div>';
+   document.getElementById("container").innerHTML = html;
 
    for (var key in ioSections) {
-      if (ioSections[key])
+      if (ioSections[key].visible && document.getElementById(key))
          document.getElementById(key).innerHTML = "";
    }
 
@@ -341,28 +384,29 @@ function initIoSetup(valueFacts)
       if (!item.state && filterActive)
          continue;
 
-      if (filterExpression != null && !filterExpression.test(item.title) && !filterExpression.test(usrtitle))
+      if (filterExpression && !filterExpression.test(item.title) && !filterExpression.test(usrtitle))
          continue;
 
-      switch (item.type) {
-         case 'VA': sectionId = "ioValues";         break
-         case 'SD': sectionId = "ioStateDurations"; break
-         case 'DO': sectionId = "ioDigitalOut";     break
-         case 'DI': sectionId = "ioDigitalIn";      break
-         case 'W1': sectionId = "ioOneWire";        break
-         case 'SP': sectionId = "ioOther";          break
-         case 'AO': sectionId = "ioAnalogOut";      break
-         case 'AI': sectionId = "ioAnalog";         break
-         case 'SC': sectionId = "ioScripts";        break
+      // console.log("item.type: " + item.type);
+
+      for (var i = 0; i < valueTypes.length; i++) {
+         if (valueTypes[i].type == item.type)
+            sectionId = 'io' + valueTypes[i].title.replace(' ', '');
       }
 
-      if (!ioSections[sectionId])
+      if (sectionId == '' || !ioSections[sectionId]) {
+         console.log("Ignoring unexpected sensor type  " + item.type);
+         continue;
+      }
+
+      if (!ioSections[sectionId].visible)
          continue;
 
       var html = '<td id="row_' + item.type + item.address + '" data-address="' + item.address + '" data-type="' + item.type + '" >' + item.title + '</td>';
-      html += '<td class="tableMultiColCell"><input id="usrtitle_' + item.type + item.address + '" class="rounded-border inputSetting" type="text" value="' + usrtitle + '"/></td>';
-      html += '<td class="tableMultiColCell"><input id="unit_' + item.type + item.address + '" class="rounded-border inputSetting" type="text" value="' + item.unit + '"/></td>';
+      html += '<td class="tableMultiColCell"><input id="usrtitle_' + item.type + item.address + '" class="rounded-border inputSetting" type="search" value="' + usrtitle + '"/></td>';
+      html += '<td class="tableMultiColCell"><input id="unit_' + item.type + item.address + '" class="rounded-border inputSetting" type="search" value="' + item.unit + '"/></td>';
       html += '<td><input id="state_' + item.type + item.address + '" class="rounded-border inputSetting" type="checkbox" ' + (item.state ? 'checked' : '') + ' /><label for="state_' + item.type + item.address + '"></label></td>';
+      html += '<td><input id="record_' + item.type + item.address + '" class="rounded-border inputSetting" type="checkbox" ' + (item.record ? 'checked' : '') + ' /><label for="record_' + item.type + item.address + '"></label></td>';
       html += '<td>' + key + '</td>';
 
       html += '<td><select id="group_' + item.type + item.address + '" class="rounded-border inputSetting" name="group">';
@@ -404,6 +448,7 @@ function storeIoSetup()
       jsonObj["usrtitle"] = $("#usrtitle_" + type + address).val();
       jsonObj["unit"] = $("#unit_" + type + address).val();
       jsonObj["state"] = $("#state_" + type + address).is(":checked");
+      jsonObj["record"] = $("#record_" + type + address).is(":checked");
       jsonObj["groupid"] = parseInt($("#group_" + type + address).val());
 
       jsonArray[i] = jsonObj;

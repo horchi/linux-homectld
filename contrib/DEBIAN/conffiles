@@ -1,5 +1,5 @@
-/etc/poold/daemon.conf
+/etc/homectld/daemon.conf
 /etc/default/w1mqtt
-/etc/rsyslog.d/10-poold.conf
-/etc/logrotate.d/poold
+/etc/rsyslog.d/10-homectld.conf
+/etc/logrotate.d/homectld
 /etc/msmtprc

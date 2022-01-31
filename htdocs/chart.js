@@ -12,16 +12,22 @@ var currentRequest = null;
 
 function drawCharts(dataObject)
 {
-   var update = document.getElementById("chartTitle") != null;
+   var root = document.getElementById("chartContainer");
 
-   if (!update) {
+   if (!root) {
       $('#container').removeClass('hidden');
+      $('#dashboardMenu').removeClass('hidden');
+      $('#dashboardMenu').html('');
+
+      document.getElementById("dashboardMenu").innerHTML =
+         '<div id="chartTitle" class="rounded-border chartTitle"></div>' +
+         '<div id="chartBookmarks" class="rounded-border chartBookmarks"></div>';
+
+      //
 
       document.getElementById("container").innerHTML =
-         '<div id="chartTitle" class="rounded-border chartTitle"></div>' +
-         '<div id="chartBookmarks" class="chartBookmarks"></div>' +
          '<canvas id="chartContainer" class="chartCanvas" width="1600" height="600"></canvas>' +
-         '<div class="chartButtons">' +
+         '<div class="rounded-border chartButtons">' +
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'prevmonth\')">&lt; Monat</button>' +
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'prev\')">&lt; Tag</button>' +
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'now\')">Jetzt</button>' +
@@ -29,10 +35,10 @@ function drawCharts(dataObject)
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'nextmonth\')">Monat &gt;</button>' +
          '  <div>Tage </div><input class="rounded-border chartButton" style="width:90px;" onchange="chartSelect(\'range\')" id="chartRange" type="number" step="0.25" min="0.25" value="' + theChartRange + '"></input>' +
          '</div>' +
-         '<div id="chartSelector" class="chartSelectors"></div>';
-   }
+         '<div id="chartSelector" class="rounded-border chartSelectors"></div>';
 
-   var root = document.getElementById("chartContainer");
+      root = document.getElementById("chartContainer");
+   }
 
    if (theChart != null) {
       theChart.destroy();
@@ -94,35 +100,32 @@ function drawCharts(dataObject)
                   labelString: "Zeit"
                }
             }],
-            yAxes: [{
-               display: true,
-               ticks: {
-                  padding: 10,
-                  maxTicksLimit: 20,
-                  fontColor: "white"
-               },
-               gridLines: {
-                  color: "gray",
-                  zeroLineColor: 'gray',
-                  borderDash: [5,5]
-               },
-               scaleLabel: {
-                  display: true,
-                  fontColor: "white",
-                  labelString: "Temperatur [°C]"
-               }
-            }]
          }
       }
    };
 
    // console.log("dataObject: " + JSON.stringify(dataObject, undefined, 4));
 
-   var colors = ['yellow','white','red','lightblue','lightgreen','purple','blue','green','pink','#E69138'];
+   var colors = ['gray','yellow','white','red','lightblue','lightgreen','purple','blue','green','pink','#E69138'];
 
-   for (var i = 0; i < dataObject.rows.length; i++)
-   {
+   var yAxes = [];
+   var knownUnits = {};
+
+   for (var i = 0; i < dataObject.rows.length; i++) {
+      var unit = valueFacts[dataObject.rows[i].key].unit;
       var dataset = {};
+
+      if (knownUnits[unit] == null) {
+         // console.log("Adding yAxis for " + unit);
+         knownUnits[unit] = true;
+         yAxes.push({
+            id: unit,
+            display: true,
+            ticks: { padding: 10, maxTicksLimit: 20, fontColor: colors[i] },
+            gridLines: { color: colors[i], zeroLineColor: 'gray', borderDash: [5,5] },
+            scaleLabel: { display: true, fontColor: colors[i], labelString: '[' + unit + ']' }
+         });
+      }
 
       dataset["data"] = dataObject.rows[i].data;
       dataset["backgroundColor"] = colors[i];
@@ -131,10 +134,12 @@ function drawCharts(dataObject)
       dataset["borderWidth"] = 1.2;
       dataset["fill"] = false;
       dataset["pointRadius"] = 0;
+      dataset["yAxisID"] = unit;
 
       data.data.datasets.push(dataset);
    }
 
+   data.options.scales.yAxes = yAxes;
    var end = new Date();
    end.setFullYear(theChartStart.getFullYear(), theChartStart.getMonth(), theChartStart.getDate()+theChartRange);
 
@@ -144,12 +149,23 @@ function drawCharts(dataObject)
    updateChartBookmarks();
 
    for (var i = 0; i < dataObject.sensors.length; i++) {
-      var html = '<div class="chartSel"><input id="checkChartSel_' + dataObject.sensors[i].id
-          + '" type="checkbox" onclick="chartSelect(\'choice\')" ' + (dataObject.sensors[i].active ? 'checked' : '') + '/><label for="checkChartSel_' + dataObject.sensors[i].id + '">' + dataObject.sensors[i].title + '</label></div>';
+      console.log("sensor " + dataObject.sensors[i].id);
+      var fact = valueFacts[dataObject.sensors[i].id];
+
+      var html = '<div class="chartSel"><input id="checkChartSel_' + dataObject.sensors[i].id +
+          '" type="checkbox" onclick="chartSelect(\'choice\')" ' + (dataObject.sensors[i].active ? 'checked' : '') +
+          '/><label for="checkChartSel_' + dataObject.sensors[i].id + '">' + dataObject.sensors[i].title + ' [' + fact.unit + ']</label></div>';
       $("#chartSelector").append(html);
    }
 
    theChart = new Chart(root.getContext("2d"), data);
+
+   // calc container size
+
+   $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('dashboardMenu') - 15);
+   window.onresize = function() {
+      $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('dashboardMenu') - 15);
+   };
 }
 
 function getSensors()
@@ -272,6 +288,8 @@ function chartSelect(action)
       theChartStart.setFullYear(theChartStart.getFullYear(), theChartStart.getMonth(), theChartStart.getDate()-30);
    else if (action == "now")
       theChartStart.setFullYear(now.getFullYear(), now.getMonth(), now.getDate()-theChartRange);
+   else
+      theChartStart = new Date().subHours(theChartRange * 24);
 
    // console.log("sensors:  '" + sensors + "'" + ' Range:' + theChartRange);
 

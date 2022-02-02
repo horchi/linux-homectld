@@ -61,6 +61,7 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "massPerSecond",             ctNum,     "11.0",         false, "Daemon", "Durchfluss Solar", "[Liter/min]" },
 
    { "openWeatherApiKey",         ctString,  "",             false, "Daemon", "Openweathermap API Key", "" },
+   { "toggleWeatherView",         ctBool,    "1",            false, "Daemon", "Toggle Weather Widget", "" },
 
    // PH stuff
 

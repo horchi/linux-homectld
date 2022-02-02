@@ -2959,9 +2959,8 @@ int Daemon::dispatchHomematicEvents(const char* message)
 //***************************************************************************
 // Dispatch Other
 //  (p4d2mqtt/p4/Heizung)
-//     { "value": 77.0,
-//       "type": "P4VA", "address": 1,
-//       "unit": "°C", "title": "Abgas" }
+//     { "value": 77.0, "type": "P4VA", "address": 1, "unit": "°C", "title": "Abgas" }
+//     { "state": 1, "address": 5, "type": "SMI260", "kind": "status", "title": "I Power On", "unit": "" }
 //***************************************************************************
 
 int Daemon::dispatchOther(const char* topic, const char* message)

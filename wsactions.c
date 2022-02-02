@@ -709,7 +709,7 @@ int Daemon::performSyslog(json_t* oObject, long client)
 {
    const char* name {"/var/log/" TARGET ".log"};
 
-   if (client == 0)
+   if (!client)
       return done;
 
    const char* log = getStringFromJson(oObject, "log");
@@ -720,22 +720,13 @@ int Daemon::performSyslog(json_t* oObject, long client)
    if (!isEmpty(log))
       name = log;
 
-   if (loadLinesFromFile(name, lines, false) == success)
+   if (loadTailLinesFromFile(name, 150, lines) == success)
    {
-      const int maxLines {150};
-      int count {0};
-
       for (auto it = lines.rbegin(); it != lines.rend(); ++it)
-      {
-         if (count++ >= maxLines)
-         {
-            result += "...\n...\n";
-            break;
-         }
-
          result += *it;
-      }
    }
+
+   result += "...\n...\n";
 
    json_object_set_new(oJson, "lines", json_string(result.c_str()));
    pushOutMessage(oJson, "syslog", client);
@@ -749,7 +740,7 @@ int Daemon::performSyslog(json_t* oObject, long client)
 
 int Daemon::performConfigDetails(long client)
 {
-   if (client == 0)
+   if (!client)
       return done;
 
    json_t* oJson = json_array();
@@ -765,7 +756,7 @@ int Daemon::performConfigDetails(long client)
 
 int Daemon::performUserDetails(long client)
 {
-   if (client == 0)
+   if (!client)
       return done;
 
    json_t* oJson = json_array();
@@ -781,7 +772,7 @@ int Daemon::performUserDetails(long client)
 
 int Daemon::performGroups(long client)
 {
-   if (client == 0)
+   if (!client)
       return done;
 
    json_t* oJson = json_array();
@@ -856,7 +847,7 @@ int Daemon::performTestMail(json_t* oObject, long client)
 
 int Daemon::performChartData(json_t* oObject, long client)
 {
-   if (client == 0)
+   if (!client)
       return done;
 
    double range = getDoubleFromJson(oObject, "range", 1);          // Anzahl der Tage
@@ -1035,7 +1026,7 @@ int Daemon::storeUserConfig(json_t* oObject, long client)
 {
    int count {0};
 
-   if (client == 0)
+   if (!client)
       return done;
 
    int rights = getIntFromJson(oObject, "rights", na);
@@ -1134,7 +1125,7 @@ int Daemon::storeUserConfig(json_t* oObject, long client)
 
 int Daemon::performPasswChange(json_t* oObject, long client)
 {
-   if (client == 0)
+   if (!client)
       return done;
 
    const char* user = getStringFromJson(oObject, "user");
@@ -1169,7 +1160,7 @@ int Daemon::performPasswChange(json_t* oObject, long client)
 
 int Daemon::performSchema(json_t* oObject, long client)
 {
-   if (client == 0)
+   if (!client)
       return done;
 
    json_t* oArray = json_array();

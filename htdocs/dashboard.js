@@ -1065,7 +1065,7 @@ function updateWidget(sensor, refresh, widget)
          $("#widget" + wfact.type + wfact.address).html(getWeatherHtml(bigView, wfact, weatherData));
          if (wInterval)
             clearInterval(wInterval);
-         if (weatherData) {
+         if (weatherData && config.toggleWeatherView != 0) {
             wInterval = setInterval(function() {
                bigView = !bigView;
                $("#widget" + wfact.type + wfact.address).html(getWeatherHtml(bigView, wfact, weatherData));

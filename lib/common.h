@@ -401,6 +401,7 @@ int removeFile(const char* filename);
 int chkDir(const char* path);
 int loadFromFile(const char* infile, MemoryStruct* data);
 int loadLinesFromFile(const char* infile, std::vector<std::string>& lines, bool removeLF = true);
+int loadTailLinesFromFile(char const* filename, int count, std::vector<std::string>& lines);
 int storeToFile(const char* filename, const char* data, int size = 0);
 
 struct FsStat

@@ -212,6 +212,8 @@ function updateSchema()
       var title = "";
       if (schemaDef.type == "UC")
          title = "User Constant";
+      if (schemaDef.type == "CN")
+         title = "Leitung";
       else if (item != null)
          title = item.title;
 

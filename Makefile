@@ -30,13 +30,27 @@ CFLAGS    	+= $(shell $(SQLCFG) --include)
 OBJS        += specific.o
 W1OBJS       = w1.o lib/common.o lib/thread.o $(MQTTOBJS)
 
+# main taget
+
+all: $(TARGET) $(W1TARGET) $(ARDUINO_IF_CMD)
+
+# auto dependencies
+
+MAKEDEP = $(CXX) -MM -MG
+DEPFILE = .dependencies
+
+$(DEPFILE): Makefile
+	@$(MAKEDEP) $(CFLAGS) $(OBJS:%.o=%.c) > $@
+
+-include $(DEPFILE)
+
+# git revision
+
 ifdef GIT_REV
    DEFINES += -DGIT_REV='"$(GIT_REV)"'
 endif
 
-# rules:
-
-all: $(TARGET) $(W1TARGET) $(ARDUINO_IF_CMD)
+# build rules
 
 $(TARGET) : $(OBJS)
 	$(doLink) $(OBJS) $(LIBS) -o $@
@@ -128,7 +142,7 @@ dist: clean
 	@echo Distribution package created as $(ARCHIVE).tgz
 
 clean:
-	rm -f */*.o *.o core* *~ */*~ lib/t *.jpg
+	rm -f */*.o *.o core* *~ */*~ lib/t *.jpg *.d */*.d
 	rm -f $(TARGET) $(ARCHIVE).tgz
 	rm -f com2
 
@@ -169,32 +183,6 @@ publish-deb:
 	echo 'ln -s $(TARGET)-${VERSION}.deb $(TARGET)-latest.deb' | sftp -i ~/.ssh/id_rsa2 p7583735@home26485763.1and1-data.host:$(TARGET)
 	echo 'chmod 644 $(TARGET)-${VERSION}.deb' | sftp -i ~/.ssh/id_rsa2 p7583735@home26485763.1and1-data.host:$(TARGET)
 	echo 'chmod 755 install-deb.sh' | sftp -i ~/.ssh/id_rsa2 p7583735@home26485763.1and1-data.host:$(TARGET)
-
-#***************************************************************************
-# dependencies
-#***************************************************************************
-
-HEADER = lib/db.h lib/dbdict.h lib/common.h
-
-lib/common.o    :  lib/common.c    $(HEADER)
-lib/db.o        :  lib/db.c        $(HEADER)
-lib/dbdict.o    :  lib/dbdict.c    $(HEADER)
-lib/curl.o      :  lib/curl.c      $(HEADER)
-lib/serial.o    :  lib/serial.c    $(HEADER) lib/serial.h
-lib/mqtt.o      :  lib/mqtt.c      lib/mqtt.h lib/mqtt_c.h
-lib/mqtt_c.o    :  lib/mqtt_c.c    lib/mqtt_c.h
-lib/mqtt_pal.o  :  lib/mqtt_pal.c  lib/mqtt_c.h
-
-main.o          :  main.c          $(HEADER) daemon.h HISTORY.h
-daemon.o        :  daemon.c        $(HEADER) daemon.h w1.h lib/mqtt.h websock.h
-w1.o            :  w1.c            $(HEADER) w1.h lib/mqtt.h
-gpio.o          :  gpio.c          $(HEADER) daemon.h
-wsactions.o     :  wsactions.c     $(HEADER) daemon.h
-hass.o          :  hass.c          daemon.h
-websock.o       :  websock.c       websock.h webservice.h
-webservice.o    :  webservice.c    webservice.h
-deconz.o        :  deconz.c        deconz.h
-specific.o      :  specific.c      $(HEADER) daemon.h specific.h
 
 # ------------------------------------------------------
 # Git / Versioning / Tagging

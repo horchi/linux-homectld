@@ -387,7 +387,7 @@ std::string l2pTime(time_t t, const char* fmt = "%d.%m.%Y %T");
 char* eos(char* s);
 const char* toElapsed(int seconds, char* buf);
 // #to-be-implemented: splitToInts(const char* string, char c, int& i1, int& i2);
-std::vector<std::string> split(const std::string& str, char delim);
+std::vector<std::string> split(const std::string& str, char delim, std::vector<std::string>* strings = nullptr);
 std::string getStringBetween(std::string str, const char* begin, const char* end);
 std::string getStringBefore(std::string str, const char* begin);
 int fileExists(const char* path);

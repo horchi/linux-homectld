@@ -222,7 +222,7 @@ int W1::update()
    if (count)
       mqttW1Writer->writeRetained(mqttTopic.c_str(), p);
    else
-      mqttW1Writer->write(mqttPingTopic.c_str(), "{\"ping\" : true }");
+      mqttW1Writer->write(mqttPingTopic.c_str(), "{\"ping\" : true, \"sender\" : \"" TARGET "\"}");
 
    free(p);
 

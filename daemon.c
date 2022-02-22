@@ -1557,7 +1557,10 @@ int Daemon::readConfiguration(bool initial)
    getConfigItem("mqttUrl", mqttUrl);
 
    if (url != mqttUrl)
+   {
+      tell(eloAlways, "Config of MQTT url changed from '%s' to '%s', disconnecting", url.c_str(), mqttUrl);
       mqttDisconnect();
+   }
 
    char* sensorTopics {nullptr};
    getConfigItem("mqttSensorTopics", sensorTopics, "+/w1/#");

@@ -723,7 +723,7 @@ int Daemon::performSyslog(json_t* oObject, long client)
    if (loadTailLinesFromFile(name, 150, lines) == success)
    {
       for (auto it = lines.rbegin(); it != lines.rend(); ++it)
-         result += *it;
+         result += *it + "\n";
    }
 
    result += "...\n...\n";

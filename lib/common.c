@@ -24,12 +24,11 @@
 #include <fcntl.h>
 
 #include <algorithm>
+#include <regex>
 
 #ifdef VDR_PLUGIN
 # include <vdr/thread.h>
 #endif
-
-#include <regex>
 
 #include "common.h"
 
@@ -706,9 +705,13 @@ double round2(double d)
 // Split String to Vector
 //***************************************************************************
 
-std::vector<std::string> split(const std::string& str, char delim)
+std::vector<std::string> split(const std::string& str, char delim, std::vector<std::string>* strings)
 {
-   std::vector<std::string> strings;
+   std::vector<std::string> _strings;
+
+   if (!strings)
+      strings = &_strings;
+
    size_t start;
    size_t end {0};
 
@@ -716,10 +719,10 @@ std::vector<std::string> split(const std::string& str, char delim)
    {
       end = str.find(delim, start);
       std::string s = std::regex_replace(str.substr(start, end - start), std::regex("^\\s+"), std::string(""));
-      strings.push_back(std::regex_replace(s, std::regex("\\s+$"), std::string("")));
+      strings->push_back(std::regex_replace(s, std::regex("\\s+$"), std::string("")));
    }
 
-   return strings;
+   return *strings;
 }
 
 //***************************************************************************
@@ -1096,7 +1099,8 @@ uintmax_t readRemaining(int fd, uintmax_t nBytes, std::vector<std::string>& line
          return nDone;
 
       // printf("%.*s", (int)nRead, buffer);
-      lines.insert(lines.begin(), {buffer, (size_t)nRead-1});
+      split({buffer, (size_t)nRead-1}, '\n', &lines);
+      // lines.insert(lines.begin(), {buffer, (size_t)nRead-1});
       nDone += nRead;
       nRemaining -= nRead;
    }
@@ -1165,7 +1169,8 @@ int nTailFileLines(int fd, char const* filename, uintmax_t nLines, std::vector<s
             // this newline isn't the last character in the buffer, output the part after
 
             // printf("%.*s\n", (int)(nRead - (n+2)), nl + 1);
-            lines.insert(lines.begin(), {nl + 1, (size_t)nRead - (n+2)});
+            // lines.insert(lines.begin(), {nl + 1, (size_t)nRead - (n+2)});
+            split({nl + 1, (size_t)(nRead-(n+2))}, '\n', &lines);
             return success;
          }
       }

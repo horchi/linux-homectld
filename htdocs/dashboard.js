@@ -15,6 +15,8 @@ var wInterval = null;
 var actDashboard = -1;
 var moseDownOn = { 'object' : null };
 var lightClickTimeout = null;
+var lightClickPosX = null;
+var lightClickPosY = null;
 
 const symbolColorDefault = '#ffffff';
 const symbolOnColorDefault = '#059eeb';
@@ -301,27 +303,49 @@ function initWidget(key, widget, fact)
          if (!setupMode) {
             $('#button' + fact.type + fact.address)
                .on('mousedown touchstart', {"fact" : fact}, function(e) {
-                  e.preventDefault();
+                  if (e.touches != null) {
+                     lightClickPosX = e.touches[0].pageX;
+                     lightClickPosY = e.touches[0].pageY;
+                  }
+                  else
+                  {
+                     e.preventDefault();
+                     lightClickPosX = e.clientX;
+                     lightClickPosY = e.clientY;
+                  }
+                  // e.preventDefault();
                   if ((e.which != 0 && e.which != 1) || $('#lightColorDiv').css('display') != 'none')
                      return;
                   if (fact.options & 0x04) {
-                     lightClickTimeout = setTimeout(function(e) {
-                        lightClickTimeout = null;
+
+                     lightClickTimeout = setTimeout(function(event) {
+                        lightClickTimeout = lightClickPosX = lightClickPosY = null;
                         showLightColorDialog(key);
                      }, 400);
-                  } else
-                     toggleIo(fact.address, fact.type);
+                  }
                })
-               .on('mouseup mouseleave touchend', function(e) {
-                  e.stopPropagation();
-                  e.preventDefault();
+               .on('mouseup mouseleave touchend', {"fact" : fact}, function(e) {
                   if ($('#lightColorDiv').css('display') != 'none')
                      return;
-                  if (lightClickTimeout) {
-                     toggleIo(fact.address, fact.type);
-                     clearTimeout(lightClickTimeout);
-                     lightClickTimeout = null;
+                  if (e.changedTouches != null) {
+                     posX = e.changedTouches[0].pageX;
+                     posY = e.changedTouches[0].pageY;
                   }
+                  else
+                  {
+                     posX = e.clientX;
+                     posY = e.clientY;
+                  }
+                  if (lightClickPosX != null || lightClickPosY != null) {
+                     if (Math.abs(lightClickPosX - posX) < 15 && Math.abs(lightClickPosY - posY) < 15) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleIo(fact.address, fact.type);
+                     }
+                  }
+                  if (lightClickTimeout)
+                     clearTimeout(lightClickTimeout);
+                  lightClickTimeout = lightClickPosX = lightClickPosY = null;
                });
          }
 
@@ -1219,10 +1243,10 @@ function addWidget()
             addrTime = n;
       }
       $('#widgetKey').append($('<option></option>')
-                             .val('SPACER:0x' + addrSpacer.toString(16)+1)
+                             .val('SPACER:0x' + (addrSpacer + 1).toString(16))
                              .html('Spacer'));
       $('#widgetKey').append($('<option></option>')
-                             .val('TIME:0x' + addrSpacer.toString(16)+1)
+                             .val('TIME:0x' + (addrTime + 1).toString(16))
                              .html('Time'));
 
       var jArray = [];

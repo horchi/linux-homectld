@@ -63,6 +63,7 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "openWeatherApiKey",         ctString,  "",             false, "Daemon", "Openweathermap API Key", "" },
    { "toggleWeatherView",         ctBool,    "1",            false, "Daemon", "Toggle Weather Widget", "" },
 
+#ifdef _POOL
    // PH stuff
 
    { "phReference",               ctNum,     "7.2",          false, "PH", "PH Sollwert", "Sollwert [PH] (default 7,2)" },
@@ -70,6 +71,7 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "phMinusDemand01",           ctInteger, "85",           false, "PH", "Menge zum Senken um 0,1 [g]", "Wie viel Gramm PH Minus wird zum Senken des PH Wertes um 0,1 für das vorhandene Pool Volumen benötigt (default 60g)" },
    { "phMinusDayLimit",           ctInteger, "100",          false, "PH", "Obergrenze PH Minus/Tag [ml]", "Wie viel PH Minus wird pro Tag maximal zugegeben [ml] (default 100ml)" },
    { "phPumpDurationPer100",      ctInteger, "1000",         false, "PH", "Laufzeit Dosierpumpe/100ml [ms]", "Welche Zeit in Millisekunden benötigt die Dosierpumpe um 100ml zu fördern (default 1000ms)" },
+#endif
 
    // web
 
@@ -215,6 +217,7 @@ int HomeCtl::readConfiguration(bool initial)
    getConfigItem("massPerSecond", massPerSecond, 11.0);                  // [Liter/min]
    massPerSecond /= 60.0;                                                // => [l/s]
 
+#ifdef _POOL
    // PH stuff
 
    getConfigItem("phReference", phReference, 7.2);
@@ -222,6 +225,7 @@ int HomeCtl::readConfiguration(bool initial)
    getConfigItem("phMinusDemand01", phMinusDemand01, 85);                 // [ml]
    getConfigItem("phMinusDayLimit", phMinusDayLimit, 100);                // [ml]
    getConfigItem("phPumpDuration100", phPumpDuration100, 1000);           // [ms]
+#endif
 
    /*
    // config of GPIO pins
@@ -274,6 +278,8 @@ void ioInterrupt()
 
 int HomeCtl::applyConfigurationSpecials()
 {
+#ifdef _POOL
+
 #ifndef _NO_RASPBERRY_PI_
    initOutput(pinFilterPump, ooAuto|ooUser, omAuto, "Filter Pump", urFullControl);
    initOutput(pinSolarPump, ooAuto|ooUser, omAuto, "Solar Pump", urFullControl);
@@ -341,6 +347,8 @@ int HomeCtl::applyConfigurationSpecials()
       sensors["DO"][pinPoolLight].mode = opt & ooAuto ? omAuto : omManual;
    }
 #endif
+
+#endif  // POOL
 
    return done;
 }

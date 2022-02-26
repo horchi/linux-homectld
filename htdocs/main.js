@@ -79,8 +79,7 @@ function onSocketConnect(protocol)
                    "token" : token }
                });
 
-   // prepareMenu();
-   document.title = pageTitle;
+   document.title = "Home Control";
    onSmalDevice = window.matchMedia("(max-width: 740px)").matches;
    console.log("onSmalDevice : " + onSmalDevice);
 }
@@ -396,7 +395,7 @@ function prepareMenu()
    if (kioskMode)
       return ;
 
-   document.title = 'Home Control';
+   document.title = config.pageTitle;
 
    console.log("prepareMenu: " + currentPage);
 

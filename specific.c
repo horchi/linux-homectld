@@ -83,6 +83,7 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "vdr",                       ctBool,    "0",            false, "WEB Interface", "VDR (Video Disk Recorder) OSD verfügbar", "" },
    { "chartRange",                ctNum,     "1.5",          true,  "WEB Interface", "Chart Range", "" },
    { "chartSensors",              ctNum,     "VA:0x0",       true,  "WEB Interface", "Chart Sensors", "" },
+   { "pageTitle",                 ctString,  "Home Control", false, "WEB Interface", "Page Title", "" },
 
    // MQTT interface
 

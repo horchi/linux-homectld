@@ -110,7 +110,7 @@ int BmsCom::request(byte command)
       return status;
    }
 
-   tell(eloDebug, "Debug: Wrote %d bytes", contentLen);
+   tell(eloDebug, "Debug: Wrote %zu bytes", contentLen);
 
    byte cmd {0};
    byte state {0};
@@ -359,7 +359,7 @@ int Bms::mqttPublish(SensorData& sensor)
 
    char* message = json_dumps(obj, JSON_REAL_PRECISION(8));
    tell(eloAlways, "-> %s", message);
-   mqttWriter->write(mqttTopic.c_str(), message);
+   mqttWriter->writeRetained(mqttTopic.c_str(), message);
    free(message);
    json_decref(obj);
 

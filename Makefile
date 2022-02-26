@@ -152,7 +152,7 @@ dist: clean
 	@echo Distribution package created as $(ARCHIVE).tgz
 
 clean:
-	rm -f */*.o *.o core* *~ */*~ lib/t *.jpg *.d */*.d
+	rm -f */*.o *.o core* *~ */*~ lib/t *.jpg $(DEPFILE)
 	rm -f $(TARGET) $(ARCHIVE).tgz
 	rm -f com2
 

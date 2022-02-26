@@ -359,7 +359,7 @@ int Bms::mqttPublish(SensorData& sensor)
 
    char* message = json_dumps(obj, JSON_REAL_PRECISION(8));
    tell(eloAlways, "-> %s", message);
-   mqttWriter->writeRetained(mqttTopic.c_str(), message);
+   mqttWriter->write(mqttTopic.c_str(), message);
    free(message);
    json_decref(obj);
 

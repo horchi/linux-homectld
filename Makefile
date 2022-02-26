@@ -29,10 +29,11 @@ OBJS         = $(MQTTOBJS) $(LOBJS) main.o daemon.o wsactions.o gpio.o hass.o we
 CFLAGS    	+= $(shell $(SQLCFG) --include)
 OBJS        += specific.o
 W1OBJS       = w1.o lib/common.o lib/thread.o $(MQTTOBJS)
+BMSOBJS      = bms.o lib/common.c lib/thread.o lib/serial.c $(MQTTOBJS)
 
 # main taget
 
-all: $(TARGET) $(W1TARGET) $(ARDUINO_IF_CMD)
+all: $(TARGET) $(W1TARGET) $(BMSTARGET) $(ARDUINO_IF_CMD)
 
 # auto dependencies
 
@@ -58,7 +59,10 @@ $(TARGET) : $(OBJS)
 $(W1TARGET): $(W1OBJS)
 	$(doLink) $(W1OBJS) $(LIBS) -o $@
 
-install: $(TARGET) $(W1TARGET) install-daemon install-web
+$(BMSTARGET): $(BMSOBJS)
+	$(doLink) $(BMSOBJS) $(LIBS) -o $@
+
+install: $(TARGET) $(W1TARGET) $(BMSTARGET) install-daemon install-web
 
 install-daemon: install-config install-scripts
 	@echo install $(TARGET)
@@ -70,6 +74,7 @@ install-daemon: install-config install-scripts
    endif
 	install --mode=755 -D $(TARGET) $(BINDEST)/
 	install --mode=755 -D $(W1TARGET) $(BINDEST)/
+	install --mode=755 -D $(BMSTARGET) $(BINDEST)/
 	make install-systemd
 	mkdir -p $(DESTDIR)$(PREFIX)/share/$(TARGET)/
 #	install --mode=644 -D arduino/build-nano-atmega328/ioctrl.hex $(DESTDIR)$(PREFIX)/share/$(TARGET)/nano-atmega328-ioctrl.hex
@@ -81,9 +86,11 @@ install-systemd:
 	@echo install systemd
 	cat contrib/daemon.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | sed s:"<TARGET>":"$(TARGET)":g | sed s:"<CLASS>":"$(CLASS)":g |install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/$(TARGET).service
 	cat contrib/w1mqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/w1mqtt.service
+	cat contrib/bmsmqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/bmsmqtt.service
 	install --mode=664 -D contrib/mosquitto-log.service $(SYSTEMDDEST)/
 	chmod a+r $(SYSTEMDDEST)/$(TARGET).service
 	chmod a+r $(SYSTEMDDEST)/w1mqtt.service
+	chmod a+r $(SYSTEMDDEST)/bmsmqtt.service
    ifeq ($(DESTDIR),)
 	   systemctl daemon-reload
 	   systemctl enable $(TARGET)
@@ -115,6 +122,9 @@ install-config:
 	mkdir -p $(DESTDIR)/etc/default
 	if ! test -f $(DESTDIR)/etc/default/w1mqtt; then \
 	   cp contrib/w1mqtt $(DESTDIR)/etc/default/w1mqtt; \
+	fi
+	if ! test -f $(DESTDIR)/etc/default/bmsmqtt; then \
+	   cp contrib/bmsmqtt $(DESTDIR)/etc/default/bmsmqtt; \
 	fi
 
 install-scripts:
@@ -148,17 +158,21 @@ clean:
 
 build: clean all
 
+uninstall: clean-install
+
 clean-install:
 	rm -rf $(CONFDEST)
 	rm -rf $(WEBDEST)
 	rm -rf $(SYSTEMDDEST)/$(TARGET).service
 	rm -rf $(SYSTEMDDEST)/w1mqtt.service
+	rm -rf $(SYSTEMDDEST)/bmsmqtt.service
 	rm -rf $(DESTDIR)/etc/default/w1mqtt;
+	rm -rf $(DESTDIR)/etc/default/bmsmqtt;
 	rm -rf $(DESTDIR)/etc/rsyslog.d/10-$(TARGET).conf
 	rm -rf $(DESTDIR)/etc/logrotate.d/$(TARGET)
-	rm -rf $(DESTDIR)/etc/default/w1mqtt;
 	rm -rf $(BINDEST)/$(TARGET)*
 	rm -rf $(BINDEST)/$(W1TARGET)
+	rm -rf $(BINDEST)/$(BMSTARGET)
 
 activate: install
 	systemctl restart $(TARGET)

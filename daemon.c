@@ -2968,7 +2968,7 @@ int Daemon::dispatchHomematicEvents(const char* message)
 
 int Daemon::dispatchOther(const char* topic, const char* message)
 {
-   tell(eloMqtt, "<- (%s) '%s'", topic, message);
+   // tell(eloMqtt, "<- (%s) '%s'", topic, message);
 
    json_t* jData = json_loads(message, 0, nullptr);
 
@@ -2994,7 +2994,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    addValueFact(address, type, 1, title, unit, title);
 
    sensors[type][address].last = time(0);
-   sensors[type][address].kind = getStringFromJson(jData, "kind");
+   sensors[type][address].kind = getStringFromJson(jData, "kind", "value");
    sensors[type][address].state = getBoolFromJson(jData, "state");
    sensors[type][address].value = getDoubleFromJson(jData, "value");
    sensors[type][address].text = getStringFromJson(jData, "text", "");

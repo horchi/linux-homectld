@@ -207,8 +207,8 @@ int W1::update()
       fclose(in);
       free(path);
 
-      // take a breath .. due to a forum post we wait 1 second:
-      //   -> "jede Lesung am Bus zieht die Leitungen runter und da alle Sensoren am selben Bus hängen, deswegen min. 1s zwischen den Lesungen"
+      // take a breath ..
+      //   -> "jedes lesen des Bus zieht die Leitungen runter und da alle Sensoren am selben Bus hängen -> min. 1 Sekunde Pause zwischen den Zugriffen"
 
       sleep(1);
    }

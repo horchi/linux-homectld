@@ -463,7 +463,8 @@ void showUsage(const char* bin)
 
 int main(int argc, char** argv)
 {
-   int _stdout = na;
+   bool nofork {false};
+   int _stdout {na};
    const char* mqttTopic = TARGET "2mqtt/bms";
    const char* mqttUrl = "tcp://localhost:1883";
    const char* device = "/dev/ttyUSB0";
@@ -494,6 +495,7 @@ int main(int argc, char** argv)
          case 't': _stdout = yes;                           break;
          case 'd': if (argv[i+1]) device = argv[++i];       break;
          case 's': showMode = true;                         break;
+         case 'n': nofork = true;                           break;
       }
    }
 
@@ -514,6 +516,22 @@ int main(int argc, char** argv)
       printf("Initialization failed, see syslog for details\n");
       delete job;
       return 1;
+   }
+
+   // fork daemon
+
+   if (!nofork)
+   {
+      int pid;
+
+      if ((pid = fork()) < 0)
+      {
+         printf("Can't fork daemon, %s\n", strerror(errno));
+         return 1;
+      }
+
+      if (pid != 0)
+         return 0;
    }
 
    // register SIGINT

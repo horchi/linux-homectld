@@ -389,10 +389,11 @@ int Daemon::init()
    tell(eloAlways, "Dictionary '%s' loaded", dictPath);
    free(dictPath);
 
-   if ((status = initDb()) != success)
+   while ((status = initDb()) != success && !doShutDown())
    {
       exitDb();
-      return status;
+      tell(eloAlways, "Retrying in %d seconds", 10);
+      doSleep(10);
    }
 
    deconz.init(this, connection);
@@ -1586,6 +1587,18 @@ int Daemon::readConfiguration(bool initial)
    selectAllGroups->freeResult();
 
    return done;
+}
+
+//***************************************************************************
+// Do Sleep
+//***************************************************************************
+
+void Daemon::doSleep(int t)
+{
+   time_t end = time(0) + t;
+
+   while (time(0) < end && !doShutDown())
+      usleep(5000);
 }
 
 //***************************************************************************

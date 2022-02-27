@@ -309,7 +309,7 @@ int Bms::loop()
 
 int Bms::update()
 {
-   tell(eloDetail, "Updating ...");
+   tell(eloInfo, "Updating ...");
 
    if (mqttConnection() != success)
       return fail;
@@ -339,6 +339,8 @@ int Bms::update()
 
    for (int i = 0; i < state.ntcCount; i++)
       mqttPublish(sensor = {addr++, "NTC", "°C", state.ntc[i]});
+
+   tell(eloInfo, " ... done");
 
    return done;
 }

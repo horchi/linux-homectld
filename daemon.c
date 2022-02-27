@@ -1561,6 +1561,11 @@ int Daemon::readConfiguration(bool initial)
    mqttSensorTopics.push_back(TARGET "2mqtt/command/#");
    mqttSensorTopics.push_back(TARGET "2mqtt/nodered/#");
 
+   getConfigItem("arduinoTopic", arduinoTopic, "");
+
+   if (!isEmpty(arduinoTopic))
+      mqttSensorTopics.push_back(std::string(arduinoTopic) + "/out");
+
    getConfigItem("homeMaticInterface", homeMaticInterface, false);
 
    // Home Automation MQTT
@@ -3544,7 +3549,8 @@ int Daemon::initArduino()
 
    if (mqttReader->isConnected())
    {
-      mqttReader->write(TARGET "2mqtt/arduino/in", p);
+      std::string topic = std::string(arduinoTopic) + "/in";
+      mqttReader->write(topic.c_str(), p);
       tell(eloDebug, "DEBUG: PushMessage to arduino [%s]", p);
       free(p);
    }
@@ -3690,13 +3696,13 @@ void Daemon::cleanupW1()
 {
    uint detached {0};
 
-   for (auto it = sensors["W1"].begin(); it != sensors["W1"].end(); it++)
+   for (auto& it : sensors["W1"])
    {
-      if (it->second.last < time(0) - 5*tmeSecondsPerMinute)
+      if (it.second.valid && it.second.last < time(0) - 5*tmeSecondsPerMinute)
       {
-         tell(eloAlways, "Info: Missing w1 sensor '%d', removing it from list", it->first);
+         tell(eloAlways, "Info: Missing w1 sensor '%x', removing it from list", it.first);
+         it.second.valid = false;
          detached++;
-         it->second.valid = false;
       }
    }
 

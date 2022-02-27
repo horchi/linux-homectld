@@ -554,6 +554,7 @@ class Daemon : public cWebInterface
       char* openWeatherApiKey {nullptr};
       int interval {60};
       int arduinoInterval {10};
+      char* arduinoTopic {nullptr};
 
       int webPort {0};
       char* webUrl {nullptr};

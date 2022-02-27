@@ -118,7 +118,7 @@ int W1::loop()
 
 int W1::update()
 {
-   tell(eloDetail, "Updating ...");
+   tell(eloInfo, "Updating ...");
 
    scan();
 
@@ -226,7 +226,7 @@ int W1::update()
 
    free(p);
 
-   tell(eloDetail, " ... done");
+   tell(eloInfo, " ... done");
 
    return done;
 }

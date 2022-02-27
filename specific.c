@@ -32,7 +32,6 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "longitude",                 ctNum,     "8.79",         false, "Daemon", "Längengrad", "" },
 
    { "interval",                  ctInteger, "60",           false, "Daemon", "Intervall der Aufzeichung", "Datenbank Aufzeichung [s]" },
-   { "arduinoInterval",           ctInteger, "10",           false, "Daemon", "Intervall der Arduino Messungen", "[s]" },
    { "webPort",                   ctInteger, "61109",        false, "Daemon", "Port des Web Interfaces", "" },
    { "eloquence",                 ctBitSelect, "1",          false, "Daemon", "Log Eloquence", "" },
    { "filterPumpTimes",           ctRange,   "10:00-17:00",  false, "Daemon", "Zeiten Filter Pumpe", "[hh:mm] - [hh:mm]" },
@@ -90,7 +89,9 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "mqttUrl",                   ctString,  "tcp://localhost:1883", false, "MQTT Interface", "MQTT Broker Url", "URL der MQTT Instanz Beispiel: 'tcp://127.0.0.1:1883'" },
    { "mqttUser",                  ctString,  "",                     false, "MQTT Interface", "User", "" },
    { "mqttPassword",              ctString,  "",                     false, "MQTT Interface", "Password", "" },
-   { "mqttSensorTopics",          ctString,  TARGET "2mqtt/w1/#, " TARGET "2mqtt/arduino/out",  false, "MQTT Interface", "Zusätzliche sensor Topics", "Diese Topics werden gelesen und als Sensoren Daten verwendet" },
+   { "mqttSensorTopics",          ctString,  TARGET "2mqtt/w1/#",    false, "MQTT Interface", "Zusätzliche sensor Topics", "Diese Topics werden gelesen und als Sensoren Daten verwendet" },
+   { "arduinoInterval",           ctInteger, "10",                   false, "MQTT Interface", "Intervall der Arduino Messungen", "[s]" },
+   { "arduinoTopic",              ctString,  TARGET "2mqtt/arduino", false, "MQTT Interface", "MQTT Topic des Arduino Interface", "" },
 
    // Home Automation MQTT interface
 

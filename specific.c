@@ -357,7 +357,6 @@ int HomeCtl::applyConfigurationSpecials()
 #endif  // _POOL
 
 #ifdef _WOMO
-
    gpioWrite(pinW1Power, true, false);
 
    // special values

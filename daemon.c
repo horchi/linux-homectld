@@ -786,7 +786,6 @@ int Daemon::callScript(int addr, const char* command, const char* name, const ch
    if (!oData)
       return fail;
 
-
    std::string kind = getStringFromJson(oData, "kind", "status");
    const char* unit = getStringFromJson(oData, "unit");
    double value = getDoubleFromJson(oData, "value");

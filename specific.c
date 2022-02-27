@@ -138,7 +138,9 @@ int HomeCtl::init()
 {
    int status = Daemon::init();
 
+#ifdef _POOL
    sensors["SP"][spWaterLevel].value = 50;  // start with 50% until we get first signal
+#endif
 
    return status;
 }
@@ -151,6 +153,7 @@ int HomeCtl::initDb()
 {
    int status = Daemon::initDb();
 
+#ifdef _POOL
    // ------------------
    // select solar work per day
    //    select date(time), max(value)
@@ -165,6 +168,7 @@ int HomeCtl::initDb()
    selectSolarWorkPerDay->build(" TYPE = '%s' and ADDRESS = %d", "SP", spSolarWork);
    selectSolarWorkPerDay->build(" group by date(time) order by time desc");
    status += selectSolarWorkPerDay->prepare();
+#endif
 
    return status;
 
@@ -197,6 +201,7 @@ int HomeCtl::readConfiguration(bool initial)
 {
    Daemon::readConfiguration(initial);
 
+#ifdef _POOL
    getConfigItem("poolLightColorToggle", poolLightColorToggle, no);
 
    getConfigItem("w1AddrPool", w1AddrPool, "");
@@ -218,7 +223,6 @@ int HomeCtl::readConfiguration(bool initial)
    getConfigItem("massPerSecond", massPerSecond, 11.0);                  // [Liter/min]
    massPerSecond /= 60.0;                                                // => [l/s]
 
-#ifdef _POOL
    // PH stuff
 
    getConfigItem("phReference", phReference, 7.2);
@@ -279,6 +283,11 @@ void ioInterrupt()
 
 int HomeCtl::applyConfigurationSpecials()
 {
+#ifndef _NO_RASPBERRY_PI_
+   initOutput(pinW1Power, ooAuto, omAuto, "W1 Power", urFullControl);
+   gpioWrite(pinW1Power, true, false);
+#endif
+
 #ifdef _POOL
 
 #ifndef _NO_RASPBERRY_PI_
@@ -291,9 +300,6 @@ int HomeCtl::applyConfigurationSpecials()
    initOutput(pinUserOut2, ooUser, omManual, "User 2");
    initOutput(pinUserOut3, ooUser, omManual, "User 3");
    initOutput(pinUserOut4, ooUser, omManual, "User 4");
-   initOutput(pinW1Power, ooAuto, omAuto, "W1 Power", urFullControl);
-
-   gpioWrite(pinW1Power, true, false);
 
    // init input IO
 
@@ -309,7 +315,6 @@ int HomeCtl::applyConfigurationSpecials()
 #endif
    // special values
 
-   addValueFact(spLastUpdate, "SP", 1, "Aktualisiert", "");
    addValueFact(spWaterLevel, "SP", 1, "Water Level", "%");
    addValueFact(spSolarDelta, "SP", 1, "Solar Delta", "°C");
    addValueFact(spPhMinusDemand, "SP", 1, "PH Minus Bedarf", "ml");
@@ -349,7 +354,66 @@ int HomeCtl::applyConfigurationSpecials()
    }
 #endif
 
-#endif  // POOL
+#endif  // _POOL
+
+#ifdef _WOMO
+
+   gpioWrite(pinW1Power, true, false);
+
+   // special values
+
+   addValueFact(spSolarAh, "SP", 1, "Solar Ladung (heute)", "Ah");
+   addValueFact(spSolarPower, "SP", 1, "Solar Leistung", "W");
+   addValueFact(spBattBalanceAh, "SP", 1, "Bilanz Batterie", "Ah");
+   addValueFact(spPower, "SP", 1, "Load", "W");
+
+   addValueFact(aiSolarCurrent, "AI", 1, "Solar Strom", "A");
+   addValueFact(aiBattCurrent, "AI", 1, "Strom", "A");
+   addValueFact(aiBordnetz, "AI", 1, "Bordnetz", "V");
+   addValueFact(aiFahrzeug, "AI", 1, "Fahrzeug", "V");
+   addValueFact(aiFreshWater, "AI", 1, "Frischwasser", "%");
+   addValueFact(aiUser1, "AI", 1, "User1", "V");
+   addValueFact(aiUser2, "AI", 1, "User2", "V");
+
+   addValueFact(aiUser3, "AI", 1, "User3", "mV");
+   addValueFact(aiUser4, "AI", 1, "User4", "mV");
+   addValueFact(aiUser5, "AI", 1, "User5", "mV");
+   addValueFact(aiUser6, "AI", 1, "User6", "mV");
+
+   // ---------------------------------
+   // move calibration to config!
+
+   aiSensors[aiSolarCurrent].calPointA = -0.0;
+   aiSensors[aiSolarCurrent].calPointB = 5.70;
+   aiSensors[aiSolarCurrent].calPointValueA = 3220;
+   aiSensors[aiSolarCurrent].calPointValueB = 3719;
+
+   aiSensors[aiBattCurrent].calPointA = -0.1980;
+   aiSensors[aiBattCurrent].calPointB = 5.70; //0.1955;
+   aiSensors[aiBattCurrent].calPointValueA = 3191;
+   aiSensors[aiBattCurrent].calPointValueB = 3719; // 3231;
+
+   aiSensors[aiBordnetz].calPointA = 0.0;
+   aiSensors[aiBordnetz].calPointB = 14.33;
+   aiSensors[aiBordnetz].calPointValueA = 0;
+   aiSensors[aiBordnetz].calPointValueB = 3931;
+
+   aiSensors[aiFahrzeug].calPointA = 0.0;
+   aiSensors[aiFahrzeug].calPointB = 14.33;
+   aiSensors[aiFahrzeug].calPointValueA = 0;
+   aiSensors[aiFahrzeug].calPointValueB = 3931;
+
+   aiSensors[aiFreshWater].calPointA = 0.0;
+   aiSensors[aiFreshWater].calPointB = 100.0;
+   aiSensors[aiFreshWater].calPointValueA = 0;
+   aiSensors[aiFreshWater].calPointValueB = 2700;
+
+   aiSensors[aiUser3].calPointA = 0.0;
+   aiSensors[aiUser3].calPointB = 5000.0;
+   aiSensors[aiUser3].calPointValueA = 0.0;
+   aiSensors[aiUser3].calPointValueB = 5000.0;
+
+#endif // _WOMO
 
    return done;
 }
@@ -385,9 +449,7 @@ int HomeCtl::performJobs()
 
 int HomeCtl::process()
 {
-#ifndef _POOL
-   return done;
-#endif
+#ifdef _POOL
 
    static time_t lastDay {midnightOf(time(0))};
    static time_t pSolarSince {0};
@@ -585,6 +647,7 @@ int HomeCtl::process()
    phMeasurementActive();
    calcWaterLevel();
    logReport();
+#endif
 
    return success;
 }
@@ -595,6 +658,7 @@ int HomeCtl::process()
 
 void HomeCtl::logReport()
 {
+#ifdef _POOL
    static time_t nextLogAt {0};
    static time_t nextDetailLogAt {0};
    char buf[255+TB];
@@ -637,8 +701,10 @@ void HomeCtl::logReport()
       selectSolarWorkPerDay->freeResult();
       tell(eloAlways, "# ------------------------");
    }
+#endif
 }
 
+#ifdef _POOL
 //***************************************************************************
 // Get Water Level [%]
 //***************************************************************************
@@ -704,3 +770,4 @@ int HomeCtl::calcPhMinusVolume(double ph)
 
    return (phLack/0.1) * mlPer01;
 }
+#endif

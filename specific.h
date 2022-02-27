@@ -41,6 +41,7 @@ class HomeCtl : public Daemon
          pinShowerSwitch = pinGpio19,
       };
 
+#ifdef _POOL
       enum AnalogInputs
       {
          aiPh = 0,           // addr 0x00
@@ -66,6 +67,34 @@ class HomeCtl : public Daemon
          spSolarPower,
          spSolarWork
       };
+#endif
+
+#ifdef _WOMO
+   enum AnalogInputs
+      {
+         aiSolarCurrent = 0, // addr 0x00
+         aiBattCurrent,      // addr 0x01
+         aiBordnetz,         // addr 0x02
+         aiFahrzeug,         // addr 0x03
+         aiFreshWater,       // addr 0x04
+         aiUser1,            // addr 0x05
+         aiUser2,            // addr 0x06
+
+         aiUser3,            // addr 0x07
+         aiUser4,            // addr 0x08
+         aiUser5,            // addr 0x09
+         aiUser6,            // addr 0x10
+      };
+
+      enum SpecialValues  // 'SP'
+      {
+         spLastUpdate,
+         spSolarAh,
+         spSolarPower,
+         spPower,
+         spBattBalanceAh
+      };
+#endif
 
    protected:
 
@@ -79,11 +108,13 @@ class HomeCtl : public Daemon
 
       int process() override;
       int performJobs() override;
-      void logReport() override;
+   void logReport() override;
+
+#ifdef _POOL
       int calcWaterLevel();
       void phMeasurementActive();
       int calcPhMinusVolume(double ph);
-
+#endif
       std::list<ConfigItemDef>* getConfiguration() override { return &configuration; }
 
       cDbStatement* selectSolarWorkPerDay {nullptr};

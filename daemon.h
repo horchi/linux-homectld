@@ -553,6 +553,7 @@ class Daemon : public cWebInterface
       double longitude {8.79};
       char* openWeatherApiKey {nullptr};
       int interval {60};
+      time_t lastStore {0};
       int arduinoInterval {10};
       char* arduinoTopic {nullptr};
 
@@ -576,20 +577,16 @@ class Daemon : public cWebInterface
 
       // live data
 
-      struct AiSensorData
+      struct AiSensorConfig
       {
-         time_t last {0};
-         double value {0.0};
          double calPointA {0.0};
          double calPointB {10.0};
          double calPointValueA {0};
          double calPointValueB {10};
          double round {0.0};                // e.g. 50.0 -> 0.02; 20.0 -> 0.05;
-         bool disabled {false};
-         bool valid {false};                // set if the value is valid
       };
 
-      std::map<int,AiSensorData> aiSensors;   // #TODO #FIXME -> to be ported to sensors!!
+      std::map<int,AiSensorConfig> aiSensors;
       std::map<std::string,std::map<int,SensorData>> sensors;
 
       virtual std::list<ConfigItemDef>* getConfiguration() = 0;

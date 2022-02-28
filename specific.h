@@ -88,11 +88,11 @@ class HomeCtl : public Daemon
 
       enum SpecialValues  // 'SP'
       {
-         spLastUpdate,
-         spSolarAh,
-         spSolarPower,
-         spPower,
-         spBattBalanceAh
+         spLastUpdate,   // 0x00
+         spSolarAh,      // 0x01 0x01 solar Ampere Stunden (heute) [Ah]
+         spSolarPower,   // 0x02 momentane Solar Leistung [W]
+         spPower,        // 0x03 momentane Gesamt-Leistung [W]
+         spBattBalanceAh // 0x04 actuelle Bilanz Batterie
       };
 #endif
 
@@ -108,18 +108,15 @@ class HomeCtl : public Daemon
 
       int process() override;
       int performJobs() override;
-   void logReport() override;
+      void logReport() override;
+
+      std::list<ConfigItemDef>* getConfiguration() override { return &configuration; }
 
 #ifdef _POOL
       int calcWaterLevel();
       void phMeasurementActive();
       int calcPhMinusVolume(double ph);
-#endif
-      std::list<ConfigItemDef>* getConfiguration() override { return &configuration; }
-
       cDbStatement* selectSolarWorkPerDay {nullptr};
-
-      // config
 
       int poolLightColorToggle {no};
       char* w1AddrPool {nullptr};
@@ -150,7 +147,12 @@ class HomeCtl : public Daemon
       std::vector<Range> uvcLightTimes;
       std::vector<Range> poolLightTimes;
 
-      // statics
+#endif
+
+#ifdef _WOMO
+      int batteryCapacity {220};
+      cDbStatement* selectSolarAhPerDay {nullptr};
+#endif
 
       static std::list<ConfigItemDef> configuration;
 };

@@ -233,8 +233,11 @@ function initWidget(key, widget, fact)
 
    if (!setupMode && widget.unit == '°C')
       titleClass = 'mdi mdi-thermometer';
-   else if (!setupMode && widget.unit == 'hPa')
+   else if (!setupMode && (widget.unit == 'hPa' || widget.unit == 'A' || widget.unit == 'mA' ||
+                           widget.unit == 'W' || widget.unit == 'V' || widget.unit == 'Ah'))
       titleClass = 'mdi mdi-gauge';
+   else if (!setupMode && widget.unit == '%')
+      titleClass = 'mdi mdi-label-percent-outline';
    else if (!setupMode && widget.unit == 'xxxx')  // can't detect if '%' is humidity
       titleClass = 'mdi mdi-water-percent';
 

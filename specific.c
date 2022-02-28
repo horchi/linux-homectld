@@ -34,6 +34,9 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "interval",                  ctInteger, "60",           false, "Daemon", "Intervall der Aufzeichung", "Datenbank Aufzeichung [s]" },
    { "webPort",                   ctInteger, "61109",        false, "Daemon", "Port des Web Interfaces", "" },
    { "eloquence",                 ctBitSelect, "1",          false, "Daemon", "Log Eloquence", "" },
+   { "invertDO",                  ctBool,    "1",            false, "Daemon", "Digitalaugänge invertieren", "" },
+
+#ifdef _POOL
    { "filterPumpTimes",           ctRange,   "10:00-17:00",  false, "Daemon", "Zeiten Filter Pumpe", "[hh:mm] - [hh:mm]" },
    { "uvcLightTimes",             ctRange,   "",             false, "Daemon", "Zeiten UV-C Licht", "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!" },
    { "poolLightTimes",            ctRange,   "",             false, "Daemon", "Zeiten Pool Licht", "[hh:mm] - [hh:mm] (ansonsten manuell schalten)" },
@@ -46,18 +49,16 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "showerDuration",            ctInteger, "20",           false, "Daemon", "Laufzeit der Dusche", "Laufzeit [s]" },
    { "minSolarPumpDuration",      ctInteger, "10",           false, "Daemon", "Mindestlaufzeit der Solarpumpe [m]", "" },
    { "deactivatePumpsAtLowWater", ctBool,    "0",            false, "Daemon", "Pumpen bei geringem Wasserstand deaktivieren", "" },
-
-   { "invertDO",                  ctBool,    "1",            false, "Daemon", "Digitalaugänge invertieren", "" },
    { "w1AddrAir",                 ctString,  "",             false, "Daemon", "Adresse Fühler Temperatur Luft", "" },
    { "w1AddrPool",                ctString,  "",             false, "Daemon", "Adresse Fühler Temperatur Pool", "" },
    { "w1AddrSolar",               ctString,  "",             false, "Daemon", "Adresse Fühler Temperatur Kollektor", "" },
    { "w1AddrSuctionTube",         ctString,  "",             false, "Daemon", "Adresse Fühler Temperatur Saugleitung", "" },
+   { "massPerSecond",             ctNum,     "11.0",         false, "Daemon", "Durchfluss Solar", "[Liter/min]" },
+#endif
 
    { "aggregateHistory",          ctInteger, "365",          false, "Daemon", "Historie [Tage]", "history for aggregation in days (default 0 days -> aggegation turned OFF)" },
    { "aggregateInterval",         ctInteger, "15",           false, "Daemon", "Intervall [m]", "aggregation interval in minutes - 'one sample per interval will be build'" },
    { "peakResetAt",               ctString,  "",             true,  "Daemon", "", "" },
-
-   { "massPerSecond",             ctNum,     "11.0",         false, "Daemon", "Durchfluss Solar", "[Liter/min]" },
 
    { "openWeatherApiKey",         ctString,  "",             false, "Daemon", "Openweathermap API Key", "" },
    { "toggleWeatherView",         ctBool,    "1",            false, "Daemon", "Toggle Weather Widget", "" },
@@ -70,6 +71,10 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "phMinusDemand01",           ctInteger, "85",           false, "PH", "Menge zum Senken um 0,1 [g]", "Wie viel Gramm PH Minus wird zum Senken des PH Wertes um 0,1 für das vorhandene Pool Volumen benötigt (default 60g)" },
    { "phMinusDayLimit",           ctInteger, "100",          false, "PH", "Obergrenze PH Minus/Tag [ml]", "Wie viel PH Minus wird pro Tag maximal zugegeben [ml] (default 100ml)" },
    { "phPumpDurationPer100",      ctInteger, "1000",         false, "PH", "Laufzeit Dosierpumpe/100ml [ms]", "Welche Zeit in Millisekunden benötigt die Dosierpumpe um 100ml zu fördern (default 1000ms)" },
+#endif
+
+#ifdef _WOMO
+   { "batteryCapacity",           ctInteger, "180",          false, "1 Daemon", "Kapazität der Batterie", "" },
 #endif
 
    // web
@@ -125,10 +130,12 @@ HomeCtl::HomeCtl()
 
 HomeCtl::~HomeCtl()
 {
+#ifdef _POOL
    free(w1AddrPool);
    free(w1AddrSolar);
    free(w1AddrSuctionTube);
    free(w1AddrAir);
+#endif
 }
 
 //***************************************************************************
@@ -171,13 +178,35 @@ int HomeCtl::initDb()
    status += selectSolarWorkPerDay->prepare();
 #endif
 
+#ifdef _WOMO
+   // ------------------
+   // select solar Ah per day
+   //    select date(time), max(value)
+   //      from samples
+   //      where type = 'SP' and address = 6 group by date(time);
+
+   selectSolarAhPerDay = new cDbStatement(tableSamples);
+   selectSolarAhPerDay->build("select ");
+   selectSolarAhPerDay->bindTextFree("date(time)", tableSamples->getValue("time"), "", cDBS::bndOut);
+   selectSolarAhPerDay->bindTextFree("max(value)", tableSamples->getValue("value"), ", ", cDBS::bndOut);
+   selectSolarAhPerDay->build(" from %s where ", tableSamples->TableName());
+   selectSolarAhPerDay->build(" TYPE = '%s' and ADDRESS = %d", "SP", spSolarAh);
+   selectSolarAhPerDay->build(" group by date(time)");
+   status += selectSolarAhPerDay->prepare();
+#endif
+
    return status;
 
 }
 
 int HomeCtl::exitDb()
 {
+#ifdef _POOL
    delete selectSolarWorkPerDay;     selectSolarWorkPerDay = nullptr;
+#endif
+#ifdef _WOMO
+   delete selectSolarAhPerDay;     selectSolarAhPerDay = nullptr;
+#endif
 
    return Daemon::exitDb();
 }
@@ -186,10 +215,12 @@ int HomeCtl::loadStates()
 {
    Daemon::loadStates();
 
+#ifdef _POOL
    // if filter pump is running assume its running at least 'minPumpTimeForPh'
 
    if (sensors["DO"][pinFilterPump].state)
       sensors["DO"][pinFilterPump].last = time(0)-minPumpTimeForPh;
+#endif
 
    return done;
 }
@@ -231,20 +262,19 @@ int HomeCtl::readConfiguration(bool initial)
    getConfigItem("phMinusDemand01", phMinusDemand01, 85);                 // [ml]
    getConfigItem("phMinusDayLimit", phMinusDayLimit, 100);                // [ml]
    getConfigItem("phPumpDuration100", phPumpDuration100, 1000);           // [ms]
-#endif
-
-   /*
-   // config of GPIO pins
-
-   getConfigItem("gpioFilterPump", gpioFilterPump, gpioFilterPump);
-   getConfigItem("gpioSolarPump", gpioSolarPump, gpioSolarPump);
-   */
 
    // Time ranges
 
    getConfigTimeRangeItem("filterPumpTimes", filterPumpTimes);
    getConfigTimeRangeItem("uvcLightTimes", uvcLightTimes);
    getConfigTimeRangeItem("poolLightTimes", poolLightTimes);
+
+#endif
+
+#ifdef _WOMO
+   getConfigItem("solarAh", sensors["SP"][spSolarAh].value, 0);
+   getConfigItem("battBalanceAh", sensors["SP"][spBattBalanceAh].value, 0);
+#endif
 
    return done;
 }
@@ -313,7 +343,8 @@ int HomeCtl::applyConfigurationSpecials()
    if (wiringPiISR(pinShowerSwitch, INT_EDGE_FALLING, &ioInterrupt) < 0)
       tell(eloAlways, "Error: Unable to setup ISR: %s", strerror(errno));
 
-#endif
+#endif // _NO_RASPBERRY_PI_
+
    // special values
 
    addValueFact(spWaterLevel, "SP", 1, "Water Level", "%");
@@ -424,6 +455,7 @@ int HomeCtl::applyConfigurationSpecials()
 
 int HomeCtl::performJobs()
 {
+#ifdef _POOL
    // check timed shower duration
 
    if (sensors["DO"][pinShower].state && sensors["DO"][pinShower].mode == omAuto)
@@ -439,6 +471,7 @@ int HomeCtl::performJobs()
          sensors["DO"][pinShower].next = sensors["DO"][pinShower].last + showerDuration;
       }
    }
+#endif
 
    return done;
 }
@@ -449,6 +482,8 @@ int HomeCtl::performJobs()
 
 int HomeCtl::process()
 {
+   Daemon::process();
+
 #ifdef _POOL
 
    static time_t lastDay {midnightOf(time(0))};
@@ -647,7 +682,88 @@ int HomeCtl::process()
    phMeasurementActive();
    calcWaterLevel();
    logReport();
-#endif
+#endif // _POOL
+
+#ifdef _WOMO
+
+   static time_t lastDay {midnightOf(time(0))};
+   double tmp {0.0};
+
+   // Solar
+
+   if (lastDay != midnightOf(time(0)))
+   {
+      lastDay = midnightOf(time(0));
+      sensors["SP"][spSolarAh].value = 0.0;
+      sensors["SP"][spSolarAh].last = time(0);
+      setConfigItem("solarAh", 0.0);
+
+      // don't reset battery balance // battAh = 0.0;
+      //   -> it shoud be reset at 'full charged' to it's capacity
+   }
+
+//   double solarAh {0.0};        // spSolarAh       - solar Ampere Stunden (heute) [Ah]
+//   double pSolar {0.0};         // spSolarPower    - momentane Solar Leistung [W]
+//   time_t pSolarSince {0};
+//   double pTotal {0.0};         // spPower         - momentane Gesamt-Leistung [W]
+//   time_t pTotalSince {0};
+//   double battBalanceAh {0.0};  // spBattBalanceAh -
+
+   time_t lastSolarPower = sensors["SP"][spSolarPower].last;
+
+   sensors["SP"][spSolarPower].value = sensors["AI"][aiSolarCurrent].value * sensors["AI"][aiBordnetz].value; // [W]
+   sensors["SP"][spSolarPower].last = time(0);
+   publishSpecialValue(spSolarPower);
+
+   if (lastSolarPower)
+   {
+      tmp = sensors["AI"][aiSolarCurrent].value * ((time(0)-lastSolarPower) / 3600.0);  // [Ah]
+
+      if (!isNan(tmp))
+      {
+         sensors["SP"][spSolarAh].value += tmp;
+         sensors["SP"][spSolarAh].last = time(0);
+
+         // add solar charge to battery balance
+
+         sensors["SP"][spBattBalanceAh].value += tmp;
+         sensors["SP"][spBattBalanceAh].last = time(0);
+      }
+
+      setConfigItem("solarAh", sensors["SP"][spSolarAh].value);
+      publishSpecialValue(spSolarAh);
+   }
+
+   //
+
+   time_t lastPower = sensors["SP"][spPower].last;
+
+   sensors["SP"][spPower].value = sensors["AI"][aiBattCurrent].value * sensors["AI"][aiBordnetz].value;  // [W]
+   sensors["SP"][spPower].last = time(0);
+   publishSpecialValue(spPower);
+
+   if (lastPower)
+   {
+      tmp = sensors["AI"][aiBattCurrent].value * ((time(0)-lastPower) / 3600.0);   // [Ah]
+
+      if (!isNan(tmp))
+      {
+         // substract consumer load from battery balance
+
+         sensors["SP"][spBattBalanceAh].value += tmp;
+         sensors["SP"][spBattBalanceAh].last = time(0);
+      }
+
+      if (sensors["SP"][spBattBalanceAh].value > batteryCapacity)
+         sensors["SP"][spBattBalanceAh].value = batteryCapacity;
+
+      setConfigItem("battBalanceAh", sensors["SP"][spBattBalanceAh].value);
+      publishSpecialValue(spBattBalanceAh);
+   }
+
+   logReport();
+
+#endif // _WOMO
 
    return success;
 }
@@ -658,6 +774,8 @@ int HomeCtl::process()
 
 void HomeCtl::logReport()
 {
+   Daemon::logReport();
+
 #ifdef _POOL
    static time_t nextLogAt {0};
    static time_t nextDetailLogAt {0};
@@ -696,15 +814,55 @@ void HomeCtl::logReport()
       tell(eloAlways, "# Solar Work");
 
       for (int i = 0, f = selectSolarWorkPerDay->find(); f && i++ < 5; f = selectSolarWorkPerDay->fetch())
-         tell(eloAlways, "#   %s: %.2f kWh", l2pTime(tableSamples->getTimeValue("TIME"), "%d.%m.%Y").c_str(), tableSamples->getFloatValue("VALUE"));
+      {
+         if (tableSamples->getFloatValue("VALUE"))
+            tell(eloAlways, "#   %s: %.2f kWh", l2pTime(tableSamples->getTimeValue("TIME"), "%d.%m.%Y").c_str(),
+                 tableSamples->getFloatValue("VALUE"));
+      }
 
       selectSolarWorkPerDay->freeResult();
       tell(eloAlways, "# ------------------------");
    }
 #endif
+
+#ifdef _WOMO
+
+   static time_t nextLogAt {0};
+   static time_t nextDetailLogAt {0};
+
+   if (time(0) > nextLogAt)
+   {
+      nextLogAt = time(0) + 5 * tmeSecondsPerMinute;
+
+      tell(eloAlways, "# ------------------------");
+      tell(eloAlways, "Solar Strom: %0.2f A", sensors["AI"][aiSolarCurrent].value);
+      tell(eloAlways, "Solar Ladung: %0.5f Ah", sensors["SP"][spSolarAh].value);
+      tell(eloAlways, "Solar Leistung: %0.5f Watt", sensors["SP"][spSolarPower].value);
+      tell(eloAlways, "# ------------------------");
+   }
+
+   if (time(0) > nextDetailLogAt)
+   {
+      nextDetailLogAt = time(0) + 1 * tmeSecondsPerMinute;
+
+      tell(eloAlways, "# Solar Ladung [Ah]");
+
+      for (int f = selectSolarAhPerDay->find(); f; f = selectSolarAhPerDay->fetch())
+      {
+         if (tableSamples->getFloatValue("VALUE"))
+            tell(eloAlways, "#   %s: %.2f", l2pTime(tableSamples->getTimeValue("TIME"), "%d.%m.%Y").c_str(),
+                 tableSamples->getFloatValue("VALUE"));
+      }
+
+      selectSolarAhPerDay->freeResult();
+      tell(eloAlways, "# ------------------------");
+   }
+
+#endif
 }
 
 #ifdef _POOL
+
 //***************************************************************************
 // Get Water Level [%]
 //***************************************************************************

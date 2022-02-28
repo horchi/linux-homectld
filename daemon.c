@@ -684,7 +684,7 @@ int Daemon::initScripts()
       char* cmd {nullptr};
       std::string result;
 
-      tell(eloDetail, "Found script '%s'", script.name.c_str());
+      // tell(eloDetail, "Found script '%s'", script.name.c_str());
 
       asprintf(&scriptPath, "%s/%s", path, script.name.c_str());
 
@@ -786,15 +786,13 @@ int Daemon::callScript(int addr, const char* command, const char* name, const ch
    if (!oData)
       return fail;
 
-
    std::string kind = getStringFromJson(oData, "kind", "status");
-   const char* unit = getStringFromJson(oData, "unit");
+   const char* unit = getStringFromJson(oData, "unit", "");
    double value = getDoubleFromJson(oData, "value");
    const char* text = getStringFromJson(oData, "text");
    bool valid = getBoolFromJson(oData, "valid", false);
 
-   json_decref(oData);
-   tell(eloDebug, "DEBUG: Got '%s' from script (kind:%s unit:%s value:%0.2f) [SC:%d]", result.c_str(), kind.c_str(), unit, value, addr);
+   tell(eloDebug, "Debug: Got '%s' from script (kind:%s unit:%s value:%0.2f) [SC:%d]", result.c_str(), kind.c_str(), unit, value, addr);
 
    sensors["SC"][addr].kind = kind;
    sensors["SC"][addr].last = time(0);
@@ -843,6 +841,8 @@ int Daemon::callScript(int addr, const char* command, const char* name, const ch
 
       pushDataUpdate("update", 0L);
    }
+
+   json_decref(oData);
 
    if (changed)
    {
@@ -1748,6 +1748,7 @@ int Daemon::storeSamples()
       }
    }
 
+   lastStore = time(0);
    connection->commit();
    tell(eloInfo, "Stored %d samples", count);
 
@@ -1761,25 +1762,37 @@ int Daemon::storeSamples()
 int Daemon::store(time_t now, const SensorData* sensor)
 {
    if (!sensor->type.length())
+   {
+      tell(eloDebug, "Debug: Missing type of '%s:0x%02x' (%s)",
+           sensor->type.c_str(), sensor->address, sensor->name.c_str());
       return done;
+   }
 
    if (sensor->disabled)
-      return done;
-
-   if (sensor->type == "W1" || sensor->type == "AI")
    {
-      if (sensor->last < time(0)-300)
-      {
-         tell(eloAlways, "Warning: Data of '%s' sensor '%s' seems to be to old (%s)",
-              sensor->type.c_str(), sensor->name.c_str(), l2pTime(sensor->last).c_str());
-         return done;
-      }
+      tell(eloDebug, "Debug: Sensor of '%s:0x%02x' (%s) disabled",
+           sensor->type.c_str(), sensor->address, sensor->name.c_str());
+      return done;
    }
 
    if (isNan(sensor->value))
    {
-      tell(eloAlways, "Warning: Data of '%s' sensor '%s' is NaN, skipping",
-           sensor->type.c_str(), sensor->name.c_str());
+      tell(eloAlways, "Warning: Data of '%s:0x%02x' (%s) is NaN, skipping store",
+           sensor->type.c_str(), sensor->address, sensor->name.c_str());
+      return done;
+   }
+
+   if (!sensor->last)
+   {
+      tell(eloAlways, "Warning: Missing data stamp of '%s:0x%02x' (%s), skipping store",
+           sensor->type.c_str(), sensor->address, sensor->name.c_str());
+      return done;
+   }
+
+   if (sensor->last <= lastStore)
+   {
+      tell(eloAlways, "Info: No update for '%s:0x%02x' (%s) until last store, skipping. (%s / %s)",
+           sensor->type.c_str(), sensor->address, sensor->name.c_str(), l2pTime(sensor->last).c_str(), l2pTime(lastStore).c_str());
       return done;
    }
 
@@ -3068,7 +3081,7 @@ int Daemon::getConfigItem(const char* name, char*& value, const char* def)
 
 int Daemon::setConfigItem(const char* name, const char* value)
 {
-   tell(eloDebug, "Debug: Storing '%s' with value '%s'", name, value);
+   tell(eloDebug, "Debug: Storing config '%s' with value '%s'", name, value);
    tableConfig->clear();
    tableConfig->setValue("OWNER", myName());
    tableConfig->setValue("NAME", name);
@@ -3584,18 +3597,21 @@ void Daemon::updateAnalogInput(const char* id, double value, time_t stamp)
       tell(eloDebug, "Rouned %.2f to %.2f", m * value + b, dValue);
    }
 
-   aiSensors[input].value = dValue;
-   aiSensors[input].last = stamp;
-   aiSensors[input].valid = true;
+   sensors["AI"][input].value = dValue;
+   sensors["AI"][input].last = stamp;
+   sensors["AI"][input].valid = true;
 
-   tell(eloDebug, "Debug: Input A%d: %.3f%s [%.2f]", input, aiSensors[input].value, tableValueFacts->getStrValue("UNIT"), value);
+   tell(eloDebug, "Debug: Input A%d (%s:0x%02x): %.3f%s [%.2f] from '%s'", input,
+        sensors["AI"][input].type.c_str(), sensors["AI"][input].address,
+        sensors["AI"][input].value, tableValueFacts->getStrValue("UNIT"),
+        value, l2pTime(sensors["AI"][input].last).c_str());
 
    // ----------------------------------
 
    json_t* ojData = json_object();
 
    sensor2Json(ojData, "AI", input);
-   json_object_set_new(ojData, "value", json_real(aiSensors[input].value));
+   json_object_set_new(ojData, "value", json_real(sensors["AI"][input].value));
 
    char* tuple {nullptr};
    asprintf(&tuple, "AI:0x%02x", input);

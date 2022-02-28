@@ -80,7 +80,6 @@ int Serial::open(const char* dev)
       CREAD   : enable receiving characters  */
 
    newtio.c_cflag = baud | CS8 | CLOCAL | CREAD;
-   // newtio.c_cflag = B9600 | CS8 | CLOCAL | CREAD;
    newtio.c_iflag = IGNPAR;  // don't set ICRNL !!
    newtio.c_oflag = 0;
    newtio.c_lflag = 0;       // ICANON - 'disable echo functionality  and don't

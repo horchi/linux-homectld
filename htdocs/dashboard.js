@@ -647,7 +647,7 @@ function initWidget(key, widget, fact)
             .addClass("widget rounded-border widgetDropZone")
             .css('cursor', 'pointer')
             .click(function() {
-               socket.send({"event": "toggleio", "object": {"address": fact.address, "type": fact.type}});
+               socket.send({"event": "toggleio", "object": {"address": fact.address, "type": fact.type, "action": "toggle"}});
             })
             .append($('<div></div>')
                     .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
@@ -2003,7 +2003,7 @@ function widgetSetup(key)
       $("#divColor").css("display", [0,1,3,4,6,7,9,10,11].includes(wType) ? 'flex' : 'none');
       $("#divLinefeed").css("display", [10].includes(wType) ? 'flex' : 'none');
 
-      if ([0].includes(wType) && $('#symbol').val() == '' &&  $('#symbolOn').val() == '')
+      if ([0].includes(wType) && $('#symbol').val() == '' && $('#symbolOn').val() == '')
          $("#divColor").css("display", 'none');
 
       if (![0,9].includes(wType) || $('#symbolOn').val() == '') {

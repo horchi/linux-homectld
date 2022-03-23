@@ -54,8 +54,8 @@ function printAlert(item)
    html += ' <div>\n';
    html += '   <span>Aktiv</span>\n';
    html += '   <span><input id="state_' + item.id + '" type="checkbox" name="state" ' + (item.state == 'A' ? "checked" : "") + '></input><label for="state_' + item.id + '"></label></span>\n';
-   html += '   <span><button class="rounded-border button2" type="button" onclick="sendAlertMail(' + item.id + ')">Test Mail</button></span>\n';
-   html += '   <span><button class="rounded-border button2" type="button" onclick="deleteAlert(' + item.id +  ')">Löschen</button></span>\n';
+   html += '   <span><button class="buttonOptions rounded-border" type="button" onclick="sendAlertMail(' + item.id + ')">Test Mail</button></span>\n';
+   html += '   <span><button class="buttonOptions rounded-border" type="button" onclick="deleteAlert(' + item.id +  ')">Löschen</button></span>\n';
    html += ' </div>\n';
 
    html += ' <div>\n';

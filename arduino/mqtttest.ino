@@ -33,7 +33,7 @@ const byte inputCount {7};
 unsigned int sampleCount[inputCount] {0};
 unsigned int sampleSum[inputCount] {0};
 
-unsigned int adsInputOffset {7};   // offset vor name (A7, A8, ...)
+const unsigned short adsInputOffset {inputCount};   // offset vor name (A7, A8, ...)
 const byte inputCountAds {4};
 unsigned int sampleCountAds[inputCountAds] {0};
 float sampleSumAds[inputCountAds] {0};

@@ -175,8 +175,8 @@ class Daemon : public cWebInterface
          bool valid {false};               // set if the value, text or state is valid
          time_t next {0};                  // calculated next switch time
          int battery {na};
-         int hue;                         // 0-360° hue
-         int sat;                         // 0-100% saturation
+         int hue;                          // 0-360° hue
+         int sat;                          // 0-100% saturation
 
          // fact
 
@@ -310,7 +310,7 @@ class Daemon : public cWebInterface
 
       int store(time_t now, const SensorData* sensor);
 
-      cDbRow* valueFactOf(const char* type, uint addr);
+      cDbRow* valueFactRowOf(const char* type, uint addr);
       SensorData* getSensor(const char* type, int addr);
       void setSpecialValue(uint addr, double value, const std::string& text = "");
 
@@ -388,6 +388,7 @@ class Daemon : public cWebInterface
       int performImageConfig(json_t* obj, long client);
       int performSchema(json_t* oObject, long client);
       int storeSchema(json_t* oObject, long client);
+      int storeCalibration(json_t* oObject, long client);
       virtual int performCommand(json_t* obj, long client);
       virtual const char* getTextImage(const char* key, const char* text) { return nullptr; }
 
@@ -575,15 +576,13 @@ class Daemon : public cWebInterface
       bool homeMaticInterface {false};
       std::map<uint,std::string> homeMaticUuids;
 
-      // live data
-
       struct AiSensorConfig
       {
          double calPointA {0.0};
          double calPointB {10.0};
          double calPointValueA {0};
          double calPointValueB {10};
-         double round {0.0};                // e.g. 50.0 -> 0.02; 20.0 -> 0.05;
+         double round {20.0};                // e.g. 50.0 -> 0.02; 20.0 -> 0.05; 10.0 -> 0.1;
       };
 
       std::map<int,AiSensorConfig> aiSensors;

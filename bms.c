@@ -159,11 +159,11 @@ int BmsCom::requestCellVoltage(BatteryState& state)
       return fail;
    }
 
-   word w {0};
+   sword w {0};
 
    for (int i = 0; i < payloadSize / 2; i++)
    {
-      serial.readWord(w);
+      serial.readSWord(w);
       state.cellVoltages[i] = w;
    }
 
@@ -181,15 +181,15 @@ int BmsCom::requestState(BatteryState& state)
    }
 
    byte b {0};
-   word w {0};
+   sword w {0};
 
-   serial.readWord(w);
+   serial.readSWord(w);
    state.voltage = w / 100.0;
-   serial.readWord(w);
+   serial.readSWord(w);
    state.current = w / 100.0;
-   serial.readWord(w);
+   serial.readSWord(w);
    state.capacity = w / 100.0;
-   serial.readWord(w);
+   serial.readSWord(w);
    state.maxCapacity = w / 100.0;
 
    serial.readWord(state.cycles);
@@ -206,7 +206,7 @@ int BmsCom::requestState(BatteryState& state)
 
    for (int i = 0; i < state.ntcCount; i++)
    {
-      serial.readWord(w);
+      serial.readSWord(w);
       state.ntc[i] = (w-2731) / 10.0;
    }
 

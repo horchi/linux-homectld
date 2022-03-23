@@ -550,7 +550,7 @@ int Daemon::exit()
 
 int Daemon::initSensorByFact(std::string type, uint address)
 {
-   cDbRow* fact = valueFactOf(type.c_str(), address);
+   cDbRow* fact = valueFactRowOf(type.c_str(), address);
 
    if (!fact)
    {
@@ -578,6 +578,22 @@ int Daemon::initSensorByFact(std::string type, uint address)
       sensors[type][address].title = fact->getStrValue("TITLE");
    else
       sensors[type][address].title = fact->getStrValue("NAME");
+
+   if (type == "AI" && !fact->getValue("CALIBRATION")->isEmpty())
+   {
+      json_t* jCal = jsonLoad(fact->getStrValue("CALIBRATION"));
+
+      if (jCal)
+      {
+         aiSensors[address].calPointA = getDoubleFromJson(jCal, "pointA");
+         aiSensors[address].calPointB = getDoubleFromJson(jCal, "pointB");
+         aiSensors[address].calPointValueA = getDoubleFromJson(jCal, "valueA");
+         aiSensors[address].calPointValueB = getDoubleFromJson(jCal, "valueB");
+         aiSensors[address].round = getDoubleFromJson(jCal, "round");
+
+         json_decref(jCal);
+      }
+   }
 
    tell(eloDebug, "Debug: Init sensor %s/0x%02x - '%s'", type.c_str(), address, sensors[type][address].title.c_str());
 
@@ -773,9 +789,9 @@ int Daemon::callScript(int addr, const char* command, const char* name, const ch
    asprintf(&cmd, "%s %s", tableScripts->getStrValue("PATH"), command);
 
    std::string result;
-   tell(eloDetail, "Info: Calling '%s'", cmd);
-
+   tell(eloDetail, "Info: Calling '%s' ..", cmd);
    result = executeCommand(cmd);
+   tell(eloDetail, ".. done");
 
    tableScripts->reset();
    tell(eloDebug, "Debug: Result of script '%s' was [%s]", cmd, result.c_str());
@@ -857,7 +873,7 @@ int Daemon::callScript(int addr, const char* command, const char* name, const ch
 // Value Fact Of
 //***************************************************************************
 
-cDbRow* Daemon::valueFactOf(const char* type, uint addr)
+cDbRow* Daemon::valueFactRowOf(const char* type, uint addr)
 {
    tableValueFacts->clear();
 
@@ -1365,7 +1381,7 @@ int Daemon::initDb()
    int count {0};
 
    // -------------------
-   // init table valuetypes - is emty
+   // init table valuetypes - if emty
 
    count = 0;
    tableValueTypes->countWhere("1=1", count);
@@ -1726,6 +1742,7 @@ int Daemon::loop()
 int Daemon::storeSamples()
 {
    int count {0};
+   int skipped {0};
 
    lastSampleTime = time(0);
    tell(eloInfo, "Store samples ..");
@@ -1743,14 +1760,16 @@ int Daemon::storeSamples()
          if (!sensor->record || sensor->type == "WEA")
             continue;
 
-         store(lastSampleTime, sensor);
-         count++;
+         if (store(lastSampleTime, sensor) == success)
+            count++;
+         else
+            skipped++;
       }
    }
 
    lastStore = time(0);
    connection->commit();
-   tell(eloInfo, "Stored %d samples", count);
+   tell(eloInfo, "Stored %d samples, skipped %d", count, skipped);
 
    return success;
 }
@@ -1765,35 +1784,35 @@ int Daemon::store(time_t now, const SensorData* sensor)
    {
       tell(eloDebug, "Debug: Missing type of '%s:0x%02x' (%s)",
            sensor->type.c_str(), sensor->address, sensor->name.c_str());
-      return done;
+      return ignore;
    }
 
    if (sensor->disabled)
    {
       tell(eloDebug, "Debug: Sensor of '%s:0x%02x' (%s) disabled",
            sensor->type.c_str(), sensor->address, sensor->name.c_str());
-      return done;
+      return ignore;
    }
 
    if (isNan(sensor->value))
    {
       tell(eloAlways, "Warning: Data of '%s:0x%02x' (%s) is NaN, skipping store",
            sensor->type.c_str(), sensor->address, sensor->name.c_str());
-      return done;
+      return ignore;
    }
 
    if (!sensor->last)
    {
-      tell(eloAlways, "Warning: Missing data stamp of '%s:0x%02x' (%s), skipping store",
+      tell(lastStore ? eloAlways : eloDetail, "Warning: Missing data stamp of '%s:0x%02x' (%s), skipping store",
            sensor->type.c_str(), sensor->address, sensor->name.c_str());
-      return done;
+      return ignore;
    }
 
    if (sensor->last <= lastStore)
    {
       tell(eloAlways, "Info: No update for '%s:0x%02x' (%s) until last store, skipping. (%s / %s)",
            sensor->type.c_str(), sensor->address, sensor->name.c_str(), l2pTime(sensor->last).c_str(), l2pTime(lastStore).c_str());
-      return done;
+      return ignore;
    }
 
    tableSamples->clear();
@@ -3222,7 +3241,7 @@ int Daemon::getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges)
 
 int Daemon::toggleColor(uint addr, const char* type, int hue, int sat, int bri)
 {
-   cDbRow* fact = valueFactOf(type, addr);
+   cDbRow* fact = valueFactRowOf(type, addr);
 
    if (!fact)
       return fail;
@@ -3239,7 +3258,7 @@ int Daemon::toggleColor(uint addr, const char* type, int hue, int sat, int bri)
 
 int Daemon::toggleIo(uint addr, const char* type, int state, int bri, int transitiontime)
 {
-   cDbRow* fact = valueFactOf(type, addr);
+   cDbRow* fact = valueFactRowOf(type, addr);
 
    if (!fact)
       return fail;
@@ -3393,7 +3412,7 @@ bool Daemon::gpioRead(uint pin)
 
 void Daemon::publishSpecialValue(int addr)
 {
-   cDbRow* fact = valueFactOf("SP", addr);
+   cDbRow* fact = valueFactRowOf("SP", addr);
 
    if (!fact)
       return ;
@@ -3611,7 +3630,9 @@ void Daemon::updateAnalogInput(const char* id, double value, time_t stamp)
    json_t* ojData = json_object();
 
    sensor2Json(ojData, "AI", input);
+
    json_object_set_new(ojData, "value", json_real(sensors["AI"][input].value));
+   json_object_set_new(ojData, "plain", json_real(value)); // plain sensor value (without calibration conversion)
 
    char* tuple {nullptr};
    asprintf(&tuple, "AI:0x%02x", input);

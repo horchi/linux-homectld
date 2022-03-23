@@ -287,6 +287,8 @@ function dispatchMessage(message)
          updateSchema();
       else if (currentPage == 'list')
          updateList();
+      else if (currentPage == 'iosetup')
+         updateIoSetupValue();
    }
    else if (event == "schema") {
       initSchema(jMessage.object);

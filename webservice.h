@@ -52,6 +52,7 @@ class cWebService
          evImageConfig,
          evSchema,
          evStoreSchema,
+         evStoreCalibration,
 
          evCount
       };

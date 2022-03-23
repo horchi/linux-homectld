@@ -80,7 +80,7 @@ int Daemon::dispatchClientRequest()
             case evSchema:          status = performSchema(oObject, client);         break;
             case evStoreSchema:     status = storeSchema(oObject, client);           break;
             case evStoreChartbookmarks: status = storeChartbookmarks(oObject, client); break;
-
+            case evStoreCalibration:    status = storeCalibration(oObject, client);    break;
             default:
             {
                if (dispatchSpecialRequest(event,oObject, client) == ignore)
@@ -146,6 +146,7 @@ bool Daemon::checkRights(long client, Event event, json_t* oObject)
       case evImageConfig:         return rights & urSettings;
 
       case evSchema:              return rights & urView;
+      case evStoreCalibration:    return rights & urSettings;
       case evStoreSchema:         return rights & urSettings;
 
       default: break;
@@ -486,7 +487,7 @@ int Daemon::performToggleIo(json_t* oObject, long client)
 {
    int addr = getIntFromJson(oObject, "address");
    const char* type = getStringFromJson(oObject, "type");
-   std::string action = getStringFromJson(oObject, "action");
+   std::string action = getStringFromJson(oObject, "action", "");
 
    if (action == "toggle")
       return toggleIo(addr, type);
@@ -1324,6 +1325,77 @@ int Daemon::storeConfig(json_t* obj, long client)
 }
 
 //***************************************************************************
+// Store Calibration
+//***************************************************************************
+
+int Daemon::storeCalibration(json_t* obj, long client)
+{
+   std::string type = getStringFromJson(obj, "type", "");
+   long address = getIntFromJson(obj, "address", na);
+   std::string calPointSelect = getStringFromJson(obj, "calPointSelect", "");
+   double calPoint = getDoubleFromJson(obj, "calPoint");
+   double calPointValue = getDoubleFromJson(obj, "calPointValue");
+   double calRound = getDoubleFromJson(obj, "calRound");
+
+   if (type != "AI")
+      return replyResult(fail, "Ignoring calibration request, only supported for 'AI' sensors", client);
+
+   if (calPointSelect == "" || address == na)
+      return replyResult(fail, "Ignoring invalid calibration request", client);
+
+   tell(eloAlways, "Storing calibration values of AI:0x%lx for '%s' (%f/%f)", address, calPointSelect.c_str(),
+        calPoint, calPointValue);
+
+   aiSensors[address].round = calRound;
+
+   if (calPointSelect == "pointA")
+   {
+      aiSensors[address].calPointA = calPoint;
+      aiSensors[address].calPointValueA = calPointValue;
+   }
+   else
+   {
+      aiSensors[address].calPointB = calPoint;
+      aiSensors[address].calPointValueB = calPointValue;
+   }
+
+   // store to valuefacts
+
+   tableValueFacts->clear();
+   tableValueFacts->setValue("TYPE", type.c_str());
+   tableValueFacts->setValue("ADDRESS", address);
+
+   if (tableValueFacts->find())
+   {
+      json_t* jCal = json_object();
+
+      json_object_set_new(jCal, "pointA", json_real(aiSensors[address].calPointA));
+      json_object_set_new(jCal, "pointB", json_real(aiSensors[address].calPointB));
+      json_object_set_new(jCal, "valueA", json_real(aiSensors[address].calPointValueA));
+      json_object_set_new(jCal, "valueB", json_real(aiSensors[address].calPointValueB));
+      json_object_set_new(jCal, "round", json_real(aiSensors[address].round));
+
+      char* p = json_dumps(jCal, JSON_REAL_PRECISION(4));
+      json_decref(jCal);
+
+      if (p)
+      {
+         tableValueFacts->setValue("CALIBRATION", p);
+         tableValueFacts->store();
+         free(p);
+      }
+   }
+
+   // update web clients
+
+   json_t* oJson = json_object();
+   valueFacts2Json(oJson, false);
+   pushOutMessage(oJson, "valuefacts");
+
+   return replyResult(success, "success", client);
+}
+
+//***************************************************************************
 // Store Dashboards
 //***************************************************************************
 
@@ -1364,19 +1436,19 @@ int Daemon::storeDashboards(json_t* obj, long client)
       tableDashboardWidgets->clear();
       tableDashboardWidgets->setValue("DASHBOARDID", fromId);
       tableDashboardWidgets->setValue("TYPE", tuple[0].c_str());
-      tableDashboardWidgets->setValue("ADDRESS", strtol(tuple[1].c_str(), nullptr, 0));
+      tableDashboardWidgets->setValue("ADDRESS", strtoll(tuple[1].c_str(), nullptr, 0));
 
       if (!tableDashboardWidgets->find())
          return done;
 
       std::string options = tableDashboardWidgets->getStrValue("WIDGETOPTS");
 
-      tableDashboardWidgets->deleteWhere("dashboardid = %d and type = '%s' and address = %ld", fromId, tuple[0].c_str(), strtol(tuple[1].c_str(), nullptr, 0));
+      tableDashboardWidgets->deleteWhere("dashboardid = %d and type = '%s' and address = %lld", fromId, tuple[0].c_str(), strtoll(tuple[1].c_str(), nullptr, 0));
 
       tableDashboardWidgets->clear();
       tableDashboardWidgets->setValue("DASHBOARDID", toId);
       tableDashboardWidgets->setValue("TYPE", tuple[0].c_str());
-      tableDashboardWidgets->setValue("ADDRESS", strtol(tuple[1].c_str(), nullptr, 0));
+      tableDashboardWidgets->setValue("ADDRESS", strtoll(tuple[1].c_str(), nullptr, 0));
       tableDashboardWidgets->setValue("WIDGETOPTS", options.c_str());
       tableDashboardWidgets->insert();
 
@@ -1463,13 +1535,14 @@ int Daemon::storeDashboards(json_t* obj, long client)
                tableDashboardWidgets->setValue("DASHBOARDID", dashboardId);
                tableDashboardWidgets->setValue("ORDER", ord++);
                tableDashboardWidgets->setValue("TYPE", tuple[0].c_str());
-               tableDashboardWidgets->setValue("ADDRESS", strtol(tuple[1].c_str(), nullptr, 0));
+               tell(eloDebug, "Debug: Storing widget '%s' -> '%s' -> (0x%llx)", id, tuple[1].c_str(), strtoll(tuple[1].c_str(), nullptr, 0));
+               tableDashboardWidgets->setValue("ADDRESS", strtoll(tuple[1].c_str(), nullptr, 0));
 
                if (isEmpty(opts))
                {
                   tableValueFacts->clear();
                   tableValueFacts->setValue("TYPE", tuple[0].c_str());
-                  tableValueFacts->setValue("ADDRESS", strtol(tuple[1].c_str(), nullptr, 0));
+                  tableValueFacts->setValue("ADDRESS", strtoll(tuple[1].c_str(), nullptr, 0));
 
                   if (tableValueFacts->find())
                   {
@@ -1942,12 +2015,13 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
 
       char* key {nullptr};
       std::string type = tableValueFacts->getStrValue("TYPE");
+      ulong address = tableValueFacts->getIntValue("ADDRESS");
       asprintf(&key, "%s:0x%02lx", type.c_str(), tableValueFacts->getIntValue("ADDRESS"));
       json_t* oData = json_object();
       json_object_set_new(obj, key, oData);
       free(key);
 
-      json_object_set_new(oData, "address", json_integer((ulong)tableValueFacts->getIntValue("ADDRESS")));
+      json_object_set_new(oData, "address", json_integer(address));
       json_object_set_new(oData, "type", json_string(type.c_str()));
       json_object_set_new(oData, "state", json_boolean(tableValueFacts->hasValue("STATE", "A")));
       json_object_set_new(oData, "record", json_boolean(tableValueFacts->hasValue("RECORD", "A")));
@@ -1959,6 +2033,15 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
       json_object_set_new(oData, "options", json_integer(tableValueFacts->getIntValue("OPTIONS")));
       // #TODO check actor properties if dimmable ...
       json_object_set_new(oData, "dim", json_boolean(type == "DZL" || type == "HMB"));
+
+      if (type == "AI")
+      {
+         json_object_set_new(oData, "calPointA", json_real(aiSensors[address].calPointA));
+         json_object_set_new(oData, "calPointB", json_real(aiSensors[address].calPointB));
+         json_object_set_new(oData, "calPointValueA", json_real(aiSensors[address].calPointValueA));
+         json_object_set_new(oData, "calPointValueB", json_real(aiSensors[address].calPointValueB));
+         json_object_set_new(oData, "calRound", json_real(aiSensors[address].round));
+      }
 
       if (!tableValueFacts->getValue("CHOICES")->isNull())
          json_object_set_new(oData, "choices", json_string(tableValueFacts->getStrValue("CHOICES")));

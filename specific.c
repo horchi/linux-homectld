@@ -191,6 +191,7 @@ int HomeCtl::initDb()
    selectSolarAhPerDay->bindTextFree("max(value)", tableSamples->getValue("value"), ", ", cDBS::bndOut);
    selectSolarAhPerDay->build(" from %s where ", tableSamples->TableName());
    selectSolarAhPerDay->build(" TYPE = '%s' and ADDRESS = %d", "SP", spSolarAh);
+   selectSolarAhPerDay->build(" and time >= curdate() - INTERVAL DAYOFWEEK(curdate())+14 DAY");
    selectSolarAhPerDay->build(" group by date(time)");
    status += selectSolarAhPerDay->prepare();
 #endif
@@ -398,51 +399,18 @@ int HomeCtl::applyConfigurationSpecials()
    addValueFact(spBattBalanceAh, "SP", 1, "Bilanz Batterie", "Ah");
    addValueFact(spPower, "SP", 1, "Load", "W");
 
-   addValueFact(aiSolarCurrent, "AI", 1, "Solar Strom", "A");
-   addValueFact(aiBattCurrent, "AI", 1, "Strom", "A");
-   addValueFact(aiBordnetz, "AI", 1, "Bordnetz", "V");
-   addValueFact(aiFahrzeug, "AI", 1, "Fahrzeug", "V");
-   addValueFact(aiFreshWater, "AI", 1, "Frischwasser", "%");
-   addValueFact(aiUser1, "AI", 1, "User1", "V");
-   addValueFact(aiUser2, "AI", 1, "User2", "V");
+   addValueFact(aiSolarCurrent, "AI", 1, "Analog Input 1", "%");
+   addValueFact(aiBattCurrent, "AI", 1, "Analog Input 2", "%");
+   addValueFact(aiBordnetz, "AI", 1, "Analog Input 3", "%");
+   addValueFact(aiFahrzeug, "AI", 1, "Analog Input 4", "%");
+   addValueFact(aiFreshWater, "AI", 1, "Analog Input 5", "%");
+   addValueFact(aiUser1, "AI", 1, "Analog Input 6", "%");
+   addValueFact(aiUser2, "AI", 1, "Analog Input 7", "%");
 
-   addValueFact(aiUser3, "AI", 1, "User3", "mV");
-   addValueFact(aiUser4, "AI", 1, "User4", "mV");
-   addValueFact(aiUser5, "AI", 1, "User5", "mV");
-   addValueFact(aiUser6, "AI", 1, "User6", "mV");
-
-   // ---------------------------------
-   // move calibration to config!
-
-   aiSensors[aiSolarCurrent].calPointA = -0.0;
-   aiSensors[aiSolarCurrent].calPointB = 5.70;
-   aiSensors[aiSolarCurrent].calPointValueA = 3220;
-   aiSensors[aiSolarCurrent].calPointValueB = 3719;
-
-   aiSensors[aiBattCurrent].calPointA = -0.1980;
-   aiSensors[aiBattCurrent].calPointB = 5.70; //0.1955;
-   aiSensors[aiBattCurrent].calPointValueA = 3191;
-   aiSensors[aiBattCurrent].calPointValueB = 3719; // 3231;
-
-   aiSensors[aiBordnetz].calPointA = 0.0;
-   aiSensors[aiBordnetz].calPointB = 14.33;
-   aiSensors[aiBordnetz].calPointValueA = 0;
-   aiSensors[aiBordnetz].calPointValueB = 3931;
-
-   aiSensors[aiFahrzeug].calPointA = 0.0;
-   aiSensors[aiFahrzeug].calPointB = 14.33;
-   aiSensors[aiFahrzeug].calPointValueA = 0;
-   aiSensors[aiFahrzeug].calPointValueB = 3931;
-
-   aiSensors[aiFreshWater].calPointA = 0.0;
-   aiSensors[aiFreshWater].calPointB = 100.0;
-   aiSensors[aiFreshWater].calPointValueA = 0;
-   aiSensors[aiFreshWater].calPointValueB = 2700;
-
-   aiSensors[aiUser3].calPointA = 0.0;
-   aiSensors[aiUser3].calPointB = 5000.0;
-   aiSensors[aiUser3].calPointValueA = 0.0;
-   aiSensors[aiUser3].calPointValueB = 5000.0;
+   addValueFact(aiUser3, "AI", 1, "Analog Input 8", "mV");
+   addValueFact(aiUser4, "AI", 1, "Analog Input 9", "mV");
+   addValueFact(aiUser5, "AI", 1, "Analog Input 10", "mV");
+   addValueFact(aiUser6, "AI", 1, "Analog Input 11", "mV");
 
 #endif // _WOMO
 
@@ -702,22 +670,15 @@ int HomeCtl::process()
       //   -> it shoud be reset at 'full charged' to it's capacity
    }
 
-//   double solarAh {0.0};        // spSolarAh       - solar Ampere Stunden (heute) [Ah]
-//   double pSolar {0.0};         // spSolarPower    - momentane Solar Leistung [W]
-//   time_t pSolarSince {0};
-//   double pTotal {0.0};         // spPower         - momentane Gesamt-Leistung [W]
-//   time_t pTotalSince {0};
-//   double battBalanceAh {0.0};  // spBattBalanceAh -
-
    time_t lastSolarPower = sensors["SP"][spSolarPower].last;
 
-   sensors["SP"][spSolarPower].value = sensors["AI"][aiSolarCurrent].value * sensors["AI"][aiBordnetz].value; // [W]
+   sensors["SP"][spSolarPower].value = sensors["AI"][aiUser3].value * sensors["AI"][aiBordnetz].value; // [W]
    sensors["SP"][spSolarPower].last = time(0);
    publishSpecialValue(spSolarPower);
 
    if (lastSolarPower)
    {
-      tmp = sensors["AI"][aiSolarCurrent].value * ((time(0)-lastSolarPower) / 3600.0);  // [Ah]
+      tmp = sensors["AI"][aiUser3].value * ((time(0)-lastSolarPower) / 3600.0);  // [Ah]
 
       if (!isNan(tmp))
       {
@@ -835,7 +796,7 @@ void HomeCtl::logReport()
       nextLogAt = time(0) + 5 * tmeSecondsPerMinute;
 
       tell(eloAlways, "# ------------------------");
-      tell(eloAlways, "Solar Strom: %0.2f A", sensors["AI"][aiSolarCurrent].value);
+      tell(eloAlways, "Solar Strom: %0.2f A", sensors["AI"][aiUser3].value);
       tell(eloAlways, "Solar Ladung: %0.5f Ah", sensors["SP"][spSolarAh].value);
       tell(eloAlways, "Solar Leistung: %0.5f Watt", sensors["SP"][spSolarPower].value);
       tell(eloAlways, "# ------------------------");
@@ -845,13 +806,12 @@ void HomeCtl::logReport()
    {
       nextDetailLogAt = time(0) + 1 * tmeSecondsPerMinute;
 
-      tell(eloAlways, "# Solar Ladung [Ah]");
+      tell(eloAlways, "# Solar Ladung / Tag der letzen 14 Tage");
 
       for (int f = selectSolarAhPerDay->find(); f; f = selectSolarAhPerDay->fetch())
       {
-         if (tableSamples->getFloatValue("VALUE"))
-            tell(eloAlways, "#   %s: %.2f", l2pTime(tableSamples->getTimeValue("TIME"), "%d.%m.%Y").c_str(),
-                 tableSamples->getFloatValue("VALUE"));
+         tell(eloAlways, "#   %s: %.2f [Ah]", l2pTime(tableSamples->getTimeValue("TIME"), "%d.%m.%Y").c_str(),
+              tableSamples->getFloatValue("VALUE"));
       }
 
       selectSolarAhPerDay->freeResult();

@@ -1,7 +1,7 @@
 /*
  *  setup.js
  *
- *  (c) 2020 Jörg Wendel
+ *  (c) 2020-2022 Jörg Wendel
  *
  * This code is distributed under the terms and conditions of the
  * GNU GENERAL PUBLIC LICENSE. See the file COPYING for details.
@@ -11,6 +11,10 @@
 var configCategories = {};
 var ioSections = {};
 var theConfigdetails = {}
+
+// ----------------------------------------------------------------
+// Base Setup
+// ----------------------------------------------------------------
 
 function initConfig(configdetails)
 {
@@ -281,28 +285,6 @@ function toTimeRangesString(base)
    return times;
 }
 
-window.resetPeaks = function()
-{
-   if (confirm("Peaks zurücksetzen?"))
-      socket.send({ "event" : "reset", "object" : { "what" : "peaks" } });
-}
-
-var filterActive = false;
-
-function filterIoSetup()
-{
-   filterActive = !filterActive;
-   console.log("filterIoSetup: " + filterActive);
-
-   $("#filterIoSetup").html(filterActive ? "[aktive]" : "[alle]");
-   initIoSetup(valueFacts);
-}
-
-function doIncrementalFilterIoSetup()
-{
-   initIoSetup(valueFacts);
-}
-
 function foldCategory(category)
 {
    configCategories[category] = !configCategories[category];
@@ -310,12 +292,16 @@ function foldCategory(category)
    initConfig(theConfigdetails);
 }
 
-function foldSection(sectionId)
-{
-   ioSections[sectionId].visible = !ioSections[sectionId].visible;
-   console.log(sectionId + ' : ' + ioSections[sectionId].visible);
-   initIoSetup(valueFacts);
-}
+//window.resetPeaks = function()
+//{
+//   if (confirm("Peaks zurücksetzen?"))
+//      socket.send({ "event" : "reset", "object" : { "what" : "peaks" } });
+//}
+
+
+// ----------------------------------------------------------------
+// IO Setup
+// ----------------------------------------------------------------
 
 function tableHeadline(title, sectionId)
 {
@@ -332,6 +318,7 @@ function tableHeadline(title, sectionId)
       '        <td style="width:3%;">Aktiv</td>' +
       '        <td style="width:3%;">Aufzeichnen</td>' +
       '        <td style="width:6%;">ID</td>' +
+      '        <td style="width:6%;">Kalibrieren</td>' +
       '        <td style="width:10%;">Gruppe</td>' +
       '      </tr>' +
       '    </thead>' +
@@ -409,6 +396,11 @@ function initIoSetup(valueFacts)
       html += '<td><input id="record_' + item.type + item.address + '" class="rounded-border inputSetting" type="checkbox" ' + (item.record ? 'checked' : '') + ' /><label for="record_' + item.type + item.address + '"></label></td>';
       html += '<td>' + key + '</td>';
 
+      if (item.type == 'AI')
+         html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
+      else
+         html += '<td></td>';
+
       html += '<td><select id="group_' + item.type + item.address + '" class="rounded-border inputSetting" name="group">';
       if (grouplist != null) {
          for (var g = 0; g < grouplist.length; g++) {
@@ -428,6 +420,188 @@ function initIoSetup(valueFacts)
          root.appendChild(elem);
       }
    }
+}
+
+var calSensorType = '';
+var calSensorAddress = -1;
+
+function updateIoSetupValue()
+{
+   var key = toKey(calSensorType, calSensorAddress);
+
+   if (calSensorType != '' && allSensors[key].plain != null) {
+      console.log("got update ", key, allSensors[key].value);
+      $('#actuaCalValue').html(allSensors[key].value + ' ' + valueFacts[key].unit + ' (' + allSensors[key].plain + ')');
+   }
+}
+
+function sensorSetup(type, address)
+{
+   console.log("sensorSetup ", type, address);
+
+   calSensorType = type;
+   calSensorAddress = address;
+
+   var key = toKey(calSensorType, calSensorAddress);
+   var form = document.createElement("div");
+
+   $(form).append($('<div></div>')
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('width', '50%')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('Kalibrieren'))
+                          .append($('<select></select>')
+                                  .attr('id', 'calPointSelect')
+                                  .addClass('rounded-border inputSetting')
+                                  .change(function() {
+                                     if ($(this).val() == 'pointA') {
+                                        $('#calPoint').val(valueFacts[key].calPointA);
+                                        $('#calPointValue').val(valueFacts[key].calPointValueA)
+                                     }
+                                     else {
+                                        $('#calPoint').val(valueFacts[key].calPointB);
+                                        $('#calPointValue').val(valueFacts[key].calPointValueB)
+                                     }
+                                  })
+                                 ))
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('width', '50%')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('Aktuell'))
+                          .append($('<span></span>')
+                                  .attr('id', 'actuaCalValue')
+                                  .css('background-color', 'var(--dialogBackground)')
+                                  .css('text-align', 'start')
+                                  .css('align-self', 'center')
+                                  .addClass('rounded-border inputSetting')
+                                  .html('-')
+                                 ))
+                  .append($('<br></br>'))
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('width', '50%')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('bei Wert'))
+                          .append($('<input></input>')
+                                  .attr('id', 'calPoint')
+                                  .attr('type', 'number')
+                                  .attr('step', 0.1)
+                                  .addClass('rounded-border inputSetting')
+                                  .val(valueFacts[key].calPointA)
+                                 ))
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('width', '50%')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('-> Sensor Wert'))
+                          .append($('<input></input>')
+                                  .attr('id', 'calPointValue')
+                                  .attr('type', 'number')
+                                  .attr('step', 0.1)
+                                  .addClass('rounded-border inputSetting')
+                                  .val(valueFacts[key].calPointValueA)
+                                 ))
+                  .append($('<br></br>'))
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('width', '50%')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('Runden'))
+                          .append($('<input></input>')
+                                  .attr('id', 'calRound')
+                                  .attr('type', 'number')
+                                  .attr('step', 0.1)
+                                  .addClass('rounded-border inputSetting')
+                                  .val(valueFacts[key].calRound)
+                                 ))
+                         );
+
+   var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
+
+   $(form).dialog({
+      modal: true,
+      resizable: false,
+      closeOnEscape: true,
+      hide: "fade",
+      width: "400px",
+      title: "Sensor '" + title + "' kalibrieren",
+      open: function() {
+         calSensorType = type;
+         calSensorAddress = address;
+
+         $('#calPointSelect').append($('<option></option>')
+                                     .val('pointA')
+                                     .html('Punkt 1'));
+         $('#calPointSelect').append($('<option></option>')
+                                     .val('pointB')
+                                     .html('Punkt 2'));
+      },
+      buttons: {
+         'Cancel': function () {
+            $(this).dialog('close');
+         },
+         'Speichern': function () {
+            console.log("store calibration value", $('#calPoint').val(), '/', $('#calPointValue').val(), 'for', $('#calPointSelect').val());
+
+            socket.send({ "event" : "storecalibration", "object" : {
+               'type' : calSensorType,
+               'address' : parseInt(calSensorAddress),
+               'calPoint' : parseFloat($('#calPoint').val()),
+               'calPointValue' : parseFloat($('#calPointValue').val()),
+               'calRound' : parseInt($('#calRound').val()),
+               'calPointSelect' : $('#calPointSelect').val()
+            }});
+
+            $(this).dialog('close');
+         }
+      },
+      close: function() {
+         calSensorType = '';
+         calSensorAddress = -1;
+         $(this).dialog('destroy').remove();
+      }
+   });
+
+}
+
+var filterActive = false;
+
+function filterIoSetup()
+{
+   filterActive = !filterActive;
+   console.log("filterIoSetup: " + filterActive);
+
+   $("#filterIoSetup").html(filterActive ? "[aktive]" : "[alle]");
+   initIoSetup(valueFacts);
+}
+
+function doIncrementalFilterIoSetup()
+{
+   initIoSetup(valueFacts);
+}
+
+function foldSection(sectionId)
+{
+   ioSections[sectionId].visible = !ioSections[sectionId].visible;
+   console.log(sectionId + ' : ' + ioSections[sectionId].visible);
+   initIoSetup(valueFacts);
 }
 
 function storeIoSetup()

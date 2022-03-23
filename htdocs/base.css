@@ -198,7 +198,7 @@ button:focus {
     color: var(--buttonFont);
     padding: 3px 10px;
     text-decoration: none;
-    box-shadow: 1px 1px 5px 1px var(--shadow);
+/*    box-shadow: 1px 1px 5px 1px var(--shadow);*/
 }
 
 .button2:hover
@@ -216,12 +216,12 @@ button:focus {
     height: 28px;
     background-color: slategray;
     text-decoration: none;
-    box-shadow: 1px 1px 5px 1px var(--shadow);
+/*    box-shadow: 1px 1px 5px 1px var(--shadow);*/
 }
 
 .buttonOptions:hover
 {
-    background-color: darkslategray;
+    background-color: #335656a1;
 }
 
 .menuDashboard
@@ -286,7 +286,7 @@ button:focus {
 
 .seperatorFold
 {
-    background-color: darkslategray;
+    background-color: #335656a1;
     color: var(--light2);
     padding: 5px 15px;
     font-weight: bold;
@@ -668,6 +668,7 @@ div.greenCircle
 {
     width: 100%;
     background-color: var(--light1);
+    border-collapse: collapse;
     color: var(--buttonFont);
     margin-top: 5px;
     padding: 0;
@@ -683,19 +684,31 @@ div.greenCircle
 .tableMultiColCell
 {
     padding-right: 12px;
-    height: 30px;
+}
+
+table.tableMultiCol tr
+{
+    height: 35px;
+}
+
+table.tableMultiCol > thead tr:first-child
+{
+    background-color: #333333;
+    border-bottom-style: solid;
+    border-bottom-color: white;
+    border-bottom-width: 1px;
 }
 
 table.tableMultiCol tr:nth-child(even)
 {
-    background-color: var(--light3);
-    background: linear-gradient(to bottom, var(--light1), var(--light3)); /* Standard syntax (must be last) */
+    background-color: #333333; /* var(--light1); */
+/*    background: #333333; linear-gradient(to bottom, var(--light1), var(--light3));/* /* Standard syntax (must be last) */
 }
 
 table.tableMultiCol tr:nth-child(odd)
 {
-    background-color: var(--light1);
-    background: linear-gradient(to bottom right, var(--light1), var(--light3)); /* Standard syntax (must be last) */
+    background-color: #696969; /* var(--light1); */
+/*    background: #696969; linear-gradient(to bottom right, var(--light1), var(--light3));*/ /* Standard syntax (must be last) */
 }
 
 .tableMultiCol > div > span

@@ -50,6 +50,7 @@ const char* cWebService::events[] =
    "imageconfig",
    "schema",
    "storeschema",
+   "storecalibration",
 
    0
 };

@@ -115,7 +115,7 @@ int BmsCom::request(byte command)
    byte cmd {0};
    byte state {0};
 
-   if (serial.readByte(b, 1000) != success)
+   if (serial.readByte(b, 1500) != success)
    {
       tell(eloAlways, "Timeout reading start byte");
       return fail;

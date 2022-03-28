@@ -429,8 +429,7 @@ function updateIoSetupValue()
 {
    var key = toKey(calSensorType, calSensorAddress);
 
-   if (calSensorType != '' && allSensors[key].plain != null) {
-      console.log("got update ", key, allSensors[key].value);
+   if (calSensorType != '' && allSensors[key] != null && allSensors[key].plain != null) {
       $('#actuaCalValue').html(allSensors[key].value + ' ' + valueFacts[key].unit + ' (' + allSensors[key].plain + ')');
    }
 }
@@ -444,6 +443,11 @@ function sensorSetup(type, address)
 
    var key = toKey(calSensorType, calSensorAddress);
    var form = document.createElement("div");
+
+   if (valueFacts[key] == null) {
+      console.log("Sensor ", key, "undefined");
+      return;
+   }
 
    $(form).append($('<div></div>')
                   .append($('<div></div>')
@@ -481,8 +485,15 @@ function sensorSetup(type, address)
                                   .css('background-color', 'var(--dialogBackground)')
                                   .css('text-align', 'start')
                                   .css('align-self', 'center')
+                                  .css('width', '345px')
                                   .addClass('rounded-border inputSetting')
                                   .html('-')
+                                 )
+                          .append($('<button></button>')
+                                  .addClass('buttonOptions rounded-border')
+                                  .css('width', 'auto')
+                                  .html('>')
+                                  .click(function() { $('#calPointValue').val(allSensors[toKey(calSensorType, calSensorAddress)].plain); })
                                  ))
                   .append($('<br></br>'))
                   .append($('<div></div>')
@@ -523,13 +534,31 @@ function sensorSetup(type, address)
                                   .css('text-align', 'end')
                                   .css('align-self', 'center')
                                   .css('margin-right', '10px')
-                                  .html('Runden'))
+                                  .html('Runden')
+                                 )
                           .append($('<input></input>')
                                   .attr('id', 'calRound')
                                   .attr('type', 'number')
                                   .attr('step', 0.1)
                                   .addClass('rounded-border inputSetting')
                                   .val(valueFacts[key].calRound)
+                                 ))
+                  .append($('<br></br>'))
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('width', '50%')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('Abschneiden unter')
+                                 )
+                          .append($('<input></input>')
+                                  .attr('id', 'calCutBelow')
+                                  .attr('type', 'number')
+                                  .attr('step', 0.1)
+                                  .addClass('rounded-border inputSetting')
+                                  .val(valueFacts[key].calCutBelow)
                                  ))
                          );
 
@@ -540,7 +569,7 @@ function sensorSetup(type, address)
       resizable: false,
       closeOnEscape: true,
       hide: "fade",
-      width: "400px",
+      width: "500px",
       title: "Sensor '" + title + "' kalibrieren",
       open: function() {
          calSensorType = type;
@@ -552,9 +581,12 @@ function sensorSetup(type, address)
          $('#calPointSelect').append($('<option></option>')
                                      .val('pointB')
                                      .html('Punkt 2'));
+
+         if (allSensors[key] != null)
+            $('#actuaCalValue').html(allSensors[key].value + ' ' + valueFacts[key].unit + ' (' + (allSensors[key].plain != null ? allSensors[key].plain : '-') + ')');
       },
       buttons: {
-         'Cancel': function () {
+         'Abbrechen': function () {
             $(this).dialog('close');
          },
          'Speichern': function () {
@@ -566,6 +598,7 @@ function sensorSetup(type, address)
                'calPoint' : parseFloat($('#calPoint').val()),
                'calPointValue' : parseFloat($('#calPointValue').val()),
                'calRound' : parseInt($('#calRound').val()),
+               'calCutBelow' : parseFloat($('#calCutBelow').val()),
                'calPointSelect' : $('#calPointSelect').val()
             }});
 

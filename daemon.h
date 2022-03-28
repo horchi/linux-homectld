@@ -580,8 +580,9 @@ class Daemon : public cWebInterface
       {
          double calPointA {0.0};
          double calPointB {10.0};
-         double calPointValueA {0};
-         double calPointValueB {10};
+         double calPointValueA {0.0};
+         double calPointValueB {10.0};
+         double calCutBelow {-10000.0};
          double round {20.0};                // e.g. 50.0 -> 0.02; 20.0 -> 0.05; 10.0 -> 0.1;
       };
 

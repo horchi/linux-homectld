@@ -345,11 +345,6 @@ int Daemon::performData(long client, const char* event)
          jsonSensorList[key] = ojData;
 
          sensor2Json(ojData, sensor->type.c_str(), sensor->address);
-
-         // #TODO - check validity like != nan and not older than 2 minutes
-         // if (isNan(aiSensors[addr].value) || aiSensors[addr].last < time(0)-120)
-         //   continue ...
-
          json_object_set_new(ojData, "last", json_integer(sensor->last));
 
          if (sensor->kind == "status")
@@ -1336,6 +1331,7 @@ int Daemon::storeCalibration(json_t* obj, long client)
    double calPoint = getDoubleFromJson(obj, "calPoint");
    double calPointValue = getDoubleFromJson(obj, "calPointValue");
    double calRound = getDoubleFromJson(obj, "calRound");
+   double calCutBelow = getDoubleFromJson(obj, "calCutBelow");
 
    if (type != "AI")
       return replyResult(fail, "Ignoring calibration request, only supported for 'AI' sensors", client);
@@ -1347,6 +1343,7 @@ int Daemon::storeCalibration(json_t* obj, long client)
         calPoint, calPointValue);
 
    aiSensors[address].round = calRound;
+   aiSensors[address].calCutBelow = calCutBelow;
 
    if (calPointSelect == "pointA")
    {
@@ -1374,6 +1371,7 @@ int Daemon::storeCalibration(json_t* obj, long client)
       json_object_set_new(jCal, "valueA", json_real(aiSensors[address].calPointValueA));
       json_object_set_new(jCal, "valueB", json_real(aiSensors[address].calPointValueB));
       json_object_set_new(jCal, "round", json_real(aiSensors[address].round));
+      json_object_set_new(jCal, "calCutBelow", json_real(aiSensors[address].calCutBelow));
 
       char* p = json_dumps(jCal, JSON_REAL_PRECISION(4));
       json_decref(jCal);
@@ -2041,6 +2039,7 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
          json_object_set_new(oData, "calPointValueA", json_real(aiSensors[address].calPointValueA));
          json_object_set_new(oData, "calPointValueB", json_real(aiSensors[address].calPointValueB));
          json_object_set_new(oData, "calRound", json_real(aiSensors[address].round));
+         json_object_set_new(oData, "calCutBelow", json_real(aiSensors[address].calCutBelow));
       }
 
       if (!tableValueFacts->getValue("CHOICES")->isNull())
@@ -2233,6 +2232,13 @@ int Daemon::sensor2Json(json_t* obj, const char* type, uint address)
    tablePeaks->clear();
    tablePeaks->setValue("TYPE", type); // table->getStrValue("TYPE"));
    tablePeaks->setValue("ADDRESS", (long)address); // table->getIntValue("ADDRESS"));
+
+   // at least one update / 2 minutes
+
+   if (sensors[type][address].last < time(0)-120)
+      sensors[type][address].valid = false;
+
+   json_object_set_new(obj, "valid", json_boolean(sensors[type][address].valid));
 
    if (tablePeaks->find())
    {

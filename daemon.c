@@ -590,6 +590,7 @@ int Daemon::initSensorByFact(std::string type, uint address)
          aiSensors[address].calPointValueA = getDoubleFromJson(jCal, "valueA");
          aiSensors[address].calPointValueB = getDoubleFromJson(jCal, "valueB");
          aiSensors[address].round = getDoubleFromJson(jCal, "round");
+         aiSensors[address].calCutBelow = getDoubleFromJson(jCal, "calCutBelow", -10000.0);
 
          json_decref(jCal);
       }
@@ -719,8 +720,8 @@ int Daemon::initScripts()
       const char* unit = getStringFromJson(oData, "unit");
       const char* choices = getStringFromJson(oData, "choices");
       double value = getDoubleFromJson(oData, "value");
-      bool valid = getBoolFromJson(oData, "valid", false);
       const char* text = getStringFromJson(oData, "text");
+      bool valid = getBoolFromJson(oData, "valid", true);
 
       tableScripts->clear();
       tableScripts->setValue("PATH", scriptPath);
@@ -806,7 +807,7 @@ int Daemon::callScript(int addr, const char* command, const char* name, const ch
    const char* unit = getStringFromJson(oData, "unit", "");
    double value = getDoubleFromJson(oData, "value");
    const char* text = getStringFromJson(oData, "text");
-   bool valid = getBoolFromJson(oData, "valid", false);
+   bool valid = getBoolFromJson(oData, "valid", true);
 
    tell(eloDebug, "Debug: Got '%s' from script (kind:%s unit:%s value:%0.2f) [SC:%d]", result.c_str(), kind.c_str(), unit, value, addr);
 
@@ -838,8 +839,7 @@ int Daemon::callScript(int addr, const char* command, const char* name, const ch
    {
       json_t* ojData = json_object();
 
-      json_object_set_new(ojData, "address", json_integer((ulong)addr));
-      json_object_set_new(ojData, "type", json_string("SC"));
+      sensor2Json(ojData, "SC", addr);
       json_object_set_new(ojData, "name", json_string(name));
       json_object_set_new(ojData, "title", json_string(title));
 
@@ -3034,6 +3034,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    addValueFact(address, type, 1, title, unit, title);
 
    sensors[type][address].last = time(0);
+   sensors[type][address].valid = true;
    sensors[type][address].kind = getStringFromJson(jData, "kind", "value");
    sensors[type][address].state = getBoolFromJson(jData, "state");
    sensors[type][address].value = getDoubleFromJson(jData, "value");
@@ -3615,6 +3616,9 @@ void Daemon::updateAnalogInput(const char* id, double value, time_t stamp)
       dValue = std::llround(dValue*aiSensors[input].round) / aiSensors[input].round;
       tell(eloDebug, "Rouned %.2f to %.2f", m * value + b, dValue);
    }
+
+   if (dValue < aiSensors[input].calCutBelow)
+      dValue = 0.0;
 
    sensors["AI"][input].value = dValue;
    sensors["AI"][input].last = stamp;

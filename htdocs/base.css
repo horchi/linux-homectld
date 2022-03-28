@@ -308,9 +308,6 @@ button:focus {
 {
     background-color: var(--edit);
     color: black;
-/*    background-color: transparent;
-    color: white; */
-
     margin-top: 2px;
     padding: 3px;
 }
@@ -322,7 +319,7 @@ button:focus {
 
     margin-top: 2px;
     padding: 3px;
-    width: 45px;
+    width: 60px;
 }
 
 .inputNum
@@ -707,7 +704,7 @@ table.tableMultiCol tr:nth-child(even)
 
 table.tableMultiCol tr:nth-child(odd)
 {
-    background-color: #696969; /* var(--light1); */
+    background-color: #454545; /* var(--light1); */
 /*    background: #696969; linear-gradient(to bottom right, var(--light1), var(--light3));*/ /* Standard syntax (must be last) */
 }
 

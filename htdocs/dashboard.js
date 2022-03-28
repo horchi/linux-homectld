@@ -993,6 +993,8 @@ function updateWidget(sensor, refresh, widget)
       return;
    }
 
+   $('#div_' + key.replace(':', '\\:')).css('opacity', sensor.valid ? '100%' : '25%');
+
    if (widget.widgettype == 0 || widget.widgettype == 9)         // Symbol, Symbol-Value
    {
       // console.log("sensor: ", JSON.stringify(sensor));
@@ -1202,7 +1204,7 @@ function addWidget()
          updateSelection();
       },
       buttons: {
-         'Cancel': function () {
+         'Abbrechen': function () {
             $(this).dialog('close');
          },
          'Ok': function () {
@@ -1621,7 +1623,7 @@ function dashboardSetup(dashboardId)
             socket.send({ "event" : "forcerefresh", "object" : {} });
             $(this).dialog('close');
          },
-         'Cancel': function () {
+         'Abbrechen': function () {
             $(this).dialog('close');
          }
       },
@@ -2111,7 +2113,7 @@ function widgetSetup(key)
             $(this).dialog('close');
          },
 
-         'Cancel': function () {
+         'Abbrechen': function () {
             // socket.send({ "event" : "forcerefresh", "object" : {} });
             if (allSensors[key] == null) {
                console.log("missing sensor!!");
@@ -2121,7 +2123,7 @@ function widgetSetup(key)
 
             $(this).dialog('close');
          },
-         'Preview': function () {
+         'Vorschau': function () {
             widget = Object.create(dashboards[actDashboard].widgets[key]); // valueFacts[key]);
             widget.unit = $("#unit").val();
             widget.scalemax = parseFloat($("#factor").val()) || 1.0;

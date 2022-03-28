@@ -361,7 +361,7 @@ int HomeCtl::applyConfigurationSpecials()
 
    // ---------------------------------
    // move calibration to config!
-
+/*
    aiSensors[aiPh].calPointA = 7.0;
    aiSensors[aiPh].calPointB = 9.0;
    aiSensors[aiPh].calPointValueA = 2070;
@@ -372,7 +372,7 @@ int HomeCtl::applyConfigurationSpecials()
    aiSensors[aiFilterPressure].calPointB = 0.6;
    aiSensors[aiFilterPressure].calPointValueA = 463;
    aiSensors[aiFilterPressure].calPointValueB = 2290;
-   aiSensors[aiFilterPressure].round = 20.0;
+   aiSensors[aiFilterPressure].round = 20.0;*/
 
 #ifndef _NO_RASPBERRY_PI_
    uint opt = ooUser;

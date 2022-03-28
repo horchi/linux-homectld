@@ -1,2 +1,2 @@
 
-BMSMQTT_OPTS="-u tcp://localhost:1883 -i 10 -l 1"
+BMSMQTT_OPTS="-u tcp://localhost:1883 -i 30 -l 1"

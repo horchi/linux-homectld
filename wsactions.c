@@ -2235,7 +2235,7 @@ int Daemon::sensor2Json(json_t* obj, const char* type, uint address)
 
    // at least one update / 2 minutes
 
-   if (sensors[type][address].last < time(0)-120)
+   if (strcmp(type, "DO") != 0 && sensors[type][address].last < time(0)-120)
       sensors[type][address].valid = false;
 
    json_object_set_new(obj, "valid", json_boolean(sensors[type][address].valid));

@@ -359,21 +359,6 @@ int HomeCtl::applyConfigurationSpecials()
    addValueFact(aiPh, "AI", 1, "PH", "");
    addValueFact(aiFilterPressure, "AI", 1, "Druck", "bar");
 
-   // ---------------------------------
-   // move calibration to config!
-/*
-   aiSensors[aiPh].calPointA = 7.0;
-   aiSensors[aiPh].calPointB = 9.0;
-   aiSensors[aiPh].calPointValueA = 2070;
-   aiSensors[aiPh].calPointValueB = 3135;
-   aiSensors[aiPh].round = 50.0;
-
-   aiSensors[aiFilterPressure].calPointA = 0.0;
-   aiSensors[aiFilterPressure].calPointB = 0.6;
-   aiSensors[aiFilterPressure].calPointValueA = 463;
-   aiSensors[aiFilterPressure].calPointValueB = 2290;
-   aiSensors[aiFilterPressure].round = 20.0;*/
-
 #ifndef _NO_RASPBERRY_PI_
    uint opt = ooUser;
 
@@ -507,9 +492,9 @@ int HomeCtl::process()
    // -----------
    // PH
 
-   if (!isNan(aiSensors[aiPh].value) &&  aiSensors[aiPh].last > time(0)-120) // not older than 2 minutes
+   if (!isNan(sensors["AI"][aiPh].value) && sensors["AI"][aiPh].last > time(0)-120) // not older than 2 minutes
    {
-      setSpecialValue(spPhMinusDemand, calcPhMinusVolume(aiSensors[aiPh].value));
+      setSpecialValue(spPhMinusDemand, calcPhMinusVolume(sensors["AI"][aiPh].value));
       publishSpecialValue(spPhMinusDemand);
    }
 
@@ -624,7 +609,7 @@ int HomeCtl::process()
    // --------------------
    // check pump condition
 
-   if (alertSwitchOffPressure != 0 && aiSensors[aiFilterPressure].value < alertSwitchOffPressure)
+   if (alertSwitchOffPressure != 0 && sensors["AI"][aiFilterPressure].value < alertSwitchOffPressure)
    {
       // pressure is less than configured value
 
@@ -639,7 +624,7 @@ int HomeCtl::process()
          sensors["DO"][pinSolarPump].mode = omManual;
 
          char* body;
-         asprintf(&body, "Filter pressure is %.2f bar and pump is running!\n Pumps switched off now!", aiSensors[aiFilterPressure].value);
+         asprintf(&body, "Filter pressure is %.2f bar and pump is running!\n Pumps switched off now!", sensors["AI"][aiFilterPressure].value);
          tell(eloAlways, "%s", body);
          if (sendMail(stateMailTo, "Pool pump alert", body, "text/plain") != success)
             tell(eloAlways, "Error: Sending alert mail failed");
@@ -863,15 +848,16 @@ int HomeCtl::calcWaterLevel()
 
 void HomeCtl::phMeasurementActive()
 {
-   if (sensors["DO"][pinFilterPump].state &&
-       sensors["DO"][pinFilterPump].last < time(0)-minPumpTimeForPh)
+   if (sensors["DO"][pinFilterPump].state && sensors["DO"][pinFilterPump].last < time(0)-minPumpTimeForPh)
    {
-      aiSensors[aiPh].disabled = false;
+      sensors["AI"][aiPh].disabled = false;
       sensors["SP"][spPhMinusDemand].disabled = false;
    }
-
-   aiSensors[aiPh].disabled = true;
-   sensors["SP"][spPhMinusDemand].disabled = true;
+   else
+   {
+      sensors["AI"][aiPh].disabled = true;
+      sensors["SP"][spPhMinusDemand].disabled = true;
+   }
 }
 
 //***************************************************************************

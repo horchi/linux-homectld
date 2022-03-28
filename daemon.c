@@ -3328,6 +3328,7 @@ void Daemon::pin2Json(json_t* ojData, int pin)
    json_object_set_new(ojData, "value", json_integer(sensors["DO"][pin].state));
    json_object_set_new(ojData, "last", json_integer(sensors["DO"][pin].last));
    json_object_set_new(ojData, "next", json_integer(sensors["DO"][pin].next));
+   json_object_set_new(ojData, "valid", json_boolean(sensors["DO"][pin].valid));
 
    // has to be moved to facts?
    json_object_set_new(ojData, "mode", json_string(sensors["DO"][pin].mode == omManual ? "manual" : "auto"));

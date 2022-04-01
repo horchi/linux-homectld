@@ -288,7 +288,7 @@ class Daemon : public cWebInterface
       int add2AlertMail(cDbRow* alertRow, const char* title, double value, const char* unit);
       int sendAlertMail(const char* to);
 
-      virtual int process() { return done; }               // called each 'interval'
+      virtual int process();                               // called each 'interval'
       virtual int performJobs() { return done; }           // called every loop (1 second)
       int performWebSocketPing();
       int dispatchClientRequest();
@@ -389,6 +389,8 @@ class Daemon : public cWebInterface
       int performSchema(json_t* oObject, long client);
       int storeSchema(json_t* oObject, long client);
       int storeCalibration(json_t* oObject, long client);
+      int storeCvCalibration(json_t* oObject, long client);
+      int storeAiCalibration(json_t* oObject, long client);
       virtual int performCommand(json_t* obj, long client);
       virtual const char* getTextImage(const char* key, const char* text) { return nullptr; }
 

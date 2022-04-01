@@ -1325,6 +1325,70 @@ int Daemon::storeConfig(json_t* obj, long client)
 
 int Daemon::storeCalibration(json_t* obj, long client)
 {
+   int status {success};
+   std::string type = getStringFromJson(obj, "type", "");
+
+   if (type == "AI")
+      status = storeAiCalibration(obj, client);
+   else if (type == "CV")
+      status = storeCvCalibration(obj, client);
+   else
+      return replyResult(fail, "Ignoring calibration request, only supported for 'AI' and 'CV' sensors", client);
+
+   if (status == success)
+   {
+      // update web clients
+
+      json_t* oJson = json_object();
+      valueFacts2Json(oJson, false);
+      pushOutMessage(oJson, "valuefacts");
+
+      return replyResult(success, "success", client);
+   }
+
+   return done;
+
+}
+
+int Daemon::storeCvCalibration(json_t* obj, long client)
+{
+   std::string action = getStringFromJson(obj, "action", "");
+   const char* type = getStringFromJson(obj, "type");
+   long address = getIntFromJson(obj, "address", na);
+   std::string luaScript = getStringFromJson(obj, "luaScript", "");
+
+   if (action == "add")
+   {
+      uint address {1};
+
+      for (const auto& sensor : sensors["CV"])
+         if (sensor.second.address >= address)
+            address = sensor.second.address+1;
+
+      tell(eloAlways, "Add CV sensor %d", address);
+      std::string name = "Calc Sensor " + std::to_string(address);
+      addValueFact(address, "CV", 1, name.c_str(), "", "");
+   }
+   else
+   {
+      // store to valuefacts
+
+      tableValueFacts->clear();
+      tableValueFacts->setValue("TYPE", type);
+      tableValueFacts->setValue("ADDRESS", address);
+
+      if (tableValueFacts->find())
+      {
+         tableValueFacts->setValue("CALIBRATION", luaScript.c_str());
+         tableValueFacts->store();
+      }
+   }
+
+   return success;
+}
+
+int Daemon::storeAiCalibration(json_t* obj, long client)
+{
    std::string type = getStringFromJson(obj, "type", "");
    long address = getIntFromJson(obj, "address", na);
    std::string calPointSelect = getStringFromJson(obj, "calPointSelect", "");
@@ -1332,9 +1396,6 @@ int Daemon::storeCalibration(json_t* obj, long client)
    double calPointValue = getDoubleFromJson(obj, "calPointValue");
    double calRound = getDoubleFromJson(obj, "calRound");
    double calCutBelow = getDoubleFromJson(obj, "calCutBelow");
-
-   if (type != "AI")
-      return replyResult(fail, "Ignoring calibration request, only supported for 'AI' sensors", client);
 
    if (calPointSelect == "" || address == na)
       return replyResult(fail, "Ignoring invalid calibration request", client);
@@ -1384,13 +1445,7 @@ int Daemon::storeCalibration(json_t* obj, long client)
       }
    }
 
-   // update web clients
-
-   json_t* oJson = json_object();
-   valueFacts2Json(oJson, false);
-   pushOutMessage(oJson, "valuefacts");
-
-   return replyResult(success, "success", client);
+   return success;
 }
 
 //***************************************************************************
@@ -2041,6 +2096,10 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
          json_object_set_new(oData, "calRound", json_real(aiSensors[address].round));
          json_object_set_new(oData, "calCutBelow", json_real(aiSensors[address].calCutBelow));
       }
+      else if (type == "CV")
+      {
+         json_object_set_new(oData, "luaScript", json_string(tableValueFacts->getStrValue("CALIBRATION")));
+      }
 
       if (!tableValueFacts->getValue("CHOICES")->isNull())
          json_object_set_new(oData, "choices", json_string(tableValueFacts->getStrValue("CHOICES")));
@@ -2233,9 +2292,19 @@ int Daemon::sensor2Json(json_t* obj, const char* type, uint address)
    tablePeaks->setValue("TYPE", type); // table->getStrValue("TYPE"));
    tablePeaks->setValue("ADDRESS", (long)address); // table->getIntValue("ADDRESS"));
 
-   // at least one update / 2 minutes
+   // at least one update / 2 minutes ?? -> move to configuration ??
 
-   if (strcmp(type, "DO") != 0 && sensors[type][address].last < time(0)-120)
+   if (strcmp(type, "DO") == 0)
+      ;
+   else if (strcmp(type, "WEA") == 0)
+      sensors[type][address].valid = sensors[type][address].last >= time(0) - 60*tmeSecondsPerMinute;
+   else if (strcmp(type, "HMB") == 0)
+      ;
+   else if (strcmp(type, "DZS") == 0 || strcmp(type, "DZL") == 0)
+      ;
+   else if (strncmp(type, "P4", 2) == 0)
+      sensors[type][address].valid = sensors[type][address].last >= time(0) - 10*tmeSecondsPerMinute;
+   else if (sensors[type][address].last < time(0)-2*tmeSecondsPerMinute)
       sensors[type][address].valid = false;
 
    json_object_set_new(obj, "valid", json_boolean(sensors[type][address].valid));
@@ -2248,8 +2317,8 @@ int Daemon::sensor2Json(json_t* obj, const char* type, uint address)
 
    tablePeaks->reset();
 
-   json_object_set_new(obj, "address", json_integer(address)); // (ulong)table->getIntValue("ADDRESS")));
-   json_object_set_new(obj, "type", json_string(type)); //table->getStrValue("TYPE")));
+   json_object_set_new(obj, "address", json_integer(address));
+   json_object_set_new(obj, "type", json_string(type));
    json_object_set_new(obj, "peak", json_real(peakMax));
    json_object_set_new(obj, "peakmin", json_real(peakMin));
 

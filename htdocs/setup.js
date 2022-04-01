@@ -303,7 +303,7 @@ function foldCategory(category)
 // IO Setup
 // ----------------------------------------------------------------
 
-function tableHeadline(title, sectionId)
+function tableHeader(title, sectionId)
 {
    if (!ioSections[sectionId].visible)
       return '  <div id="fold_' + sectionId + '" class="rounded-border seperatorFold" onclick="foldSection(\'' + sectionId + '\')">' + '&#11015; ' + title + '</div>';
@@ -324,6 +324,13 @@ function tableHeadline(title, sectionId)
       '    </thead>' +
       '    <tbody id="' + sectionId + '">' +
       '    </tbody>' +
+      '    <tfoot>' +
+      '      <tr>' +
+      '        <td id="footer_' + sectionId + '" colspan="8" style="background-color:#333333;">' +
+      '          <button class="buttonOptions rounded-border" onclick="sensorCvAdd()">+</button>';
+      '        </td>' +
+      '      </tr>' +
+      '    </tfoot>' +
       '  </table>';
 }
 
@@ -345,7 +352,7 @@ function initIoSetup(valueFacts)
          ioSections[section].visible = true;
       }
       if (!ioSections[section].exist) {
-         html += tableHeadline(valueTypes[i].title, section);
+         html += tableHeader(valueTypes[i].title, section);
          ioSections[section].exist = true;
       }
    }
@@ -397,7 +404,9 @@ function initIoSetup(valueFacts)
       html += '<td>' + key + '</td>';
 
       if (item.type == 'AI')
-         html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
+         html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorAiSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
+      else if (item.type == 'CV')
+         html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorCvSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
       else
          html += '<td></td>';
 
@@ -434,7 +443,7 @@ function updateIoSetupValue()
    }
 }
 
-function sensorSetup(type, address)
+function sensorAiSetup(type, address)
 {
    console.log("sensorSetup ", type, address);
 
@@ -612,6 +621,83 @@ function sensorSetup(type, address)
       }
    });
 
+}
+
+function sensorCvSetup(type, address)
+{
+   console.log("sensorSetup ", type, address);
+
+   calSensorType = type;
+   calSensorAddress = address;
+
+   var key = toKey(calSensorType, calSensorAddress);
+   var form = document.createElement("div");
+
+   if (valueFacts[key] == null) {
+      console.log("Sensor ", key, "undefined");
+      return;
+   }
+
+   $(form).append($('<div></div>')
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('Skript'))
+                          .append($('<textarea></textarea>')
+                                  .attr('id', 'luaScript')
+                                  .addClass('rounded-border inputSetting inputSettingScript')
+                                  .css('height', '100px')
+                                  .val(valueFacts[key].luaScript)
+                                 ))
+                 );
+
+   var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
+
+   $(form).dialog({
+      modal: true,
+      resizable: false,
+      closeOnEscape: true,
+      hide: "fade",
+      width: "50%",
+      title: "LUA Skript für '" + title,
+      open: function() {
+         calSensorType = type;
+         calSensorAddress = address;
+      },
+      buttons: {
+         'Abbrechen': function () {
+            $(this).dialog('close');
+         },
+         'Speichern': function () {
+            console.log("store lua script", $('#luaScript').val());
+
+            socket.send({ "event" : "storecalibration", "object" : {
+               'type' : calSensorType,
+               'address' : parseInt(calSensorAddress),
+               'luaScript' : $('#luaScript').val()
+            }});
+
+            $(this).dialog('close');
+         }
+      },
+      close: function() {
+         calSensorType = '';
+         calSensorAddress = -1;
+         $(this).dialog('destroy').remove();
+      }
+   });
+
+}
+
+function sensorCvAdd()
+{
+   socket.send({ "event" : "storecalibration", "object" : {
+      'type' : 'CV',
+      'action' : 'add'
+   }});
 }
 
 var filterActive = false;

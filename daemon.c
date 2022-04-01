@@ -3,7 +3,7 @@
 // File daemon.c
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
-// Date 04.11.2010 - 16.12.2021  Jörg Wendel
+// Date 04.11.2010 - 31.02.2022  Jörg Wendel
 //***************************************************************************
 
 #include <stdio.h>
@@ -21,6 +21,8 @@
 
 #include "lib/curl.h"
 #include "lib/json.h"
+#include "lib/lua.h"
+
 #include "daemon.h"
 
 bool Daemon::shutdown {false};
@@ -83,11 +85,12 @@ Daemon::ValueTypes Daemon::defaultValueTypes[] =
    { "^AO",    "Analog Ausgänge" },
    { "^AI",    "Analog Eingänge" },
    { "^Sp",    "Weitere Sensoren" },
-   { "^DZL",   "DECONZ Lights" },
-   { "^DCS",   "DECONZ Sensoren" },
+   { "^DZL",   "DECONZ Lampen" },
+   { "^DZS",   "DECONZ Sensoren" },
    { "^HM.*",  "Home Matic" },
    { "^P4.*",  "P4 Daemon" },
    { "^WEA",   "Wetter" },
+   { "^CV",    "Calculated Values" },
 
    { "",      "" }
 };
@@ -1863,6 +1866,60 @@ int Daemon::store(time_t now, const SensorData* sensor)
 }
 
 //***************************************************************************
+// Process
+//***************************************************************************
+
+int Daemon::process()
+{
+   Lua::Result res;
+   Lua lua;
+
+   for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
+   {
+      std::vector<std::string> arguments;
+
+      if (!tableValueFacts->hasValue("TYPE", "CV"))
+         continue;
+
+      if (tableValueFacts->getValue("CALIBRATION")->isEmpty())
+         continue;
+
+      std::string expression = tableValueFacts->getStrValue("CALIBRATION");
+
+      std::string key = getStringBetween(expression, "{", "}");
+
+      while (key.length())
+      {
+         auto tuple = split(key, ':');
+         uint address = strtol(tuple[1].c_str(), nullptr, 0);
+
+         tell(eloDebug, "Debug: LUA: Replace %s:0x%x with %f", tuple[0].c_str(), address,
+              sensors[tuple[0].c_str()][address].value);
+
+         std::string what = "{" + key + "}";
+         expression = strReplace(what, sensors[tuple[0].c_str()][address].value, expression, ".");
+         key = getStringBetween(expression, "{", "}");
+      }
+
+      // call LUA script
+
+      if (lua.executeExpression(expression.c_str(), arguments, res) != success)
+      {
+         tell(eloAlways, "Error: Calling LUA expression '%s' with (%zu) arguments failed",
+              expression.c_str(), arguments.size());
+         return fail;
+      }
+
+      tell(eloAlways, "LUA result was %f [%s]", res.dValue, expression.c_str());
+      sensors["CV"][tableValueFacts->getIntValue("ADDRESS")].value = res.dValue;
+   }
+
+   selectActiveValueFacts->freeResult();
+
+   return done;
+}
+
+//***************************************************************************
 // Update Script Sensors
 //***************************************************************************
 
@@ -2680,17 +2737,18 @@ int Daemon::updateWeather()
 
    json_array_foreach(jArray, index, jObj)
    {
-     if (index == 0)
-        weather2json(jWeather, jObj);
+      if (index == 0)
+         weather2json(jWeather, jObj);
 
-     json_t* jFcItem = json_object();
-     json_array_append_new(jForecasts, jFcItem);
-     weather2json(jFcItem, jObj);
+      json_t* jFcItem = json_object();
+      json_array_append_new(jForecasts, jFcItem);
+      weather2json(jFcItem, jObj);
    }
 
    addValueFact(1, "WEA", 1, "weather", "txt", "Wetter");
    sensors["WEA"][1].kind = "text";
    sensors["WEA"][1].last = time(0);
+   sensors["WEA"][1].valid = true;
 
    char* p = json_dumps(jWeather, JSON_REAL_PRECISION(4));
    sensors["WEA"][1].text = p;
@@ -2793,6 +2851,7 @@ int Daemon::dispatchDeconz()
          sensor->sat = sat;
 
       sensor->last = time(0);
+      sensor->valid = true;
 
       int battery = getIntFromJson(oData, "battery", na);
       if (battery != na)
@@ -2909,6 +2968,8 @@ int Daemon::dispatchHomematicRpcResult(const char* message)
       addValueFact(address, "HMB", 1, uuid, "%", "", urControl);
       sensors["HMB"][address].lastDir = getIntFromJson(jItem, "DIRECTION") == 2 ? dirClose : dirOpen;
       sensors["HMB"][address].value = 100;   // #TODO: request the actual value/postiton !
+      sensors["HMB"][address].last = time(0);
+      sensors["HMB"][address].valid = true;
    }
 
    json_decref(jData);
@@ -2956,6 +3017,7 @@ int Daemon::dispatchHomematicEvents(const char* message)
    selectHomeMaticByUuid->freeResult();
 
    sensors[type][address].last = time(0);
+   sensors[type][address].valid = true;
 
    // for blinds:
    //  offen -> state true (on)

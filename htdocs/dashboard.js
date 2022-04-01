@@ -270,7 +270,7 @@ function initWidget(key, widget, fact)
    {
       case 0: {          // Symbol
          $(elem)
-            .addClass("widget rounded-border widgetDropZone")
+            .addClass("widget widgetDropZone")
             .append($('<div></div>')
                     .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
                     .addClass(titleClass)
@@ -364,7 +364,7 @@ function initWidget(key, widget, fact)
       }
 
       case 1: {        // Chart
-         elem.className = "widgetChart rounded-border widgetDropZone";
+         elem.className = "widgetChart widgetDropZone";
          var eTitle = document.createElement("div");
          var cls = setupMode ? 'mdi mdi-lead-pencil widget-edit' : '';
          eTitle.className = "widget-title " + cls + ' ' + titleClass;
@@ -399,7 +399,7 @@ function initWidget(key, widget, fact)
 
       case 3: {        // type 3 (Value)
          $(elem)
-            .addClass("widgetValue rounded-border widgetDropZone")
+            .addClass("widgetValue widgetDropZone")
             .append($('<div></div>')
                     .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
                     .addClass(titleClass)
@@ -424,7 +424,7 @@ function initWidget(key, widget, fact)
       }
       case 4: {        // Gauge
          $(elem)
-            .addClass("widgetGauge rounded-border participation widgetDropZone")
+            .addClass("widgetGauge participation widgetDropZone")
             .append($('<div></div>')
                     .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
                     .addClass(titleClass)
@@ -481,7 +481,7 @@ function initWidget(key, widget, fact)
       case 5:            // Meter
       case 6: {          // MeterLevel
          var radial = widget.widgettype == 5;
-         elem.className = radial ? "widgetMeter rounded-border" : "widgetMeterLinear rounded-border";
+         elem.className = radial ? "widgetMeter" : "widgetMeterLinear";
          elem.className += " widgetDropZone";
          var eTitle = document.createElement("div");
          eTitle.className = "widget-title " + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : titleClass);
@@ -623,7 +623,7 @@ function initWidget(key, widget, fact)
       }
 
       case 7: {    // 7 (PlainText)
-         $(elem).addClass('widgetPlain rounded-border widgetDropZone');
+         $(elem).addClass('widgetPlain widgetDropZone');
          if (setupMode)
             $(elem).append($('<div></div>')
                            .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
@@ -644,7 +644,7 @@ function initWidget(key, widget, fact)
 
       case 8: {     // 8 (Choice)
          $(elem)
-            .addClass("widget rounded-border widgetDropZone")
+            .addClass("widget widgetDropZone")
             .css('cursor', 'pointer')
             .click(function() {
                socket.send({"event": "toggleio", "object": {"address": fact.address, "type": fact.type, "action": "toggle"}});
@@ -665,7 +665,7 @@ function initWidget(key, widget, fact)
 
       case 9: {          // Symbol-Value
          $(elem)
-            .addClass("widgetSymbolValue rounded-border widgetDropZone")
+            .addClass("widgetSymbolValue widgetDropZone")
             .append($('<div></div>')
                     .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
                     .addClass(titleClass)
@@ -708,7 +708,7 @@ function initWidget(key, widget, fact)
       }
 
       case 10: {   // space
-         $(elem).addClass("widgetSpacer rounded-border widgetDropZone");
+         $(elem).addClass("widgetSpacer widgetDropZone");
          $(elem).append($('<div></div>')
                         .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
                         .addClass(titleClass)
@@ -728,7 +728,7 @@ function initWidget(key, widget, fact)
 
       case 11: {   // actual time
          $(elem)
-            .addClass("widgetPlain rounded-border widgetDropZone")
+            .addClass("widgetPlain widgetDropZone")
             .append($('<div></div>')
                     .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
                     .addClass(titleClass)
@@ -752,7 +752,7 @@ function initWidget(key, widget, fact)
 
       default: {      // type 2 (Text)
          $(elem)
-            .addClass("widget rounded-border widgetDropZone")
+            .addClass("widget widgetDropZone")
             .append($('<div></div>')
                     .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
                     .addClass(titleClass)
@@ -873,10 +873,10 @@ function getWeatherHtml(symbolView, wfact, weather)
       var wIconRef = 'img/weather/' + weather.icon + '@4x.png';
       if (!images.find(img => img == wIconRef))
          wIconRef = 'http://openweathermap.org/img/wn/' + weather.icon + '@4x.png';
-      html += '<div style="display:block;color:orange;font-weight:bold;height:75%;padding-left:5px;"><span>' + weather.detail + '</span><img style="height:100%" src="' + wIconRef + '"></img></div>';
+      html += '<div style="display:block;font-weight:bold;height:75%;padding-left:5px;"><span>' + weather.detail + '</span><img style="height:100%" src="' + wIconRef + '"></img></div>';
       html += '<div style="display:flex;justify-content:space-between;padding-top:3px;">';
-      html += ' <span style="color:#00c3ff;font-weight:bold;padding-left:5px;">' + weather.temp.toFixed(1) + '°C</span>';
-      html += ' <span class="mdi mdi-walk" style="color:#00c3ff;font-weight:bold;font-size:smaller;">' + weather.tempfeels.toFixed(1) + '</span>';
+      html += ' <span style="color:orange;font-weight:bold;padding-left:5px;">' + weather.temp.toFixed(1) + '°C</span>';
+      html += ' <span class="mdi mdi-walk" style="color:orange;font-weight:bold;font-size:smaller;">' + weather.tempfeels.toFixed(1) + '</span>';
       html += '</div>';
 
    }
@@ -884,12 +884,12 @@ function getWeatherHtml(symbolView, wfact, weather)
       var wIconRef = 'img/weather/' + weather.icon + '.png';
       if (!images.find(img => img == wIconRef))
          wIconRef = 'http://openweathermap.org/img/wn/' + weather.icon + '.png';
-      html += '<div style="display:inline-flex;color:orange;align-items:center;font-weight:bold;"><span><img src="' + wIconRef + '"></img></span><span>' + weather.detail + '</span></div>';
-      html += '<div><span style="color:#00c3ff;font-weight:bold;">' + weather.temp.toFixed(1) + '°C</span>';
+      html += '<div style="display:inline-flex;align-items:center;font-weight:bold;"><span><img src="' + wIconRef + '"></img></span><span>' + weather.detail + '</span></div>';
+      html += '<div><span style="color:orange;font-weight:bold;">' + weather.temp.toFixed(1) + '°C</span>';
       html += '<span style="font-size:smaller;"> (' + weather.tempmin.toFixed(1) + ' / ' + weather.tempmax.toFixed(1) + ')' + '</span></div>';
-      html += '<div>Luftdruck: <span style="color:#00c3ff;font-weight:bold;">' + weather.pressure + ' hPa' + '</span></div>';
-      html += '<div>Luftfeuchte: <span style="color:#00c3ff;font-weight:bold;">' + weather.humidity + ' %' + '</span></div>';
-      html += '<div>Wind: <span style="color:#00c3ff;font-weight:bold;">' + weather.windspeed + ' m/s' + '</span></div>';
+      html += '<div>Luftdruck: <span style="color:orange;font-weight:bold;">' + weather.pressure + ' hPa' + '</span></div>';
+      html += '<div>Luftfeuchte: <span style="color:orange;font-weight:bold;">' + weather.humidity + ' %' + '</span></div>';
+      html += '<div>Wind: <span style="color:orange;font-weight:bold;">' + weather.windspeed + ' m/s' + '</span></div>';
    }
 
    return html;

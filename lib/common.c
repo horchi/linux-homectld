@@ -1,5 +1,5 @@
 /*
- * common.c: EPG2VDR plugin for the Video Disk Recorder
+ * common.c
  *
  * See the README file for copyright information and how to reach the author.
  *
@@ -545,7 +545,7 @@ void removeCharsExcept(std::string& str, const char* except)
 
 void removeWord(std::string& pattern, std::string word)
 {
-   size_t  pos;
+   size_t pos;
 
    if ((pos = pattern.find(word)) != std::string::npos)
       pattern.swap(pattern.erase(pos, word.length()));
@@ -554,7 +554,7 @@ void removeWord(std::string& pattern, std::string word)
 std::string strReplace(const std::string& what, const std::string& with, const std::string& subject)
 {
    std::string str = subject;
-   size_t pos = 0;
+   size_t pos {0};
 
    while ((pos = str.find(what, pos)) != std::string::npos)
    {
@@ -574,11 +574,17 @@ std::string strReplace(const std::string& what, long with, const std::string& su
    return strReplace(what, swith, subject);
 }
 
-std::string strReplace(const std::string& what, double with, const std::string& subject)
+std::string strReplace(const std::string& what, double with, const std::string& subject, const char* decPoint)
 {
    char swith[100];
 
    sprintf(swith, "%.2f", with);
+
+   if (decPoint)
+   {
+      std::string sWith = strReplace(",", decPoint, swith);
+      return strReplace(what, sWith.c_str(), subject);
+   }
 
    return strReplace(what, swith, subject);
 }

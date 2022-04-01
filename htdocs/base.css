@@ -286,7 +286,8 @@ button:focus {
 
 .seperatorFold
 {
-    background-color: #335656a1;
+    /* background-color: #335656a1; */
+    background-color: #335656;
     color: var(--light2);
     padding: 5px 15px;
     font-weight: bold;
@@ -354,6 +355,12 @@ button:focus {
     width: 100%;
 }
 
+.inputSettingScript
+{
+    font-family: monospace !important;
+    white-space: pre !important;
+}
+}
 span > input
 {
     display: inline-block;

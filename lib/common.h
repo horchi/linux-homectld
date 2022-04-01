@@ -1,5 +1,5 @@
 /*
- * common.h: EPG2VDR plugin for the Video Disk Recorder
+ * common.h
  *
  * See the README file for copyright information and how to reach the author.
  *
@@ -372,7 +372,7 @@ void removeWord(std::string& pattern, std::string word);
 void prepareCompressed(std::string& pattern);
 std::string strReplace(const std::string& what, const std::string& with, const std::string& subject);
 std::string strReplace(const std::string& what, long with, const std::string& subject);
-std::string strReplace(const std::string& what, double with, const std::string& subject);
+std::string strReplace(const std::string& what, double with, const std::string& subject, const char* decPoint = nullptr);
 
 bool isNan(double value);
 const char* plural(int n, const char* s = "s");

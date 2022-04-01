@@ -4,6 +4,8 @@
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
 // Date 22.02.2022 - Jörg Wendel
+//
+// https://www.lithiumbatterypcb.com/product/4s-lifepo4-battery-bluetooth-bms-with-100a-constant-discharge-current-for-12v-lfp-battery-pack/
 //***************************************************************************
 
 #include <signal.h>
@@ -86,7 +88,7 @@ int BmsCom::request(byte command)
    if (!serial.isOpen())
       return fail;
 
-   while ((status = serial.look(b, 100)) == success)
+   while ((status = serial.look(b, 200)) == success)
       printf("flushing '%d'", b);
 
    int size {0x00};
@@ -115,7 +117,7 @@ int BmsCom::request(byte command)
    byte cmd {0};
    byte state {0};
 
-   if (serial.readByte(b, 1500) != success)
+   if (serial.readByte(b, 250) != success)
    {
       tell(eloAlways, "Timeout reading start byte");
       return fail;
@@ -151,9 +153,21 @@ int BmsCom::request(byte command)
 
 int BmsCom::requestCellVoltage(BatteryState& state)
 {
-   serial.open(device.c_str());
+   const uint maxTries {2};
+   int status {success};
 
-   if (request(cCellVoltage) != success)
+   for (uint i = 0; i < maxTries; i++)
+   {
+      serial.open(device.c_str());
+
+      if ((status = request(cCellVoltage)) == success)
+         break;
+
+      serial.close();
+      tell(eloDetail, "retrying #%d ..", i);
+   }
+
+   if (status != success)
    {
       serial.close();
       return fail;
@@ -172,9 +186,20 @@ int BmsCom::requestCellVoltage(BatteryState& state)
 
 int BmsCom::requestState(BatteryState& state)
 {
+   const uint maxTries {20};
+   int status {success};
+
    serial.open(device.c_str());
 
-   if (request(cState) != success)
+   for (uint i = 0; i < maxTries; i++)
+   {
+      if ((status = request(cState)) == success)
+         break;
+
+      tell(eloDetail, "retrying #%d ..", i);
+   }
+
+   if (status != success)
    {
       serial.close();
       return fail;
@@ -317,10 +342,10 @@ int Bms::update()
    BmsCom::BatteryState state;
 
    if (bmsCom.requestState(state) != success)
+   {
+      tell(eloInfo, " ... failed");
       return fail;
-
-   if (bmsCom.requestCellVoltage(state) != success)
-      return fail;
+   }
 
    SensorData sensor {};
    uint addr{1};
@@ -339,6 +364,12 @@ int Bms::update()
 
    for (int i = 0; i < state.ntcCount; i++)
       mqttPublish(sensor = {addr++, "NTC", "°C", state.ntc[i]});
+
+   // if (bmsCom.requestCellVoltage(state) != success)
+   //    return fail;
+   //
+   // for (const auto& v : state.cellVoltages)
+   //    tell(eloAlways, " Zelle %d: %d mV", v.first, v.second);
 
    tell(eloInfo, " ... done");
 

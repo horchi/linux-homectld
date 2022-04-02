@@ -29,8 +29,18 @@ class Lua
       virtual int init();
       virtual int exit();
 
+      enum Type
+      {
+         tBoolean,
+         tDouble,
+         tInteger,
+         tString,
+         tNil
+      }
+
       struct Result
       {
+         Type type;
          bool bValue {false};
          int iValue {0};
          double dValue {0.0};

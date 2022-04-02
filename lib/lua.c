@@ -67,13 +67,30 @@ int Lua::executeFunction(const char* function, const std::vector<std::string>& a
    if (lua_pcall(handle, arguments.size(), 1, 0) == LUA_OK)
    {
       if (lua_isboolean(handle, -1))
+      {
+         res.type = tBoolean;
          res.bValue = lua_toboolean(handle, -1);
+      }
       else if (lua_isinteger(handle, -1))
+      {
+         res.type = tInteger;
          res.iValue = lua_tointeger(handle, -1);
+      }
+      else if (lua_isnumber(handle, -1))
+      {
+         res.type = tDouble;
+         res.dValue = lua_tonumber(handle, -1);
+      }
       else if (lua_isstring(handle, -1))
+      {
+         res.type = tString;
          res.sValue = lua_tostring(handle, -1);
+      }
       else
+      {
+         res.type = tNil;
          res.isNil = true;
+      }
 
       lua_pop(handle, 1);                      // pop return value from stack
       lua_pop(handle, lua_gettop(handle));     // pop function from stack
@@ -121,11 +138,30 @@ int Lua::executeExpression(const char* expression, const std::vector<std::string
       if (lua_pcall(handle, 0, 1, 0) == LUA_OK)
       {
          if (lua_isboolean(handle, -1))
+         {
+            res.type = tBoolean;
             res.bValue = lua_toboolean(handle, -1);
+         }
          else if (lua_isinteger(handle, -1))
+         {
+            res.type = tInteger;
             res.iValue = lua_tointeger(handle, -1);
+         }
          else if (lua_isnumber(handle, -1))
-            res.dValue = lua_tonumber(handle, -1);;
+         {
+            res.type = tDouble;
+            res.dValue = lua_tonumber(handle, -1);
+         }
+         else if (lua_isstring(handle, -1))
+         {
+            res.type = tString;
+            res.sValue = lua_tostring(handle, -1);
+         }
+         else
+         {
+            res.type = tNil;
+            res.isNil = true;
+         }
 
          lua_pop(handle, 1);                      // pop return value from stack
          lua_pop(handle, lua_gettop(handle));     // pop unction from stack

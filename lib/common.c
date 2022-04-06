@@ -56,6 +56,7 @@ const char* Elo::eloquences[] =
    "Mqtt",
    "Db",
    "DebugDb",
+
    "NodeRed",
    "Deconz",
    "DebugDeconz",
@@ -63,6 +64,7 @@ const char* Elo::eloquences[] =
 
    "HomeMatic",
    "DebugHomeMatic",
+   "Lua",
 
    nullptr
 };
@@ -578,7 +580,7 @@ std::string strReplace(const std::string& what, double with, const std::string& 
 {
    char swith[100];
 
-   sprintf(swith, "%.2f", with);
+   sprintf(swith, "%f", with);
 
    if (decPoint)
    {

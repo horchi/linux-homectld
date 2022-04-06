@@ -506,6 +506,8 @@ int Daemon::init()
       }
    }
 
+   addValueFact(1, "CV", 1, "Calc Sensor 1", "", "");
+
    initialized = true;
 
    return success;
@@ -704,8 +706,6 @@ int Daemon::initScripts()
       char* cmd {nullptr};
       std::string result;
 
-      // tell(eloDetail, "Found script '%s'", script.name.c_str());
-
       asprintf(&scriptPath, "%s/%s", path, script.name.c_str());
 
       asprintf(&cmd, "%s status", scriptPath);
@@ -763,7 +763,7 @@ int Daemon::initScripts()
       else if (kind == "value")
          sensors["SC"][addr].value = value;
 
-      tell(eloAlways, "Found script '%s' addr (%d), unit '%s'; result was [%s]", scriptPath, addr, unit, result.c_str());
+      tell(eloDetail, "Info: Found script '%s' addr (%d), unit '%s'; result was [%s]", scriptPath, addr, unit, result.c_str());
       free(scriptPath);
       json_decref(oData);
    }
@@ -777,7 +777,7 @@ int Daemon::initScripts()
 // Call Script
 //***************************************************************************
 
-int Daemon::callScript(int addr, const char* command, const char* name, const char* title)
+int Daemon::callScript(int addr, const char* command)
 {
    char* cmd {nullptr};
 
@@ -843,8 +843,6 @@ int Daemon::callScript(int addr, const char* command, const char* name, const ch
       json_t* ojData = json_object();
 
       sensor2Json(ojData, "SC", addr);
-      json_object_set_new(ojData, "name", json_string(name));
-      json_object_set_new(ojData, "title", json_string(title));
 
       if (kind == "status")
          json_object_set_new(ojData, "value", json_integer((bool)value));
@@ -1062,8 +1060,9 @@ int Daemon::initDb()
 
    selectActiveValueFacts->build("select ");
    selectActiveValueFacts->bindAllOut();
-   selectActiveValueFacts->build(" from %s where ", tableValueFacts->TableName());
-   selectActiveValueFacts->build("state = 'A' or record = 'A'");
+   selectActiveValueFacts->build(" from %s where", tableValueFacts->TableName());
+   selectActiveValueFacts->build(" state = 'A' or record = 'A'");
+   selectActiveValueFacts->build(" order by type, address");
 
    status += selectActiveValueFacts->prepare();
 
@@ -1884,34 +1883,103 @@ int Daemon::process()
       if (tableValueFacts->getValue("CALIBRATION")->isEmpty())
          continue;
 
+      const char* type = tableValueFacts->getStrValue("TYPE");
+      uint address = tableValueFacts->getIntValue("ADDRESS");
+      char* key {nullptr};
+      asprintf(&key, "%s:0x%02x", type, address);
+
+      if (!sensors[type][address].last)
+         getConfigItem(key, sensors[type][address].value, 0);
+
       std::string expression = tableValueFacts->getStrValue("CALIBRATION");
+      bool update {false};
+      std::string sKey = getStringBetween(expression, "{", "}");
 
-      std::string key = getStringBetween(expression, "{", "}");
-
-      while (key.length())
+      while (sKey.length())
       {
-         auto tuple = split(key, ':');
-         uint address = strtol(tuple[1].c_str(), nullptr, 0);
+         std::string what = "{" + sKey + "}";
+         auto tuple = split(sKey, ':');
+         uint matchAddr = strtol(tuple[1].c_str(), nullptr, 0);
 
-         tell(eloDebug, "Debug: LUA: Replace %s:0x%x with %f", tuple[0].c_str(), address,
-              sensors[tuple[0].c_str()][address].value);
+         if (tuple.size() >= 2 && sensors.find(tuple[0].c_str()) != sensors.end())
+         {
+            if (sensors[tuple[0].c_str()].find(matchAddr) != sensors[tuple[0].c_str()].end())
+            {
+               if (tuple.size() == 3 && tuple[2] == "last")
+               {
+                  expression = strReplace(what, sensors[tuple[0].c_str()][matchAddr].last, expression);
+                  tell(eloDebug, "Debug: LUA: Replace %s:0x%x with '%ld'", tuple[0].c_str(), matchAddr, sensors[tuple[0].c_str()][matchAddr].last);
+               }
+               else
+               {
+                  expression = strReplace(what, sensors[tuple[0].c_str()][matchAddr].value, expression, ".");
+                  tell(eloDebug, "Debug: LUA: Replace %s:0x%x with '%f'", tuple[0].c_str(), matchAddr, sensors[tuple[0].c_str()][matchAddr].value);
+               }
 
-         std::string what = "{" + key + "}";
-         expression = strReplace(what, sensors[tuple[0].c_str()][address].value, expression, ".");
-         key = getStringBetween(expression, "{", "}");
+               if (sensors[tuple[0].c_str()][matchAddr].last > sensors[type][address].last)
+               {
+                  // tell(eloLua, "LUA: %s (%ld) newer than %s (%ld)", sKey.c_str(), sensors[tuple[0].c_str()][matchAddr].last, key, sensors[type][address].last);
+                  update = true;
+               }
+            }
+         }
+
+         sKey = getStringBetween(expression, "{", "}");
       }
 
-      // call LUA script
-
-      if (lua.executeExpression(expression.c_str(), arguments, res) != success)
+      if (update)
       {
-         tell(eloAlways, "Error: Calling LUA expression '%s' with (%zu) arguments failed",
-              expression.c_str(), arguments.size());
-         return fail;
-      }
+         // call LUA script
 
-      tell(eloAlways, "LUA result was %f [%s]", res.dValue, expression.c_str());
-      sensors["CV"][tableValueFacts->getIntValue("ADDRESS")].value = res.dValue;
+         if (lua.executeExpression(expression.c_str(), arguments, res) != success)
+         {
+            tell(eloAlways, "Error: Calling LUA expression '%s' with (%zu) arguments failed",
+                 expression.c_str(), arguments.size());
+            return fail;
+         }
+
+         double oldValue = sensors[type][address].value;
+
+         if (res.type == Lua::tDouble)
+         {
+            tell(eloLua, "LUA '%s' result was %f [%s]", key, res.dValue, expression.c_str());
+            sensors[type][address].value = res.dValue;
+         }
+         else if (res.type == Lua::tInteger)
+         {
+            tell(eloLua, "LUA '%s' result was %d [%s]", key, res.iValue, expression.c_str());
+            sensors[type][address].value = res.iValue;
+         }
+         else
+            tell(eloAlways, "LUA: '%s' got unexpected type (%d)", key, res.type);
+
+         sensors[type][address].last = time(0);
+         sensors[type][address].valid = true;
+         setConfigItem(key, sensors[type][address].value);
+
+         free(key);
+
+         if (oldValue != sensors[type][address].value)
+         {
+            // update WS
+            {
+               json_t* ojData = json_object();
+
+               sensor2Json(ojData, "CV", address);
+               json_object_set_new(ojData, "value", json_real(sensors["CV"][address].value));
+
+               jsonSensorList[key] = ojData;
+               pushDataUpdate("update", 0L);
+            }
+
+            mqttHaPublish(sensors["CV"][address]);
+            mqttNodeRedPublishSensor(sensors["CV"][address]);
+         }
+      }
+      else
+      {
+         tell(eloLua, "LUA: '%s' skipping, no change", key);
+      }
    }
 
    selectActiveValueFacts->freeResult();
@@ -1935,13 +2003,8 @@ void Daemon::updateScriptSensors()
          continue;
 
       uint addr = tableValueFacts->getIntValue("ADDRESS");
-      const char* name = tableValueFacts->getStrValue("NAME");
-      const char* title = tableValueFacts->getStrValue("USRTITLE");
 
-      if (isEmpty(title))
-         title = tableValueFacts->getStrValue("TITLE");
-
-      callScript(addr, "status", name, title);
+      callScript(addr, "status");
    }
 
    selectActiveValueFacts->freeResult();
@@ -3328,16 +3391,10 @@ int Daemon::toggleIo(uint addr, const char* type, int state, int bri, int transi
 
    bool newState = state == na ? !sensors[type][addr].state : state;
 
-   const char* name = fact->getStrValue("NAME");
-   const char* title = fact->getStrValue("USRTITLE");
-
-   if ((isEmpty(title)))
-      title = fact->getStrValue("TITLE");
-
    if (strcmp(type, "DO") == 0)
       gpioWrite(addr, newState);
    else if (strcmp(type, "SC") == 0)
-      callScript(addr, "toggle", name, title);
+      callScript(addr, "toggle");
    else if (strcmp(type, "DZL") == 0)
       deconz.toggle(type, addr, newState, bri, transitiontime);
 

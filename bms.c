@@ -89,7 +89,7 @@ int BmsCom::request(byte command)
       return fail;
 
    while ((status = serial.look(b, 200)) == success)
-      printf("flushing '%d'", b);
+      printf("flushing '0x%02x'\n", b);
 
    int size {0x00};
    unsigned char buffer[100] {'\0'};

@@ -303,12 +303,12 @@ function foldCategory(category)
 // IO Setup
 // ----------------------------------------------------------------
 
-function tableHeader(title, sectionId)
+function tableHeader(title, sectionId, add)
 {
    if (!ioSections[sectionId].visible)
       return '  <div id="fold_' + sectionId + '" class="rounded-border seperatorFold" onclick="foldSection(\'' + sectionId + '\')">' + '&#11015; ' + title + '</div>';
 
-   return '  <div id="fold_' + sectionId + '" class="rounded-border seperatorFold" onclick="foldSection(\'' + sectionId + '\')">' + '&#11013; ' + title + '</div>' +
+   var html = '  <div id="fold_' + sectionId + '" class="rounded-border seperatorFold" onclick="foldSection(\'' + sectionId + '\')">' + '&#11013; ' + title + '</div>' +
       '  <table class="tableMultiCol">' +
       '    <thead>' +
       '      <tr>' +
@@ -318,20 +318,27 @@ function tableHeader(title, sectionId)
       '        <td style="width:3%;">Aktiv</td>' +
       '        <td style="width:3%;">Aufzeichnen</td>' +
       '        <td style="width:6%;">ID</td>' +
-      '        <td style="width:6%;">Kalibrieren</td>' +
+      '        <td style="width:6%;"></td>' +
       '        <td style="width:10%;">Gruppe</td>' +
       '      </tr>' +
       '    </thead>' +
       '    <tbody id="' + sectionId + '">' +
-      '    </tbody>' +
-      '    <tfoot>' +
-      '      <tr>' +
-      '        <td id="footer_' + sectionId + '" colspan="8" style="background-color:#333333;">' +
-      '          <button class="buttonOptions rounded-border" onclick="sensorCvAdd()">+</button>';
-      '        </td>' +
-      '      </tr>' +
-      '    </tfoot>' +
-      '  </table>';
+      '    </tbody>';
+
+   if (add) {
+      html +=
+         '    <tfoot>' +
+         '      <tr>' +
+         '        <td id="footer_' + sectionId + '" colspan="8" style="background-color:#333333;">' +
+         '          <button class="buttonOptions rounded-border" onclick="sensorCvAdd()">+</button>' +
+         '        </td>' +
+         '      </tr>' +
+         '    </tfoot>';
+   }
+
+   html += '  </table>';
+
+   return html;
 }
 
 function initIoSetup(valueFacts)
@@ -352,7 +359,7 @@ function initIoSetup(valueFacts)
          ioSections[section].visible = true;
       }
       if (!ioSections[section].exist) {
-         html += tableHeader(valueTypes[i].title, section);
+         html += tableHeader(valueTypes[i].title, section, valueTypes[i].type == 'CV');
          ioSections[section].exist = true;
       }
    }
@@ -661,7 +668,7 @@ function sensorCvSetup(type, address)
       resizable: false,
       closeOnEscape: true,
       hide: "fade",
-      width: "50%",
+      width: "80%",
       title: "LUA Skript für '" + title,
       open: function() {
          calSensorType = type;

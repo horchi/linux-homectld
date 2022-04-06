@@ -190,7 +190,7 @@ int HomeCtl::initDb()
    selectSolarAhPerDay->bindTextFree("date(time)", tableSamples->getValue("time"), "", cDBS::bndOut);
    selectSolarAhPerDay->bindTextFree("max(value)", tableSamples->getValue("value"), ", ", cDBS::bndOut);
    selectSolarAhPerDay->build(" from %s where ", tableSamples->TableName());
-   selectSolarAhPerDay->build(" TYPE = '%s' and ADDRESS = %d", "SP", spSolarAh);
+   selectSolarAhPerDay->build(" TYPE = '%s' and ADDRESS = %d", "CV", 0x01);
    selectSolarAhPerDay->build(" and time >= curdate() - INTERVAL DAYOFWEEK(curdate())+14 DAY");
    selectSolarAhPerDay->build(" group by date(time)");
    status += selectSolarAhPerDay->prepare();
@@ -270,11 +270,6 @@ int HomeCtl::readConfiguration(bool initial)
    getConfigTimeRangeItem("uvcLightTimes", uvcLightTimes);
    getConfigTimeRangeItem("poolLightTimes", poolLightTimes);
 
-#endif
-
-#ifdef _WOMO
-   getConfigItem("solarAh", sensors["SP"][spSolarAh].value, 0);
-   getConfigItem("battBalanceAh", sensors["SP"][spBattBalanceAh].value, 0);
 #endif
 
    return done;
@@ -379,23 +374,31 @@ int HomeCtl::applyConfigurationSpecials()
 
    // special values
 
-   addValueFact(spSolarAh, "SP", 1, "Solar Ladung (heute)", "Ah");
-   addValueFact(spSolarPower, "SP", 1, "Solar Leistung", "W");
-   addValueFact(spBattBalanceAh, "SP", 1, "Bilanz Batterie", "Ah");
-   addValueFact(spPower, "SP", 1, "Load", "W");
+   uint i {0};
 
-   addValueFact(aiSolarCurrent, "AI", 1, "Analog Input 1", "%");
-   addValueFact(aiBattCurrent, "AI", 1, "Analog Input 2", "%");
-   addValueFact(aiBordnetz, "AI", 1, "Analog Input 3", "%");
-   addValueFact(aiFahrzeug, "AI", 1, "Analog Input 4", "%");
-   addValueFact(aiFreshWater, "AI", 1, "Analog Input 5", "%");
-   addValueFact(aiUser1, "AI", 1, "Analog Input 6", "%");
-   addValueFact(aiUser2, "AI", 1, "Analog Input 7", "%");
+   while (i <= 7)
+   {
+      std::string name = "Analog Input " + std::to_string(i);
+      addValueFact(i++, "AI", 1, name.c_str(), "%");
+   }
 
-   addValueFact(aiUser3, "AI", 1, "Analog Input 8", "mV");
-   addValueFact(aiUser4, "AI", 1, "Analog Input 9", "mV");
-   addValueFact(aiUser5, "AI", 1, "Analog Input 10", "mV");
-   addValueFact(aiUser6, "AI", 1, "Analog Input 11", "mV");
+   while (i <= 10)
+   {
+      std::string name = "Analog Input " + std::to_string(i);
+      addValueFact(i++, "AI", 1, name.c_str(), "mV");
+   }
+
+   // addValueFact(aiSolarCurrent, "AI", 1, "Analog Input 1", "%");
+   // addValueFact(aiBattCurrent, "AI", 1, "Analog Input 2", "%");
+   // addValueFact(aiBordnetz, "AI", 1, "Analog Input 3", "%");
+   // addValueFact(aiFahrzeug, "AI", 1, "Analog Input 4", "%");
+   // addValueFact(aiFreshWater, "AI", 1, "Analog Input 5", "%");
+   // addValueFact(aiUser1, "AI", 1, "Analog Input 6", "%");
+   // addValueFact(aiUser2, "AI", 1, "Analog Input 7", "%");
+   // addValueFact(aiUser3, "AI", 1, "Analog Input 8", "mV");
+   // addValueFact(aiUser4, "AI", 1, "Analog Input 9", "mV");
+   // addValueFact(aiUser5, "AI", 1, "Analog Input 10", "mV");
+   // addValueFact(aiUser6, "AI", 1, "Analog Input 11", "mV");
 
 #endif // _WOMO
 
@@ -443,9 +446,6 @@ int HomeCtl::process()
    static time_t pSolarSince {0};
 
    tell(eloAlways, "Process ...");
-
-   setSpecialValue(spLastUpdate, 0, l2pTime(time(0), "%A\n%d. %b %Y\n\n%T"));
-   publishSpecialValue(spLastUpdate);
 
    if (lastDay != midnightOf(time(0)))
    {
@@ -639,73 +639,35 @@ int HomeCtl::process()
 
 #ifdef _WOMO
 
-   static time_t lastDay {midnightOf(time(0))};
-   double tmp {0.0};
+   // // Solar
+   // static time_t lastDay {midnightOf(time(0))};
+   // if (lastDay != midnightOf(time(0)))
+   // {
+   //    lastDay = midnightOf(time(0));
+   //    sensors["SP"][spSolarAh].value = 0.0;
+   //    sensors["SP"][spSolarAh].last = time(0);
+   //    sensors["SP"][spSolarAh].valid = true;
+   //    setConfigItem("solarAh", 0.0);
+   // }
 
-   // Solar
+   // time_t lastSolarPower = sensors["CV"][0x02].last;
 
-   if (lastDay != midnightOf(time(0)))
-   {
-      lastDay = midnightOf(time(0));
-      sensors["SP"][spSolarAh].value = 0.0;
-      sensors["SP"][spSolarAh].last = time(0);
-      setConfigItem("solarAh", 0.0);
+   // if (lastSolarPower)
+   // {
+   //    double tmp = sensors["AI"][0x08].value * ((time(0)-lastSolarPower) / 3600.0);  // [Ah]
 
-      // don't reset battery balance // battAh = 0.0;
-      //   -> it shoud be reset at 'full charged' to it's capacity
-   }
+   //    if (!isNan(tmp))
+   //    {
+   //       sensors["SP"][spSolarAh].value += tmp;
+   //       sensors["SP"][spSolarAh].last = time(0);
+   //       sensors["SP"][spSolarAh].valid = true;
+   //    }
 
-   time_t lastSolarPower = sensors["SP"][spSolarPower].last;
-
-   sensors["SP"][spSolarPower].value = sensors["AI"][aiUser3].value * sensors["AI"][aiBordnetz].value; // [W]
-   sensors["SP"][spSolarPower].last = time(0);
-   publishSpecialValue(spSolarPower);
-
-   if (lastSolarPower)
-   {
-      tmp = sensors["AI"][aiUser3].value * ((time(0)-lastSolarPower) / 3600.0);  // [Ah]
-
-      if (!isNan(tmp))
-      {
-         sensors["SP"][spSolarAh].value += tmp;
-         sensors["SP"][spSolarAh].last = time(0);
-
-         // add solar charge to battery balance
-
-         sensors["SP"][spBattBalanceAh].value += tmp;
-         sensors["SP"][spBattBalanceAh].last = time(0);
-      }
-
-      setConfigItem("solarAh", sensors["SP"][spSolarAh].value);
-      publishSpecialValue(spSolarAh);
-   }
+   //    setConfigItem("solarAh", sensors["SP"][spSolarAh].value);
+   //    publishSpecialValue(spSolarAh);
+   // }
 
    //
-
-   time_t lastPower = sensors["SP"][spPower].last;
-
-   sensors["SP"][spPower].value = sensors["AI"][aiBattCurrent].value * sensors["AI"][aiBordnetz].value;  // [W]
-   sensors["SP"][spPower].last = time(0);
-   publishSpecialValue(spPower);
-
-   if (lastPower)
-   {
-      tmp = sensors["AI"][aiBattCurrent].value * ((time(0)-lastPower) / 3600.0);   // [Ah]
-
-      if (!isNan(tmp))
-      {
-         // substract consumer load from battery balance
-
-         sensors["SP"][spBattBalanceAh].value += tmp;
-         sensors["SP"][spBattBalanceAh].last = time(0);
-      }
-
-      if (sensors["SP"][spBattBalanceAh].value > batteryCapacity)
-         sensors["SP"][spBattBalanceAh].value = batteryCapacity;
-
-      setConfigItem("battBalanceAh", sensors["SP"][spBattBalanceAh].value);
-      publishSpecialValue(spBattBalanceAh);
-   }
 
    logReport();
 
@@ -773,23 +735,21 @@ void HomeCtl::logReport()
 
 #ifdef _WOMO
 
-   static time_t nextLogAt {0};
+   // static time_t nextLogAt {0};
    static time_t nextDetailLogAt {0};
 
-   if (time(0) > nextLogAt)
-   {
-      nextLogAt = time(0) + 5 * tmeSecondsPerMinute;
+   // if (time(0) > nextLogAt)
+   // {
+   //    nextLogAt = time(0) + 5 * tmeSecondsPerMinute;
 
-      tell(eloAlways, "# ------------------------");
-      tell(eloAlways, "Solar Strom: %0.2f A", sensors["AI"][aiUser3].value);
-      tell(eloAlways, "Solar Ladung: %0.5f Ah", sensors["SP"][spSolarAh].value);
-      tell(eloAlways, "Solar Leistung: %0.5f Watt", sensors["SP"][spSolarPower].value);
-      tell(eloAlways, "# ------------------------");
-   }
+   //    tell(eloAlways, "# ------------------------");
+   //    tell(eloAlways, "Solar Strom: %0.2f A", sensors["AI"][aiUser4].value);
+   //    tell(eloAlways, "# ------------------------");
+   // }
 
    if (time(0) > nextDetailLogAt)
    {
-      nextDetailLogAt = time(0) + 1 * tmeSecondsPerMinute;
+      nextDetailLogAt = time(0) + 10 * tmeSecondsPerMinute;
 
       tell(eloAlways, "# Solar Ladung / Tag der letzen 14 Tage");
 

@@ -63,37 +63,28 @@ class HomeCtl : public Daemon
          spWaterLevel = 1,
          spSolarDelta,
          spPhMinusDemand,
-         spLastUpdate,
          spSolarPower,
          spSolarWork
       };
 #endif
 
 #ifdef _WOMO
-   enum AnalogInputs
-      {
-         aiSolarCurrent = 0, // addr 0x00
-         aiBattCurrent,      // addr 0x01
-         aiBordnetz,         // addr 0x02
-         aiFahrzeug,         // addr 0x03
-         aiFreshWater,       // addr 0x04
-         aiUser1,            // addr 0x05
-         aiUser2,            // addr 0x06
+      // enum AnalogInputs
+      // {
+      //    aiSolarCurrent = 0, // addr 0x00
+      //    aiBattCurrent,      // addr 0x01
+      //    aiBordnetz,         // addr 0x02
+      //    aiFahrzeug,         // addr 0x03
+      //    aiFreshWater,       // addr 0x04
+      //    aiUser1,            // addr 0x05
+      //    aiUser2,            // addr 0x06
 
-         aiUser3,            // addr 0x07
-         aiUser4,            // addr 0x08
-         aiUser5,            // addr 0x09
-         aiUser6,            // addr 0x10
-      };
+      //    aiUser3,            // addr 0x07
+      //    aiUser4,            // addr 0x08
+      //    aiUser5,            // addr 0x09
+      //    aiUser6,            // addr 0x10
+      // };
 
-      enum SpecialValues  // 'SP'
-      {
-         spLastUpdate,   // 0x00
-         spSolarAh,      // 0x01 0x01 solar Ampere Stunden (heute) [Ah]
-         spSolarPower,   // 0x02 momentane Solar Leistung [W]
-         spPower,        // 0x03 momentane Gesamt-Leistung [W]
-         spBattBalanceAh // 0x04 actuelle Bilanz Batterie
-      };
 #endif
 
    protected:

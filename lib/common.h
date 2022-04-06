@@ -93,24 +93,26 @@ enum Misc
 
 enum Eloquence
 {
-   eloInfo           = 0x0001,
-   eloDetail         = 0x0002,
-   eloDebug          = 0x0004,
-   eloDebug2         = 0x0008,
-   eloWebSock        = 0x0010,
-   eloDebugWebSock   = 0x0020,
-   eloMqtt           = 0x0040,
-   eloDb             = 0x0080,
-   eloDebugDb        = 0x0100,
+   eloInfo           = 0x00001,
+   eloDetail         = 0x00002,
+   eloDebug          = 0x00004,
+   eloDebug2         = 0x00008,
+   eloWebSock        = 0x00010,
+   eloDebugWebSock   = 0x00020,
+   eloMqtt           = 0x00040,
+   eloDb             = 0x00080,
+   eloDebugDb        = 0x00100,
 
-   eloNodeRed        = 0x0200,   // node-red MQTT topics
-   eloDeconz         = 0x0400,
-   eloDebugDeconz    = 0x0800,
-   eloWeather        = 0x1000,
-   eloHomeMatic      = 0x4000,
-   eloDebugHomeMatic = 0x8000,
+   eloNodeRed        = 0x00200,   // node-red MQTT topics
+   eloDeconz         = 0x00400,
+   eloDebugDeconz    = 0x00800,
+   eloWeather        = 0x01000,
 
-   eloAlways         = 0x0000,
+   eloHomeMatic      = 0x02000,
+   eloDebugHomeMatic = 0x04000,
+   eloLua            = 0x08000,
+
+   eloAlways         = 0x00000,
 };
 
 class Elo

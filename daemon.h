@@ -302,7 +302,7 @@ class Daemon : public cWebInterface
       virtual int dispatchOther(const char* topic, const char* message);
       bool checkRights(long client, Event event, json_t* oObject);
       virtual bool onCheckRights(long client, Event event, uint rights) { return false; }
-      int callScript(int addr, const char* command, const char* name, const char* title);
+      int callScript(int addr, const char* command);
       bool isInTimeRange(const std::vector<Range>* ranges, time_t t);
 
       int updateWeather();

@@ -36,7 +36,7 @@ class Lua
          tInteger,
          tString,
          tNil
-      }
+      };
 
       struct Result
       {

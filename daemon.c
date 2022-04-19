@@ -968,6 +968,7 @@ int Daemon::initDb()
          if (strstr(table->TableName(), "information_schema"))
          {
             tell(eloAlways, "Skipping check of table '%s'", t->first.c_str());
+            delete table;
             continue;
          }
 
@@ -976,7 +977,10 @@ int Daemon::initDb()
          if (!table->exist())
          {
             if ((status += table->createTable()) != success)
+            {
                continue;
+               delete table;
+            }
          }
          else
          {
@@ -1459,7 +1463,7 @@ int Daemon::exitDb()
    delete selectDashboardById;     selectDashboardById = nullptr;
    delete selectSchemaConfByState; selectSchemaConfByState = nullptr;
    delete selectAllSchemaConf;     selectAllSchemaConf = nullptr;
-
+   delete selectHomeMaticByUuid;   selectHomeMaticByUuid = nullptr;
    delete selectDashboardWidgetsFor; selectDashboardWidgetsFor = nullptr;
 
    delete connection;              connection = nullptr;

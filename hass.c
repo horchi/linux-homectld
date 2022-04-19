@@ -407,6 +407,7 @@ int Daemon::mqttNodeRedPublishAction(SensorData& sensor, double value, bool publ
 
    asprintf(&key, "%s:0x%02x", sensor.type.c_str(), sensor.address);
    json_object_set_new(oJson, "id", json_string(key));
+   free(key);
    json_object_set_new(oJson, "type", json_string(sensor.type.c_str()));
    json_object_set_new(oJson, "name", json_string(sensor.title.c_str()));
    json_object_set_new(oJson, "unit", json_string(sensor.unit.c_str()));

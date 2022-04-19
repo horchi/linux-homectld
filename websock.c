@@ -728,7 +728,7 @@ void cWebSock::atLogin(lws* wsi, const char* message, const char* clientInfo, js
    addToJson(object, "client", (long)wsi);
 
    char* p = json_dumps(obj, 0);
-
+   json_decref(obj);
    singleton->pushInMessage(p);
    free(p);
 }

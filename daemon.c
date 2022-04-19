@@ -709,8 +709,8 @@ int Daemon::initScripts()
       asprintf(&scriptPath, "%s/%s", path, script.name.c_str());
 
       asprintf(&cmd, "%s status", scriptPath);
-      result = executeCommand(cmd);
       tell(eloDebug, "Calling '%s'", cmd);
+      result = executeCommand(cmd);
       free(cmd);
 
       json_t* oData = jsonLoad(result.c_str());

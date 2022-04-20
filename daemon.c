@@ -3197,7 +3197,6 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    mqttHaPublish(sensors[type][address]);
    mqttNodeRedPublishSensor(sensors[type][address]);
    json_decref(jData);
-   jData = nullptr;
 
    return done;
 }
@@ -3674,13 +3673,11 @@ int Daemon::dispatchArduinoMsg(const char* message)
       process();
    }
    else if (strcmp(event, "init") == 0)
-   {
       initArduino();
-   }
    else
-   {
       tell(eloAlways, "Got unexpected event '%s' from arduino", event);
-   }
+
+   json_decref(jObject);
 
    return success;
 }
@@ -3711,8 +3708,9 @@ int Daemon::initArduino()
       std::string topic = std::string(arduinoTopic) + "/in";
       mqttReader->write(topic.c_str(), p);
       tell(eloDebug, "DEBUG: PushMessage to arduino [%s]", p);
-      free(p);
    }
+
+   free(p);
 
    return success;
 }

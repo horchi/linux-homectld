@@ -3170,9 +3170,6 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    sensors[type][address].text = getStringFromJson(jData, "text", "");
    sensors[type][address].image = image;
 
-   json_decref(jData);
-   jData = nullptr;
-
    // send update to WS
    {
       json_t* ojData = json_object();
@@ -3199,6 +3196,8 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
    mqttHaPublish(sensors[type][address]);
    mqttNodeRedPublishSensor(sensors[type][address]);
+   json_decref(jData);
+   jData = nullptr;
 
    return done;
 }

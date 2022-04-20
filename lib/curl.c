@@ -506,38 +506,34 @@ int cCurl::downloadFile(const char* url, int& size, MemoryStruct* data, int time
 
 int cCurl::post(const char* url, const std::string& sPost, std::string* sOutput)
 {
-   CURLcode res {CURLE_OK};
-
    init();
 
-   struct curl_slist* headers {nullptr};
-   curl_slist_append(headers, "Accept: application/json");
-   curl_slist_append(headers, "Content-Type: application/json");
-   curl_slist_append(headers, "charset: utf-8");
+   curl_slist* headers {nullptr};
+   headers = curl_slist_append(headers, "Accept: application/json");
+   headers = curl_slist_append(headers, "Content-Type: application/json");
+   headers = curl_slist_append(headers, "charset: utf-8");
 
    curl_easy_setopt(handle, CURLOPT_URL, url);
-
    curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, "POST");
    curl_easy_setopt(handle, CURLOPT_HTTPHEADER, headers);
    curl_easy_setopt(handle, CURLOPT_POSTFIELDS, sPost.c_str());
    curl_easy_setopt(handle, CURLOPT_USERAGENT, "libcrp/0.1");
 
-   res = curl_easy_perform(handle);
+   // CURLcode res = curl_easy_perform(handle);
 
    sBuf = "";
 
    if (curl_easy_perform(handle) == 0)
    {
       *sOutput = sBuf;
+      curl_slist_free_all(headers);
       return success;
    }
-   else
-   {
-      *sOutput = "";
-      return fail;
-   }
 
-   return res;
+   *sOutput = "";
+   curl_slist_free_all(headers);
+
+   return fail;
 }
 
 //***************************************************************************
@@ -546,36 +542,33 @@ int cCurl::post(const char* url, const std::string& sPost, std::string* sOutput)
 
 int cCurl::put(const char* url, const std::string& sPost, std::string* sOutput)
 {
-   CURLcode res {CURLE_OK};
-
    init();
 
-   struct curl_slist* headers {nullptr};
-   curl_slist_append(headers, "Accept: application/json");
-   curl_slist_append(headers, "Content-Type: application/json");
-   curl_slist_append(headers, "charset: utf-8");
+   curl_slist* headers {nullptr};
+
+   headers = curl_slist_append(headers, "Accept: application/json");
+   headers = curl_slist_append(headers, "Content-Type: application/json");
+   headers = curl_slist_append(headers, "charset: utf-8");
 
    curl_easy_setopt(handle, CURLOPT_URL, url);
-
    curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, "PUT");
    curl_easy_setopt(handle, CURLOPT_HTTPHEADER, headers);
    curl_easy_setopt(handle, CURLOPT_POSTFIELDS, sPost.c_str());
    curl_easy_setopt(handle, CURLOPT_USERAGENT, "libcrp/0.1");
 
-   res = curl_easy_perform(handle);
+   // CURLcode res = curl_easy_perform(handle);
 
    sBuf = "";
 
    if (curl_easy_perform(handle) == 0)
    {
       *sOutput = sBuf;
+      curl_slist_free_all(headers);
       return success;
    }
-   else
-   {
-      *sOutput = "";
-      return fail;
-   }
 
-   return res;
+   *sOutput = "";
+   curl_slist_free_all(headers);
+
+   return fail;
 }

@@ -491,6 +491,7 @@ int Deconz::put(json_t*& jResult, const char* uuid, json_t* jData)
 
    tell(eloDeconz, "-> (DECONZ) put '%s' '%s'; result [%s]", url, payload, data.c_str());
    free(url);
+   free(payload);
 
    json_error_t error;
    jResult = json_loads(data.c_str(), 0, &error);

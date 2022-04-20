@@ -653,10 +653,10 @@ int cWebSock::callbackWs(lws* wsi, lws_callback_reasons reason, void* user, void
             singleton->pushInMessage(p);
             free(p);
          }
-/*         else
-         {
-            tell(eloDebugWebSock, "Debug: Ignoring '%s' request of client (%p) without login [%s]", strEvent, (void*)wsi, message);
-            } */
+         // else
+         // {
+         //   tell(eloDebugWebSock, "Debug: Ignoring '%s' request of client (%p) without login [%s]", strEvent, (void*)wsi, message);
+         // }
 
          json_decref(oData);
          free(message);

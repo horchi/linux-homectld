@@ -299,7 +299,7 @@ void ioInterrupt()
    if (cTimeMs::Now() > lastShowerSwitch + 1000 && !digitalRead(HomeCtl::pinShowerSwitch))
    {
       tell(eloDebug, "Info: Shower key detected");
-      showerSwitch++;
+      showerSwitch = showerSwitch +1;
       lastShowerSwitch = cTimeMs::Now();
    }
 }
@@ -370,35 +370,18 @@ int HomeCtl::applyConfigurationSpecials()
 #endif  // _POOL
 
 #ifdef _WOMO
-   gpioWrite(pinW1Power, true, false);
 
-   // special values
-
-   uint i {0};
-
-   while (i <= 7)
+   for (uint i = 0; i <= 7; i++)
    {
       std::string name = "Analog Input " + std::to_string(i);
       addValueFact(i++, "AI", 1, name.c_str(), "%");
    }
 
-   while (i <= 10)
+   for (uint i = 0; i <= 10; i++)
    {
       std::string name = "Analog Input " + std::to_string(i);
       addValueFact(i++, "AI", 1, name.c_str(), "mV");
    }
-
-   // addValueFact(aiSolarCurrent, "AI", 1, "Analog Input 1", "%");
-   // addValueFact(aiBattCurrent, "AI", 1, "Analog Input 2", "%");
-   // addValueFact(aiBordnetz, "AI", 1, "Analog Input 3", "%");
-   // addValueFact(aiFahrzeug, "AI", 1, "Analog Input 4", "%");
-   // addValueFact(aiFreshWater, "AI", 1, "Analog Input 5", "%");
-   // addValueFact(aiUser1, "AI", 1, "Analog Input 6", "%");
-   // addValueFact(aiUser2, "AI", 1, "Analog Input 7", "%");
-   // addValueFact(aiUser3, "AI", 1, "Analog Input 8", "mV");
-   // addValueFact(aiUser4, "AI", 1, "Analog Input 9", "mV");
-   // addValueFact(aiUser5, "AI", 1, "Analog Input 10", "mV");
-   // addValueFact(aiUser6, "AI", 1, "Analog Input 11", "mV");
 
 #endif // _WOMO
 

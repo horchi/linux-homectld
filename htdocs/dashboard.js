@@ -282,6 +282,8 @@ function initWidget(key, widget, fact)
                     .attr('type', 'button')
                     .css('color', widget.color)
                     .css('user-select', 'none')
+                    .css('border-radius', '100%')
+                    .addClass('rounded-border')
                     .addClass('widget-main')
                     .append($('<img></img>')
                             .attr('id', 'widget' + fact.type + fact.address)
@@ -681,6 +683,7 @@ function initWidget(key, widget, fact)
                     .append($('<img></img>')
                             .attr('id', 'widget' + fact.type + fact.address)
                             .attr('draggable', false)
+                            .addClass('rounded-border')
                             .css('user-select', 'none'))
                     .click(function() { toggleIo(fact.address, fact.type); }))
             .append($('<div></div>')
@@ -1029,6 +1032,8 @@ function updateWidget(sensor, refresh, widget)
          $("#button" + fact.type + fact.address).addClass('widget-main');
          $("#button" + fact.type + fact.address).addClass(classes);
       }
+
+      $("#button" + fact.type + fact.address).css('background-color', sensor.working ? '#7878787878' : 'transparent');
 
       $('#div_'+key.replace(':', '\\:')).css('background-color', (sensor.options == 3 && sensor.mode == 'manual') ? '#a27373' : '');
       widget.colorOn = widget.colorOn == null ? symbolOnColorDefault : widget.colorOn;

@@ -708,23 +708,7 @@ int Daemon::initScripts()
 
       asprintf(&scriptPath, "%s/%s", path, script.name.c_str());
 
-      asprintf(&cmd, "%s status", scriptPath);
-      tell(eloDebug, "Calling '%s'", cmd);
-      result = executeCommand(cmd);
-      free(cmd);
-
-      json_t* oData = jsonLoad(result.c_str());
-
-      if (!oData)
-         continue;
-
-      std::string kind = getStringFromJson(oData, "kind", "status");
-      const char* title = getStringFromJson(oData, "title");
-      const char* unit = getStringFromJson(oData, "unit");
-      const char* choices = getStringFromJson(oData, "choices");
-      double value = getDoubleFromJson(oData, "value");
-      const char* text = getStringFromJson(oData, "text");
-      bool valid = getBoolFromJson(oData, "valid", true);
+      // get address
 
       tableScripts->clear();
       tableScripts->setValue("PATH", scriptPath);
@@ -738,6 +722,38 @@ int Daemon::initScripts()
          addr = tableScripts->getIntValue("ID");
 
       selectScriptByPath->freeResult();
+
+      cDbRow* factRow = valueFactRowOf("SC", addr);
+
+      if (factRow && !factRow->hasValue("STATE", "A"))
+      {
+         tell(eloDebug, "Skipping deactivated script '%s'", scriptPath);
+         free(scriptPath);
+         continue;
+      }
+
+      // execute script
+
+      asprintf(&cmd, "%s %s %d %s", scriptPath, "init", addr, TARGET "2mqtt/scripts");
+      tell(eloDetail, "Calling '%s'", cmd);
+      result = executeCommand(cmd);
+      free(cmd);
+
+      json_t* oData = jsonLoad(result.c_str());
+
+      if (!oData)
+      {
+         free(scriptPath);
+         continue;
+      }
+
+      std::string kind = getStringFromJson(oData, "kind", "status");
+      const char* title = getStringFromJson(oData, "title");
+      const char* unit = getStringFromJson(oData, "unit");
+      const char* choices = getStringFromJson(oData, "choices");
+      double value = getDoubleFromJson(oData, "value");
+      const char* text = getStringFromJson(oData, "text");
+      bool valid = getBoolFromJson(oData, "valid", true);
 
       if (kind == "text")
          unit = "";
@@ -779,95 +795,49 @@ int Daemon::initScripts()
 
 int Daemon::callScript(int addr, const char* command)
 {
-   char* cmd {nullptr};
+   if (commandThreads.find(addr) != commandThreads.end())
+   {
+      if (commandThreads[addr].active)
+      {
+         tell(eloAlways, "Info: Skipping call of script 'SC:0x%02x', already running", addr);
+         return done;
+      }
+   }
 
    tableScripts->clear();
    tableScripts->setValue("ID", addr);
 
    if (!tableScripts->find())
    {
-      tell(eloAlways, "Fatal: Script with id (%d) not found", addr);
+      tell(eloAlways, "Fatal: Script for 'SC:0x%02x' not found", addr);
       return fail;
    }
 
-   asprintf(&cmd, "%s %s", tableScripts->getStrValue("PATH"), command);
+   char* cmd {nullptr};
+   asprintf(&cmd, "%s %s %d %s", tableScripts->getStrValue("PATH"), command, addr, TARGET "2mqtt/scripts");
 
-   std::string result;
    tell(eloDetail, "Info: Calling '%s' ..", cmd);
-   result = executeCommand(cmd);
+   int result = executeCommandAsync(addr, cmd);
    tell(eloDetail, ".. done");
 
    tableScripts->reset();
-   tell(eloDebug, "Debug: Result of script '%s' was [%s]", cmd, result.c_str());
-   free(cmd);
 
-   json_t* oData = jsonLoad(result.c_str());
-
-   if (!oData)
-      return fail;
-
-   std::string kind = getStringFromJson(oData, "kind", "status");
-   const char* unit = getStringFromJson(oData, "unit", "");
-   double value = getDoubleFromJson(oData, "value");
-   const char* text = getStringFromJson(oData, "text");
-   bool valid = getBoolFromJson(oData, "valid", true);
-
-   tell(eloDebug, "Debug: Got '%s' from script (kind:%s unit:%s value:%0.2f) [SC:%d]", result.c_str(), kind.c_str(), unit, value, addr);
-
-   sensors["SC"][addr].kind = kind;
-   sensors["SC"][addr].last = time(0);
-   sensors["SC"][addr].valid = valid;
-
-   bool changed {false};
-
-   if (kind == "status")
+   if (result == success && strstr("start|stop|toggle", command))
    {
-      changed = sensors["SC"][addr].state != (bool)value;
-      sensors["SC"][addr].state = (bool)value;
-   }
-   else if (kind == "text")
-   {
-      changed = sensors["SC"][addr].text != text;
-      sensors["SC"][addr].text = text;
-   }
-   else if (kind == "value")
-   {
-      changed = sensors["SC"][addr].value != value;
-      sensors["SC"][addr].value = value;
-   }
-   else
-      tell(eloAlways, "Got unexpected script kind '%s' in '%s'", kind.c_str(), result.c_str());
+      sensors["SC"][addr].working = true;
 
-   // update WS
-   {
       json_t* ojData = json_object();
-
       sensor2Json(ojData, "SC", addr);
 
-      if (kind == "status")
-         json_object_set_new(ojData, "value", json_integer((bool)value));
-      else if (kind == "text")
-         json_object_set_new(ojData, "text", json_string(text));
-      else if (kind == "value")
-         json_object_set_new(ojData, "value", json_real(value));
-
       char* tuple {nullptr};
-      asprintf(&tuple, "%s:0x%02x", "SC", (int)addr);
+      asprintf(&tuple, "%s:0x%02x", "SC", addr);
       jsonSensorList[tuple] = ojData;
       free(tuple);
 
       pushDataUpdate("update", 0L);
    }
 
-   json_decref(oData);
-
-   if (changed)
-   {
-      mqttHaPublish(sensors["SC"][addr]);
-      mqttNodeRedPublishSensor(sensors["SC"][addr]);
-   }
-
-   return success;
+   return result;
 }
 
 //***************************************************************************
@@ -2001,13 +1971,21 @@ void Daemon::updateScriptSensors()
 
    tell(eloInfo, "Update script sensors");
 
+   for (const auto& cmdThreadCtl : commandThreads)
+   {
+      if (!cmdThreadCtl.second.active)
+         pthread_join(cmdThreadCtl.second.pThread, 0);
+   }
+
+   std::erase_if(commandThreads, [](const auto& item)
+      { auto const& [key, value] = item; return !value.active; });
+
    for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
       if (!tableValueFacts->hasValue("TYPE", "SC"))
          continue;
 
       uint addr = tableValueFacts->getIntValue("ADDRESS");
-
       callScript(addr, "status");
    }
 
@@ -2582,6 +2560,8 @@ int Daemon::addValueFact(int addr, const char* type, int factor, const char* nam
 {
    const char* title = !isEmpty(aTitle) ? aTitle : name;
 
+   // check / add to valueTypes
+
    tableValueTypes->clear();
    tableValueTypes->setValue("TYPE", type);
 
@@ -2595,9 +2575,7 @@ int Daemon::addValueFact(int addr, const char* type, int factor, const char* nam
    tableValueFacts->setValue("TYPE", type);
    tableValueFacts->setValue("ADDRESS", addr);
 
-   // check / add to valueTypes
-
-   // # TODO !!!
+   //
 
    if (!tableValueFacts->find())
    {
@@ -2620,6 +2598,8 @@ int Daemon::addValueFact(int addr, const char* type, int factor, const char* nam
       initSensorByFact(type, addr);
       return 1;                               // 1 for 'added'
    }
+
+   // already exist, update ...
 
    tableValueFacts->clearChanged();
 
@@ -2942,8 +2922,6 @@ int Daemon::dispatchDeconz()
          else if (getObjectFromJson(oData, "value"))
             json_object_set_new(ojData, "value", json_real(sensor->value));
 
-         json_object_set_new(ojData, "last", json_integer(sensor->last));
-
          if (sensor->battery != na)
             json_object_set_new(ojData, "battery", json_integer(sensor->battery));
 
@@ -3154,13 +3132,26 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    std::string kind = getStringFromJson(jData, "kind", "");
    const char* image = getStringFromJson(jData, "image", "");
 
-   if (!type || !title)
+   if (!type)
    {
-      tell(eloAlways, "Error: Ingnoring unexpected message in '%s' (dispatchOther) [%s]", topic, message);
+      tell(eloAlways, "Error: Missing 'type' in '%s' (dispatchOther) [%s]", topic, message);
       return fail;
    }
 
-   addValueFact(address, type, 1, title, unit, title);
+   if (strcmp(type, "SC") != 0)
+   {
+      if (!title)
+      {
+         tell(eloAlways, "Error: Missing 'title' in '%s' (dispatchOther) [%s]", topic, message);
+         return fail;
+      }
+
+      addValueFact(address, type, 1, title, unit, title);
+   }
+   else  // SC - script sensor
+   {
+      sensors["SC"][address].working = false;
+   }
 
    sensors[type][address].last = time(0);
    sensors[type][address].valid = true;
@@ -3174,7 +3165,6 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    {
       json_t* ojData = json_object();
       sensor2Json(ojData, type, address);
-      json_object_set_new(ojData, "last", json_integer(sensors[type][address].last));
 
       if (kind == "status")
          json_object_set_new(ojData, "value", json_integer(sensors[type][address].state));
@@ -3183,7 +3173,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
       json_object_set_new(ojData, "text", json_string(sensors[type][address].text.c_str()));
 
-      if (!isEmpty(image))
+      if (sensors[type][address].image.length())
          json_object_set_new(ojData, "image", json_string(sensors[type][address].image.c_str()));
 
       char* tuple {nullptr};
@@ -3918,4 +3908,42 @@ uint Daemon::toW1Id(const char* name)
       p = name + (len - 8);
 
    return strtoull(p, 0, 16);
+}
+
+//***************************************************************************
+// Execute Command
+//***************************************************************************
+
+void* Daemon::cmdThread(void* user)
+{
+   char buffer[128] {'\0'};
+   std::string result {""};
+
+   ThreadControl* threadCtl = (ThreadControl*)user;
+   time_t timeoutAt = time(0) + threadCtl->timeout;
+   threadCtl->active = true;
+
+   FILE* pipe = popen(threadCtl->command.c_str(), "r");
+
+   while (time(0) < timeoutAt && !threadCtl->cancel && fgets(buffer, sizeof(buffer), pipe))
+      result += buffer;
+
+   pclose(pipe);
+   threadCtl->result = result;
+   threadCtl->active = false;
+
+   return nullptr;
+}
+
+int Daemon::executeCommandAsync(uint address, const char* cmd)
+{
+   commandThreads[address].command = cmd;
+
+   if (pthread_create(&commandThreads[address].pThread, NULL, cmdThread, &commandThreads[address]))
+   {
+      tell(eloAlways, "Error: Failed to start command thread");
+      return fail;
+   }
+
+   return success;
 }

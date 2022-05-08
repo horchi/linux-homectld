@@ -345,7 +345,6 @@ int Daemon::performData(long client, const char* event)
          jsonSensorList[key] = ojData;
 
          sensor2Json(ojData, sensor->type.c_str(), sensor->address);
-         json_object_set_new(ojData, "last", json_integer(sensor->last));
 
          if (sensor->kind == "status")
          {
@@ -2288,6 +2287,11 @@ int Daemon::sensor2Json(json_t* obj, const char* type, uint address)
    double peakMax {0.0};
    double peakMin {0.0};
 
+   json_object_set_new(obj, "address", json_integer(address));
+   json_object_set_new(obj, "type", json_string(type));
+   json_object_set_new(obj, "working", json_boolean(sensors[type][address].working));
+   json_object_set_new(obj, "last", json_integer(sensors[type][address].last));
+
    tablePeaks->clear();
    tablePeaks->setValue("TYPE", type); // table->getStrValue("TYPE"));
    tablePeaks->setValue("ADDRESS", (long)address); // table->getIntValue("ADDRESS"));
@@ -2317,8 +2321,6 @@ int Daemon::sensor2Json(json_t* obj, const char* type, uint address)
 
    tablePeaks->reset();
 
-   json_object_set_new(obj, "address", json_integer(address));
-   json_object_set_new(obj, "type", json_string(type));
    json_object_set_new(obj, "peak", json_real(peakMax));
    json_object_set_new(obj, "peakmin", json_real(peakMin));
 

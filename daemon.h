@@ -166,7 +166,7 @@ class Daemon : public cWebInterface
          std::string kind {"value"};       // { value | status | text | trigger }
          time_t last {0};
          double value {0.0};
-         bool working {false};             // actually working/moving (eg for blinds)
+         bool working {false};             // actually working/moving (eg for blinds or script running)
          Direction lastDir {dirOpen};
          bool state {false};
          std::string text;
@@ -597,6 +597,22 @@ class Daemon : public cWebInterface
       std::string alertMailSubject;
 
       std::map<std::string,json_t*> jsonSensorList;
+
+      // scripts command thread handling
+
+      struct ThreadControl
+      {
+         pthread_t pThread {0};
+         int timeout {60};
+         bool active {false};
+         bool cancel {false};
+         std::string command;
+         std::string result;
+      };
+
+      int executeCommandAsync(uint address, const char* cmd);
+      static void* cmdThread(void* user);
+      std::map<uint,ThreadControl> commandThreads;
 
       // statics
 

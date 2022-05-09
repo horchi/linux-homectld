@@ -200,32 +200,48 @@ double usNow()
 
 const char* bin2string(word n)
 {
-    static char bin[17];
+   static char bin[17];
 
-    for (int x = 0; x < 16; x++)
-    {
-        bin[x] = n & 0x8000 ? '1' : '0';
-        n <<= 1;
-    }
+   for (int x = 0; x < 16; x++)
+   {
+      bin[x] = n & 0x8000 ? '1' : '0';
+      n <<= 1;
+   }
 
-    bin[16] = '\0';
+   bin[16] = '\0';
 
-    return bin;
+   return bin;
 }
 
 const char* bin2string(byte n)
 {
-    static char bin[9];
+   static char bin[9];
 
-    for (int x = 0; x < 8; x++)
-    {
-        bin[x] = n & 0x80 ? '1' : '0';
-        n <<= 1;
-    }
+   for (int x = 0; x < 8; x++)
+   {
+      bin[x] = n & 0x80 ? '1' : '0';
+      n <<= 1;
+   }
 
-    bin[8] = '\0';
+   bin[8] = '\0';
 
-    return bin;
+   return bin;
+}
+
+const char* bin2string(unsigned long n)
+{
+   const int len {4*8};
+   static char bin[len+1];
+
+   for (int x = 0; x < len; x++)
+   {
+      bin[x] = n & 0x80000000 ? '1' : '0';
+      n <<= 1;
+   }
+
+   bin[len] = '\0';
+
+   return bin;
 }
 
 //***************************************************************************

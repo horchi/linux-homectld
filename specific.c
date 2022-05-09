@@ -617,7 +617,7 @@ int HomeCtl::process()
 
    phMeasurementActive();
    calcWaterLevel();
-   logReport();
+
 #endif // _POOL
 
 #ifdef _WOMO
@@ -652,9 +652,9 @@ int HomeCtl::process()
 
    //
 
-   logReport();
-
 #endif // _WOMO
+
+   logReport();
 
    return success;
 }

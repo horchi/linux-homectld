@@ -68,25 +68,6 @@ class HomeCtl : public Daemon
       };
 #endif
 
-#ifdef _WOMO
-      // enum AnalogInputs
-      // {
-      //    aiSolarCurrent = 0, // addr 0x00
-      //    aiBattCurrent,      // addr 0x01
-      //    aiBordnetz,         // addr 0x02
-      //    aiFahrzeug,         // addr 0x03
-      //    aiFreshWater,       // addr 0x04
-      //    aiUser1,            // addr 0x05
-      //    aiUser2,            // addr 0x06
-
-      //    aiUser3,            // addr 0x07
-      //    aiUser4,            // addr 0x08
-      //    aiUser5,            // addr 0x09
-      //    aiUser6,            // addr 0x10
-      // };
-
-#endif
-
    protected:
 
       int initDb() override;

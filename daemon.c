@@ -3503,7 +3503,6 @@ void Daemon::gpioWrite(uint pin, bool state, bool store)
 
    if (pin != pinW1Power)
    {
-
       if (store)
          storeStates();
 
@@ -3571,8 +3570,11 @@ void Daemon::publishSpecialValue(int addr)
 
 int Daemon::storeStates()
 {
-   long value {0};
-   long mode {0};
+   ulong value {0};
+   ulong mode {0};
+
+   if (!ioStatesLoaded)
+      return done;
 
    for (const auto& output : sensors["DO"])
    {
@@ -3582,11 +3584,15 @@ int Daemon::storeStates()
       if (output.second.mode == omManual)
          mode += pow(2, output.first);
 
-      setConfigItem("ioStates", value);
-      setConfigItem("ioModes", mode);
+      setConfigItem("ioStates", (long)value);
+      setConfigItem("ioModes", (long)mode);
 
-      tell(eloDebug2, "Debug: Store-IO-States State bit (%d): %s: %d [%ld]", output.first, output.second.name.c_str(), output.second.state, value);
+      tell(eloDetail, "Info: iomode bit '%s/%d' %d [%s] stored", output.second.name.c_str(), output.first, output.second.mode, bin2string(mode));
+      tell(eloDetail, "Info: iostate bit '%s/%d' %d [%s] stored", output.second.name.c_str(), output.first, output.second.state, bin2string(value));
    }
+
+   tell(eloInfo, "Info: Stored iostates: [%s]", bin2string((ulong)value));
+   tell(eloInfo, "Info: Stored iomodes: [%s]", bin2string((ulong)mode));
 
    return done;
 }
@@ -3602,16 +3608,22 @@ int Daemon::loadStates()
    // #TODO - use only for GPIO Pins (we need a other type for P4 'DO' !!
 
    if (!value)
+   {
+      tell(eloAlways, "Info: No iostates found!");
+      ioStatesLoaded = true;
       return done;
+   }
 
-   tell(eloDebug, "Debug: Loaded iostates: %ld", value);
+   tell(eloInfo, "Info: Loaded iostates: [%s]", bin2string((ulong)value));
+   tell(eloInfo, "Info: Loaded iomodes: [%s]", bin2string((ulong)mode));
 
    for (const auto& output : sensors["DO"])
    {
       if (sensors["DO"][output.first].opt & ooUser)
       {
          gpioWrite(output.first, value & (long)pow(2, output.first), false);
-         tell(eloDetail, "Info: IO %s/%d recovered to %d", output.second.name.c_str(), output.first, output.second.state);
+         tell(eloDetail, "Info: iomode '%s/%d' recovered to %d", output.second.name.c_str(), output.first, output.second.mode);
+         tell(eloDetail, "Info: iostate '%s/%d' recovered to %d", output.second.name.c_str(), output.first, output.second.state);
       }
    }
 
@@ -3626,6 +3638,8 @@ int Daemon::loadStates()
          }
       }
    }
+
+   ioStatesLoaded = true;
 
    return done;
 }

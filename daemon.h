@@ -550,6 +550,8 @@ class Daemon : public cWebInterface
       json_t* oHaJson {nullptr};
       std::map<int,Group> groups;
 
+      bool ioStatesLoaded {false};
+
       // config
 
       double latitude {50.30};

@@ -1977,8 +1977,19 @@ void Daemon::updateScriptSensors()
          pthread_join(cmdThreadCtl.second.pThread, 0);
    }
 
-   std::erase_if(commandThreads, [](const auto& item)
-      { auto const& [key, value] = item; return !value.active; });
+   // std::erase_if(commandThreads, [](const auto& item)
+   //    { auto const& [key, value] = item; return !value.active; });
+
+   for (auto it = commandThreads.begin(), it_next = it; it != commandThreads.end(); it = it_next)
+   {
+      ++it_next;
+
+      if (it->second.active)
+      {
+         tell(eloInfo, "removing thread for '%s'", it->second.command.c_str());
+         commandThreads.erase(it);
+      }
+   }
 
    for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {

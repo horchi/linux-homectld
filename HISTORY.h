@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.0.4"
+#define _VERSION     "0.0.5"
 #define VERSION_DATE "19.07.2022"
 
 #ifdef GIT_REV
@@ -16,6 +16,9 @@
 
 /*
  * ------------------------------------
+
+2022-07-19: version 0.0.5
+   - git merge
 
 2022-07-19: version 0.0.4
    - development

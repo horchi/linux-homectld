@@ -131,6 +131,7 @@ class Daemon : public cWebInterface
          wtSymbolValue,  // == 9
          wtSpace,        // == 10
          wtTime,         // == 11  // dummy to display current time at WEBIF
+         wtSymbolText,   // == 12
          wtCount
       };
 
@@ -400,6 +401,7 @@ class Daemon : public cWebInterface
       int storeCalibration(json_t* oObject, long client);
       int storeCvCalibration(json_t* oObject, long client);
       int storeAiCalibration(json_t* oObject, long client);
+      int storeDoCalibration(json_t* oObject, long client);
       virtual int performCommand(json_t* obj, long client);
       virtual const char* getTextImage(const char* key, const char* text) { return nullptr; }
 
@@ -584,7 +586,7 @@ class Daemon : public cWebInterface
       char* stateMailTo {nullptr};
       char* errorMailTo {nullptr};
       std::string htmlHeader;
-      int invertDO {no};
+   // int invertDO {no};
 
       Deconz deconz;
       bool homeMaticInterface {false};

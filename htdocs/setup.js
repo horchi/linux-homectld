@@ -110,8 +110,8 @@ function initConfig(configdetails)
                if (!range[1]) range[1] = "";
                if (n > 0) html += "  <span/>  </span>\n";
                html += "   <span>\n";
-               html += "     <input id=\"range_" + nameFrom + "\" type=\"text\" class=\"rounded-border inputTime\" value=\"" + range[0] + "\"/> -";
-               html += "     <input id=\"range_" + nameTo + "\" type=\"text\" class=\"rounded-border inputTime\" value=\"" + range[1] + "\"/>\n";
+               html += "     <input id=\"range_" + nameFrom + "\" type=\"search\" class=\"rounded-border inputTime\" value=\"" + range[0] + "\"/> -";
+               html += "     <input id=\"range_" + nameTo + "\" type=\"search\" class=\"rounded-border inputTime\" value=\"" + range[1] + "\"/>\n";
                html += "   </span>\n";
                html += "   <span></span>\n";
             }
@@ -122,8 +122,8 @@ function initConfig(configdetails)
 
          if (n > 0) html += "  <span/>  </span>\n";
          html += "  <span>\n";
-         html += "    <input id=\"range_" + nameFrom + "\" value=\"\" type=\"text\" class=\"rounded-border inputTime\" /> -";
-         html += "    <input id=\"range_" + nameTo + "\" value=\"\" type=\"text\" class=\"rounded-border inputTime\" />\n";
+         html += "    <input id=\"range_" + nameFrom + "\" value=\"\" type=\"search\" class=\"rounded-border inputTime\" /> -";
+         html += "    <input id=\"range_" + nameTo + "\" value=\"\" type=\"search\" class=\"rounded-border inputTime\" />\n";
          html += "  </span>\n";
          html += "  <span class=\"inputComment\">" + item.description + "</span>\n";
 
@@ -425,6 +425,8 @@ function initIoSetup(valueFacts)
          html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorAiSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
       else if (item.type == 'CV')
          html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorCvSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
+      else if (item.type == 'DO')
+         html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorDoSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
       else
          html += '<td></td>';
 
@@ -641,6 +643,75 @@ function sensorAiSetup(type, address)
 
 }
 
+function sensorDoSetup(type, address)
+{
+   console.log("sensorSetup ", type, address);
+
+   calSensorType = type;
+   calSensorAddress = address;
+
+   var key = toKey(calSensorType, parseInt(calSensorAddress));
+   var form = document.createElement("div");
+
+   if (valueFacts[key] == null) {
+      console.log("Sensor ", key, "undefined");
+      return;
+   }
+
+   $(form).append($('<div></div>')
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<input></input>')
+                                  .attr('id', 'invertDo')
+                                  .attr('type', 'checkbox')
+                                  .addClass('rounded-border input')
+                                  .css('height', '100px')
+                                  .prop('checked', valueFacts[key].invertDo))
+                          .append($('<label></label>')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .prop('for', 'invertDo')
+                                  .html('Digitalaugang invertieren'))
+                         ));
+
+   var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
+
+   $(form).dialog({
+      modal: true,
+      resizable: false,
+      closeOnEscape: true,
+      hide: "fade",
+      width: "80%",
+      title: "DO settings '" + title + '"',
+      open: function() {
+         calSensorType = type;
+         calSensorAddress = address;
+      },
+      buttons: {
+         'Abbrechen': function () {
+            $(this).dialog('close');
+         },
+         'Speichern': function () {
+            console.log("store 'DO' setting invert = ", $('#invertDo').is(':checked'));
+
+            socket.send({ "event" : "storecalibration", "object" : {
+               'type' : calSensorType,
+               'address' : parseInt(calSensorAddress),
+               'invertDo' : $('#invertDo').is(':checked')
+            }});
+
+            $(this).dialog('close');
+         }
+      },
+      close: function() {
+         calSensorType = '';
+         calSensorAddress = -1;
+         $(this).dialog('destroy').remove();
+      }
+   });
+}
+
 function sensorCvSetup(type, address)
 {
    console.log("sensorSetup ", type, address);
@@ -680,7 +751,7 @@ function sensorCvSetup(type, address)
       closeOnEscape: true,
       hide: "fade",
       width: "80%",
-      title: "LUA Skript für '" + title,
+      title: "LUA Skript für '" + title + "'",
       open: function() {
          calSensorType = type;
          calSensorAddress = parseInt(address);
@@ -707,7 +778,6 @@ function sensorCvSetup(type, address)
          $(this).dialog('destroy').remove();
       }
    });
-
 }
 
 function sensorCvAdd()

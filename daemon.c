@@ -45,6 +45,7 @@ const char* Daemon::widgetTypes[] =
    "SymbolValue",
    "Spacer",
    "Time",
+   "SymbolText",
    0
 };
 
@@ -132,7 +133,7 @@ Daemon::DefaultWidgetProperty Daemon::defaultWidgetProperties[] =
    { "SP",       na, "txt",  wtPlainText,        0,         0,       0, true },
    { "SP",       na,   "*",      wtMeter,        0,       100,      10, true },
    { "UD",       na, "txt",       wtText,        0,         0,       0, false },
-   { "UD",       na, "zst",     wtSymbol,        0,         0,       0, false },
+   { "UD",       na, "zst", wtSymbolText,        0,         0,       0, false },
    { "UD",       na,   "*",       wtText,        0,         0,       0, false },
    { "W1",       na,   "*", wtMeterLevel,        0,        40,      10, true },
    { "VA",       na,   "%", wtMeterLevel,        0,       100,      20, true },
@@ -570,6 +571,7 @@ int Daemon::initSensorByFact(std::string type, uint address)
    sensors[type][address].unit = fact->getStrValue("UNIT");
    sensors[type][address].factor = fact->getIntValue("FACTOR");
    sensors[type][address].group = fact->getIntValue("GROUPID");
+   sensors[type][address].invertDO = !fact->hasValue("INVERT", "N");
 
    if (type == "DO" || type == "DI" || type == "DZL")
       sensors[type][address].kind = "status";
@@ -823,8 +825,8 @@ int Daemon::callScript(int addr, const char* command)
    const char* url = strrchr(mqttUrl, '/');
    if (url)
       url++;
-      else
-         url = mqttUrl;
+   else
+      url = mqttUrl;
 
    asprintf(&cmd, "%s %s %d 'mqtt://%s/%s'", tableScripts->getStrValue("PATH"), command, addr, url, TARGET "2mqtt/scripts");
 
@@ -1497,7 +1499,7 @@ int Daemon::readConfiguration(bool initial)
    }
    free(port);
 
-   getConfigItem("invertDO", invertDO, yes);
+   // getConfigItem("invertDO", invertDO, yes);
 
    char* addrs {nullptr};
    getConfigItem("addrsDashboard", addrs, "");
@@ -1800,7 +1802,7 @@ int Daemon::store(time_t now, const SensorData* sensor)
 
    if (sensor->last <= lastStore)
    {
-      tell(eloAlways, "Info: No update for '%s:0x%02x' (%s) until last store, skipping. (%s / %s)",
+      tell(eloDetail, "Info: No update for '%s:0x%02x' (%s) until last store, skipping store (%s / %s)",
            sensor->type.c_str(), sensor->address, sensor->name.c_str(), l2pTime(sensor->last).c_str(), l2pTime(lastStore).c_str());
       return ignore;
    }
@@ -3501,35 +3503,43 @@ int Daemon::toggleOutputMode(uint pin)
 
 void Daemon::gpioWrite(uint pin, bool state, bool store)
 {
-   sensors["DO"][pin].state = state;
-   sensors["DO"][pin].last = time(0);
-   sensors["DO"][pin].valid = true;
-
-   if (!state)
-      sensors["DO"][pin].next = 0;
-
-   digitalWrite(pin, invertDO ? !state : state);
-
-   if (store)
-      storeStates();
-
-   performJobs();
-
-   // send update to WS
+   if (pin != pinW1Power)
    {
-      json_t* ojData = json_object();
-      pin2Json(ojData, pin);
+      sensors["DO"][pin].state = state;
+      sensors["DO"][pin].last = time(0);
+      sensors["DO"][pin].valid = true;
 
-      char* tuple {nullptr};
-      asprintf(&tuple, "%s:0x%02x", "DO", pin);
-      jsonSensorList[tuple] = ojData;
-      free(tuple);
-
-      pushDataUpdate("update", 0L);
+      if (!state)
+         sensors["DO"][pin].next = 0;
    }
 
-   mqttHaPublish(sensors["DO"][pin]);
-   mqttNodeRedPublishSensor(sensors["DO"][pin]);
+   // invert the state on 'invertDO' - most relay board are active at 'false'
+
+   digitalWrite(pin, sensors["DO"][pin].invertDO ? !state : state);
+
+   if (pin != pinW1Power)
+   {
+      if (store)
+         storeStates();
+
+      performJobs();
+
+      // send update to WS
+      {
+         json_t* ojData = json_object();
+         pin2Json(ojData, pin);
+
+         char* tuple {nullptr};
+         asprintf(&tuple, "%s:0x%02x", "DO", pin);
+         jsonSensorList[tuple] = ojData;
+         free(tuple);
+
+         pushDataUpdate("update", 0L);
+      }
+
+      mqttHaPublish(sensors["DO"][pin]);
+      mqttNodeRedPublishSensor(sensors["DO"][pin]);
+   }
 }
 
 bool Daemon::gpioRead(uint pin)

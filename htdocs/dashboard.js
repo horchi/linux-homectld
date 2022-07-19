@@ -53,7 +53,7 @@ function initDashboard(update = false)
    var jDashboards = [];
    for (var did in dashboards) {
       if (!dashboardGroup || dashboards[did].group == dashboardGroup)
-      jDashboards.push([dashboards[did].order, did]);
+         jDashboards.push([dashboards[did].order, did]);
    }
    jDashboards.sort();
 

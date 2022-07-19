@@ -35,7 +35,6 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "interval",                  ctInteger, "60",           false, "Daemon", "Intervall der Aufzeichung", "Datenbank Aufzeichung [s]" },
    { "webPort",                   ctInteger, "61109",        false, "Daemon", "Port des Web Interfaces", "" },
    { "eloquence",                 ctBitSelect, "1",          false, "Daemon", "Log Eloquence", "" },
-   { "invertDO",                  ctBool,    "1",            false, "Daemon", "Digitalaugänge invertieren", "" },
 
 #ifdef _POOL
    { "filterPumpTimes",           ctRange,   "10:00-17:00",  false, "Daemon", "Zeiten Filter Pumpe", "[hh:mm] - [hh:mm]" },
@@ -303,6 +302,16 @@ void ioInterrupt()
 
 int HomeCtl::applyConfigurationSpecials()
 {
+#ifndef _NO_RASPBERRY_PI_
+   initOutput(pinW1Power, ooAuto, omAuto, "W1 Power", urFullControl);
+   gpioWrite(pinW1Power, true, false);
+
+   initOutput(pinUserOut1, ooUser, omManual, "User 1");
+   initOutput(pinUserOut2, ooUser, omManual, "User 2");
+   initOutput(pinUserOut3, ooUser, omManual, "User 3");
+   initOutput(pinUserOut4, ooUser, omManual, "User 4");
+#endif
+
 #ifdef _POOL
 
 #ifndef _NO_RASPBERRY_PI_
@@ -311,10 +320,6 @@ int HomeCtl::applyConfigurationSpecials()
    initOutput(pinPoolLight, ooUser, omManual, "Pool Light");
    initOutput(pinUVC, ooAuto|ooUser, omAuto, "UV-C Light", urFullControl);
    initOutput(pinShower, ooAuto|ooUser, omAuto, "Shower");
-   initOutput(pinUserOut1, ooUser, omManual, "User 1");
-   initOutput(pinUserOut2, ooUser, omManual, "User 2");
-   initOutput(pinUserOut3, ooUser, omManual, "User 3");
-   initOutput(pinUserOut4, ooUser, omManual, "User 4");
 
    // init input IO
 

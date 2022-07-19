@@ -1331,8 +1331,10 @@ int Daemon::storeCalibration(json_t* obj, long client)
       status = storeAiCalibration(obj, client);
    else if (type == "CV")
       status = storeCvCalibration(obj, client);
+   else if (type == "DO")
+      status = storeDoCalibration(obj, client);
    else
-      return replyResult(fail, "Ignoring calibration request, only supported for 'AI' and 'CV' sensors", client);
+      return replyResult(fail, "Ignoring calibration request, only supported for 'AI', 'DO' and 'CV' sensors", client);
 
    if (status == success)
    {
@@ -1381,6 +1383,27 @@ int Daemon::storeCvCalibration(json_t* obj, long client)
          tableValueFacts->setValue("CALIBRATION", luaScript.c_str());
          tableValueFacts->store();
       }
+   }
+
+   return success;
+}
+
+int Daemon::storeDoCalibration(json_t* obj, long client)
+{
+   const char* type = getStringFromJson(obj, "type");
+   long address = getIntFromJson(obj, "address", na);
+   bool invertDo = getBoolFromJson(obj, "invertDo");
+
+   // store to valuefacts
+
+   tableValueFacts->clear();
+   tableValueFacts->setValue("TYPE", type);
+   tableValueFacts->setValue("ADDRESS", address);
+
+   if (tableValueFacts->find())
+   {
+      tableValueFacts->setValue("INVERT", invertDo ? "Y" : "N");
+      tableValueFacts->store();
    }
 
    return success;
@@ -1562,6 +1585,7 @@ int Daemon::storeDashboards(json_t* obj, long client)
 
          if (!isEmpty(options) || tableDashboards->getValue("OPTS")->isEmpty())
             tableDashboards->setValue("OPTS", !isEmpty(options) ? options : "{}");
+
          if (dashboardSymbol)
             tableDashboards->setValue("SYMBOL", dashboardSymbol);
 
@@ -2087,6 +2111,10 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
       json_object_set_new(oData, "unit", json_string(tableValueFacts->getStrValue("UNIT")));
       json_object_set_new(oData, "rights", json_integer(tableValueFacts->getIntValue("RIGHTS")));
       json_object_set_new(oData, "options", json_integer(tableValueFacts->getIntValue("OPTIONS")));
+      if (!tableValueFacts->getValue("INVERT")->isNull())
+         json_object_set_new(oData, "invertDo", json_boolean(tableValueFacts->hasValue("INVERT", "Y")));
+      else
+         json_object_set_new(oData, "invertDo", json_boolean(true));
       // #TODO check actor properties if dimmable ...
       json_object_set_new(oData, "dim", json_boolean(type == "DZL" || type == "HMB"));
 

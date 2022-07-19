@@ -86,7 +86,9 @@ class Daemon : public cWebInterface
          pinW1       = pinGpio04,
          pinSerialTx = pinGpio14,
          pinSerialRx = pinGpio15,
-         pinW1Power  = pinGpio10
+         // pinW1Power  = pinGpio10,
+
+         aiArduinoFirst   = 0x08
       };
 
       enum SensorOptions
@@ -199,7 +201,13 @@ class Daemon : public cWebInterface
       {
          uint from;
          uint to;
-         bool inRange(uint t) const { return (from <= t && to >= t); }
+         bool inRange(uint t) const {
+            if (from < to)
+               return t >= from && t <= to;
+            if (from > to)
+               return t >= from || t <= to;
+            return false;
+         }
       };
 
       enum LogicalOperator
@@ -220,6 +228,7 @@ class Daemon : public cWebInterface
          ctChoice,
          ctMultiSelect,
          ctBitSelect,
+         ctText
       };
 
       struct ConfigItemDef
@@ -554,6 +563,7 @@ class Daemon : public cWebInterface
 
       // config
 
+      char* instanceName {nullptr};
       double latitude {50.30};
       double longitude {8.79};
       char* openWeatherApiKey {nullptr};
@@ -562,7 +572,7 @@ class Daemon : public cWebInterface
       int arduinoInterval {10};
       char* arduinoTopic {nullptr};
 
-      int webPort {0};
+      int webPort {61109};
       char* webUrl {nullptr};
       bool webSsl {false};
       char* iconSet {nullptr};

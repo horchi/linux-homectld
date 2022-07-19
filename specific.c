@@ -28,6 +28,7 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
 {
    // daemon
 
+   { "instanceName",              ctString,  "Home Control", false, "Daemon", "Titel", "Page Titel / Instanz" },
    { "latitude",                  ctNum,     "50.3",         false, "Daemon", "Breitengrad", "" },
    { "longitude",                 ctNum,     "8.79",         false, "Daemon", "Längengrad", "" },
 
@@ -49,10 +50,8 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "showerDuration",            ctInteger, "20",           false, "Daemon", "Laufzeit der Dusche", "Laufzeit [s]" },
    { "minSolarPumpDuration",      ctInteger, "10",           false, "Daemon", "Mindestlaufzeit der Solarpumpe [m]", "" },
    { "deactivatePumpsAtLowWater", ctBool,    "0",            false, "Daemon", "Pumpen bei geringem Wasserstand deaktivieren", "" },
-   { "w1AddrAir",                 ctString,  "",             false, "Daemon", "Adresse Fühler Temperatur Luft", "" },
    { "w1AddrPool",                ctString,  "",             false, "Daemon", "Adresse Fühler Temperatur Pool", "" },
    { "w1AddrSolar",               ctString,  "",             false, "Daemon", "Adresse Fühler Temperatur Kollektor", "" },
-   { "w1AddrSuctionTube",         ctString,  "",             false, "Daemon", "Adresse Fühler Temperatur Saugleitung", "" },
    { "massPerSecond",             ctNum,     "11.0",         false, "Daemon", "Durchfluss Solar", "[Liter/min]" },
 #endif
 
@@ -87,14 +86,13 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "vdr",                       ctBool,    "0",            false, "WEB Interface", "VDR (Video Disk Recorder) OSD verfügbar", "" },
    { "chartRange",                ctNum,     "1.5",          true,  "WEB Interface", "Chart Range", "" },
    { "chartSensors",              ctNum,     "VA:0x0",       true,  "WEB Interface", "Chart Sensors", "" },
-   { "pageTitle",                 ctString,  "Home Control", false, "WEB Interface", "Page Title", "" },
 
    // MQTT interface
 
    { "mqttUrl",                   ctString,  "tcp://localhost:1883", false, "MQTT Interface", "MQTT Broker Url", "URL der MQTT Instanz Beispiel: 'tcp://127.0.0.1:1883'" },
    { "mqttUser",                  ctString,  "",                     false, "MQTT Interface", "User", "" },
    { "mqttPassword",              ctString,  "",                     false, "MQTT Interface", "Password", "" },
-   { "mqttSensorTopics",          ctString,  TARGET "2mqtt/w1/#",    false, "MQTT Interface", "Zusätzliche sensor Topics", "Diese Topics werden gelesen und als Sensoren Daten verwendet" },
+   { "mqttSensorTopics",          ctText,    TARGET "2mqtt/w1/#",    false, "MQTT Interface", "Zusätzliche sensor Topics", "Diese Topics werden gelesen und als Sensoren Daten verwendet" },
    { "arduinoInterval",           ctInteger, "10",                   false, "MQTT Interface", "Intervall der Arduino Messungen", "[s]" },
    { "arduinoTopic",              ctString,  TARGET "2mqtt/arduino", false, "MQTT Interface", "MQTT Topic des Arduino Interface", "" },
 
@@ -125,7 +123,6 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
 HomeCtl::HomeCtl()
    : Daemon()
 {
-   webPort = 61109;
 }
 
 HomeCtl::~HomeCtl()
@@ -133,8 +130,6 @@ HomeCtl::~HomeCtl()
 #ifdef _POOL
    free(w1AddrPool);
    free(w1AddrSolar);
-   free(w1AddrSuctionTube);
-   free(w1AddrAir);
 #endif
 }
 
@@ -203,7 +198,7 @@ int HomeCtl::initDb()
 int HomeCtl::exitDb()
 {
 #ifdef _POOL
-   delete selectSolarWorkPerDay;     selectSolarWorkPerDay = nullptr;
+   delete selectSolarWorkPerDay;   selectSolarWorkPerDay = nullptr;
 #endif
 #ifdef _WOMO
    delete selectSolarAhPerDay;     selectSolarAhPerDay = nullptr;
@@ -239,8 +234,6 @@ int HomeCtl::readConfiguration(bool initial)
 
    getConfigItem("w1AddrPool", w1AddrPool, "");
    getConfigItem("w1AddrSolar", w1AddrSolar, "");
-   getConfigItem("w1AddrSuctionTube", w1AddrSuctionTube, "");
-   getConfigItem("w1AddrAir", w1AddrAir, "");
 
    getConfigItem("tPoolMax", tPoolMax, tPoolMax);
    getConfigItem("tSolarDelta", tSolarDelta, tSolarDelta);
@@ -310,11 +303,6 @@ void ioInterrupt()
 
 int HomeCtl::applyConfigurationSpecials()
 {
-#ifndef _NO_RASPBERRY_PI_
-   initOutput(pinW1Power, ooAuto, omAuto, "W1 Power", urFullControl);
-   gpioWrite(pinW1Power, true, false);
-#endif
-
 #ifdef _POOL
 
 #ifndef _NO_RASPBERRY_PI_
@@ -349,11 +337,6 @@ int HomeCtl::applyConfigurationSpecials()
    addValueFact(spSolarPower, "SP", 1, "Solar Leistung", "W");
    addValueFact(spSolarWork, "SP", 1, "Solar Energie (heute)", "kWh");
 
-   // analog inputs
-
-   addValueFact(aiPh, "AI", 1, "PH", "");
-   addValueFact(aiFilterPressure, "AI", 1, "Druck", "bar");
-
 #ifndef _NO_RASPBERRY_PI_
    uint opt = ooUser;
 
@@ -369,21 +352,17 @@ int HomeCtl::applyConfigurationSpecials()
 
 #endif  // _POOL
 
-#ifdef _WOMO
-
    for (uint i = 0; i <= 7; i++)
    {
       std::string name = "Analog Input " + std::to_string(i);
-      addValueFact(i++, "AI", 1, name.c_str(), "%");
+      addValueFact(i, "AI", 1, name.c_str(), "%");
    }
 
    for (uint i = 0; i <= 10; i++)
    {
-      std::string name = "Analog Input " + std::to_string(i);
-      addValueFact(i++, "AI", 1, name.c_str(), "mV");
+      std::string name = "Analog Input (Arduino) " + std::to_string(i);
+      addValueFact(i + aiArduinoFirst, "AI", 1, name.c_str(), "mV");
    }
-
-#endif // _WOMO
 
    return done;
 }
@@ -549,7 +528,7 @@ int HomeCtl::process()
             gpioWrite(pinSolarPump, false);
          }
       }
-      else if (!w1Valid)
+      else if (!w1Valid && sensors["DO"][pinSolarPump].mode == omAuto)
       {
          gpioWrite(pinSolarPump, false);
          tell(eloAlways, "Warning: Solar pump switched OFF, sensor values older than %d seconds!", 2*interval);
@@ -620,40 +599,6 @@ int HomeCtl::process()
 
 #endif // _POOL
 
-#ifdef _WOMO
-
-   // // Solar
-   // static time_t lastDay {midnightOf(time(0))};
-   // if (lastDay != midnightOf(time(0)))
-   // {
-   //    lastDay = midnightOf(time(0));
-   //    sensors["SP"][spSolarAh].value = 0.0;
-   //    sensors["SP"][spSolarAh].last = time(0);
-   //    sensors["SP"][spSolarAh].valid = true;
-   //    setConfigItem("solarAh", 0.0);
-   // }
-
-   // time_t lastSolarPower = sensors["CV"][0x02].last;
-
-   // if (lastSolarPower)
-   // {
-   //    double tmp = sensors["AI"][0x08].value * ((time(0)-lastSolarPower) / 3600.0);  // [Ah]
-
-   //    if (!isNan(tmp))
-   //    {
-   //       sensors["SP"][spSolarAh].value += tmp;
-   //       sensors["SP"][spSolarAh].last = time(0);
-   //       sensors["SP"][spSolarAh].valid = true;
-   //    }
-
-   //    setConfigItem("solarAh", sensors["SP"][spSolarAh].value);
-   //    publishSpecialValue(spSolarAh);
-   // }
-
-   //
-
-#endif // _WOMO
-
    logReport();
 
    return success;
@@ -719,8 +664,6 @@ void HomeCtl::logReport()
 #ifdef _WOMO
 
    // static time_t nextLogAt {0};
-   static time_t nextDetailLogAt {0};
-
    // if (time(0) > nextLogAt)
    // {
    //    nextLogAt = time(0) + 5 * tmeSecondsPerMinute;
@@ -729,6 +672,8 @@ void HomeCtl::logReport()
    //    tell(eloAlways, "Solar Strom: %0.2f A", sensors["AI"][aiUser4].value);
    //    tell(eloAlways, "# ------------------------");
    // }
+
+   static time_t nextDetailLogAt {0};
 
    if (time(0) > nextDetailLogAt)
    {

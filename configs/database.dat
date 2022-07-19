@@ -122,6 +122,7 @@ Table dashboards
    UPDSP                ""  updsp                Int          0 Meta,
 
    TITLE                ""  title                Ascii      100 Data,
+   GROUP                ""  grp                  Int         10 Data,
    SYMBOL               ""  symbol               Ascii      100 Data,
    ORDER                ""  ord                  Int         10 Data,
    OPTS                 ""  opts                 Ascii      200 Data,

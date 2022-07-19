@@ -11,7 +11,7 @@
 var widgetWidthBase = null;
 var widgetHeightBase = null;
 var weatherData = null;
-var wInterval = null;
+var weatherInterval = null;
 var actDashboard = -1;
 var moseDownOn = { 'object' : null };
 var lightClickTimeout = null;
@@ -51,8 +51,10 @@ function initDashboard(update = false)
    }
 
    var jDashboards = [];
-   for (var did in dashboards)
+   for (var did in dashboards) {
+      if (!dashboardGroup || dashboards[did].group == dashboardGroup)
       jDashboards.push([dashboards[did].order, did]);
+   }
    jDashboards.sort();
 
    for (var i = 0; i < jDashboards.length; i++) {
@@ -996,7 +998,9 @@ function updateWidget(sensor, refresh, widget)
       return;
    }
 
-   $('#div_' + key.replace(':', '\\:')).css('opacity', sensor.valid ? '100%' : '25%');
+   var widgetDiv = $('#div_' + key.replace(':', '\\:'));
+   widgetDiv.css('opacity', sensor.valid ? '100%' : '25%');
+   // $('#div_' + key.replace(':', '\\:')).css('opacity', sensor.valid ? '100%' : '25%');
 
    if (widget.widgettype == 0 || widget.widgettype == 9)         // Symbol, Symbol-Value
    {
@@ -1031,11 +1035,15 @@ function updateWidget(sensor, refresh, widget)
          $("#button" + fact.type + fact.address).removeClass();
          $("#button" + fact.type + fact.address).addClass('widget-main');
          $("#button" + fact.type + fact.address).addClass(classes);
+
+         var fontSize = Math.min(widgetDiv.height(), widgetDiv.width()) * 0.8;
+         $("#button" + fact.type + fact.address).css('font-size', fontSize + 'px');
       }
 
       $("#button" + fact.type + fact.address).css('background-color', sensor.working ? '#7878787878' : 'transparent');
 
-      $('#div_'+key.replace(':', '\\:')).css('background-color', (sensor.options == 3 && sensor.mode == 'manual') ? '#a27373' : '');
+      // $('#div_'+key.replace(':', '\\:')).css('background-color', (sensor.options == 3 && sensor.mode == 'manual') ? '#a27373' : '');
+      widgetDiv.css('background-color', (sensor.options == 3 && sensor.mode == 'manual') ? '#a27373' : '');
       widget.colorOn = widget.colorOn == null ? symbolOnColorDefault : widget.colorOn;
 
       if (sensor.hue)
@@ -1097,10 +1105,10 @@ function updateWidget(sensor, refresh, widget)
          weatherData = JSON.parse(sensor.text);
          // console.log("weather" + JSON.stringify(weatherData, undefined, 4));
          $("#widget" + wfact.type + wfact.address).html(getWeatherHtml(bigView, wfact, weatherData));
-         if (wInterval)
-            clearInterval(wInterval);
+         if (weatherInterval)
+            clearInterval(weatherInterval);
          if (weatherData && config.toggleWeatherView != 0) {
-            wInterval = setInterval(function() {
+            weatherInterval = setInterval(function() {
                bigView = !bigView;
                $("#widget" + wfact.type + wfact.address).html(getWeatherHtml(bigView, wfact, weatherData));
             }, 5*1000);
@@ -1581,7 +1589,21 @@ function dashboardSetup(dashboardId)
                                           .attr('id', 'heightfactorKiosk')
                                           .val(dashboards[dashboardId].options.heightfactorKiosk)
                                          )))
-
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('width', '25%')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('Gruppe'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('type', 'number')
+                                          .attr('id', 'group')
+                                          .val(dashboards[dashboardId].group)
+                                         )))
                  );
 
    $(form).dialog({
@@ -1621,8 +1643,10 @@ function dashboardSetup(dashboardId)
             console.log("change title from: " + dashboards[dashboardId].title + " to " + $("#dashTitle").val());
             dashboards[dashboardId].title = $("#dashTitle").val();
             dashboards[dashboardId].symbol = $("#dashSymbol").val();
+            dashboards[dashboardId].group = parseInt($("#group").val());
 
             socket.send({ "event" : "storedashboards", "object" : { [dashboardId] : { 'title' : dashboards[dashboardId].title,
+                                                                                      'group' : dashboards[dashboardId].group,
                                                                                       'symbol' : dashboards[dashboardId].symbol,
                                                                                       'options' : dashboards[dashboardId].options} } });
             socket.send({ "event" : "forcerefresh", "object" : {} });

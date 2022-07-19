@@ -734,7 +734,13 @@ int Daemon::initScripts()
 
       // execute script
 
-      asprintf(&cmd, "%s %s %d %s", scriptPath, "init", addr, TARGET "2mqtt/scripts");
+      const char* url = strrchr(mqttUrl, '/');
+      if (url)
+         url++;
+      else
+         url = mqttUrl;
+
+      asprintf(&cmd, "%s %s %d 'mqtt://%s/%s'", scriptPath, "init", addr, url, TARGET "2mqtt/scripts");
       tell(eloDetail, "Calling '%s'", cmd);
       result = executeCommand(cmd);
       free(cmd);
@@ -814,7 +820,13 @@ int Daemon::callScript(int addr, const char* command)
    }
 
    char* cmd {nullptr};
-   asprintf(&cmd, "%s %s %d %s", tableScripts->getStrValue("PATH"), command, addr, TARGET "2mqtt/scripts");
+   const char* url = strrchr(mqttUrl, '/');
+   if (url)
+      url++;
+      else
+         url = mqttUrl;
+
+   asprintf(&cmd, "%s %s %d 'mqtt://%s/%s'", tableScripts->getStrValue("PATH"), command, addr, url, TARGET "2mqtt/scripts");
 
    tell(eloDetail, "Info: Calling '%s' ..", cmd);
    int result = executeCommandAsync(addr, cmd);
@@ -1516,6 +1528,8 @@ int Daemon::readConfiguration(bool initial)
          deconz.setApiKey(deconzKey);
       free(deconzKey);
    }
+
+   getConfigItem("instanceName", instanceName);
 
    // location
 
@@ -2377,7 +2391,7 @@ bool Daemon::isInTimeRange(const std::vector<Range>* ranges, time_t t)
    {
       if (it->inRange(l2hhmm(t)))
       {
-         tell(eloDebug, "Debug: %d in range '%d-%d'", l2hhmm(t), it->from, it->to);
+         tell(eloDebug2, "Debug2: %d in time range '%d-%d'", l2hhmm(t), it->from, it->to);
          return true;
       }
    }
@@ -3354,7 +3368,7 @@ int Daemon::getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges)
          uint to = toHH*100 + toMM;
 
          ranges.push_back({from, to});
-         tell(eloDebug2, "range: %d - %d", from, to);
+         tell(eloDebug2, "Schedule range %d - %d for '%s'", from, to, name);
       }
       else
       {
@@ -3487,43 +3501,35 @@ int Daemon::toggleOutputMode(uint pin)
 
 void Daemon::gpioWrite(uint pin, bool state, bool store)
 {
-   if (pin != pinW1Power)
-   {
-      sensors["DO"][pin].state = state;
-      sensors["DO"][pin].last = time(0);
-      sensors["DO"][pin].valid = true;
+   sensors["DO"][pin].state = state;
+   sensors["DO"][pin].last = time(0);
+   sensors["DO"][pin].valid = true;
 
-      if (!state)
-         sensors["DO"][pin].next = 0;
-   }
-
-   // invert the state on 'invertDO' - some relay board are active at 'false'
+   if (!state)
+      sensors["DO"][pin].next = 0;
 
    digitalWrite(pin, invertDO ? !state : state);
 
-   if (pin != pinW1Power)
+   if (store)
+      storeStates();
+
+   performJobs();
+
+   // send update to WS
    {
-      if (store)
-         storeStates();
+      json_t* ojData = json_object();
+      pin2Json(ojData, pin);
 
-      performJobs();
+      char* tuple {nullptr};
+      asprintf(&tuple, "%s:0x%02x", "DO", pin);
+      jsonSensorList[tuple] = ojData;
+      free(tuple);
 
-      // send update to WS
-      {
-         json_t* ojData = json_object();
-         pin2Json(ojData, pin);
-
-         char* tuple {nullptr};
-         asprintf(&tuple, "%s:0x%02x", "DO", pin);
-         jsonSensorList[tuple] = ojData;
-         free(tuple);
-
-         pushDataUpdate("update", 0L);
-      }
-
-      mqttHaPublish(sensors["DO"][pin]);
-      mqttNodeRedPublishSensor(sensors["DO"][pin]);
+      pushDataUpdate("update", 0L);
    }
+
+   mqttHaPublish(sensors["DO"][pin]);
+   mqttNodeRedPublishSensor(sensors["DO"][pin]);
 }
 
 bool Daemon::gpioRead(uint pin)
@@ -3587,12 +3593,12 @@ int Daemon::storeStates()
       setConfigItem("ioStates", (long)value);
       setConfigItem("ioModes", (long)mode);
 
-      tell(eloDetail, "Info: iomode bit '%s/%d' %d [%s] stored", output.second.name.c_str(), output.first, output.second.mode, bin2string(mode));
-      tell(eloDetail, "Info: iostate bit '%s/%d' %d [%s] stored", output.second.name.c_str(), output.first, output.second.state, bin2string(value));
+      tell(eloDebug2, "Info: iomode bit '%s/%d' %d [%s] stored", output.second.name.c_str(), output.first, output.second.mode, bin2string(mode));
+      tell(eloDebug2, "Info: iostate bit '%s/%d' %d [%s] stored", output.second.name.c_str(), output.first, output.second.state, bin2string(value));
    }
 
-   tell(eloInfo, "Info: Stored iostates: [%s]", bin2string((ulong)value));
-   tell(eloInfo, "Info: Stored iomodes: [%s]", bin2string((ulong)mode));
+   tell(eloDebug2, "Info: Stored iostates: [%s]", bin2string((ulong)value));
+   tell(eloDebug2, "Info: Stored iomodes: [%s]", bin2string((ulong)mode));
 
    return done;
 }
@@ -3614,16 +3620,16 @@ int Daemon::loadStates()
       return done;
    }
 
-   tell(eloInfo, "Info: Loaded iostates: [%s]", bin2string((ulong)value));
-   tell(eloInfo, "Info: Loaded iomodes: [%s]", bin2string((ulong)mode));
+   tell(eloDebug2, "Info: Loaded iostates: [%s]", bin2string((ulong)value));
+   tell(eloDebug2, "Info: Loaded iomodes: [%s]", bin2string((ulong)mode));
 
    for (const auto& output : sensors["DO"])
    {
       if (sensors["DO"][output.first].opt & ooUser)
       {
          gpioWrite(output.first, value & (long)pow(2, output.first), false);
-         tell(eloDetail, "Info: iomode '%s/%d' recovered to %d", output.second.name.c_str(), output.first, output.second.mode);
-         tell(eloDetail, "Info: iostate '%s/%d' recovered to %d", output.second.name.c_str(), output.first, output.second.state);
+         tell(eloDebug2, "Info: iomode '%s/%d' recovered to %d", output.second.name.c_str(), output.first, output.second.mode);
+         tell(eloDebug2, "Info: iostate '%s/%d' recovered to %d", output.second.name.c_str(), output.first, output.second.state);
       }
    }
 
@@ -3732,7 +3738,7 @@ int Daemon::initArduino()
 
 void Daemon::updateAnalogInput(const char* id, double value, time_t stamp)
 {
-   uint input = atoi(id+1);
+   uint input = atoi(id+1) + aiArduinoFirst;
 
    // the Ardoino read the analog inputs with a resolution of 12 bits (3.3V => 4095)
 
@@ -3884,16 +3890,6 @@ void Daemon::cleanupW1()
          it.second.valid = false;
          detached++;
       }
-   }
-
-   // #TODO move re-initialization to w1mqtt process!
-
-   if (detached)
-   {
-      tell(eloAlways, "Info: %d w1 sensors detached, reseting power line to force a re-initialization", detached);
-      gpioWrite(pinW1Power, false);
-      sleep(2);
-      gpioWrite(pinW1Power, true);
    }
 }
 

@@ -44,18 +44,8 @@ class HomeCtl : public Daemon
 #ifdef _POOL
       enum AnalogInputs
       {
-         aiPh = 0,           // addr 0x00
-         aiFilterPressure,   // addr 0x01
-         aiU0,               // addr 0x02
-         aiU1,               // addr 0x03
-         aiU2,               // addr 0x04
-         aiUser1,            // addr 0x05
-         aiUser2,            // addr 0x06
-
-         aiUser3,            // addr 0x07
-         aiUser4,            // addr 0x08
-         aiUser5,            // addr 0x09
-         aiUser6             // addr 0x10
+         aiFilterPressure = 0x08,
+         aiPh             = 0x09
       };
 
       enum SpecialValues  // 'SP'
@@ -93,8 +83,6 @@ class HomeCtl : public Daemon
       int poolLightColorToggle {no};
       char* w1AddrPool {nullptr};
       char* w1AddrSolar {nullptr};
-      char* w1AddrSuctionTube {nullptr};
-      char* w1AddrAir {nullptr};
 
       double tPoolMax {28.0};
       double tSolarDelta {5.0};

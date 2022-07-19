@@ -62,7 +62,8 @@ $(W1TARGET): $(W1OBJS)
 $(BMSTARGET): $(BMSOBJS)
 	$(doLink) $(BMSOBJS) $(LIBS) -o $@
 
-install: $(TARGET) $(W1TARGET) $(BMSTARGET) install-daemon install-web
+linstall: $(TARGET) $(W1TARGET) $(BMSTARGET) install-daemon install-web
+install: $(TARGET) $(W1TARGET) $(BMSTARGET) install-daemon install-web install-systemd
 
 install-daemon: install-config install-scripts
 	@echo install $(TARGET)
@@ -75,7 +76,6 @@ install-daemon: install-config install-scripts
 	install --mode=755 -D $(TARGET) $(BINDEST)/
 	install --mode=755 -D $(W1TARGET) $(BINDEST)/
 	install --mode=755 -D $(BMSTARGET) $(BINDEST)/
-	make install-systemd
 	mkdir -p $(DESTDIR)$(PREFIX)/share/$(TARGET)/
 #	install --mode=644 -D arduino/build-nano-atmega328/ioctrl.hex $(DESTDIR)$(PREFIX)/share/$(TARGET)/nano-atmega328-ioctrl.hex
 
@@ -187,6 +187,7 @@ upload:
 build-deb:
 	rm -rf $(DEB_DEST)
 	make -s install-daemon DESTDIR=$(DEB_DEST) PREFIX=/usr INIT_AFTER=mysql.service
+	make -s install-systemd
 	make -s install-web DESTDIR=$(DEB_DEST) PREFIX=/usr
 	dpkg-deb --build $(DEB_BASE_DIR)/$(TARGET)-$(VERSION)
 

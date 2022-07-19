@@ -317,17 +317,15 @@ button:focus {
 {
     background-color: var(--edit);
     color: black;
-
     margin-top: 2px;
     padding: 3px;
-    width: 60px;
+    width: 65px;
 }
 
 .inputNum
 {
     background-color: var(--edit);
     color: black;
-
     margin-top: 2px;
     padding: 3px;
     width: 75px;
@@ -338,7 +336,6 @@ button:focus {
 {
     background-color: var(--edit);
     color: black;
-
     margin-top: 2px;
     padding: 3px;
     width: 75px;
@@ -557,12 +554,30 @@ span > input
 
 .inputTableConfig > div > span:nth-child(3n)
 {
+    margin-left: 10px;
     width: 45%;
     min-width: 100px;
     display: inline-table;
     text-align: left;
     height: 24px;
     color: var(--listFontColor);
+}
+
+.inputTableConfig > div > span > input[type="search"]
+{
+    width: 100%;
+}
+
+.inputTableConfig > div > span > textarea
+{
+    width: 100%;
+    resize: vertical;
+    padding: 0px;
+}
+
+.inputTableConfig > div > span > select
+{
+    width: 100%;
 }
 
 .container
@@ -1467,7 +1482,7 @@ table.tableMultiCol tr:nth-child(odd)
 .widget > button > img
 {
     max-width: 100%;
-    max-height: 100%;
+    max-height: 90%;
     justify-self: center;
     vertical-align: middle;
 }

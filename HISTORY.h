@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.0.3"
-#define VERSION_DATE "31.01.2022"
+#define _VERSION     "0.0.4"
+#define VERSION_DATE "19.07.2022"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,9 @@
 
 /*
  * ------------------------------------
+
+2022-07-19: version 0.0.4
+   - development
 
 2022-01-31: version 0.0.3
    - first release of common homed version

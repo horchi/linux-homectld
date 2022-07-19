@@ -479,15 +479,15 @@ int show(const char* device)
 void showUsage(const char* bin)
 {
    printf("Usage: %s <command> [-l <log-level>] [-d <device>]\n", bin);
-   printf("\n");
    printf("  options:\n");
    printf("     -d <device>     serial device file (defaults to /dev/ttyUSB0)\n");
-   printf("     -l <eloquence>  set eloquence\n");
-   printf("     -t              log to terminal\n");
-   printf("     -s              show and exit\n");
-   printf("     -i <interval>   interval\n");
    printf("     -u <url>        MQTT url\n");
    printf("     -T <topic>      MQTT topic\n");
+   printf("     -l <eloquence>  set eloquence\n");
+   printf("     -s              show and exit\n");
+   printf("     -i <interval>   interval\n");
+   printf("     -n              don't demonize (optional)\n");
+   printf("     -t              log to terminal\n");
 }
 
 //***************************************************************************

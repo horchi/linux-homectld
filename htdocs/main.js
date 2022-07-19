@@ -28,6 +28,7 @@ var allSensors = [];
 
 var images = [];
 var currentPage = "dashboard";
+var startPage = null;
 var widgetCharts = {};
 var theChart = null;
 var theChartRange = null;
@@ -39,6 +40,7 @@ var grouplist = {};
 
 var setupMode = false;
 var kioskMode = false;
+var dashboardGroup = 0;
 var kioskBackTime = 0;
 
 $('document').ready(function() {
@@ -46,9 +48,13 @@ $('document').ready(function() {
 
    const urlParams = new URLSearchParams(window.location.href);
    kioskMode = urlParams.get('kiosk') == 1;
+   dashboardGroup = urlParams.get('group') != null ? urlParams.get('group') : 0;
    kioskBackTime = urlParams.get('backTime');
    console.log("kioskMode" + " : " + kioskMode);
+   console.log("dashboardGroup" + " : " + dashboardGroup);
+   startPage = urlParams.get('page') != null ? urlParams.get('page') : null;
    console.log("currentPage: " + currentPage);
+   console.log("startPage: " + startPage);
 
    var url = "";
 
@@ -79,7 +85,7 @@ function onSocketConnect(protocol)
                    "token" : token }
                });
 
-   document.title = "Home Control";
+   // document.title = "Home Control";
    onSmalDevice = window.matchMedia("(max-width: 740px)").matches;
    console.log("onSmalDevice : " + onSmalDevice);
 }
@@ -385,6 +391,12 @@ function dispatchMessage(message)
    else if (event == "alerts") {
       initAlerts(jMessage.object);
    }
+   else if (event == "ready") {
+      if (startPage) {
+         mainMenuSel(startPage);
+         startPage = null;
+      }
+   }
 
    // console.log("event: " + event + " dispatched");
 }
@@ -397,7 +409,7 @@ function prepareMenu()
    if (kioskMode)
       return ;
 
-   document.title = config.pageTitle;
+   document.title = config.instanceName;
 
    console.log("prepareMenu: " + currentPage);
 

@@ -1518,6 +1518,7 @@ int Daemon::storeDashboards(json_t* obj, long client)
          long dashboardId = atol(dashboardIdStr);
          const char* dashboardTitle = getStringFromJson(jObj, "title", "<new>");
          const char* dashboardSymbol = getStringFromJson(jObj, "symbol");
+         int group = getIntFromJson(jObj, "group", 0);
          const char* action = getStringFromJson(jObj, "action", "store");
 
          if (strcmp(action, "delete") == 0)
@@ -1531,6 +1532,8 @@ int Daemon::storeDashboards(json_t* obj, long client)
 
          if (dashboardId == -1)
          {
+            // new dashboard
+
             tableDashboards->clear();
             tableDashboards->setValue("TITLE", dashboardTitle);
             if (dashboardSymbol)
@@ -1555,12 +1558,13 @@ int Daemon::storeDashboards(json_t* obj, long client)
          char* options = json_dumps(jOptions, JSON_REAL_PRECISION(4));
 
          tableDashboards->setValue("TITLE", dashboardTitle);
+         tableDashboards->setValue("GROUP", group);
 
          if (!isEmpty(options) || tableDashboards->getValue("OPTS")->isEmpty())
             tableDashboards->setValue("OPTS", !isEmpty(options) ? options : "{}");
-
          if (dashboardSymbol)
             tableDashboards->setValue("SYMBOL", dashboardSymbol);
+
          tableDashboards->store();
          tableDashboards->reset();
          free(options);
@@ -2148,6 +2152,7 @@ int Daemon::dashboards2Json(json_t* obj)
       json_object_set_new(oDashboard, "title", json_string(tableDashboards->getStrValue("TITLE")));
       json_object_set_new(oDashboard, "symbol", json_string(tableDashboards->getStrValue("SYMBOL")));
       json_object_set_new(oDashboard, "order", json_integer(tableDashboards->getIntValue("ORDER")));
+      json_object_set_new(oDashboard, "group", json_integer(tableDashboards->getIntValue("GROUP")));
 
       json_t* oOpts = json_loads(tableDashboards->getStrValue("OPTS"), 0, nullptr);
       json_object_set_new(oDashboard, "options", oOpts);

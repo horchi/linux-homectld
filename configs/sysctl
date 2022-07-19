@@ -18,7 +18,7 @@
 
 COMMAND="$1"
 ADDRESS="$2"
-TOPIC="$3"
+MQTTURL="$3"
 SERVICE="$4"
 
 case "$COMMAND" in
@@ -61,7 +61,7 @@ else
 fi
 
 if [ "${COMMAND}" != "init" ]; then
-   mosquitto_pub -t "${TOPIC}" -m "{ \"type\":\"SC\",\"address\":${ADDRESS},\"kind\":\"status\",\"state\":${STATE} }"
+   mosquitto_pub --quiet -L ${MQTTURL} -m "{ \"type\":\"SC\",\"address\":${ADDRESS},\"kind\":\"status\",\"state\":${STATE} }"
 fi
 
 echo -n "{ \"type\":\"SC\",\"address\":${ADDRESS},\"kind\":\"status\",\"value\":${STATE} }"

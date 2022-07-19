@@ -66,29 +66,35 @@ function initConfig(configdetails)
          item.description = "&nbsp;";  // on totally empty the line height not fit :(
 
       switch (item.type) {
-      case 0:     // integer
+      case 0:     // ctInteger
          html += "    <span><input id=\"input_" + item.name + "\" class=\"rounded-border inputNum\" type=\"number\" value=\"" + item.value + "\"/></span>\n";
          html += "    <span class=\"inputComment\">" + item.description + "</span>\n";
          break;
 
-      case 1:     // number (float)
+      case 1:     // ctNumber (float)
          html += "    <span><input id=\"input_" + item.name + "\" class=\"rounded-border inputFloat\" type=\"number\" step=\"0.1\" value=\"" + parseFloat(item.value.replace(',', '.')) + "\"/></span>\n";
          html += "    <span class=\"inputComment\">" + item.description + "</span>\n";
          break;
 
-      case 2:     // string
+      case 2:     // ctString
 
          html += "    <span><input id=\"input_" + item.name + "\" class=\"rounded-border input\" type=\"search\" value=\"" + item.value + "\"/></span>\n";
          html += "    <span class=\"inputComment\">" + item.description + "</span>\n";
          break;
 
-      case 3:     // boolean
+      case 8:     // ctText
+         // html += "    <span><input id=\"input_" + item.name + "\" class=\"rounded-border input\" type=\"search\" value=\"" + item.value + "\"/></span>\n";
+         html += '    <span><textarea id="input_' + item.name + '" class="rounded-border input">' + item.value + '</textarea></span>\n';
+         html += "    <span class=\"inputComment\">" + item.description + "</span>\n";
+         break;
+
+      case 3:     // ctBool
          html += "    <span><input id=\"checkbox_" + item.name + "\" class=\"rounded-border input\" style=\"width:auto;\" type=\"checkbox\" " + (item.value == 1 ? "checked" : "") + "/>" +
             '<label for="checkbox_' + item.name + '"></label></span></span>\n';
          html += "    <span class=\"inputComment\">" + item.description + "</span>\n";
          break;
 
-      case 4:     // range
+      case 4:     // ctRange
          var n = 0;
 
          if (item.value != "")
@@ -104,8 +110,8 @@ function initConfig(configdetails)
                if (!range[1]) range[1] = "";
                if (n > 0) html += "  <span/>  </span>\n";
                html += "   <span>\n";
-               html += "     <input id=\"range_" + nameFrom + "\" type=\"search\" class=\"rounded-border inputTime\" value=\"" + range[0] + "\"/> -";
-               html += "     <input id=\"range_" + nameTo + "\" type=\"search\" class=\"rounded-border inputTime\" value=\"" + range[1] + "\"/>\n";
+               html += "     <input id=\"range_" + nameFrom + "\" type=\"text\" class=\"rounded-border inputTime\" value=\"" + range[0] + "\"/> -";
+               html += "     <input id=\"range_" + nameTo + "\" type=\"text\" class=\"rounded-border inputTime\" value=\"" + range[1] + "\"/>\n";
                html += "   </span>\n";
                html += "   <span></span>\n";
             }
@@ -116,17 +122,16 @@ function initConfig(configdetails)
 
          if (n > 0) html += "  <span/>  </span>\n";
          html += "  <span>\n";
-         html += "    <input id=\"range_" + nameFrom + "\" value=\"\" type=\"search\" class=\"rounded-border inputTime\" /> -";
-         html += "    <input id=\"range_" + nameTo + "\" value=\"\" type=\"search\" class=\"rounded-border inputTime\" />\n";
+         html += "    <input id=\"range_" + nameFrom + "\" value=\"\" type=\"text\" class=\"rounded-border inputTime\" /> -";
+         html += "    <input id=\"range_" + nameTo + "\" value=\"\" type=\"text\" class=\"rounded-border inputTime\" />\n";
          html += "  </span>\n";
          html += "  <span class=\"inputComment\">" + item.description + "</span>\n";
 
          break;
 
-      case 5:    // choice
+      case 5:    // ctChoice
          html += '<span>\n';
          html += '  <select id="input_' + item.name + '" class="rounded-border input" name="style">\n';
-
          if (item.options != null) {
             for (var o = 0; o < item.options.length; o++) {
                var option = item.options[o];
@@ -134,12 +139,11 @@ function initConfig(configdetails)
                html += '    <option value="' + option + '" ' + sel + '>' + option + '</option>\n';
             }
          }
-
          html += '  </select>\n';
          html += '</span>\n';
          break;
 
-      case 6:    // MultiSelect
+      case 6:    // ctMultiSelect
          html += '<span style="width:75%;">\n';
          html += '  <input style="width:inherit;" class="rounded-border input" ' +
             ' id="mselect_' + item.name + '" data-index="' + i +
@@ -147,7 +151,7 @@ function initConfig(configdetails)
          html += '</span>\n';
          break;
 
-      case 7:    // BitSelect
+      case 7:    // ctBitSelect
          html += '<span id="bmaskgroup_' + item.name + '" style="width:75%;">';
 
          var array = item.value.split(',');
@@ -168,6 +172,7 @@ function initConfig(configdetails)
       }
 
       var elem = document.createElement("div");
+      // elem.style.display = 'list-item';
       elem.innerHTML = html;
       root.appendChild(elem);
    }
@@ -202,6 +207,8 @@ function storeConfig()
 
    console.log("storeSettings");
 
+   // ctString, ctNumber, ctInteger, ctChoice, ctText
+
    var elements = rootConfig.querySelectorAll("[id^='input_']");
 
    for (var i = 0; i < elements.length; i++) {
@@ -214,12 +221,16 @@ function storeConfig()
       }
    }
 
+   // ctBool
+
    var elements = rootConfig.querySelectorAll("[id^='checkbox_']");
 
    for (var i = 0; i < elements.length; i++) {
       var name = elements[i].id.substring(elements[i].id.indexOf("_") + 1);
       jsonObj[name] = (elements[i].checked ? "1" : "0");
    }
+
+   // ctRange
 
    var elements = rootConfig.querySelectorAll("[id^='range_']");
 
@@ -232,7 +243,7 @@ function storeConfig()
       }
    }
 
-   // data type 6 - 'MultiSelect' -> as string
+   // ctMultiSelect -> as string
 
    var elements = rootConfig.querySelectorAll("[id^='mselect_']");
 
@@ -243,7 +254,7 @@ function storeConfig()
       jsonObj[name] = value;
    }
 
-   // data type 7 - 'BitSelect' -> as string
+   // ctBitSelect -> as string
 
    var elements = rootConfig.querySelectorAll("[id^='bmaskgroup_']");
 
@@ -455,7 +466,7 @@ function sensorAiSetup(type, address)
    console.log("sensorSetup ", type, address);
 
    calSensorType = type;
-   calSensorAddress = address;
+   calSensorAddress = parseInt(address);
 
    var key = toKey(calSensorType, calSensorAddress);
    var form = document.createElement("div");
@@ -589,7 +600,7 @@ function sensorAiSetup(type, address)
       title: "Sensor '" + title + "' kalibrieren",
       open: function() {
          calSensorType = type;
-         calSensorAddress = address;
+         calSensorAddress = parseInt(address);
 
          $('#calPointSelect').append($('<option></option>')
                                      .val('pointA')
@@ -610,7 +621,7 @@ function sensorAiSetup(type, address)
 
             socket.send({ "event" : "storecalibration", "object" : {
                'type' : calSensorType,
-               'address' : parseInt(calSensorAddress),
+               'address' : calSensorAddress,
                'calPoint' : parseFloat($('#calPoint').val()),
                'calPointValue' : parseFloat($('#calPointValue').val()),
                'calRound' : parseInt($('#calRound').val()),
@@ -635,7 +646,7 @@ function sensorCvSetup(type, address)
    console.log("sensorSetup ", type, address);
 
    calSensorType = type;
-   calSensorAddress = address;
+   calSensorAddress = parseInt(address);
 
    var key = toKey(calSensorType, calSensorAddress);
    var form = document.createElement("div");
@@ -672,7 +683,7 @@ function sensorCvSetup(type, address)
       title: "LUA Skript für '" + title,
       open: function() {
          calSensorType = type;
-         calSensorAddress = address;
+         calSensorAddress = parseInt(address);
       },
       buttons: {
          'Abbrechen': function () {
@@ -683,7 +694,7 @@ function sensorCvSetup(type, address)
 
             socket.send({ "event" : "storecalibration", "object" : {
                'type' : calSensorType,
-               'address' : parseInt(calSensorAddress),
+               'address' : calSensorAddress,
                'luaScript' : $('#luaScript').val()
             }});
 

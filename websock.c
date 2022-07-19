@@ -99,7 +99,7 @@ int cWebSock::init(int aPort, int aTimeout, const char* confDir, bool ssl)
 
    memset(&info, 0, sizeof(info));
    info.options = 0;
-   info.mounts = mounts;
+   info.mounts = nullptr; // mounts;
    info.gid = -1;
    info.uid = -1;
    info.port = port;
@@ -364,44 +364,26 @@ int cWebSock::callbackHttp(lws* wsi, lws_callback_reasons reason, void* user, vo
          int res;
          char* file {nullptr};
          const char* url = (char*)in;
-
-         memset(sessionData, 0, sizeof(SessionData));
+         *sessionData = {};
 
          tell(eloWebSock, "HTTP: Requested url (%ld) '%s'", (ulong)len, url);
 
-         // data or file request ...
+         if (strcmp(url, "/") == 0)
+            url = "index.html";
 
-         if (strncmp(url, "/data/", 6) == 0)
+         // security, force httpPath path to inhibit access to the whole filesystem
+
+         asprintf(&file, "%s/%s", httpPath, url);
+         res = serveFile(wsi, file);
+         free(file);
+
+         if (res < 0)
          {
-            // data request
-
-            tell(eloAlways, "Got unexpected HTTP request!");
-            res = dispatchDataRequest(wsi, sessionData, url);
-
-            if (res < 0 || (res > 0 && lws_http_transaction_completed(wsi)))
-               return -1;
+            tell(eloAlways, "HTTP: Failed to serve url '%s' (%d)", url, res);
+            return -1;
          }
-         else
-         {
-            // file request
 
-            if (strcmp(url, "/") == 0)
-               url = "index.html";
-
-            // security, force httpPath path to inhibit access to the whole filesystem
-
-            asprintf(&file, "%s/%s", httpPath, url);
-            res = serveFile(wsi, file);
-            free(file);
-
-            if (res < 0)
-            {
-               tell(eloAlways, "HTTP: Failed to serve url '%s' (%d)", url, res);
-               return -1;
-            }
-
-            tell(eloWebSock, "HTTP: Done, url: '%s'", url);
-         }
+         tell(eloWebSock, "HTTP: Done, url: '%s'", url);
 
          break;
       }

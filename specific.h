@@ -35,9 +35,6 @@ class HomeCtl : public Daemon
          pinUserOut3     = pinGpio11,
          pinUserOut4     = pinGpio09,
          pinShower       = pinGpio25,
-         pinLevel1       = pinGpio06,
-         pinLevel2       = pinGpio12,
-         pinLevel3       = pinGpio13,
          pinShowerSwitch = pinGpio19,
       };
 
@@ -50,8 +47,7 @@ class HomeCtl : public Daemon
 
       enum SpecialValues  // 'SP'
       {
-         spWaterLevel = 1,
-         spSolarDelta,
+         spSolarDelta = 2,
          spPhMinusDemand,
          spSolarPower,
          spSolarWork
@@ -75,7 +71,6 @@ class HomeCtl : public Daemon
       std::list<ConfigItemDef>* getConfiguration() override { return &configuration; }
 
 #ifdef _POOL
-      int calcWaterLevel();
       void phMeasurementActive();
       int calcPhMinusVolume(double ph);
       cDbStatement* selectSolarWorkPerDay {nullptr};

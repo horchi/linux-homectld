@@ -48,7 +48,7 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "tSolarDelta",               ctNum,     "5.0",          false, "Daemon", "Einschaltdifferenz Solarpumpe", "" },
    { "showerDuration",            ctInteger, "20",           false, "Daemon", "Laufzeit der Dusche", "Laufzeit [s]" },
    { "minSolarPumpDuration",      ctInteger, "10",           false, "Daemon", "Mindestlaufzeit der Solarpumpe [m]", "" },
-   { "deactivatePumpsAtLowWater", ctBool,    "0",            false, "Daemon", "Pumpen bei geringem Wasserstand deaktivieren", "" },
+//   { "deactivatePumpsAtLowWater", ctBool,    "0",            false, "Daemon", "Pumpen bei geringem Wasserstand deaktivieren", "" },
    { "w1AddrPool",                ctString,  "",             false, "Daemon", "Adresse Fühler Temperatur Pool", "" },
    { "w1AddrSolar",               ctString,  "",             false, "Daemon", "Adresse Fühler Temperatur Kollektor", "" },
    { "massPerSecond",             ctNum,     "11.0",         false, "Daemon", "Durchfluss Solar", "[Liter/min]" },
@@ -139,10 +139,6 @@ HomeCtl::~HomeCtl()
 int HomeCtl::init()
 {
    int status = Daemon::init();
-
-#ifdef _POOL
-   sensors["SP"][spWaterLevel].value = 50;  // start with 50% until we get first signal
-#endif
 
    return status;
 }
@@ -303,9 +299,6 @@ void ioInterrupt()
 int HomeCtl::applyConfigurationSpecials()
 {
 #ifndef _NO_RASPBERRY_PI_
-   initOutput(pinW1Power, ooAuto, omAuto, "W1 Power", urFullControl);
-   gpioWrite(pinW1Power, true, false);
-
    initOutput(pinUserOut1, ooUser, omManual, "User 1");
    initOutput(pinUserOut2, ooUser, omManual, "User 2");
    initOutput(pinUserOut3, ooUser, omManual, "User 3");
@@ -323,9 +316,6 @@ int HomeCtl::applyConfigurationSpecials()
 
    // init input IO
 
-   initInput(pinLevel1, 0);
-   initInput(pinLevel2, 0);
-   initInput(pinLevel3, 0);
    initInput(pinShowerSwitch, 0);
    pullUpDnControl(pinShowerSwitch, PUD_UP);
 
@@ -336,7 +326,6 @@ int HomeCtl::applyConfigurationSpecials()
 
    // special values
 
-   addValueFact(spWaterLevel, "SP", 1, "Water Level", "%");
    addValueFact(spSolarDelta, "SP", 1, "Solar Delta", "°C");
    addValueFact(spPhMinusDemand, "SP", 1, "PH Minus Bedarf", "ml");
    addValueFact(spSolarPower, "SP", 1, "Solar Leistung", "W");
@@ -468,24 +457,9 @@ int HomeCtl::process()
    // -----------
    // Pumps Alert
 
-   if (deactivatePumpsAtLowWater && sensors["SP"][spWaterLevel].value == 0)   // || waterLevel == fail ??
+   if (deactivatePumpsAtLowWater)
    {
-      if (sensors["DO"][pinSolarPump].state || sensors["DO"][pinFilterPump].state)
-      {
-         tell(eloAlways, "Warning: Deactivating pumps due to low water condition!");
-
-         gpioWrite(pinFilterPump, false);
-         gpioWrite(pinSolarPump, false);
-
-         sensors["DO"][pinFilterPump].mode = omManual;
-         sensors["DO"][pinSolarPump].mode = omManual;
-
-         char* body;
-         asprintf(&body, "Water level is 'low'\n Pumps switched off now!");
-         if (sendMail(stateMailTo, "Pool pump alert", body, "text/plain") != success)
-            tell(eloAlways, "Error: Sending alert mail failed");
-         free(body);
-      }
+      // TODO
    }
    else
    {
@@ -600,7 +574,6 @@ int HomeCtl::process()
    }
 
    phMeasurementActive();
-   calcWaterLevel();
 
 #endif // _POOL
 
@@ -700,40 +673,6 @@ void HomeCtl::logReport()
 }
 
 #ifdef _POOL
-
-//***************************************************************************
-// Get Water Level [%]
-//***************************************************************************
-
-int HomeCtl::calcWaterLevel()
-{
-   sensors["SP"][spWaterLevel].text = "";
-   sensors["SP"][spWaterLevel].kind = "value";
-
-   bool l1 = gpioRead(pinLevel1);
-   bool l2 = gpioRead(pinLevel2);
-   bool l3 = gpioRead(pinLevel3);
-
-   if (l1 && l2 && l3)
-      setSpecialValue(spWaterLevel, 100);
-   else if (l1 && l2 && !l3)
-      setSpecialValue(spWaterLevel, 66);
-   else if (l1 && !l2 && !l3)
-      setSpecialValue(spWaterLevel, 33);
-   else if (!l1 && !l2 && !l3)
-      setSpecialValue(spWaterLevel, 0);
-   else
-   {
-      char text[255+TB];
-      sprintf(text, "ERROR: Sensor Fehler <br/>(%d/%d/%d)", sensors["DI"][pinLevel1].state,
-              sensors["DI"][pinLevel2].state, sensors["DI"][pinLevel3].state);
-      setSpecialValue(spWaterLevel, 0, text);
-   }
-
-   tell(eloDetail, "Water level is %.0f (%d/%d/%d)", sensors["SP"][spWaterLevel].value, l1, l2, l3);
-
-   return done;
-}
 
 //***************************************************************************
 // PH Measurement Active

@@ -3503,43 +3503,37 @@ int Daemon::toggleOutputMode(uint pin)
 
 void Daemon::gpioWrite(uint pin, bool state, bool store)
 {
-   if (pin != pinW1Power)
-   {
-      sensors["DO"][pin].state = state;
-      sensors["DO"][pin].last = time(0);
-      sensors["DO"][pin].valid = true;
+   sensors["DO"][pin].state = state;
+   sensors["DO"][pin].last = time(0);
+   sensors["DO"][pin].valid = true;
 
-      if (!state)
-         sensors["DO"][pin].next = 0;
-   }
+   if (!state)
+      sensors["DO"][pin].next = 0;
 
    // invert the state on 'invertDO' - most relay board are active at 'false'
 
    digitalWrite(pin, sensors["DO"][pin].invertDO ? !state : state);
 
-   if (pin != pinW1Power)
+   if (store)
+      storeStates();
+
+   performJobs();
+
+   // send update to WS
    {
-      if (store)
-         storeStates();
+      json_t* ojData = json_object();
+      pin2Json(ojData, pin);
 
-      performJobs();
+      char* tuple {nullptr};
+      asprintf(&tuple, "%s:0x%02x", "DO", pin);
+      jsonSensorList[tuple] = ojData;
+      free(tuple);
 
-      // send update to WS
-      {
-         json_t* ojData = json_object();
-         pin2Json(ojData, pin);
-
-         char* tuple {nullptr};
-         asprintf(&tuple, "%s:0x%02x", "DO", pin);
-         jsonSensorList[tuple] = ojData;
-         free(tuple);
-
-         pushDataUpdate("update", 0L);
-      }
-
-      mqttHaPublish(sensors["DO"][pin]);
-      mqttNodeRedPublishSensor(sensors["DO"][pin]);
+      pushDataUpdate("update", 0L);
    }
+
+   mqttHaPublish(sensors["DO"][pin]);
+   mqttNodeRedPublishSensor(sensors["DO"][pin]);
 }
 
 bool Daemon::gpioRead(uint pin)

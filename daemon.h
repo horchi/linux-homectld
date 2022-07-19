@@ -194,6 +194,7 @@ class Daemon : public cWebInterface
 
          // 'DO' specials
 
+         bool invertDO {true};
          OutputMode mode {omAuto};
          uint opt {ooUser};
       };

@@ -1036,7 +1036,7 @@ function updateWidget(sensor, refresh, widget)
          $("#button" + fact.type + fact.address).addClass('widget-main');
          $("#button" + fact.type + fact.address).addClass(classes);
 
-         var fontSize = Math.min(widgetDiv.height(), widgetDiv.width()) * 0.8;
+         var fontSize = Math.min(widgetDiv.height(), widgetDiv.width()) * 0.7;
          $("#button" + fact.type + fact.address).css('font-size', fontSize + 'px');
       }
 

@@ -39,7 +39,7 @@ var infoDialogTimer = null;
 var grouplist = {};
 
 var setupMode = false;
-var kioskMode = false;
+var kioskMode = null;
 var dashboardGroup = 0;
 var kioskBackTime = 0;
 
@@ -47,7 +47,7 @@ $('document').ready(function() {
    daemonState.state = -1;
 
    const urlParams = new URLSearchParams(window.location.href);
-   kioskMode = urlParams.get('kiosk') == 1;
+   kioskMode = urlParams.get('kiosk');
    dashboardGroup = urlParams.get('group') != null ? urlParams.get('group') : 0;
    kioskBackTime = urlParams.get('backTime');
    console.log("kioskMode" + " : " + kioskMode);
@@ -343,7 +343,10 @@ function dispatchMessage(message)
 
       if (jMessage.object.state == "confirm") {
          window.location.replace("index.html");
-      } else {
+      }
+      else {
+         currentPage = 'login';
+         initLogin();
          if (document.getElementById("confirm"))
             document.getElementById("confirm").innerHTML = "<div class=\"infoError\"><b><center>Login fehlgeschlagen</center></b></div>";
       }
@@ -406,7 +409,7 @@ function prepareMenu()
    var html = "";
    // var haveToken = localStorage.getItem(storagePrefix + 'Token') && localStorage.getItem(storagePrefix + 'Token') != "";
 
-   if (kioskMode)
+   if (kioskMode == 1)
       return ;
 
    document.title = config.instanceName;

@@ -24,11 +24,11 @@ GIT_REV      = $(shell git describe --always 2>/dev/null)
 
 LOBJS        = lib/db.o lib/dbdict.o lib/common.o lib/serial.o lib/curl.o lib/thread.o lib/json.o lib/lua.o
 MQTTOBJS     = lib/mqtt.o lib/mqtt_c.o lib/mqtt_pal.o
-OBJS         = $(MQTTOBJS) $(LOBJS) main.o daemon.o wsactions.o gpio.o hass.o websock.o webservice.o deconz.o
+OBJS         = $(MQTTOBJS) $(LOBJS) main.o daemon.o wsactions.o hass.o websock.o webservice.o deconz.o
 
 CFLAGS    	+= $(shell $(SQLCFG) --include)
-OBJS        += specific.o
-W1OBJS       = w1.o lib/common.o lib/thread.o $(MQTTOBJS)
+OBJS        += specific.o gpio.o
+W1OBJS       = w1.o gpio.o lib/common.o lib/thread.o $(MQTTOBJS)
 BMSOBJS      = bms.o lib/common.c lib/thread.o lib/serial.c $(MQTTOBJS)
 
 # main taget

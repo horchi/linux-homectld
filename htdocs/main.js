@@ -39,9 +39,15 @@ var infoDialogTimer = null;
 var grouplist = {};
 
 var setupMode = false;
-var kioskMode = null;
 var dashboardGroup = 0;
 var kioskBackTime = 0;
+
+var kioskMode = null;
+
+//  0 - with menu,    normal dash symbold, normal-widget-height
+//  1 - without menu, big dash symbold,    kiosk-widget-height
+//  2 - with menu,    big dash symbold,    kiosk-widget-height
+//  3 - with menu,    big dash symbold,    normal-widget-height
 
 $('document').ready(function() {
    daemonState.state = -1;
@@ -82,7 +88,8 @@ function onSocketConnect(protocol)
                  { "type" : "active",
                    "user" : user,
                    "page" : currentPage,
-                   "token" : token }
+                   "token" : token,
+                   "url" : window.location.href }
                });
 
    // document.title = "Home Control";
@@ -421,7 +428,7 @@ function prepareMenu()
    html += '<button class="rounded-border button1" onclick="mainMenuSel(\'chart\')">Charts</button>';
    html += '<button class="rounded-border button1" onclick="mainMenuSel(\'schema\')">Schema</button>';
 
-   if (config.vdr === '1')
+   if (config.vdr != '')
       html += '<button id="vdrMenu" class="rounded-border button1" onclick="mainMenuSel(\'vdr\')">VDR</button>';
 
    if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10)
@@ -552,7 +559,9 @@ function mainMenuSel(what)
 
       if (currentPage == "vdr") {
          protocol = "osd2vdr";
-         url = "ws://" + location.hostname + ":4444";
+         // url = "ws://" + location.hostname + ":4444";
+         url = "ws://" + config.vdr;
+         console.log("connecting ", url);
       }
 
       connectWebSocket(url, protocol);

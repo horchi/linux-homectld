@@ -203,9 +203,10 @@ function initWidget(key, widget, fact)
       elem.setAttribute('id', id);
       if (!widgetHeightBase)
          widgetHeightBase = elem.clientHeight;
-      if (!kioskMode && dashboards[actDashboard].options && dashboards[actDashboard].options.heightfactor)
+      var useKioskHeight = kioskMode == 1 || kioskMode == 2;
+      if (!useKioskHeight && dashboards[actDashboard].options && dashboards[actDashboard].options.heightfactor)
          elem.style.height = widgetHeightBase * dashboards[actDashboard].options.heightfactor + 'px';
-      if (kioskMode && dashboards[actDashboard].options && dashboards[actDashboard].options.heightfactorKiosk)
+      if (useKioskHeight && dashboards[actDashboard].options && dashboards[actDashboard].options.heightfactorKiosk)
          elem.style.height = widgetHeightBase * dashboards[actDashboard].options.heightfactorKiosk + 'px';
    }
 

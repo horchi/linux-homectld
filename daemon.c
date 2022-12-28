@@ -3742,7 +3742,7 @@ int Daemon::initArduino()
 
 void Daemon::updateAnalogInput(const char* id, double value, time_t stamp)
 {
-   uint input = atoi(id+1) + aiArduinoFirst;
+   uint input = atoi(id+1) + aiArduinoFirst;  // add aiArduinoFirst ?
 
    // the Ardoino read the analog inputs with a resolution of 12 bits (3.3V => 4095)
 
@@ -3753,6 +3753,9 @@ void Daemon::updateAnalogInput(const char* id, double value, time_t stamp)
    if (!tableValueFacts->find() || !tableValueFacts->hasValue("STATE", "A"))
    {
       tableValueFacts->reset();
+//      tell(eloAlways, "Debug: Input A%d (%s:0x%02x) skipped", input,
+//           sensors["AI"][input].type.c_str(), sensors["AI"][input].address);
+
       return ;
    }
 
@@ -3763,7 +3766,7 @@ void Daemon::updateAnalogInput(const char* id, double value, time_t stamp)
    if (aiSensors[input].round)
    {
       dValue = std::llround(dValue*aiSensors[input].round) / aiSensors[input].round;
-      tell(eloDebug, "Rouned %.2f to %.2f", m * value + b, dValue);
+      tell(eloDebug, "Rounded %.2f to %.2f", m * value + b, dValue);
    }
 
    if (dValue < aiSensors[input].calCutBelow)

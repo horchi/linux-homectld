@@ -82,7 +82,7 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "iconSet",                   ctChoice,  "light",        true,  "WEB Interface", "Status Icon Set", "" },
    { "background",                ctChoice,  "",             false, "WEB Interface", "Background image", "" },
    { "schema",                    ctChoice,  "schema.jpg",   false, "WEB Interface", "Schematische Darstellung", "" },
-   { "vdr",                       ctString,  "",             false, "WEB Interface", "USL of VDRs (Video Disk Recorder) web interface", "Beispiel: vdr:4444" },
+   { "vdr",                       ctString,  "",             false, "WEB Interface", "URL of VDRs (Video Disk Recorder) web interface", "Beispiel: vdr:4444" },
    { "chartRange",                ctNum,     "1.5",          true,  "WEB Interface", "Chart Range", "" },
    { "chartSensors",              ctNum,     "VA:0x0",       true,  "WEB Interface", "Chart Sensors", "" },
 

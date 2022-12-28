@@ -423,7 +423,7 @@ function prepareMenu()
 
    console.log("prepareMenu: " + currentPage);
 
-   html += '<button class="rounded-border button1" onclick="mainMenuSel(\'dashboard\')">Dashboards</button>';
+   html += '<button class="rounded-border button1" onclick="mainMenuSel(\'dashboard\')">Dash</button>';
    html += '<button class="rounded-border button1" onclick="mainMenuSel(\'list\')">Liste</button>';
    html += '<button class="rounded-border button1" onclick="mainMenuSel(\'chart\')">Charts</button>';
    html += '<button class="rounded-border button1" onclick="mainMenuSel(\'schema\')">Schema</button>';

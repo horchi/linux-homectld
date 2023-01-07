@@ -51,6 +51,7 @@ const char* cWebService::events[] =
    "schema",
    "storeschema",
    "storecalibration",
+   "lmcaction",
 
    0
 };

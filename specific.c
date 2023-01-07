@@ -109,10 +109,20 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "errorMailTo",               ctString,  "",                   false, "Mail", "Fehler Mail Empfänger", "Komma getrennte Empfängerliste" },
    { "webUrl",                    ctString,  "",                   false, "Mail", "URL der Visualisierung", "kann mit %weburl% in die Mails eingefügt werden" },
 
+   // deconz
+
    { "deconzHttpUrl",             ctString,  "",                   false, "DECONZ", "deCONZ HTTP URL", "" },
    { "deconzApiKey",              ctString,  "",                   false, "DECONZ", "deCONZ API key", "" },
 
+   // homematic
+
    { "homeMaticInterface",        ctBool,    "false",              false, "HomeMatic CCU", "HomeMatic Interface", "" },
+
+   // LMC (Logitec Media Server)
+
+   { "lmcHost",                   ctString,  "",                   false, "Logitech media Server (squeezebox)", "LMC Host", "" },
+   { "lmcPort",                   ctInteger, "9090",               false, "Logitech media Server (squeezebox)", "LMC Port", "" },
+
 };
 
 //***************************************************************************

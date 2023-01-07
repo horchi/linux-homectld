@@ -38,6 +38,8 @@ var chartBookmarks = {};
 var infoDialogTimer = null;
 var grouplist = {};
 
+var lmcData = {};
+
 var setupMode = false;
 var dashboardGroup = 0;
 var kioskBackTime = 0;
@@ -401,6 +403,14 @@ function dispatchMessage(message)
    else if (event == "alerts") {
       initAlerts(jMessage.object);
    }
+   else if (event == "lmcdata") {
+      lmcData = jMessage.object;
+      if (currentPage == 'lmc')
+         updateLmc();
+   }
+   else if (event == "lmcmenu") {
+      lmcMenu(jMessage.object);
+   }
    else if (event == "ready") {
       if (startPage) {
          mainMenuSel(startPage);
@@ -428,6 +438,9 @@ function prepareMenu()
    html += '<button class="rounded-border button1" onclick="mainMenuSel(\'chart\')">Charts</button>';
    html += '<button class="rounded-border button1" onclick="mainMenuSel(\'schema\')">Schema</button>';
 
+   if (config.lmcHost != '')
+      html += '<button id="vdrMenu" class="rounded-border button1" onclick="mainMenuSel(\'lmc\')">Squeezebox</button>';
+
    if (config.vdr != '')
       html += '<button id="vdrMenu" class="rounded-border button1" onclick="mainMenuSel(\'vdr\')">VDR</button>';
 
@@ -435,7 +448,7 @@ function prepareMenu()
       html += '<button class="rounded-border button1" onclick="mainMenuSel(\'setup\')">Setup</button>';
 
    html +=
-      '<button id="burgerMenu" class="rounded-border button1 menuLogin" onclick="menuBurger()">' +
+      '<button id="burgerMenu" class="rounded-border button1 burgerMenu" onclick="menuBurger()">' +
       ' <div></div>' +
       ' <div></div>' +
       ' <div></div>' +
@@ -599,6 +612,8 @@ function mainMenuSel(what)
       initDashboard();
    else if (currentPage == "vdr")
       initVdr();
+   else if (currentPage == "lmc")
+      initLmc();
    else if (currentPage == "chart") {
       event = "chartdata";
       // console.log("config.chartSensors: " + config.chartSensors);
@@ -1052,4 +1067,10 @@ function fileExist(url)
 function getTotalHeightOf(id)
 {
    return $('#' + id).outerHeight();
+}
+
+function lNow()
+{
+   var currentDateTime = new Date();
+   return currentDateTime.getTime() / 1000;
 }

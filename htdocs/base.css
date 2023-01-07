@@ -91,14 +91,14 @@ button:focus {
     left: 0.5rem;
 }
 
-.menuLogin
+.burgerMenu
 {
     float: right;
     width: 42px;
     padding: 4px 4px !important;
 }
 
-.menuLogin > div {
+.burgerMenu > div {
     height: 2px;
     margin: 4px;
     background-color: white;
@@ -1523,6 +1523,198 @@ table.tableMultiCol tr:nth-child(odd)
 .widgetGauge.participation path.data-arc
 {
     stroke: #3498db;
+}
+
+/* -------------- */
+/* LMC */
+
+.lmcButton
+{
+    margin: 1px;
+    color: white;
+    padding: 0px;
+    background-color: transparent;
+    cursor: pointer;
+    font-size: 3em;
+}
+
+.lmcButton:hover
+{
+    opacity: 0.6;
+}
+
+.lmcWidget
+{
+    /* overflow: hidden; */
+    margin: 2px;
+    background-color: var(--widgetBackground);
+    padding: 4px;
+    box-shadow: 1px 1px 1px 0px var(--shadow);
+}
+
+.lmcContainer
+{
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: row;
+/*    height: -webkit-fill-available;
+    height: -moz-available;*/
+    height: 100%;
+}
+
+.lmcLeftColumn
+{
+    width: 50%;
+    display: flex;
+    flex-direction: column;
+}
+
+.lmcRightColumn
+{
+    width: 50%;
+    display: flex;
+    flex-direction: column;
+}
+
+.lmcControl
+{
+    display: flex;
+    flex-wrap: wrap;
+    margin: 2px;
+    background-color: var(--widgetBackground);
+    box-shadow: 1px 1px 1px 0px var(--shadow);
+}
+
+.lmcCurrentTrack
+{
+    font-size: x-large;
+    margin: 2px;
+    background-color: var(--widgetBackground);
+    padding: 4px;
+    box-shadow: 1px 1px 1px 0px var(--shadow);
+}
+
+.lmcCurrentTrack > div
+{
+}
+
+.lmcCurrentTrack > div:nth-child(n+2)
+{
+    white-space: nowrap;
+}
+
+.lmcCurrentTitle
+{
+    font-size: xxx-large;
+    font-weight: bold;
+    color: var(--yellow2);
+    line-height: 1em;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    text-overflow: ellipsis;
+}
+
+.lmcCurrentArtist
+{
+    font-size: xx-large;
+    color: var(--yellow2);
+}
+
+.lmcPlaylist
+{
+    white-space: nowrap;
+    overflow: auto;
+    flex-grow: 1;
+    margin: 2px;
+}
+
+.lmcPlaylist > div
+{
+    display: flex;
+    background-color: var(--widgetBackground);
+    margin: 2px;
+    padding: 2px;
+    height: 60px;
+    align-items: center;
+}
+
+.lmcPlaylist > div > span:nth-child(1)
+{
+    width: 55px;
+    text-align: center;
+}
+
+.lmcPlaylist > div > span:nth-child(2)
+{
+    width: 100%;
+    margin-left: 10px;
+    overflow: hidden;
+}
+
+.lmcPlaylist > div > span:nth-child(3)
+{
+    font-size: xxx-large;
+    color: var(--yellow2);
+}
+
+.lmcPlaylist > div > span > img
+{
+    height: 55px;
+    width: auto;
+}
+
+.lmcPlaylist > div > span > div:nth-child(1)
+{
+    font-size: large;
+}
+
+.lmcMenu
+{
+    white-space: nowrap;
+    overflow: auto;
+    flex-grow: 1;
+    margin: 2px;
+}
+
+.lmcMenu > div
+{
+    /* line-height: 30px;
+    vertical-align: middle; */
+    padding: 12px;
+    background-color: var(--widgetBackground);
+}
+
+.lmcCover
+{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+.lmcCover > img
+{
+    width: 95%;
+    height: 95%;
+    object-fit: contain;
+}
+
+.lmcTrackProgress
+{
+  background-color: var(--light3);
+  border-radius: 10px;
+  margin-top: 8px;
+}
+
+.lmcTrackProgressBar
+{
+  width: 0%;
+  height: 10px;
+  background-color: var(--yellow2);
+  border-radius: 10px;
 }
 
 /* -------------- */

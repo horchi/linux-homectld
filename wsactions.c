@@ -48,7 +48,14 @@ int Daemon::dispatchClientRequest()
 
          switch (event)
          {
-            case evLogin:           status = performLogin(oObject);                  break;
+            case evLogin:
+            {
+               status = performLogin(oObject);
+               long client = getLongFromJson(oObject, "client");
+               json_t* oJson = json_object();
+               pushOutMessage(oJson, "ready", client);
+               break;
+            }
             case evLogout:          status = performLogout(oObject);                 break;
             case evInit:
             case evPageChange:      status = performPageChange(oObject, client);     break;
@@ -81,6 +88,7 @@ int Daemon::dispatchClientRequest()
             case evStoreSchema:     status = storeSchema(oObject, client);           break;
             case evStoreChartbookmarks: status = storeChartbookmarks(oObject, client); break;
             case evStoreCalibration:    status = storeCalibration(oObject, client);    break;
+            case evLmcAction:           status = performLmcAction(oObject, client);    break;
             default:
             {
                if (dispatchSpecialRequest(event,oObject, client) == ignore)
@@ -148,6 +156,7 @@ bool Daemon::checkRights(long client, Event event, json_t* oObject)
       case evSchema:              return rights & urView;
       case evStoreCalibration:    return rights & urSettings;
       case evStoreSchema:         return rights & urSettings;
+      case evLmcAction:           return rights & urControl;
 
       default: break;
    }
@@ -313,6 +322,8 @@ int Daemon::performLogin(json_t* oObject)
    oJson = json_array();
    commands2Json(oJson);
    pushOutMessage(oJson, "commands", client);
+
+   lmcUpdates(client);
 
    performData(client, "init");
 

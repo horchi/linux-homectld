@@ -483,6 +483,7 @@ int Daemon::init()
    performMqttRequests();
    initScripts();
    loadStates();           // load states of outputs on last exit
+   lmcInit();
 
    if (!isEmpty(deconz.getHttpUrl()) && !isEmpty(deconz.getApiKey()))
       deconz.initDevices();
@@ -543,6 +544,7 @@ int Daemon::exit()
    for (auto it = sensors["DO"].begin(); it != sensors["DO"].end(); ++it)
       gpioWrite(it->first, false, false);
 
+   lmcExit();
    deconz.exit();
    mqttDisconnect();
    exitDb();
@@ -769,9 +771,7 @@ int Daemon::initScripts()
          unit = "zst";
 
       auto tuple = split(script.name, '.');
-      addValueFact(addr, "SC", 1, !isEmpty(title) ? title : script.name.c_str(), unit,
-                   tuple[0].c_str(), urControl, choices);
-
+      addValueFact(addr, "SC", 1, !isEmpty(title) ? title : script.name.c_str(), unit, tuple[0].c_str(), urControl, choices);
       tell(eloAlways, "Init script value of 'SC:%d' to %.2f", addr, value);
 
       sensors["SC"][addr].kind = kind;
@@ -843,7 +843,7 @@ int Daemon::callScript(int addr, const char* command)
       json_t* ojData = json_object();
       sensor2Json(ojData, "SC", addr);
 
-      char* tuple {nullptr};
+      char* tuple {};
       asprintf(&tuple, "%s:0x%02x", "SC", addr);
       jsonSensorList[tuple] = ojData;
       free(tuple);
@@ -1568,6 +1568,7 @@ int Daemon::readConfiguration(bool initial)
    mqttSensorTopics.push_back(TARGET "2mqtt/light/+/set/#");
    mqttSensorTopics.push_back(TARGET "2mqtt/command/#");
    mqttSensorTopics.push_back(TARGET "2mqtt/nodered/#");
+   mqttSensorTopics.push_back(TARGET "2mqtt/scripts/#");
 
    getConfigItem("arduinoTopic", arduinoTopic, "");
 
@@ -1575,6 +1576,9 @@ int Daemon::readConfiguration(bool initial)
       mqttSensorTopics.push_back(std::string(arduinoTopic) + "/out");
 
    getConfigItem("homeMaticInterface", homeMaticInterface, false);
+
+   getConfigItem("lmcHost", lmcHost, "");
+   getConfigItem("lmcPort", lmcPort, 9090);
 
    // Home Automation MQTT
 
@@ -1662,6 +1666,7 @@ int Daemon::meanwhile()
    dispatchDeconz();
    performMqttRequests();
    performJobs();
+   performLmcUpdates();
 
    return done;
 }

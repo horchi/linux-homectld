@@ -53,6 +53,7 @@ class cWebService
          evSchema,
          evStoreSchema,
          evStoreCalibration,
+         evLmcAction,
 
          evCount
       };

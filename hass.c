@@ -72,13 +72,21 @@ int Daemon::mqttHaPublishSensor(SensorData& sensor, bool forceConfig)
    if (sensor.type == "")
       return done;
 
+   // publish actual value
+
+   if (!mqttWriter->isConnected())
+   {
+      tell(eloAlways, "Aborting MQTT publish, not connected!");
+      return fail;
+   }
+
    // check if state topic already exists
 
    MemoryStruct message;
    std::string tp;
    std::string sName = sensor.name;
 
-   IoType iot = sensor.type == "DO" || sensor.type == "SC" ? iotLight : iotSensor;
+   IoType iot = sensor.type == "DZL" ? iotLight : iotSensor;
 
    sName = strReplace("ß", "ss", sName);
    sName = strReplace("ü", "ue", sName);
@@ -92,11 +100,10 @@ int Daemon::mqttHaPublishSensor(SensorData& sensor, bool forceConfig)
    sDataTopic = strReplace("<NAME>", sName, sDataTopic);
    sDataTopic = strReplace("<TYPE>", iot == iotLight ? "light" : "sensor", sDataTopic);
 
+   // mqttDataTopic like "XXX2mqtt/<TYPE>/<NAME>/state"
+
    if (mqttHaveConfigTopic && sensor.title.length())
    {
-      if (!mqttWriter->isConnected())
-         return fail;
-
       // Interface description:
       //   https://www.home-assistant.io/docs/mqtt/discovery/
 
@@ -159,11 +166,6 @@ int Daemon::mqttHaPublishSensor(SensorData& sensor, bool forceConfig)
          free(configJson);
       }
    }
-
-   // publish actual value
-
-   if (!mqttWriter->isConnected())
-      return fail;
 
    json_t* oValue = json_object();
 

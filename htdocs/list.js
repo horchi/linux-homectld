@@ -95,9 +95,9 @@ function initList()
 
    // calc container size
 
-   $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('stateContainer') - 10);
+   $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('stateContainer') - 5);
    window.onresize = function() {
-      $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('stateContainer') - 10);
+      $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('stateContainer') - 5);
    };
 }
 

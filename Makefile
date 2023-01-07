@@ -22,9 +22,9 @@ GIT_REV      = $(shell git describe --always 2>/dev/null)
 
 # object files
 
-LOBJS        = lib/db.o lib/dbdict.o lib/common.o lib/serial.o lib/curl.o lib/thread.o lib/json.o lib/lua.o
+LOBJS        = lib/db.o lib/dbdict.o lib/common.o lib/serial.o lib/curl.o lib/thread.o lib/json.o lib/lua.o lib/tcpchannel.o
 MQTTOBJS     = lib/mqtt.o lib/mqtt_c.o lib/mqtt_pal.o
-OBJS         = $(MQTTOBJS) $(LOBJS) main.o daemon.o wsactions.o hass.o websock.o webservice.o deconz.o
+OBJS         = $(MQTTOBJS) $(LOBJS) main.o daemon.o wsactions.o hass.o websock.o webservice.o deconz.o lmc.o lmccom.o lmctag.o
 
 CFLAGS    	+= $(shell $(SQLCFG) --include)
 OBJS        += specific.o gpio.o

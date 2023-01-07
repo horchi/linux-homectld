@@ -33,7 +33,7 @@ function initDashboard(update = false)
    if (!update) {
       $('#container').removeClass('hidden');
       $('#dashboardMenu').removeClass('hidden');
-      $('#dashboardMenu').html('');
+      $('#dashboardMenu').empty();
    }
 
    if (!Object.keys(dashboards).length)

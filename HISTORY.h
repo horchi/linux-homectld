@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.0.6"
-#define VERSION_DATE "24.10.2022"
+#define _VERSION     "0.0.7"
+#define VERSION_DATE "07.02.2023"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,9 @@
 
 /*
  * ------------------------------------
+
+2023-01-07: version 0.0.7
+   - minor improvements like vdr url
 
 2022-10-24: version 0.0.6
    - minor improvements like vdr url

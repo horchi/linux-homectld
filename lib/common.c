@@ -385,7 +385,7 @@ int createMd5OfFile(const char* path, const char* name, md5* md5)
 
    if (!(f = fopen(file, "r")))
    {
-      tell(0, "Fatal: Cannot build MD5 of '%s'; Error was '%s'", file, strerror(errno));
+      tell(eloAlways, "Fatal: Cannot build MD5 of '%s'; Error was '%s'", file, strerror(errno));
       free(file);
       return fail;
    }

@@ -322,3 +322,10 @@ Overview of IO pins
 apt install python3-gpiozero
 pinout
 ```
+
+# Notiten
+
+Rolladen an Hommatic CCU mit homectld ID 2 'HMB:2' komplette schließen
+mosquitto_pub --quiet -L mqtt://192.168.200.101:1883/homectld2mqtt/nodered -m '{ "id":"HMB:2","bri":0 }'
+auf 50%
+mosquitto_pub --quiet -L mqtt://192.168.200.101:1883/homectld2mqtt/nodered -m '{ "id":"HMB:2","bri":50 }'

@@ -1,7 +1,10 @@
 #! /bin/bash
 
+# like status
 COMMAND="$1"
+# like 4
 ADDRESS="$2"
+# like mqtt://192.168.200.101:1883/homectld2mqtt/scripts
 MQTTURL="$3"
 
 case "${COMMAND}" in
@@ -29,6 +32,7 @@ case "${COMMAND}" in
 
    *)
       echo "Usage: {start|stop|status|toggle}"
+      exit 1
       ;;
 
 esac
@@ -49,6 +53,6 @@ if [ "${COMMAND}" != "init" ]; then
    mosquitto_pub --quiet -L ${MQTTURL} -m "{ \"type\":\"SC\",\"address\":${ADDRESS},\"kind\":\"status\",\"state\":${STATE} }"
 fi
 
-echo -n "{ \"type\":\"SC\",\"address\":${ADDRESS},\"kind\":\"status\",\"value\":${STATE} }"
+echo "mosquitto_pub --quiet -L ${MQTTURL} -m { \"type\":\"SC\",\"address\":${ADDRESS},\"kind\":\"status\",\"value\":${STATE} }"
 
 exit ${RETVAL}

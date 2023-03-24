@@ -345,6 +345,78 @@ unsigned int getHostId()
 
 #ifdef USEMD5
 
+#include <openssl/evp.h>
+
+#if OPENSSL_VERSION_MAJOR >= 3
+
+int createMd5(const char* buf, md5* md5)
+{
+   EVP_MD_CTX* mdctx;
+   unsigned char* md5_digest {};
+   unsigned int md5_digest_len = EVP_MD_size(EVP_md5());
+
+   mdctx = EVP_MD_CTX_new();
+   EVP_DigestInit_ex(mdctx, EVP_md5(), NULL);
+
+   EVP_DigestUpdate(mdctx, buf, strlen(buf));
+
+   md5_digest = (unsigned char*)OPENSSL_malloc(md5_digest_len);
+   EVP_DigestFinal_ex(mdctx, md5_digest, &md5_digest_len);
+   EVP_MD_CTX_free(mdctx);
+
+   for (uint n = 0; n < md5_digest_len; n++)
+      sprintf(md5+2*n, "%02x", md5_digest[n]);
+
+   md5[sizeMd5] = 0;
+
+   return done;
+}
+
+int createMd5OfFile(const char* path, const char* name, md5* md5)
+{
+   EVP_MD_CTX* mdctx;
+   unsigned char* md5_digest;
+   unsigned int md5_digest_len = EVP_MD_size(EVP_md5());
+
+   char* file {};
+   asprintf(&file, "%s/%s", path, name);
+
+   FILE* f {};
+
+   if (!(f = fopen(file, "r")))
+   {
+      tell(0, "Fatal: Cannot build MD5 of '%s'; Error was '%s'", file, strerror(errno));
+      free(file);
+      return fail;
+   }
+
+   free(file);
+
+   char buffer[1000];
+   int nread = 0;
+
+   mdctx = EVP_MD_CTX_new();
+   EVP_DigestInit_ex(mdctx, EVP_md5(), NULL);
+
+   while ((nread = fread(buffer, 1, 1000, f)) > 0)
+      EVP_DigestUpdate(mdctx, buffer, nread);
+
+   fclose(f);
+
+   md5_digest = (unsigned char*)OPENSSL_malloc(md5_digest_len);
+   EVP_DigestFinal_ex(mdctx, md5_digest, &md5_digest_len);
+   EVP_MD_CTX_free(mdctx);
+
+   for (uint n = 0; n < md5_digest_len; n++)
+      sprintf(md5+2*n, "%02x", md5_digest[n]);
+
+   md5[sizeMd5] = 0;
+
+   return success;
+}
+
+#else
+
 int createMd5(const char* buf, md5* md5)
 {
    MD5_CTX c;
@@ -375,7 +447,7 @@ int createMd5OfFile(const char* path, const char* name, md5* md5)
 
    if (!(f = fopen(file, "r")))
    {
-      tell(eloAlways, "Fatal: Can't access '%s'; %s", file, strerror(errno));
+      tell(eloAlways, "Fatal: Cannot build MD5 of '%s'; Error was '%s'", file, strerror(errno));
       free(file);
       return fail;
    }
@@ -398,6 +470,7 @@ int createMd5OfFile(const char* path, const char* name, md5* md5)
 
    return success;
 }
+#endif // OPENSSL_NO_DEPRECATED_3_0
 
 #endif // USEMD5
 

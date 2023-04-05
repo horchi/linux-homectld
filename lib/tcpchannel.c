@@ -586,7 +586,7 @@ int TcpChannel::writeCmd(int command, const char* buf, int bufLen)
    if (buf && !bufLen)
       bufLen = strlen(buf);
 
-   tell(eloDebug, "Writing (%ld) header bytes, command (%d), size (%d)", sizeof(Header), command, bufLen);
+   tell(eloDebug, "Writing (%zu) header bytes, command (%d), size (%d)", sizeof(Header), command, bufLen);
 
    header.command = htonl(command);
    header.size = htonl(bufLen);

@@ -3747,7 +3747,8 @@ int Daemon::initArduino()
 
 void Daemon::updateAnalogInput(const char* id, double value, time_t stamp)
 {
-   uint input = atoi(id+1) + aiArduinoFirst;  // add aiArduinoFirst ?
+   // uint input = atoi(id+1) + aiArduinoFirst;
+   uint input = atoi(id+1); // + aiArduinoFirst;
 
    // the Ardoino read the analog inputs with a resolution of 12 bits (3.3V => 4095)
 

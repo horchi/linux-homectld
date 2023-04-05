@@ -390,7 +390,7 @@ int LmcCom::execute(const char* command, Parameters* pars)
 {
    LmcLock;
 
-   tell(eloDetail, "Exectuting '%s' with %ld parameters", command, pars ? pars->size() : 0);
+   tell(eloDetail, "Exectuting '%s' with %zu parameters", command, pars ? pars->size() : 0);
    request(command, pars);
    write("\n");
 
@@ -495,7 +495,7 @@ int LmcCom::responseP(char*& result)
          if (strcmp(p, "?") != 0)
             result = strdup(p);
 
-         tell(eloDebug2, "<- (response %ld bytes) [%s]", strlen(buf), unescape(p));
+         tell(eloDebug2, "<- (response %zu bytes) [%s]", strlen(buf), unescape(p));
          status = success;
       }
       else
@@ -540,7 +540,7 @@ int LmcCom::response(char* result, int max)
          if (result && max && strcmp(p,"?") != 0)
             sprintf(result, "%.*s", max, p);
 
-         tell(eloDebug2, "<- (response %ld bytes) [%s]", strlen(buf), unescape(p));
+         tell(eloDebug2, "<- (response %zu bytes) [%s]", strlen(buf), unescape(p));
       }
       else
       {

@@ -8,13 +8,21 @@
 
 # Responce:
 #   Responce in JSON Format, expected elements are_
-#     type      - always SC                       (madatory / elemet type string)
-#     address   - mainly taken from parameter 2   (madatory / elemet type integer)
-#     kind      - kind sensor {status|value|text} (madatory / elemet type string)
-#     value     -                                 (optional one of state, value or text must set / elemet type real)
-#     state     -                                 (optional one of state, value or text must set / elemet type boolean)
-#     text      -                                 (optional one of state, value or text must set / elemet type string)
-#     unit      -                                 (optional / elemet type string)
+#     type      - always SC                       (madatory / element type string)
+#     address   - mainly taken from parameter 2   (madatory / element type integer)
+#     kind      - kind sensor {status|value|text} (madatory / element type string)
+#     value     -                                 (optional one of state, value or text must set / element type real)
+#     state     -                                 (optional one of state, value or text must set / element type boolean)
+#     text      -                                 (optional one of state, value or text must set / element type string)
+#     unit      -                                 (optional / element type string)
+
+SYSTEMCTL=systemctl
+
+# special for chroot setup on odroid
+
+if [[ -f /storage/bin/systemctl.sh ]]; then
+   SYSTEMCTL=/storage/bin/systemctl.sh
+fi
 
 COMMAND="$1"
 ADDRESS="$2"
@@ -23,19 +31,19 @@ SERVICE="$4"
 
 case "$COMMAND" in
     start)
-        systemctl start --quiet ${SERVICE}
+        ${SYSTEMCTL} start --quiet ${SERVICE}
         ;;
 
     stop)
-        systemctl stop --quiet ${SERVICE}
+        ${SYSTEMCTL} stop --quiet ${SERVICE}
         ;;
 
     toggle)
-        systemctl is-active --quiet ${SERVICE}
+        ${SYSTEMCTL} is-active --quiet ${SERVICE}
         if [ $? == 0 ]; then
-            systemctl stop --quiet ${SERVICE}
+            ${SYSTEMCTL} stop --quiet ${SERVICE}
         else
-            systemctl start --quiet ${SERVICE}
+            ${SYSTEMCTL} start --quiet ${SERVICE}
         fi
         ;;
 
@@ -51,7 +59,7 @@ case "$COMMAND" in
 
 esac
 
-systemctl is-active --quiet ${SERVICE}
+${SYSTEMCTL} is-active --quiet ${SERVICE}
 RETVAL="$?"
 
 if [ ${RETVAL} == 0 ]; then

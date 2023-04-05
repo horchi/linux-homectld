@@ -15,11 +15,10 @@
 
 int Daemon::lmcInit()
 {
-   if (isEmpty(lmcHost))
+   if (isEmpty(lmcHost) || isEmpty(lmcPlayerMac))
       return done;
 
-   const char mac[100] {"b8:27:eb:91:96:1b"};
-   lmc = new LmcCom(mac);
+   lmc = new LmcCom(lmcPlayerMac);
 
    if (lmc->open(lmcHost, lmcPort) != success)
    {

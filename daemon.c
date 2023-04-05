@@ -1579,6 +1579,7 @@ int Daemon::readConfiguration(bool initial)
 
    getConfigItem("lmcHost", lmcHost, "");
    getConfigItem("lmcPort", lmcPort, 9090);
+   getConfigItem("lmcPlayerMac", lmcPlayerMac, "");
 
    // Home Automation MQTT
 

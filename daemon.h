@@ -610,6 +610,7 @@ class Daemon : public cWebInterface
 
       char* lmcHost {};
       int lmcPort {9090};
+      char* lmcPlayerMac {};
 
       struct AiSensorConfig
       {

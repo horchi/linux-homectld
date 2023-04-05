@@ -122,6 +122,7 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
 
    { "lmcHost",                   ctString,  "",                   false, "Logitech media Server (squeezebox)", "LMC Host", "" },
    { "lmcPort",                   ctInteger, "9090",               false, "Logitech media Server (squeezebox)", "LMC Port", "" },
+   { "lmcPlayerMac",              ctString,  "",                   false, "Logitech media Server (squeezebox)", "MAC of LMC Player ", "" },
 
 };
 

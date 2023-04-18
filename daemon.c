@@ -381,7 +381,7 @@ int Daemon::init()
 
    // initialize the dictionary
 
-   char* dictPath {nullptr};
+   char* dictPath {};
    asprintf(&dictPath, "%s/database.dat", confDir);
 
    if (dbDict.in(dictPath) != success)
@@ -520,7 +520,7 @@ int Daemon::initLocale()
    // set a locale to "" means 'reset it to the environment'
    // as defined by the ISO-C standard the locales after start are C
 
-   const char* locale {nullptr};
+   const char* locale {};
 
    setlocale(LC_ALL, "");
    locale = setlocale(LC_ALL, 0);  // 0 for query the setting
@@ -650,7 +650,7 @@ int Daemon::initInput(uint pin, const char* name)
 
 int Daemon::initScripts()
 {
-   char* path {nullptr};
+   char* path {};
    int count {0};
 
    // clear removed scripts ...
@@ -661,7 +661,7 @@ int Daemon::initScripts()
    {
       if (!fileExists(tableScripts->getStrValue("PATH")))
       {
-         char* stmt {nullptr};
+         char* stmt {};
          asprintf(&stmt, "%s = '%s'", tableScripts->getField("PATH")->getDbName(), tableScripts->getStrValue("PATH"));
          tableScripts->deleteWhere("%s", stmt);
          free(stmt);
@@ -678,7 +678,7 @@ int Daemon::initScripts()
 
       if (!tableScripts->find())
       {
-         char* stmt {nullptr};
+         char* stmt {};
          asprintf(&stmt, "%s = %ld and %s = 'SC'",
                   tableValueFacts->getField("ADDRESS")->getDbName(), tableValueFacts->getIntValue("ADDRESS"),
                   tableValueFacts->getField("TYPE")->getDbName());
@@ -705,9 +705,9 @@ int Daemon::initScripts()
 
    for (const auto& script : scripts)
    {
-      char* scriptPath {nullptr};
+      char* scriptPath {};
       uint addr {0};
-      char* cmd {nullptr};
+      char* cmd {};
       std::string result;
 
       asprintf(&scriptPath, "%s/%s", path, script.name.c_str());
@@ -821,7 +821,7 @@ int Daemon::callScript(int addr, const char* command)
       return fail;
    }
 
-   char* cmd {nullptr};
+   char* cmd {};
    const char* url = strrchr(mqttUrl, '/');
    if (url)
       url++;
@@ -1470,7 +1470,7 @@ int Daemon::readConfiguration(bool initial)
    }
    else
    {
-      char* elo {nullptr};
+      char* elo {};
       getConfigItem("eloquence", elo, "");
       eloquence = Elo::stringToEloquence(elo);
       tell(eloDetail, "Info: Eloquence configured to '%s' => 0x%04x", elo, eloquence);
@@ -1486,11 +1486,11 @@ int Daemon::readConfiguration(bool initial)
    getConfigItem("webSsl", webSsl);
    getConfigItem("iconSet", iconSet, "light");
 
-   char* tmp {nullptr};
+   char* tmp {};
    getConfigItem("schema", tmp);
    free(tmp);
 
-   char* port {nullptr};
+   char* port {};
    asprintf(&port, "%d", webPort);
    if (isEmpty(webUrl) || !strstr(webUrl, port))
    {
@@ -1501,7 +1501,7 @@ int Daemon::readConfiguration(bool initial)
 
    // getConfigItem("invertDO", invertDO, yes);
 
-   char* addrs {nullptr};
+   char* addrs {};
    getConfigItem("addrsDashboard", addrs, "");
    addrsDashboard = split(addrs, ',');
    free(addrs);
@@ -1516,14 +1516,14 @@ int Daemon::readConfiguration(bool initial)
 
    // DECONZ
 
-   char* deconzUrl {nullptr};
+   char* deconzUrl {};
    getConfigItem("deconzHttpUrl", deconzUrl, "");
 
    if (!isEmpty(deconzUrl))
    {
       deconz.setHttpUrl(deconzUrl);
       free(deconzUrl);
-      char* deconzKey {nullptr};
+      char* deconzKey {};
       getConfigItem("deconzApiKey", deconzKey, "");
 
       if (!isEmpty(deconzKey))
@@ -1560,7 +1560,7 @@ int Daemon::readConfiguration(bool initial)
       mqttDisconnect();
    }
 
-   char* sensorTopics {nullptr};
+   char* sensorTopics {};
    getConfigItem("mqttSensorTopics", sensorTopics, "+/w1/#");
    mqttSensorTopics = split(sensorTopics, ',');
    free(sensorTopics);
@@ -1881,7 +1881,7 @@ int Daemon::process()
 
       const char* type = tableValueFacts->getStrValue("TYPE");
       uint address = tableValueFacts->getIntValue("ADDRESS");
-      char* key {nullptr};
+      char* key {};
       asprintf(&key, "%s:0x%02x", type, address);
 
       if (!sensors[type][address].last)
@@ -2033,7 +2033,7 @@ void Daemon::afterUpdate()
 {
    sensorAlertCheck(lastSampleTime);
 
-   char* path {nullptr};
+   char* path {};
    asprintf(&path, "%s/after-update.sh", confDir);
 
    if (fileExists(path))
@@ -2237,7 +2237,7 @@ int Daemon::performAlertCheck(cDbRow* alertRow, time_t now, int recurse, int for
 
 int Daemon::add2AlertMail(cDbRow* alertRow, const char* title, double value, const char* unit)
 {
-   char* sensor {nullptr};
+   char* sensor {};
 
    std::string subject = alertRow->getStrValue("MSUBJECT");
    std::string body = alertRow->getStrValue("MBODY");
@@ -2451,7 +2451,7 @@ int Daemon::scheduleAggregate()
 
 int Daemon::aggregate()
 {
-   char* stmt {nullptr};
+   char* stmt {};
    time_t history = time(0) - (aggregateHistory * tmeSecondsPerDay);
    int aggCount {0};
 
@@ -2501,7 +2501,7 @@ int Daemon::aggregate()
 
 int Daemon::sendMail(const char* receiver, const char* subject, const char* body, const char* mimeType)
 {
-   char* command {nullptr};
+   char* command {};
    int result {0};
 
    asprintf(&command, "%s '%s' '%s' '%s' '%s'", mailScript, subject, body, mimeType, receiver);
@@ -2522,7 +2522,7 @@ int Daemon::sendMail(const char* receiver, const char* subject, const char* body
 
 int Daemon::loadHtmlHeader()
 {
-   char* file {nullptr};
+   char* file {};
 
    // load only once at first call
 
@@ -2700,7 +2700,7 @@ int Daemon::dispatchNodeRedCommands(const char* topic, json_t* jObject)
    if (json_is_array(jObject))
    {
       size_t index {0};
-      json_t* jCommand {nullptr};
+      json_t* jCommand {};
 
       json_array_foreach(jObject, index, jCommand)
          dispatchNodeRedCommand(jCommand);
@@ -2777,7 +2777,7 @@ int Daemon::updateWeather()
 
    MemoryStruct data;
    int size {0};
-   char* url {nullptr};
+   char* url {};
 
    asprintf(&url, "http://api.openweathermap.org/data/2.5/forecast?appid=%s&units=metric&lang=de&lat=%f&lon=%f",
             openWeatherApiKey, latitude, longitude);
@@ -2813,7 +2813,7 @@ int Daemon::updateWeather()
    json_object_set_new(jWeather, "city", json_string(city));
 
    size_t index {0};
-   json_t* jObj {nullptr};
+   json_t* jObj {};
 
    json_array_foreach(jArray, index, jObj)
    {
@@ -2840,7 +2840,7 @@ int Daemon::updateWeather()
       sensor2Json(ojData, "WEA", 1);
       json_object_set_new(ojData, "text", json_string(sensors["WEA"][1].text.c_str()));
 
-      char* tuple {nullptr};
+      char* tuple {};
       asprintf(&tuple, "%s:0x%02x", "WEA", 1);
       jsonSensorList[tuple] = ojData;
       free(tuple);
@@ -2958,7 +2958,7 @@ int Daemon::dispatchDeconz()
          if (sensor->battery != na)
             json_object_set_new(ojData, "battery", json_integer(sensor->battery));
 
-         char* tuple {nullptr};
+         char* tuple {};
          asprintf(&tuple, "%s:0x%02x", type, address);
          jsonSensorList[tuple] = ojData;
          free(tuple);
@@ -2995,7 +2995,7 @@ int Daemon::dispatchHomematicRpcResult(const char* message)
       tell(eloHomeMatic, "<- (home-matic) '%s'", message);
 
    size_t index {0};
-   json_t* jItem {nullptr};
+   json_t* jItem {};
 
    json_array_foreach(jData, index, jItem)
    {
@@ -3125,7 +3125,7 @@ int Daemon::dispatchHomematicEvents(const char* message)
       sensor2Json(ojData, type, address);
       json_object_set_new(ojData, "value", json_real(value));
 
-      char* tuple {nullptr};
+      char* tuple {};
       asprintf(&tuple, "%s:0x%02lx", type, address);
       jsonSensorList[tuple] = ojData;
       free(tuple);
@@ -3180,13 +3180,15 @@ int Daemon::dispatchOther(const char* topic, const char* message)
       }
 
       addValueFact(address, type, 1, title, unit, title);
+
+      sensors[type][address].last = time(0);
    }
    else  // SC - script sensor
    {
       sensors["SC"][address].working = false;
+      sensors[type][address].last = time(0) + 1;   // workaround due to async result of SC (if last is identical it's never stored)
    }
 
-   sensors[type][address].last = time(0);
    sensors[type][address].valid = true;
    sensors[type][address].kind = getStringFromJson(jData, "kind", "value");
    sensors[type][address].state = getBoolFromJson(jData, "state");
@@ -3209,7 +3211,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
       if (sensors[type][address].image.length())
          json_object_set_new(ojData, "image", json_string(sensors[type][address].image.c_str()));
 
-      char* tuple {nullptr};
+      char* tuple {};
       asprintf(&tuple, "%s:0x%02x", type, address);
       jsonSensorList[tuple] = ojData;
       free(tuple);
@@ -3270,7 +3272,7 @@ int Daemon::getConfigItem(const char* name, int& value, int def)
 
 int Daemon::getConfigItem(const char* name, long& value, long def)
 {
-   char* txt {nullptr};
+   char* txt {};
 
    getConfigItem(name, txt);
 
@@ -3300,7 +3302,7 @@ int Daemon::setConfigItem(const char* name, long value)
 
 int Daemon::getConfigItem(const char* name, double& value, double def)
 {
-   char* txt {nullptr};
+   char* txt {};
 
    getConfigItem(name, txt);
 
@@ -3329,7 +3331,7 @@ int Daemon::setConfigItem(const char* name, double value)
 
 int Daemon::getConfigItem(const char* name, bool& value, bool def)
 {
-   char* txt {nullptr};
+   char* txt {};
 
    getConfigItem(name, txt);
 
@@ -3361,7 +3363,7 @@ int Daemon::setConfigItem(const char* name, bool value)
 
 int Daemon::getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges)
 {
-   char* tmp {nullptr};
+   char* tmp {};
 
    getConfigItem(name, tmp, "");
    ranges.clear();
@@ -3443,7 +3445,7 @@ int Daemon::toggleIo(uint addr, const char* type, int state, int bri, int transi
       sensors[type][addr].state = newState;
       mqttNodeRedPublishAction(sensors[type][addr], value);
 
-      /* char* request {nullptr};
+      /* char* request {};
       asprintf(&request, "{ \"method\" : \"getDeviceDescription\", \"parameters\" : [\"%s\"] }", uuid);
       mqttWriter->write(TARGET "2mqtt/homematic/rpccall", request);
       tell(eloHomeMatic, "-> (home-matic) '%s' to '%s'", TARGET "2mqtt/homematic/rpccall", request);
@@ -3496,7 +3498,7 @@ int Daemon::toggleOutputMode(uint pin)
       json_t* ojData = json_object();
       pin2Json(ojData, pin);
 
-      char* tuple {nullptr};
+      char* tuple {};
       asprintf(&tuple, "%s:0x%02x", "DO", pin);
       jsonSensorList[tuple] = ojData;
       free(tuple);
@@ -3530,7 +3532,7 @@ void Daemon::gpioWrite(uint pin, bool state, bool store)
       json_t* ojData = json_object();
       pin2Json(ojData, pin);
 
-      char* tuple {nullptr};
+      char* tuple {};
       asprintf(&tuple, "%s:0x%02x", "DO", pin);
       jsonSensorList[tuple] = ojData;
       free(tuple);
@@ -3571,7 +3573,7 @@ void Daemon::publishSpecialValue(int addr)
    if (sensors["SP"][addr].disabled)
       json_object_set_new(ojData, "disabled", json_boolean(true));
 
-   char* tuple {nullptr};
+   char* tuple {};
    asprintf(&tuple, "SP:0x%02x", addr);
    jsonSensorList[tuple] = ojData;
    free(tuple);
@@ -3681,7 +3683,7 @@ int Daemon::dispatchArduinoMsg(const char* message)
    {
       json_t* jArray = getObjectFromJson(jObject, "analog");
       size_t index {0};
-      json_t* jValue {nullptr};
+      json_t* jValue {};
 
       json_array_foreach(jArray, index, jValue)
       {
@@ -3797,7 +3799,7 @@ void Daemon::updateAnalogInput(const char* id, double value, time_t stamp)
    json_object_set_new(ojData, "value", json_real(sensors["AI"][input].value));
    json_object_set_new(ojData, "plain", json_real(value)); // plain sensor value (without calibration conversion)
 
-   char* tuple {nullptr};
+   char* tuple {};
    asprintf(&tuple, "AI:0x%02x", input);
    jsonSensorList[tuple] = ojData;
    free(tuple);
@@ -3823,7 +3825,7 @@ int Daemon::dispatchW1Msg(const char* message)
    }
 
    size_t index {0};
-   json_t* jValue {nullptr};
+   json_t* jValue {};
 
    json_array_foreach(jArray, index, jValue)
    {
@@ -3876,7 +3878,7 @@ void Daemon::updateW1(const char* id, double value, time_t stamp)
    sensor2Json(ojData, "W1", address);
    json_object_set_new(ojData, "value", json_real(value));
 
-   char* tuple {nullptr};
+   char* tuple {};
    asprintf(&tuple, "W1:0x%02x", address);
    jsonSensorList[tuple] = ojData;
    free(tuple);

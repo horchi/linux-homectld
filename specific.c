@@ -29,6 +29,7 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    // daemon
 
    { "instanceName",              ctString,  "Home Control", false, "Daemon", "Titel", "Page Titel / Instanz" },
+   { "instanceIcon",              ctChoice,  "home.png",     false, "Daemon", "Application Icon", "" },
    { "latitude",                  ctNum,     "50.3",         false, "Daemon", "Breitengrad", "" },
    { "longitude",                 ctNum,     "8.79",         false, "Daemon", "Längengrad", "" },
 
@@ -82,7 +83,6 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "iconSet",                   ctChoice,  "light",        true,  "WEB Interface", "Status Icon Set", "" },
    { "background",                ctChoice,  "",             false, "WEB Interface", "Background image", "" },
    { "schema",                    ctChoice,  "schema.jpg",   false, "WEB Interface", "Schematische Darstellung", "" },
-   { "vdr",                       ctString,  "",             false, "WEB Interface", "URL of VDRs (Video Disk Recorder) web interface", "Beispiel: vdr:4444" },
    { "chartRange",                ctNum,     "1.5",          true,  "WEB Interface", "Chart Range", "" },
    { "chartSensors",              ctNum,     "VA:0x0",       true,  "WEB Interface", "Chart Sensors", "" },
 
@@ -91,7 +91,7 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "mqttUrl",                   ctString,  "tcp://localhost:1883", false, "MQTT Interface", "MQTT Broker Url", "URL der MQTT Instanz Beispiel: 'tcp://127.0.0.1:1883'" },
    { "mqttUser",                  ctString,  "",                     false, "MQTT Interface", "User", "" },
    { "mqttPassword",              ctString,  "",                     false, "MQTT Interface", "Password", "" },
-   { "mqttSensorTopics",          ctText,    TARGET "2mqtt/w1/#",    false, "MQTT Interface", "Zusätzliche sensor Topics", "Diese Topics werden gelesen und als Sensoren Daten verwendet" },
+   { "mqttSensorTopics",          ctText,    TARGET "2mqtt/w1/#",    false, "MQTT Interface", "Zusätzliche sensor Topics", "Diese Topics werden gelesen und als Sensoren Daten verwendet (Komma getrennte Liste)" },
    { "arduinoInterval",           ctInteger, "10",                   false, "MQTT Interface", "Intervall der Arduino Messungen", "[s]" },
    { "arduinoTopic",              ctString,  TARGET "2mqtt/arduino", false, "MQTT Interface", "MQTT Topic des Arduino Interface", "" },
 
@@ -104,7 +104,7 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    // mail
 
    { "mail",                      ctBool,    "0",                  false, "Mail", "Mail Benachrichtigung", "Mail Benachrichtigungen aktivieren/deaktivieren" },
-   { "mailScript",                ctString,  BIN_PATH "/mail.sh",  false, "Mail", "poold sendet Mails über das Skript", "" },
+   { "mailScript",                ctString,  BIN_PATH "/mail.sh",  false, "Mail", "Skript zum senden von Mails", "" },
    { "stateMailTo",               ctString,  "",                   false, "Mail", "Status Mail Empfänger", "Komma getrennte Empfängerliste" },
    { "errorMailTo",               ctString,  "",                   false, "Mail", "Fehler Mail Empfänger", "Komma getrennte Empfängerliste" },
    { "webUrl",                    ctString,  "",                   false, "Mail", "URL der Visualisierung", "kann mit %weburl% in die Mails eingefügt werden" },
@@ -116,13 +116,17 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
 
    // homematic
 
-   { "homeMaticInterface",        ctBool,    "false",              false, "HomeMatic CCU", "HomeMatic Interface", "" },
+   { "homeMaticInterface",        ctBool,    "false",              false, "HomeMatic CCU", "HomeMatic Interface", "NodeRed wird als Brücke zur HomeMatic CCU benötigt" },
+
+   // VDR
+
+   { "vdr",                       ctString,  "",                   false, "VDR", "URL des VDR WEB Interfaces (Video Disk Recorder)", "Beispiel: vdr:4444" },
 
    // LMC (Logitec Media Server)
 
-   { "lmcHost",                   ctString,  "",                   false, "Logitech media Server (squeezebox)", "LMC Host", "" },
-   { "lmcPort",                   ctInteger, "9090",               false, "Logitech media Server (squeezebox)", "LMC Port", "" },
-   { "lmcPlayerMac",              ctString,  "",                   false, "Logitech media Server (squeezebox)", "MAC of LMC Player ", "" },
+   { "lmcHost",                   ctString,  "",                   false, "Logitech Media Server (squeezebox)", "LMC Host", "" },
+   { "lmcPort",                   ctInteger, "9090",               false, "Logitech Media Server (squeezebox)", "LMC Port", "" },
+   { "lmcPlayerMac",              ctString,  "",                   false, "Logitech Media Server (squeezebox)", "MAC of LMC Player ", "" },
 
 };
 

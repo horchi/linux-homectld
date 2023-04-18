@@ -111,8 +111,8 @@ int Daemon::mqttHaPublishSensor(SensorData& sensor, bool forceConfig)
 
       if (forceConfig || !exists)
       {
-         char* configTopic {nullptr};
-         char* configJson {nullptr};
+         char* configTopic {};
+         char* configJson {};
 
          // topic don't exists -> create sensor
 
@@ -131,7 +131,7 @@ int Daemon::mqttHaPublishSensor(SensorData& sensor, bool forceConfig)
 
          if (iot == iotLight)
          {
-            char* cmdTopic {nullptr};
+            char* cmdTopic {};
             asprintf(&cmdTopic, TARGET "2mqtt/light/%s/set", sName.c_str());
 
             asprintf(&configJson, "{"
@@ -405,7 +405,7 @@ int Daemon::mqttNodeRedPublishAction(SensorData& sensor, double value, bool publ
        return done;
 
    json_t* oJson = json_object();
-   char* key {nullptr};
+   char* key {};
 
    asprintf(&key, "%s:0x%02x", sensor.type.c_str(), sensor.address);
    json_object_set_new(oJson, "id", json_string(key));
@@ -449,7 +449,7 @@ int Daemon::jsonAddValue(json_t* obj, SensorData& sensor, bool forceConfig)
 {
    std::string sName = sensor.name;
    bool newGroup {false};
-   json_t* oGroup {nullptr};
+   json_t* oGroup {};
    json_t* oSensor = json_object();
 
    if (mqttInterfaceStyle == misSingleTopic)
@@ -489,7 +489,7 @@ int Daemon::jsonAddValue(json_t* obj, SensorData& sensor, bool forceConfig)
       else if (sensor.kind == "value")
          json_object_set_new(obj, "value", json_real(sensor.value));
 
-      char* key {nullptr};
+      char* key {};
       asprintf(&key, "%s:0x%02x", sensor.type.c_str(), sensor.address);
       const char* image = getTextImage(key, sensor.text.c_str());
       if (!isEmpty(image))

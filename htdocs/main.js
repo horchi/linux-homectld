@@ -319,12 +319,13 @@ function dispatchMessage(message)
    }
    else if (event == "config") {
       config = jMessage.object;
-      // console.log("config " + JSON.stringify(config, undefined, 4));
+      console.log("config " + JSON.stringify(config, undefined, 4));
       if (config.background != '') {
          // $(document.body).addClass('body-background');
          $(document.body).css('background', 'transparent url(' + config.background + ') no-repeat 50% 0 fixed');
          $(document.body).css('background-size', 'cover');
       }
+      changeFavicon(config.instanceIcon);
       prepareMenu();
    }
    else if (event == "configdetails" && currentPage == 'setup') {
@@ -434,9 +435,11 @@ function prepareMenu()
    console.log("prepareMenu: " + currentPage);
 
    html += '<button class="rounded-border button1" onclick="mainMenuSel(\'dashboard\')">Dash</button>';
-   html += '<button class="rounded-border button1" onclick="mainMenuSel(\'list\')">Liste</button>';
+   // html += '<button class="rounded-border button1" onclick="mainMenuSel(\'list\')">Liste</button>';
    html += '<button class="rounded-border button1" onclick="mainMenuSel(\'chart\')">Charts</button>';
-   html += '<button class="rounded-border button1" onclick="mainMenuSel(\'schema\')">Schema</button>';
+
+   if (config.schema)
+      html += '<button class="rounded-border button1" onclick="mainMenuSel(\'schema\')">Schema</button>';
 
    if (config.lmcHost != '')
       html += '<button id="vdrMenu" class="rounded-border button1" onclick="mainMenuSel(\'lmc\')">Squeezebox</button>';
@@ -1073,4 +1076,12 @@ function lNow()
 {
    var currentDateTime = new Date();
    return currentDateTime.getTime() / 1000;
+}
+
+function changeFavicon(src)
+{
+   src = 'img/' + src;
+   $('link[rel="shortcut icon"]').attr('href', src)
+   $('link[rel="icon"]').attr('href', src)
+   $('link[rel="apple-touch-icon-precomposed"]').attr('href', src)
 }

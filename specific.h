@@ -73,11 +73,11 @@ class HomeCtl : public Daemon
 #ifdef _POOL
       void phMeasurementActive();
       int calcPhMinusVolume(double ph);
-      cDbStatement* selectSolarWorkPerDay {nullptr};
+      cDbStatement* selectSolarWorkPerDay {};
 
       int poolLightColorToggle {no};
-      char* w1AddrPool {nullptr};
-      char* w1AddrSolar {nullptr};
+      char* w1AddrPool {};
+      char* w1AddrSolar {};
 
       double tPoolMax {28.0};
       double tSolarDelta {5.0};
@@ -106,7 +106,7 @@ class HomeCtl : public Daemon
 
 #ifdef _WOMO
       int batteryCapacity {220};
-      cDbStatement* selectSolarAhPerDay {nullptr};
+      cDbStatement* selectSolarAhPerDay {};
 #endif
 
       static std::list<ConfigItemDef> configuration;

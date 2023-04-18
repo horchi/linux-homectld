@@ -282,8 +282,8 @@ class Bms
       int mqttConnection();
       int mqttPublish(SensorData& sensor);
 
-      const char* mqttUrl {nullptr};
-      Mqtt* mqttWriter {nullptr};
+      const char* mqttUrl {};
+      Mqtt* mqttWriter {};
       std::string mqttTopic;
       int interval {60};
       BmsCom bmsCom;

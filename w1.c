@@ -81,8 +81,8 @@ int W1::loop()
 
 int W1::scan()
 {
-   DIR* dir {nullptr};
-   dirent* dp {nullptr};
+   DIR* dir {};
+   dirent* dp {};
 
    if (!(dir = opendir(w1Path)))
    {
@@ -95,7 +95,7 @@ int W1::scan()
       if (strlen(dp->d_name) < 3 || strstr(dp->d_name, "bus_master"))
           continue;
 
-      char* path {nullptr};
+      char* path {};
       asprintf(&path, "%s/%s/w1_slave", w1Path, dp->d_name);
       bool exist = fileExists(path);
       free(path);
@@ -178,9 +178,9 @@ int W1::update()
 
    for (auto it = sensors.begin(); it != sensors.end(); it++)
    {
-      char line[100+TB];
-      FILE* in {nullptr};
-      char* path {nullptr};
+      char line[100+TB] {};
+      FILE* in {};
+      char* path {};
 
       if (!it->second.active)
          continue;
@@ -336,7 +336,7 @@ int main(int argc, char** argv)
 {
    bool nofork {false};
    int _stdout {na};
-   W1* job {nullptr};
+   W1* job {};
    const char* topic {TARGET "2mqtt/w1"};
    Eloquence _eloquence {eloAlways};
    const char* url {"tcp://localhost:1883"};

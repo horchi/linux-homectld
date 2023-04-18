@@ -171,7 +171,7 @@ var keyTimeout = null;
 
 function initWidget(key, widget, fact)
 {
-   // console.log("Widget " + JSON.stringify(widget));
+   // console.log("Widget " + key + ': '+ JSON.stringify(widget));
 
    if (key == null || key == '')
       return ;
@@ -243,6 +243,8 @@ function initWidget(key, widget, fact)
       titleClass = 'mdi mdi-label-percent-outline';
    else if (!setupMode && widget.unit == 'xxxx')  // can't detect if '%' is humidity
       titleClass = 'mdi mdi-water-percent';
+   if (!setupMode && widget.unit == 'l')
+      titleClass = 'mdi mdi-water';
 
    if (!widget.color)
       widget.color = 'white';
@@ -1037,7 +1039,7 @@ function updateWidget(sensor, refresh, widget)
          $("#button" + fact.type + fact.address).addClass('widget-main');
          $("#button" + fact.type + fact.address).addClass(classes);
 
-         var fontSize = Math.min(widgetDiv.height(), widgetDiv.width()) * 0.7;
+         var fontSize = Math.min(widgetDiv.height(), widgetDiv.width()) * 0.6;
          $("#button" + fact.type + fact.address).css('font-size', fontSize + 'px');
       }
 
@@ -2020,7 +2022,7 @@ function widgetSetup(key)
    {
       var wType = parseInt($('#widgettype').val());
 
-      $("#divUnit").css("display", [1,3,4,6,9].includes(wType) ? 'flex' : 'none');
+      $("#divUnit").css("display", [1,3,4,5,6,9].includes(wType) ? 'flex' : 'none');
       $("#divFactor").css("display", [1,3,4,6,9].includes(wType) ? 'flex' : 'none');
       $("#divScalemax").css("display", [5,6].includes(wType) ? 'flex' : 'none');
       $("#divScalemin").css("display", [5,6].includes(wType) ? 'flex' : 'none');

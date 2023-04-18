@@ -319,7 +319,7 @@ function dispatchMessage(message)
    }
    else if (event == "config") {
       config = jMessage.object;
-      // console.log("config " + JSON.stringify(config, undefined, 4));
+      console.log("config " + JSON.stringify(config, undefined, 4));
       if (config.background != '') {
          // $(document.body).addClass('body-background');
          $(document.body).css('background', 'transparent url(' + config.background + ') no-repeat 50% 0 fixed');
@@ -435,18 +435,15 @@ function prepareMenu()
    console.log("prepareMenu: " + currentPage);
 
    html += '<button class="rounded-border button1" onclick="mainMenuSel(\'dashboard\')">Dash</button>';
-   // html += '<button class="rounded-border button1" onclick="mainMenuSel(\'list\')">Liste</button>';
+   if (config.showList == '1')
+      html += '<button class="rounded-border button1" onclick="mainMenuSel(\'list\')">Liste</button>';
    html += '<button class="rounded-border button1" onclick="mainMenuSel(\'chart\')">Charts</button>';
-
    if (config.schema)
       html += '<button class="rounded-border button1" onclick="mainMenuSel(\'schema\')">Schema</button>';
-
    if (config.lmcHost != '')
       html += '<button id="vdrMenu" class="rounded-border button1" onclick="mainMenuSel(\'lmc\')">Squeezebox</button>';
-
    if (config.vdr != '')
       html += '<button id="vdrMenu" class="rounded-border button1" onclick="mainMenuSel(\'vdr\')">VDR</button>';
-
    if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10)
       html += '<button class="rounded-border button1" onclick="mainMenuSel(\'setup\')">Setup</button>';
 

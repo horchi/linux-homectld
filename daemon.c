@@ -1583,21 +1583,21 @@ int Daemon::readConfiguration(bool initial)
 
    // Home Automation MQTT
 
-   getConfigItem("mqttDataTopic", mqttDataTopic, TARGET "2mqtt/<TYPE>/<NAME>/state");
-   getConfigItem("mqttSendWithKeyPrefix", mqttSendWithKeyPrefix, "");
-   getConfigItem("mqttHaveConfigTopic", mqttHaveConfigTopic, false);
+   getConfigItem("mqttHaDataTopic", mqttHaDataTopic, TARGET "2mqtt/<TYPE>/<NAME>/state");
+   getConfigItem("mqttHaSendWithKeyPrefix", mqttHaSendWithKeyPrefix, "");
+   getConfigItem("mqttHaHaveConfigTopic", mqttHaHaveConfigTopic, false);
 
-   if (mqttDataTopic[strlen(mqttDataTopic)-1] == '/')
-      mqttDataTopic[strlen(mqttDataTopic)-1] = '\0';
+   if (mqttHaDataTopic[strlen(mqttHaDataTopic)-1] == '/')
+      mqttHaDataTopic[strlen(mqttHaDataTopic)-1] = '\0';
 
-   if (isEmpty(mqttDataTopic) || isEmpty(mqttUrl))
-      mqttInterfaceStyle = misNone;
-   else if (strstr(mqttDataTopic, "<NAME>"))
-      mqttInterfaceStyle = misMultiTopic;
-   else if (strstr(mqttDataTopic, "<GROUP>"))
-      mqttInterfaceStyle = misGroupedTopic;
+   if (isEmpty(mqttHaDataTopic) || isEmpty(mqttUrl))
+      mqttHaInterfaceStyle = misNone;
+   else if (strstr(mqttHaDataTopic, "<NAME>"))
+      mqttHaInterfaceStyle = misMultiTopic;
+   else if (strstr(mqttHaDataTopic, "<GROUP>"))
+      mqttHaInterfaceStyle = misGroupedTopic;
    else
-      mqttInterfaceStyle = misSingleTopic;
+      mqttHaInterfaceStyle = misSingleTopic;
 
    for (int f = selectAllGroups->find(); f; f = selectAllGroups->fetch())
       groups[tableGroups->getIntValue("ID")].name = tableGroups->getStrValue("NAME");
@@ -1746,7 +1746,7 @@ int Daemon::storeSamples()
    tell(eloInfo, "Store samples ..");
    connection->startTransaction();
 
-   if (mqttInterfaceStyle == misSingleTopic)
+   if (mqttHaInterfaceStyle == misSingleTopic)
        oHaJson = json_object();
 
    for (const auto& typeSensorsIt : sensors)

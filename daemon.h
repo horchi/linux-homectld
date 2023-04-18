@@ -560,10 +560,10 @@ class Daemon : public cWebInterface
       char* mqttUser {};
       char* mqttPassword {};
 
-      char* mqttDataTopic {};
-      char* mqttSendWithKeyPrefix {};
-      bool mqttHaveConfigTopic {false};
-      MqttInterfaceStyle mqttInterfaceStyle {misNone};
+      char* mqttHaDataTopic {};                          // for home automation interface
+      char* mqttHaSendWithKeyPrefix {};                  // for home automation interface
+      bool mqttHaHaveConfigTopic {false};                // for home automation interface
+      MqttInterfaceStyle mqttHaInterfaceStyle {misNone}; // for home automation interface
 
       Mqtt* mqttReader {};
       Mqtt* mqttWriter {};

@@ -18,34 +18,33 @@
 
 int Daemon::mqttHaPublish(SensorData& sensor, bool forceConfig)
 {
-   if (isEmpty(mqttUrl))
+   if (isEmpty(mqttUrl) || mqttHaInterfaceStyle == misNone)
       return done;
 
    if (mqttCheckConnection() != success)
       return fail;
 
-   if (mqttInterfaceStyle == misGroupedTopic)
+   if (mqttHaInterfaceStyle == misGroupedTopic)
    {
       if (!groups[sensor.group].oHaJson)
          groups[sensor.group].oHaJson = json_object();
    }
 
-   if (mqttInterfaceStyle == misSingleTopic || mqttInterfaceStyle == misGroupedTopic)
-      jsonAddValue(mqttInterfaceStyle == misSingleTopic ? oHaJson : groups[sensor.group].oHaJson,
-                   sensor, forceConfig);
-   else if (mqttInterfaceStyle == misMultiTopic)
+   if (mqttHaInterfaceStyle == misSingleTopic || mqttHaInterfaceStyle == misGroupedTopic)
+      jsonAddValue(mqttHaInterfaceStyle == misSingleTopic ? oHaJson : groups[sensor.group].oHaJson, sensor, forceConfig);
+   else if (mqttHaInterfaceStyle == misMultiTopic)
       mqttHaPublishSensor(sensor, forceConfig);
 
    // write
 
-   if (mqttInterfaceStyle == misSingleTopic)
+   if (mqttHaInterfaceStyle == misSingleTopic)
    {
       mqttHaWrite(oHaJson, 0);
       json_decref(oHaJson);
       oHaJson = nullptr;
    }
 
-   else if (mqttInterfaceStyle == misGroupedTopic)
+   else if (mqttHaInterfaceStyle == misGroupedTopic)
    {
       tell(eloDebug2, "Debug: Writing MQTT for %zu groups", groups.size());
 
@@ -94,15 +93,15 @@ int Daemon::mqttHaPublishSensor(SensorData& sensor, bool forceConfig)
    sName = strReplace("ä", "ae", sName);
    sName = strReplace(" ", "_", sName);
 
-   // mqttDataTopic like "XXX2mqtt/<TYPE>/<NAME>/state"
+   // mqttHaDataTopic like "XXX2mqtt/<TYPE>/<NAME>/state"
 
-   std::string sDataTopic = mqttDataTopic;
+   std::string sDataTopic = mqttHaDataTopic;
    sDataTopic = strReplace("<NAME>", sName, sDataTopic);
    sDataTopic = strReplace("<TYPE>", iot == iotLight ? "light" : "sensor", sDataTopic);
 
-   // mqttDataTopic like "XXX2mqtt/<TYPE>/<NAME>/state"
+   // mqttHaDataTopic like "XXX2mqtt/<TYPE>/<NAME>/state"
 
-   if (mqttHaveConfigTopic && sensor.title.length())
+   if (mqttHaHaveConfigTopic && sensor.title.length())
    {
       // Interface description:
       //   https://www.home-assistant.io/docs/mqtt/discovery/
@@ -193,7 +192,7 @@ int Daemon::mqttHaPublishSensor(SensorData& sensor, bool forceConfig)
 
 int Daemon::mqttHaWrite(json_t* obj, uint groupid)
 {
-   std::string sDataTopic = mqttDataTopic;
+   std::string sDataTopic = mqttHaDataTopic;
 
    // check/prepare connection
 
@@ -202,7 +201,7 @@ int Daemon::mqttHaWrite(json_t* obj, uint groupid)
 
    char* message = json_dumps(obj, JSON_REAL_PRECISION(4));
 
-   if (mqttInterfaceStyle == misGroupedTopic)
+   if (mqttHaInterfaceStyle == misGroupedTopic)
       sDataTopic = strReplace("<GROUP>", groups[groupid].name, sDataTopic);
 
    int status = mqttWriter->write(sDataTopic.c_str(), message);
@@ -452,7 +451,7 @@ int Daemon::jsonAddValue(json_t* obj, SensorData& sensor, bool forceConfig)
    json_t* oGroup {};
    json_t* oSensor = json_object();
 
-   if (mqttInterfaceStyle == misSingleTopic)
+   if (mqttHaInterfaceStyle == misSingleTopic)
    {
       oGroup = json_object_get(obj, groups[sensor.group].name.c_str());
 
@@ -470,58 +469,47 @@ int Daemon::jsonAddValue(json_t* obj, SensorData& sensor, bool forceConfig)
 
    // create json
 
-   if (!isEmpty(mqttSendWithKeyPrefix))
-   {
-      std::string kType = mqttSendWithKeyPrefix + sensor.type;
-      json_object_set_new(obj, "type", json_string(kType.c_str()));
-      json_object_set_new(obj, "address", json_integer(sensor.address));
-      json_object_set_new(obj, "unit", json_string(sensor.unit.c_str()));
-      json_object_set_new(obj, "title", json_string(sensor.title.c_str()));
-      json_object_set_new(obj, "kind", json_string(sensor.kind.c_str()));
+   std::string kType = sensor.type;
 
-      if (sensor.kind == "status")
-      {
-         json_object_set_new(obj, "state", json_boolean(sensor.state));
-         json_object_set_new(obj, "brightness", json_integer(sensor.value));
-      }
-      else if (sensor.text.length())
-         json_object_set_new(obj, "text", json_string(sensor.text.c_str()));
-      else if (sensor.kind == "value")
-         json_object_set_new(obj, "value", json_real(sensor.value));
+   if (!isEmpty(mqttHaSendWithKeyPrefix))
+      kType = mqttHaSendWithKeyPrefix + sensor.type;
 
-      char* key {};
-      asprintf(&key, "%s:0x%02x", sensor.type.c_str(), sensor.address);
-      const char* image = getTextImage(key, sensor.text.c_str());
-      if (!isEmpty(image))
-         json_object_set_new(obj, "image", json_string(image));
-      free(key);
-
-      return success;
-   }
-   else if (forceConfig)
-   {
-      json_object_set_new(oSensor, "unit", json_string(sensor.unit.c_str()));
-      json_object_set_new(oSensor, "description", json_string(sensor.title.c_str()));
-   }
+   json_object_set_new(oSensor, "type", json_string(kType.c_str()));
+   json_object_set_new(oSensor, "address", json_integer(sensor.address));
+   json_object_set_new(oSensor, "unit", json_string(sensor.unit.c_str()));
+   json_object_set_new(oSensor, "title", json_string(sensor.title.c_str()));
+   json_object_set_new(oSensor, "kind", json_string(sensor.kind.c_str()));
 
    if (sensor.kind == "status")
    {
-      json_object_set_new(oSensor, "state", json_string(sensor.state ? "ON" :"OFF"));
-      json_object_set_new(oSensor, "brightness", json_integer(255));
+      json_object_set_new(oSensor, "state", json_boolean(sensor.state));
+      json_object_set_new(oSensor, "brightness", json_integer(sensor.value));
    }
    else if (sensor.text.length())
-      json_object_set_new(oSensor, "value", json_string(sensor.text.c_str()));
+      json_object_set_new(oSensor, "text", json_string(sensor.text.c_str()));
    else if (sensor.kind == "value")
       json_object_set_new(oSensor, "value", json_real(sensor.value));
 
-   if (mqttInterfaceStyle == misSingleTopic)
+   char* key {};
+   asprintf(&key, "%s:0x%02x", sensor.type.c_str(), sensor.address);
+   const char* image = getTextImage(key, sensor.text.c_str());
+   if (!isEmpty(image))
+      json_object_set_new(oSensor, "image", json_string(image));
+   free(key);
+
+   if (!isEmpty(mqttHaSendWithKeyPrefix))
+   {
+      obj = oSensor;
+      return success;
+   }
+   if (mqttHaInterfaceStyle == misSingleTopic)
    {
       json_object_set_new(oGroup, sName.c_str(), oSensor);
 
       if (newGroup)
          json_object_set_new(obj, groups[sensor.group].name.c_str(), oGroup);
    }
-   else
+   else    // misGroupedTopic
    {
       json_object_set_new(obj, sName.c_str(), oSensor);
    }

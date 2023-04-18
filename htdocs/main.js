@@ -319,7 +319,7 @@ function dispatchMessage(message)
    }
    else if (event == "config") {
       config = jMessage.object;
-      console.log("config " + JSON.stringify(config, undefined, 4));
+      // console.log("config " + JSON.stringify(config, undefined, 4));
       if (config.background != '') {
          // $(document.body).addClass('body-background');
          $(document.body).css('background', 'transparent url(' + config.background + ') no-repeat 50% 0 fixed');

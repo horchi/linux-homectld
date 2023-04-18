@@ -78,7 +78,7 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
 
    // web
 
-   { "webSSL",                    ctBool,    "",             false, "WEB Interface", "Use SSL for WebInterface" },
+   { "webSSL",                    ctBool,    "",             false, "WEB Interface", "Use SSL for WebInterface", "" },
    { "style",                     ctChoice,  "dark",         false, "WEB Interface", "Farbschema", "" },
    { "iconSet",                   ctChoice,  "light",        true,  "WEB Interface", "Status Icon Set", "" },
    { "background",                ctChoice,  "",             false, "WEB Interface", "Background image", "" },
@@ -91,15 +91,15 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "mqttUrl",                   ctString,  "tcp://localhost:1883", false, "MQTT Interface", "MQTT Broker Url", "URL der MQTT Instanz Beispiel: 'tcp://127.0.0.1:1883'" },
    { "mqttUser",                  ctString,  "",                     false, "MQTT Interface", "User", "" },
    { "mqttPassword",              ctString,  "",                     false, "MQTT Interface", "Password", "" },
-   { "mqttSensorTopics",          ctText,    TARGET "2mqtt/w1/#",    false, "MQTT Interface", "Zusätzliche sensor Topics", "Diese Topics werden gelesen und als Sensoren Daten verwendet (Komma getrennte Liste)" },
-   { "arduinoInterval",           ctInteger, "10",                   false, "MQTT Interface", "Intervall der Arduino Messungen", "[s]" },
+   { "mqttSensorTopics",          ctText,    TARGET "2mqtt/w1/#",    false, "MQTT Interface", "Zusätzliche sensor Topics", "Diese Topics werden gelesen und als Sensor Daten verwendet (Komma getrennte Liste)" },
    { "arduinoTopic",              ctString,  TARGET "2mqtt/arduino", false, "MQTT Interface", "MQTT Topic des Arduino Interface", "" },
+   { "arduinoInterval",           ctInteger, "10",                   false, "MQTT Interface", "Intervall der Arduino Messungen", "[s]" },
 
    // Home Automation MQTT interface
 
-   { "mqttDataTopic",             ctString,  "",  false, "Home Automation Interface (like Home-Assistant, ...)", "Data Topic Name", "&lt;NAME&gt; wird gegen den Messwertnamen und &lt;GROUP&gt; gegen den Namen der Gruppe ersetzt. Beispiel: p4d2mqtt/sensor/&lt;NAME&gt;/state" },
-   { "mqttSendWithKeyPrefix",     ctString,  "",  false, "Home Automation Interface (like Home-Assistant, ...)", "Adresse übertragen", "Wenn hier ein Präfix konfiguriert ist wird die Adresse der Sensoren nebst Präfix übertragen" },
-   { "mqttHaveConfigTopic",       ctBool,    "0", false, "Home Automation Interface (like Home-Assistant, ...)", "Config Topic", "Speziell für HomeAssistant" },
+   { "mqttHaDataTopic",           ctString,  "",  false, "Home Automation Interface (like Home-Assistant, ...)", "Data Topic Name", "&lt;NAME&gt; wird gegen den Messwertnamen und &lt;GROUP&gt; gegen den Namen der Gruppe ersetzt. Beispiel: p4d2mqtt/sensor/&lt;NAME&gt;/state" },
+   { "mqttHaSendWithKeyPrefix",   ctString,  "",  false, "Home Automation Interface (like Home-Assistant, ...)", "Adresse übertragen", "Wenn hier ein Präfix konfiguriert ist wird die Adresse der Sensoren nebst Präfix übertragen" },
+   { "mqttHaHaveConfigTopic",     ctBool,    "0", false, "Home Automation Interface (like Home-Assistant, ...)", "Config Topic", "Speziell für HomeAssistant" },
 
    // mail
 

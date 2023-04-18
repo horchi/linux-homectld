@@ -1096,7 +1096,9 @@ function updateWidget(sensor, refresh, widget)
 
       if (refresh) {
          var jsonRequest = {};
-         prepareChartRequest(jsonRequest, toKey(fact.type, fact.address), 0, 1, "chartwidget");
+         if (!widget.range)
+            widget.range = 1;
+         prepareChartRequest(jsonRequest, toKey(fact.type, fact.address), 0, widget.range, "chartwidget");
          socket.send({ "event" : "chartdata", "object" : jsonRequest });
       }
    }
@@ -1337,9 +1339,11 @@ function toggleChartDialog(type, address)
 
       dialog.setAttribute('open', 'open');
 
-      var jsonRequest = {};
+      let jsonRequest = {};
+      let key = toKey(type, address);
+      let widget = dashboards[actDashboard].widgets[key];
 
-      prepareChartRequest(jsonRequest, toKey(type, address), 0, 1, "chartdialog");
+      prepareChartRequest(jsonRequest, toKey(type, address), 0, widget.range, "chartdialog");
       socket.send({ "event" : "chartdata", "object" : jsonRequest });
 
       // EventListener für ESC-Taste
@@ -1999,7 +2003,24 @@ function widgetSetup(key)
                                   .append($('<label></label>')
                                           .prop('for', 'linefeed')
                                          )))
-
+                  .append($('<div></div>')
+                          .attr('id', 'divRange')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('width', '30%')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('Chart Bereich'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('title', 'Tage')
+                                          .attr('id', 'range')
+                                          .attr('type', 'number')
+                                          .attr('step', '0.5')
+                                          .val(widget.range)
+                                         )))
                   .append($('<div></div>')
                           .css('display', 'flex')
                           .append($('<span></span>')
@@ -2036,6 +2057,7 @@ function widgetSetup(key)
       $("#divPeak").css("display", [1,3,6,9].includes(wType) ? 'flex' : 'none');
       $("#divColor").css("display", [0,1,3,4,6,7,9,10,11].includes(wType) ? 'flex' : 'none');
       $("#divLinefeed").css("display", [10].includes(wType) ? 'flex' : 'none');
+      $("#divRange").css("display", [1].includes(wType) ? 'flex' : 'none');
 
       if ([0].includes(wType) && $('#symbol').val() == '' && $('#symbolOn').val() == '')
          $("#divColor").css("display", 'none');
@@ -2086,7 +2108,7 @@ function widgetSetup(key)
          if (widget.widthfactor == null)
             widget.widthfactor = 1;
 
-         for (var w = 0.5; w <= 2.0; w += 0.5)
+         for (var w = 0.5; w <= 4.0; w += 0.5)
             $('#widthfactor').append($('<option></option>')
                                      .val(w)
                                      .html(w)
@@ -2174,6 +2196,7 @@ function widgetSetup(key)
             widget.showpeak = $("#peak").is(':checked');
             widget.linefeed = $("#linefeed").is(':checked');
             widget.widthfactor = $("#widthfactor").val();
+            widget.range = $("#range").val();
 
             initWidget(key, widget);
             if (allSensors[key] != null)
@@ -2197,6 +2220,7 @@ function widgetSetup(key)
             widget.showpeak = $("#peak").is(':checked');
             widget.linefeed = $("#linefeed").is(':checked');
             widget.widthfactor = $("#widthfactor").val();
+            widget.range = $("#range").val();
 
             initWidget(key, widget);
             if (allSensors[key] != null)
@@ -2232,6 +2256,7 @@ function widgetSetup(key)
                json[key]["imgoff"] = $("#imgoff").val();
 
             json[key]["widthfactor"] = parseFloat($("#widthfactor").val());
+            json[key]["range"] = parseFloat($("#range").val());
             json[key]["widgettype"] = parseInt($("#widgettype").val());
             json[key]["showpeak"] = $("#peak").is(':checked');
             json[key]["linefeed"] = $("#linefeed").is(':checked');

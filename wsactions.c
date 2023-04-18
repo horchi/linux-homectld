@@ -680,9 +680,9 @@ int Daemon::performSystem(json_t* oObject, long client)
       json_array_append_new(jArray, jItem);
 
       json_object_set_new(jItem, "name", json_string(tableTableStatistics->getStrValue("NAME")));
-      json_object_set_new(jItem, "tblsize", json_string(bytesPretty(tableTableStatistics->getIntValue("DATASZ"), 2)));
-      json_object_set_new(jItem, "idxsize", json_string(bytesPretty(tableTableStatistics->getIntValue("INDEXSZ"), 2)));
-      json_object_set_new(jItem, "rows", json_integer(tableTableStatistics->getIntValue("ROWS")));
+      json_object_set_new(jItem, "tblsize", json_string(bytesPretty(tableTableStatistics->getBigintValue("DATASZ"), 2)));
+      json_object_set_new(jItem, "idxsize", json_string(bytesPretty(tableTableStatistics->getBigintValue("INDEXSZ"), 2)));
+      json_object_set_new(jItem, "rows", json_integer(tableTableStatistics->getBigintValue("ROWS")));
    }
 
    selectTableStatistic->freeResult();

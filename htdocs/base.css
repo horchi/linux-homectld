@@ -235,7 +235,7 @@ button:focus {
 .buttonDashboard
 {
     display: inline;
-    margin: 5px 0px 5px 4px;
+    margin: 5px 3px 5px 3px;
     color: white;
     background-color: transparent;
     text-decoration: none;
@@ -245,7 +245,7 @@ button:focus {
 
 .buttonDashboard:hover
 {
-/*    border-bottom-color: lightgray;
+/*  border-bottom-color: lightgray;
     border-bottom-style: solid;
     border-bottom-width: 2px; */
 }
@@ -287,7 +287,8 @@ button:focus {
 .seperatorFold
 {
     /* background-color: #335656a1; */
-    background-color: #335656;
+    /* background-color: #335656; */
+    background-color: var(--dashboardMenuBackground);
     color: var(--light2);
     padding: 5px 15px;
     font-weight: bold;
@@ -618,7 +619,6 @@ span > input
 }
 
 .listRow {
-/*    background: linear-gradient(to bottom right, var(--light3), var(--light1)); */
     background-color: var(--widgetBackground);
     border-radius: var(--borderRadius);
     border-color: var(--borderColor);
@@ -721,13 +721,11 @@ table.tableMultiCol > thead tr:first-child
 table.tableMultiCol tr:nth-child(even)
 {
     background-color: #333333; /* var(--light1); */
-/*    background: #333333; linear-gradient(to bottom, var(--light1), var(--light3));/* /* Standard syntax (must be last) */
 }
 
 table.tableMultiCol tr:nth-child(odd)
 {
     background-color: #454545; /* var(--light1); */
-/*    background: #696969; linear-gradient(to bottom right, var(--light1), var(--light3));*/ /* Standard syntax (must be last) */
 }
 
 .tableMultiCol > div > span

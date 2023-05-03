@@ -3688,7 +3688,7 @@ int Daemon::dispatchArduinoMsg(const char* message)
       json_array_foreach(jArray, index, jValue)
       {
          const char* name = getStringFromJson(jValue, "name");
-         std::string unit = getStringFromJson(jValue, "unit");
+         std::string unit = getStringFromJson(jValue, "unit", "");
          double value = getDoubleFromJson(jValue, "value");
          time_t stamp = getIntFromJson(jValue, "time", 0);
 
@@ -3703,6 +3703,9 @@ int Daemon::dispatchArduinoMsg(const char* message)
 
          if (unit == "dig")
             unit = "%";
+
+         if (unit == "")
+            unit = atoi(name+1) <= 7 ? "%" : "mV";
 
          updateAnalogInput(name, value, stamp, unit.c_str());
       }

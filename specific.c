@@ -362,18 +362,6 @@ int HomeCtl::applyConfigurationSpecials()
 
 #endif  // _POOL
 
-   for (uint i = 0; i <= 7; i++)
-   {
-      std::string name = "Analog Input " + std::to_string(i);
-      addValueFact(i, "AI", 1, name.c_str(), "%");
-   }
-
-   for (uint i = 0; i <= 10; i++)
-   {
-      std::string name = "Analog Input (Arduino) " + std::to_string(i);
-      addValueFact(i + aiArduinoFirst, "AI", 1, name.c_str(), "mV");
-   }
-
    return done;
 }
 

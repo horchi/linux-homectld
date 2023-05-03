@@ -3688,6 +3688,7 @@ int Daemon::dispatchArduinoMsg(const char* message)
       json_array_foreach(jArray, index, jValue)
       {
          const char* name = getStringFromJson(jValue, "name");
+         std::string unit = getStringFromJson(jValue, "unit");
          double value = getDoubleFromJson(jValue, "value");
          time_t stamp = getIntFromJson(jValue, "time", 0);
 
@@ -3700,7 +3701,10 @@ int Daemon::dispatchArduinoMsg(const char* message)
             continue;
          }
 
-         updateAnalogInput(name, value, stamp);
+         if (unit == "dig")
+            unit = "%";
+
+         updateAnalogInput(name, value, stamp, unit.c_str());
       }
 
       process();
@@ -3748,12 +3752,14 @@ int Daemon::initArduino()
    return success;
 }
 
-void Daemon::updateAnalogInput(const char* id, double value, time_t stamp)
+void Daemon::updateAnalogInput(const char* id, double value, time_t stamp, const char* unit)
 {
-   // uint input = atoi(id+1) + aiArduinoFirst;
-   uint input = atoi(id+1); // + aiArduinoFirst;
+   uint input = atoi(id+1);
 
    // the Ardoino read the analog inputs with a resolution of 12 bits (3.3V => 4095)
+
+   std::string name = "Analog Input (Arduino) " + std::to_string(input);
+   addValueFact(input, "AI", 1, name.c_str(), unit);
 
    tableValueFacts->clear();
    tableValueFacts->setValue("ADDRESS", (int)input);

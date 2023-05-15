@@ -193,6 +193,7 @@ function initWidget(key, widget, fact)
    // console.log("fact: " + JSON.stringify(fact, undefined, 4));
    // console.log("widget: " + JSON.stringify(widget, undefined, 4));
 
+   const marginPadding = 8;
    var root = document.getElementById("widgetContainer");
    var id = 'div_' + key;
    var elem = document.getElementById(id);
@@ -203,11 +204,19 @@ function initWidget(key, widget, fact)
       elem.setAttribute('id', id);
       if (!widgetHeightBase)
          widgetHeightBase = elem.clientHeight;
+      var eHeight = parseInt(elem.style.height);
       var useKioskHeight = kioskMode == 1 || kioskMode == 2;
       if (!useKioskHeight && dashboards[actDashboard].options && dashboards[actDashboard].options.heightfactor)
-         elem.style.height = widgetHeightBase * dashboards[actDashboard].options.heightfactor + 'px';
+         eHeight = widgetHeightBase * dashboards[actDashboard].options.heightfactor;
       if (useKioskHeight && dashboards[actDashboard].options && dashboards[actDashboard].options.heightfactorKiosk)
-         elem.style.height = widgetHeightBase * dashboards[actDashboard].options.heightfactorKiosk + 'px';
+         eHeight = widgetHeightBase * dashboards[actDashboard].options.heightfactorKiosk;
+
+      // widget.heightfactor -> to be implementen (nur vorbereitet)
+
+      if (widget.heightfactor != null && widget.heightfactor != 1)
+         eHeight = eHeight * widget.heightfactor + ((widget.heightfactor-1) * marginPadding-1);
+
+      elem.style.height = eHeight + 'px';
    }
 
    elem.innerHTML = "";
@@ -216,7 +225,6 @@ function initWidget(key, widget, fact)
       widgetWidthBase = elem.clientWidth;
 
    // console.log("clientWidth: " + elem.clientWidth + ' : ' + widgetWidthBase);
-   const marginPadding = 8;
    elem.style.width = widgetWidthBase * widget.widthfactor + ((widget.widthfactor-1) * marginPadding-1) + 'px';
 
    if (setupMode && (widget.widgettype < 900 || widget.widgettype == null)) {
@@ -2034,9 +2042,21 @@ function widgetSetup(key)
                                   .append($('<select></select>')
                                           .addClass('rounded-border inputSetting')
                                           .attr('id', 'widthfactor')
-                                          .val(widget.unit)
                                          )))
-
+/*                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('width', '30%')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('Höhe'))
+                          .append($('<span></span>')
+                                  .css('width', '300px')
+                                  .append($('<select></select>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'heightfactor')
+                                         )))*/
                  );
 
    function widgetTypeChanged()
@@ -2113,6 +2133,15 @@ function widgetSetup(key)
                                      .val(w)
                                      .html(w)
                                      .attr('selected', widget.widthfactor == w));
+
+/*         if (widget.heightfactor == null)
+            widget.heightfactor = 1;
+
+         for (var h = 0.5; h <= 1.0; h += 0.5)
+            $('#heightfactor').append($('<option></option>')
+                                     .val(h)
+                                     .html(h)
+                                     .attr('selected', widget.heightfactor == h)); */
 
          $('#color').spectrum({
             type: "color",
@@ -2196,6 +2225,7 @@ function widgetSetup(key)
             widget.showpeak = $("#peak").is(':checked');
             widget.linefeed = $("#linefeed").is(':checked');
             widget.widthfactor = $("#widthfactor").val();
+            widget.heightfactor = $("#heightfactor").val();
             widget.range = $("#range").val();
 
             initWidget(key, widget);
@@ -2220,6 +2250,7 @@ function widgetSetup(key)
             widget.showpeak = $("#peak").is(':checked');
             widget.linefeed = $("#linefeed").is(':checked');
             widget.widthfactor = $("#widthfactor").val();
+            widget.heightfactor = $("#heightfactor").val();
             widget.range = $("#range").val();
 
             initWidget(key, widget);
@@ -2256,6 +2287,7 @@ function widgetSetup(key)
                json[key]["imgoff"] = $("#imgoff").val();
 
             json[key]["widthfactor"] = parseFloat($("#widthfactor").val());
+            json[key]["heightfactor"] = parseFloat($("#heightfactor").val());
             json[key]["range"] = parseFloat($("#range").val());
             json[key]["widgettype"] = parseInt($("#widgettype").val());
             json[key]["showpeak"] = $("#peak").is(':checked');

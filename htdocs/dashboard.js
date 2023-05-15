@@ -1351,6 +1351,9 @@ function toggleChartDialog(type, address)
       let key = toKey(type, address);
       let widget = dashboards[actDashboard].widgets[key];
 
+      if (!widget.range)
+         widget.range = 1;
+
       prepareChartRequest(jsonRequest, toKey(type, address), 0, widget.range, "chartdialog");
       socket.send({ "event" : "chartdata", "object" : jsonRequest });
 
@@ -2077,7 +2080,7 @@ function widgetSetup(key)
       $("#divPeak").css("display", [1,3,6,9].includes(wType) ? 'flex' : 'none');
       $("#divColor").css("display", [0,1,3,4,6,7,9,10,11].includes(wType) ? 'flex' : 'none');
       $("#divLinefeed").css("display", [10].includes(wType) ? 'flex' : 'none');
-      $("#divRange").css("display", [1].includes(wType) ? 'flex' : 'none');
+      $("#divRange").css("display", [0,1,3,4,6,7,9,10,11].includes(wType) ? 'flex' : 'none');
 
       if ([0].includes(wType) && $('#symbol').val() == '' && $('#symbolOn').val() == '')
          $("#divColor").css("display", 'none');

@@ -1869,18 +1869,22 @@ int Daemon::process()
 {
    for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
-      std::vector<std::string> arguments;
-
       if (!tableValueFacts->hasValue("TYPE", "CV"))
-         continue;
-
-      if (tableValueFacts->getValue("CALIBRATION")->isEmpty())
          continue;
 
       const char* type = tableValueFacts->getStrValue("TYPE");
       uint address = tableValueFacts->getIntValue("ADDRESS");
       char* key {};
       asprintf(&key, "%s:0x%02x", type, address);
+
+      tell(eloLua, "LUA: Processing '%s'", key);
+
+      if (tableValueFacts->getValue("CALIBRATION")->isEmpty())
+      {
+         tell(eloLua, "LUA: Skip processing '%s' with empty script", key);
+         free(key);
+         continue;
+      }
 
       if (!sensors[type][address].last)
          getConfigItem(key, sensors[type][address].value, 0);
@@ -1932,8 +1936,6 @@ int Daemon::process()
          searchKey = getStringBetween(expression, "{", "}");
       }
 
-      selectActiveValueFacts->freeResult();
-
       if (!update)
       {
          tell(eloLua, "LUA: '%s' skipping call, no change of input parameters", key);
@@ -1943,6 +1945,7 @@ int Daemon::process()
 
       // call LUA script
 
+      std::vector<std::string> arguments;
       Lua::Result res;
       Lua lua;
 
@@ -1992,6 +1995,8 @@ int Daemon::process()
          mqttNodeRedPublishSensor(sensors["CV"][address]);
       }
    }
+
+   selectActiveValueFacts->freeResult();
 
    return done;
 }

@@ -65,6 +65,7 @@ const char* Elo::eloquences[] =
    "HomeMatic",
    "DebugHomeMatic",
    "Lua",
+   "GroWatt",
 
    nullptr
 };

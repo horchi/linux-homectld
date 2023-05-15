@@ -258,7 +258,8 @@ int Daemon::performMqttRequests()
          dispatchHomematicRpcResult(message.memory);
       else if (strstr(tp.c_str(), "2mqtt/homematic/events"))
          dispatchHomematicEvents(message.memory);
-
+      else if (strstr(tp.c_str(), "growatt/solar"))
+         dispatchGrowattEvents(message.memory);
       else if (strstr(tp.c_str(), "2mqtt/light/"))
       {
          json_t* jData = jsonLoad(message.memory);

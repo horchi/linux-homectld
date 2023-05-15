@@ -60,7 +60,7 @@ int Lua::executeFunction(const char* function, const std::vector<std::string>& a
 
    for (const auto& arg : arguments)
    {
-      tell(eloDebug, "Debug: LUA: Add parameter '%s'", arg.c_str());
+      tell(eloLua, "LUA: Add parameter '%s'", arg.c_str());
       lua_pushstring(handle, arg.c_str());
    }
 
@@ -114,10 +114,13 @@ int Lua::executeExpression(const char* expression, const std::vector<std::string
 {
    res = {};
 
-   char* code {nullptr};
+   char* code {};
+
    asprintf(&code, "function execute()"          \
             "  %s\n"                             \
             "end", expression);
+
+   tell(eloLua, "LUA: Calling '%s'", code);
 
    if (luaL_loadstring(handle, code) == LUA_OK)
    {

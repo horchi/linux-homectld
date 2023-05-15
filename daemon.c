@@ -3,7 +3,7 @@
 // File daemon.c
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
-// Date 04.11.2010 - 31.02.2022  Jörg Wendel
+// Date 2010 - 2023  Jörg Wendel
 //***************************************************************************
 
 #include <stdio.h>
@@ -24,6 +24,7 @@
 #include "lib/lua.h"
 
 #include "daemon.h"
+#include "growatt.h"
 
 bool Daemon::shutdown {false};
 
@@ -1866,9 +1867,6 @@ int Daemon::store(time_t now, const SensorData* sensor)
 
 int Daemon::process()
 {
-   Lua::Result res;
-   Lua lua;
-
    for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
       std::vector<std::string> arguments;
@@ -1889,16 +1887,17 @@ int Daemon::process()
 
       std::string expression = tableValueFacts->getStrValue("CALIBRATION");
       bool update {false};
-      std::string sKey = getStringBetween(expression, "{", "}");
+      std::string searchKey = getStringBetween(expression, "{", "}");
 
-      while (sKey.length())
+      while (searchKey.length())
       {
-         std::string what = "{" + sKey + "}";
-         auto tuple = split(sKey, ':');
-         uint matchAddr = strtol(tuple[1].c_str(), nullptr, 0);
+         std::string what = "{" + searchKey + "}";
+         auto tuple = split(searchKey, ':');
 
          if (tuple.size() >= 2 && sensors.find(tuple[0].c_str()) != sensors.end())
          {
+            uint matchAddr = strtol(tuple[1].c_str(), nullptr, 0);
+
             if (sensors[tuple[0].c_str()].find(matchAddr) != sensors[tuple[0].c_str()].end())
             {
                if (tuple.size() == 3 && tuple[2] == "last")
@@ -1914,71 +1913,85 @@ int Daemon::process()
 
                if (sensors[tuple[0].c_str()][matchAddr].last > sensors[type][address].last)
                {
-                  // tell(eloLua, "LUA: %s (%ld) newer than %s (%ld)", sKey.c_str(), sensors[tuple[0].c_str()][matchAddr].last, key, sensors[type][address].last);
+                  // tell(eloLua, "LUA: %s (%ld) newer than %s (%ld)", searchKey.c_str(), sensors[tuple[0].c_str()][matchAddr].last, key, sensors[type][address].last);
                   update = true;
                }
             }
-         }
-
-         sKey = getStringBetween(expression, "{", "}");
-      }
-
-      if (update)
-      {
-         // call LUA script
-
-         if (lua.executeExpression(expression.c_str(), arguments, res) != success)
-         {
-            tell(eloAlways, "Error: Calling LUA expression '%s' with (%zu) arguments failed",
-                 expression.c_str(), arguments.size());
-            return fail;
-         }
-
-         double oldValue = sensors[type][address].value;
-
-         if (res.type == Lua::tDouble)
-         {
-            tell(eloLua, "LUA '%s' result was %f [%s]", key, res.dValue, expression.c_str());
-            sensors[type][address].value = res.dValue;
-         }
-         else if (res.type == Lua::tInteger)
-         {
-            tell(eloLua, "LUA '%s' result was %d [%s]", key, res.iValue, expression.c_str());
-            sensors[type][address].value = res.iValue;
+            else
+            {
+               tell(eloAlways, "Warning: LUA: (%s) Sensor '%s:0x%x' not found, ignoring", key, searchKey.c_str(), matchAddr);
+               break;
+            }
          }
          else
-            tell(eloAlways, "LUA: '%s' got unexpected type (%d)", key, res.type);
-
-         sensors[type][address].last = time(0);
-         sensors[type][address].valid = true;
-         setConfigItem(key, sensors[type][address].value);
-
-         free(key);
-
-         if (oldValue != sensors[type][address].value)
          {
-            // update WS
-            {
-               json_t* ojData = json_object();
-
-               sensor2Json(ojData, "CV", address);
-               json_object_set_new(ojData, "value", json_real(sensors["CV"][address].value));
-
-               jsonSensorList[key] = ojData;
-               pushDataUpdate("update", 0L);
-            }
-
-            mqttHaPublish(sensors["CV"][address]);
-            mqttNodeRedPublishSensor(sensors["CV"][address]);
+            tell(eloAlways, "Warning: LUA: (%s) Sensor type '%s' not found, ignoring", key, searchKey.c_str());
+            break;
          }
+
+         searchKey = getStringBetween(expression, "{", "}");
+      }
+
+      selectActiveValueFacts->freeResult();
+
+      if (!update)
+      {
+         tell(eloLua, "LUA: '%s' skipping call, no change of input parameters", key);
+         free(key);
+         continue;
+      }
+
+      // call LUA script
+
+      Lua::Result res;
+      Lua lua;
+
+      if (lua.executeExpression(expression.c_str(), arguments, res) != success)
+      {
+         tell(eloAlways, "Error: Calling LUA expression '%s' with (%zu) arguments failed",
+              expression.c_str(), arguments.size());
+         free(key);
+         continue;
+      }
+
+      double oldValue = sensors[type][address].value;
+
+      if (res.type == Lua::tDouble)
+      {
+         tell(eloLua, "LUA '%s' result was %f [%s]", key, res.dValue, expression.c_str());
+         sensors[type][address].value = res.dValue;
+      }
+      else if (res.type == Lua::tInteger)
+      {
+         tell(eloLua, "LUA '%s' result was %d [%s]", key, res.iValue, expression.c_str());
+         sensors[type][address].value = res.iValue;
       }
       else
+         tell(eloAlways, "LUA: '%s' got unexpected type (%d)", key, res.type);
+
+      sensors[type][address].last = time(0);
+      sensors[type][address].valid = true;
+      setConfigItem(key, sensors[type][address].value);
+
+      free(key);
+
+      if (oldValue != sensors[type][address].value)
       {
-         tell(eloLua, "LUA: '%s' skipping, no change", key);
+         // update WS
+         {
+            json_t* ojData = json_object();
+
+            sensor2Json(ojData, "CV", address);
+            json_object_set_new(ojData, "value", json_real(sensors["CV"][address].value));
+
+            jsonSensorList[key] = ojData;
+            pushDataUpdate("update", 0L);
+         }
+
+         mqttHaPublish(sensors["CV"][address]);
+         mqttNodeRedPublishSensor(sensors["CV"][address]);
       }
    }
-
-   selectActiveValueFacts->freeResult();
 
    return done;
 }
@@ -3085,7 +3098,10 @@ int Daemon::dispatchHomematicEvents(const char* message)
    tableHomeMatic->setValue("UUID", uuid);
 
    if (!selectHomeMaticByUuid->find())
+   {
+      json_decref(jData);
       return done;
+   }
 
    const char* type = tableHomeMatic->getStrValue("TYPE");
    long address = tableHomeMatic->getIntValue("ADDRESS");
@@ -3135,6 +3151,147 @@ int Daemon::dispatchHomematicEvents(const char* message)
 
    mqttHaPublish(sensors[type][address]);
    mqttNodeRedPublishSensor(sensors[type][address]);
+   json_decref(jData);
+
+   return done;
+}
+
+std::string buildStringFromCamelCase(std::string camelCaseStr)
+{
+	size_t n {0};
+
+	while (n+1 < camelCaseStr.length())
+   {
+		if ((islower(camelCaseStr[n]) || isdigit(camelCaseStr[n])) && isupper(camelCaseStr[n+1]))
+      {
+			camelCaseStr = camelCaseStr.substr(0,n+1) +" " + camelCaseStr.substr(n+1);
+			n++;
+		}
+
+		n++;
+	}
+
+   return camelCaseStr;
+}
+
+//***************************************************************************
+// GroWatt Interface
+//***************************************************************************
+
+int Daemon::dispatchGrowattEvents(const char* message)
+{
+   tell(eloGroWatt, "<- (GroWatt) '%s'", message);
+
+   json_error_t error;
+   json_t* jData = json_loads(message, 0, &error);
+
+   if (!jData)
+   {
+      tell(eloAlways, "Error: (GroWatt) Can't parse json in '%s'", message);
+      return fail;
+   }
+
+   const char* key {};
+   json_t* jValue {};
+
+   const char* type {"GROWATT"};
+   int address {na};
+   const char* unit {};
+   std::string title;
+
+   json_object_foreach(jData, key, jValue)
+   {
+      address = GroWatt::getAddressOf(key);
+      unit = GroWatt::getUnitOf(key);
+      title = buildStringFromCamelCase(key);
+
+      if (address <= 0)
+         continue;
+
+      if (json_is_string(jValue))
+      {
+         sensors[type][address].kind = "text";
+         sensors[type][address].text = json_string_value(jValue);
+         // tell(eloGroWatt, "Debug: Got (%s:%d) '%s' with '%s'", type, address, title.c_str(), json_string_value(jValue));
+      }
+      else if (json_is_integer(jValue))
+      {
+         long long value = json_integer_value(jValue);
+
+         if (address == 24)   // status
+         {
+            sensors[type][address].kind = "text";
+            sensors[type][address].text = GroWatt::toStatusString(value);
+         }
+         else
+         {
+            sensors[type][address].kind = "value";
+
+            if (address == 51)  // Laufzeit in Sekunden
+            {
+               if (value > 2 * tmeSecondsPerDay)
+               {
+                  sensors[type][address].value = value / 60 / 60 / 24;
+                  unit = "days";
+               }
+               else if (value > tmeSecondsPerHour)
+               {
+                  sensors[type][address].value = value / 60 / 60;
+                  unit = "h";
+               }
+               else
+               {
+                  sensors[type][address].value = value;
+               }
+            }
+            else
+            {
+               sensors[type][address].value = value;
+            }
+         }
+
+         // tell(eloGroWatt, "Debug: Got (%s:%d) '%s' with %lld %s", type, address, title.c_str(), json_integer_value(jValue), unit);
+      }
+      else
+      {
+         sensors[type][address].kind = "value";
+         sensors[type][address].value = json_real_value(jValue);
+         // tell(eloGroWatt, "Debug: Got (%s:%d) '%s' with %.2f %s", type, address, title.c_str(), json_real_value(jValue), unit);
+      }
+
+      addValueFact(address, type, 1, title.c_str(), unit, title.c_str());
+
+      sensors[type][address].last = time(0);
+      sensors[type][address].valid = true;
+
+      // send update to WS
+      {
+         json_t* ojData = json_object();
+         sensor2Json(ojData, type, address);
+
+         if (sensors[type][address].kind == "status")
+            json_object_set_new(ojData, "value", json_integer(sensors[type][address].state));
+         else
+            json_object_set_new(ojData, "value", json_real(sensors[type][address].value));
+
+         json_object_set_new(ojData, "text", json_string(sensors[type][address].text.c_str()));
+
+         if (sensors[type][address].image.length())
+            json_object_set_new(ojData, "image", json_string(sensors[type][address].image.c_str()));
+
+         char* tuple {};
+         asprintf(&tuple, "%s:0x%02x", type, address);
+         jsonSensorList[tuple] = ojData;
+         free(tuple);
+
+         pushDataUpdate("update", 0L);
+      }
+
+      mqttHaPublish(sensors[type][address]);
+      mqttNodeRedPublishSensor(sensors[type][address]);
+   }
+
+   json_decref(jData);
 
    return done;
 }

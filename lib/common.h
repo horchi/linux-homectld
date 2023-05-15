@@ -111,6 +111,7 @@ enum Eloquence
    eloHomeMatic      = 0x02000,
    eloDebugHomeMatic = 0x04000,
    eloLua            = 0x08000,
+   eloGroWatt        = 0x10000,
 
    eloAlways         = 0x00000,
 };

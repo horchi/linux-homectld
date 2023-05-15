@@ -29,6 +29,8 @@ ADDRESS="$2"
 MQTTURL="$3"
 SERVICE="$4"
 
+export HOME=/var/lib/homectld
+
 case "$COMMAND" in
     start)
         ${SYSTEMCTL} start --quiet ${SERVICE}

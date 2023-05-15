@@ -7,6 +7,8 @@ ADDRESS="$2"
 # like mqtt://192.168.200.101:1883/homectld2mqtt/scripts
 MQTTURL="$3"
 
+export HOME=/var/lib/homectld
+
 case "${COMMAND}" in
    start)
       echo 1 >> /tmp/foo

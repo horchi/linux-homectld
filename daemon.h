@@ -86,10 +86,8 @@ class Daemon : public cWebInterface
 
          pinW1       = pinGpio04,
          pinSerialTx = pinGpio14,
-         pinSerialRx = pinGpio15,
+         pinSerialRx = pinGpio15
          // pinW1Power  = pinGpio10,
-
-         aiArduinoFirst   = 0x08
       };
 
       enum SensorOptions
@@ -452,7 +450,7 @@ class Daemon : public cWebInterface
 
       int dispatchArduinoMsg(const char* message);
       int initArduino();
-      void updateAnalogInput(const char* id, double value, time_t stamp);
+      void updateAnalogInput(const char* id, double value, time_t stamp, const char* unit);
 
       // W1
 

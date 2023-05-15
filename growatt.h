@@ -5,6 +5,9 @@
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
 // Date 04.11.2010 - 01.12.2023  Jörg Wendel
 //***************************************************************************
+// The GroWatt need MQTT communication as described here:
+//   https://github.com/otti/Growatt_ShineWiFi-S
+//***************************************************************************
 
 #include <vector>
 

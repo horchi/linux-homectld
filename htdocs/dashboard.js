@@ -12,7 +12,6 @@ var widgetWidthBase = null;
 var widgetHeightBase = null;
 var weatherData = null;
 var weatherInterval = null;
-var actDashboard = -1;
 var moseDownOn = { 'object' : null };
 var lightClickTimeout = null;
 var lightClickPosX = null;
@@ -192,6 +191,9 @@ function initWidget(key, widget, fact)
    // console.log("initWidget " + key + " : " + (fact ? fact.name : ''));
    // console.log("fact: " + JSON.stringify(fact, undefined, 4));
    // console.log("widget: " + JSON.stringify(widget, undefined, 4));
+
+   if (fact && widget.unit == '')
+      widget.unit = fact.unit;
 
    const marginPadding = 8;
    var root = document.getElementById("widgetContainer");
@@ -1008,6 +1010,9 @@ function updateWidget(sensor, refresh, widget)
       console.log("Widget '" + key + "' not found, ignoring");
       return;
    }
+
+   if (widget.unit == '')
+      widget.unit = fact.unit;
 
    var widgetDiv = $('#div_' + key.replace(':', '\\:'));
    widgetDiv.css('opacity', sensor.valid ? '100%' : '25%');

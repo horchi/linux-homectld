@@ -8,21 +8,6 @@
 
 #include "growatt.h"
 
-// enum Units
-// {
-//   NONE,
-//   POWER_W,
-//   POWER_KWH,
-//   VOLTAGE,
-//   CURRENT,
-//   SECONDS,
-//   PRECENTAGE,
-//   FREQUENCY,
-//   TEMPERATURE,
-// }
-
-// unitStr[] = {"", "W", "kWh", "V", "A", "s", "%", "Hz", "°C"};
-
 //***************************************************************************
 // Gro Watt
 //***************************************************************************
@@ -79,7 +64,7 @@ std::map<std::string,GroWatt::Def> GroWatt::sensors =
    { "PV2Voltage",                    { 48, "V" } },
    { "PVEnergyTotal",                 { 49, "kWh" } },
    { "SOC",                           { 50, "%" } },
-   { "TWorkTimeTotal",                { 51, "s" } },
+   { "WorkTimeTotal",                 { 51, "s" } },
    { "TemperatureInsideIPM",          { 52, "°C" } },
    { "TodayGenerateEnergy",           { 53, "kWh" } },
    { "TotalGenerateEnergy",           { 54, "kWh" } }
@@ -97,35 +82,4 @@ int GroWatt::getAddressOf(const char* key)
       return na;
 
    return it->second.address;
-}
-
-//***************************************************************************
-// Get Unit Of
-//***************************************************************************
-
-const char* GroWatt::getUnitOf(const char* key)
-{
-   const auto it = sensors.find(key);
-
-   if (it == sensors.end())
-      return "";
-
-   return it->second.unit;
-}
-
-//***************************************************************************
-// To Status String
-//***************************************************************************
-
-const char* GroWatt::toStatusString(uint status)
-{
-   switch (status)
-   {
-      case 0: return "Waiting";
-      case 1: return "Normal Operation";
-      case 2: return "";
-      case 3: return "Error";
-   }
-
-   return "";
 }

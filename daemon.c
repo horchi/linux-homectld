@@ -2662,7 +2662,8 @@ int Daemon::addValueFact(int addr, const char* type, int factor, const char* nam
    // if (tableValueFacts->getValue("OPTIONS")->isNull())
    tableValueFacts->setValue("OPTIONS", options);
 
-   if (tableValueFacts->getValue("UNIT")->isNull())
+   // if (tableValueFacts->getValue("UNIT")->isNull())
+   if (!tableValueFacts->hasValue("UNIT", unit))
       tableValueFacts->setValue("UNIT", unit);
 
    if (!isEmpty(choices))
@@ -3181,12 +3182,39 @@ std::string buildStringFromCamelCase(std::string camelCaseStr)
 
 //***************************************************************************
 // GroWatt Interface
+//
+// Input:
+// {
+//   "meta": {
+//     "mac": "C8:C9:A3:8B:0F:0C"
+//   },
+//   "data": {
+//     "0": {
+//       "name": "InverterStatus",
+//       "unit": "",
+//       "val": 1,
+//       "text": "Normal Operation"
+//     },
+//     "1": {
+//       "name": "InputPower",
+//       "unit": "W",
+//       "val": 684.6
+//     },
+//     "3": {
+//       "name": "PV1Voltage",
+//       "unit": "V",
+//       "val": 97
+//     },
+//     "4": {
+//       "name": "PV1InputCurrent",
+//       "unit": "A",
+//       "val": 7.6
+//     },
+//     ...
 //***************************************************************************
 
 int Daemon::dispatchGrowattEvents(const char* message)
 {
-   tell(eloGroWatt, "<- (GroWatt) '%s'", message);
-
    json_error_t error;
    json_t* jData = json_loads(message, 0, &error);
 
@@ -3196,107 +3224,86 @@ int Daemon::dispatchGrowattEvents(const char* message)
       return fail;
    }
 
-   const char* key {};
-   json_t* jValue {};
+   tell(eloGroWatt, "<- (GroWatt) '%s'", message);
+   // json_t* jHoldingRegisters = getObjectFromJson(jData, "param");  // not used yet
+   json_t* jInputRegisters = getObjectFromJson(jData, "data");
 
-   const char* type {"GROWATT"};
-   int address {na};
-   const char* unit {};
-   std::string title;
-
-   json_object_foreach(jData, key, jValue)
+   if (jInputRegisters)
    {
-      address = GroWatt::getAddressOf(key);
-      unit = GroWatt::getUnitOf(key);
-      title = buildStringFromCamelCase(key);
+      const char* key {};
+      json_t* jObj {};
 
-      if (address <= 0)
-         continue;
-
-      if (json_is_string(jValue))
+      json_object_foreach(jInputRegisters, key, jObj)
       {
-         sensors[type][address].kind = "text";
-         sensors[type][address].text = json_string_value(jValue);
-         // tell(eloGroWatt, "Debug: Got (%s:%d) '%s' with '%s'", type, address, title.c_str(), json_string_value(jValue));
-      }
-      else if (json_is_integer(jValue))
-      {
-         long long value = json_integer_value(jValue);
+         const char* type {"GROWATT"};
+         std::string title = getStringFromJson(jObj, "name");
+         const char* unit = getStringFromJson(jObj, "unit");
+         int address = GroWatt::getAddressOf(title.c_str());  // get old address
+         // int address = atoi(key);                          // the new address
 
-         if (address == 24)   // status
+         if (address < 0)
+         {
+            tell(eloAlways, "Warning: Failed to lookup address of Growatt sensor '%s'", key);
+            continue;
+         }
+
+         std::string text = getStringFromJson(jObj, "text", "");
+         json_t* jValue  = getObjectFromJson(jObj, "val");
+         double value = json_is_integer(jValue) ? json_integer_value(jValue) : json_real_value(jValue);
+
+         sensors[type][address].kind = "value";
+         sensors[type][address].value = value;
+         sensors[type][address].last = time(0);
+         sensors[type][address].valid = true;
+
+         if (address == 51)                     // Laufzeit in Sekunden
+         {
+            char duration[100] {};
+            toElapsed(value, duration);
+            text = duration;
+         }
+
+         if (!text.empty())
          {
             sensors[type][address].kind = "text";
-            sensors[type][address].text = GroWatt::toStatusString(value);
+            sensors[type][address].text = text;
          }
-         else
+
+         tell(eloAlways, "update samples set address = %s where address = %d and type = 'GROWATT'", key, address);
+         tell(eloAlways, "update valuefacts set address = %s where address = %d and type = 'GROWATT'", key, address);
+
+         addValueFact(address, type, 1, title.c_str(), unit, title.c_str());
+
+         // send update to WS
          {
-            sensors[type][address].kind = "value";
+            json_t* ojData = json_object();
+            sensor2Json(ojData, type, address);
 
-            if (address == 51)  // Laufzeit in Sekunden
-            {
-               if (value > 2 * tmeSecondsPerDay)
-               {
-                  sensors[type][address].value = value / 60 / 60 / 24;
-                  unit = "days";
-               }
-               else if (value > tmeSecondsPerHour)
-               {
-                  sensors[type][address].value = value / 60 / 60;
-                  unit = "h";
-               }
-               else
-               {
-                  sensors[type][address].value = value;
-               }
-            }
+            if (sensors[type][address].kind == "status")
+               json_object_set_new(ojData, "value", json_integer(sensors[type][address].state));
             else
-            {
-               sensors[type][address].value = value;
-            }
+               json_object_set_new(ojData, "value", json_real(sensors[type][address].value));
+
+            json_object_set_new(ojData, "text", json_string(sensors[type][address].text.c_str()));
+
+            if (sensors[type][address].image.length())
+               json_object_set_new(ojData, "image", json_string(sensors[type][address].image.c_str()));
+
+            char* tuple {};
+            asprintf(&tuple, "%s:0x%02x", type, address);
+            jsonSensorList[tuple] = ojData;
+            free(tuple);
+
+            pushDataUpdate("update", 0L);
          }
 
-         // tell(eloGroWatt, "Debug: Got (%s:%d) '%s' with %lld %s", type, address, title.c_str(), json_integer_value(jValue), unit);
+         mqttHaPublish(sensors[type][address]);
+         mqttNodeRedPublishSensor(sensors[type][address]);
       }
-      else
-      {
-         sensors[type][address].kind = "value";
-         sensors[type][address].value = json_real_value(jValue);
-         // tell(eloGroWatt, "Debug: Got (%s:%d) '%s' with %.2f %s", type, address, title.c_str(), json_real_value(jValue), unit);
-      }
-
-      addValueFact(address, type, 1, title.c_str(), unit, title.c_str());
-
-      sensors[type][address].last = time(0);
-      sensors[type][address].valid = true;
-
-      // send update to WS
-      {
-         json_t* ojData = json_object();
-         sensor2Json(ojData, type, address);
-
-         if (sensors[type][address].kind == "status")
-            json_object_set_new(ojData, "value", json_integer(sensors[type][address].state));
-         else
-            json_object_set_new(ojData, "value", json_real(sensors[type][address].value));
-
-         json_object_set_new(ojData, "text", json_string(sensors[type][address].text.c_str()));
-
-         if (sensors[type][address].image.length())
-            json_object_set_new(ojData, "image", json_string(sensors[type][address].image.c_str()));
-
-         char* tuple {};
-         asprintf(&tuple, "%s:0x%02x", type, address);
-         jsonSensorList[tuple] = ojData;
-         free(tuple);
-
-         pushDataUpdate("update", 0L);
-      }
-
-      mqttHaPublish(sensors[type][address]);
-      mqttNodeRedPublishSensor(sensors[type][address]);
    }
 
    json_decref(jData);
+   process();
 
    return done;
 }

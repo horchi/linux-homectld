@@ -22,8 +22,6 @@ class GroWatt
    public:
 
       static int getAddressOf(const char* key);
-      static const char* getUnitOf(const char* key);
-      static const char* toStatusString(uint status);
 
    private:
 

@@ -912,7 +912,7 @@ std::string l2pTime(time_t t, const char* fmt)
 const char* toElapsed(int seconds, char* buf)
 {
    char* p = buf;
-   int parts = 0;
+   int parts {0};
 
    int days = seconds / tmeSecondsPerDay;
    seconds %= tmeSecondsPerDay;
@@ -923,7 +923,7 @@ const char* toElapsed(int seconds, char* buf)
 
    if (days)
    {
-      p += sprintf(p, " %d Tag%s", days, plural(days, "en"));
+      p += sprintf(p, " %d Tag%s", days, plural(days, "e"));
       parts++;
    }
 

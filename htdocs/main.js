@@ -29,6 +29,7 @@ var allSensors = [];
 var images = [];
 var currentPage = "dashboard";
 var startPage = null;
+var actDashboard = -1;
 var widgetCharts = {};
 var theChart = null;
 var theChartRange = null;
@@ -61,6 +62,7 @@ $('document').ready(function() {
    console.log("kioskMode" + " : " + kioskMode);
    console.log("dashboardGroup" + " : " + dashboardGroup);
    startPage = urlParams.get('page') != null ? urlParams.get('page') : null;
+   actDashboard = urlParams.get('dash') != null ? urlParams.get('dash') : -1;
    console.log("currentPage: " + currentPage);
    console.log("startPage: " + startPage);
 

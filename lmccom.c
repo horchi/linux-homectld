@@ -694,13 +694,14 @@ int LmcCom::getCurrentCoverUrl(TrackInfo* track, std::string& coverUrl)
 
    if (track && !isEmpty(track->artworkurl))
    {
-      asprintf(&url, "http://%s:%d/%s", host, 9000, track->artworkurl);
+      // asprintf(&url, "http://%s:%d/%s", host, 9000, track->artworkurl);
+      asprintf(&url, "/%s", track->artworkurl);
    }
    else
    {
       // http://localhost:9000/music/current/cover.jpg?player=f0:4d:a2:33:b7:ed
-
-      asprintf(&url, "http://%s:%d/music/current/cover.jpg?player=%s&nocache=%ld", host, 9000, escId, time(0));
+      // asprintf(&url, "http://%s:%d/music/current/cover.jpg?player=%s&nocache=%ld", host, 9000, escId, time(0));
+      asprintf(&url, "/music/current/cover.jpg?player=%s&nocache=%ld", escId, time(0));
    }
 
    coverUrl = url;
@@ -754,9 +755,11 @@ int LmcCom::getCoverUrl(TrackInfo* track, std::string& coverUrl)
       // http://<server>:<port>/music/<track_id>/cover.jpg
 
       if (isEmpty(track->artworkTrackId))
-         asprintf(&url, "http://%s:%d/music/%d/cover.jpg", host, 9000, track->id);
+         // asprintf(&url, "http://%s:%d/music/%d/cover.jpg", host, 9000, track->id);
+         asprintf(&url, "/music/%d/cover.jpg", track->id);
       else
-         asprintf(&url, "http://%s:%d/music/%s/cover.jpg", host, 9000, track->artworkTrackId);
+         // asprintf(&url, "http://%s:%d/music/%s/cover.jpg", host, 9000, track->artworkTrackId);
+         asprintf(&url, "/music/%s/cover.jpg", track->artworkTrackId);
    }
 
    coverUrl = url;

@@ -864,7 +864,10 @@ int Daemon::performChartData(json_t* oObject, long client)
    // the id is one of {"chart" "chartwidget" "chartdialog"}
 
    bool widget = strcmp(id, "chart") != 0;
-   cDbStatement* select = widget ? selectSamplesRange60 : selectSamplesRange;
+   cDbStatement* select = selectSamplesRange;
+
+   if (strcmp(id, "chartwidget") == 0)
+      select = selectSamplesRange60;
 
    if (!widget)
       performChartbookmarks(client);

@@ -32,23 +32,27 @@ usage: thetford [-h] [-i [I]] [-v [V]] [-c [C]]
 optional arguments:
   -h, --help  show this help message and exit
   -i [I]      interval [seconds] (default 5)
+  -m [M]      MQTT host
+  -p [P]      MQTT port
   -v [V]      Verbosity Level (0-3) (default 0)
   -c [C]      Sample Count
 ```
 
 If you install it like the service file '`thetford.service` and enable/start it like
 ```
-cp thetford.py /usr/local/bin/
-cp thetford.service /etc/systemd/system/
-cp thetford2mqtt /etc/default/
-systemctl enable thetford
-systemctl start thetford
+sudo apt install mosquitto mosquitto-clients
+sudo cp thetford.py /usr/local/bin/
+sudo cp thetford.service /etc/systemd/system/
+sudo cp thetford2mqtt /etc/default/
+sudo systemctl enable thetford
+sudo systemctl start thetford
 ```
 It runs in the background and writing the specified MQTT topic.
 Don't forget to adjust the MQTT settings in /etc/default/thetford2mqtt.
 
 # MQTT message examples
 
+To check what is written on the topic call `mosquitto_sub -t n4000`
 ```
 {"type": "N4000", "address": 0, "value": 7, "kind": "text", "title": "Supply", "text": "230V"}
 {"type": "N4000", "address": 10, "value": 0, "title": "Mode", "kind": "text", "text": "Manuell"}

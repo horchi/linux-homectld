@@ -1,5 +1,6 @@
 # Linux - Home Control Daemon (homectld)
-#  CI-Bus query for thetford N400 cooler
+
+# CI-Bus interface for thetford N400 refrigerator
 
 ## License
 This code is distributed under the terms and conditions of the GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.

@@ -624,9 +624,6 @@ function mainMenuSel(what)
          theChartRange = parseFloat(config.chartRange.replace(',', '.'));
          theChartStart = new Date().subHours(theChartRange * 24);
       }
-      else if (!theChartStart)
-         theChartStart = new Date().subHours(theChartRange * 24);
-
       prepareChartRequest(jsonRequest, config.chartSensors, theChartStart, theChartRange, "chart");
       currentRequest = jsonRequest;
    }

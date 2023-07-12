@@ -1,0 +1,78 @@
+# Linux - Home Control Daemon (homectld)
+#  CI-Bus query for thetford N400 cooler
+
+## License
+This code is distributed under the terms and conditions of the GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
+
+## Disclaimer
+USE AT YOUR OWN RISK. No warranty.
+This software is a private contribution and not to any products and can also cause unintended behavior. Use at your own risk!
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+The software was created for personal use, it's published here for free under the GPLv2.
+The construction of the required hardware, especially in the handling of mains voltage (230V, 110V, ...), is carried out on one's own responsibility, local guidelines and regulations must also be observed especially in connection with water and pool!
+All explanations about the hardware are only indications of how it is technically feasible, security and legal provisions are not discussed here!
+
+## Donation
+If you like the project and want to support it
+
+[![paypal](https://www.paypalobjects.com/de_DE/DE/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=KUF9ZAQ5UTHUN)
+
+
+# Usage
+
+Just call `thetford.py` to retrieve the available values
+```
+root@womo {master u=} ~/build/homectld/thetford> ./thetford.py -h
+usage: thetford [-h] [-i [I]] [-v [V]] [-c [C]]
+
+optional arguments:
+  -h, --help  show this help message and exit
+  -i [I]      interval [seconds] (default 5)
+  -v [V]      Verbosity Level (0-3) (default 0)
+  -c [C]      Sample Count
+```
+
+If you install it like the service file '`thetford.service` and enable/start it like
+```
+cp thetford.py /usr/local/bin/
+cp thetford.service /etc/systemd/system/
+cp thetford2mqtt /etc/default/
+systemctl enable thetford
+systemctl start thetford
+```
+It runs in the background and writing the specified MQTT topic.
+Don't forget to adjust the MQTT settings in /etc/default/thetford2mqtt.
+
+
+# Thetford N4000 CI-Bus
+
+Bus ID: 0x0c
+
+## Werte Byte 0:
+0x03 - Gas Betrieb
+0x05 - 12V Betrieb
+0x07 - 230 Betrieb
+0x0B - Automatik Betrieb (Gas)
+0x0D - Automatik Betrieb (12V)
+0x0F - Automatik Betrieb (230V)
+
+## Werte Byte 1:
+0x00-0x04 - Level (Stufe 1-5)
+
+## Werte Byte 2:
+0x00               - D+ liegt nicht an
+0x01               - D+ liegt nicht an
+0x40 (b01000000)   - D+ liegt an
+0x41               - D+ liegt an
+
+## Werte Byte 3:
+Bei Störung der Fehlercode ansonsten 0x00
+
+## Werte Byte 4:
+0xE0-E5    - Spannung der 230V Versorgung (224V - 229V)
+
+## Werte Byte 5:
+0x84-0x92  - Spannung der 12V Versorgung (13,2V - 14,8V)
+
+## Werte Byte 6 und 7:
+0x00 - immer

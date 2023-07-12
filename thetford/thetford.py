@@ -69,9 +69,9 @@ def toModeString(val):
 	if mode == 3:
 		return "Gas"
 	elif mode == 5:
-		return "12V"
+		return "Batterie"
 	elif mode == 7:
-		return "230V"
+		return "Netz ~230V"
 	return "unknown"
 
 def publishMqtt(sensor):

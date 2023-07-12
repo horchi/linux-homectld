@@ -17,6 +17,10 @@ If you like the project and want to support it
 [![paypal](https://www.paypalobjects.com/de_DE/DE/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=KUF9ZAQ5UTHUN)
 
 
+# CI-Bus / LIN-Bus Adapter
+
+Here you can find the suitable adapter https://www.fischl.de/usblini/
+
 # Usage
 
 Just call `thetford.py` to retrieve the available values

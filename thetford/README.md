@@ -42,12 +42,25 @@ systemctl start thetford
 It runs in the background and writing the specified MQTT topic.
 Don't forget to adjust the MQTT settings in /etc/default/thetford2mqtt.
 
+# MQTT message examples
+
+```
+{"type": "N4000", "address": 0, "value": 7, "kind": "text", "title": "Supply", "text": "230V"}
+{"type": "N4000", "address": 10, "value": 0, "title": "Mode", "kind": "text", "text": "Manuell"}
+{"type": "N4000", "address": 1, "value": 5, "kind": "value", "title": "Level"}
+{"type": "N4000", "address": 2, "value": false, "kind": "status", "title": "D+"}
+{"type": "N4000", "address": 3, "value": 0, "kind": "text", "title": "Status", "text": "Online"}
+{"type": "N4000", "address": 4, "value": 226, "kind": "value", "title": "ExtSupply", "unit": "V"}
+{"type": "N4000", "address": 5, "value": 0.1, "kind": "value", "title": "IntSupply", "unit": "V"}
+```
 
 # Thetford N4000 CI-Bus
 
 Bus ID: 0x0c
 
 ## Werte Byte 0:
+Betriebsmodus
+
 0x03 - Gas Betrieb
 0x05 - 12V Betrieb
 0x07 - 230 Betrieb
@@ -56,9 +69,13 @@ Bus ID: 0x0c
 0x0F - Automatik Betrieb (230V)
 
 ## Werte Byte 1:
+Leistungsstufe
+
 0x00-0x04 - Level (Stufe 1-5)
 
 ## Werte Byte 2:
+D+
+
 0x00               - D+ liegt nicht an
 0x01               - D+ liegt nicht an
 0x40 (b01000000)   - D+ liegt an

@@ -24,7 +24,7 @@ Here you can find the suitable adapter https://www.fischl.de/usblini/
 
 # Usage
 
-Just call `thetford.py` to retrieve the available values
+Just call `thetford.py -v 1` to retrieve the available values
 ```
 root@womo {master u=} ~/build/homectld/thetford> ./thetford.py -h
 usage: thetford [-h] [-i [I]] [-v [V]] [-c [C]]

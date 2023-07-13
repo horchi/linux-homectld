@@ -50,7 +50,7 @@ sudo systemctl start thetford
 It runs in the background and writing the specified MQTT topic.
 Don't forget to adjust the MQTT settings in /etc/default/thetford2mqtt.
 
-# MQTT message examples
+## MQTT message examples
 
 To check what is written on the topic call `mosquitto_sub -t n4000`
 ```
@@ -67,7 +67,7 @@ To check what is written on the topic call `mosquitto_sub -t n4000`
 
 Bus ID: 0x0c
 
-## Werte Byte 0:
+### Werte Byte 0:
 Betriebsmodus
 
 0x03 - Gas Betrieb
@@ -77,12 +77,12 @@ Betriebsmodus
 0x0D - Automatik Betrieb (12V)
 0x0F - Automatik Betrieb (230V)
 
-## Werte Byte 1:
+### Werte Byte 1:
 Leistungsstufe
 
 0x00-0x04 - Level (Stufe 1-5)
 
-## Werte Byte 2:
+### Werte Byte 2:
 D+
 
 0x00               - D+ liegt nicht an
@@ -90,14 +90,14 @@ D+
 0x40 (b01000000)   - D+ liegt an
 0x41               - D+ liegt an
 
-## Werte Byte 3:
+### Werte Byte 3:
 Bei Störung der Fehlercode ansonsten 0x00
 
-## Werte Byte 4:
+### Werte Byte 4:
 0xE0-E5    - Spannung der 230V Versorgung (224V - 229V)
 
-## Werte Byte 5:
+### Werte Byte 5:
 0x84-0x92  - Spannung der 12V Versorgung (13,2V - 14,8V)
 
-## Werte Byte 6 und 7:
+### Werte Byte 6 und 7:
 0x00 - immer

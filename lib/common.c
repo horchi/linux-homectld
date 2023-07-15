@@ -138,8 +138,17 @@ void tell(Eloquence elo, const char* format, ...)
    }
    else
    {
-      int prio = elo == eloAlways ? LOG_ERR : LOG_NOTICE;
-      syslog(prio, "%s", t);
+      bool error = strncmp(t, "Err", 3) != 0;
+      bool warning = strncmp(t, "Warn", 4) != 0;
+
+      if (error)                  syslog(LOG_ERR, "%s", t);
+      else if (warning)           syslog(LOG_WARNING, "%s", t);
+      else if (elo & eloInfo)     syslog(LOG_NOTICE, "%s", t);
+      else if (elo & eloDetail)   syslog(LOG_INFO, "%s", t);
+      else                        syslog(LOG_DEBUG, "%s", t);
+
+      // int prio = elo == eloAlways ? LOG_ERR : LOG_NOTICE;
+      // syslog(prio, "%s", t);
    }
 
    va_end(ap);

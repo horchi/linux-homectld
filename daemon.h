@@ -310,6 +310,7 @@ class Daemon : public cWebInterface
       virtual int dispatchHomematicRpcResult(const char* message);
       virtual int dispatchHomematicEvents(const char* message);
       virtual int dispatchGrowattEvents(const char* message);
+      virtual int dispatchRtl433(const char* message);
       virtual int dispatchOther(const char* topic, const char* message);
       bool checkRights(long client, Event event, json_t* oObject);
       virtual bool onCheckRights(long client, Event event, uint rights) { return false; }

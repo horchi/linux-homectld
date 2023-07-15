@@ -258,6 +258,18 @@ const char* Daemon::getImageFor(const char* type, const char* title, const char*
 // Object
 //***************************************************************************
 
+int isDST()
+{
+   struct tm tm;
+   time_t t = time(0);
+
+   localtime_r(&t, &tm);
+   tm.tm_isdst = -1;  // force DST auto detect
+   mktime(&tm);
+
+   return tm.tm_isdst;
+}
+
 Daemon::Daemon()
 {
    nextRefreshAt = time(0) + 5;
@@ -518,6 +530,10 @@ int Daemon::init()
 
 int Daemon::initLocale()
 {
+   setenv("TZ", "CET", 1);
+   tzset();  // init timezone environment
+   tell(eloAlways, "Daylight (%d); Timezone is (%ld) now it's %ld", isDST(), timezone, time(0));
+
    // set a locale to "" means 'reset it to the environment'
    // as defined by the ISO-C standard the locales after start are C
 
@@ -1876,6 +1892,8 @@ int Daemon::store(time_t now, const SensorData* sensor)
 
 int Daemon::process()
 {
+   // calculate CV sensors by LUA
+
    for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
       if (!tableValueFacts->hasValue("TYPE", "CV"))
@@ -1985,24 +2003,28 @@ int Daemon::process()
       sensors[type][address].valid = true;
       setConfigItem(key, sensors[type][address].value);
 
-      free(key);
+      // tell(eloLua, "LUA '%s' changed from %f to %f", key, oldValue, sensors[type][address].value);
 
       if (oldValue != sensors[type][address].value)
       {
          // update WS
          {
+            // tell(eloLua, "LUA '%s' update WS to %f", key, sensors[type][address].value);
+
             json_t* ojData = json_object();
 
-            sensor2Json(ojData, "CV", address);
-            json_object_set_new(ojData, "value", json_real(sensors["CV"][address].value));
+            sensor2Json(ojData, type, address);
+            json_object_set_new(ojData, "value", json_real(sensors[type][address].value));
 
             jsonSensorList[key] = ojData;
             pushDataUpdate("update", 0L);
          }
 
-         mqttHaPublish(sensors["CV"][address]);
-         mqttNodeRedPublishSensor(sensors["CV"][address]);
+         mqttHaPublish(sensors[type][address]);
+         mqttNodeRedPublishSensor(sensors[type][address]);
       }
+
+      free(key);
    }
 
    selectActiveValueFacts->freeResult();
@@ -3318,6 +3340,69 @@ int Daemon::dispatchGrowattEvents(const char* message)
 }
 
 //***************************************************************************
+// Dispatch RTL 433 MHz
+//  (rtl_433)
+//     { "time":"2023-07-14 20:45:32", "model":"Nexus-T", "id":60, "channel":1, "battery_ok":1, "temperature_C":14.8}
+//***************************************************************************
+
+int Daemon::dispatchRtl433(const char* message)
+{
+   tell(eloInfo, "RTL433 <-'%s'", message);
+
+   json_t* jData = json_loads(message, 0, nullptr);
+
+   if (!jData)
+   {
+      tell(eloAlways, "Error: (RTL433) Can't parse json in '%s'", message);
+      return fail;
+   }
+
+   std::string  kind = "value";
+   const char* type = "RTL433";
+   int address = getIntFromJson(jData, "id");
+   const char* unit = "°C";
+   // const char* timeStr = getStringFromJson(jData, "time");
+   const char* title = getStringFromJson(jData, "model");
+   double value = getDoubleFromJson(jData, "temperature_C");
+
+   addValueFact(address, type, 1, title, unit, title);
+
+   sensors[type][address].valid = true;
+   sensors[type][address].kind = kind;
+   sensors[type][address].value = value;
+   sensors[type][address].last = time(0);
+
+   // send update to WS
+   {
+      json_t* ojData = json_object();
+      sensor2Json(ojData, type, address);
+
+      if (kind == "status")
+         json_object_set_new(ojData, "value", json_integer(sensors[type][address].state));
+      else
+         json_object_set_new(ojData, "value", json_real(sensors[type][address].value));
+
+      json_object_set_new(ojData, "text", json_string(sensors[type][address].text.c_str()));
+
+      if (sensors[type][address].image.length())
+         json_object_set_new(ojData, "image", json_string(sensors[type][address].image.c_str()));
+
+      char* tuple {};
+      asprintf(&tuple, "%s:0x%02x", type, address);
+      jsonSensorList[tuple] = ojData;
+      free(tuple);
+
+      pushDataUpdate("update", 0L);
+   }
+
+   mqttHaPublish(sensors[type][address]);
+   mqttNodeRedPublishSensor(sensors[type][address]);
+   json_decref(jData);
+
+   return done;
+}
+
+//***************************************************************************
 // Dispatch Other
 //  (p4d2mqtt/p4/Heizung)
 //     { "value": 77.0, "type": "P4VA", "address": 1, "unit": "°C", "title": "Abgas" }
@@ -3358,12 +3443,12 @@ int Daemon::dispatchOther(const char* topic, const char* message)
       }
 
       addValueFact(address, type, 1, title, unit, title);
-
       sensors[type][address].last = time(0);
+      // tell(eloAlways, "Setting time for sensor '%s:%d' to %ld", type, address, sensors[type][address].last);
    }
-   else  // SC - script sensor
+   else  // SC - script sensor (send result async via MQTT)
    {
-      sensors["SC"][address].working = false;
+      sensors["SC"][address].working = false;      // reset 'working' state
       sensors[type][address].last = time(0) + 1;   // workaround due to async result of SC (if last is identical it's never stored)
    }
 

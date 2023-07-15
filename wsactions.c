@@ -2359,6 +2359,7 @@ int Daemon::sensor2Json(json_t* obj, const char* type, uint address)
    json_object_set_new(obj, "type", json_string(type));
    json_object_set_new(obj, "working", json_boolean(sensors[type][address].working));
    json_object_set_new(obj, "last", json_integer(sensors[type][address].last));
+   // tell(eloAlways, "Distributing time for sensor '%s:%d' to %ld", type, address, sensors[type][address].last);
 
    tablePeaks->clear();
    tablePeaks->setValue("TYPE", type); // table->getStrValue("TYPE"));

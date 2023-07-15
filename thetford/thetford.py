@@ -11,6 +11,13 @@ import paho.mqtt.client as paho
 
 from usblini import USBlini
 
+def tell(level, msg):
+	if args.v >= level:
+		if args.l:
+			syslog.syslog(syslog.LOG_INFO, msg)
+		else:
+			print(msg)
+
 received = 0
 
 titles = {
@@ -43,10 +50,6 @@ def toSensorTitle(byte):
 def toSensorUnit(byte):
 	return units[byte];
 
-def tell(level, msg):
-	if args.v >= level:
-		print(msg)
-
 def byte2uint(val):
 	if val < 0:
 		return -(256-val)
@@ -77,7 +80,7 @@ def toModeString(val):
 def publishMqtt(sensor):
 	if args.m != '':
 		msg = json.dumps(sensor)
-		tell(3, '{}'.format(msg))
+		tell(1, '{}'.format(msg))
 		ret = mqtt.publish("n4000", msg)
 
 def frame_listener(frame):
@@ -87,6 +90,8 @@ def frame_listener(frame):
 
 	global received
 	received += 1
+
+	tell(0, 'Updating ...')
 	tell(1, '-----------------------')
 
 	for byte in range(8):
@@ -151,12 +156,13 @@ parser.add_argument('-m', nargs='?', help='MQTT host', default="")
 parser.add_argument('-p', type=int, nargs='?', help='MQTT port', default=1883)
 parser.add_argument('-v', type=int, nargs='?', help='Verbosity Level (0-3) (default 0)', default=0)
 parser.add_argument('-c', type=int, nargs='?', help='Sample Count', default=0)
+parser.add_argument('-l', action='store_true', help='Log to Syslog (default console)')
 args = parser.parse_args()
 
 # open mqtt connection
 
 if args.m != '':
-	syslog.syslog(syslog.LOG_INFO, 'Connecting to "{}" "{}"'.format(args.m.strip(), args.p))
+	tell(0, 'Connecting to "{}" "{}"'.format(args.m.strip(), args.p))
 	mqtt = paho.Client("n4000")
 	mqtt.connect(args.m.strip(), args.p)
 

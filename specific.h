@@ -34,8 +34,21 @@ class HomeCtl : public Daemon
          pinUserOut2     = pinGpio24,
          pinUserOut3     = pinGpio11,
          pinUserOut4     = pinGpio09,
+         pinUserOut5     = pinGpio05,
+         pinUserOut6     = pinGpio06,
+         pinUserOut7     = pinGpio07,
+         pinUserOut8     = pinGpio08,
          pinShower       = pinGpio25,
          pinShowerSwitch = pinGpio19,
+
+         // potenziell frei
+
+         // pinGpio12
+         // pinGpio13
+         // pinGpio16
+         // pinGpio20
+         // pinGpio21
+         // pinGpio26
       };
 
 #ifdef _POOL

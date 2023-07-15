@@ -683,6 +683,49 @@ div.greenCircle
     background-color: green;
 }
 
+.socketState
+{
+    min-width: 15px !important;
+    height: 15px !important;
+    align-self: center;
+}
+
+.greenCircle
+{
+    width: 12px;
+    height: 12px;
+    border-radius: 8px;
+    margin-left: 4px;
+    background-color: #4D9143;
+}
+
+.redCircle
+{
+    width: 12px;
+    height: 12px;
+    border-radius: 8px;
+    margin-left: 4px;
+    background-color: #c11010;
+}
+
+.grayCircle
+{
+    width: 12px;
+    height: 12px;
+    border-radius: 8px;
+    margin-left: 4px;
+    background-color: #545454;
+}
+
+.yellowCircle
+{
+    width: 12px;
+    height: 12px;
+    border-radius: 8px;
+    margin-left: 4px;
+    background-color: yellow;
+}
+
 .tableMultiCol
 {
     width: 100%;

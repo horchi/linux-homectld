@@ -86,8 +86,8 @@ class Daemon : public cWebInterface
 
          pinW1       = pinGpio04,
          pinSerialTx = pinGpio14,
-         pinSerialRx = pinGpio15
-         // pinW1Power  = pinGpio10,
+         pinSerialRx = pinGpio15,
+         pinW1Power  = pinGpio10
       };
 
       enum SensorOptions

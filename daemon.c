@@ -1654,11 +1654,20 @@ int Daemon::standbyUntil()
 
 int Daemon::meanwhile()
 {
+   static time_t lastPingAt {0};
+
    if (!initialized)
       return done;
 
    if (!connection || !connection->isConnected())
       return fail;
+
+   if (lastPingAt+2 <= time(0))
+   {
+      lastPingAt = time(0);
+      json_t* oJson = json_object();
+      pushOutMessage(oJson, "ping", 0);
+   }
 
    tell(eloDebug2, "loop ...");
 

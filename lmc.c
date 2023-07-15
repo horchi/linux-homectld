@@ -93,7 +93,7 @@ int Daemon::lmcUpdates(long client)
 
 int Daemon::lmcTrack2Json(json_t* obj, TrackInfo* track)
 {
-   tell(eloAlways, "LMC: %s / %s / %s / %s ", track->title, track->artist, track->genre, track->album);
+   tell(eloAlways, "LMC track: %s / %s / %s / %s ", track->title, track->artist, track->genre, track->album);
 
    // current track
 

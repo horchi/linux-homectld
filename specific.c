@@ -319,6 +319,11 @@ int HomeCtl::applyConfigurationSpecials()
    initOutput(pinUserOut2, ooUser, omManual, "User 2");
    initOutput(pinUserOut3, ooUser, omManual, "User 3");
    initOutput(pinUserOut4, ooUser, omManual, "User 4");
+
+   initOutput(pinUserOut5, ooUser, omManual, "User 5");
+   initOutput(pinUserOut6, ooUser, omManual, "User 6");
+   initOutput(pinUserOut7, ooUser, omManual, "User 7");
+   initOutput(pinUserOut8, ooUser, omManual, "User 8");
 #endif
 
 #ifdef _POOL
@@ -414,7 +419,7 @@ int HomeCtl::process()
       setConfigItem("lastSolarWork", sensors["SP"][spSolarWork].value);
    }
 
-   time_t tPoolLast, tSolarLast;
+   time_t tPoolLast {}, tSolarLast {};
    double tPool = valueOfW1(toW1Id(w1AddrPool), tPoolLast);
    double tSolar = valueOfW1(toW1Id(w1AddrSolar), tSolarLast);
 

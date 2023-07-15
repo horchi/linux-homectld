@@ -16,6 +16,7 @@ var daytimeCalcAt = null;
 var onSmalDevice = false;
 var isActive = null;
 var socket = null;
+var lastPingAt = 0;
 var config = {};
 var commands = {};
 var daemonState = {};
@@ -80,6 +81,8 @@ $('document').ready(function() {
    colorStyle = getComputedStyle(document.body);
 });
 
+var socketStateInterval = null;
+
 function onSocketConnect(protocol)
 {
    var token = localStorage.getItem(storagePrefix + 'Token');
@@ -96,7 +99,13 @@ function onSocketConnect(protocol)
                    "url" : window.location.href }
                });
 
-   // document.title = "Home Control";
+   if (socketStateInterval)
+      clearInterval(socketStateInterval);
+
+   socketStateInterval = setInterval(function() {
+      updateSocketState();
+   }, 1*1000);
+
    onSmalDevice = window.matchMedia("(max-width: 740px)").matches;
    console.log("onSmalDevice : " + onSmalDevice);
 }
@@ -114,7 +123,7 @@ function connectWebSocket(useUrl, protocol)
          if (isActive === null)     // wurde beim Schliessen auf null gesetzt
             onSocketConnect(protocol);
       }, onclose: function () {
-         isActive = null;           // auf null setzen, dass ein neues login aufgerufen wird
+         isActive = null;           // auf null setzen, damit ein neues login aufgerufen wird
       }, onmessage: function (msg) {
          dispatchMessage(msg.data)
       }.bind(this)
@@ -122,6 +131,38 @@ function connectWebSocket(useUrl, protocol)
 
    if (!socket)
       return !($el.innerHTML = "Your Browser will not support Websockets!");
+}
+
+var socketStateCount = 0;
+
+function updateSocketState()
+{
+   if (!$('#socketState').length)
+      return ;
+
+   // VDR did not support ping
+
+   if (currentPage != "vdr") {
+      if (lastPingAt + 4000 <= new Date().getTime()) {
+         console.log("Warning: Reconnecting web socket");
+         socket.reopen();
+         lastPingAt = new Date().getTime();
+      }
+   }
+
+   let circle = 'yellowCircle';
+
+   if (socketStateCount++ % 2)
+      circle = 'grayCircle';
+   else if (!socket || socket.ws.readyState != WebSocket.OPEN)
+      circle = 'redCircle';
+   else
+      circle = 'greenCircle';
+
+   $('#socketState').attr('class', '');
+   $('#socketState').addClass('socketState ' + circle);
+
+   // console.log("updated socket state to", $('#socketState').attr('class'));
 }
 
 function sleep(ms) {
@@ -279,6 +320,10 @@ function dispatchMessage(message)
       hideProgressDialog();
       showInfoDialog(jMessage.object);
    }
+   else if (event == "ping") {
+      console.log("Got ping");
+      lastPingAt = new Date().getTime();
+   }
    else if (event == "init") {
       // console.log("init " + JSON.stringify(jMessage.object, undefined, 4));
       allSensors = jMessage.object;
@@ -321,7 +366,7 @@ function dispatchMessage(message)
    }
    else if (event == "config") {
       config = jMessage.object;
-      console.log("config " + JSON.stringify(config, undefined, 4));
+      // console.log("config " + JSON.stringify(config, undefined, 4));
       if (config.background != '') {
          // $(document.body).addClass('body-background');
          $(document.body).css('background', 'transparent url(' + config.background + ') no-repeat 50% 0 fixed');
@@ -433,7 +478,6 @@ function prepareMenu()
       return ;
 
    document.title = config.instanceName;
-
    console.log("prepareMenu: " + currentPage);
 
    html += '<button class="rounded-border button1" onclick="mainMenuSel(\'dashboard\')">Dash</button>';
@@ -450,11 +494,14 @@ function prepareMenu()
       html += '<button class="rounded-border button1" onclick="mainMenuSel(\'setup\')">Setup</button>';
 
    html +=
-      '<button id="burgerMenu" class="rounded-border button1 burgerMenu" onclick="menuBurger()">' +
-      ' <div></div>' +
-      ' <div></div>' +
-      ' <div></div>' +
-      '</button>';
+      '<div style="display:flex;float:right;">' +
+      ' <span id="socketState" class="socketState ' + 'grayCircle' + '" style="min-width:max-content;"></span>' +
+      ' <button id="burgerMenu" class="rounded-border button1 burgerMenu" onclick="menuBurger()">' +
+      '  <div></div>' +
+      '  <div></div>' +
+      '  <div></div>' +
+      ' </button>' +
+      '</div>';
 
    // buttons below menu
 

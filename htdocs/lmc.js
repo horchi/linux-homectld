@@ -176,7 +176,7 @@ function updateLmc()
    lastTrackTimeAt = lNow();
    calcProgress();
 
-   $('#lmcCoverImage').attr('src', window.location.href.split(':')[0] + ':' + window.location.href.split(':')[1] + ':9000' + lmcData.current.cover);
+   $('#lmcCoverImage').attr('src', lmcData.current.cover);
 
    if (lmcData.state.mode == 'play' && !progressTrigger) {
       // console.log("starting progress timer!");
@@ -239,8 +239,7 @@ function updatePlaylist()
                  })
                  .append($('<span></span>')
                          .append($('<img></img>')
-                                 .attr('src', window.location.href.split(':')[0] + ':' + window.location.href.split(':')[1] + ':9000' + lmcData.playlist[i].cover)))
-                                 // .attr('src', lmcData.playlist[i].cover)))
+                                 .attr('src', lmcData.playlist[i].cover)))
                  .append($('<span></span>')
                          .append($('<div></div>')
                                  .html(lmcData.playlist[i].title))

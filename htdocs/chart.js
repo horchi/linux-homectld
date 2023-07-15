@@ -28,6 +28,7 @@ function drawCharts(dataObject)
       document.getElementById("container").innerHTML =
          '<canvas id="chartContainer" class="chartCanvas" width="1600" height="600"></canvas>' +
          '<div class="rounded-border chartButtons">' +
+         '  <input  class="rounded-border chartButton" style="height: 27px;" type="date" onchange="chartSelect(\'setstart\')" id="chartStart" min="2020-01-01"></input>' +
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'prevmonth\')">&lt; Monat</button>' +
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'prev\')">&lt; Tag</button>' +
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'now\')">Jetzt</button>' +
@@ -37,6 +38,7 @@ function drawCharts(dataObject)
          '</div>' +
          '<div id="chartSelector" class="rounded-border chartSelectors"></div>';
 
+      document.getElementById("chartStart").valueAsDate = theChartStart;
       root = document.getElementById("chartContainer");
    }
 
@@ -149,7 +151,7 @@ function drawCharts(dataObject)
    updateChartBookmarks();
 
    for (var i = 0; i < dataObject.sensors.length; i++) {
-      console.log("sensor " + dataObject.sensors[i].id);
+      // console.log("sensor " + dataObject.sensors[i].id);
       var fact = valueFacts[dataObject.sensors[i].id];
 
       var html = '<div class="chartSel"><input id="checkChartSel_' + dataObject.sensors[i].id +
@@ -288,8 +290,14 @@ function chartSelect(action)
       theChartStart.setFullYear(theChartStart.getFullYear(), theChartStart.getMonth(), theChartStart.getDate()-30);
    else if (action == "now")
       theChartStart.setFullYear(now.getFullYear(), now.getMonth(), now.getDate()-theChartRange);
+   else if (action == "range")
+      ;
+   else if (action == "choice")
+      ;
+   else if (action == "setstart")
+      theChartStart = new Date(document.getElementById("chartStart").value);
    else
-      theChartStart = new Date().subHours(theChartRange * 24);
+      console.log("chartSelect(" + action + ")");
 
    // console.log("sensors:  '" + sensors + "'" + ' Range:' + theChartRange);
 

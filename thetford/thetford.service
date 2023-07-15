@@ -1,0 +1,17 @@
+[Unit]
+
+Description = Thetford N4000 data to MQTT service
+After = network.target
+StartLimitInterval = 200
+StartLimitBurst = 5
+
+[Service]
+EnvironmentFile=-/etc/default/thetford2mqtt
+Type = simple
+ExecStart = /usr/bin/python3 /usr/local/bin/thetford.py ${THETFORD2MQTT_OPTS}
+Restart = always
+RestartSec = 30
+
+[Install]
+
+WantedBy = multi-user.target

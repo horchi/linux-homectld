@@ -1692,8 +1692,8 @@ function widgetSetup(key)
 
    if (allSensors[key] != null)
    {
-      console.log("sensor " + JSON.stringify(allSensors[key], undefined, 4));
-      console.log("sensor found, batt is : " + allSensors[key].battery);
+      // console.log("sensor " + JSON.stringify(allSensors[key], undefined, 4));
+      // console.log("sensor found, batt is : " + allSensors[key].battery);
       battery = allSensors[key].battery;
    }
    else

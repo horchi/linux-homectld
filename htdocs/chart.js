@@ -26,21 +26,26 @@ function drawCharts(dataObject)
       //
 
       document.getElementById("container").innerHTML =
-         '<canvas id="chartContainer" class="chartCanvas" width="1600" height="600"></canvas>' +
+         '<div id="chartContainer" class="chartContainer">' +
+         '  <canvas id="chartCanvas" class="chartCanvas"></canvas>' +
+         '</div>' +
          '<div class="rounded-border chartButtons">' +
-         '  <input  class="rounded-border chartButton" style="height: 27px;" type="date" onchange="chartSelect(\'setstart\')" id="chartStart" min="2020-01-01"></input>' +
+         '  <input  class="rounded-border chartButton" style="height: 27px;width: 125px;" type="date" onchange="chartSelect(\'setstart\')" id="chartStart" min="2020-01-01"></input>' +
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'prevmonth\')">&lt; Monat</button>' +
+         '  <button class="rounded-border chartButton" onclick="chartSelect(\'prevweek\')">&lt; Woche</button>' +
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'prev\')">&lt; Tag</button>' +
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'now\')">Jetzt</button>' +
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'next\')">Tag &gt;</button>' +
+         '  <button class="rounded-border chartButton" onclick="chartSelect(\'nextweek\')">Woche &gt;</button>' +
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'nextmonth\')">Monat &gt;</button>' +
-         '  <div>Tage </div><input class="rounded-border chartButton" style="width:90px;" onchange="chartSelect(\'range\')" id="chartRange" type="number" step="0.25" min="0.25" value="' + theChartRange + '"></input>' +
+         '  <span>Tage</span><input class="rounded-border chartButton" style="max-width:50px;" onchange="chartSelect(\'range\')" id="chartRange" type="number" step="0.25" min="0.25" value="' + theChartRange + '"></input>' +
          '</div>' +
          '<div id="chartSelector" class="rounded-border chartSelectors"></div>';
 
       document.getElementById("chartStart").valueAsDate = theChartStart;
-      root = document.getElementById("chartContainer");
    }
+
+   root = document.getElementById("chartCanvas");
 
    if (theChart != null) {
       theChart.destroy();
@@ -54,7 +59,8 @@ function drawCharts(dataObject)
          datasets: []
       },
       options: {
-         responsive: false,
+         responsive: true,
+         maintainAspectRatio: false,
          tooltips: {
             mode: "index",
             intersect: false,
@@ -109,7 +115,6 @@ function drawCharts(dataObject)
    // console.log("dataObject: " + JSON.stringify(dataObject, undefined, 4));
 
    var colors = ['gray','yellow','white','red','lightblue','lightgreen','purple','blue','green','pink','#E69138'];
-
    var yAxes = [];
    var knownUnits = {};
 
@@ -284,10 +289,14 @@ function chartSelect(action)
       theChartStart.setFullYear(theChartStart.getFullYear(), theChartStart.getMonth(), theChartStart.getDate()+1);
    else if (action == "nextmonth")
       theChartStart.setFullYear(theChartStart.getFullYear(), theChartStart.getMonth(), theChartStart.getDate()+30);
+   else if (action == "nextweek")
+      theChartStart.setFullYear(theChartStart.getFullYear(), theChartStart.getMonth(), theChartStart.getDate()+7);
    else if (action == "prev")
       theChartStart.setFullYear(theChartStart.getFullYear(), theChartStart.getMonth(), theChartStart.getDate()-1);
    else if (action == "prevmonth")
       theChartStart.setFullYear(theChartStart.getFullYear(), theChartStart.getMonth(), theChartStart.getDate()-30);
+   else if (action == "prevweek")
+      theChartStart.setFullYear(theChartStart.getFullYear(), theChartStart.getMonth(), theChartStart.getDate()-7);
    else if (action == "now")
       theChartStart.setFullYear(now.getFullYear(), now.getMonth(), now.getDate()-theChartRange);
    else if (action == "range")

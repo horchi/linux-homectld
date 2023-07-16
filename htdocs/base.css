@@ -965,6 +965,13 @@ table.tableMultiCol tr:nth-child(odd)
     background-color: var(--background);
 }
 
+.chartContainer
+{
+    margin: 8px;
+    height: 70%;
+    min-height: 400px;
+}
+
 .chartDialogCanvas
 {
     background-color: black;
@@ -980,21 +987,23 @@ table.tableMultiCol tr:nth-child(odd)
 
 .chartButtons
 {
-    display: flex;
+    display: flow;
     justify-content: center;
     align-items: center;
     padding: 5px;
     background-color: var(--background);
+    margin: 0px 8px 0px 8px;
+    text-align: center;
 }
 
 .chartButton
 {
     display: inline;
-    width: 200px;
-    padding: 4px;
-    margin: 5px;
+    width: 80px;
+    padding: 2px;
+    margin: 2px;
     color: white;
-    font-size: x-large;
+    font-size: large;
     background-color: slategray;
 }
 
@@ -1013,8 +1022,8 @@ table.tableMultiCol tr:nth-child(odd)
 {
     display: inline;
     min-width: 76px;
-    padding: 4px;
-    margin: 5px;
+    padding: 2px;
+    margin: 2px;
     color: white;
     height: 28px;
     background-color: slategray;
@@ -1029,8 +1038,9 @@ table.tableMultiCol tr:nth-child(odd)
 {
     display: flex;
     flex-wrap: wrap;
-    padding: 15px 15px 15px 15px;
+    padding: 6px;
     background-color: var(--background);
+    margin: 8px;
 }
 
 .chartSel

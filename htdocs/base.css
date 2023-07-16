@@ -968,7 +968,7 @@ table.tableMultiCol tr:nth-child(odd)
 .chartContainer
 {
     margin: 8px;
-    height: 70%;
+    height: 75%;
     min-height: 400px;
 }
 

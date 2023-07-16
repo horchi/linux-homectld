@@ -183,8 +183,8 @@ ulini.frame_listener_add(frame_listener)
 ulini.master_set_sequence(args.i * 1000, 200, [0x0c])
 
 while True:
+	time.sleep(0.2)
 	abort = args.c != 0 and received >= args.c
-
 	if abort:
 		break
 	pass

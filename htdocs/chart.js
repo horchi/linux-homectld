@@ -38,7 +38,7 @@ function drawCharts(dataObject)
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'next\')">Tag &gt;</button>' +
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'nextweek\')">Woche &gt;</button>' +
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'nextmonth\')">Monat &gt;</button>' +
-         '  <span>Tage</span><input class="rounded-border chartButton" style="max-width:50px;" onchange="chartSelect(\'range\')" id="chartRange" type="number" step="0.25" min="0.25" value="' + theChartRange + '"></input>' +
+         '  <span>Tage</span><input class="rounded-border chartButton" style="max-width:70px;" onchange="chartSelect(\'range\')" id="chartRange" type="number" step="0.25" min="0.25" value="' + theChartRange + '"></input>' +
          '</div>' +
          '<div id="chartSelector" class="rounded-border chartSelectors"></div>';
 

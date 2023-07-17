@@ -361,7 +361,7 @@ function initIoSetup(valueFacts)
    for (var key in ioSections)
       ioSections[key].exist = false;
 
-   var html = '<div id="ioSetupContainer">';
+   var html = '<div id="ioSetupContainer" style="margin:5px;">';
 
    for (var i = 0; i < valueTypes.length; i++) {
       var section = 'io' + valueTypes[i].title.replace(' ', '');

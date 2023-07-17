@@ -102,8 +102,7 @@ int Daemon::dispatchClientRequest()
          if (client == na)
             tell(eloAlways, "Insufficient rights to '%s', missing login", getStringFromJson(oData, "event", "<null>"));
          else
-            tell(eloAlways, "Insufficient rights to '%s' for user '%s'", getStringFromJson(oData, "event", "<null>"),
-                 wsClients[(void*)client].user.c_str());
+            tell(eloAlways, "Insufficient rights to '%s' for user '%s'", getStringFromJson(oData, "event", "<null>"), wsClients[(void*)client].user.c_str());
          // replyResult(fail, "Insufficient rights", client);
       }
 
@@ -116,7 +115,7 @@ int Daemon::dispatchClientRequest()
 
 bool Daemon::checkRights(long client, Event event, json_t* oObject)
 {
-   uint rights = urView;
+   uint rights = urNone;
    auto it = wsClients.find((void*)client);
 
    if (it != wsClients.end())
@@ -127,9 +126,9 @@ bool Daemon::checkRights(long client, Event event, json_t* oObject)
       case evLogin:               return true;
       case evLogout:              return true;
       case evGetToken:            return true;
-      case evData:                return true;
-      case evInit:                return true;
-      case evPageChange:          return true;
+      case evData:                return rights & urView;
+      case evInit:                return rights & urView;
+      case evPageChange:          return rights & urView;
       case evToggleIoNext:        return rights & urControl;
       case evToggleMode:          return rights & urFullControl;
       case evStoreConfig:         return rights & urSettings;
@@ -143,7 +142,7 @@ bool Daemon::checkRights(long client, Event event, json_t* oObject)
       case evCommand:             return rights & urFullControl;
       case evSyslog:              return rights & urAdmin;
       case evSystem:              return rights & urAdmin;
-      case evForceRefresh:        return true;
+      case evForceRefresh:        return rights & urView;
 
       case evChartbookmarks:      return rights & urView;
       case evStoreChartbookmarks: return rights & urSettings;
@@ -271,14 +270,14 @@ int Daemon::performLogin(json_t* oObject)
    else
    {
       wsClients[(void*)client].type = ctActive;
-      wsClients[(void*)client].rights = urView;  // allow view without login
+      wsClients[(void*)client].rights = 0;  // allow view without login
       tell(eloAlways, "Warning: Unknown user '%s' or token mismatch connected!", user);
 
       json_t* oJson = json_object();
       json_object_set_new(oJson, "user", json_string(user));
       json_object_set_new(oJson, "state", json_string("reject"));
       json_object_set_new(oJson, "value", json_string(""));
-      pushOutMessage(oJson, "token", client);
+      return pushOutMessage(oJson, "token", client);
    }
 
    tell(eloWebSock, "Login of client 0x%x; user '%s'; type is %d; page %s", (unsigned int)client, user,

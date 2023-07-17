@@ -289,7 +289,8 @@ function initWidget(key, widget, fact)
             .append($('<div></div>')
                     .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
                     .addClass(titleClass)
-                    .click(function(event) { titleClick(event, key); })
+                    .click(function(event) { titleClick(event.ctrlKey, key); })
+                    .dblclick(function(event) { titleClick(true, key); })
                     .css('user-select', 'none')
                     .html(title))
             .append($('<button></button>')
@@ -386,7 +387,8 @@ function initWidget(key, widget, fact)
          var cls = setupMode ? 'mdi mdi-lead-pencil widget-edit' : '';
          eTitle.className = "widget-title " + cls + ' ' + titleClass;
          eTitle.innerHTML = title;
-         eTitle.addEventListener("click", function(event) {titleClick(event, key)}, false);
+         eTitle.addEventListener("click", function(event) {titleClick(event.ctrlKey, key)}, false);
+         eTitle.addEventListener("dblclick", function(event) {titleClick(true, key)}, false);
          elem.appendChild(eTitle);
 
          var ePeak = document.createElement("div");
@@ -421,21 +423,26 @@ function initWidget(key, widget, fact)
                     .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
                     .addClass(titleClass)
                     .css('user-select', 'none')
-                    .click(function(event) {titleClick(event, key);})
+                    .click(function(event) {titleClick(event.ctrlKey, key);})
+                    .dblclick(function(event) {titleClick(true, key);})
                     .html(title))
             .append($('<div></div>')
                     .attr('id', 'widget' + fact.type + fact.address)
                     .addClass('widget-value')
                     .css('user-select', 'none')
-                    .css('color', widget.color))
+                    .css('color', widget.color)
+                    .click(function() {
+                       var cFact = fact;
+                       if (!setupMode && fact.record)
+                       toggleChartDialog(cFact.type, cFact.address, key);}))
             .append($('<div></div>')
                     .attr('id', 'peak' + fact.type + fact.address)
                     .css('user-select', 'none')
                     .addClass('chart-peak'));
 
-         var cFact = fact;
-         if (!setupMode && fact.record)
-            $(elem).click(function() {toggleChartDialog(cFact.type, cFact.address, key);});
+//         var cFact = fact;
+//         if (!setupMode && fact.record)
+//            $(elem).click(function() {toggleChartDialog(cFact.type, cFact.address, key);});
 
          break;
       }
@@ -446,7 +453,8 @@ function initWidget(key, widget, fact)
                     .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
                     .addClass(titleClass)
                     .css('user-select', 'none')
-                    .click(function(event) {titleClick(event, key);})
+                    .click(function(event) {titleClick(event.ctrlKey, key);})
+                    .dblclick(function(event) {titleClick(true, key);})
                     .html(title))
             .append($('<div></div>')
                     .attr('id', 'svgDiv' + fact.type + fact.address)
@@ -502,7 +510,8 @@ function initWidget(key, widget, fact)
          elem.className += " widgetDropZone";
          var eTitle = document.createElement("div");
          eTitle.className = "widget-title " + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : titleClass);
-         eTitle.addEventListener("click", function(event) {titleClick(event, key)}, false);
+         eTitle.addEventListener("click", function(event) {titleClick(event.ctrlKey, key)}, false);
+         eTitle.addEventListener("dblclick", function(event) {titleClick(true, key)}, false);
          eTitle.innerHTML = title;
          elem.appendChild(eTitle);
 
@@ -646,7 +655,8 @@ function initWidget(key, widget, fact)
                            .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
                            .addClass(titleClass)
                            .css('user-select', 'none')
-                           .click(function(event) {titleClick(event, key);})
+                           .click(function(event) {titleClick(event.ctrlKey, key);})
+                           .dblclick(function(event) {titleClick(true, key);})
                            .html(title));
          var wFact = fact;
          $(elem).append($('<div></div>')
@@ -670,7 +680,8 @@ function initWidget(key, widget, fact)
                     .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
                     .addClass(titleClass)
                     .css('user-select', 'none')
-                    .click(function(event) {titleClick(event, key);})
+                    .click(function(event) {titleClick(event.ctrlKey, key);})
+                    .dblclick(function(event) {titleClick(true, key);})
                     .html(title))
             .append($('<div></div>')
                     .attr('id', 'widget' + fact.type + fact.address)
@@ -686,7 +697,8 @@ function initWidget(key, widget, fact)
             .append($('<div></div>')
                     .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
                     .addClass(titleClass)
-                    .click(function(event) {titleClick(event, key);})
+                    .click(function(event) {titleClick(event.ctrlKey, key);})
+                    .dblclick(function(event) {titleClick(true, key);})
                     .css('user-select', 'none')
                     .html(title))
             .append($('<button></button>')
@@ -730,7 +742,8 @@ function initWidget(key, widget, fact)
          $(elem).append($('<div></div>')
                         .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
                         .addClass(titleClass)
-                        .click(function(event) {titleClick(event, key);})
+                        .click(function(event) {titleClick(event.ctrlKey, key);})
+                        .dblclick(function(event) {titleClick(true, key);})
                         .html(setupMode ? ' spacer' : ''));
          if (!setupMode)
             $(elem).css('background-color', widget.color);
@@ -751,7 +764,8 @@ function initWidget(key, widget, fact)
                     .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
                     .addClass(titleClass)
                     .css('user-select', 'none')
-                    .click(function(event) {titleClick(event, key);})
+                    .click(function(event) {titleClick(event.ctrlKey, key);})
+                    .dblclick(function(event) {titleClick(true, key);})
                     .html(setupMode ? ' time' : ''));
          $(elem).append($('<div></div>')
                         .attr('id', 'widget' + key)
@@ -775,7 +789,8 @@ function initWidget(key, widget, fact)
                     .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
                     .addClass(titleClass)
                     .css('user-select', 'none')
-                    .click(function(event) {titleClick(event, key);})
+                    .click(function(event) {titleClick(event.ctrlKey, key);})
+                    .dblclick(function(event) {titleClick(true, key);})
                     .html(title))
             .append($('<div></div>')
                     .attr('id', 'widget' + fact.type + fact.address)
@@ -967,17 +982,18 @@ function weatherForecast()
    });
 }
 
-function titleClick(event, key)
+function titleClick(ctrlKey, key)
 {
    let fact = valueFacts[key];
 
    if (setupMode) {
       widgetSetup(key);
    }
-   else if (event.ctrlKey) {
+   else if (ctrlKey) {
 
       let sensor = allSensors[key];
       let widget = dashboards[actDashboard].widgets[key];
+      let now = new Date();
       var last = new Date(sensor.last * 1000);
       var form = document.createElement("div");
 
@@ -1039,11 +1055,23 @@ function titleClick(event, key)
                                      .css('width', '30%')
                                      .css('text-align', 'end')
                                      .css('margin-right', '10px')
+                                     .html('Peak'))
+                             .append($('<span></span>')
+                                     .append($('<div></div>')
+                                             .addClass('rounded-border')
+                                             .html(sensor.peak + ' ' + widget.unit)
+                                            )))
+                     .append($('<div></div>')
+                             .css('display', 'flex')
+                             .append($('<span></span>')
+                                     .css('width', '30%')
+                                     .css('text-align', 'end')
+                                     .css('margin-right', '10px')
                                      .html('Last Update'))
                              .append($('<span></span>')
                                      .append($('<div></div>')
                                              .addClass('rounded-border')
-                                             .html(last.toLocaleString('de-DE')))
+                                             .html(last.toLocaleString('de-DE') + ' (' + Math.round((now-last)/1000) + ' seconds)'))
                                             ))
                     );
 

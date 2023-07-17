@@ -66,6 +66,7 @@ class cWebService
 
       enum UserRights
       {
+         urNone        = 0x00,
          urView        = 0x01,
          urControl     = 0x02,
          urFullControl = 0x04,

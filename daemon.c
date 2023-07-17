@@ -3506,7 +3506,7 @@ int Daemon::getConfigItem(const char* name, char*& value, const char* def)
    {
       value = strdup(tableConfig->getStrValue("VALUE"));
    }
-   else if (def)  // only if not a nullptr
+   else if (def)
    {
       value = strdup(def);
       setConfigItem(name, value);  // store the default
@@ -3633,7 +3633,7 @@ int Daemon::getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges)
 
    for (const char* r = strtok(tmp, ","); r; r = strtok(0, ","))
    {
-      uint fromHH, fromMM, toHH, toMM;
+      uint fromHH {0}, fromMM {0}, toHH {0}, toMM {0};
 
       if (sscanf(r, "%u:%u-%u:%u", &fromHH, &fromMM, &toHH, &toMM) == 4)
       {

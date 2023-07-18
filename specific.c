@@ -384,12 +384,12 @@ int HomeCtl::performJobs()
       if (sensors["DO"][pinShower].last < time(0) - showerDuration)
       {
          tell(eloDebug, "Shower of after %ld seconds", time(0)-sensors["DO"][pinShower].last);
-         sensors["DO"][pinShower].next = 0;
+         // sensors["DO"][pinShower].next = 0;
          gpioWrite(pinShower, false, true);
       }
       else
       {
-         sensors["DO"][pinShower].next = sensors["DO"][pinShower].last + showerDuration;
+         // sensors["DO"][pinShower].next = sensors["DO"][pinShower].last + showerDuration;
       }
    }
 #endif

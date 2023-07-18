@@ -3,14 +3,19 @@
 Written by: *Jörg Wendel (linux at jwendel dot de)*
 Project page: https://github.com/horchi/linux-homectld
 
+## License
+This code is distributed under the terms and conditions of the GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
+
+# Some Screenshots
+
+## As Campter Control
 ![](contrib/w-dash1.jpg?raw=true "Title")
 ![](contrib/w-dash2.jpg?raw=true "Title")
 ![](contrib/w-dash3.jpg?raw=true "Title")
 ![](contrib/w-chart1.jpg?raw=true "Title")
-![](contrib/poold.jpg?raw=true "Title")
 
-## License
-This code is distributed under the terms and conditions of the GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
+## As Pool Control
+![](contrib/poold.jpg?raw=true "Title")
 
 ## Disclaimer
 USE AT YOUR OWN RISK. No warranty.

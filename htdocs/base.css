@@ -978,6 +978,7 @@ table.tableMultiCol tr:nth-child(odd)
 {
     background-color: black;
 }
+
 .chartTitle
 {
     text-align: center;
@@ -1355,6 +1356,7 @@ table.tableMultiCol tr:nth-child(odd)
     white-space: nowrap;
     padding: 0px;
     margin: 0px;
+    user-select: none;
 }
 
 

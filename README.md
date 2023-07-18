@@ -3,6 +3,10 @@
 Written by: *Jörg Wendel (linux at jwendel dot de)*
 Project page: https://github.com/horchi/linux-homectld
 
+![](contrib/w-dash1.jpg?raw=true "Title")
+![](contrib/w-dash2.jpg?raw=true "Title")
+![](contrib/w-dash3.jpg?raw=true "Title")
+![](contrib/w-chart1.jpg?raw=true "Title")
 ![](contrib/poold.jpg?raw=true "Title")
 
 ## License
@@ -25,44 +29,6 @@ If you like the project and want to support it
 The described installation method is tested with Raspbian Buster, the homectld should work also with other Linux distributions and versions but the installation process should adapted to them, for example they use other init processes or use different tools for the package management, other package names, ...
 
 Language package 'de_DE.UTF-8' is required as language package (`dpkg-reconfigure locales`)
-
-# Hardware
-
-Rapberry Pi >= 3.x or any PC running linux
-
-
-# Additional hardware which I use for my pool controller
-
-- Relay Board with at least 8 relays to switch 230V and a max current which fit the needs of your components (lights, pumps, ...)
-
-    for example: https://www.amazon.de/gp/product/B014L10Q52/ref=ppx_yo_dt_b_asin_title_o00_s00?ie=UTF8&psc=1
-- At least 3 One Wire sensors
-
-    for example: https://www.amazon.de/gp/product/B00CHEZ250/ref=ppx_yo_dt_b_search_asin_title?ie=UTF8&psc=1
-- Power sockets to connect lights and pumps
-
-    for example: https://www.amazon.de/gp/product/B07CM9DLHY/ref=ppx_yo_dt_b_search_asin_image?ie=UTF8&psc=1
-
-- 230V Magnet Valve (for the shower)
-
-  for example: https://www.amazon.de/gp/product/B072JBBHJS/ref=ppx_yo_dt_b_asin_title_o03_s00?ie=UTF8&psc=1
-- Button (for shower)
-
-  for example: https://www.amazon.de/gp/product/B002LE8EJC/ref=ppx_yo_dt_b_search_asin_image?ie=UTF8&psc=1
-- PH probe
-
-  for example: https://www.amazon.de/gp/product/B081QK9TX2/ref=ppx_yo_dt_b_asin_title_o06_s00?ie=UTF8&psc=1
-- Arduino Pro Mini 328 (for PH probe and PH minus fluid control)
-
-  for example: https://www.amazon.de/gp/product/B015MGHLNA/ref=ppx_yo_dt_b_asin_title_o05_s00?ie=UTF8&psc=1
-  USB Interface for programming: https://www.amazon.de/gp/product/B07KVT6HNL/ref=ppx_yo_dt_b_asin_title_o04_s00?ie=UTF8&psc=1
-
-- House-pump to inject PH Minus
-
-  for example: https://www.amazon.de/gp/product/B07YWY29XL/ref=ppx_yo_dt_b_asin_title_o07_s00?ie=UTF8&psc=1
-  better but more expensive may be: https://www.amazon.de/dp/B06ZZDLTJ7/?coliid=I37J0L29HIAMDR&colid=344R3XZTD8676&psc=1&ref_=lv_ov_lig_dp_it
-- ... to be completed !
-
 
 # Installation by package (only Raspbian Buster)
 
@@ -287,3 +253,35 @@ Rolladen an Hommatic CCU mit homectld ID 2 'HMB:2' komplette schließen
 mosquitto_pub --quiet -L mqtt://192.168.200.101:1883/homectld2mqtt/nodered -m '{ "id":"HMB:2","bri":0 }'
 auf 50%
 mosquitto_pub --quiet -L mqtt://192.168.200.101:1883/homectld2mqtt/nodered -m '{ "id":"HMB:2","bri":50 }'
+
+# Hardware which I use for my pool controller
+
+- Relay Board with at least 8 relays to switch 230V and a max current which fit the needs of your components (lights, pumps, ...)
+
+    for example: https://www.amazon.de/gp/product/B014L10Q52/ref=ppx_yo_dt_b_asin_title_o00_s00?ie=UTF8&psc=1
+- At least 3 One Wire sensors
+
+    for example: https://www.amazon.de/gp/product/B00CHEZ250/ref=ppx_yo_dt_b_search_asin_title?ie=UTF8&psc=1
+- Power sockets to connect lights and pumps
+
+    for example: https://www.amazon.de/gp/product/B07CM9DLHY/ref=ppx_yo_dt_b_search_asin_image?ie=UTF8&psc=1
+
+- 230V Magnet Valve (for the shower)
+
+  for example: https://www.amazon.de/gp/product/B072JBBHJS/ref=ppx_yo_dt_b_asin_title_o03_s00?ie=UTF8&psc=1
+- Button (for shower)
+
+  for example: https://www.amazon.de/gp/product/B002LE8EJC/ref=ppx_yo_dt_b_search_asin_image?ie=UTF8&psc=1
+- PH probe
+
+  for example: https://www.amazon.de/gp/product/B081QK9TX2/ref=ppx_yo_dt_b_asin_title_o06_s00?ie=UTF8&psc=1
+- Arduino Pro Mini 328 (for PH probe and PH minus fluid control)
+
+  for example: https://www.amazon.de/gp/product/B015MGHLNA/ref=ppx_yo_dt_b_asin_title_o05_s00?ie=UTF8&psc=1
+  USB Interface for programming: https://www.amazon.de/gp/product/B07KVT6HNL/ref=ppx_yo_dt_b_asin_title_o04_s00?ie=UTF8&psc=1
+
+- House-pump to inject PH Minus
+
+  for example: https://www.amazon.de/gp/product/B07YWY29XL/ref=ppx_yo_dt_b_asin_title_o07_s00?ie=UTF8&psc=1
+  better but more expensive may be: https://www.amazon.de/dp/B06ZZDLTJ7/?coliid=I37J0L29HIAMDR&colid=344R3XZTD8676&psc=1&ref_=lv_ov_lig_dp_it
+- ... to be completed !

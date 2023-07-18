@@ -135,6 +135,8 @@ button:focus {
     display: none !important;
 }
 
+/* for progress dialog */
+
 .progress {
   border: 5px solid white;
   border-radius: 50%;
@@ -1187,9 +1189,8 @@ table.tableMultiCol tr:nth-child(odd)
     display: grid;
     grid-template-areas:
       'title'
-      'main'
-      'progress';
-    grid-template-rows: 12% 75% 13%;
+      'main';
+    grid-template-rows: 12% 88%;
     grid-gap: 1px;
     box-shadow: 1px 1px 1px 0px var(--shadow);
 }
@@ -1368,7 +1369,7 @@ table.tableMultiCol tr:nth-child(odd)
     font-weight: bold;
 }
 
-.widget-progress {
+/*.widget-progress {
     grid-area: progress;
     background-color: gray;
     width: 80%;
@@ -1383,7 +1384,7 @@ table.tableMultiCol tr:nth-child(odd)
     height: 100%;
     background-color: #3498db;
     border-radius: 8px;
-}
+}*/
 
 .widget-mode
 {
@@ -1818,7 +1819,7 @@ dialog::backdrop, #backdrop
     .menuDashboard             { margin: 2px; }
     .widgetContainer > div     { width: 175px; height: 160px; margin: 1px; }
     .widgetGauge               { grid-template-rows: 30% 70%; }
-    .widget                    { grid-template-rows: 15% 70% 15%; }
+    .widget                    { grid-template-rows: 15% 85%; }
     .widgetChart               { grid-template-rows: 15% 18% 67%; }
     .widget-title              { font-size: 1.0em; }
     .widget-value              { font-size: 1.0em; }
@@ -1840,7 +1841,7 @@ dialog::backdrop, #backdrop
     .menuDashboard             { margin: 2px; }
     .widgetContainer > div     { width: 180px; height: 160px; margin: 2px; }
     .widgetGauge               { grid-template-rows: 30% 70%; }
-    .widget                    { grid-template-rows: 15% 70% 15%; }
+    .widget                    { grid-template-rows: 15% 85%; }
     .widgetChart               { grid-template-rows: 15% 18% 67%; }
     .widgetMeterLinear         { grid-template-rows: 15% 25% 60%; }
     .widget-title              { padding: 3px; padding-top: 4px; font-size: 1.0em; }
@@ -1856,7 +1857,7 @@ dialog::backdrop, #backdrop
 {
     .content                   { margin: 0px; }
     .widgetContainer > div     { width: 120px; height: 95px; margin: 1px; }
-    .widget                    { grid-template-rows: 15% 73% 12%; }
+    .widget                    { grid-template-rows: 15% 85%; }
     .widgetChart               { grid-template-rows: 15% 14% 71%; }
     .buttonDashboard           { padding: 4px; margin: 0px 0px 0px 0px; }
     .chart-peak                { font-size: 0.7em; margin-top: 4px; }

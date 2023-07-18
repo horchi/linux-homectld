@@ -8,7 +8,7 @@ This code is distributed under the terms and conditions of the GNU GENERAL PUBLI
 
 # Some Screenshots
 
-## As Campter Control
+## As Camper Control
 ![](contrib/w-dash1.jpg?raw=true "Title")
 ![](contrib/w-dash2.jpg?raw=true "Title")
 ![](contrib/w-dash3.jpg?raw=true "Title")
@@ -51,7 +51,6 @@ sudo bash /tmp/install-deb.sh
 ```
 dpkg --remove homectld
 ```
-
 
 ### uninstall (with remove of all configurations, data and the homectl database)
 

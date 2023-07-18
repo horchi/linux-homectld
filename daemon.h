@@ -175,7 +175,7 @@ class Daemon : public cWebInterface
          std::string image;
          bool disabled {false};
          bool valid {false};               // set if the value, text or state is valid
-         time_t next {0};                  // calculated next switch time
+         // time_t next {0};                  // calculated next switch time
          int battery {na};
          int hue;                          // 0-360° hue
          int sat;                          // 0-100% saturation

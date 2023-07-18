@@ -392,7 +392,7 @@ int Daemon::performData(long client, const char* event)
          {
             json_object_set_new(ojData, "mode", json_string(sensor->mode == omManual ? "manual" : "auto"));
             json_object_set_new(ojData, "options", json_integer(sensor->opt));
-            json_object_set_new(ojData, "next", json_integer(sensor->next));
+            // json_object_set_new(ojData, "next", json_integer(sensor->next));
          }
 
          free(key);

@@ -304,22 +304,22 @@ function initWidget(key, widget, fact)
                     .append($('<img></img>')
                             .attr('id', 'widget' + fact.type + fact.address)
                             .attr('draggable', false)
-                            .css('user-select', 'none')))
-            .append($('<div></div>')
-                    .attr('id', 'progress' + fact.type + fact.address)
-                    .addClass('widget-progress')
-                    .css('user-select', 'none')
-                    .on({'mousedown touchstart' : function(e){
-                       e.preventDefault();
-                       moseDownOn.object = $('#progressBar' + fact.type + fact.address);
-                       moseDownOn.fact = fact;
-                       moseDownOn.div = $(this);
-                       console.log("mousedown on " + moseDownOn.object.attr('id'));
-                    }})
-                    .append($('<div></div>')
-                            .attr('id', 'progressBar' + fact.type + fact.address)
-                            .css('user-select', 'none')
-                            .addClass('progress-bar')));
+                            .css('user-select', 'none')));
+//            .append($('<div></div>')
+//                    .attr('id', 'progress' + fact.type + fact.address)
+//                    .addClass('widget-progress')
+//                    .css('user-select', 'none')
+//                    .on({'mousedown touchstart' : function(e){
+//                       e.preventDefault();
+//                       moseDownOn.object = $('#progressBar' + fact.type + fact.address);
+//                       moseDownOn.fact = fact;
+//                       moseDownOn.div = $(this);
+//                       console.log("mousedown on " + moseDownOn.object.attr('id'));
+//                    }})
+//                    .append($('<div></div>')
+//                            .attr('id', 'progressBar' + fact.type + fact.address)
+//                            .css('user-select', 'none')
+//                            .addClass('progress-bar')));
 
          if (!setupMode) {
             $('#button' + fact.type + fact.address)
@@ -370,14 +370,6 @@ function initWidget(key, widget, fact)
                });
          }
 
-         // needed for shower progress bar ?!?
-         //            .append($('<div></div>')
-         //                    .attr('id', 'progress' + fact.type + fact.address)
-         //                    .addClass('widget-progress')
-         //                    .css('visibility', 'hidden')
-         //                    .append($('<div></div>')
-         //                            .attr('id', 'progressBar' + fact.type + fact.address)
-         //                            .addClass('progress-bar')));   // .css('visible', true)));
          break;
       }
 
@@ -713,21 +705,21 @@ function initWidget(key, widget, fact)
                             .addClass('rounded-border')
                             .css('user-select', 'none'))
                     .click(function() { toggleIo(fact.address, fact.type); }))
-            .append($('<div></div>')
-                    .attr('id', 'progress' + fact.type + fact.address)
-                    .addClass('widget-progress')
-                    .css('user-select', 'none')
-                    .on({'mousedown touchstart' : function(e){
-                       e.preventDefault();
-                       moseDownOn.object = $('#progressBar' + fact.type + fact.address);
-                       moseDownOn.fact = fact;
-                       moseDownOn.div = $(this);
-                       console.log("mousedown on " + moseDownOn.object.attr('id'));
-                    }})
-                    .append($('<div></div>')
-                            .attr('id', 'progressBar' + fact.type + fact.address)
-                            .css('user-select', 'none')
-                            .addClass('progress-bar')))
+//            .append($('<div></div>')
+//                    .attr('id', 'progress' + fact.type + fact.address)
+//                    .addClass('widget-progress')
+//                    .css('user-select', 'none')
+//                    .on({'mousedown touchstart' : function(e){
+//                       e.preventDefault();
+//                       moseDownOn.object = $('#progressBar' + fact.type + fact.address);
+//                       moseDownOn.fact = fact;
+//                       moseDownOn.div = $(this);
+//                       console.log("mousedown on " + moseDownOn.object.attr('id'));
+//                    }})
+//                    .append($('<div></div>')
+//                            .attr('id', 'progressBar' + fact.type + fact.address)
+//                            .css('user-select', 'none')
+//                            .addClass('progress-bar')))
             .append($('<div></div>')
                     .attr('id', 'value' + fact.type + fact.address)
                     .addClass('symbol-value')
@@ -1190,31 +1182,28 @@ function updateWidget(sensor, refresh, widget)
          $("#value" + fact.type + fact.address).text(sensor.value.toFixed(widget.unit=="%" ? 0 : 2) + (widget.unit!="" ? " " : "") + widget.unit);
       }
 
-      var prs = $('#progressBar' + fact.type + fact.address);
-
-      $('#progress' + fact.type + fact.address).css('display', fact.options & 0x02 && sensor.value ? 'block' : 'none');
-
-      if (sensor.score && prs != null) {
-         $(prs).css('width', sensor.score + '%');
-         // prs.style.visibility = (sensor.next == null || sensor.next == 0) ? "hidden" : "visible";
-      }
-
-      if (sensor.mode == "auto" && sensor.next > 0) {
-         var pWidth = 100;
-         var s = sensor;
-         var id = fact.type + fact.address;
-         var iid = setInterval(progress, 200);
-
-         function progress() {
-            if (pWidth <= 0) {
-               clearInterval(iid);
-            } else {
-               var d = new Date();
-               pWidth = 100 - ((d/1000 - s.last) / ((s.next - s.last) / 100));
-               document.getElementById("progressBar" + id).style.width = pWidth + "%";
-            }
-         }
-      }
+//      var prs = $('#progressBar' + fact.type + fact.address);
+//      $('#progress' + fact.type + fact.address).css('display', fact.options & 0x02 && sensor.value ? 'block' : 'none');
+//
+//      if (sensor.score && prs != null)
+//         $(prs).css('width', sensor.score + '%');
+//
+//      if (sensor.mode == "auto" && sensor.next > 0) {
+//         var pWidth = 100;
+//         var s = sensor;
+//         var id = fact.type + fact.address;
+//         var iid = setInterval(progress, 200);
+//
+//         function progress() {
+//            if (pWidth <= 0) {
+//               clearInterval(iid);
+//            } else {
+//               var d = new Date();
+//               pWidth = 100 - ((d/1000 - s.last) / ((s.next - s.last) / 100));
+//               document.getElementById("progressBar" + id).style.width = pWidth + "%";
+//            }
+//         }
+//      }
    }
    else if (widget.widgettype == 1)    // Chart
    {

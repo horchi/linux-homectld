@@ -3739,7 +3739,7 @@ void Daemon::pin2Json(json_t* ojData, int pin)
    json_object_set_new(ojData, "type", json_string("DO"));
    json_object_set_new(ojData, "value", json_integer(sensors["DO"][pin].state));
    json_object_set_new(ojData, "last", json_integer(sensors["DO"][pin].last));
-   json_object_set_new(ojData, "next", json_integer(sensors["DO"][pin].next));
+   // json_object_set_new(ojData, "next", json_integer(sensors["DO"][pin].next));
    json_object_set_new(ojData, "valid", json_boolean(sensors["DO"][pin].valid));
 
    // has to be moved to facts?
@@ -3778,8 +3778,8 @@ void Daemon::gpioWrite(uint pin, bool state, bool store)
    sensors["DO"][pin].last = time(0);
    sensors["DO"][pin].valid = true;
 
-   if (!state)
-      sensors["DO"][pin].next = 0;
+   // if (!state)
+   //    sensors["DO"][pin].next = 0;
 
    // invert the state on 'invertDO' - most relay board are active at 'false'
 

@@ -3,7 +3,7 @@
 Written by: *Jörg Wendel (linux at jwendel dot de)*
 Project page: https://github.com/horchi/linux-homectld
 
-![](contrib/homectld.jpg?raw=true "Title")
+![](contrib/poold.jpg?raw=true "Title")
 
 ## License
 This code is distributed under the terms and conditions of the GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
@@ -28,10 +28,11 @@ Language package 'de_DE.UTF-8' is required as language package (`dpkg-reconfigur
 
 # Hardware
 
-- Rapberry Pi >= 3.x with power adapter and at least 16GB SD card
+Rapberry Pi >= 3.x or any PC running linux
 
-    for example: https://www.amazon.de/UCreate-Raspberry-Pi-Desktop-Starter/dp/B07BNQ2TWW/ref=sr_1_10?__mk_de_DE=%C3%85M%C3%85%C5%BD%C3%95%C3%91&dchild=1&keywords=raspberry+pi+3&qid=1598178038&sr=8-10
-    If you run the database locally more RAM, faster CPU and a additional SSD will be better
+
+# Additional hardware which I use for my pool controller
+
 - Relay Board with at least 8 relays to switch 230V and a max current which fit the needs of your components (lights, pumps, ...)
 
     for example: https://www.amazon.de/gp/product/B014L10Q52/ref=ppx_yo_dt_b_asin_title_o00_s00?ie=UTF8&psc=1
@@ -63,43 +64,6 @@ Language package 'de_DE.UTF-8' is required as language package (`dpkg-reconfigur
 - ... to be completed !
 
 
-
-### GPIO Port Connections
-
-https://pinout.xyz/pinout/ground
-The first number below is the *physical* pin in brackets the GIPO port.
-
-#### One Wire Sensors
-
-- One Wire Sensors - 7 (GPIO4)
-
-#### Digital Outputs
-
-- Filter Pump    - 11 (GPIO17)
-- Solar Pump     - 12 (GPIO18)
-- Pool Light     - 13 (GPIO27)
-- UVC Light      - 15 (GPIO22)
-- User Out 1     - 16 (GPIO23)
-- User Out 2     - 18 (GPIO24)
-- One Wire Power - 19 (GPIO10) to reset the sensors on trouble
-- User Out 4     - 21 (GPIO9)
-- Shower Valve   - 22 (GPIO25)
-- User Out 3     - 23 (GPIO11)
-
-
-#### Digital Inputs
-
-- Water Level 1 - 31 (GPIO6)
-- Water Level 2 - 32 (GPIO12)
-- Water Level 3 - 33 (GPIO13)
-- Shower Switch - 35 (GPIO19)
-
-### Arduino Mini Belegung
-
-- A0 - PH probe
-- A1 - Filter Pressure Sensor
-
-
 # Installation by package (only Raspbian Buster)
 
 **The install package is not available yet! Please use the ""custom build" section below!**
@@ -111,12 +75,6 @@ wget www.jwendel.de/homectld/install-deb.sh -O /tmp/install-deb.sh
 sudo bash /tmp/install-deb.sh
 ```
 
-## after the first install or an update of the arduino software
-```
-systemctl stop homectld
-homectld-upload-arduino
-systemctl start homectld
-```
 ### uninstall
 
 ```
@@ -143,7 +101,7 @@ Perform all following steps as root user! Either by getting root or by prefix ea
 To become root type: `sudo -i`
 
 ## Installation of the MySQL Database
-It's not required to host the database local at the Raspberry. A remote database is supported as well!
+It's not required to host the database local at the Raspberry. A remote database is supported as well.
 
 ```
 apt install mariadb-server
@@ -323,7 +281,7 @@ apt install python3-gpiozero
 pinout
 ```
 
-# Notiten
+# My notes to remember
 
 Rolladen an Hommatic CCU mit homectld ID 2 'HMB:2' komplette schließen
 mosquitto_pub --quiet -L mqtt://192.168.200.101:1883/homectld2mqtt/nodered -m '{ "id":"HMB:2","bri":0 }'

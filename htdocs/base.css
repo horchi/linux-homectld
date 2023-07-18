@@ -1475,7 +1475,7 @@ table.tableMultiCol tr:nth-child(odd)
     overflow: hidden;
     background-color: transparent;
     margin-top: 5px;
-    color: red;
+    color: #ff5757;
     text-align: right;
     margin-right: 5px;
 }

@@ -844,11 +844,15 @@ function initLightColorDialog()
                     }});
    });
 
-   $('#container').on('mouseup', function(e) {
+
+   /*
+     das stört den 'number' Input - z.B. Range auf der Chart Ansicht !!
+
+     $('#container').on('mouseup', function(e) {
       e.preventDefault();
       if ($(e.target).attr('id') != 'lightColorDiv' && !$('#lightColorDiv').has(e.target).length)
          $('#lightColorDiv').css('display', 'none');
-   });
+   }); */
 }
 
 function showLightColorDialog(key)

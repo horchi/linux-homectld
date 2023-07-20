@@ -865,7 +865,14 @@ int Daemon::performChartData(json_t* oObject, long client)
    bool widget = strcmp(id, "chart") != 0;
    cDbStatement* select = selectSamplesRange;
 
+   if (range > 50)
+      range = 50;
+
    if (strcmp(id, "chartwidget") == 0)
+      select = selectSamplesRange60;
+   else if (range > 20)
+      select = selectSamplesRange720;
+   else if (range > 3)
       select = selectSamplesRange60;
 
    if (!widget)
@@ -882,8 +889,6 @@ int Daemon::performChartData(json_t* oObject, long client)
       }
    }
 
-   tell(eloWebSock, "Selecting chart data for sensors '%s' with range %.1f ..", sensors, range);
-
    std::vector<std::string> sList;
 
    if (sensors)
@@ -897,6 +902,10 @@ int Daemon::performChartData(json_t* oObject, long client)
 
    rangeFrom.setValue(rangeStart);
    rangeTo.setValue(rangeStart + (int)(range*tmeSecondsPerDay));
+
+   tell(eloAlways, "Selecting chart '%s' data for sensors '%s' from (%ld) to (%ld) with range %.1f",
+        id, sensors, rangeFrom.getTimeValue(), rangeTo.getTimeValue(), range);
+   tell(eloDebug, "Using for chart select [%s]", select->asText());
 
    tableValueFacts->clear();
 
@@ -983,7 +992,7 @@ int Daemon::performChartData(json_t* oObject, long client)
          count++;
       }
 
-      tell(eloDebugWebSock, " collected %d samples'", count);
+      tell(eloDetail, " collected %d samples for sensor '%s:0x%lx'", count, tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"));
       select->freeResult();
    }
 

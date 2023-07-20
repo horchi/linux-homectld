@@ -30,7 +30,7 @@ function drawCharts(dataObject)
          '  <canvas id="chartCanvas" class="chartCanvas"></canvas>' +
          '</div>' +
          '<div class="rounded-border chartButtons">' +
-         '  <input  class="rounded-border chartButton" style="height: 27px;width: 125px;" type="date" onchange="chartSelect(\'setstart\')" id="chartStart" min="2020-01-01"></input>' +
+         '  <input  class="rounded-border chartButton" style="height: 21px;width: 125px;" type="date" onchange="chartSelect(\'setstart\')" id="chartStart" min="2020-01-01"></input>' +
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'prevmonth\')">&lt; Monat</button>' +
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'prevweek\')">&lt; Woche</button>' +
          '  <button class="rounded-border chartButton" onclick="chartSelect(\'prev\')">&lt; Tag</button>' +

@@ -1197,6 +1197,28 @@ int Daemon::initDb()
    status += selectSamplesRange60->prepare();
 
    // ------------------
+   // select samples for chart data
+   // ein sample avg / 720 Minuten
+
+   selectSamplesRange720 = new cDbStatement(tableSamples);
+
+   selectSamplesRange720->build("select ");
+   selectSamplesRange720->bind("ADDRESS", cDBS::bndOut);
+   selectSamplesRange720->bind("TYPE", cDBS::bndOut, ", ");
+   selectSamplesRange720->bindTextFree("date_format(time, '%Y-%m-%dT%H:%i')", &xmlTime, ", ", cDBS::bndOut);
+   selectSamplesRange720->bindTextFree("avg(value)", &avgValue, ", ", cDBS::bndOut);
+   selectSamplesRange720->bindTextFree("max(value)", &maxValue, ", ", cDBS::bndOut);
+   selectSamplesRange720->build(" from %s where ", tableSamples->TableName());
+   selectSamplesRange720->bind("ADDRESS", cDBS::bndIn | cDBS::bndSet);
+   selectSamplesRange720->bind("TYPE", cDBS::bndIn | cDBS::bndSet, " and ");
+   selectSamplesRange720->bindCmp(0, "TIME", &rangeFrom, ">=", " and ");
+   selectSamplesRange720->bindCmp(0, "TIME", &rangeTo, "<=", " and ");
+   selectSamplesRange720->build(" group by date(time), ((60/720) * hour(time) + floor(minute(time)/720))");
+   selectSamplesRange720->build(" order by time");
+
+   status += selectSamplesRange720->prepare();
+
+   // ------------------
    // select all scripts
 
    selectScripts = new cDbStatement(tableScripts);
@@ -1455,6 +1477,7 @@ int Daemon::exitDb()
    delete selectMaxTime;           selectMaxTime = nullptr;
    delete selectSamplesRange;      selectSamplesRange = nullptr;
    delete selectSamplesRange60;    selectSamplesRange60 = nullptr;
+   delete selectSamplesRange720;   selectSamplesRange720 = nullptr;
    delete selectSampleInRange;     selectSampleInRange = nullptr;
    delete selectScriptByPath;      selectScriptByPath = nullptr;
    delete selectScripts;           selectScripts = nullptr;

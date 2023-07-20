@@ -491,13 +491,14 @@ class Daemon : public cWebInterface
       cDbStatement* selectAllConfig {};
       cDbStatement* selectAllUser {};
       cDbStatement* selectMaxTime {};
-      cDbStatement* selectSamplesRange {};     // for chart
-      cDbStatement* selectSamplesRange60 {};   // for chart
+      cDbStatement* selectSamplesRange {};      // for chart
+      cDbStatement* selectSamplesRange60 {};    // for chart
+      cDbStatement* selectSamplesRange720 {};   // for chart
       cDbStatement* selectScriptByPath {};
       cDbStatement* selectScripts {};
       cDbStatement* selectSensorAlerts {};
       cDbStatement* selectAllSensorAlerts {};
-      cDbStatement* selectSampleInRange {};    // for alert check
+      cDbStatement* selectSampleInRange {};     // for alert check
 
       cDbStatement* selectDashboards {};
       cDbStatement* selectDashboardById {};

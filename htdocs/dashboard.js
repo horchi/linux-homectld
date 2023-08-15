@@ -986,6 +986,11 @@ function titleClick(ctrlKey, key)
       widgetSetup(key);
    }
    else if (ctrlKey) {
+      if (fact && localStorage.getItem(storagePrefix + 'Rights') & fact.rights)
+         // console.log("toggleMode(", fact.address, fact.type, ')');
+         toggleMode(fact.address, fact.type);
+   }
+   else {
 
       let sensor = allSensors[key];
       let widget = dashboards[actDashboard].widgets[key];
@@ -1067,7 +1072,7 @@ function titleClick(ctrlKey, key)
                              .append($('<span></span>')
                                      .append($('<div></div>')
                                              .addClass('rounded-border')
-                                             .html(last.toLocaleString('de-DE') + ' (' + Math.round((now-last)/1000) + ' seconds)'))
+                                             .html(last.toLocaleString('de-DE') + ' (' + Math.round((now-last)/1000) + 's)'))
                                             ))
                     );
 
@@ -1083,11 +1088,6 @@ function titleClick(ctrlKey, key)
       close: function() { $(this).dialog('destroy').remove(); }
    });
 
-   }
-   else {
-      if (fact && localStorage.getItem(storagePrefix + 'Rights') & fact.rights)
-         // console.log("toggleMode(", fact.address, fact.type, ')');
-         toggleMode(fact.address, fact.type);
    }
 }
 

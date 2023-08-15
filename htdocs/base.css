@@ -290,7 +290,7 @@ button:focus {
 {
     /* background-color: #335656a1; */
     /* background-color: #335656; */
-    background-color: var(--dashboardMenuBackground);
+    background-color: #202326d1;
     color: var(--light2);
     padding: 5px 15px;
     font-weight: bold;

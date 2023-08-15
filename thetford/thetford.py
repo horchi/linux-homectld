@@ -59,7 +59,25 @@ def byte2uint(val):
 def toError(code):
 	if code == 0:
 		return "Online"
-	return ""
+	if code == 3:
+		return "Fehler Gas"
+	if code == 4:
+		return "Fehler 12V Heizstab"
+	if code == 6:
+		return "Fehler 12V"
+	if code == 7:
+		return "Fehler D+"
+	if code == 8:
+		return "Fehler 230V Heizstab"
+	if code == 9:
+		return "Fehler Steuerung"
+	if code == 10:
+		return "Fehler 230V"
+	if code == 11:
+		return "Keine Energiequelle"
+	if code == 13:
+		return "Fehler Temp Fühler"
+	return "Störung"
 
 def isAuto(val):
 	if val & 0x08:
@@ -67,9 +85,10 @@ def isAuto(val):
 
 	return False
 
-def toModeString(val):
-	mode = val & 0x07
-	if mode == 3:
+def toModeString(mode):
+	if mode == 2:
+		return "Aus"
+	elif mode == 3:
 		return "Gas"
 	elif mode == 5:
 		return "Batterie"
@@ -97,7 +116,8 @@ def frame_listener(frame):
 	for byte in range(8):
 		tell(2, 'Byte {0:}: b{1:08b} 0x{1:02x} ({1:})'.format(byte, byte2uint(frame.data[byte])))
 
-		# JSON: n4000 {"type": "N4000", "address": 3, "value": 0, "title": "Status", "text": "Online"}
+		# build JSON for topic n4000:
+		#  {"type": "N4000", "address": 3, "value": 0, "title": "Status", "text": "Online"}
 
 		sensor = {
 			'type'    : 'N4000',
@@ -113,6 +133,7 @@ def frame_listener(frame):
 
 		if byte == 0:
 			sensor['kind'] = 'text'
+			sensor['value'] = sensor['value'] & 0x07
 			sensor['text'] = toModeString(sensor['value'])
 			tell(1, '{0:} / {1:}'.format(toModeString(sensor['value']), "Automatik" if isAuto(sensor['value']) else "Manuell"))
 		elif byte == 1:
@@ -139,10 +160,10 @@ def frame_listener(frame):
 			sensor = {
 				'type'    : "N4000",
 				'address' : 10,
-				'value'   : sensor['value'] & 0x08,
+				'value'   : byte2uint(frame.data[byte]) & 0x08,
 				'title'   : toSensorTitle(10),
 				'kind'    : 'text',
-				'text'    : "Automatik" if isAuto(sensor['value']) else "Manuell"
+				'text'    : "Automatik" if isAuto(byte2uint(frame.data[byte])) else "Manuell"
 			}
 			publishMqtt(sensor)
 

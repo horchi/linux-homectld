@@ -36,7 +36,7 @@ function initConfig(configdetails)
          initTables('menu');
    });
 
-   // console.log(JSON.stringify(configdetails, undefined, 4));
+   // console.log("initConfig", JSON.stringify(configdetails, undefined, 4));
 
    for (var i = 0; i < configdetails.length; i++) {
       var item = configdetails[i];
@@ -56,7 +56,7 @@ function initConfig(configdetails)
       }
 
       if (!configCategories[item.category]) {
-         console.log("!!!! skip category: " + item.category)
+         console.log("Skipping category", item.category)
          continue;
       }
 
@@ -302,13 +302,6 @@ function foldCategory(category)
    console.log(category + ' : ' + configCategories[category]);
    initConfig(theConfigdetails);
 }
-
-//window.resetPeaks = function()
-//{
-//   if (confirm("Peaks zurücksetzen?"))
-//      socket.send({ "event" : "reset", "object" : { "what" : "peaks" } });
-//}
-
 
 // ----------------------------------------------------------------
 // IO Setup

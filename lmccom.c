@@ -54,7 +54,13 @@ int LmcCom::open(const char* aHost, unsigned short aPort)
    port = aPort;
    host = strdup(aHost);
 
-   return TcpChannel::open(port, host);
+   tell(eloAlways, "Try connecting LMC server at '%s:%d", host, port);
+   int res = TcpChannel::open(port, host);
+
+   if (res == success)
+      tell(eloAlways, "Connection to LMC server established");
+
+   return res;
 }
 
 //***************************************************************************
@@ -628,7 +634,7 @@ int LmcCom::checkNotify(uint64_t timeout)
 
    if (!notify)
    {
-      tell(eloAlways, "Cant check for notifications until startNotify is called");
+      // tell(eloAlways, "Cant check for notifications until startNotify is called");
       return fail;
    }
 

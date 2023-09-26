@@ -18,7 +18,15 @@ int Daemon::lmcInit()
    if (isEmpty(lmcHost) || isEmpty(lmcPlayerMac))
       return done;
 
-   lmc = new LmcCom(lmcPlayerMac);
+   static time_t lastTryAt {0};
+
+   if (lastTryAt > time(0) - 10)
+      return done;
+
+   lastTryAt = time(0);
+
+   if (!lmc)
+      lmc = new LmcCom(lmcPlayerMac);
 
    if (lmc->open(lmcHost, lmcPort) != success)
    {

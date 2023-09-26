@@ -212,10 +212,14 @@ int TcpChannel::open(unsigned short aPort, const char* aHost)
       if (::bind(aHandle, (struct sockaddr*)&localSockAddr, sizeof(localSockAddr)) < 0)
       {
          ::close(aHandle);
-
          return errBindAddressFailed;
       }
    }
+
+   // set socket non-blocking
+
+   if (fcntl(aHandle, F_SETFL, O_NONBLOCK) < 0)
+      tell(eloAlways, "Error: Setting socket options failed, errno (%d)", errno);
 
    // connect to server
 
@@ -229,10 +233,6 @@ int TcpChannel::open(unsigned short aPort, const char* aHost)
       return wrnNoResponseFromServer;
    }
 
-   // set socket non-blocking
-
-   if (fcntl(aHandle, F_SETFL, O_NONBLOCK) < 0)
-      tell(eloAlways, "Error: Setting socket options failed, errno (%d)", errno);
 
    // save results
 

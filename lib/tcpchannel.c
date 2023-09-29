@@ -216,6 +216,7 @@ int TcpChannel::open(unsigned short aPort, const char* aHost)
       }
    }
 
+   // #TODO we need a timeout handling here but non-blocking result in failed connects :(
    // set socket non-blocking
 
    if (fcntl(aHandle, F_SETFL, O_NONBLOCK) < 0)
@@ -225,19 +226,65 @@ int TcpChannel::open(unsigned short aPort, const char* aHost)
 
    if (connect(aHandle, (struct sockaddr*)&remoteSockAddr, sizeof(remoteSockAddr)) < 0)
    {
-      ::close(aHandle);
+      if (errno == EINPROGRESS)
+      {
+         struct timeval wait;
+         fd_set wSet;
 
-      if (errno != ECONNREFUSED)
-         return errConnectFailed;
+         wait.tv_sec = timeout;
+         wait.tv_usec = 0;
 
-      return wrnNoResponseFromServer;
+         FD_ZERO(&wSet);
+         FD_SET(aHandle, &wSet);
+
+         int ndfs= ::select(aHandle + 1, 0, &wSet, 0, &wait);
+
+         if (ndfs < 0)
+         {
+            ::close(aHandle);
+            return errConnectFailed;
+         }
+         else if (ndfs == 0)
+         {
+            ::close(aHandle);
+            return wrnTimeout;
+         }
+         else
+         {
+            int so_error;
+            socklen_t slen = sizeof so_error;
+            getsockopt(aHandle, SOL_SOCKET, SO_ERROR, &so_error, &slen);
+
+            if (so_error != 0)
+            {
+               ::close(aHandle);
+
+               if (so_error == ECONNREFUSED)
+                  return wrnNoResponseFromServer;
+               else
+                  return errConnectFailed;
+            }
+         }
+      }
+      else
+      {
+         tell(eloAlways, "Error: Connecting '%s:%d' failed, error was (%d) '%s'", aHost, aPort, errno, strerror(errno));
+         ::close(aHandle);
+
+         if (errno != ECONNREFUSED)
+            return errConnectFailed;
+
+         return wrnNoResponseFromServer;
+      }
    }
 
+   if (fcntl(aHandle, F_SETFL, O_NONBLOCK) < 0)
+      tell(eloAlways, "Error: Setting socket options failed, errno (%d)", errno);
 
    // save results
 
    handle = aHandle;
-   port   = aPort;
+   port = aPort;
 
    return success;
 }

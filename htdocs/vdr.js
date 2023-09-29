@@ -29,7 +29,7 @@ function initVdr()
 
       '    <br/>' +
       '    <div class="vdrButtonDiv"><button class="vdrButton vdrButtonRound glyphicon glyphicon-volume-up" type="button" onclick="vdrKeyPress(\'volume-\')">🔉</button></div>' +
-      '    <div class="vdrButtonDiv"><button class="vdrButton" type="button" onclick="vdrKeyPress(\'\0\')">0</button></div>' +
+      '    <div class="vdrButtonDiv"><button class="vdrButton" type="button" onclick="vdrKeyPress(\'0\')">0</button></div>' +
       '    <div class="vdrButtonDiv"><button class="vdrButton vdrButtonRound" type="button" onclick="vdrKeyPress(\'volume+\')">🔊</button></div>' +
 
       '    <br/>' +

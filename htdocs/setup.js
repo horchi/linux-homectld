@@ -420,6 +420,8 @@ function initIoSetup(valueFacts)
          html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorCvSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
       else if (item.type == 'DO')
          html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorDoSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
+      else if (item.type == 'W1' || item.type == 'RTL433' || item.type == 'SC')
+         html += '<td>' + '<button class="buttonOptions rounded-border" onclick="deleteValueFact(\'' + item.type + '\', \'' + item.address + '\')">Löschen</button>' + '</td>';
       else
          html += '<td></td>';
 
@@ -634,6 +636,17 @@ function sensorAiSetup(type, address)
       }
    });
 
+}
+
+function deleteValueFact(type, address)
+{
+   console.log("sensor delete ", type, address);
+
+   socket.send({ "event" : "storecalibration", "object" : {
+      'type' : type,
+      'address' : parseInt(address),
+      'action' : 'delete'
+   }});
 }
 
 function sensorDoSetup(type, address)

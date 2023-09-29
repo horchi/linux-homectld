@@ -400,6 +400,7 @@ class Daemon : public cWebInterface
       int performImageConfig(json_t* obj, long client);
       int performSchema(json_t* oObject, long client);
       int storeSchema(json_t* oObject, long client);
+      int deleteValueFact(const char* type, long address);
       int storeCalibration(json_t* oObject, long client);
       int storeCvCalibration(json_t* oObject, long client);
       int storeAiCalibration(json_t* oObject, long client);

@@ -18,6 +18,13 @@ If you like the project and want to support it
 [![paypal](https://www.paypalobjects.com/de_DE/DE/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=KUF9ZAQ5UTHUN)
 
 
+# Dependencies
+
+```
+apt install -y python3 python3-pip python3-paho-mqtt
+pip install git+https://github.com/EmbedME/pyUSBlini
+```
+
 # CI-Bus / LIN-Bus Adapter
 
 Here you can find the suitable adapter https://www.fischl.de/usblini/

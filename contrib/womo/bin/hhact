@@ -1,0 +1,71 @@
+#!/bin/bash
+
+#---------------------------------------
+# Settings / Parameters
+#---------------------------------------
+
+CURL="/usr/bin/curl --connect-timeout 1 --silent --request GET "
+RET=0
+QUERY="$1"
+IP="$2"
+XML=""
+
+#---------------------------------------
+# Value Of Element
+#---------------------------------------
+
+function valueOfElement()
+{
+   if [[ -n "$XML" ]]; then
+      echo "$XML" | sed -n -e "s/.*<$1>\(.*\)<\/$1>.*/\1/p"
+   else
+      echo ""
+   fi
+}
+
+#---------------------------------------
+# Main
+#---------------------------------------
+
+case $QUERY in
+	 on)
+        $CURL http://$IP/relay/on > /dev/null
+        RET=$?
+    ;;
+
+    off)
+        $CURL http://$IP/relay/off > /dev/null
+        RET=$?
+    ;;
+
+    temp)
+        XML=`$CURL http://$IP/data`
+        valueOfElement "temp"
+        RET=0
+    ;;
+
+    hum)
+        XML=`$CURL http://$IP/data`
+        valueOfElement "hum"
+        RET=0
+    ;;
+
+    state)
+        XML=`$CURL http://$IP/relay/state`
+
+        if [[ "$XML" =~ .*relay..1..state.* ]]; then
+            echo "ON"
+            RET=0
+        else
+            echo "OFF"
+            RET=1
+        fi
+    ;;
+
+    *)
+		  echo "Usage: hhact {on|off|state|temp|hum} <sensor IP>"
+		  exit 1
+    ;;
+esac
+
+exit $RET

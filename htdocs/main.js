@@ -313,8 +313,8 @@ function dispatchMessage(message)
    var jMessage = JSON.parse(message);
    var event = jMessage.event;
 
-   // if (event != "chartdata")
-   //    console.log("got event: " + event);
+   if (event != "chartdata")
+      console.log("got event: " + event);
 
    if (event == "result") {
       hideProgressDialog();
@@ -421,6 +421,9 @@ function dispatchMessage(message)
    else if (event == "valuefacts") {
       valueFacts = jMessage.object;
       // console.log("valueFacts " + JSON.stringify(valueFacts, undefined, 4));
+
+      if (currentPage == "iosetup")
+         initIoSetup(valueFacts);
    }
    else if (event == "images") {
       images = jMessage.object;

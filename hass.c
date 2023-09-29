@@ -361,6 +361,8 @@ int Daemon::mqttCheckConnection()
 
    if (!mqttWriter->isConnected())
    {
+      // #TODO - we need a connect timeout (for all mqtt->connect calls)!
+
       if (mqttWriter->connect(mqttUrl, mqttUser, mqttPassword) != success)
       {
          tell(eloAlways, "Error: MQTT: Connecting publisher to '%s' failed", mqttUrl);

@@ -317,13 +317,13 @@ function tableHeader(title, sectionId, add)
       '    <thead>' +
       '      <tr>' +
       '        <td style="width:20%;">Name</td>' +
-      '        <td style="width:25%;">Titel</td>' +
+      '        <td style="min-width:20vw;">Titel</td>' +
       '        <td style="width:4%;">Einheit</td>' +
       '        <td style="width:3%;">Aktiv</td>' +
-      '        <td style="width:3%;">Aufzeichnen</td>' +
+      '        <td style="width:3%;">Aufz.</td>' +
       '        <td style="width:6%;">ID</td>' +
       '        <td style="width:6%;"></td>' +
-      '        <td style="width:10%;">Gruppe</td>' +
+//      '        <td style="width:10%;">Gruppe</td>' +
       '      </tr>' +
       '    </thead>' +
       '    <tbody id="' + sectionId + '">' +
@@ -425,15 +425,15 @@ function initIoSetup(valueFacts)
       else
          html += '<td></td>';
 
-      html += '<td><select id="group_' + item.type + item.address + '" class="rounded-border inputSetting" name="group">';
-      if (grouplist != null) {
-         for (var g = 0; g < grouplist.length; g++) {
-            var group = grouplist[g];
-            var sel = item.groupid == group.id ? 'SELECTED' : '';
-            html += '    <option value="' + group.id + '" ' + sel + '>' + group.name + '</option>';
-         }
-      }
-      html += '  </select></td>';
+//      html += '<td><select id="group_' + item.type + item.address + '" class="rounded-border inputSetting" name="group">';
+//      if (grouplist != null) {
+//         for (var g = 0; g < grouplist.length; g++) {
+//            var group = grouplist[g];
+//            var sel = item.groupid == group.id ? 'SELECTED' : '';
+//            html += '    <option value="' + group.id + '" ' + sel + '>' + group.name + '</option>';
+//         }
+//      }
+//      html += '  </select></td>';
 
       var root = document.getElementById(sectionId);
 
@@ -814,6 +814,16 @@ function foldSection(sectionId)
 {
    ioSections[sectionId].visible = !ioSections[sectionId].visible;
    console.log(sectionId + ' : ' + ioSections[sectionId].visible);
+   initIoSetup(valueFacts);
+}
+
+function foldAllSections()
+{
+   for (var sectionId in ioSections) {
+      ioSections[sectionId].visible = false; // !ioSections[sectionId].visible;
+      // console.log(sectionId + ' : ' + ioSections[sectionId].visible);
+   }
+
    initIoSetup(valueFacts);
 }
 

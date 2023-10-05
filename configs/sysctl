@@ -40,6 +40,10 @@ case "$COMMAND" in
         ${SYSTEMCTL} stop --quiet ${SERVICE}
         ;;
 
+    restart)
+        ${SYSTEMCTL} restart --quiet ${SERVICE}
+        ;;
+
     toggle)
         ${SYSTEMCTL} is-active --quiet ${SERVICE}
         if [ $? == 0 ]; then

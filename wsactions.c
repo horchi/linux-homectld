@@ -2319,7 +2319,14 @@ int Daemon::performCommand(json_t* obj, long client)
 {
    std::string what = getStringFromJson(obj, "what");
 
-   if (what == "peaks")
+   if (what == "peak")
+   {
+      const char* type = getStringFromJson(obj, "type");
+      uint address = getIntFromJson(obj, "address");
+      tell(eloAlways, "Reset peak of '%s:0x%02x", type, address);
+      tablePeaks->deleteWhere("type = '%s' and address = 0x%02x", type, address);
+   }
+   else if (what == "peaks")
    {
       tablePeaks->truncate();
       setConfigItem("peakResetAt", l2pTime(time(0)).c_str());
@@ -2329,9 +2336,7 @@ int Daemon::performCommand(json_t* obj, long client)
       pushOutMessage(oJson, "config", client);
    }
    else if (what == "testmail")
-   {
       performTestMail(obj, client);
-   }
    else
       return fail;
 

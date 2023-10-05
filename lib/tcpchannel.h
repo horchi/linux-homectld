@@ -58,7 +58,7 @@ class TcpChannel
       };
 #pragma pack()
 
-		TcpChannel(int aTimeout = 30, int aHandle = 0);
+		TcpChannel(int aTimeout = 2, int aHandle = 0);
 		~TcpChannel();
 
       int openLstn(unsigned short aPort, const char* aLocalHost = 0);

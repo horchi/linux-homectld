@@ -232,12 +232,12 @@ int TcpChannel::open(unsigned short aPort, const char* aHost)
          fd_set wSet;
 
          wait.tv_sec = timeout;
-         wait.tv_usec = 0;
+         wait.tv_usec = 1;
 
          FD_ZERO(&wSet);
          FD_SET(aHandle, &wSet);
 
-         int ndfs= ::select(aHandle + 1, 0, &wSet, 0, &wait);
+          int ndfs = ::select(aHandle + 1, 0, &wSet, 0, &wait);
 
          if (ndfs < 0)
          {

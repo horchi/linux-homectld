@@ -18,6 +18,10 @@ If you like the project and want to support it
 [![paypal](https://www.paypalobjects.com/de_DE/DE/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=KUF9ZAQ5UTHUN)
 
 
+# CI-Bus / LIN-Bus Adapter
+
+Here you can find the suitable adapter https://www.fischl.de/usblini/
+
 # Dependencies
 
 ```
@@ -25,9 +29,14 @@ apt install -y python3 python3-pip python3-paho-mqtt
 pip install git+https://github.com/EmbedME/pyUSBlini
 ```
 
-# CI-Bus / LIN-Bus Adapter
+## Check if device USBlini was detected
 
-Here you can find the suitable adapter https://www.fischl.de/usblini/
+```
+lsusb |grep -i Microc
+Bus 001 Device 011: ID 04d8:e870 Microchip Technology, Inc.
+lsusb -d 04d8:e870
+Bus 001 Device 011: ID 04d8:e870 Microchip Technology, Inc.
+```
 
 # Usage
 
@@ -44,7 +53,10 @@ optional arguments:
   -v [V]      Verbosity Level (0-3) (default 0)
   -c [C]      Sample Count
 ```
-
+Example:
+```
+/usr/bin/python3 /usr/local/bin/thetford.py -m localhost -v 0 -l
+```
 If you install it like the service file '`thetford.service` and enable/start it like
 ```
 sudo apt install mosquitto mosquitto-clients

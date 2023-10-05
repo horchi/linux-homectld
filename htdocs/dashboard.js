@@ -991,7 +991,6 @@ function titleClick(ctrlKey, key)
          toggleMode(fact.address, fact.type);
    }
    else {
-
       let sensor = allSensors[key];
       let widget = dashboards[actDashboard].widgets[key];
       let now = new Date();
@@ -1059,6 +1058,7 @@ function titleClick(ctrlKey, key)
                                      .html('Peak'))
                              .append($('<span></span>')
                                      .append($('<div></div>')
+                                             .attr('id', 'dlgPeak')
                                              .addClass('rounded-border')
                                              .html(sensor.peak + ' ' + widget.unit)
                                             )))
@@ -1083,7 +1083,13 @@ function titleClick(ctrlKey, key)
       width: "auto",
       title: "Info",
       buttons: {
-         'Ok': function () { $(this).dialog('close'); }
+         'Reset Peak': function() {
+            $('#dlgPeak').html('-');
+            socket.send({ "event" : "command", "object" : { "what" : 'peak', "type": fact.type, "address": fact.address } });
+            let sensor = allSensors[key];
+            sensor.peak = null;
+         },
+         'Ok': function() { $(this).dialog('close'); }
       },
       close: function() { $(this).dialog('destroy').remove(); }
    });

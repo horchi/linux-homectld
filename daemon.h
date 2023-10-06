@@ -300,7 +300,7 @@ class Daemon : public cWebInterface
 
       virtual int process();                               // called each 'interval'
       virtual int performJobs() { return done; }           // called every loop (1 second)
-      int performWebSocketPing();
+      // int performWebSocketPing();
       int dispatchClientRequest();
       virtual int dispatchSpecialRequest(Event event, json_t* oObject, long client) { return ignore; }
       virtual int dispatchMqttHaCommandRequest(json_t* jData, const char* topic);

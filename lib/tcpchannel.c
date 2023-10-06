@@ -212,7 +212,6 @@ int TcpChannel::open(unsigned short aPort, const char* aHost)
       if (::bind(aHandle, (struct sockaddr*)&localSockAddr, sizeof(localSockAddr)) < 0)
       {
          ::close(aHandle);
-
          return errBindAddressFailed;
       }
    }

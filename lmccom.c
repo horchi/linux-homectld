@@ -289,7 +289,8 @@ int LmcCom::queryRange(RangeQueryType queryType, int from, int count,
    if ((status += responseP(result)) != success || isEmpty(result))
    {
       free(result);
-      tell(eloAlways, "[LMC] Error: Request of '%s' failed", cmd);
+      if (status != success)
+         tell(eloAlways, "[LMC] Error: Request of '%s' failed", cmd);
       return status;
    }
 

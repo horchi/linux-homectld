@@ -317,13 +317,13 @@ function tableHeader(title, sectionId, add)
       '    <thead>' +
       '      <tr>' +
       '        <td style="width:20%;">Name</td>' +
-      '        <td style="width:25%;">Titel</td>' +
+      '        <td style="min-width:20vw;">Titel</td>' +
       '        <td style="width:4%;">Einheit</td>' +
       '        <td style="width:3%;">Aktiv</td>' +
-      '        <td style="width:3%;">Aufzeichnen</td>' +
+      '        <td style="width:3%;">Aufz.</td>' +
       '        <td style="width:6%;">ID</td>' +
       '        <td style="width:6%;"></td>' +
-      '        <td style="width:10%;">Gruppe</td>' +
+//      '        <td style="width:10%;">Gruppe</td>' +
       '      </tr>' +
       '    </thead>' +
       '    <tbody id="' + sectionId + '">' +
@@ -420,18 +420,20 @@ function initIoSetup(valueFacts)
          html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorCvSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
       else if (item.type == 'DO')
          html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorDoSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
+      else if (item.type == 'W1' || item.type == 'RTL433' || item.type == 'SC')
+         html += '<td>' + '<button class="buttonOptions rounded-border" onclick="deleteValueFact(\'' + item.type + '\', \'' + item.address + '\')">Löschen</button>' + '</td>';
       else
          html += '<td></td>';
 
-      html += '<td><select id="group_' + item.type + item.address + '" class="rounded-border inputSetting" name="group">';
-      if (grouplist != null) {
-         for (var g = 0; g < grouplist.length; g++) {
-            var group = grouplist[g];
-            var sel = item.groupid == group.id ? 'SELECTED' : '';
-            html += '    <option value="' + group.id + '" ' + sel + '>' + group.name + '</option>';
-         }
-      }
-      html += '  </select></td>';
+//      html += '<td><select id="group_' + item.type + item.address + '" class="rounded-border inputSetting" name="group">';
+//      if (grouplist != null) {
+//         for (var g = 0; g < grouplist.length; g++) {
+//            var group = grouplist[g];
+//            var sel = item.groupid == group.id ? 'SELECTED' : '';
+//            html += '    <option value="' + group.id + '" ' + sel + '>' + group.name + '</option>';
+//         }
+//      }
+//      html += '  </select></td>';
 
       var root = document.getElementById(sectionId);
 
@@ -636,6 +638,17 @@ function sensorAiSetup(type, address)
 
 }
 
+function deleteValueFact(type, address)
+{
+   console.log("sensor delete ", type, address);
+
+   socket.send({ "event" : "storecalibration", "object" : {
+      'type' : type,
+      'address' : parseInt(address),
+      'action' : 'delete'
+   }});
+}
+
 function sensorDoSetup(type, address)
 {
    console.log("sensorSetup ", type, address);
@@ -801,6 +814,16 @@ function foldSection(sectionId)
 {
    ioSections[sectionId].visible = !ioSections[sectionId].visible;
    console.log(sectionId + ' : ' + ioSections[sectionId].visible);
+   initIoSetup(valueFacts);
+}
+
+function foldAllSections()
+{
+   for (var sectionId in ioSections) {
+      ioSections[sectionId].visible = false; // !ioSections[sectionId].visible;
+      // console.log(sectionId + ' : ' + ioSections[sectionId].visible);
+   }
+
    initIoSetup(valueFacts);
 }
 

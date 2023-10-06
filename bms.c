@@ -235,6 +235,11 @@ int BmsCom::requestState(BatteryState& state)
       state.ntc[i] = (w-2731) / 10.0;
    }
 
+   // very crude validity check
+
+   if (state.ntcCount != 2)
+      return fail;
+
    return finish();
 }
 
@@ -417,7 +422,7 @@ int Bms::mqttConnection()
       }
 
       tell(eloAlways, "MQTT: Connecting publisher to '%s' succeeded", mqttUrl);
-      tell(eloAlways, "MQTT: Publishe BMS data to topic '%s'", mqttTopic.c_str());
+      tell(eloAlways, "MQTT: Publish BMS data to topic '%s'", mqttTopic.c_str());
    }
 
    return success;

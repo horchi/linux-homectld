@@ -3055,8 +3055,7 @@ int Daemon::dispatchDeconz()
 
 int Daemon::dispatchHomematicRpcResult(const char* message)
 {
-   json_error_t error;
-   json_t* jData = json_loads(message, 0, &error);
+   json_t* jData = jsonLoad(message);
 
    if (!jData)
    {
@@ -3138,8 +3137,7 @@ int Daemon::dispatchHomematicEvents(const char* message)
 
    tell(eloHomeMatic, "<- (home-matic) '%s'", message);
 
-   json_error_t error;
-   json_t* jData = json_loads(message, 0, &error);
+   json_t* jData = jsonLoad(message);
 
    if (!jData)
    {
@@ -3269,8 +3267,7 @@ std::string buildStringFromCamelCase(std::string camelCaseStr)
 
 int Daemon::dispatchGrowattEvents(const char* message)
 {
-   json_error_t error;
-   json_t* jData = json_loads(message, 0, &error);
+   json_t* jData = jsonLoad(message);
 
    if (!jData)
    {
@@ -3372,7 +3369,7 @@ int Daemon::dispatchRtl433(const char* message)
 {
    tell(eloInfo, "RTL433 <-'%s'", message);
 
-   json_t* jData = json_loads(message, 0, nullptr);
+   json_t* jData = jsonLoad(message);
 
    if (!jData)
    {
@@ -3436,7 +3433,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 {
    // tell(eloMqtt, "<- (%s) '%s'", topic, message);
 
-   json_t* jData = json_loads(message, 0, nullptr);
+   json_t* jData = jsonLoad(message);
 
    if (!jData)
    {
@@ -3954,8 +3951,7 @@ int Daemon::loadStates()
 
 int Daemon::dispatchArduinoMsg(const char* message)
 {
-   json_error_t error;
-   json_t* jObject = json_loads(message, 0, &error);
+   json_t* jObject = jsonLoad(message);
 
    if (!jObject)
    {
@@ -4110,8 +4106,7 @@ void Daemon::updateAnalogInput(const char* id, double value, time_t stamp, const
 
 int Daemon::dispatchW1Msg(const char* message)
 {
-   json_error_t error;
-   json_t* jArray = json_loads(message, 0, &error);
+   json_t* jArray = jsonLoad(message);
 
    if (!jArray)
    {

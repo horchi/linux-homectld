@@ -313,15 +313,15 @@ function dispatchMessage(message)
    var jMessage = JSON.parse(message);
    var event = jMessage.event;
 
-   // if (event != "chartdata")
-   //    console.log("got event: " + event);
+//   if (event != "chartdata")
+//      console.log("got event: " + event);
 
    if (event == "result") {
       hideProgressDialog();
       showInfoDialog(jMessage.object);
    }
    else if (event == "ping") {
-      console.log("Got ping");
+      // console.log("Got ping");
       lastPingAt = new Date().getTime();
    }
    else if (event == "init") {
@@ -421,6 +421,9 @@ function dispatchMessage(message)
    else if (event == "valuefacts") {
       valueFacts = jMessage.object;
       // console.log("valueFacts " + JSON.stringify(valueFacts, undefined, 4));
+
+      if (currentPage == "iosetup")
+         initIoSetup(valueFacts);
    }
    else if (event == "images") {
       images = jMessage.object;
@@ -530,7 +533,8 @@ function prepareMenu()
    else if (currentPage == "iosetup") {
       html += "<div class=\"confirmDiv\">";
       html += "  <button class=\"rounded-border buttonOptions\" onclick=\"storeIoSetup()\">Speichern</button>";
-      html += "  <button class=\"rounded-border buttonOptions\" title=\"filter alle/aktive\" id=\"filterIoSetup\" onclick=\"filterIoSetup()\">[alle]</button>";
+      html += "  <button class=\"rounded-border buttonOptions\" title=\"filter alle/aktive/keine\" id=\"filterIoSetup\" onclick=\"filterIoSetup()\">[alle]</button>";
+      html += "  <button class=\"rounded-border buttonOptions\" title=\"alle einklappen\" id=\"filterIoSetup\" onclick=\"foldAllSections()\">fold</button>";
       html += '  <input id="incSearchName" class="input rounded-border clearableOD" placeholder="filter..." type="search" oninput="doIncrementalFilterIoSetup()"</input>';
       html += "</div>";
    }

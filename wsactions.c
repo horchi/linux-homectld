@@ -20,8 +20,7 @@
 int Daemon::dispatchClientRequest()
 {
    int status {fail};
-   json_error_t error;
-   json_t *oData, *oObject;
+   json_t *oData {}, *oObject {};
 
    cMyMutexLock lock(&messagesInMutex);
 
@@ -31,7 +30,7 @@ int Daemon::dispatchClientRequest()
       //   => { "event" : "toggleio", "object" : { "address" : "122", "type" : "DO" } }
 
       tell(eloWebSock, "<= '%s'", messagesIn.front().c_str());
-      oData = json_loads(messagesIn.front().c_str(), 0, &error);
+      oData = jsonLoad(messagesIn.front().c_str());
 
       // get the request
 
@@ -1027,8 +1026,7 @@ int Daemon::performChartbookmarks(long client)
 {
    char* bookmarks {};
    getConfigItem("chartBookmarks", bookmarks, "{[]}");
-   json_error_t error;
-   json_t* oJson = json_loads(bookmarks, 0, &error);
+   json_t* oJson = jsonLoad(bookmarks);
    pushOutMessage(oJson, "chartbookmarks", client);
    free(bookmarks);
 
@@ -1212,8 +1210,7 @@ int Daemon::performSchema(json_t* oObject, long client)
       const char* properties = tableSchemaConf->getStrValue("PROPERTIES");
       if (isEmpty(properties))
          properties = "{}";
-      json_error_t error;
-      json_t* o = json_loads(properties, 0, &error);
+      json_t* o = jsonLoad(properties);
       json_object_set_new(oData, "properties", o);
    }
 
@@ -1348,6 +1345,8 @@ int Daemon::storeCalibration(json_t* obj, long client)
 {
    int status {success};
    std::string type = getStringFromJson(obj, "type", "");
+   std::string action = getStringFromJson(obj, "action", "");
+   long address = getLongFromJson(obj, "address", na);
 
    if (type == "AI")
       status = storeAiCalibration(obj, client);
@@ -1355,8 +1354,13 @@ int Daemon::storeCalibration(json_t* obj, long client)
       status = storeCvCalibration(obj, client);
    else if (type == "DO")
       status = storeDoCalibration(obj, client);
+   else if (action == "delete")
+      status = deleteValueFact(type.c_str(), address);
    else
-      return replyResult(fail, "Ignoring script request, only supported for 'AI', 'DO' and 'CV' sensors", client);
+   {
+      tell(eloAlways, "Ignoring config request for '%s:%ld, only supported for 'AI', 'DO', 'W1' and 'CV' sensors", type.c_str(), address);
+      return replyResult(fail, "Ignoring config request, only supported for 'AI', 'DO', 'W1' and 'CV' sensors", client);
+   }
 
    if (status == success)
    {
@@ -1370,8 +1374,22 @@ int Daemon::storeCalibration(json_t* obj, long client)
    }
 
    return done;
-
 }
+
+//***************************************************************************
+// Delete ValueFact
+//***************************************************************************
+
+int Daemon::deleteValueFact(const char* type, long address)
+{
+   tell(eloAlways, "DELETE: type = '%s' and address = %ld", type, address);
+   tableValueFacts->deleteWhere("type = '%s' and address = %ld", type, address);
+   return success;
+}
+
+//***************************************************************************
+//
+//***************************************************************************
 
 int Daemon::storeCvCalibration(json_t* obj, long client)
 {
@@ -2225,7 +2243,7 @@ int Daemon::dashboards2Json(json_t* obj)
       json_object_set_new(oDashboard, "order", json_integer(tableDashboards->getIntValue("ORDER")));
       json_object_set_new(oDashboard, "group", json_integer(tableDashboards->getIntValue("GROUP")));
 
-      json_t* oOpts = json_loads(tableDashboards->getStrValue("OPTS"), 0, nullptr);
+      json_t* oOpts = jsonLoad(tableDashboards->getStrValue("OPTS"));
       json_object_set_new(oDashboard, "options", oOpts);
 
       json_t* oWidgets = json_object();
@@ -2238,7 +2256,7 @@ int Daemon::dashboards2Json(json_t* obj)
       {
          char* key {};
          asprintf(&key, "%s:0x%02lx", tableDashboardWidgets->getStrValue("TYPE"), tableDashboardWidgets->getIntValue("ADDRESS"));
-         json_t* oWidgetOpts = json_loads(tableDashboardWidgets->getStrValue("WIDGETOPTS"), 0, nullptr);
+         json_t* oWidgetOpts = jsonLoad(tableDashboardWidgets->getStrValue("WIDGETOPTS"));
          json_object_set_new(oWidgets, key, oWidgetOpts);
          free(key);
       }
@@ -2301,7 +2319,14 @@ int Daemon::performCommand(json_t* obj, long client)
 {
    std::string what = getStringFromJson(obj, "what");
 
-   if (what == "peaks")
+   if (what == "peak")
+   {
+      const char* type = getStringFromJson(obj, "type");
+      uint address = getIntFromJson(obj, "address");
+      tell(eloAlways, "Reset peak of '%s:0x%02x", type, address);
+      tablePeaks->deleteWhere("type = '%s' and address = 0x%02x", type, address);
+   }
+   else if (what == "peaks")
    {
       tablePeaks->truncate();
       setConfigItem("peakResetAt", l2pTime(time(0)).c_str());
@@ -2311,9 +2336,7 @@ int Daemon::performCommand(json_t* obj, long client)
       pushOutMessage(oJson, "config", client);
    }
    else if (what == "testmail")
-   {
       performTestMail(obj, client);
-   }
    else
       return fail;
 

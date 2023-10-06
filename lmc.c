@@ -18,7 +18,15 @@ int Daemon::lmcInit()
    if (isEmpty(lmcHost) || isEmpty(lmcPlayerMac))
       return done;
 
-   lmc = new LmcCom(lmcPlayerMac);
+   static time_t lastTryAt {0};
+
+   if (lastTryAt > time(0) - 10)
+      return done;
+
+   lastTryAt = time(0);
+
+   if (!lmc)
+      lmc = new LmcCom(lmcPlayerMac);
 
    if (lmc->open(lmcHost, lmcPort) != success)
    {
@@ -93,7 +101,7 @@ int Daemon::lmcUpdates(long client)
 
 int Daemon::lmcTrack2Json(json_t* obj, TrackInfo* track)
 {
-   tell(eloAlways, "LMC track: %s / %s / %s / %s ", track->title, track->artist, track->genre, track->album);
+   tell(eloDebug, "LMC track: %s / %s / %s / %s ", track->title, track->artist, track->genre, track->album);
 
    // current track
 
@@ -145,7 +153,8 @@ int Daemon::lmcPlayerState2Json(json_t* obj)
 
    static int lastTime {0};
 
-   tell(eloAlways, "LMC: mode: %s", currentState->mode);
+   tell(eloDebug, "LMC: mode: %s", currentState->mode);
+
    if (strcmp(currentState->mode, "play") == 0)
       lastTime = currentState->trackTime + (cTimeMs::Now() - currentState->updatedAt) / 1000;
 

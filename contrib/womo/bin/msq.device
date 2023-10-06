@@ -1,0 +1,32 @@
+#!/bin/bash
+
+FWPN="/usr/local/bin/fwpn"
+
+# no parameter -> show actual device
+
+if [[ -z "$1" ]]; then
+   grep "^MSQ_DEV" $FWPN | sed s/"\(^MSQ_DEV=\"\)\([^\"]*\)\(.*\)"/"\2"/
+   exit 0
+fi
+
+if [[ "$1" != "-s" ]]; then
+
+   # no -s switch, compare device in parameter $1 with actual setting
+
+   grep "^MSQ_DEV=.$1" $FWPN >/dev/null 2>&1
+   exit $?
+fi
+
+# on -s second parameter (the device) is required
+
+if [[ -z "$2" ]]; then
+   echo Missing parameter
+   exit 1;
+fi
+
+cat $FWPN | sed s/"\(^MSQ_DEV=\"\)\([^\"]*\)\(.*\)"/"\1$2\3"/ > /tmp/fwpn
+cp /tmp/fwpn $FWPN
+
+grep "^MSQ_DEV=.$2" $FWPN >/dev/null 2>&1
+
+exit $?

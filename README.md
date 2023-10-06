@@ -104,15 +104,24 @@ if the database is running remote, or you like to have remote access to the data
 
 ```
 apt install build-essential libssl-dev libcurl4-openssl-dev uuid-dev libcap-dev
-apt install libjansson-dev libmariadb-dev wiringpi liblua5.3-dev
+apt install libjansson-dev libmariadb-dev liblua5.3-dev
+```
+#### Raspberry Pi
+```
+apt install wiringpi
+```
+#### Odroid with Ubuntu
+```
+apt install libwiringpi-dev libwiringpi2 odroid-wiringpi
 ```
 
 ### get and install libwebsock
-We need to install it manually since the version shipped with the distribution is to old (we need at least version v3.2.0)
+We need to install it manually in case the version shipped with the distribution is to old
+(we need at least version v3.2.0)
 
 ```
 cd /usr/src/
-git clone https://libwebsockets.org/repo/libwebsockets
+git clone https://github.com/warmcat/libwebsockets.git
 cd libwebsockets
 mkdir build
 cd build

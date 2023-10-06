@@ -300,7 +300,7 @@ int W1::mqttConnection()
       }
 
       tell(eloAlways, "MQTT: Connecting publisher to '%s' succeeded", mqttUrl);
-      tell(eloAlways, "MQTT: Publishe W1 data to topic '%s'", mqttTopic.c_str());
+      tell(eloAlways, "MQTT: Publish W1 data to topic '%s'", mqttTopic.c_str());
    }
 
    return success;

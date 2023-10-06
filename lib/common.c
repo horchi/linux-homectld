@@ -67,6 +67,9 @@ const char* Elo::eloquences[] =
    "Lua",
    "GroWatt",
 
+   "Lmc",
+   "DebugLmc",
+
    nullptr
 };
 

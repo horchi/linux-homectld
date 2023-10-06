@@ -3,7 +3,7 @@
 // File lmc.c
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
-// Date 2010 - 2022 Jörg Wendel
+// Date 2010-2023 Jörg Wendel
 //***************************************************************************
 
 #include "lib/json.h"
@@ -30,14 +30,14 @@ int Daemon::lmcInit()
 
    if (lmc->open(lmcHost, lmcPort) != success)
    {
-      tell(eloAlways, "Opening connection to LMC server at '%s:%d' failed", lmcHost, lmcPort);
+      tell(eloAlways, "[LMC] Opening connection to server at '%s:%d' failed", lmcHost, lmcPort);
       return fail;
    }
 
-   tell(eloAlways, "Opening connection to LMC server at '%s:%d' succeeded", lmcHost, lmcPort);
+   tell(eloAlways, "[LMC] Opening connection to server at '%s:%d' succeeded", lmcHost, lmcPort);
 
    lmc->update();
-   lmc->startNotify();
+   // lmc->startNotify();
    lmcUpdates();
 
    return success;
@@ -74,7 +74,7 @@ int Daemon::performLmcUpdates()
 
    if (lmc->checkNotify(0) == success)
    {
-      tell(eloAlways, "LMC changes pending");
+      tell(eloAlways, "[LMC] Changes pending");
       lmcUpdates();
    }
 
@@ -101,7 +101,7 @@ int Daemon::lmcUpdates(long client)
 
 int Daemon::lmcTrack2Json(json_t* obj, TrackInfo* track)
 {
-   tell(eloDebug, "LMC track: %s / %s / %s / %s ", track->title, track->artist, track->genre, track->album);
+   tell(eloDebug, "[LMC] Track: %s / %s / %s / %s ", track->title, track->artist, track->genre, track->album);
 
    // current track
 
@@ -124,7 +124,7 @@ int Daemon::lmcTrack2Json(json_t* obj, TrackInfo* track)
    std::string url;
    lmc->getCurrentCoverUrl(track, url);
 
-   tell(eloAlways, "artworkurl: %s", track->artworkurl);
+   tell(eloAlways, "[LMC] Artworkurl: %s", track->artworkurl);
    json_object_set_new(current, "cover", json_string(url.c_str()));
 
    return success;
@@ -153,7 +153,7 @@ int Daemon::lmcPlayerState2Json(json_t* obj)
 
    static int lastTime {0};
 
-   tell(eloDebug, "LMC: mode: %s", currentState->mode);
+   tell(eloDebug, "[LMC] Mmode: %s", currentState->mode);
 
    if (strcmp(currentState->mode, "play") == 0)
       lastTime = currentState->trackTime + (cTimeMs::Now() - currentState->updatedAt) / 1000;
@@ -241,7 +241,7 @@ int Daemon::performLmcAction(json_t* oObject, long client)
    int index = getIntFromJson(oObject, "index", na);
    LmcCom::RangeQueryType queryType = (LmcCom::RangeQueryType)getIntFromJson(oObject, "query", na);
 
-   tell(eloAlways, "LMC action '%s' (%d)", action.c_str(), queryType);
+   tell(eloAlways, "[LMC] Action '%s' (%d)", action.c_str(), queryType);
 
    if (action == "menu" && queryType != LmcCom::rqtUnknown)
    {
@@ -255,7 +255,7 @@ int Daemon::performLmcAction(json_t* oObject, long client)
 
       json_t* oMenu = json_array();
 
-      tell(eloAlways, "LMC query (%d)", queryType);
+      tell(eloAlways, "[LMC] Query (%d)", queryType);
 
       if (lmc->queryRange(queryType, 0, maxElements, &list, total, "", &filters) == success)
       {
@@ -273,7 +273,7 @@ int Daemon::performLmcAction(json_t* oObject, long client)
          pushOutMessage(oMenu, "lmcmenu", client);
 
          if (total > maxElements)
-            tell(eloAlways, "Warning: %d more, only maxElements supported", total-maxElements);
+            tell(eloAlways, "[LMC] Warning: %d more, only maxElements supported", total-maxElements);
       }
    }
    else if (action == "play" && index != na)

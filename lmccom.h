@@ -13,6 +13,7 @@
    curl -X POST -d '{ "method": "slim.request", "params":["b8:27:eb:91:96:1b", ["status"]]}' gate:9000/jsonrpc.js | json_pp
    curl -X POST -d '{ "method": "slim.request", "params":["", ["players", "0", "100"]]}' gate:9000/jsonrpc.js | json_pp
    curl -X POST -d '{ "method": "slim.request", "id":1, "params":[ "", ["albums", "0","100" ]]}' gate:9000/jsonrpc.js | json_pp
+   curl -X POST -d '{ "method": "slim.request", "id":1, "params":[ "", ["serverstatus", "0","100" ]]}' gate:9000/jsonrpc.js | json_pp
 
    -> https://forums.slimdevices.com/showthread.php?82985-JSON-help
 */
@@ -63,7 +64,7 @@ class LmcCom : public TcpChannel
       struct ListItem
       {
          ListItem()     { }
-         void clear()   { id = ""; content = ""; command = ""; hasItems = false; isAudio = false; }
+            void clear()   { id = ""; content = ""; command = ""; hasItems = false; isAudio = false, isConnected = false; }
          int isEmpty()  { return content == ""; }
 
          std::string id;
@@ -71,6 +72,7 @@ class LmcCom : public TcpChannel
          std::string command;
          bool hasItems {false};
          bool isAudio {false};
+         bool isConnected {false};
       };
 
       typedef std::list<ListItem> RangeList;

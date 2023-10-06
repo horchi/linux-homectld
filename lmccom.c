@@ -54,11 +54,11 @@ int LmcCom::open(const char* aHost, unsigned short aPort)
    port = aPort;
    host = strdup(aHost);
 
-   tell(eloAlways, "Try connecting LMC server at '%s:%d", host, port);
+   tell(eloAlways, "[LMC] Try connecting LMC server at '%s:%d", host, port);
    int res = TcpChannel::open(port, host);
 
    if (res == success)
-      tell(eloAlways, "Connection to LMC server established");
+      tell(eloAlways, "[LMC] Connection to LMC server established");
 
    return res;
 }
@@ -110,7 +110,7 @@ int LmcCom::update(int stateOnly)
 
    if (status != success)
    {
-      tell(eloAlways, "Error: Request of '%s' failed", cmd);
+      tell(eloAlways, "[LMC] Error: Request of '%s' failed", cmd);
       free(buf);
       return fail;
    }
@@ -178,7 +178,7 @@ int LmcCom::update(int stateOnly)
    }
 
    playerState.plCount = tracks.size();
-   tell(eloDetail, "Playlist updated, got %d track", playerState.plCount);
+   tell(eloLmc, "[LMC] Playlist updated, got %d track", playerState.plCount);
 
    return success;
 }
@@ -198,7 +198,7 @@ int LmcCom::query(const char* command, char* result, int max)
    status += write(" ?\n");
 
    if ((status += response(result, max)) != success)
-       tell(eloAlways, "Error: Request of '%s' failed", command);
+       tell(eloAlways, "[LMC] Error: Request of '%s' failed", command);
 
    unescape(result);
 
@@ -245,18 +245,18 @@ int LmcCom::queryRange(RangeQueryType queryType, int from, int count,
    ListItem item;
    int firstTag {LmcTag::tId};
 
+   total = 0;
    list->clear();
 
    switch (queryType)
    {
-      case rqtGenres:    sprintf(query, "genres");          break;
-      case rqtArtists:   sprintf(query, "artists");         break;
-      case rqtAlbums:    sprintf(query, "albums");          break;
-      case rqtNewMusic:  sprintf(query, "albums");          break;
-      case rqtTracks:    sprintf(query, "tracks");          break;
-      case rqtPlaylists: sprintf(query, "playlists");       break;
-      case rqtFavorites: sprintf(query, "favorites items"); break;
-
+      case rqtGenres:    sprintf(query, "genres");            break;
+      case rqtArtists:   sprintf(query, "artists");           break;
+      case rqtAlbums:    sprintf(query, "albums");            break;
+      case rqtNewMusic:  sprintf(query, "albums");            break;
+      case rqtTracks:    sprintf(query, "tracks");            break;
+      case rqtPlaylists: sprintf(query, "playlists");         break;
+      case rqtFavorites: sprintf(query, "favorites items");   break;
       case rqtRadioApps: sprintf(query, "%s items", special); break;
 
       case rqtYears:
@@ -267,6 +267,11 @@ int LmcCom::queryRange(RangeQueryType queryType, int from, int count,
       case rqtRadios:
          sprintf(query, "radios");
          firstTag = LmcTag::tIcon;
+         break;
+
+      case rqtPlayers:
+         sprintf(query, "players");
+         firstTag = LmcTag::tPlayerindex;
          break;
 
       default: break;
@@ -280,17 +285,16 @@ int LmcCom::queryRange(RangeQueryType queryType, int from, int count,
    snprintf(cmd, 250, "%s %d %d", query, from, count);
    status = request(cmd, pars);
    status += write("\n");
-   total = 0;
 
    if ((status += responseP(result)) != success || isEmpty(result))
    {
       free(result);
-      tell(eloAlways, "Error: Request of '%s' failed", cmd);
+      tell(eloAlways, "[LMC] Error: Request of '%s' failed", cmd);
       return status;
    }
 
    lt.set(result);
-   tell(eloDebug, "Got [%s]", unescape(result));
+   tell(eloDebugLmc, "[LMC] Got [%s]", unescape(result));
    free(result); result = 0;
 
    while (lt.getNext(tag, value, maxValue) != LmcTag::wrnEndOfPacket)
@@ -372,6 +376,16 @@ int LmcCom::queryRange(RangeQueryType queryType, int from, int count,
             else if (tag == LmcTag::tName)    item.content = value;
             break;
          }
+         case rqtPlayers:
+         {
+            // tell(eloDebugLmc, "Got '%s : %s'", LmcTag::toName(tag), value);
+            if      (tag == LmcTag::tPlayerindex) item.id = value;
+            else if (tag == LmcTag::tPlayerid)    item.content = value;
+            else if (tag == LmcTag::tName)        item.command = value;
+            else if (tag == LmcTag::tConnected)   item.isConnected = atoi(value);
+
+            break;
+         }
 
          default: break;
       };
@@ -396,7 +410,7 @@ int LmcCom::execute(const char* command, Parameters* pars)
 {
    LmcLock;
 
-   tell(eloDetail, "Exectuting '%s' with %zu parameters", command, pars ? pars->size() : 0);
+   tell(eloLmc, "[LMC] Exectuting '%s' with %zu parameters", command, pars ? pars->size() : 0);
    request(command, pars);
    write("\n");
 
@@ -407,7 +421,7 @@ int LmcCom::execute(const char* command, const char* par)
 {
    LmcLock;
 
-   tell(eloDetail, "Exectuting '%s' with '%s'", command, par);
+   tell(eloLmc, "[LMC] Exectuting '%s' with '%s'", command, par);
    request(command, par);
    write("\n");
 
@@ -460,7 +474,7 @@ int LmcCom::request(const char* command, Parameters* pars)
       }
    }
 
-   tell(eloDebug, "Requesting '%s' with '%s'", lastCommand, lastPar.c_str());
+   tell(eloDebugLmc, "[LMC] Requesting '%s' with '%s'", lastCommand, lastPar.c_str());
    flush();
 
    status = write(escId)
@@ -501,12 +515,12 @@ int LmcCom::responseP(char*& result)
          if (strcmp(p, "?") != 0)
             result = strdup(p);
 
-         tell(eloDebug2, "<- (response %zu bytes) [%s]", strlen(buf), unescape(p));
+         tell(eloDebugLmc, "[LMC] <- (response %zu bytes) [%s]", strlen(buf), unescape(p));
          status = success;
       }
       else
       {
-         tell(eloAlways, "Got unexpected answer for '%s' [%s]", lastCommand, buf);
+         tell(eloAlways, "[LMC] Got unexpected answer for '%s' [%s]", lastCommand, buf);
          status = fail;
       }
    }
@@ -546,13 +560,11 @@ int LmcCom::response(char* result, int max)
          if (result && max && strcmp(p,"?") != 0)
             sprintf(result, "%.*s", max, p);
 
-         tell(eloDebug2, "<- (response %zu bytes) [%s]", strlen(buf), unescape(p));
+         tell(eloDebugLmc, "[LMC] <- (response %zu bytes) [%s]", strlen(buf), unescape(p));
       }
       else
       {
-         tell(eloAlways, "Got unexpected answer for '%s' [%s]",
-              lastCommand, buf);
-
+         tell(eloAlways, "[LMC] Got unexpected answer for '%s' [%s]", lastCommand, buf);
          status = fail;
       }
    }
@@ -605,6 +617,8 @@ int LmcCom::startNotify()
       return fail;
    }
 
+   tell(eloAlways, "[LMC] Starting notification channel");
+
    return notify->execute("listen 1");
 }
 
@@ -616,6 +630,8 @@ int LmcCom::stopNotify()
       notify->close();
       delete notify;
       notify = 0;
+
+      tell(eloAlways, "[LMC] Stopped notification channel");
    }
 
    return success;
@@ -629,12 +645,45 @@ int LmcCom::checkNotify(uint64_t timeout)
 {
    char buf[1000+TB] {};
    int status {wrnNoEventPending};
+   static time_t checkPlayersNext {time(0)};
+
+   // check if 'my' player is connected
+
+   if (time(0) >= checkPlayersNext)
+   {
+      checkPlayersNext = time(0) + 10;
+
+      bool myPlayerConnected {false};
+      LmcCom::Parameters filters;
+      LmcCom::RangeList list;
+      int total {0};
+
+      if (queryRange(LmcCom::rqtPlayers, 0, 20, &list, total, "", &filters) == success)
+      {
+         tell(eloDebugLmc, "[LMC] Query players succeeded (%d)", total);
+
+         LmcCom::RangeList::iterator it;
+
+         for (it = list.begin(); it != list.end(); ++it)
+         {
+            tell(eloLmc, "[LMC] Player %s) %s '%s'", (*it).id.c_str(), (*it).command.c_str(), (*it).content.c_str());
+
+            if ((*it).content == mac && (*it).isConnected)
+               myPlayerConnected = true;
+         }
+
+         if (notify && !myPlayerConnected)
+            stopNotify();
+         else if (!notify && myPlayerConnected)
+            startNotify();
+      }
+   }
 
    metaDataChanged = false;
 
    if (!notify)
    {
-      // tell(eloAlways, "Cant check for notifications until startNotify is called");
+      // tell(eloLmc, "[LMC] Cant check for notifications until startNotify is called");
       return fail;
    }
 
@@ -643,10 +692,8 @@ int LmcCom::checkNotify(uint64_t timeout)
       if (notify->read(buf, 1000, yes) == success)
       {
          buf[strlen(buf)-1] = 0;   // cut LF
-
          unescape(buf);
-
-         tell(eloDebug, "<- [%s]", buf);
+         tell(eloDebugLmc, "[LMC] <- [%s]", buf);
 
          if (strstr(buf, "playlist "))
             status = success;

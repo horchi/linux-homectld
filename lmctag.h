@@ -126,6 +126,21 @@ class LmcTag
          tImage,
          tWaitingToPlay,
 
+         // Players
+
+         tCanpoweroff,
+         tConnected,
+         tDisplaytype,
+         tIirmware,
+         tIp,
+         tIsplayer,
+         tIsplaying,
+         tModel,
+         tMdelname,
+         tPlayerid,
+         tPlayerindex,
+         tUuid,
+
          // technical stuff ..
 
          tCount

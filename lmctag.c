@@ -101,6 +101,19 @@ const char* LmcTag::tags[] =
    "image",
    "waitingToPlay",
 
+   "canpoweroff",
+   "connected",
+   "displaytype",
+   "firmware",
+   "ip",
+   "isplayer",
+   "isplaying",
+   "model",
+   "modelname",
+   "playerid",
+   "playerindex",
+   "uuid",
+
    0
 };
 

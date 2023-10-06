@@ -113,6 +113,9 @@ enum Eloquence
    eloLua            = 0x08000,
    eloGroWatt        = 0x10000,
 
+   eloLmc            = 0x20000,
+   eloDebugLmc       = 0x40000,
+
    eloAlways         = 0x00000,
 };
 

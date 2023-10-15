@@ -868,22 +868,48 @@ table.tableMultiCol tr:nth-child(odd)
     flex-wrap: wrap;
     justify-content: center;
     margin: 5px;
-    width: 90%;
-    max-width: 450px;
+/*    width: 90%;
+    max-width: 450px;*/
 }
 
 .vdrFbContainer > div
 {
+    display: block;
     overflow: hidden;
     width: 31%;
+    height: 90vh;
     margin: 2px;
 }
 
-.vdrButtonColorDiv
+@media only screen and (orientation:portrait)
 {
-    width: 23% !important;
-    height: 60px;
+    .vdrFbContainer > div { width: 99%; height: 33vh; }
+}
+
+.vdrFbContainer > div > div
+{
+    display: flex;
+    height: 32%;
+}
+
+.vdrFbContainer > div > div > div
+{
+    display: block;
     margin: 2px;
+    width: 32% !important;
+/*    aspect-ratio : 1 / 1;*/
+}
+
+@media only screen and (orientation:landscape)
+{
+    .vdrFbContainer > div > div > div { width: 32%; }
+    .vdrButtonColorDiv { width: 23% !important; }
+}
+
+@media only screen and (orientation:portrait)
+{
+/*    .vdrFbContainer > div > div > div { height: 32% !important; }*/
+    .vdrButtonColorDiv { width: 10% !important; }
 }
 
 .vdrButton

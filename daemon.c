@@ -3320,8 +3320,8 @@ int Daemon::dispatchGrowattEvents(const char* message)
             sensors[type][address].text = text;
          }
 
-         tell(eloAlways, "update samples set address = %s where address = %d and type = 'GROWATT'", key, address);
-         tell(eloAlways, "update valuefacts set address = %s where address = %d and type = 'GROWATT'", key, address);
+         // tell(eloAlways, "update samples set address = %s where address = %d and type = 'GROWATT'", key, address);
+         // tell(eloAlways, "update valuefacts set address = %s where address = %d and type = 'GROWATT'", key, address);
 
          addValueFact(address, type, 1, title.c_str(), unit, title.c_str());
 

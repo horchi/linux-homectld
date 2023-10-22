@@ -167,7 +167,7 @@ int TcpChannel::open(unsigned short aPort, const char* aHost)
 
    // resolve local host
 
-   if (localHost && *localHost)
+   if (!isEmpty(localHost))
    {
       // search alias
 

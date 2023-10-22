@@ -83,21 +83,21 @@ class TcpChannel
 
       // data
 
-      int handle;
-      unsigned short port;
-      char localHost[100];
-      char remoteHost[100];
-      long localAddr;
-      long remoteAddr;
-      long timeout;
-      int lookAheadChar;
-      int lookAhead;
-      int nTtlReceived;
-      int nTtlSent;
+      int handle {0};
+      unsigned short port {0};
+      char localHost[100] {};
+      char remoteHost[100] {};
+      long localAddr {0};
+      long remoteAddr {0};
+      long timeout {0};
+      int lookAheadChar {0};
+      int lookAhead {0};
+      int nTtlReceived {0};
+      int nTtlSent {0};
 
-      char* readBuffer;
-      int readBufferSize;
-      int readBufferPending;
+      char* readBuffer {};
+      int readBufferSize {0};
+      int readBufferPending {0};
 
 #ifdef VDR_PLUGIN
       cMutex _mutex;

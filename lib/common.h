@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <string.h>
 #include <zlib.h>
+#include <time.h>
 
 #include <string>
 #include <map>

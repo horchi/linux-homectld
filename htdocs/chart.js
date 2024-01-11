@@ -78,21 +78,22 @@ function drawCharts(dataObject)
          scales: {
             xAxes: [{
                type: "time",
+               distribution: "linear",
+               display: true,
                time: {
                   unit: 'hour',
                   unitStepSize: 1,
                   displayFormats: {
-                  millisecond: 'MMM DD - HH:mm',
-                  second: 'MMM DD - HH:mm',
-                  minute: 'HH:mm',
-                  hour: 'MMM DD - HH:mm',
-                  day: 'HH:mm',
-                  week: 'MMM DD - HH:mm',
-                  month: 'MMM DD - HH:mm',
-                  quarter: 'MMM DD - HH:mm',
-                  year: 'MMM DD - HH:mm' } },
-               distribution: "linear",
-               display: true,
+                     millisecond: 'MMM DD - HH:mm',
+                     second: 'MMM DD - HH:mm',
+                     minute: 'HH:mm',
+                     hour: 'MMM DD - HH:mm',
+                     day: 'HH:mm',
+                     week: 'MMM DD - HH:mm',
+                     month: 'MMM DD - HH:mm',
+                     quarter: 'MMM DD - HH:mm',
+                     year: 'MMM DD - HH:mm' }
+               },
                ticks: {
                   maxTicksLimit: 24,
                   padding: 10,

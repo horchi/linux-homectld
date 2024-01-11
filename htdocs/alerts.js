@@ -50,7 +50,7 @@ function initAlerts(alerts)
 function printAlert(item)
 {
    var html = "";
-   html += '<div id="row_' + item.id + '" data-id="' + item.id + '" class="rounded-border inputTableAlert">\n';
+   html += '<div id="row_' + item.id + '" data-id="' + item.id + '" class="rounded-border setupContainer inputTableAlert">\n';
    html += ' <div>\n';
    html += '   <span>Aktiv</span>\n';
    html += '   <span><input id="state_' + item.id + '" type="checkbox" name="state" ' + (item.state == 'A' ? "checked" : "") + '></input><label for="state_' + item.id + '"></label></span>\n';

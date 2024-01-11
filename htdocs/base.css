@@ -177,6 +177,11 @@ button:focus {
   animation: spin 2s linear infinite;
 }
 
+.button-group-spacing
+{
+    height: 16px;
+}
+
 .button1
 {
     background-color: var(--caption1);
@@ -200,7 +205,7 @@ button:focus {
     color: var(--buttonFont);
     padding: 3px 10px;
     text-decoration: none;
-/*    box-shadow: 1px 1px 5px 1px var(--shadow);*/
+    height: 24px;
 }
 
 .button2:hover
@@ -218,12 +223,26 @@ button:focus {
     height: 28px;
     background-color: slategray;
     text-decoration: none;
-/*    box-shadow: 1px 1px 5px 1px var(--shadow);*/
 }
 
 .buttonOptions:hover
 {
     background-color: #335656a1;
+}
+
+.tool-button
+{
+    height: 32px;
+    color: white;
+    font-size: 14px !important;
+    background-color: var(--neutral3);
+    cursor: pointer;
+    width: -webkit-fill-available;
+    width: -moz-available;
+    white-space: nowrap;
+    vertical-align: middle;
+    transition: 0.3s;
+    margin-bottom: 4px;
 }
 
 .menuDashboard
@@ -288,8 +307,6 @@ button:focus {
 
 .seperatorFold
 {
-    /* background-color: #335656a1; */
-    /* background-color: #335656; */
     background-color: slategray;
     color: var(--light2);
     padding: 5px 15px;
@@ -299,10 +316,28 @@ button:focus {
     cursor: pointer;
 }
 
+.seperator
+{
+    background-color: slategray;
+    color: var(--light2);
+    padding: 5px 15px;
+    font-weight: bold;
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
 .tableImage
 {
     width: 80%;
     margin: 10%;
+}
+
+.labelB1
+{
+    font-size: 12px;
+    color: var(--neutral4);
+    margin-left: 6px;
+    font-weight: normal;
 }
 
 /* ----------------------- */
@@ -310,48 +345,76 @@ button:focus {
 
 .input
 {
-    background-color: var(--edit);
-    color: black;
+    background-color: var(--light3);
+    border-width: 1px;
+    border-color: var(--neutral2);
+    border-style: solid;
+    color: white;
     margin-top: 2px;
+    margin-bottom: 2px;
     padding: 3px;
+    height: 32px;
+    box-sizing: border-box;
+    font-size: 14px;
 }
 
 .inputTime
 {
-    background-color: var(--edit);
-    color: black;
+    background-color: var(--light3);
+    border-width: 1px;
+    border-color: var(--neutral2);
+    border-style: solid;
+    color: white;
     margin-top: 2px;
+    height: 32px;
+    box-sizing: border-box;
     padding: 3px;
     width: 65px;
 }
 
 .inputNum
 {
-    background-color: var(--edit);
-    color: black;
+    background-color: var(--light3);
+    border-width: 1px;
+    border-color: var(--neutral2);
+    border-style: solid;
+    color: white;
     margin-top: 2px;
+    margin-bottom: 2px;
     padding: 3px;
     width: 75px;
-    height: 21px;
+    height: 32px;
+    box-sizing: border-box;
 }
 
 .inputFloat
 {
-    background-color: var(--edit);
-    color: black;
+    background-color: var(--light3);
+    border-width: 1px;
+    border-color: var(--neutral2);
+    border-style: solid;
+    color: white;
     margin-top: 2px;
+    margin-bottom: 2px;
     padding: 3px;
     width: 75px;
-    height: 21px;
+    height: 32px;
+    box-sizing: border-box;
 }
 
 .inputSetting
 {
-    background-color: var(--edit);
-    color: black;
+    background-color: var(--light3);
+    border-width: 1px;
+    border-color: var(--neutral2);
+    border-style: solid;
+    color: white;
     margin-top: 2px;
+    margin-bottom: 2px;
     padding: 3px;
     margin: 1px;
+    height: 32px;
+    box-sizing: border-box;
     width: 100%;
 }
 
@@ -374,16 +437,14 @@ span > input
 
 .time-input
 {
-    background-color: var(--edit);
+    background-color: var(--light3);
+    border-width: 1px;
+    border-color: var(--neutral2);
+    border-style: solid;
+    color: white;
     margin-top: 2px;
     padding: 3px;
     width: 45px;
-    color: black;
-
-    border-radius: var(--borderRadius);
-    border-color: var(--borderColor);
-    border-style: none;
-    border-width: 1px;
 }
 
 .timepicker
@@ -444,11 +505,10 @@ span > input
 
 .log
 {
-    background-color: var(--light1);
-    text-decoration: none;
+    /* text-decoration: none;
     font-size: 16px;
     width: 100%;
-    padding: 5px;
+    padding: 5px; */
     border-radius: 5px;
     white-space: pre;
 }
@@ -475,15 +535,6 @@ span > input
     border-color: var(--borderColorSchemaValue);
     border-style: var(--borderStyleSchemaValue);
     border-width: 1px;
-}
-
-.inputTableAlert
-{
-    background-color: var(--light1);
-    background: linear-gradient(to bottom right, var(--light3), var(--light1)); /* Standard syntax (must be last) */
-    margin-top: 2px;
-    color: black;
-    padding: 5px;
 }
 
 .inputTableAlert > div > span
@@ -540,7 +591,7 @@ span > input
 
 .inputTableConfig
 {
-    background-color: var(--light1);
+    /* background-color: var(--light1); */
     background: linear-gradient(to bottom right, #00000096, black); /* Standard syntax (must be last) */
     padding: 5px;
 }
@@ -583,9 +634,26 @@ span > input
     width: 100%;
 }
 
+.content
+{
+    display: flex;
+}
+
+.controlContainer
+{
+    padding: var(--containerPadding);
+    font-size: 10px;
+    color: var(--light2);
+    margin: 0px 4px 0px 0px;
+    min-width: 180px;
+    overflow-y: auto;
+}
+
 .container
 {
     overflow-y: auto;
+    width: -webkit-fill-available;
+    width: -moz-available;
 }
 
 .listContainer
@@ -716,7 +784,7 @@ div.greenCircle
     height: 12px;
     border-radius: 8px;
     margin-left: 4px;
-    background-color: #545454;
+    background-color: var(--neutral2);
 }
 
 .yellowCircle
@@ -728,21 +796,24 @@ div.greenCircle
     background-color: yellow;
 }
 
+.setupContainer
+{
+    background: linear-gradient(to bottom right, #00000096, black);
+    width: fit-content;
+    padding: 15px;
+}
+
 .tableMultiCol
 {
     width: 100%;
-    background-color: var(--light1);
     border-collapse: collapse;
     color: var(--buttonFont);
     margin-top: 5px;
-    padding: 0;
-    font-size: 17px;
 }
 
-.tableMultiCol > div
+table.tableMultiCol thead
 {
-    background-color: var(--light3);
-    background: linear-gradient(to bottom right, var(--light3), var(--light1)); /* Standard syntax (must be last) */
+    font-weight: bold;
 }
 
 .tableMultiColCell
@@ -752,32 +823,10 @@ div.greenCircle
 
 table.tableMultiCol tr
 {
-    height: 35px;
-}
-
-table.tableMultiCol > thead tr:first-child
-{
-    background-color: #333333;
+    height: 48px;
+    border-width: 1px;
+    border-color: white;
     border-bottom-style: solid;
-    border-bottom-color: white;
-    border-bottom-width: 1px;
-}
-
-table.tableMultiCol tr:nth-child(even)
-{
-    background-color: #333333; /* var(--light1); */
-}
-
-table.tableMultiCol tr:nth-child(odd)
-{
-    background-color: #454545; /* var(--light1); */
-}
-
-.tableMultiCol > div > span
-{
-    padding: 5px 10px 5px 10px;
-    display: inline-block;
-    text-align: left;
 }
 
 .stateInfo

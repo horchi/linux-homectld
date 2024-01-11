@@ -854,25 +854,17 @@ int Daemon::performChartData(json_t* oObject, long client)
    if (!client)
       return done;
 
-   double range = getDoubleFromJson(oObject, "range", 1);          // Anzahl der Tage
-   time_t rangeStart = getLongFromJson(oObject, "start", 0);       // Start Datum (unix timestamp)
-   const char* sensors = getStringFromJson(oObject, "sensors");    // Kommata getrennte Liste der Sensoren
+   double range = getDoubleFromJson(oObject, "range", 1);        // Anzahl der Tage
+   time_t rangeStart = getLongFromJson(oObject, "start", 0);     // Start Datum (unix timestamp)
+   const char* sensors = getStringFromJson(oObject, "sensors");  // Kommata getrennte Liste der Sensoren
    const char* id = getStringFromJson(oObject, "id", "");
 
    // the id is one of {"chart" "chartwidget" "chartdialog"}
 
    bool widget = strcmp(id, "chart") != 0;
-   cDbStatement* select = selectSamplesRange;
 
-   if (range > 50)
-      range = 50;
-
-   if (strcmp(id, "chartwidget") == 0)
-      select = selectSamplesRange60;
-   else if (range > 20)
-      select = selectSamplesRange720;
-   else if (range > 3)
-      select = selectSamplesRange60;
+   // if (range > 50)
+   //    range = 50;
 
    if (!widget)
       performChartbookmarks(client);
@@ -904,7 +896,6 @@ int Daemon::performChartData(json_t* oObject, long client)
 
    tell(eloAlways, "Selecting chart '%s' data for sensors '%s' from (%ld) to (%ld) with range %.1f",
         id, sensors, rangeFrom.getTimeValue(), rangeTo.getTimeValue(), range);
-   tell(eloDebug, "Using for chart select [%s]", select->asText());
 
    tableValueFacts->clear();
 
@@ -918,10 +909,10 @@ int Daemon::performChartData(json_t* oObject, long client)
       if (!tableValueFacts->hasValue("RECORD", "A"))
          continue;
 
-      char* id {};
-      asprintf(&id, "%s:0x%02lx", tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"));
+      char* sid {};
+      asprintf(&sid, "%s:0x%02lx", tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"));
 
-      bool active = std::find(sList.begin(), sList.end(), id) != sList.end();  // #PORT
+      bool active = std::find(sList.begin(), sList.end(), sid) != sList.end();  // #PORT
       const char* usrtitle = tableValueFacts->getStrValue("USRTITLE");
       const char* title = tableValueFacts->getStrValue("TITLE");
 
@@ -931,13 +922,13 @@ int Daemon::performChartData(json_t* oObject, long client)
       if (!widget)
       {
          json_t* oSensor = json_object();
-         json_object_set_new(oSensor, "id", json_string(id));
+         json_object_set_new(oSensor, "id", json_string(sid));
          json_object_set_new(oSensor, "title", json_string(title));
          json_object_set_new(oSensor, "active", json_integer(active));
          json_array_append_new(aAvailableSensors, oSensor);
       }
 
-      free(id);
+      free(sid);
 
       if (!active)
          continue;
@@ -968,6 +959,24 @@ int Daemon::performChartData(json_t* oObject, long client)
            l2pTime(rangeTo.getTimeValue()).c_str(),
            tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"));
 
+      // which select to be used ..
+
+      cDbStatement* select = selectSamplesRange;
+      bool selectSumOfDayMax = strcmp(id, "chartwidgetbar") == 0 && tableValueFacts->hasValue("TYPE", "GROWATT") && tableValueFacts->hasValue("ADDRESS", 53L);
+
+      if (selectSumOfDayMax)
+         select = selectSamplesRangeMonthOfDayMax;
+      else if (strcmp(id, "chartwidget") == 0)
+         select = selectSamplesRange60;
+      else if (strcmp(id, "chartwidgetbar") == 0)
+         select = selectSamplesRangeMonth;
+      else if (range > 20)
+         select = selectSamplesRange360;
+      else if (range > 3)
+         select = selectSamplesRange60;
+
+      tell(eloAlways, "Using for '%s' select [%s]", id, select->asText());
+
       uint count {0};
 
       for (int f = select->find(); f; f = select->fetch())
@@ -981,7 +990,9 @@ int Daemon::performChartData(json_t* oObject, long client)
          json_object_set_new(oRow, "x", json_string(xmlTime.getStrValue()));
 
          if (tableValueFacts->hasValue("TYPE", "DO"))
-            json_object_set_new(oRow, "y", json_integer(maxValue.getIntValue()*10));
+            json_object_set_new(oRow, "y", json_integer(maxValue.getIntValue()*10));  // *10 for DO to better scale (bad workaround)
+         else if (selectSumOfDayMax)
+            json_object_set_new(oRow, "y", json_real(maxValue.getFloatValue()));
          else
          {
             // double avg = avgValue.getFloatValue();

@@ -47,6 +47,7 @@ const char* Daemon::widgetTypes[] =
    "Spacer",
    "Time",
    "SymbolText",
+   "BarChart",
    0
 };
 
@@ -931,7 +932,7 @@ cDbFieldDef xmlTimeDef("XML_TIME", "xmltime", cDBS::ffAscii, 20, cDBS::ftData);
 cDbFieldDef rangeFromDef("RANGE_FROM", "rfrom", cDBS::ffDateTime, 0, cDBS::ftData);
 cDbFieldDef rangeToDef("RANGE_TO", "rto", cDBS::ffDateTime, 0, cDBS::ftData);
 cDbFieldDef avgValueDef("AVG_VALUE", "avalue", cDBS::ffFloat, 122, cDBS::ftData);
-cDbFieldDef maxValueDef("MAX_VALUE", "mvalue", cDBS::ffInt, 0, cDBS::ftData);
+cDbFieldDef maxValueDef("MAX_VALUE", "mvalue", cDBS::ffFloat, 122, cDBS::ftData);
 cDbFieldDef rangeEndDef("time", "time", cDBS::ffDateTime, 0, cDBS::ftData);
 
 int Daemon::initDb()
@@ -1176,7 +1177,7 @@ int Daemon::initDb()
 
    // ------------------
    // select samples for chart data (for dashboard widget and rage > 15)
-   // ein sample avg / 60 Minuten
+   // ein sample avg / Stunde
 
    selectSamplesRange60 = new cDbStatement(tableSamples);
 
@@ -1198,25 +1199,77 @@ int Daemon::initDb()
 
    // ------------------
    // select samples for chart data
-   // ein sample avg / 720 Minuten
+   // ein sample avg / 360 Minuten (6 Stunden)
 
-   selectSamplesRange720 = new cDbStatement(tableSamples);
+   selectSamplesRange360 = new cDbStatement(tableSamples);
 
-   selectSamplesRange720->build("select ");
-   selectSamplesRange720->bind("ADDRESS", cDBS::bndOut);
-   selectSamplesRange720->bind("TYPE", cDBS::bndOut, ", ");
-   selectSamplesRange720->bindTextFree("date_format(time, '%Y-%m-%dT%H:%i')", &xmlTime, ", ", cDBS::bndOut);
-   selectSamplesRange720->bindTextFree("avg(value)", &avgValue, ", ", cDBS::bndOut);
-   selectSamplesRange720->bindTextFree("max(value)", &maxValue, ", ", cDBS::bndOut);
-   selectSamplesRange720->build(" from %s where ", tableSamples->TableName());
-   selectSamplesRange720->bind("ADDRESS", cDBS::bndIn | cDBS::bndSet);
-   selectSamplesRange720->bind("TYPE", cDBS::bndIn | cDBS::bndSet, " and ");
-   selectSamplesRange720->bindCmp(0, "TIME", &rangeFrom, ">=", " and ");
-   selectSamplesRange720->bindCmp(0, "TIME", &rangeTo, "<=", " and ");
-   selectSamplesRange720->build(" group by date(time), ((60/720) * hour(time) + floor(minute(time)/720))");
-   selectSamplesRange720->build(" order by time");
+   selectSamplesRange360->build("select ");
+   selectSamplesRange360->bind("ADDRESS", cDBS::bndOut);
+   selectSamplesRange360->bind("TYPE", cDBS::bndOut, ", ");
+   selectSamplesRange360->bindTextFree("date_format(time, '%Y-%m-%dT%H:%i')", &xmlTime, ", ", cDBS::bndOut);
+   selectSamplesRange360->bindTextFree("avg(value)", &avgValue, ", ", cDBS::bndOut);
+   selectSamplesRange360->bindTextFree("max(value)", &maxValue, ", ", cDBS::bndOut);
+   selectSamplesRange360->build(" from %s where ", tableSamples->TableName());
+   selectSamplesRange360->bind("ADDRESS", cDBS::bndIn | cDBS::bndSet);
+   selectSamplesRange360->bind("TYPE", cDBS::bndIn | cDBS::bndSet, " and ");
+   selectSamplesRange360->bindCmp(0, "TIME", &rangeFrom, ">=", " and ");
+   selectSamplesRange360->bindCmp(0, "TIME", &rangeTo, "<=", " and ");
+   selectSamplesRange360->build(" group by date(time), floor(hour(time)/6)");
+   selectSamplesRange360->build(" order by time");
 
-   status += selectSamplesRange720->prepare();
+   status += selectSamplesRange360->prepare();
+
+   // ------------------
+   // select samples for chart data
+   // ein sample avg / month
+
+   selectSamplesRangeMonth = new cDbStatement(tableSamples);
+
+   selectSamplesRangeMonth->build("select ");
+   selectSamplesRangeMonth->bind("ADDRESS", cDBS::bndOut);
+   selectSamplesRangeMonth->bind("TYPE", cDBS::bndOut, ", ");
+   selectSamplesRangeMonth->bindTextFree("date_format(time, '%Y-%m')", &xmlTime, ", ", cDBS::bndOut);
+   selectSamplesRangeMonth->bindTextFree("avg(value)", &avgValue, ", ", cDBS::bndOut);
+   selectSamplesRangeMonth->bindTextFree("max(value)", &maxValue, ", ", cDBS::bndOut);
+   selectSamplesRangeMonth->build(" from %s where ", tableSamples->TableName());
+   selectSamplesRangeMonth->bind("ADDRESS", cDBS::bndIn | cDBS::bndSet);
+   selectSamplesRangeMonth->bind("TYPE", cDBS::bndIn | cDBS::bndSet, " and ");
+   selectSamplesRangeMonth->bindCmp(0, "TIME", &rangeFrom, ">=", " and ");
+   selectSamplesRangeMonth->bindCmp(0, "TIME", &rangeTo, "<=", " and ");
+   selectSamplesRangeMonth->build(" group by year(time), month(time)");
+   selectSamplesRangeMonth->build(" order by time");
+
+   status += selectSamplesRangeMonth->prepare();
+
+   // ------------------
+   // ein sample (Summe) pro Monat für den Tages 'max Wert'
+
+   // select date_format(time, '%Y-%m'), sum(value) from samples
+   //  where type = '?' and address = ?
+   //   and time in (select max(time) from samples where
+   //     type = 'GROWATT' and address = 53
+   //    group by year(time), month(time), day(time)) group by year(time), month(time);
+
+   selectSamplesRangeMonthOfDayMax = new cDbStatement(tableSamples);
+
+   selectSamplesRangeMonthOfDayMax->build("select ");
+   selectSamplesRangeMonthOfDayMax->bind("ADDRESS", cDBS::bndOut);
+   selectSamplesRangeMonthOfDayMax->bind("TYPE", cDBS::bndOut, ", ");
+   selectSamplesRangeMonthOfDayMax->bindTextFree("date_format(time, '%Y-%m')", &xmlTime, ", ", cDBS::bndOut);
+   selectSamplesRangeMonthOfDayMax->bindTextFree("sum(value)", &maxValue, ", ", cDBS::bndOut);
+   selectSamplesRangeMonthOfDayMax->build(" from %s where ", tableSamples->TableName());
+   selectSamplesRangeMonthOfDayMax->bind("ADDRESS", cDBS::bndIn | cDBS::bndSet);
+   selectSamplesRangeMonthOfDayMax->bind("TYPE", cDBS::bndIn | cDBS::bndSet, " and ");
+   selectSamplesRangeMonthOfDayMax->bindCmp(0, "TIME", &rangeFrom, ">=", " and ");
+   selectSamplesRangeMonthOfDayMax->bindCmp(0, "TIME", &rangeTo, "<=", " and ");
+   selectSamplesRangeMonthOfDayMax->build(" and time in (select max(time) from %s where ", tableSamples->TableName());
+   selectSamplesRangeMonthOfDayMax->bind("ADDRESS", cDBS::bndIn | cDBS::bndSet);
+   selectSamplesRangeMonthOfDayMax->bind("TYPE", cDBS::bndIn | cDBS::bndSet, " and ");
+   selectSamplesRangeMonthOfDayMax->build(" group by year(time), month(time), day(time))");
+   selectSamplesRangeMonthOfDayMax->build(" group by year(time), month(time)");
+   selectSamplesRangeMonthOfDayMax->build(" order by time");
+
+   status += selectSamplesRangeMonthOfDayMax->prepare();
 
    // ------------------
    // select all scripts
@@ -1477,7 +1530,9 @@ int Daemon::exitDb()
    delete selectMaxTime;           selectMaxTime = nullptr;
    delete selectSamplesRange;      selectSamplesRange = nullptr;
    delete selectSamplesRange60;    selectSamplesRange60 = nullptr;
-   delete selectSamplesRange720;   selectSamplesRange720 = nullptr;
+   delete selectSamplesRange360;   selectSamplesRange360 = nullptr;
+   delete selectSamplesRangeMonth; selectSamplesRangeMonth = nullptr;
+   delete selectSamplesRangeMonthOfDayMax; selectSamplesRangeMonthOfDayMax = nullptr;
    delete selectSampleInRange;     selectSampleInRange = nullptr;
    delete selectScriptByPath;      selectScriptByPath = nullptr;
    delete selectScripts;           selectScripts = nullptr;

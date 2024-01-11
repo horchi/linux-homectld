@@ -372,7 +372,8 @@ function initWidget(key, widget, fact)
          break;
       }
 
-      case 1: {        // Chart
+      case 1:         // Chart
+      case 13: {
          elem.className = "widgetChart widgetDropZone";
          var eTitle = document.createElement("div");
          var cls = setupMode ? 'mdi mdi-lead-pencil widget-edit' : '';
@@ -970,7 +971,7 @@ function weatherForecast()
 function titleClick(ctrlKey, key)
 {
    let fact = valueFacts[key];
-   let hasMode = fact.type == 'DO' || fact.type == 'SC';
+   let hasMode = fact && (fact.type == 'DO' || fact.type == 'SC');
 
    // console.log("titleClick: ", ctrlKey, key);
 
@@ -1138,6 +1139,13 @@ function updateWidget(sensor, refresh, widget)
       widget.unit = fact.unit;
 
    var widgetDiv = $('#div_' + key.replace(':', '\\:'));
+
+   if (widget.range > 2)
+   {
+      console.log("widget.range", key, widget.range);
+      sensor.valid = true;
+   }
+
    widgetDiv.css('opacity', sensor.valid ? '100%' : '25%');
    // $('#div_' + key.replace(':', '\\:')).css('opacity', sensor.valid ? '100%' : '25%');
 
@@ -1220,7 +1228,7 @@ function updateWidget(sensor, refresh, widget)
 //         }
 //      }
    }
-   else if (widget.widgettype == 1)    // Chart
+   else if (widget.widgettype == 1 || widget.widgettype == 13)    // Chart
    {
       if (widget.showpeak != null && widget.showpeak)
          $("#peak" + fact.type + fact.address).text(sensor.peak != null ? sensor.peak.toFixed(2) + " " + widget.unit : "");
@@ -1231,7 +1239,7 @@ function updateWidget(sensor, refresh, widget)
          var jsonRequest = {};
          if (!widget.range)
             widget.range = 1;
-         prepareChartRequest(jsonRequest, toKey(fact.type, fact.address), 0, widget.range, "chartwidget");
+         prepareChartRequest(jsonRequest, toKey(fact.type, fact.address), 0, widget.range, widget.widgettype == 13 ? "chartwidgetbar" : "chartwidget");
          socket.send({ "event" : "chartdata", "object" : jsonRequest });
       }
    }
@@ -2164,8 +2172,8 @@ function widgetSetup(key)
    {
       var wType = parseInt($('#widgettype').val());
 
-      $("#divUnit").css("display", [1,3,4,5,6,9].includes(wType) ? 'flex' : 'none');
-      $("#divFactor").css("display", [1,3,4,6,9].includes(wType) ? 'flex' : 'none');
+      $("#divUnit").css("display", [1,3,4,5,6,9,13].includes(wType) ? 'flex' : 'none');
+      $("#divFactor").css("display", [1,3,4,6,9,13].includes(wType) ? 'flex' : 'none');
       $("#divScalemax").css("display", [5,6].includes(wType) ? 'flex' : 'none');
       $("#divScalemin").css("display", [5,6].includes(wType) ? 'flex' : 'none');
       $("#divScalestep").css("display", [5,6].includes(wType) ? 'flex' : 'none');
@@ -2175,10 +2183,10 @@ function widgetSetup(key)
       $("#divSymbolOn").css("display", [0,9].includes(wType) ? 'flex' : 'none');
       $("#divImgon").css("display", ([0,9].includes(wType) && $('#symbol').val() == '') ? 'flex' : 'none');
       $("#divImgoff").css("display", ([0,9].includes(wType) && $('#symbol').val() == '') ? 'flex' : 'none');
-      $("#divPeak").css("display", [1,3,6,9].includes(wType) ? 'flex' : 'none');
-      $("#divColor").css("display", [0,1,3,4,6,7,9,10,11].includes(wType) ? 'flex' : 'none');
+      $("#divPeak").css("display", [1,3,6,9,13].includes(wType) ? 'flex' : 'none');
+      $("#divColor").css("display", [0,1,3,4,6,7,9,10,11,13].includes(wType) ? 'flex' : 'none');
       $("#divLinefeed").css("display", [10].includes(wType) ? 'flex' : 'none');
-      $("#divRange").css("display", [0,1,3,4,6,7,9,10,11].includes(wType) ? 'flex' : 'none');
+      $("#divRange").css("display", [1,5,6,13].includes(wType) ? 'flex' : 'none');
 
       if ([0].includes(wType) && $('#symbol').val() == '' && $('#symbolOn').val() == '')
          $("#divColor").css("display", 'none');

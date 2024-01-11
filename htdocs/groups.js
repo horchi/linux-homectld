@@ -15,7 +15,7 @@ function initGroupSetup(groups)
    $('#container').removeClass('hidden');
    document.getElementById("container").innerHTML =
       '<div class="rounded-border seperatorFold">Baugruppen</div>' +
-      '  <table class="tableMultiCol">' +
+      '  <table class="setupContainer tableMultiCol">' +
       '    <thead>' +
       '      <tr>' +
       '        <td style="width:50%;">Baugruppe</td>' +

@@ -131,6 +131,7 @@ class Daemon : public cWebInterface
          wtSpace,        // == 10
          wtTime,         // == 11  // dummy to display current time at WEBIF
          wtSymbolText,   // == 12  // to be implemented
+         wtChartBar,     // == 13
          wtCount
       };
 
@@ -492,14 +493,16 @@ class Daemon : public cWebInterface
       cDbStatement* selectAllConfig {};
       cDbStatement* selectAllUser {};
       cDbStatement* selectMaxTime {};
-      cDbStatement* selectSamplesRange {};      // for chart
-      cDbStatement* selectSamplesRange60 {};    // for chart
-      cDbStatement* selectSamplesRange720 {};   // for chart
+      cDbStatement* selectSamplesRange {};              // for chart
+      cDbStatement* selectSamplesRange60 {};            // for chart
+      cDbStatement* selectSamplesRange360 {};           // for chart
+      cDbStatement* selectSamplesRangeMonth {};         // for chart
+      cDbStatement* selectSamplesRangeMonthOfDayMax {}; // for chart
       cDbStatement* selectScriptByPath {};
       cDbStatement* selectScripts {};
       cDbStatement* selectSensorAlerts {};
       cDbStatement* selectAllSensorAlerts {};
-      cDbStatement* selectSampleInRange {};     // for alert check
+      cDbStatement* selectSampleInRange {};        // for alert check
 
       cDbStatement* selectDashboards {};
       cDbStatement* selectDashboardById {};

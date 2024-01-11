@@ -441,6 +441,9 @@ function dispatchMessage(message)
       else if (currentPage == 'dashboard' && id == "chartwidget") { // the dashboard widget
          drawChartWidget(jMessage.object);
       }
+      else if (currentPage == 'dashboard' && id == "chartwidgetbar") { // the dashboard bar chart widget
+         drawBarChartWidget(jMessage.object);
+      }
       else if (currentPage == 'dashboard' && id == "chartdialog") { // the dashboard chart dialog
          drawChartDialog(jMessage.object);
       }
@@ -528,14 +531,6 @@ function prepareMenu()
    if (currentPage == "setup") {
       html += "<div class=\"confirmDiv\">";
       html += "  <button class=\"rounded-border buttonOptions\" onclick=\"storeConfig()\">Speichern</button>";
-      html += "</div>";
-   }
-   else if (currentPage == "iosetup") {
-      html += "<div class=\"confirmDiv\">";
-      html += "  <button class=\"rounded-border buttonOptions\" onclick=\"storeIoSetup()\">Speichern</button>";
-      html += "  <button class=\"rounded-border buttonOptions\" title=\"filter alle/aktive/keine\" id=\"filterIoSetup\" onclick=\"filterIoSetup()\">[alle]</button>";
-      html += "  <button class=\"rounded-border buttonOptions\" title=\"alle einklappen\" id=\"filterIoSetup\" onclick=\"foldAllSections()\">fold</button>";
-      html += '  <input id="incSearchName" class="input rounded-border clearableOD" placeholder="filter..." type="search" oninput="doIncrementalFilterIoSetup()"</input>';
       html += "</div>";
    }
    else if (currentPage == "groups") {
@@ -727,7 +722,7 @@ function initLogin()
 function showSyslog(log)
 {
    $('#container').removeClass('hidden');
-   document.getElementById("container").innerHTML = '<div id="syslogContainer" class="log"></div>';
+   document.getElementById("container").innerHTML = '<div id="syslogContainer" class="setupContainer log"></div>';
 
    var root = document.getElementById("syslogContainer");
    root.innerHTML = log.lines.replace(/(?:\r\n|\r|\n)/g, '<br/>');
@@ -778,7 +773,8 @@ function showSystem(system)
 
    html += '</div>';
 
-   $('#systemContainer').html(html);
+   $('#systemContainer').html(html)
+      .addClass('setupContainer');
 
 }
 
@@ -831,6 +827,7 @@ function hideAllContainer()
 {
    $('#dashboardMenu').addClass('hidden');
    $('#stateContainer').addClass('hidden');
+   $('#controlContainer').addClass('hidden');
    $('#container').addClass('hidden');
 }
 
@@ -854,19 +851,23 @@ function prepareChartRequest(jRequest, sensors, start, range, id)
    jRequest["id"] = id;
    jRequest["name"] = "chartdata";
 
-   // console.log("requesting chart for '" + start + "' range " + range);
-
    if (gaugeSelected) {
-      jRequest["sensors"] = sensors;
+      // console.log("requesting gauge chart for '" + start + "' range " + range);
       jRequest["start"] = 0;   // default (use today-range)
       jRequest["range"] = 1;
+      jRequest["sensors"] = sensors;
    }
    else {
+      console.log("requesting chart for '" + start + "' range " + range);
       jRequest["start"] = start == 0 ? 0 : Math.floor(start.getTime()/1000);  // calc unix timestamp
       jRequest["range"] = range;
       jRequest["sensors"] = sensors;
    }
 }
+
+//***************************************************************************
+// Chart Widget
+//***************************************************************************
 
 function drawChartWidget(dataObject)
 {
@@ -878,7 +879,7 @@ function drawChartWidget(dataObject)
       widgetCharts[id] = null;
    }
 
-   var data = {
+   const config = {
       type: "line",
       data: {
          datasets: []
@@ -932,18 +933,131 @@ function drawChartWidget(dataObject)
    for (var i = 0; i < dataObject.rows.length; i++) {
       var dataset = {};
 
+      console.log("draw chart row with", dataObject.rows[i].data.length, "points");
+
       dataset["data"] = dataObject.rows[i].data;
       dataset["backgroundColor"] = kioskMode ? "#3498db33" : "#3498db1A";  // fill color
       dataset["borderColor"] = "#3498db";        // line color
       dataset["borderWidth"] = 1;
       dataset["fill"] = true;
       dataset["pointRadius"] = 1.5;
-      data.data.datasets.push(dataset);
+      config.data.datasets.push(dataset);
    }
 
    var canvas = document.getElementById(id);
-   widgetCharts[id] = new Chart(canvas, data);
+   widgetCharts[id] = new Chart(canvas, config);
 }
+
+//***************************************************************************
+// Bar Chart Widget
+//***************************************************************************
+
+function drawBarChartWidget(dataObject)
+{
+   // #TODO
+   // Bar chart nur für monatlich implementiert,
+   // hier fehlt noch die Konfiguration (widget.interval) für die Zusammenfassung auf z.B.:
+   // ..., jährlich, monatlich, wöchentlich, täglich, stündlich, ...
+   // nebst passendem 'group by' select seitens des daemon mit Auswahl ob avg oder max verwendet werden soll
+   //  letzteres ist derzeit krude hardcoded
+   // soiwie die Anpassung der Axis im chart hier
+
+   var root = document.getElementById("container");
+   var id = "widget" + dataObject.rows[0].sensor;
+
+   if (widgetCharts[id] != null) {
+      widgetCharts[id].destroy();
+      widgetCharts[id] = null;
+   }
+
+   const _config = {
+      type: 'bar',
+      data: {
+         datasets: []
+      },
+      options: {
+         responsive: true,
+         maintainAspectRatio: false,
+         plugins: {
+            legend: {
+               position: 'top',
+            },
+            title: {
+               display: true,
+               text: 'Chart.js Bar Chart'
+            }
+         }
+      },
+   };
+
+   const config = {
+      type: "bar",
+      data: {
+         datasets: []
+      },
+      options: {
+         legend: {
+            display: false
+         },
+         responsive: true,
+         maintainAspectRatio: false,
+         aspectRatio: false,
+         scales: {
+            xAxes: [{
+               type: "time",
+               time: {
+                  unit: 'month',
+                  unitStepSize: 1,
+                  displayFormats: {
+                     month: 'MMMM',
+                     day: 'HH'
+                  }},
+               gridLines: {
+                  display: false,
+                  color: "gray"
+               },
+               ticks: {
+                  padding: 0,
+                  fontColor: "darkgray"
+               }
+            }],
+            yAxes: [{
+               display: true,
+               gridLines: {
+                  color: "darkgray",
+                  zeroLineColor: 'darkgray'
+               },
+               ticks: {
+                  padding: 5,
+                  maxTicksLimit: 5,
+                  fontColor: "darkgray"
+               }
+            }]
+         }
+      }
+   };
+
+   for (var i = 0; i < dataObject.rows.length; i++) {
+      var dataset = {};
+
+      console.log("draw bar chart row with", dataObject.rows[i].data.length, "points");
+      console.log(dataObject.rows[i].data);
+      dataset["data"] = dataObject.rows[i].data;
+      dataset["backgroundColor"] = kioskMode ? "#3498db33" : "#3498db1A";  // fill color
+      dataset["borderColor"] = "#3498db";        // line color
+      dataset["borderWidth"] = 1;
+      dataset["fill"] = true;
+      dataset["pointRadius"] = 1.5;
+      config.data.datasets.push(dataset);
+   }
+
+   var canvas = document.getElementById(id);
+   widgetCharts[id] = new Chart(canvas, config);
+}
+
+//***************************************************************************
+// Chart Dialog
+//***************************************************************************
 
 function drawChartDialog(dataObject)
 {

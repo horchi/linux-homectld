@@ -15,7 +15,7 @@ function initImages()
    $('#container').removeClass('hidden');
    document.getElementById("container").innerHTML =
       '<div class="rounded-border seperatorFold">Images</div>' +
-      '  <table class="tableMultiCol">' +
+      '  <table class="setupContainer tableMultiCol">' +
       '    <thead>' +
       '      <tr>' +
       '        <td style="width:90px;">Image</td>' +

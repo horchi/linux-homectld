@@ -553,7 +553,7 @@ class cDbStatements
 
    private:
 
-      time_t statisticPeriod;
+      time_t statisticPeriod {0};
       std::list<cDbStatement*> statements;
 };
 
@@ -605,7 +605,7 @@ class cDbRow : public cDbService
          tableDef = t;
          dbValues = new cDbValue[tableDef->fieldCount()];
 
-         for (f = tableDef->dfields.begin(); f != tableDef->dfields.end(); f++)
+         for (f = tableDef->dfields.begin(); f != tableDef->dfields.end(); ++f)
             dbValues[f->second->getIndex()].setField(f->second);
       }
 
@@ -736,8 +736,6 @@ class cDbConnection
 
       int attachConnection()
       {
-         static int first = yes;
-
          if (!mysql)
          {
             connectDropped = yes;
@@ -761,6 +759,8 @@ class cDbConnection
 
             if (encoding && *encoding)
             {
+               static int first {yes};
+
                if (mysql_set_character_set(mysql, encoding))
                   errorSql(this, "init(character_set)");
 

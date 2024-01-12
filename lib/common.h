@@ -117,7 +117,7 @@ enum Eloquence
    eloLmc            = 0x20000,
    eloDebugLmc       = 0x40000,
 
-   eloAlways         = 0x00000,
+   eloAlways         = 0x00000
 };
 
 class Elo
@@ -168,7 +168,7 @@ class MemoryStruct
    public:
 
       MemoryStruct()   { expireAt = 0; memory = 0; zmemory = 0; clear(); }
-      MemoryStruct(const MemoryStruct* o)
+      explicit MemoryStruct(const MemoryStruct* o)
       {
          size = o->size;
          memory = (char*)malloc(size);
@@ -277,23 +277,23 @@ class MemoryStruct
 
       // data
 
-      char* memory;
-      long unsigned int size;
+      char* memory {};
+      long unsigned int size {0};
 
-      char* zmemory;
-      long unsigned int zsize;
+      char* zmemory {};
+      long unsigned int zsize {0};
 
       // tag attribute
 
-      char tag[100+TB];              // the tag to be compared
-      char name[100+TB];             // content name (filename)
-      char contentType[100+TB];      // e.g. text/html
-      char mimeType[100+TB];         //
-      char contentEncoding[100+TB];  //
-      int headerOnly;
-      long statusCode;
-      time_t modTime;
-      time_t expireAt;
+      char tag[100+TB] {};              // the tag to be compared
+      char name[100+TB] {};             // content name (filename)
+      char contentType[100+TB] {};      // e.g. text/html
+      char mimeType[100+TB] {};         //
+      char contentEncoding[100+TB] {};  //
+      int headerOnly {0};
+      long statusCode {0};
+      time_t modTime {0};
+      time_t expireAt {0};
       std::map<std::string, std::string> headers;
 };
 
@@ -342,7 +342,7 @@ class cMyMutexLock
 {
    public:
 
-      cMyMutexLock(cMyMutex* Mutex = NULL);
+      explicit cMyMutexLock(cMyMutex* Mutex = NULL);
       ~cMyMutexLock();
       bool Lock(cMyMutex* Mutex);
 

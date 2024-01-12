@@ -14,11 +14,20 @@
     --light2: #ffffc6;
     --light3: #cccc93;
     --light4: #818382;
+    --neutral0: #333333;
+    --neutral1: #454545;
+    --neutral2: #545454;
+    --neutral3: #696969;
+    --neutral4: #a3a3a3;
+
     --listFontColor: #ffffc6;
     --blue: #2177AD;
     --blueshade: #495b67;
+    --yellow: #fad600;
+    --yellow2: #fffcab;
     --info: #f9f9ef;
 
+    --containerPadding: 10px;
     --widgetBackground: #272727b8;
     --dashboardMenuBackground: #7080907a;
     --caption1: #F90;
@@ -35,10 +44,6 @@
     --borderColorSchemaValue: black;
     --borderRadiusSchemaValue: 3px;
     --borderStyleSchemaValue: solid;
-
-    --borderColorTableButton: blue;
-    --colorTableButton: beige;
-    --borderRadiusTableButton: 2px;
 
     --buttonAction: #818382;
     --buttonFont: black;

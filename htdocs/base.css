@@ -659,6 +659,7 @@ span > input
 .listContainer
 {
     font-size: 18px;
+    padding: var(--containerPadding);
 }
 
 .listContainer > div > div > img
@@ -800,7 +801,9 @@ div.greenCircle
 {
     background: linear-gradient(to bottom right, #00000096, black);
     width: fit-content;
-    padding: 15px;
+    padding: var(--containerPadding);
+    width: -webkit-fill-available;
+    width: -moz-available;
 }
 
 .tableMultiCol
@@ -831,6 +834,8 @@ table.tableMultiCol tr
 
 .stateInfo
 {
+    padding: var(--containerPadding);
+    padding-bottom: 0px;
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
@@ -1686,8 +1691,6 @@ table.tableMultiCol tr
     box-sizing: border-box;
     display: flex;
     flex-direction: row;
-/*    height: -webkit-fill-available;
-    height: -moz-available;*/
     height: 100%;
 }
 

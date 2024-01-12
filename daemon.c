@@ -1601,7 +1601,7 @@ int Daemon::readConfiguration(bool initial)
    addrsDashboard = split(addrs, ',');
    free(addrs);
 
-   getConfigItem("mail", mail, no);
+   getConfigItem("mail", sendMails, no);
    getConfigItem("mailScript", mailScript);
    getConfigItem("stateMailTo", stateMailTo);
    getConfigItem("errorMailTo", errorMailTo);
@@ -1693,6 +1693,17 @@ int Daemon::readConfiguration(bool initial)
       mqttHaInterfaceStyle = misGroupedTopic;
    else
       mqttHaInterfaceStyle = misSingleTopic;
+
+   std::string styleName = "None";
+
+   if (mqttHaInterfaceStyle == misMultiTopic)
+      styleName = "MultiTopic";
+   else if (mqttHaInterfaceStyle == misGroupedTopic)
+      styleName = "GroupedTopic";
+   else if (mqttHaInterfaceStyle == misSingleTopic)
+      styleName = "SingleTopic";
+
+   tell(eloAlways, "MQTT interface style set to '%s' for [%s]", styleName.c_str(), mqttHaDataTopic);
 
    for (int f = selectAllGroups->find(); f; f = selectAllGroups->fetch())
       groups[tableGroups->getIntValue("ID")].name = tableGroups->getStrValue("NAME");
@@ -3631,7 +3642,7 @@ int Daemon::getConfigItem(const char* name, long& value, long def)
 
 int Daemon::setConfigItem(const char* name, long value)
 {
-   char txt[16];
+   char txt[16] {};
 
    snprintf(txt, sizeof(txt), "%ld", value);
 
@@ -3662,7 +3673,7 @@ int Daemon::getConfigItem(const char* name, double& value, double def)
 
 int Daemon::setConfigItem(const char* name, double value)
 {
-   char txt[16+TB];
+   char txt[16+TB] {};
    snprintf(txt, sizeof(txt), "%.2f", value);
    return setConfigItem(name, txt);
 }
@@ -3688,9 +3699,9 @@ int Daemon::getConfigItem(const char* name, bool& value, bool def)
 
 int Daemon::setConfigItem(const char* name, bool value)
 {
-   char txt[16];
+   char txt[16] {};
 
-   snprintf(txt, sizeof(txt), "%d", value);
+   snprintf(txt, sizeof(txt), "%d", value ? 1 : 0);
 
    return setConfigItem(name, txt);
 }

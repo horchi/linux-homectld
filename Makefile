@@ -27,7 +27,7 @@ MQTTOBJS     = lib/mqtt.o lib/mqtt_c.o lib/mqtt_pal.o
 OBJS         = $(MQTTOBJS) $(LOBJS) main.o daemon.o wsactions.o hass.o websock.o webservice.o deconz.o lmc.o lmccom.o lmctag.o
 OBJS        += growatt.o
 
-CFLAGS    	+= $(shell $(SQLCFG) --include)
+CFLAGS      += $(shell $(SQLCFG) --include)
 OBJS        += specific.o gpio.o
 W1OBJS       = w1.o gpio.o lib/common.o lib/thread.o $(MQTTOBJS)
 BMSOBJS      = bms.o lib/common.c lib/thread.o lib/serial.c $(MQTTOBJS)
@@ -180,7 +180,7 @@ activate: install
 #	tail -f /var/log/$(TARGET).log
 
 cppchk:
-	cppcheck --template="{file}:{line}:{severity}:{message}" --std=c++20 --language=c++ --force *.c *.h
+	cppcheck --enable=all $(CPPCHECK_SUPPRESS) --template="{file}:{line}:1 {severity}:{id}:{message}" --quiet --force --std=c++20 *.c; \
 
 upload:
 	avrdude -q -V -p atmega328p -D -c arduino -b 57600 -P $(AVR_DEVICE) -U flash:w:arduino/build-nano-atmega328/ioctrl.hex:i

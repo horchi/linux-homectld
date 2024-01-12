@@ -67,17 +67,17 @@ $('document').ready(function() {
    console.log("currentPage: " + currentPage);
    console.log("startPage: " + startPage);
 
-   var url = "";
+   var connectUrl = "";
 
    if (window.location.href.startsWith("https"))
-      url = "wss://" + location.hostname + ":" + location.port;
+      connectUrl = "wss://" + location.hostname + ":" + location.port;
    else
-      url = "ws://" + location.hostname + ":" + location.port;
+      connectUrl = "ws://" + location.hostname + ":" + location.port;
 
    var protocol = myProtocol;
 
    moment.locale('de');
-   connectWebSocket(url, protocol);
+   connectWebSocket(connectUrl, protocol);
    colorStyle = getComputedStyle(document.body);
 });
 
@@ -118,7 +118,7 @@ function connectWebSocket(useUrl, protocol)
       url: useUrl,
       protocol: protocol,
       autoReconnectInterval: 1000,
-      onopen: function (){
+      onopen: function () {
          console.log("socket opened " + socket.protocol);
          if (isActive === null)     // wurde beim Schliessen auf null gesetzt
             onSocketConnect(protocol);
@@ -465,6 +465,9 @@ function dispatchMessage(message)
    else if (event == "lmcmenu") {
       lmcMenu(jMessage.object);
    }
+   else if (event == "s3200-state") {
+      s3200State = jMessage.object;
+   }
    else if (event == "ready") {
       if (startPage) {
          mainMenuSel(startPage);
@@ -670,6 +673,9 @@ function mainMenuSel(what)
          theChartRange = parseFloat(config.chartRange.replace(',', '.'));
          theChartStart = new Date().subHours(theChartRange * 24);
       }
+      else if (!theChartStart)
+         theChartStart = new Date().subHours(theChartRange * 24);
+
       prepareChartRequest(jsonRequest, config.chartSensors, theChartStart, theChartRange, "chart");
       currentRequest = jsonRequest;
    }
@@ -775,7 +781,6 @@ function showSystem(system)
 
    $('#systemContainer').html(html)
       .addClass('setupContainer');
-
 }
 
 window.toggleMode = function(address, type)
@@ -826,7 +831,6 @@ function doLogout()
 function hideAllContainer()
 {
    $('#dashboardMenu').addClass('hidden');
-   $('#stateContainer').addClass('hidden');
    $('#controlContainer').addClass('hidden');
    $('#container').addClass('hidden');
 }

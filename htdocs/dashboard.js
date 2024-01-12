@@ -227,6 +227,7 @@ function initWidget(key, widget, fact)
       widgetWidthBase = elem.clientWidth;
 
    // console.log("clientWidth: " + elem.clientWidth + ' : ' + widgetWidthBase);
+
    elem.style.width = widgetWidthBase * widget.widthfactor + ((widget.widthfactor-1) * marginPadding-1) + 'px';
 
    if (setupMode && (widget.widgettype < 900 || widget.widgettype == null)) {
@@ -424,7 +425,7 @@ function initWidget(key, widget, fact)
                     .click(function() {
                        var cFact = fact;
                        if (!setupMode && fact.record)
-                       toggleChartDialog(cFact.type, cFact.address, key);}))
+                          toggleChartDialog(cFact.type, cFact.address, key);}))
             .append($('<div></div>')
                     .attr('id', 'peak' + fact.type + fact.address)
                     .css('user-select', 'none')
@@ -559,8 +560,8 @@ function initWidget(key, widget, fact)
 
          highlights = [
             { from: widget.scalemin, to: critmin,  color: minColor },
-            { from: critmin,              to: critmax,  color: 'rgba(0,255,0,.6)' },
-            { from: critmax,              to: scalemax, color: 'rgba(255,0,0,.6)' }
+            { from: critmin,         to: critmax,  color: 'rgba(0,255,0,.6)' },
+            { from: critmax,         to: scalemax, color: 'rgba(255,0,0,.6)' }
          ];
 
          // console.log("widget: " + JSON.stringify(widget, undefined, 4));
@@ -677,7 +678,8 @@ function initWidget(key, widget, fact)
          break;
       }
 
-      case 9: {          // Symbol-Value
+      case 9:          // Symbol-Value
+      case 12: {       // Symbol-Text
          $(elem)
             .addClass("widgetSymbolValue widgetDropZone")
             .append($('<div></div>')
@@ -1146,10 +1148,10 @@ function updateWidget(sensor, refresh, widget)
       sensor.valid = true;
    }
 
-   widgetDiv.css('opacity', sensor.valid ? '100%' : '25%');
+   widgetDiv.css('opacity', sensor.valid ? '100%' : '45%');
    // $('#div_' + key.replace(':', '\\:')).css('opacity', sensor.valid ? '100%' : '25%');
 
-   if (widget.widgettype == 0 || widget.widgettype == 9)         // Symbol, Symbol-Value
+   if (widget.widgettype == 0 || widget.widgettype == 9 || widget.widgettype == 12)         // Symbol, Symbol-Value, Symbol-Text
    {
       // console.log("sensor: ", JSON.stringify(sensor));
       var state = fact.type != 'HMB' ? sensor.value != 0 : sensor.value == 100;
@@ -1201,9 +1203,10 @@ function updateWidget(sensor, refresh, widget)
       // console.log("set color to: : ", widget.colorOn);
       $("#button" + fact.type + fact.address).css('color', state ? widget.colorOn : widget.color);
 
-      if (widget.widgettype == 9) {
+      if (widget.widgettype == 9)
          $("#value" + fact.type + fact.address).text(sensor.value.toFixed(widget.unit=="%" ? 0 : 2) + (widget.unit!="" ? " " : "") + widget.unit);
-      }
+      else if (widget.widgettype == 12 && sensor.text != null)
+         $("#value" + fact.type + fact.address).text(sensor.text.replace(/(?:\r\n|\r|\n)/g, '<br>'));
 
 //      var prs = $('#progressBar' + fact.type + fact.address);
 //      $('#progress' + fact.type + fact.address).css('display', fact.options & 0x02 && sensor.value ? 'block' : 'none');
@@ -1861,6 +1864,7 @@ function widgetSetup(key)
                                   .css('width', '30%')
                                   .css('text-align', 'end')
                                   .css('margin-right', '10px')
+                                  .css('align-self', 'center')
                                   .html('Widget'))
                           .append($('<span></span>')
                                   .css('width', '300px')
@@ -1876,6 +1880,7 @@ function widgetSetup(key)
                                   .css('width', '30%')
                                   .css('text-align', 'end')
                                   .css('margin-right', '10px')
+                                  .css('align-self', 'center')
                                   .html('Einheit'))
                           .append($('<span></span>')
                                   .css('width', '300px')
@@ -1893,6 +1898,7 @@ function widgetSetup(key)
                                   .css('width', '30%')
                                   .css('text-align', 'end')
                                   .css('margin-right', '10px')
+                                  .css('align-self', 'center')
                                   .html('Faktor'))
                           .append($('<span></span>')
                                   .append($('<input></input>')
@@ -1910,6 +1916,7 @@ function widgetSetup(key)
                                   .css('width', '30%')
                                   .css('text-align', 'end')
                                   .css('margin-right', '10px')
+                                  .css('align-self', 'center')
                                   .html('Skala Min'))
                           .append($('<span></span>')
                                   .append($('<input></input>')
@@ -1927,6 +1934,7 @@ function widgetSetup(key)
                                   .css('width', '30%')
                                   .css('text-align', 'end')
                                   .css('margin-right', '10px')
+                                  .css('align-self', 'center')
                                   .html('Skala Max'))
                           .append($('<span></span>')
                                   .append($('<input></input>')
@@ -1944,6 +1952,7 @@ function widgetSetup(key)
                                   .css('width', '30%')
                                   .css('text-align', 'end')
                                   .css('margin-right', '10px')
+                                  .css('align-self', 'center')
                                   .html('Skala Step'))
                           .append($('<span></span>')
                                   .append($('<input></input>')
@@ -1961,6 +1970,7 @@ function widgetSetup(key)
                                   .css('width', '30%')
                                   .css('text-align', 'end')
                                   .css('margin-right', '10px')
+                                  .css('align-self', 'center')
                                   .html('Skala Crit Min'))
                           .append($('<span></span>')
                                   .css('width', '300px')
@@ -1979,6 +1989,7 @@ function widgetSetup(key)
                                   .css('width', '30%')
                                   .css('text-align', 'end')
                                   .css('margin-right', '10px')
+                                  .css('align-self', 'center')
                                   .html('Skala Crit Max'))
                           .append($('<span></span>')
                                   .css('width', '300px')
@@ -1998,6 +2009,7 @@ function widgetSetup(key)
                                   .css('text-align', 'end')
                                   .css('margin-right', '10px')
                                   .css('color', 'blue')
+                                  .css('align-self', 'center')
                                   .html('Icon')
                                   .attr('target','_blank')
                                   .attr('href', 'https://pictogrammers.github.io/@mdi/font/6.5.95'))
@@ -2019,6 +2031,7 @@ function widgetSetup(key)
                                   .css('text-align', 'end')
                                   .css('margin-right', '10px')
                                   .css('color', 'blue')
+                                  .css('align-self', 'center')
                                   .html('Icon an')
                                   .attr('target','_blank')
                                   .attr('href', 'https://pictogrammers.github.io/@mdi/font/6.5.95'))
@@ -2039,6 +2052,7 @@ function widgetSetup(key)
                                   .css('width', '30%')
                                   .css('text-align', 'end')
                                   .css('margin-right', '10px')
+                                  .css('align-self', 'center')
                                   .html('Image'))
                           .append($('<span></span>')
                                   .css('width', '300px')
@@ -2054,6 +2068,7 @@ function widgetSetup(key)
                                   .css('width', '30%')
                                   .css('text-align', 'end')
                                   .css('margin-right', '10px')
+                                  .css('align-self', 'center')
                                   .html('Image An'))
                           .append($('<span></span>')
                                   .css('width', '300px')
@@ -2070,6 +2085,7 @@ function widgetSetup(key)
                                   .css('width', '30%')
                                   .css('text-align', 'end')
                                   .css('margin-right', '10px')
+                                  .css('align-self', 'center')
                                   .html('Farbe aus / an'))
                           .append($('<span></span>')
                                   .append($('<input></input>')
@@ -2095,6 +2111,7 @@ function widgetSetup(key)
                                   .css('width', '30%')
                                   .css('text-align', 'end')
                                   .css('margin-right', '10px')
+                                  .css('align-self', 'center')
                                   .html('Peak anzeigen'))
                           .append($('<span></span>')
                                   .append($('<input></input>')
@@ -2113,6 +2130,7 @@ function widgetSetup(key)
                                   .css('width', '30%')
                                   .css('text-align', 'end')
                                   .css('margin-right', '10px')
+                                  .css('align-self', 'center')
                                   .html('Zeilenumbruch'))
                           .append($('<span></span>')
                                   .append($('<input></input>')
@@ -2130,6 +2148,7 @@ function widgetSetup(key)
                                   .css('width', '30%')
                                   .css('text-align', 'end')
                                   .css('margin-right', '10px')
+                                  .css('align-self', 'center')
                                   .html('Chart Bereich'))
                           .append($('<span></span>')
                                   .append($('<input></input>')
@@ -2146,6 +2165,7 @@ function widgetSetup(key)
                                   .css('width', '30%')
                                   .css('text-align', 'end')
                                   .css('margin-right', '10px')
+                                  .css('align-self', 'center')
                                   .html('Breite'))
                           .append($('<span></span>')
                                   .css('width', '300px')

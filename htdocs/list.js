@@ -1,7 +1,7 @@
 /*
  *  list.js
  *
- *  (c) 2020-2021 Jörg Wendel
+ *  (c) 2020-2024 Jörg Wendel
  *
  * This code is distributed under the terms and conditions of the
  * GNU GENERAL PUBLIC LICENSE. See the file COPYING for details.
@@ -16,11 +16,16 @@ function initList()
       return;
    }
 
-   $('#stateContainer').removeClass('hidden');
    $('#container').removeClass('hidden');
+   $('#container').empty();
 
-   document.getElementById("container").innerHTML = '<div id="listContainer" class="rounded-border listContainer"</div>';
-   var root = document.getElementById("listContainer");
+   $('#container')
+      .append($('<div></div>')
+              .attr('id', 'stateContainer')
+              .addClass('stateInfo'))
+      .append($('<div></div>')
+              .attr('id', 'listContainer')
+              .addClass('rounded-border listContainer'));
 
    // state
 
@@ -45,13 +50,6 @@ function initList()
    }
 
    rootState.innerHTML = html;
-
-   // clean page content
-
-   root.innerHTML = "";
-
-   var elem = document.createElement("div");
-   elem.className = "chartTitle rounded-border";
 
    // build page content
 
@@ -85,19 +83,18 @@ function initList()
 
       html += '<span class="listSecondCol listText" >' + title + '</span>';
 
-      var elem = document.createElement('div');
-      elem.className = 'listRow';
-      elem.innerHTML = html;
-      root.appendChild(elem);
+      $('#listContainer').append($('<div></div>')
+                                 .addClass('listRow')
+                                 .html(html));
    }
 
    updateList();
 
    // calc container size
 
-   $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('stateContainer') - 5);
+   $("#container").height($(window).height() - getTotalHeightOf('menu'));
    window.onresize = function() {
-      $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('stateContainer') - 5);
+      $("#container").height($(window).height() - getTotalHeightOf('menu'));
    };
 }
 
@@ -107,14 +104,14 @@ function updateList()
       var sensor = allSensors[key];
       var fact = valueFacts[key];
 
-      if (fact == null) {
+      if (!fact) {
          console.log("Fact for widget '" + key + "' not found, ignoring");
          continue;
       }
 
       var elemId = "#widget" + key.replace(':', '_');
 
-      if (fact.widget.widgettype == 1 || fact.widget.widgettype == 3) {
+      if (fact.widget.widgettype == 1 || fact.widget.widgettype == 3 || fact.widget.widgettype == 5) {
          var peak = sensor.peak != null ? sensor.peak.toFixed(2) : "  ";
          $(elemId).html(sensor.value.toFixed(2) + "&nbsp;" + fact.widget.unit +
                         "&nbsp; <p style=\"display:inline;font-size:12px;font-style:italic;\">(" + peak + ")</p>");
@@ -122,18 +119,16 @@ function updateList()
       else if (fact.widget.widgettype == 0) {   // Symbol
          var image = sensor.value != 0 ? fact.widget.imgon : fact.widget.imgoff;
          $(elemId).attr("src", image);
-         $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('stateContainer') - 10);
+         // $("#container").height($(window).height() - getTotalHeightOf('menu'));
       }
-      else if (fact.widget.widgettype == 2 || fact.widget.widgettype == 7) {   // Text, PlainText
+      else if (fact.widget.widgettype == 2 || fact.widget.widgettype == 7 || fact.widget.widgettype == 12) {   // Text, PlainText
          $(elemId).html(sensor.text);
       }
       else {
-         if (sensor.value == null)
+         if (!sensor.value)
             console.log("Missing value for " + key);
          else
             $(elemId).html(sensor.value.toFixed(0));
       }
-
-      // console.log(i + ") " + fact.widget.widgettype + " : " + title + " / " + sensor.value + "(" + id + ")");
    }
 }

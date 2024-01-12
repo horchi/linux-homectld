@@ -714,7 +714,7 @@ span > input
 {
     margin-left: 15px;
     align-self: center;
-    height: 18px;
+    /* height: 18px; */
 }
 
 .tableRow > button
@@ -726,7 +726,7 @@ span > input
 
 .tableRow > input[type='search']
 {
-    height: 24px;
+    /* height: 24px;*/
 }
 
 .tableRow > div

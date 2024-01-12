@@ -37,6 +37,10 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "webPort",                   ctInteger, "61109",        false, "Daemon", "Port des Web Interfaces", "" },
    { "eloquence",                 ctBitSelect, "1",          false, "Daemon", "Log Eloquence", "" },
 
+   { "aggregateHistory",          ctInteger, "365",          false, "Daemon", "Historie [Tage]", "history for aggregation in days (default 0 days -> aggegation turned OFF)" },
+   { "aggregateInterval",         ctInteger, "15",           false, "Daemon", " danach aggregieren über", "aggregation interval in minutes - 'one sample per interval will be build'" },
+   { "peakResetAt",               ctString,  "",             true,  "Daemon", "", "" },
+
 #ifdef _POOL
    { "filterPumpTimes",           ctRange,   "10:00-17:00",  false, "Daemon", "Zeiten Filter Pumpe", "[hh:mm] - [hh:mm]" },
    { "uvcLightTimes",             ctRange,   "",             false, "Daemon", "Zeiten UV-C Licht", "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!" },
@@ -54,10 +58,6 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "w1AddrSolar",               ctString,  "",             false, "Daemon", "Adresse Fühler Temperatur Kollektor", "" },
    { "massPerSecond",             ctNum,     "11.0",         false, "Daemon", "Durchfluss Solar", "[Liter/min]" },
 #endif
-
-   { "aggregateHistory",          ctInteger, "365",          false, "Daemon", "Historie [Tage]", "history for aggregation in days (default 0 days -> aggegation turned OFF)" },
-   { "aggregateInterval",         ctInteger, "15",           false, "Daemon", "Intervall [m]", "aggregation interval in minutes - 'one sample per interval will be build'" },
-   { "peakResetAt",               ctString,  "",             true,  "Daemon", "", "" },
 
    { "openWeatherApiKey",         ctString,  "",             false, "Daemon", "Openweathermap API Key", "" },
    { "toggleWeatherView",         ctBool,    "1",            false, "Daemon", "Toggle Weather Widget", "" },
@@ -128,7 +128,6 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "lmcHost",                   ctString,  "",                   false, "Logitech Media Server (squeezebox)", "LMC Host", "" },
    { "lmcPort",                   ctInteger, "9090",               false, "Logitech Media Server (squeezebox)", "LMC Port", "" },
    { "lmcPlayerMac",              ctString,  "",                   false, "Logitech Media Server (squeezebox)", "MAC of LMC Player ", "" },
-
 };
 
 //***************************************************************************

@@ -457,9 +457,13 @@ int Daemon::init()
    // ---------------------------------
    // setup GPIO
 
+#ifndef _NO_RASPBERRY_PI_
+   tell(eloAlways, "Setup wiringPi ..");
    wiringPiSetupPhys();     // we use the 'physical' PIN numbers
    // wiringPiSetup();      // to use the 'special' wiringPi PIN numbers
    // wiringPiSetupGpio();  // to use the 'GPIO' PIN numbers
+   tell(eloAlways, ".. done");
+#endif
 
    // ---------------------------------
    // apply configuration specials

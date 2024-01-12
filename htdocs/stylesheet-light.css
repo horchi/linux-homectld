@@ -1,0 +1,69 @@
+
+@import url("normalize.css");
+@import url("checkbox.css");
+@import url("dialog.css");
+@import url("base.css");
+
+:root
+{
+    /* colors */
+
+    --menu: #eeeeee;
+
+    --light1: #dddddd;
+    --light2: #d3d3d3;
+    --light3: #cccccc;
+    --light4: #818382;
+    --neutral0: #333333;
+    --neutral1: #454545;
+    --neutral2: #545454;
+    --neutral3: #696969;
+    --neutral4: #a3a3a3;
+
+    --listFontColor: black;
+    --blue: #2177AD;
+    --blueshade: #495b67;
+    --yellow: #fad600;
+    --yellow2: #fffcab;
+    --info: #f9f9ef;
+
+    --containerPadding: 10px;
+    --widgetBackground: #27272780;
+    --dashboardMenuBackground: #7080907a;
+    --caption1: #7080907a;
+    --caption2: #2177AD;
+    --edit: #f9f9ef;
+    --editadd: #fffcab;
+
+    --background: #f8f8ff;
+    --shadow: black;
+
+    --borderColor: #000000d1;
+    --borderRadius: 3px;
+
+    --borderColorSchemaValue: black;
+    --borderRadiusSchemaValue: 3px;
+    --borderStyleSchemaValue: solid;
+
+    --buttonAction: #818382;
+    --buttonFont: black;
+
+    --dialogColor: black;
+    --dialogBackground: #818382;
+
+    --scaleText: white;
+    --scale: #ccc;
+}
+
+Body
+{
+    font-family: Helvetica,Arial,sans-serif;
+    font-size: 1.0em;
+    color: black;
+    background-color: #f8f8ff;
+}
+
+.content
+{
+    margin: 2px;
+}

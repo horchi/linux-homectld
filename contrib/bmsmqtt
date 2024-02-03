@@ -1,2 +1,11 @@
 
+# Options
+#     -d <device>     serial device file (defaults to /dev/ttyUSB0)
+#     -l <eloquence>  set eloquence
+#     -t              log to terminal
+#     -s              show and exit
+#     -i <interval>   interval
+#     -u <url>        MQTT url
+#     -T <topic>      MQTT topic
+
 BMSMQTT_OPTS="-u tcp://localhost:1883 -i 30 -l 1"

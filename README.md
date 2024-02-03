@@ -241,7 +241,48 @@ mysql -u homectl -phomectl -homectl <  NAME-dump.sql.gz
 ```
 replace NAME with the name of the dump
 
-# Additional information
+# Additional Hardware
+
+## BMS
+If you like to connect a Battery-Management-Systems like them used commonly from LionTron a you can use
+the `bmsmqtt` service shipped with the `homectld`. Jus configure it in `/etc/default/bmsmqtt`, enable and start it:
+```
+systemctl enable bmsmqtt.service
+systemctl start bmsmqtt.service
+```
+
+## One Wire Sensors
+The One Wire Sensors are managed by the `w1mqtt` service shipped with `homectld`, this service is enables by default and can be disabled if not needed.
+Disable `w1mqtt`
+```
+systemctl disable w1mqtt.service
+```
+The `w1mqtt` service is configured in `/etc/default/w1mqtt`
+
+## 433 MHz Radio Sensors (RTL-433)
+
+A RTL Radio/USB adapter like the https://amzn.eu/d/bKBwTOO is needed. As Sensor you van use any compatible, mostly all 433Mht radio sensors.
+For the interface to the `homectld` you can use `rtl-433` which is includes in most linix distributions, whis can configured to write the data directly
+to MQTT where it's read and paresed by the `homectld`.
+To install the `rtl-433` package:
+```
+apt install rtl-433
+```
+To start the rtl-433 service a Systemd unit file is shipped with the `homectld`, install, enable and start it by:
+```
+cd linux-homectld
+cp contrib/rtl433.service /etc/systemd/system/
+systemctl enable rtl433.service
+systemctl start rtl433.service
+```
+To change the MQTT borker connection (host, port, ...) adjust it in `/etc/systemd/system/rtl433.service` and restart the service.
+
+## Caravan Industries (CI) Bus Interface
+
+The CI bus adapter https://www.fischl.de/usblini/ is needed. Install the hardware and software (python) as described at the usblini homepage.
+For the Thetford N400 series refrigerators a ready-made example for integration into the homectld can be found here thetford/README.md
+
+# Information / HINTS
 
 ## MySQL HINTS
 If you cannot figure out why you get Access denied, remove all entries from the user table that

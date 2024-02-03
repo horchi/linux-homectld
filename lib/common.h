@@ -447,6 +447,8 @@ const char* getFirstIp();
   int createMd5OfFile(const char* path, const char* name, md5* md5);
 #endif
 
+std::string getBacktrace(size_t steps);
+
 //***************************************************************************
 //
 //***************************************************************************

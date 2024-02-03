@@ -1976,3 +1976,28 @@ const char* getUniqueId()
    return uuid;
 }
 #endif // USEUUID
+
+
+//***************************************************************************
+// Get Backtrace
+//***************************************************************************
+
+#include <execinfo.h>
+
+std::string getBacktrace(size_t steps)
+{
+   std::string buffer;
+
+   void** array = new void*[steps];
+   size_t size = backtrace(array, steps);
+   char** strings = backtrace_symbols(array, size);
+
+   // buffer.appendf("System::backtrace() returned (%d) addresses, if symbols missing link with -rdynamic\n", (int)size);
+
+   for (size_t i = 0; i < size; i++)
+      buffer += std::string(strings[i]) + "\n";
+
+   free(strings);
+
+   return buffer;
+}

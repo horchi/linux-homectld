@@ -104,8 +104,11 @@ if the database is running remote, or you like to have remote access to the data
 
 ```
 apt install build-essential libssl-dev libcurl4-openssl-dev uuid-dev libcap-dev
-apt install libjansson-dev libmariadb-dev liblua5.3-dev
+apt install libjansson-dev libmariadb-dev liblua5.3-dev mosquitto-clients
 ```
+# If you dis NOT use a global mosquitto borker somewhere in your local network
+```apt install mosquitto```
+
 #### Raspberry Pi
 ```
 apt install wiringpi
@@ -119,6 +122,10 @@ apt install libwiringpi-dev libwiringpi2 odroid-wiringpi
 We need to install it manually in case the version shipped with the distribution is to old
 (we need at least version v3.2.0)
 
+if the version shipped with the distribution is okay simple
+```apt install libwebsockets-dev```
+
+else get it from git
 ```
 cd /usr/src/
 git clone https://github.com/warmcat/libwebsockets.git
@@ -270,31 +277,29 @@ mosquitto_pub --quiet -L mqtt://192.168.200.101:1883/homectld2mqtt/nodered -m '{
 # Hardware which I use for my pool controller
 
 - Relay Board with at least 8 relays to switch 230V and a max current which fit the needs of your components (lights, pumps, ...)
-
     for example: https://www.amazon.de/gp/product/B014L10Q52/ref=ppx_yo_dt_b_asin_title_o00_s00?ie=UTF8&psc=1
+
 - At least 3 One Wire sensors
-
     for example: https://www.amazon.de/gp/product/B00CHEZ250/ref=ppx_yo_dt_b_search_asin_title?ie=UTF8&psc=1
-- Power sockets to connect lights and pumps
 
+- Power sockets to connect lights and pumps
     for example: https://www.amazon.de/gp/product/B07CM9DLHY/ref=ppx_yo_dt_b_search_asin_image?ie=UTF8&psc=1
 
 - 230V Magnet Valve (for the shower)
-
   for example: https://www.amazon.de/gp/product/B072JBBHJS/ref=ppx_yo_dt_b_asin_title_o03_s00?ie=UTF8&psc=1
+
 - Button (for shower)
-
   for example: https://www.amazon.de/gp/product/B002LE8EJC/ref=ppx_yo_dt_b_search_asin_image?ie=UTF8&psc=1
+
 - PH probe
-
   for example: https://www.amazon.de/gp/product/B081QK9TX2/ref=ppx_yo_dt_b_asin_title_o06_s00?ie=UTF8&psc=1
-- Arduino Pro Mini 328 (for PH probe and PH minus fluid control)
 
+- Arduino Pro Mini 328 (for PH probe and PH minus fluid control)
   for example: https://www.amazon.de/gp/product/B015MGHLNA/ref=ppx_yo_dt_b_asin_title_o05_s00?ie=UTF8&psc=1
   USB Interface for programming: https://www.amazon.de/gp/product/B07KVT6HNL/ref=ppx_yo_dt_b_asin_title_o04_s00?ie=UTF8&psc=1
 
 - House-pump to inject PH Minus
-
   for example: https://www.amazon.de/gp/product/B07YWY29XL/ref=ppx_yo_dt_b_asin_title_o07_s00?ie=UTF8&psc=1
   better but more expensive may be: https://www.amazon.de/dp/B06ZZDLTJ7/?coliid=I37J0L29HIAMDR&colid=344R3XZTD8676&psc=1&ref_=lv_ov_lig_dp_it
+
 - ... to be completed !

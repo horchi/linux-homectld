@@ -240,10 +240,15 @@ function initWidget(key, widget, fact)
       elem.addEventListener('drop', function(event) {dropWidget(event)}, false);
    }
 
-   var titleClass = '';
-   var title = setupMode ? ' ' : ' ';
-   if (fact != null)
-      title += fact.usrtitle && fact.usrtitle != '' ? fact.usrtitle : fact.title;
+   let titleClass = '';
+   let title = ' ';
+
+   if (widget.title && widget.title != '')
+      title += widget.title;
+   else if (fact && fact.usrtitle && fact.usrtitle != '')
+      title += fact.usrtitle;
+   else if (fact)
+      title += fact.title;
 
    if (!setupMode && widget.unit == '°C')
       titleClass = 'mdi mdi-thermometer';
@@ -1873,6 +1878,24 @@ function widgetSetup(key)
                                           .addClass('rounded-border inputSetting')
                                           .attr('id', 'widgettype')
                                          )))
+
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .css('width', '30%')
+                                  .css('text-align', 'end')
+                                  .css('margin-right', '10px')
+                                  .css('align-self', 'center')
+                                  .html('Titel'))
+                          .append($('<span></span>')
+                                  .css('width', '300px')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('type', 'search')
+                                          .attr('id', 'title')
+                                          .val(widget.title)
+                                         )))
+
                   .append($('<div></div>')
                           .attr('id', 'divUnit')
                           .css('display', 'flex')
@@ -2337,6 +2360,7 @@ function widgetSetup(key)
          },
          'Vorschau': function () {
             widget = Object.create(dashboards[actDashboard].widgets[key]); // valueFacts[key]);
+            widget.title = $("#title").val();
             widget.unit = $("#unit").val();
             widget.scalemax = parseFloat($("#factor").val()) || 1.0;
             widget.scalemax = parseFloat($("#scalemax").val()) || 0.0;
@@ -2362,6 +2386,7 @@ function widgetSetup(key)
                updateWidget(allSensors[key], true, widget);
          },
          'Ok': function () {
+            widget.title = $("#title").val();
             widget.unit = $("#unit").val();
             widget.scalemax = parseFloat($("#factor").val()) || 1.0;
             widget.scalemax = parseFloat($("#scalemax").val()) || 0.0;
@@ -2392,6 +2417,8 @@ function widgetSetup(key)
                json[key] = dashboards[actDashboard].widgets[key];
             });
 
+            if ($("#title").length)
+               json[key]["title"] = $("#title").val();
             if ($("#unit").length)
                json[key]["unit"] = $("#unit").val();
             if ($("#factor").length)

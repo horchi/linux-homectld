@@ -2247,9 +2247,6 @@ int Daemon::dashboards2Json(json_t* obj)
       json_t* oDashboard = json_object();
       char* tmp {};
 
-      if (tableDashboards->getValue("OPTS")->isEmpty())
-         continue;
-
       asprintf(&tmp, "%ld", tableDashboards->getIntValue("ID"));
       json_object_set_new(obj, tmp, oDashboard);
       free(tmp);
@@ -2258,8 +2255,11 @@ int Daemon::dashboards2Json(json_t* obj)
       json_object_set_new(oDashboard, "order", json_integer(tableDashboards->getIntValue("ORDER")));
       json_object_set_new(oDashboard, "group", json_integer(tableDashboards->getIntValue("GROUP")));
 
-      json_t* oOpts = jsonLoad(tableDashboards->getStrValue("OPTS"));
-      json_object_set_new(oDashboard, "options", oOpts);
+      if (!tableDashboards->getValue("OPTS")->isEmpty())
+      {
+         json_t* oOpts = jsonLoad(tableDashboards->getStrValue("OPTS"));
+         json_object_set_new(oDashboard, "options", oOpts);
+      }
 
       json_t* oWidgets = json_object();
       json_object_set_new(oDashboard, "widgets", oWidgets);

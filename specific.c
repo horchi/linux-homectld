@@ -336,7 +336,7 @@ int HomeCtl::applyConfigurationSpecials()
 
    // init input IO
 
-   initInput(pinShowerSwitch, 0);
+   initInput(pinShowerSwitch, "Shower");
    pullUpDnControl(pinShowerSwitch, PUD_UP);
 
    if (wiringPiISR(pinShowerSwitch, INT_EDGE_FALLING, &ioInterrupt) < 0)

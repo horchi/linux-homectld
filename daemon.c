@@ -610,18 +610,26 @@ int Daemon::initSensorByFact(std::string type, uint address)
    else
       sensors[type][address].title = fact->getStrValue("NAME");
 
-   if (type == "AI" && !fact->getValue("CALIBRATION")->isEmpty())
+   if (!fact->getValue("CALIBRATION")->isEmpty())
    {
       json_t* jCal = jsonLoad(fact->getStrValue("CALIBRATION"));
 
       if (jCal)
       {
-         aiSensors[address].calPointA = getDoubleFromJson(jCal, "pointA");
-         aiSensors[address].calPointB = getDoubleFromJson(jCal, "pointB");
-         aiSensors[address].calPointValueA = getDoubleFromJson(jCal, "valueA");
-         aiSensors[address].calPointValueB = getDoubleFromJson(jCal, "valueB");
-         aiSensors[address].round = getDoubleFromJson(jCal, "round");
-         aiSensors[address].calCutBelow = getDoubleFromJson(jCal, "calCutBelow", -10000.0);
+         if (type == "AI")
+         {
+            aiSensors[address].calPointA = getDoubleFromJson(jCal, "pointA");
+            aiSensors[address].calPointB = getDoubleFromJson(jCal, "pointB");
+            aiSensors[address].calPointValueA = getDoubleFromJson(jCal, "valueA");
+            aiSensors[address].calPointValueB = getDoubleFromJson(jCal, "valueB");
+            aiSensors[address].round = getDoubleFromJson(jCal, "round");
+            aiSensors[address].calCutBelow = getDoubleFromJson(jCal, "calCutBelow", -10000.0);
+         }
+         else if (type == "DO")
+         {
+            sensors[type][address].invertDO = getBoolFromJson(jCal, "invert", sensors[type][address].invertDO);
+            sensors[type][address].impulseDO = getBoolFromJson(jCal, "impulse");
+         }
 
          json_decref(jCal);
       }
@@ -1597,8 +1605,6 @@ int Daemon::readConfiguration(bool initial)
       setConfigItem("webUrl", webUrl);
    }
    free(port);
-
-   // getConfigItem("invertDO", invertDO, yes);
 
    char* addrs {};
    getConfigItem("addrsDashboard", addrs, "");
@@ -3864,37 +3870,51 @@ int Daemon::toggleOutputMode(uint pin)
 
 void Daemon::gpioWrite(uint pin, bool state, bool store)
 {
+   if (sensors["DO"][pin].impulseDO)
+      state = sensors["DO"][pin].invertDO ? true : false;
+
    sensors["DO"][pin].state = state;
    sensors["DO"][pin].last = time(0);
    sensors["DO"][pin].valid = true;
 
-   // if (!state)
-   //    sensors["DO"][pin].next = 0;
-
    // invert the state on 'invertDO' - most relay board are active at 'false'
 
    digitalWrite(pin, sensors["DO"][pin].invertDO ? !state : state);
+
+   if (sensors["DO"][pin].impulseDO)
+   {
+      publishPin(pin); // send update to WS
+      // tell(eloDebug, "Debug: Impulse mode for DO:0x%02x", pin);
+      usleep(10000); // 10 ms
+      digitalWrite(pin, sensors["DO"][pin].invertDO ? state : !state);
+      sensors["DO"][pin].state = !state;
+   }
 
    if (store)
       storeStates();
 
    performJobs();
 
-   // send update to WS
-   {
-      json_t* ojData = json_object();
-      pin2Json(ojData, pin);
-
-      char* tuple {};
-      asprintf(&tuple, "%s:0x%02x", "DO", pin);
-      jsonSensorList[tuple] = ojData;
-      free(tuple);
-
-      pushDataUpdate("update", 0L);
-   }
-
+   publishPin(pin); // send update to WS
    mqttHaPublish(sensors["DO"][pin]);
    mqttNodeRedPublishSensor(sensors["DO"][pin]);
+}
+
+//***************************************************************************
+// Publish Pin State
+//***************************************************************************
+
+void Daemon::publishPin(uint pin)
+{
+   json_t* ojData = json_object();
+   pin2Json(ojData, pin);
+
+   char* tuple {};
+   asprintf(&tuple, "%s:0x%02x", "DO", pin);
+   jsonSensorList[tuple] = ojData;
+   free(tuple);
+
+   pushDataUpdate("update", 0L);
 }
 
 bool Daemon::gpioRead(uint pin)

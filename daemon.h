@@ -176,10 +176,9 @@ class Daemon : public cWebInterface
          std::string image;
          bool disabled {false};
          bool valid {false};               // set if the value, text or state is valid
-         // time_t next {0};                  // calculated next switch time
          int battery {na};
-         int hue;                          // 0-360° hue
-         int sat;                          // 0-100% saturation
+         int hue {0};                      // 0-360° hue
+         int sat {0};                      // 0-100% saturation
 
          // fact
 
@@ -195,6 +194,7 @@ class Daemon : public cWebInterface
          // 'DO' specials
 
          bool invertDO {true};
+         bool impulseDO {false};   // change output only for a short impolse
          OutputMode mode {omAuto};
          uint opt {ooUser};
       };
@@ -358,6 +358,7 @@ class Daemon : public cWebInterface
 
       bool doShutDown() { return shutdown; }
 
+      void publishPin(uint pin);
       void gpioWrite(uint pin, bool state, bool store = true);
       bool gpioRead(uint pin);
       virtual void logReport() { return ; }

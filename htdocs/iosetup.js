@@ -430,14 +430,29 @@ function sensorDoSetup(type, address)
                                   .attr('type', 'checkbox')
                                   .addClass('rounded-border input')
                                   .css('height', '100px')
-                                  .prop('checked', valueFacts[key].invertDo))
+                                  .prop('checked', valueFacts[key].calibration ? valueFacts[key].calibration.invert : valueFacts[key].invertDo))
                           .append($('<label></label>')
                                   .css('text-align', 'end')
                                   .css('align-self', 'center')
                                   .css('margin-right', '10px')
                                   .prop('for', 'invertDo')
-                                  .html('Digitalaugang invertieren'))
-                         ));
+                                  .html('Digital-Ausgang invertieren')))
+
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<input></input>')
+                                  .attr('id', 'impulseDo')
+                                  .attr('type', 'checkbox')
+                                  .addClass('rounded-border input')
+                                  .css('height', '100px')
+                                  .prop('checked', valueFacts[key].calibration ? valueFacts[key].calibration.impulse : false))
+                          .append($('<label></label>')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .prop('for', 'impulseDo')
+                                  .html('Impuls')))
+                         );
 
    var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
 
@@ -457,12 +472,13 @@ function sensorDoSetup(type, address)
             $(this).dialog('close');
          },
          'Speichern': function () {
-            console.log("store 'DO' setting invert = ", $('#invertDo').is(':checked'));
-
             socket.send({ "event" : "storecalibration", "object" : {
                'type' : calSensorType,
                'address' : parseInt(calSensorAddress),
-               'invertDo' : $('#invertDo').is(':checked')
+               'calibration' : JSON.stringify({
+                  'invert' : $('#invertDo').is(':checked'),
+                  'impulse' : $('#impulseDo').is(':checked')
+               })
             }});
 
             $(this).dialog('close');

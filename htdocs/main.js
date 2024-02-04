@@ -314,7 +314,7 @@ function dispatchMessage(message)
    var event = jMessage.event;
 
 //   if (event != "chartdata")
-//      console.log("got event: " + event);
+      console.log("got event: " + event);
 
    if (event == "result") {
       hideProgressDialog();

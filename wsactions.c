@@ -1443,7 +1443,7 @@ int Daemon::storeDoCalibration(json_t* obj, long client)
 {
    const char* type = getStringFromJson(obj, "type");
    long address = getIntFromJson(obj, "address", na);
-   bool invertDo = getBoolFromJson(obj, "invertDo");
+   std::string calibration = getStringFromJson(obj, "calibration", "");
 
    // store to valuefacts
 
@@ -1453,7 +1453,7 @@ int Daemon::storeDoCalibration(json_t* obj, long client)
 
    if (tableValueFacts->find())
    {
-      tableValueFacts->setValue("INVERT", invertDo ? "Y" : "N");
+      tableValueFacts->setValue("CALIBRATION", calibration.c_str());
       tableValueFacts->store();
    }
 
@@ -2183,10 +2183,12 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
       json_object_set_new(oData, "unit", json_string(tableValueFacts->getStrValue("UNIT")));
       json_object_set_new(oData, "rights", json_integer(tableValueFacts->getIntValue("RIGHTS")));
       json_object_set_new(oData, "options", json_integer(tableValueFacts->getIntValue("OPTIONS")));
+
       if (!tableValueFacts->getValue("INVERT")->isNull())
          json_object_set_new(oData, "invertDo", json_boolean(tableValueFacts->hasValue("INVERT", "Y")));
       else
          json_object_set_new(oData, "invertDo", json_boolean(true));
+
       // #TODO check actor properties if dimmable ...
       json_object_set_new(oData, "dim", json_boolean(type == "DZL" || type == "HMB"));
 
@@ -2202,6 +2204,14 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
       else if (type == "CV")
       {
          json_object_set_new(oData, "luaScript", json_string(tableValueFacts->getStrValue("CALIBRATION")));
+      }
+      else if (type == "DO")
+      {
+         if (!tableValueFacts->getValue("CALIBRATION")->isEmpty())
+         {
+            json_t* o = jsonLoad(tableValueFacts->getStrValue("CALIBRATION"));
+            json_object_set_new(oData, "calibration", o);
+         }
       }
 
       if (!tableValueFacts->getValue("CHOICES")->isNull())

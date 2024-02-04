@@ -199,6 +199,7 @@ function initWidget(key, widget, fact)
    var root = document.getElementById("widgetContainer");
    var id = 'div_' + key;
    var elem = document.getElementById(id);
+
    if (elem == null) {
       // console.log("element '" + id + "' not found, creating");
       elem = document.createElement("div");

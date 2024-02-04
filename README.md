@@ -120,7 +120,7 @@ apt install libwiringpi-dev libwiringpi2 odroid-wiringpi
 
 ### get and install libwebsock
 We need to install it manually in case the version shipped with the distribution is to old
-(we need at least version v3.2.0)
+(we need at least version v4.3.0)
 
 if the version shipped with the distribution is okay simple
 ```apt install libwebsockets-dev```

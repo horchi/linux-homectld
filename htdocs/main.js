@@ -489,6 +489,7 @@ function prepareMenu()
    document.title = config.instanceName;
    console.log("prepareMenu: " + currentPage);
 
+   html += '<div>';
    html += '<button class="rounded-border button1" onclick="mainMenuSel(\'dashboard\')">Dash</button>';
    if (config.showList == '1')
       html += '<button class="rounded-border button1" onclick="mainMenuSel(\'list\')">Liste</button>';
@@ -501,7 +502,6 @@ function prepareMenu()
       html += '<button id="vdrMenu" class="rounded-border button1" onclick="mainMenuSel(\'vdr\')">VDR</button>';
    if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10)
       html += '<button class="rounded-border button1" onclick="mainMenuSel(\'setup\')">Setup</button>';
-
    html +=
       '<div style="display:flex;float:right;">' +
       ' <span id="socketState" class="socketState ' + 'grayCircle' + '" style="min-width:max-content;"></span>' +
@@ -511,13 +511,14 @@ function prepareMenu()
       '  <div></div>' +
       ' </button>' +
       '</div>';
+   html += '</div>';
 
    // buttons below menu
 
    if (currentPage == "setup" || currentPage == "iosetup" || currentPage == "userdetails" || currentPage == "groups" ||
        currentPage == "alerts" || currentPage == "syslog" || currentPage == "system" || currentPage == "images" || currentPage == "commands") {
       if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10) {
-         html += "<div>";
+         html += '<div style="margin-top:5px;">';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'setup\')">Allg. Konfiguration</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'iosetup\')">IO Setup</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'userdetails\')">User</button>';
@@ -527,7 +528,7 @@ function prepareMenu()
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'syslog\')">Syslog</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'system\')">System</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'commands\')">Commands</button>';
-         html += "</div>";
+         html += '</div>';
       }
    }
 
@@ -721,7 +722,7 @@ function initLogin()
       '      <td><input id="password" class="rounded-border input" type="password" value=""></input></td>' +
       '    </tr>' +
       '  </table>' +
-      '  <button class="rounded-border buttonHighlighted" onclick="doLogin()">Anmelden</button>' +
+      '  <button class="rounded-border button1" onclick="doLogin()">Anmelden</button>' +
       '</div>';
 }
 

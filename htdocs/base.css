@@ -59,6 +59,11 @@ button:focus {
     padding-bottom: 8px;
 }
 
+.navMenu
+{
+    padding: var(--containerPadding);
+}
+
 .menu
 {
     display: grid;
@@ -96,6 +101,7 @@ button:focus {
     float: right;
     width: 42px;
     padding: 4px 4px !important;
+    margin-left: 8px;
 }
 
 .burgerMenu > div {
@@ -184,25 +190,23 @@ button:focus {
 
 .button1
 {
-    background-color: var(--caption1);
+    background-color: var(--neutral3);
     color: var(--buttonFont);
-    margin: 5px 1px 5px 1px;
     display: inline-block;
-    padding: 6px 6px;
+    padding: 6px;
     text-decoration: none;
-    box-shadow: 1px 1px 5px 1px var(--shadow);
-    margin-left: 5px;
+    margin-right: 5px;
 }
 
 .button1:hover
 {
-    background-color: var(--caption2);
+    background-color: var(--neutral4);
 }
 
 .button2
 {
-    background-color: var(--caption2);
-    color: var(--buttonFont);
+    background-color: var(--neutral4);
+    color: var(--neutral0);
     padding: 3px 10px;
     text-decoration: none;
     height: 24px;
@@ -210,7 +214,7 @@ button:focus {
 
 .button2:hover
 {
-    background-color: var(--caption1);
+    background-color: var(--neutral3);
 }
 
 .buttonOptions
@@ -293,16 +297,6 @@ button:focus {
 .buttonDashboardTool:hover
 {
     background-color: darkslategray;
-}
-
-.buttonHighlighted
-{
-    background-color: darkblue;
-    color: var(--buttonFont);
-    width: 300px;
-    height: 40px;
-    margin: 8px;
-    box-shadow: 1px 1px 5px 1px var(--shadow);
 }
 
 .seperatorFold
@@ -422,8 +416,11 @@ button:focus {
 {
     font-family: monospace !important;
     white-space: pre !important;
+    resize: vertical;
+    width: -webkit-fill-available;
+    width: -moz-available;
 }
-}
+
 span > input
 {
     display: inline-block;
@@ -593,7 +590,7 @@ span > input
 {
     /* background-color: var(--light1); */
     background: linear-gradient(to bottom right, #00000096, black); /* Standard syntax (must be last) */
-    padding: 5px;
+    padding: var(--containerPadding);
 }
 
 .inputTableConfig > div > span
@@ -980,13 +977,13 @@ table.tableMultiCol tr
 }
 
 .vdrButton:active {
-    background-color: var(--caption2);
+    background-color: var(--neutral2);
     transform: translateY(2px);
 }
 
 .vdrButton:hover
 {
-/*    background-color: var(--caption2); */
+/*    background-color: var(--neutral2); */
 }
 
 .vdrButtonRound

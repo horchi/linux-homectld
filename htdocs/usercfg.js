@@ -87,11 +87,11 @@ function initUser()
 
    document.getElementById("container").innerHTML =
       '<div id="userContainer" class="rounded-border inputTableConfig">' +
-      '  <button class="rounded-border buttonOptions" onclick="doLogout()">Logout</button>' +
+      '  <button class="rounded-border button1" onclick="doLogout()">Logout</button>' +
       '  <br/><br/>' +
       '  <span>Passwort: </span><input id="input_passwd" type="password" class="rounded-border input"/>' +
       '  <span>wiederholen: </span><input id="input_passwd2" type="password" class="rounded-border input"/>' +
-      '  <button class="rounded-border buttonOptions" onclick="chpwd()">Speichern</button>' +
+      '  <button class="rounded-border button1" onclick="chpwd()">Speichern</button>' +
       '</div>';
 }
 

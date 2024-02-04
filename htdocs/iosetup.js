@@ -22,7 +22,8 @@ function initIoSetup(valueFacts)
    $('#controlContainer').removeClass('hidden');
    $('#container').removeClass('hidden');
 
-   activeSection = 'io' + valueTypes[0].title.replace(' ', '');
+   if (activeSection == '')
+      activeSection = 'io' + valueTypes[0].title.replace(' ', '');
 
    $("#controlContainer")
       .empty()
@@ -263,6 +264,7 @@ function sensorAiSetup(type, address)
                           .append($('<span></span>')
                                   .attr('id', 'actuaCalValue')
                                   .css('background-color', 'var(--dialogBackground)')
+                                  .css('color', 'var(--neutral0)')
                                   .css('text-align', 'start')
                                   .css('align-self', 'center')
                                   .css('width', '345px')

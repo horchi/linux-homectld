@@ -51,8 +51,7 @@
 
 .ui-dialog .ui-dialog-buttonpane button {
     border-style: none;
-    background-color: var(--caption1);
-    background: var(--caption1);
+    background-color: var(--neutral0);
     color: var(--buttonFont);
     display: inline-block;
     padding: 6px 12px;

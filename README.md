@@ -217,7 +217,7 @@ Backup the data of the homectl database including all recorded values:
 homectld-backup.sh
 ```
 
-This will create the following files:
+This will create the at least this dumps:
 
 ```
 config-dump.sql.gz
@@ -279,7 +279,8 @@ To change the MQTT borker connection (host, port, ...) adjust it in `/etc/system
 
 ## Caravan Industries (CI) Bus Interface
 
-The CI bus adapter https://www.fischl.de/usblini/ is needed. Install the hardware and software (python) as described at the usblini homepage.
+The CI bus adapter https://www.fischl.de/usblini/ is a lightweigt solution. Install the hardware and software (python) as described at the usblini homepage.
+I use this adapter as master, not yet tried as a slave.
 For the Thetford N400 series refrigerators a ready-made example for integration into the homectld can be found here thetford/README.md
 
 # Information / HINTS

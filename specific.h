@@ -3,7 +3,7 @@
 // File specific.h
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
-// Date 16.04.2020 - Jörg Wendel
+// Date 2020-2024 - Jörg Wendel
 //***************************************************************************
 
 #pragma once
@@ -30,25 +30,8 @@ class HomeCtl : public Daemon
          pinSolarPump    = pinGpio18,
          pinPoolLight    = pinGpio27,
          pinUVC          = pinGpio22,
-         pinUserOut1     = pinGpio23,
-         pinUserOut2     = pinGpio24,
-         pinUserOut3     = pinGpio11,
-         pinUserOut4     = pinGpio09,
-         pinUserOut5     = pinGpio05,
-         pinUserOut6     = pinGpio06,
-         pinUserOut7     = pinGpio07,
-         pinUserOut8     = pinGpio08,
          pinShower       = pinGpio25,
-         pinShowerSwitch = pinGpio19,
-
-         // potenziell frei
-
-         // pinGpio12
-         // pinGpio13
-         // pinGpio16
-         // pinGpio20
-         // pinGpio21
-         // pinGpio26
+         pinShowerSwitch = pinGpio19
       };
 
 #ifdef _POOL

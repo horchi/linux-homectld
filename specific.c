@@ -19,6 +19,7 @@
 #include "specific.h"
 
 volatile int showerSwitch {0};
+volatile bool ioInterruptTrigger {false};
 
 //***************************************************************************
 // Configuration Items
@@ -278,6 +279,10 @@ int HomeCtl::readConfiguration(bool initial)
    return done;
 }
 
+//***************************************************************************
+// At Meanwhile
+//***************************************************************************
+
 int HomeCtl::atMeanwhile()
 {
    if (showerSwitch > 0)
@@ -286,18 +291,23 @@ int HomeCtl::atMeanwhile()
       showerSwitch = 0;
    }
 
+   if (ioInterruptTrigger)
+   {
+      tell(eloDebug, "Debug: Detected IO interrupt trigger");
+      ioInterruptTrigger = false;
+
+      gpioRead(pinUserInput1);
+   }
+
    return done;
 }
 
-//***************************************************************************
-// IO Interrupt Handler
-//***************************************************************************
-
-void ioInterrupt()
+void Daemon::ioInterrupt()
 {
-   static uint64_t lastShowerSwitch = cTimeMs::Now();
+   ioInterruptTrigger = true;
 
-   // detect only once a second
+#ifdef _POOL
+   static uint64_t lastShowerSwitch {cTimeMs::Now()};     // detect only once a second to prevent bouncing
 
    if (cTimeMs::Now() > lastShowerSwitch + 1000 && !digitalRead(HomeCtl::pinShowerSwitch))
    {
@@ -305,6 +315,7 @@ void ioInterrupt()
       showerSwitch = showerSwitch +1;
       lastShowerSwitch = cTimeMs::Now();
    }
+#endif
 }
 
 //***************************************************************************
@@ -314,15 +325,24 @@ void ioInterrupt()
 int HomeCtl::applyConfigurationSpecials()
 {
 #ifndef _NO_RASPBERRY_PI_
-   initOutput(pinUserOut1, ooUser, omManual, "User 1");
-   initOutput(pinUserOut2, ooUser, omManual, "User 2");
-   initOutput(pinUserOut3, ooUser, omManual, "User 3");
-   initOutput(pinUserOut4, ooUser, omManual, "User 4");
+   initOutput(pinUserOut1, ooUser, omManual, "User Out 1");
+   initOutput(pinUserOut2, ooUser, omManual, "User Out 2");
+   initOutput(pinUserOut3, ooUser, omManual, "User Out 3");
+   initOutput(pinUserOut4, ooUser, omManual, "User Out 4");
+   initOutput(pinUserOut5, ooUser, omManual, "User Out 5");
+   initOutput(pinUserOut6, ooUser, omManual, "User Out 6");
+   initOutput(pinUserOut7, ooUser, omManual, "User Out 7");
+   initOutput(pinUserOut8, ooUser, omManual, "User Out 8");
 
-   initOutput(pinUserOut5, ooUser, omManual, "User 5");
-   initOutput(pinUserOut6, ooUser, omManual, "User 6");
-   initOutput(pinUserOut7, ooUser, omManual, "User 7");
-   initOutput(pinUserOut8, ooUser, omManual, "User 8");
+   initInput(pinUserInput1, "User In 1");
+   initInput(pinUserInput2, "User In 2");
+   initInput(pinUserInput3, "User In 3");
+   initInput(pinUserInput4, "User In 4");
+   initInput(pinUserInput5, "User In 5");
+   initInput(pinUserInput6, "User In 6");
+
+   // #TODO - needed for all inputs?
+
 #endif
 
 #ifdef _POOL
@@ -352,7 +372,7 @@ int HomeCtl::applyConfigurationSpecials()
    addValueFact(spSolarWork, "SP", 1, "Solar Energie (heute)", "kWh");
 
 #ifndef _NO_RASPBERRY_PI_
-   uint opt = ooUser;
+   uint opt {ooUser};
 
    if (poolLightTimes.size() > 0)
       opt |= ooAuto;

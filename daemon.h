@@ -3,7 +3,7 @@
 // File daemon.h
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
-// Date 04.11.2010 - 01.12.2021  Jörg Wendel
+// Date 2010-2024 Jörg Wendel
 //***************************************************************************
 
 #pragma once
@@ -43,9 +43,9 @@ class Daemon : public cWebInterface
       {
          //               1         3.3 V
          //               2         5 V
-         pinGpio02     =  3,     // GPIO2 (SDA)
+         pinGpio02     =  3,     // GPIO2 (I²C 1 SDA)
          //               4         5 V
-         pinGpio03     =  5,     // GPIO3 (SCL)
+         pinGpio03     =  5,     // GPIO3 (I²C 1 SCL)
          //               6         GND
          pinGpio04     =  7,     // GPIO4 (W1)
          pinGpio14     =  8,     // GPIO14 (TX)
@@ -67,8 +67,8 @@ class Daemon : public cWebInterface
          pinGpio08     = 24,     // GPIO8 (SPI)
          //              25         GND
          pinGpio07     = 26,     // GPIO7 (ID EEPROM)
-         pinIdSd       = 27,     // ID_SD
-         pinIdSc       = 28,     // ID_SC
+         pinIdSd       = 27,     // ID_SD  (I²C 2 SDA)
+         pinIdSc       = 28,     // ID_SC  (I²C 2 SCL)
          pinGpio05     = 29,     // GPIO5
          //              30         GND
          pinGpio06     = 31,     // GPIO6
@@ -87,7 +87,23 @@ class Daemon : public cWebInterface
          pinW1       = pinGpio04,
          pinSerialTx = pinGpio14,
          pinSerialRx = pinGpio15,
-         pinW1Power  = pinGpio10
+         pinW1Power  = pinGpio10,
+
+         pinUserInput1   = pinGpio12,
+         pinUserInput2   = pinGpio13,
+         pinUserInput3   = pinGpio16,
+         pinUserInput4   = pinGpio20,
+         pinUserInput5   = pinGpio21,
+         pinUserInput6   = pinGpio26,
+
+         pinUserOut1     = pinGpio23,
+         pinUserOut2     = pinGpio24,
+         pinUserOut3     = pinGpio11,
+         pinUserOut4     = pinGpio09,
+         pinUserOut5     = pinGpio05,
+         pinUserOut6     = pinGpio06,
+         pinUserOut7     = pinGpio07,
+         pinUserOut8     = pinGpio08
       };
 
       enum SensorOptions
@@ -166,7 +182,9 @@ class Daemon : public cWebInterface
       struct SensorData        // Sensor Data
       {
          bool record {false};
+         bool active {false};
          std::string kind {"value"};       // { value | status | text | trigger }
+         uint64_t lastInterruptMs {0};
          time_t last {0};
          double value {0.0};
          bool working {false};             // actually working/moving (eg for blinds or script running)
@@ -194,9 +212,11 @@ class Daemon : public cWebInterface
          // 'DO' specials
 
          bool invertDO {true};
-         bool impulseDO {false};   // change output only for a short impolse
+         bool impulseDO {false};      // change output only for a short impolse
          OutputMode mode {omAuto};
          uint opt {ooUser};
+         std::string feedbackInType;  // feedback input for impuls out
+         uint feedbackInAddress {0};  // feedback input for impuls out
       };
 
       struct Range
@@ -358,7 +378,7 @@ class Daemon : public cWebInterface
 
       bool doShutDown() { return shutdown; }
 
-      void publishPin(uint pin);
+      void publishPin(const char* type, uint pin);
       void gpioWrite(uint pin, bool state, bool store = true);
       bool gpioRead(uint pin);
       virtual void logReport() { return ; }
@@ -425,7 +445,7 @@ class Daemon : public cWebInterface
       int daemonState2Json(json_t* obj);
       int sensor2Json(json_t* obj, const char* type, uint address);
       int images2Json(json_t* obj);
-      void pin2Json(json_t* ojData, int pin);
+      void pin2Json(json_t* ojData, const char* type, int pin);
       void publishSpecialValue(int addr);
       bool webFileExists(const char* file, const char* base = nullptr);
 
@@ -651,10 +671,12 @@ class Daemon : public cWebInterface
       };
 
       int executeCommandAsync(uint address, const char* cmd);
-      static void* cmdThread(void* user);
       std::map<uint,ThreadControl> commandThreads;
 
       // statics
+
+      static void* cmdThread(void* user);
+      static void ioInterrupt();
 
       static bool shutdown;
 };

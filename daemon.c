@@ -595,7 +595,7 @@ int Daemon::initSensorByFact(std::string type, uint address)
    sensors[type][address].unit = fact->getStrValue("UNIT");
    sensors[type][address].factor = fact->getIntValue("FACTOR");
    sensors[type][address].group = fact->getIntValue("GROUPID");
-   sensors[type][address].invertDO = !fact->hasValue("INVERT", "N");
+   sensors[type][address].active = fact->hasValue("STATE", "A");
 
    if (type == "DO" || type == "DI" || type == "DZL")
       sensors[type][address].kind = "status";
@@ -627,15 +627,18 @@ int Daemon::initSensorByFact(std::string type, uint address)
          }
          else if (type == "DO")
          {
-            sensors[type][address].invertDO = getBoolFromJson(jCal, "invert", sensors[type][address].invertDO);
+            sensors[type][address].invertDO = getBoolFromJson(jCal, "invert");
             sensors[type][address].impulseDO = getBoolFromJson(jCal, "impulse");
+            sensors[type][address].feedbackInType = getStringFromJson(jCal, "feedbackInType", "");
+            sensors[type][address].feedbackInAddress = getIntFromJson(jCal, "feedbackInAddress");
          }
 
          json_decref(jCal);
       }
    }
 
-   tell(eloDebug, "Debug: Init sensor %s/0x%02x - '%s'", type.c_str(), address, sensors[type][address].title.c_str());
+   tell(eloDebug, "Debug: Init sensor %s/0x%02x - '%s' %s", type.c_str(), address,
+        sensors[type][address].title.c_str(), sensors[type][address].active ? "active" : "not active");
 
    return success;
 }
@@ -668,7 +671,13 @@ int Daemon::initInput(uint pin, const char* name)
    if (!isEmpty(name))
    {
       addValueFact(pin, "DI", 1, name);
-      sensors["DI"][pin].state = gpioRead(pin);
+      gpioRead(pin);
+
+      if (sensors["DI"][pin].active)
+      {
+         if (wiringPiISR(pin, INT_EDGE_BOTH, &ioInterrupt) < 0)
+            tell(eloAlways, "Error: Unable to setup ISR for pin %d '%s'", pin, strerror(errno));
+      }
    }
 
    return done;
@@ -3615,7 +3624,7 @@ int Daemon::getConfigItem(const char* name, char*& value, const char* def)
 
 int Daemon::setConfigItem(const char* name, const char* value)
 {
-   tell(eloDebug, "Debug: Storing config '%s' with value '%s'", name, value);
+   tell(eloDebug2, "Debug2: Storing config '%s' with value '%s'", name, value);
    tableConfig->clear();
    tableConfig->setValue("OWNER", myName());
    tableConfig->setValue("NAME", name);
@@ -3829,18 +3838,29 @@ int Daemon::toggleIoNext(uint pin)
    return success;
 }
 
-void Daemon::pin2Json(json_t* ojData, int pin)
+void Daemon::pin2Json(json_t* ojData, const char* type, int pin)
 {
    json_object_set_new(ojData, "address", json_integer(pin));
-   json_object_set_new(ojData, "type", json_string("DO"));
-   json_object_set_new(ojData, "value", json_integer(sensors["DO"][pin].state));
-   json_object_set_new(ojData, "last", json_integer(sensors["DO"][pin].last));
-   // json_object_set_new(ojData, "next", json_integer(sensors["DO"][pin].next));
-   json_object_set_new(ojData, "valid", json_boolean(sensors["DO"][pin].valid));
+   json_object_set_new(ojData, "type", json_string(type));
+   json_object_set_new(ojData, "last", json_integer(sensors[type][pin].last));
+   json_object_set_new(ojData, "valid", json_boolean(sensors[type][pin].valid));
 
    // has to be moved to facts?
-   json_object_set_new(ojData, "mode", json_string(sensors["DO"][pin].mode == omManual ? "manual" : "auto"));
-   json_object_set_new(ojData, "options", json_integer(sensors["DO"][pin].opt));
+   json_object_set_new(ojData, "mode", json_string(sensors[type][pin].mode == omManual ? "manual" : "auto"));
+   json_object_set_new(ojData, "options", json_integer(sensors[type][pin].opt));
+
+   // pinn state -> value
+
+   if (sensors[type][pin].feedbackInType.empty())
+   {
+      json_object_set_new(ojData, "value", json_integer(sensors[type][pin].state));
+   }
+   else
+   {
+      const char* fbType = sensors[type][pin].feedbackInType.c_str();
+      uint fbAddr = sensors[type][pin].feedbackInAddress;
+      json_object_set_new(ojData, "value", json_integer(sensors[fbType][fbAddr].state));
+   }
 }
 
 int Daemon::toggleOutputMode(uint pin)
@@ -3853,16 +3873,7 @@ int Daemon::toggleOutputMode(uint pin)
       sensors["DO"][pin].mode = mode;
 
       storeStates();
-
-      json_t* ojData = json_object();
-      pin2Json(ojData, pin);
-
-      char* tuple {};
-      asprintf(&tuple, "%s:0x%02x", "DO", pin);
-      jsonSensorList[tuple] = ojData;
-      free(tuple);
-
-      pushDataUpdate("update", 0L);
+      publishPin("DO", pin);
    }
 
    return success;
@@ -3883,8 +3894,7 @@ void Daemon::gpioWrite(uint pin, bool state, bool store)
 
    if (sensors["DO"][pin].impulseDO)
    {
-      publishPin(pin); // send update to WS
-      // tell(eloDebug, "Debug: Impulse mode for DO:0x%02x", pin);
+      tell(eloDebug, "Debug: Trigger impulse for DO:0x%02x", pin);
       usleep(10000); // 10 ms
       digitalWrite(pin, sensors["DO"][pin].invertDO ? state : !state);
       sensors["DO"][pin].state = !state;
@@ -3895,32 +3905,53 @@ void Daemon::gpioWrite(uint pin, bool state, bool store)
 
    performJobs();
 
-   publishPin(pin); // send update to WS
+   publishPin("DO", pin); // send update to WS
    mqttHaPublish(sensors["DO"][pin]);
    mqttNodeRedPublishSensor(sensors["DO"][pin]);
+}
+
+//***************************************************************************
+// GPIO Read
+//***************************************************************************
+
+bool Daemon::gpioRead(uint pin)
+{
+   sensors["DI"][pin].state = digitalRead(pin);
+   sensors["DI"][pin].last = time(0);
+   sensors["DI"][pin].valid = true;
+
+   // check 'linked' output
+
+   tell(eloDebug2, "Debug2: gpioRead %d", pin);
+
+   for (const auto& s : sensors["DO"])
+   {
+      if (s.second.feedbackInType == "DI" && s.second.feedbackInAddress == pin)
+         publishPin("DO", s.first);
+   }
+
+   publishPin("DI", pin);
+   mqttHaPublish(sensors["DI"][pin]);
+   mqttNodeRedPublishSensor(sensors["DI"][pin]);
+
+   return sensors["DI"][pin].state;
 }
 
 //***************************************************************************
 // Publish Pin State
 //***************************************************************************
 
-void Daemon::publishPin(uint pin)
+void Daemon::publishPin(const char* type, uint pin)
 {
    json_t* ojData = json_object();
-   pin2Json(ojData, pin);
+   pin2Json(ojData, type, pin);
 
    char* tuple {};
-   asprintf(&tuple, "%s:0x%02x", "DO", pin);
+   asprintf(&tuple, "%s:0x%02x", type, pin);
    jsonSensorList[tuple] = ojData;
    free(tuple);
 
    pushDataUpdate("update", 0L);
-}
-
-bool Daemon::gpioRead(uint pin)
-{
-   sensors["DI"][pin].state = digitalRead(pin);
-   return sensors["DI"][pin].state;
 }
 
 //***************************************************************************
@@ -3978,12 +4009,12 @@ int Daemon::storeStates()
       setConfigItem("ioStates", (long)value);
       setConfigItem("ioModes", (long)mode);
 
-      tell(eloDebug2, "Info: iomode bit '%s/%d' %d [%s] stored", output.second.name.c_str(), output.first, output.second.mode, bin2string(mode));
-      tell(eloDebug2, "Info: iostate bit '%s/%d' %d [%s] stored", output.second.name.c_str(), output.first, output.second.state, bin2string(value));
+      tell(eloDebug2, "Debug2: iomode bit '%s/%d' %d [%s] stored", output.second.name.c_str(), output.first, output.second.mode, bin2string(mode));
+      tell(eloDebug2, "Debug2: iostate bit '%s/%d' %d [%s] stored", output.second.name.c_str(), output.first, output.second.state, bin2string(value));
    }
 
-   tell(eloDebug2, "Info: Stored iostates: [%s]", bin2string((ulong)value));
-   tell(eloDebug2, "Info: Stored iomodes: [%s]", bin2string((ulong)mode));
+   tell(eloDebug2, "Debug2: Stored iostates: [%s]", bin2string((ulong)value));
+   tell(eloDebug2, "Debug2: Stored iomodes: [%s]", bin2string((ulong)mode));
 
    return done;
 }
@@ -3993,12 +4024,12 @@ int Daemon::loadStates()
    long value {0};
    long mode {0};
 
-   getConfigItem("ioStates", value, 0);
+   getConfigItem("ioStates", value, na);
    getConfigItem("ioModes", mode, 0);
 
    // #TODO - use only for GPIO Pins (we need a other type for P4 'DO' !!
 
-   if (!value)
+   if (value == na)
    {
       tell(eloAlways, "Info: No iostates found!");
       ioStatesLoaded = true;

@@ -313,7 +313,7 @@ function dispatchMessage(message)
    var jMessage = JSON.parse(message);
    var event = jMessage.event;
 
-//   if (event != "chartdata")
+   if (event != "chartdata" && event != "ping")
       console.log("got event: " + event);
 
    if (event == "result") {

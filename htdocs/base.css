@@ -1883,11 +1883,20 @@ dialog::backdrop, #backdrop
 /* -------------- */
 /* Media specials */
 
+@media only screen and (max-width: 320px)
+{
+    .widgetContainer > div     { width: 150px; padding: 0px; margin: 1px; }
+    .widget-weather            { font-size: large; margin-top: 0px;  }
+    .widget-weather > br       { display: none; }
+    .widget-main               { font-size: 13vh;}
+    .weatherForecast           { left: 2%; width: 95%; }
+}
+
 @media only screen and (max-width:395px)
 {
     .daemonState               { width: 88%; }
     .menu                      { padding: 0px; margin: 0px; }
-    .button1                   { margin: 1px; }
+    .button1                   { margin-right: 1px; }
     .inputTableConfig > div:nth-child(odd) { background-color: #0000007d; }
     .inputTableConfig > div > span:nth-child(3) { width: 25%; }
     .inputTableConfig > div > span              { width: 30%; }
@@ -1909,7 +1918,7 @@ dialog::backdrop, #backdrop
 {
     .daemonState               { width: 88%; }
     .menu                      { padding: 0px; margin: 0px; }
-    .button1                   { margin: 1px; }
+    .button1                   { margin-right: 1px; }
     .inputTableConfig > div:nth-child(odd) { background-color: #0000007d; }
     .inputTableConfig > div > span:nth-child(3) { width: 25%; }
     .inputTableConfig > div > span              { width: 30%; }
@@ -1926,6 +1935,15 @@ dialog::backdrop, #backdrop
     .widget-weather            { font-size: x-large; margin-top: 0px;  }
     .widget-weather > br       { display: none; }
     .widget-main               { font-size: 11vh;}
+    .weatherForecast           { left: 2%; width: 95%; }
+}
+
+@media only screen and (max-width: 375px) and (min-width:321px)
+{
+    .widgetContainer > div     { width: 168px; padding: 0px; margin: 1px; }
+    .widget-weather            { font-size: large; margin-top: 0px;  }
+    .widget-weather > br       { display: none; }
+    .widget-main               { font-size: 13vh;}
     .weatherForecast           { left: 2%; width: 95%; }
 }
 
@@ -1947,22 +1965,4 @@ dialog::backdrop, #backdrop
     .widget-weather > br       { display: block; }
     .symbol-value              { font-size: large;}
     .weatherForecast           { left: 5%; width: 90%; }
-}
-
-@media only screen and (max-width: 375px) and (min-width:321px)
-{
-    .widgetContainer > div     { width: 168px; padding: 0px; margin: 1px; }
-    .widget-weather            { font-size: large; margin-top: 0px;  }
-    .widget-weather > br       { display: none; }
-    .widget-main               { font-size: 13vh;}
-    .weatherForecast           { left: 2%; width: 95%; }
-}
-
-@media only screen and (max-width: 320px)
-{
-    .widgetContainer > div     { width: 150px; padding: 0px; margin: 1px; }
-    .widget-weather            { font-size: large; margin-top: 0px;  }
-    .widget-weather > br       { display: none; }
-    .widget-main               { font-size: 13vh;}
-    .weatherForecast           { left: 2%; width: 95%; }
 }

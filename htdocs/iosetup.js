@@ -429,14 +429,13 @@ function sensorDoSetup(type, address)
                                   .attr('id', 'invertDo')
                                   .attr('type', 'checkbox')
                                   .addClass('rounded-border input')
-                                  .css('height', '100px')
                                   .prop('checked', valueFacts[key].calibration ? valueFacts[key].calibration.invert : valueFacts[key].invertDo))
                           .append($('<label></label>')
                                   .css('text-align', 'end')
                                   .css('align-self', 'center')
                                   .css('margin-right', '10px')
                                   .prop('for', 'invertDo')
-                                  .html('Digital-Ausgang invertieren')))
+                                  .html('Ausgang Invertieren')))
 
                   .append($('<div></div>')
                           .css('display', 'flex')
@@ -444,14 +443,28 @@ function sensorDoSetup(type, address)
                                   .attr('id', 'impulseDo')
                                   .attr('type', 'checkbox')
                                   .addClass('rounded-border input')
-                                  .css('height', '100px')
                                   .prop('checked', valueFacts[key].calibration ? valueFacts[key].calibration.impulse : false))
                           .append($('<label></label>')
                                   .css('text-align', 'end')
                                   .css('align-self', 'center')
                                   .css('margin-right', '10px')
                                   .prop('for', 'impulseDo')
-                                  .html('Impuls')))
+                                  .html('Impuls Ausgang (10ms)')))
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<div></div>')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('Feedback Input'))
+                          .append($('<input></input>')
+                                  .attr('id', 'feedbackIo')
+                                  .attr('type', 'search')
+                                  .addClass('rounded-border input')
+                                  .val(valueFacts[key].calibration && valueFacts[key].calibration.feedbackInType ?
+                                       valueFacts[key].calibration.feedbackInType
+                                       + ':0x'
+                                       + valueFacts[key].calibration.feedbackInAddress.toString(16) : '')))
                          );
 
    var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
@@ -472,12 +485,18 @@ function sensorDoSetup(type, address)
             $(this).dialog('close');
          },
          'Speichern': function () {
+
+            let addr = parseInt($('#feedbackIo').val().split(":")[1]);
+            let type = $('#feedbackIo').val().split(":")[0];
+
             socket.send({ "event" : "storecalibration", "object" : {
                'type' : calSensorType,
                'address' : parseInt(calSensorAddress),
                'calibration' : JSON.stringify({
                   'invert' : $('#invertDo').is(':checked'),
-                  'impulse' : $('#impulseDo').is(':checked')
+                  'impulse' : $('#impulseDo').is(':checked'),
+                  'feedbackInType' : type,
+                  'feedbackInAddress' : addr
                })
             }});
 

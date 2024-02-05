@@ -2184,11 +2184,6 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
       json_object_set_new(oData, "rights", json_integer(tableValueFacts->getIntValue("RIGHTS")));
       json_object_set_new(oData, "options", json_integer(tableValueFacts->getIntValue("OPTIONS")));
 
-      if (!tableValueFacts->getValue("INVERT")->isNull())
-         json_object_set_new(oData, "invertDo", json_boolean(tableValueFacts->hasValue("INVERT", "Y")));
-      else
-         json_object_set_new(oData, "invertDo", json_boolean(true));
-
       // #TODO check actor properties if dimmable ...
       json_object_set_new(oData, "dim", json_boolean(type == "DZL" || type == "HMB"));
 

@@ -673,11 +673,13 @@ int Daemon::initInput(uint pin, const char* name)
       addValueFact(pin, "DI", 1, name);
       gpioRead(pin);
 
+#ifndef _NO_RASPBERRY_PI_
       if (sensors["DI"][pin].active)
       {
          if (wiringPiISR(pin, INT_EDGE_BOTH, &ioInterrupt) < 0)
             tell(eloAlways, "Error: Unable to setup ISR for pin %d '%s'", pin, strerror(errno));
       }
+#endif
    }
 
    return done;

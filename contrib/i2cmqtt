@@ -1,0 +1,12 @@
+
+# Options
+#     -d <device>     i2c device (defaults to /dev/i2c-0)
+#     -a <i2c>        i2c address (defaults to 0x48)
+#     -l <eloquence>  set eloquence
+#     -t              log to terminal
+#     -s              show and exit
+#     -i <interval>   interval seconds (default 60)
+#     -u <url>        MQTT url
+#     -T <topic>      MQTT topic
+
+I2CMQTT_OPTS="-u tcp://localhost:1883 -i 30 -a 72 -l 1"

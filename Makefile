@@ -31,10 +31,11 @@ CFLAGS      += $(shell $(SQLCFG) --include)
 OBJS        += specific.o gpio.o
 W1OBJS       = w1.o gpio.o lib/common.o lib/thread.o $(MQTTOBJS)
 BMSOBJS      = bms.o lib/common.c lib/thread.o lib/serial.c $(MQTTOBJS)
+I2COBJS      = i2cmqtt.o lib/common.c lib/thread.o $(MQTTOBJS)
 
 # main taget
 
-all: $(TARGET) $(W1TARGET) $(BMSTARGET) $(ARDUINO_IF_CMD)
+all: $(TARGET) $(W1TARGET) $(BMSTARGET) $(I2CTARGET) $(ARDUINO_IF_CMD)
 
 # auto dependencies
 
@@ -63,8 +64,11 @@ $(W1TARGET): $(W1OBJS)
 $(BMSTARGET): $(BMSOBJS)
 	$(doLink) $(BMSOBJS) $(LIBS) -o $@
 
-linstall: $(TARGET) $(W1TARGET) $(BMSTARGET) install-daemon install-web
-install: $(TARGET) $(W1TARGET) $(BMSTARGET) install-daemon install-web install-systemd
+$(I2CTARGET): $(I2COBJS)
+	$(doLink) $(I2COBJS) $(LIBS) -o $@
+
+linstall: $(TARGET) $(W1TARGET) $(BMSTARGET) $(I2CTARGET) install-daemon install-web
+install:  $(TARGET) $(W1TARGET) $(BMSTARGET) $(I2CTARGET) install-daemon install-web install-systemd
 
 install-daemon: install-config install-scripts
 	@echo install $(TARGET)
@@ -77,6 +81,7 @@ install-daemon: install-config install-scripts
 	install --mode=755 -D $(TARGET) $(BINDEST)/
 	install --mode=755 -D $(W1TARGET) $(BINDEST)/
 	install --mode=755 -D $(BMSTARGET) $(BINDEST)/
+	install --mode=755 -D $(I2CTARGET) $(BINDEST)/
 	mkdir -p $(DESTDIR)$(PREFIX)/share/$(TARGET)/
 #	install --mode=644 -D arduino/build-nano-atmega328/ioctrl.hex $(DESTDIR)$(PREFIX)/share/$(TARGET)/nano-atmega328-ioctrl.hex
 
@@ -88,10 +93,12 @@ install-systemd:
 	cat contrib/daemon.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | sed s:"<TARGET>":"$(TARGET)":g | sed s:"<CLASS>":"$(CLASS)":g |install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/$(TARGET).service
 	cat contrib/w1mqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/w1mqtt.service
 	cat contrib/bmsmqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/bmsmqtt.service
+	cat contrib/i2cmqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/i2cmqtt.service
 	install --mode=664 -D contrib/mosquitto-log.service $(SYSTEMDDEST)/
 	chmod a+r $(SYSTEMDDEST)/$(TARGET).service
 	chmod a+r $(SYSTEMDDEST)/w1mqtt.service
 	chmod a+r $(SYSTEMDDEST)/bmsmqtt.service
+	chmod a+r $(SYSTEMDDEST)/i2cmqtt.service
    ifeq ($(DESTDIR),)
 	   systemctl daemon-reload
 	   systemctl enable $(TARGET)
@@ -126,6 +133,9 @@ install-config:
 	fi
 	if ! test -f $(DESTDIR)/etc/default/bmsmqtt; then \
 	   cp contrib/bmsmqtt $(DESTDIR)/etc/default/bmsmqtt; \
+	fi
+	if ! test -f $(DESTDIR)/etc/default/i2cmqtt; then \
+	   cp contrib/i2cmqtt $(DESTDIR)/etc/default/i2cmqtt; \
 	fi
 
 install-scripts:
@@ -167,13 +177,16 @@ clean-install:
 	rm -rf $(SYSTEMDDEST)/$(TARGET).service
 	rm -rf $(SYSTEMDDEST)/w1mqtt.service
 	rm -rf $(SYSTEMDDEST)/bmsmqtt.service
+	rm -rf $(SYSTEMDDEST)/i2cmqtt.service
 	rm -rf $(DESTDIR)/etc/default/w1mqtt;
 	rm -rf $(DESTDIR)/etc/default/bmsmqtt;
+	rm -rf $(DESTDIR)/etc/default/i2cmqtt;
 	rm -rf $(DESTDIR)/etc/rsyslog.d/10-$(TARGET).conf
 	rm -rf $(DESTDIR)/etc/logrotate.d/$(TARGET)
 	rm -rf $(BINDEST)/$(TARGET)*
 	rm -rf $(BINDEST)/$(W1TARGET)
 	rm -rf $(BINDEST)/$(BMSTARGET)
+	rm -rf $(BINDEST)/$(I2CTARGET)
 
 activate: install
 	systemctl restart $(TARGET)

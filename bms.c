@@ -257,7 +257,7 @@ int BmsCom::finish()
 }
 
 //***************************************************************************
-// Calss - Battery Management System
+// Class - Battery Management System
 //***************************************************************************
 
 class Bms

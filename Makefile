@@ -26,12 +26,13 @@ LOBJS        = lib/db.o lib/dbdict.o lib/common.o lib/serial.o lib/curl.o lib/th
 MQTTOBJS     = lib/mqtt.o lib/mqtt_c.o lib/mqtt_pal.o
 OBJS         = $(MQTTOBJS) $(LOBJS) main.o daemon.o wsactions.o hass.o websock.o webservice.o deconz.o lmc.o lmccom.o lmctag.o
 OBJS        += growatt.o
-
-CFLAGS      += $(shell $(SQLCFG) --include)
 OBJS        += specific.o gpio.o
+
 W1OBJS       = w1.o gpio.o lib/common.o lib/thread.o $(MQTTOBJS)
 BMSOBJS      = bms.o lib/common.c lib/thread.o lib/serial.c $(MQTTOBJS)
-I2COBJS      = i2cmqtt.o lib/common.c lib/thread.o $(MQTTOBJS)
+I2COBJS      = i2cmqtt.o gpio.o lib/common.c lib/json.o lib/thread.o lib/i2c/i2c.o lib/i2c/mcp23017.o lib/i2c/ads1115.o lib/i2c/dht20.o $(MQTTOBJS)
+
+CFLAGS      += $(shell $(SQLCFG) --include)
 
 # main taget
 
@@ -67,8 +68,14 @@ $(BMSTARGET): $(BMSOBJS)
 $(I2CTARGET): $(I2COBJS)
 	$(doLink) $(I2COBJS) $(LIBS) -o $@
 
-linstall: $(TARGET) $(W1TARGET) $(BMSTARGET) $(I2CTARGET) install-daemon install-web
-install:  $(TARGET) $(W1TARGET) $(BMSTARGET) $(I2CTARGET) install-daemon install-web install-systemd
+linstall: $(TARGET) $(W1TARGET) $(BMSTARGET) $(I2CTARGET)
+	make install-daemon
+	make install-web
+
+install:  $(TARGET) $(W1TARGET) $(BMSTARGET) $(I2CTARGET)
+	make install-daemon
+	make install-web
+	make install-systemd
 
 install-daemon: install-config install-scripts
 	@echo install $(TARGET)

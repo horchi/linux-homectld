@@ -172,11 +172,11 @@ function showTable(section)
       html += '<td><input id="record_' + item.type + item.address + '" class="rounded-border input" type="checkbox" ' + (item.record ? 'checked' : '') + ' /><label for="record_' + item.type + item.address + '"></label></td>';
       html += '<td>' + key + '</td>';
 
-      if (item.type == 'AI')
+      if (item.type == 'AI' || item.type.startsWith('ADS'))
          html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorAiSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
       else if (item.type == 'CV')
          html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorCvSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
-      else if (item.type == 'DO')
+      else if (item.type == 'DO' || item.type.startsWith('MCPO'))
          html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorDoSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
       else if (item.type == 'W1' || item.type == 'RTL433' || item.type == 'SC')
          html += '<td>' + '<button class="buttonOptions rounded-border" onclick="deleteValueFact(\'' + item.type + '\', \'' + item.address + '\')">Löschen</button>' + '</td>';
@@ -266,7 +266,7 @@ function sensorAiSetup(type, address)
                                   .css('background-color', 'var(--dialogBackground)')
                                   .css('color', 'var(--neutral0)')
                                   .css('text-align', 'start')
-                                  .css('align-self', 'center')
+                                  .css('line-height', '32px')
                                   .css('width', '345px')
                                   .addClass('rounded-border input')
                                   .html('-')

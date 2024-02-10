@@ -522,7 +522,7 @@ function prepareMenu()
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'setup\')">Allg. Konfiguration</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'iosetup\')">IO Setup</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'userdetails\')">User</button>';
-         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'alerts\')">Sensor Alerts</button>';
+         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'alerts\')">Alerts</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'groups\')">Baugruppen</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'images\')">Images</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'syslog\')">Syslog</button>';

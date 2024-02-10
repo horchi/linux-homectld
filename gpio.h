@@ -8,6 +8,24 @@
 
 #pragma once
 
+#define bitSet(value, bit)   (value |= (1UL << bit))
+#define bitClear(value, bit) (value &= ~(1UL << bit))
+#define bitRead(value, bit)  ((value >> bit) & 0x01)
+#define lowByte(word)        ((uint8_t)(word & 0xff))
+#define highByte(word)       ((uint8_t)(word >> 8))
+
+//***************************************************************************
+// Physical Pin to GPIO Name
+//  ODROID n2
+//***************************************************************************
+
+extern const char* physToGpioName_odroid_n2[64];
+const char* physPinToGpioName(int pin);
+
+//***************************************************************************
+// dummy functions
+//***************************************************************************
+
 #ifdef _NO_RASPBERRY_PI_
 
 #include <stdlib.h>   // uint

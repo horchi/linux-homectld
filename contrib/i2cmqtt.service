@@ -6,6 +6,7 @@ StartLimitInterval = 200
 StartLimitBurst = 5
 
 [Service]
+
 EnvironmentFile=-/etc/default/i2cmqtt
 Type = forking
 ExecStart = <BINDEST>/i2cmqtt $I2CMQTT_OPTS

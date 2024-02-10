@@ -8,7 +8,7 @@ StartLimitBurst = 5
 [Service]
 EnvironmentFile=-/etc/default/thetford2mqtt
 Type = simple
-ExecStart = /usr/bin/python3 /usr/local/bin/thetford.py ${THETFORD_MQTT} ${THETFORD_LG} ${THETFORD_OPTS}
+ExecStart = /usr/bin/python3 /usr/local/bin/thetford.py ${THETFORD_MQTT} ${THETFORD_TOPIC} ${THETFORD_MODEL} ${THETFORD_PARAMETER_TYPE} ${THETFORD_LOG_LEVEL} ${THETFORD_OPTS}
 Restart = always
 RestartSec = 30
 

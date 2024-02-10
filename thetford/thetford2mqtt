@@ -1,4 +1,40 @@
 
-THETFORD_MQTT="-m 192.168.220.10"
+# Usage:
+#  thetford [-h] [-i [I]] [-m [M]] [-p [P]] [-v [V]] [-c [C]] [-l] [-T [T]] [-t [T]] [-M [M]]
+#
+#   options:
+#     -h, --help  show this help message and exit
+#     -i [I]      interval [seconds] (default 5)
+#     -m [M]      MQTT host
+#     -p [P]      MQTT port
+#     -v [V]      Verbosity Level (0-3) (default 0)
+#     -c [C]      Sample Count
+#     -l          Log to Syslog (default console)
+#     -T [T]      MQTT topic
+#     -t [T]      Sensor type
+#     -M [M]      Fridge model
+#
+
+# THETFORD_MODEL - Fridge Model
+#  N4*** or T2***
+
+# THETFORD_PARAMETER_TYPE
+#  Type of the Sensor as send to MQTT8
+#  max 6 characters!
+
+#  - N4000 -
+
+THETFORD_MQTT="-m localhost"
+THETFORD_TOPIC="-T n4000"
+THETFORD_MODEL="-M N4000"
 THETFORD_OPTS="-l"
-THETFORD_LG="-v 0"
+THETFORD_LOG_LEVEL="-v 0"
+THETFORD_PARAMETER_TYPE="-t N4000"
+
+#  - T2090 -
+# THETFORD_MQTT="-m localhost"
+# THETFORD_TOPIC="-T t2000"
+# THETFORD_MODEL="-M T2090"
+# THETFORD_OPTS="-l"
+# THETFORD_LOG_LEVEL="-v 0"
+# THETFORD_PARAMETER_TYPE="-t T2090"

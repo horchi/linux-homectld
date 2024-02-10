@@ -11,9 +11,9 @@
 
 #ifndef _NO_RASPBERRY_PI_
 #  include <wiringPi.h>
-#else
-#  include "gpio.h"
 #endif
+
+#include "gpio.h"
 
 #include "lib/json.h"
 #include "specific.h"
@@ -293,8 +293,9 @@ int HomeCtl::atMeanwhile()
 
    if (ioInterruptTrigger)
    {
-      tell(eloDebug, "Debug: Detected IO interrupt trigger");
       ioInterruptTrigger = false;
+      tell(eloDebug, "Debug: Detected IO interrupt trigger");
+      tell(eloAlways, "Debug: Detected IO interrupt trigger");
 
       gpioRead(pinUserInput1);
    }
@@ -325,29 +326,31 @@ void Daemon::ioInterrupt()
 int HomeCtl::applyConfigurationSpecials()
 {
 #ifndef _NO_RASPBERRY_PI_
-   initOutput(pinUserOut1, ooUser, omManual, "User Out 1");
-   initOutput(pinUserOut2, ooUser, omManual, "User Out 2");
-   initOutput(pinUserOut3, ooUser, omManual, "User Out 3");
-   initOutput(pinUserOut4, ooUser, omManual, "User Out 4");
-   initOutput(pinUserOut5, ooUser, omManual, "User Out 5");
-   initOutput(pinUserOut6, ooUser, omManual, "User Out 6");
-   initOutput(pinUserOut7, ooUser, omManual, "User Out 7");
-   initOutput(pinUserOut8, ooUser, omManual, "User Out 8");
+   initOutput(pinUserOut1, ooUser, omManual, "Digital Output 1");
+   initOutput(pinUserOut2, ooUser, omManual, "Digital Output 2");
+   initOutput(pinUserOut3, ooUser, omManual, "Digital Output 3");
+   initOutput(pinUserOut4, ooUser, omManual, "Digital Output 4");
+   initOutput(pinUserOut5, ooUser, omManual, "Digital Output 5");
+   initOutput(pinUserOut6, ooUser, omManual, "Digital Output 6");
+   initOutput(pinUserOut7, ooUser, omManual, "Digital Output 7");
 
-   initInput(pinUserInput1, "User In 1");
-   initInput(pinUserInput2, "User In 2");
-   initInput(pinUserInput3, "User In 3");
-   initInput(pinUserInput4, "User In 4");
-   initInput(pinUserInput5, "User In 5");
-   initInput(pinUserInput6, "User In 6");
+   initInput(pinUserInput1, "Digital Input 1");
+   initInput(pinUserInput2, "Digital Input 2");
+   initInput(pinUserInput3, "Digital Input 3");
 
-   // #TODO - needed for all inputs?
+# ifndef MODEL_ODROID_N2
+   // only at Raspberry Pi !
+
+   initInput(pinUserInput4, "Digital Input 4");
+   initInput(pinUserInput5, "Digital Input 5");
+   initInput(pinUserInput6, "Digital Input 6");
+# endif
 
 #endif
 
 #ifdef _POOL
 
-#ifndef _NO_RASPBERRY_PI_
+# ifndef _NO_RASPBERRY_PI_
    initOutput(pinFilterPump, ooAuto|ooUser, omAuto, "Filter Pump", urFullControl);
    initOutput(pinSolarPump, ooAuto|ooUser, omAuto, "Solar Pump", urFullControl);
    initOutput(pinPoolLight, ooUser, omManual, "Pool Light");
@@ -362,7 +365,7 @@ int HomeCtl::applyConfigurationSpecials()
    if (wiringPiISR(pinShowerSwitch, INT_EDGE_FALLING, &ioInterrupt) < 0)
       tell(eloAlways, "Error: Unable to setup ISR: %s", strerror(errno));
 
-#endif // _NO_RASPBERRY_PI_
+# endif // _NO_RASPBERRY_PI_
 
    // special values
 

@@ -70,6 +70,8 @@ const char* Elo::eloquences[] =
    "Lmc",
    "DebugLmc",
 
+   "DebugWiringPi",
+
    nullptr
 };
 
@@ -213,11 +215,13 @@ double usNow()
 
 const char* bin2string(word n)
 {
-   static char bin[17];
+   static char bin[30];
+
+   int p {0};
 
    for (int x = 0; x < 16; x++)
    {
-      bin[x] = n & 0x8000 ? '1' : '0';
+      bin[p++] = n & 0x8000 ? '1' : '0';
       n <<= 1;
    }
 
@@ -228,15 +232,18 @@ const char* bin2string(word n)
 
 const char* bin2string(byte n)
 {
-   static char bin[9];
+   static char bin[20];
+
+   int p {0};
 
    for (int x = 0; x < 8; x++)
    {
-      bin[x] = n & 0x80 ? '1' : '0';
+      if (x == 4) bin[p++] = ' ';
+      bin[p++] = n & 0x80 ? '1' : '0';
       n <<= 1;
    }
 
-   bin[8] = '\0';
+   bin[p] = '\0';
 
    return bin;
 }

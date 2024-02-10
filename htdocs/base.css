@@ -346,7 +346,7 @@ button:focus {
     color: white;
     margin-top: 2px;
     margin-bottom: 2px;
-    padding: 3px;
+    padding-right: 3px;
     height: 32px;
     box-sizing: border-box;
     font-size: 14px;

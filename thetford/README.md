@@ -18,6 +18,12 @@ If you like the project and want to support it
 [![paypal](https://www.paypalobjects.com/de_DE/DE/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=KUF9ZAQ5UTHUN)
 
 
+Install the hardware and software (python) as described at the usblini homepage:
+https://www.fischl.de/usblini/usblini_python_raspberrypi/
+
+I use this adapter as master, not yet tried as a slave.
+For the Thetford N400 series refrigerators a ready-made example for integration into the homectld can be found here thetford/README.md
+
 # CI-Bus / LIN-Bus Adapter
 
 Here you can find the suitable adapter https://www.fischl.de/usblini/
@@ -26,6 +32,7 @@ Here you can find the suitable adapter https://www.fischl.de/usblini/
 
 ```
 apt install -y python3 python3-pip python3-paho-mqtt
+apt install python3.7-tk  # (maybe needed forUSBliniGUI.py)
 pip install git+https://github.com/EmbedME/pyUSBlini
 ```
 
@@ -98,12 +105,10 @@ Betriebsmodus
 
 ### Werte Byte 1:
 Leistungsstufe
-
 0x00-0x04 - Level (Stufe 1-5)
 
 ### Werte Byte 2:
 D+
-
 0x00               - D+ liegt nicht an
 0x01               - D+ liegt nicht an
 0x40 (b01000000)   - D+ liegt an
@@ -120,3 +125,33 @@ Bei Störung der Fehlercode ansonsten 0x00
 
 ### Werte Byte 6 und 7:
 0x00 - immer
+
+
+# Thetford T24000 CI-Bus
+
+```01 02 00 17 00 81 00 00```
+
+Bus ID: 0x0c
+
+### Werte Byte 0:
+01 - Tag
+09 - Nacht
+
+### Werte Byte 1:
+Leistungsstufe
+0x00-0x04 - Level (Stufe 1-5)
+
+### Werte Byte 2:
+00 ?
+
+### Werte Byte 3:
+Bei Störung der Fehlercode ansonsten 0x00
+
+### Werte Byte 4:
+00 ?
+
+### Werte Byte 5:
+0x84-0x92  - Spannung der 12V Versorgung (13,2V - 14,8V)
+
+### Werte Byte 6 und 7:
+0x00 - immer ?

@@ -279,9 +279,8 @@ To change the MQTT borker connection (host, port, ...) adjust it in `/etc/system
 
 ## Caravan Industries (CI) Bus Interface
 
-The CI bus adapter https://www.fischl.de/usblini/ is a lightweigt solution. Install the hardware and software (python) as described at the usblini homepage.
-I use this adapter as master, not yet tried as a slave.
-For the Thetford N400 series refrigerators a ready-made example for integration into the homectld can be found here thetford/README.md
+The CI bus adapter https://www.fischl.de/usblini/ is a lightweight  solution.
+Details descibed here ./thetford/README.md
 
 # Information / HINTS
 
@@ -310,6 +309,12 @@ pinout
 ```
 
 # My notes to remember
+
+## Update Material Design Icons
+wget https://cdn.jsdelivr.net/npm/@mdi/font@6.5.95/css/materialdesignicons.min.css
+copy to htdocs/css/
+
+## CCU
 
 Rolladen an Hommatic CCU mit homectld ID 2 'HMB:2' komplette schließen
 mosquitto_pub --quiet -L mqtt://192.168.200.101:1883/homectld2mqtt/nodered -m '{ "id":"HMB:2","bri":0 }'

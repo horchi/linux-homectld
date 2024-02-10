@@ -185,12 +185,8 @@ int main(int argc, char** argv)
          return 1;
       }
 
-      // exit parent
-
       if (pid != 0)
          return 0;
-
-      // i'am the child!
    }
 
    // int AFTER fork !!!

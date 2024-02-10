@@ -77,24 +77,29 @@ class Daemon : public cWebInterface
          //              34         GND
          pinGpio19     = 35,     // GPIO19
          pinGpio16     = 36,     // GPIO16
-         pinGpio26     = 37,     // GPIO26
-         pinGpio20     = 38,     // GPIO20
+         pinGpio26     = 37,     // GPIO26  !!! at Odroid 'ADC.AIN.3'
+         pinGpio20     = 38,     // GPIO20  !!! at Odroid 'REF 1.8V'
          //              39         GND
-         pinGpio21     = 40,     // GPIO21
+         pinGpio21     = 40,     // GPIO21  !!! at Odroid 'ADC.AIN.2'
 
          // aliases
 
-         pinW1       = pinGpio04,
-         pinSerialTx = pinGpio14,
-         pinSerialRx = pinGpio15,
-         pinW1Power  = pinGpio10,
+         pinW1           = pinGpio04,
+         pinSerialTx     = pinGpio14,
+         pinSerialRx     = pinGpio15,
+         pinW1Power      = pinGpio10,
+
+         pinMcpIrq       = pinGpio16,  // reserved for i2cmqtt !
 
          pinUserInput1   = pinGpio12,
          pinUserInput2   = pinGpio13,
-         pinUserInput3   = pinGpio16,
+         pinUserInput3   = pinGpio08,  // interrupt don't work! (at least on ODROID)
+
+#ifndef MODEL_ODROID_N2
          pinUserInput4   = pinGpio20,
          pinUserInput5   = pinGpio21,
          pinUserInput6   = pinGpio26,
+#endif // MODEL_ODROID_N2
 
          pinUserOut1     = pinGpio23,
          pinUserOut2     = pinGpio24,
@@ -102,8 +107,7 @@ class Daemon : public cWebInterface
          pinUserOut4     = pinGpio09,
          pinUserOut5     = pinGpio05,
          pinUserOut6     = pinGpio06,
-         pinUserOut7     = pinGpio07,
-         pinUserOut8     = pinGpio08
+         pinUserOut7     = pinGpio07
       };
 
       enum SensorOptions
@@ -308,6 +312,7 @@ class Daemon : public cWebInterface
       int meanwhile();
       virtual int atMeanwhile() { return done; }
 
+      int updateInputs(bool check = true);
       virtual int updateSensors() { return done; }
       int storeSamples();
       void updateScriptSensors();
@@ -380,7 +385,7 @@ class Daemon : public cWebInterface
 
       void publishPin(const char* type, uint pin);
       void gpioWrite(uint pin, bool state, bool store = true);
-      bool gpioRead(uint pin);
+      bool gpioRead(uint pin, bool check = false);
       virtual void logReport() { return ; }
 
       // web
@@ -474,7 +479,7 @@ class Daemon : public cWebInterface
 
       int dispatchArduinoMsg(const char* message);
       int initArduino();
-      void updateAnalogInput(const char* id, double value, time_t stamp, const char* unit);
+      int updateAnalogInput(uint addr, const char* type, double value, time_t stamp, const char* unit);
 
       // W1
 
@@ -614,6 +619,7 @@ class Daemon : public cWebInterface
       time_t lastStore {0};
       int arduinoInterval {10};
       char* arduinoTopic {};
+      std::string mqttTopicI2C;
 
       int webPort {61109};
       char* webUrl {};
@@ -648,7 +654,7 @@ class Daemon : public cWebInterface
          double round {20.0};                // e.g. 50.0 -> 0.02; 20.0 -> 0.05; 10.0 -> 0.1;
       };
 
-      std::map<int,AiSensorConfig> aiSensors;
+      std::map<std::string,std::map<int,AiSensorConfig>> aiSensorConfig;
       std::map<std::string,std::map<int,SensorData>> sensors;
 
       virtual std::list<ConfigItemDef>* getConfiguration() = 0;

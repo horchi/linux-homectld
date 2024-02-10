@@ -1,5 +1,5 @@
 //***************************************************************************
-// Automation Control
+// Home Automation Control
 // File wsactions.c
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
@@ -387,11 +387,11 @@ int Daemon::performData(long client, const char* event)
          if (sensor->disabled)
             json_object_set_new(ojData, "disabled", json_boolean(true));
 
-         if (sensor->type ==  "DO")    // Digital apecial properties for DO
+         if (sensor->type == "DO")    // Digital special properties for DO
          {
-            json_object_set_new(ojData, "mode", json_string(sensor->mode == omManual ? "manual" : "auto"));
-            json_object_set_new(ojData, "options", json_integer(sensor->opt));
-            // json_object_set_new(ojData, "next", json_integer(sensor->next));
+            pin2Json(ojData, sensor->type.c_str(), sensor->address);
+            // json_object_set_new(ojData, "mode", json_string(sensor->mode == omManual ? "manual" : "auto"));
+            // json_object_set_new(ojData, "options", json_integer(sensor->opt));
          }
 
          free(key);
@@ -484,6 +484,7 @@ int Daemon::performTokenRequest(json_t* oObject, long client)
 
 //***************************************************************************
 // Perform Toggle IO
+//    {"action": "toggle", "value": -1, "address": 0, "type": "MCPO27"}
 //***************************************************************************
 
 int Daemon::performToggleIo(json_t* oObject, long client)
@@ -1359,19 +1360,16 @@ int Daemon::storeCalibration(json_t* obj, long client)
    std::string action = getStringFromJson(obj, "action", "");
    long address = getLongFromJson(obj, "address", na);
 
-   if (type == "AI")
+   if (type == "AI" || type.starts_with("ADS"))
       status = storeAiCalibration(obj, client);
    else if (type == "CV")
       status = storeCvCalibration(obj, client);
-   else if (type == "DO")
+   else if (type == "DO" || type.starts_with("MCPO"))
       status = storeDoCalibration(obj, client);
    else if (action == "delete")
       status = deleteValueFact(type.c_str(), address);
    else
-   {
-      tell(eloAlways, "Ignoring config request for '%s:%ld, only supported for 'AI', 'DO', 'W1' and 'CV' sensors", type.c_str(), address);
       return replyResult(fail, "Ignoring config request, only supported for 'AI', 'DO', 'W1' and 'CV' sensors", client);
-   }
 
    if (status == success)
    {
@@ -1470,24 +1468,24 @@ int Daemon::storeAiCalibration(json_t* obj, long client)
    double calRound = getDoubleFromJson(obj, "calRound");
    double calCutBelow = getDoubleFromJson(obj, "calCutBelow");
 
-   if (calPointSelect == "" || address == na)
+   if (calPointSelect == "" || address == na || type.empty())
       return replyResult(fail, "Ignoring invalid calibration request", client);
 
    tell(eloAlways, "Storing calibration values of AI:0x%lx for '%s' (%f/%f)", address, calPointSelect.c_str(),
         calPoint, calPointValue);
 
-   aiSensors[address].round = calRound;
-   aiSensors[address].calCutBelow = calCutBelow;
+   aiSensorConfig[type][address].round = calRound;
+   aiSensorConfig[type][address].calCutBelow = calCutBelow;
 
    if (calPointSelect == "pointA")
    {
-      aiSensors[address].calPointA = calPoint;
-      aiSensors[address].calPointValueA = calPointValue;
+      aiSensorConfig[type][address].calPointA = calPoint;
+      aiSensorConfig[type][address].calPointValueA = calPointValue;
    }
    else
    {
-      aiSensors[address].calPointB = calPoint;
-      aiSensors[address].calPointValueB = calPointValue;
+      aiSensorConfig[type][address].calPointB = calPoint;
+      aiSensorConfig[type][address].calPointValueB = calPointValue;
    }
 
    // store to valuefacts
@@ -1500,12 +1498,12 @@ int Daemon::storeAiCalibration(json_t* obj, long client)
    {
       json_t* jCal = json_object();
 
-      json_object_set_new(jCal, "pointA", json_real(aiSensors[address].calPointA));
-      json_object_set_new(jCal, "pointB", json_real(aiSensors[address].calPointB));
-      json_object_set_new(jCal, "valueA", json_real(aiSensors[address].calPointValueA));
-      json_object_set_new(jCal, "valueB", json_real(aiSensors[address].calPointValueB));
-      json_object_set_new(jCal, "round", json_real(aiSensors[address].round));
-      json_object_set_new(jCal, "calCutBelow", json_real(aiSensors[address].calCutBelow));
+      json_object_set_new(jCal, "pointA", json_real(aiSensorConfig[type][address].calPointA));
+      json_object_set_new(jCal, "pointB", json_real(aiSensorConfig[type][address].calPointB));
+      json_object_set_new(jCal, "valueA", json_real(aiSensorConfig[type][address].calPointValueA));
+      json_object_set_new(jCal, "valueB", json_real(aiSensorConfig[type][address].calPointValueB));
+      json_object_set_new(jCal, "round", json_real(aiSensorConfig[type][address].round));
+      json_object_set_new(jCal, "calCutBelow", json_real(aiSensorConfig[type][address].calCutBelow));
 
       char* p = json_dumps(jCal, JSON_REAL_PRECISION(4));
       json_decref(jCal);
@@ -2187,14 +2185,14 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
       // #TODO check actor properties if dimmable ...
       json_object_set_new(oData, "dim", json_boolean(type == "DZL" || type == "HMB"));
 
-      if (type == "AI")
+      if (type == "AI" || type.starts_with("ADS"))
       {
-         json_object_set_new(oData, "calPointA", json_real(aiSensors[address].calPointA));
-         json_object_set_new(oData, "calPointB", json_real(aiSensors[address].calPointB));
-         json_object_set_new(oData, "calPointValueA", json_real(aiSensors[address].calPointValueA));
-         json_object_set_new(oData, "calPointValueB", json_real(aiSensors[address].calPointValueB));
-         json_object_set_new(oData, "calRound", json_real(aiSensors[address].round));
-         json_object_set_new(oData, "calCutBelow", json_real(aiSensors[address].calCutBelow));
+         json_object_set_new(oData, "calPointA", json_real(aiSensorConfig[type][address].calPointA));
+         json_object_set_new(oData, "calPointB", json_real(aiSensorConfig[type][address].calPointB));
+         json_object_set_new(oData, "calPointValueA", json_real(aiSensorConfig[type][address].calPointValueA));
+         json_object_set_new(oData, "calPointValueB", json_real(aiSensorConfig[type][address].calPointValueB));
+         json_object_set_new(oData, "calRound", json_real(aiSensorConfig[type][address].round));
+         json_object_set_new(oData, "calCutBelow", json_real(aiSensorConfig[type][address].calCutBelow));
       }
       else if (type == "CV")
       {

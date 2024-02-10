@@ -367,7 +367,7 @@ int Mqtt::write(const char* topic, const char* message, size_t len, uint8_t flag
    }
 
    theTopic = topic;
-   tell(eloMqtt, "-> (%s)[%s]", topic, message);
+   tell(eloMqtt, "-> (%s) [%s]", topic, message);
 
    return success;
 }

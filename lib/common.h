@@ -117,6 +117,8 @@ enum Eloquence
    eloLmc            = 0x20000,
    eloDebugLmc       = 0x40000,
 
+   eloDebugWiringPi  = 0x80000,
+
    eloAlways         = 0x00000
 };
 
@@ -484,6 +486,7 @@ class cTimeMs
 
       cTimeMs(int Ms = 0);
       static uint64_t Now();
+      static uint64_t now() { return Now(); }
       void Set(int Ms = 0);
       bool TimedOut();
       uint64_t Elapsed();

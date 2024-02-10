@@ -45,6 +45,14 @@ const char* physToGpioName_odroid_n2[64]
    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr            // 57...63
 };
 
+#ifndef _NO_RASPBERRY_PI_
+
+//***************************************************************************
+// compile WITH wiringPi
+//***************************************************************************
+
+#include <wiringPi.h>
+
 const char* physPinToGpioName(int pin)
 {
    if (pin < 0 || pin >= 64)
@@ -53,14 +61,23 @@ const char* physPinToGpioName(int pin)
    if (!physToGpioName_odroid_n2[pin])
       return "";
 
+#ifndef MODEL_ODROID_N2
+   return physToGpioNameRaspberryPi[pin];
+#else
    return physToGpioName_odroid_n2[pin];
+#endif
 }
 
-// ----------------------------------
-// dummies to be removed
-// ----------------------------------
+#else // _NO_RASPBERRY_PI_
 
-#ifdef _NO_RASPBERRY_PI_
+//***************************************************************************
+// compile WITHOPUT wiringPi
+//***************************************************************************
+
+const char* physPinToGpioName(int pin)
+{
+   return "";
+}
 
 int physPinToGpio(uint pin)
 {

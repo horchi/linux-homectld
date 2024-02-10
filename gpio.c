@@ -54,13 +54,18 @@ const char* physPinToGpioName(int pin)
       return "";
 
    return physToGpioName_odroid_n2[pin];
-};
+}
 
 // ----------------------------------
 // dummies to be removed
 // ----------------------------------
 
 #ifdef _NO_RASPBERRY_PI_
+
+int physPinToGpio(uint pin)
+{
+   return 0;
+}
 
 int wiringPiISR(int, int, void (*)())
 {

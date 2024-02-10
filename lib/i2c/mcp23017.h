@@ -59,7 +59,7 @@ enum class Mcp23017Register : uint8_t
 inline Mcp23017Register operator+(Mcp23017Register a, Mcp23017Port b)
 {
    return static_cast<Mcp23017Register>(static_cast<uint8_t>(a) + static_cast<uint8_t>(b));
-};
+}
 
 class Mcp23017 : public I2C
 {

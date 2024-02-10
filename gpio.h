@@ -31,10 +31,16 @@ const char* physPinToGpioName(int pin);
 #include <stdlib.h>   // uint
 
 #define PUD_UP 0
-#define INT_EDGE_FALLING 0
+#define INT_EDGE_FALLING 0#
+#define INT_EDGE_BOTH 2
 #define OUTPUT 0
 #define INPUT 0
+#define INPUT_PULLUP 0
+#define INPUT_PULLDOWN 0
+#define HIGH 1
+#define LOW 0
 
+int physPinToGpio(uint pin);
 int wiringPiISR(int, int, void (*)());
 void pinMode(int, int);
 void pullUpDnControl(int pin, int value);

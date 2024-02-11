@@ -3,7 +3,7 @@ include ../Make.config
 
 install:
 	@echo thetford service
-	cat thetford.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | sed s:"<TARGET>":"$(TARGET)":g | sed s:"<CLASS>":"$(CLASS)":g |install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/
+	cat thetford.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/thetford.service
 	chmod a+r $(SYSTEMDDEST)/thetford.service
 	if ! test -f $(DESTDIR)/etc/default/thetford2mqtt; then \
 		cp thetford2mqtt $(DESTDIR)/etc/default/thetford2mqtt; \

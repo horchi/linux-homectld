@@ -21,6 +21,18 @@ If you like the project and want to support it
 Install the hardware and software (python) as described at the usblini homepage:
 https://www.fischl.de/usblini/usblini_python_raspberrypi/
 
+For example:
+```
+apt update
+apt install -y python3 python3-pip
+pip install git+https://github.com/EmbedME/pyUSBlini
+
+apt install python3.7-tk  # (maybe needed forUSBliniGUI.py)
+
+bash -c $'echo \'SUBSYSTEM=="usb", ATTRS{product}=="USBlini", MODE="0666"\' > /etc/udev/rules.d/50-USBlini.rules'
+udevadm control --reload-rules
+```
+
 I use this adapter as master, not yet tried as a slave.
 For the Thetford N400 series refrigerators a ready-made example for integration into the homectld can be found here thetford/README.md
 
@@ -28,13 +40,15 @@ For the Thetford N400 series refrigerators a ready-made example for integration 
 
 Here you can find the suitable adapter https://www.fischl.de/usblini/
 
-# Dependencies
-
+# Install thetford python script
 ```
-apt install -y python3 python3-pip python3-paho-mqtt
-apt install python3.7-tk  # (maybe needed forUSBliniGUI.py)
-pip install git+https://github.com/EmbedME/pyUSBlini
+apt install -y python3-paho-mqtt
+cd thetford
+make install
+systemctl start thetford.service
 ```
+## IMPORTANT
+Adjust configuration in `/etc/default/thetford2mqtt`
 
 ## Check if device USBlini was detected
 

@@ -1,9 +1,6 @@
 
-- pullup/pulldown und invert für Digitale Eingänge konfigurierbar
-- Setup für auch analoge Eingänge des ADS1115
+- pullup/pulldown für Digitale Eingänge konfigurierbar
 - Rechte der valuefacts konfigurierbar
-
-
 
 POOL
 

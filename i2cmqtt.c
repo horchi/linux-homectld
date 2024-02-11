@@ -332,6 +332,7 @@ int I2CMqtt::dispatchMqttMessage(const char* message)
    const char* type = getStringFromJson(jData, "type", "");
    int bit = getIntFromJson(jData, "address");
    bool state = getBoolFromJson(jData, "state");
+   std::string action = getStringFromJson(jData, "action", "");
 
    if (strncmp(type, "MCPO", 4) == 0)
    {
@@ -340,9 +341,16 @@ int I2CMqtt::dispatchMqttMessage(const char* message)
       // std::string byte = bin2string(currentOutput);
       // tell(eloAlways, "outout is: '%s'", byte.c_str());
 
-      tell(eloDebug, "Debug: Update digital output pin %s:0x%02x to %d", type, bit, state);
+      tell(eloDebug, "Debug: Update digital output pin %s:0x%02x, state %d, action '%s'", type, bit, state, action.c_str());
 
-      if (state)
+      if (action == "impulse")
+      {
+         bitClear(currentOutput, bit);
+         mcp.writePort(Mcp23017Port::A, currentOutput);
+         usleep(50000);
+         bitSet(currentOutput, bit);
+      }
+      else if (state)
          bitSet(currentOutput, bit);
       else
          bitClear(currentOutput, bit);
@@ -351,7 +359,6 @@ int I2CMqtt::dispatchMqttMessage(const char* message)
       // tell(eloAlways, "write: '%s'", byte.c_str());
 
       mcp.writePort(Mcp23017Port::A, currentOutput);
-
       updateMcp();
    }
 

@@ -1365,7 +1365,9 @@ int Daemon::storeCalibration(json_t* obj, long client)
    else if (type == "CV")
       status = storeCvCalibration(obj, client);
    else if (type == "DO" || type.starts_with("MCPO"))
-      status = storeDoCalibration(obj, client);
+      status = storeIoCalibration(obj, client);
+   else if (type == "DI" || type.starts_with("MCPI"))
+      status = storeIoCalibration(obj, client);
    else if (action == "delete")
       status = deleteValueFact(type.c_str(), address);
    else
@@ -1397,7 +1399,7 @@ int Daemon::deleteValueFact(const char* type, long address)
 }
 
 //***************************************************************************
-//
+// Store CV Calibration
 //***************************************************************************
 
 int Daemon::storeCvCalibration(json_t* obj, long client)
@@ -1437,7 +1439,7 @@ int Daemon::storeCvCalibration(json_t* obj, long client)
    return success;
 }
 
-int Daemon::storeDoCalibration(json_t* obj, long client)
+int Daemon::storeIoCalibration(json_t* obj, long client)
 {
    const char* type = getStringFromJson(obj, "type");
    long address = getIntFromJson(obj, "address", na);
@@ -1454,6 +1456,8 @@ int Daemon::storeDoCalibration(json_t* obj, long client)
       tableValueFacts->setValue("CALIBRATION", calibration.c_str());
       tableValueFacts->store();
    }
+
+   initSensorByFact(type, address);
 
    return success;
 }
@@ -1493,6 +1497,8 @@ int Daemon::storeAiCalibration(json_t* obj, long client)
    tableValueFacts->clear();
    tableValueFacts->setValue("TYPE", type.c_str());
    tableValueFacts->setValue("ADDRESS", address);
+
+   // #TODO warum nicht obj speichern ?!?!?!
 
    if (tableValueFacts->find())
    {
@@ -2198,7 +2204,7 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
       {
          json_object_set_new(oData, "luaScript", json_string(tableValueFacts->getStrValue("CALIBRATION")));
       }
-      else if (type == "DO")
+      else if (type == "DO" || type == "DI" || type.starts_with("MCP"))
       {
          if (!tableValueFacts->getValue("CALIBRATION")->isEmpty())
          {

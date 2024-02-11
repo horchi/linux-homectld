@@ -178,6 +178,8 @@ function showTable(section)
          html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorCvSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
       else if (item.type == 'DO' || item.type.startsWith('MCPO'))
          html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorDoSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
+      else if (item.type == 'DI' || item.type.startsWith('MCPI'))
+         html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorDiSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
       else if (item.type == 'W1' || item.type == 'RTL433' || item.type == 'SC')
          html += '<td>' + '<button class="buttonOptions rounded-border" onclick="deleteValueFact(\'' + item.type + '\', \'' + item.address + '\')">Löschen</button>' + '</td>';
       else
@@ -429,7 +431,7 @@ function sensorDoSetup(type, address)
                                   .attr('id', 'invertDo')
                                   .attr('type', 'checkbox')
                                   .addClass('rounded-border input')
-                                  .prop('checked', valueFacts[key].calibration ? valueFacts[key].calibration.invert : valueFacts[key].invertDo))
+                                  .prop('checked', valueFacts[key].calibration ? valueFacts[key].calibration.invert : true))
                           .append($('<label></label>')
                                   .css('text-align', 'end')
                                   .css('align-self', 'center')
@@ -449,7 +451,7 @@ function sensorDoSetup(type, address)
                                   .css('align-self', 'center')
                                   .css('margin-right', '10px')
                                   .prop('for', 'impulseDo')
-                                  .html('Impuls Ausgang (10ms)')))
+                                  .html('Impuls Ausgang (50ms)')))
                   .append($('<div></div>')
                           .css('display', 'flex')
                           .append($('<div></div>')
@@ -501,6 +503,92 @@ function sensorDoSetup(type, address)
             }});
 
             $(this).dialog('close');
+         }
+      },
+      close: function() {
+         calSensorType = '';
+         calSensorAddress = -1;
+         $(this).dialog('destroy').remove();
+      }
+   });
+}
+
+function sensorDiSetup(type, address)
+{
+   console.log("sensorSetup ", type, address);
+
+   calSensorType = type;
+   calSensorAddress = address;
+
+   var key = toKey(calSensorType, parseInt(calSensorAddress));
+   var form = document.createElement("div");
+
+   if (valueFacts[key] == null) {
+      console.log("Sensor ", key, "undefined");
+      return;
+   }
+
+   $(form).append($('<div></div>')
+                  .attr('id', 'ioDialogSetup')
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<input></input>')
+                                  .attr('id', 'invertDi')
+                                  .attr('type', 'checkbox')
+                                  .addClass('rounded-border input')
+                                  .prop('checked', valueFacts[key].calibration ? valueFacts[key].calibration.invert : true))
+                          .append($('<label></label>')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .prop('for', 'invertDi')
+                                  .html('Eingang Invertieren'))));
+
+   var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
+
+   $(form).dialog({
+      modal: true,
+      resizable: false,
+      closeOnEscape: true,
+      hide: "fade",
+      width: "80%",
+      title: "DI settings '" + title + '"',
+      open: function() {
+         calSensorType = type;
+         calSensorAddress = address;
+      },
+      buttons: {
+         'Abbrechen': function () {
+            $(this).dialog('close');
+         },
+         'Speichern': function () {
+            socket.send({ "event" : "storecalibration", "object" : {
+               'type' : calSensorType,
+               'address' : parseInt(calSensorAddress),
+               'calibration' : JSON.stringify({
+                  'invert' : $('#invertDi').is(':checked'),
+                  'interrupt' : $('#interruptDi').is(':checked')
+               })
+            }});
+
+            $(this).dialog('close');
+         }
+      },
+      open: function(){
+         if (type == 'DI') {
+            $('#ioDialogSetup').append($('<div></div>')
+                                       .css('display', 'flex')
+                                       .append($('<input></input>')
+                                               .attr('id', 'interruptDi')
+                                               .attr('type', 'checkbox')
+                                               .addClass('rounded-border input')
+                                               .prop('checked', valueFacts[key].calibration ? valueFacts[key].calibration.interrupt : false))
+                                       .append($('<label></label>')
+                                               .css('text-align', 'end')
+                                               .css('align-self', 'center')
+                                               .css('margin-right', '10px')
+                                               .prop('for', 'interruptDi')
+                                               .html('Interrupt')));
          }
       },
       close: function() {

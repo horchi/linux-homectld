@@ -1,4 +1,4 @@
-//***************************************************************************
+ //***************************************************************************
 // Automation Control
 // File daemon.h
 // This code is distributed under the terms and conditions of the
@@ -213,10 +213,11 @@ class Daemon : public cWebInterface
          int rights {cWebService::urView};
          int group {0};
 
-         // 'DO' specials
+         // 'DO' / 'DI' specials
 
-         bool invertDO {true};
-         bool impulseDO {false};      // change output only for a short impolse
+         bool invert {true};
+         bool impulse {false};      // change output only for a short impulse
+         bool interrupt {false};
          OutputMode mode {omAuto};
          uint opt {ooUser};
          std::string feedbackInType;  // feedback input for impuls out
@@ -326,7 +327,6 @@ class Daemon : public cWebInterface
 
       virtual int process();                               // called each 'interval'
       virtual int performJobs() { return done; }           // called every loop (1 second)
-      // int performWebSocketPing();
       int dispatchClientRequest();
       virtual int dispatchSpecialRequest(Event event, json_t* oObject, long client) { return ignore; }
       virtual int dispatchMqttHaCommandRequest(json_t* jData, const char* topic);
@@ -431,7 +431,7 @@ class Daemon : public cWebInterface
       int storeCalibration(json_t* oObject, long client);
       int storeCvCalibration(json_t* oObject, long client);
       int storeAiCalibration(json_t* oObject, long client);
-      int storeDoCalibration(json_t* oObject, long client);
+      int storeIoCalibration(json_t* oObject, long client);
       int performLmcAction(json_t* oObject, long client);
       virtual int performCommand(json_t* obj, long client);
       virtual const char* getTextImage(const char* key, const char* text) { return nullptr; }

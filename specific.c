@@ -295,7 +295,6 @@ int HomeCtl::atMeanwhile()
    {
       ioInterruptTrigger = false;
       tell(eloDebug, "Debug: Detected IO interrupt trigger");
-      tell(eloAlways, "Debug: Detected IO interrupt trigger");
 
       gpioRead(pinUserInput1);
    }

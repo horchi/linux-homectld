@@ -153,7 +153,7 @@ Daemon::DefaultWidgetProperty Daemon::defaultWidgetProperties[] =
    { "DZS",      na,   "*",      wtMeter,        0,        45,      12, true },
    { "WEA",      na,   "*",  wtPlainText,        0,         0,       0, true },
    { "N4000",    na,   "*",      wtValue,        0,         0,       0, false },
-   { "T2090",    na,   "*",      wtValue,        0,         0,       0, false },
+   { "T2090",    na,   "*",      wtValue,        0,         0,       0, true },
    { "" }
 };
 
@@ -569,7 +569,7 @@ int Daemon::exit()
 {
    for (auto it = sensors["DO"].begin(); it != sensors["DO"].end(); ++it)
    {
-      if (sensors["DO"][it->first].impulseDO)
+      if (sensors["DO"][it->first].impulse)
          ;
       else
          gpioWrite(it->first, false, false);
@@ -636,10 +636,16 @@ int Daemon::initSensorByFact(std::string type, uint address)
          }
          else if (type == "DO" || type.starts_with("MCPO"))
          {
-            sensors[type][address].invertDO = getBoolFromJson(jCal, "invert");
-            sensors[type][address].impulseDO = getBoolFromJson(jCal, "impulse");
+            sensors[type][address].invert = getBoolFromJson(jCal, "invert");
+            sensors[type][address].impulse = getBoolFromJson(jCal, "impulse");
             sensors[type][address].feedbackInType = getStringFromJson(jCal, "feedbackInType", "");
             sensors[type][address].feedbackInAddress = getIntFromJson(jCal, "feedbackInAddress");
+            // tell(eloAlways, "Debug: Init sensor %s/0x%02x - impulse %d", type.c_str(), address, sensors[type][address].impulse);
+         }
+         else if (type == "DI" || type.starts_with("MCPI"))
+         {
+            sensors[type][address].invert = getBoolFromJson(jCal, "invert");
+            sensors[type][address].interrupt = getBoolFromJson(jCal, "interrupt");
          }
 
          json_decref(jCal);
@@ -666,11 +672,11 @@ int Daemon::initOutput(uint pin, int opt, OutputMode mode, const char* name, uin
    tell(eloDebugWiringPi, "Debug: pinMode(%d, OUTPUT) (%d / %s)", pin, physPinToGpio(pin), physPinToGpioName(pin));
    pinMode(pin, OUTPUT);
 
-   if (sensors["DO"][pin].impulseDO)
+   if (sensors["DO"][pin].impulse)
    {
       sensors["DO"][pin].last = time(0);
       sensors["DO"][pin].valid = true;
-      sensors["DO"][pin].state = sensors["DO"][pin].invertDO ? true : false;
+      sensors["DO"][pin].state = sensors["DO"][pin].invert ? true : false;
    }
    else
       gpioWrite(pin, false, false);
@@ -691,13 +697,13 @@ int Daemon::initInput(uint pin, const char* name)
    if (!isEmpty(name))
    {
       addValueFact(pin, "DI", 1, name);
-      sensors["DI"][pin].invertDO = true;
       gpioRead(pin);
 
 #ifndef _NO_RASPBERRY_PI_
-      if (sensors["DI"][pin].active)
+      if (sensors["DI"][pin].active && sensors["DI"][pin].interrupt)
       {
          tell(eloDebugWiringPi, "Debug: wiringPiISR(%d) (%d / %s)", pin, physPinToGpio(pin), physPinToGpioName(pin));
+
          if (wiringPiISR(pin, INT_EDGE_BOTH, &ioInterrupt) < 0)
             tell(eloAlways, "Error: Unable to setup ISR to pin %d (%d / %s)", pin, physPinToGpio(pin), physPinToGpioName(pin));
       }
@@ -3640,7 +3646,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    sensors[type][address].image = image;
 
    bool state = getBoolFromJson(jData, "state");
-   sensors[type][address].state = sensors[type][address].invertDO ? !state : state;
+   sensors[type][address].state = sensors[type][address].invert ? !state : state;
 
    // send update to WS
    {
@@ -3888,11 +3894,16 @@ int Daemon::toggleIo(uint addr, const char* type, int state, int bri, int transi
          }
 
          // tell(eloAlways, "Toggle %s:0x%02d to %d", type, addr, state);
+
          bool state = !sensors[type][addr].state;
          json_t* obj = json_object();
          json_object_set_new(obj, "type", json_string(type));
          json_object_set_new(obj, "address", json_integer(addr));
-         json_object_set_new(obj, "state", json_boolean(sensors["type"][addr].invertDO ? !state : state));
+
+         if (!sensors[type][addr].impulse)
+            json_object_set_new(obj, "state", json_boolean(sensors["type"][addr].invert ? !state : state));
+         else
+            json_object_set_new(obj, "action", json_string("impulse"));
 
          char* message = json_dumps(obj, JSON_REAL_PRECISION(8));
          mqttWriter->write(mqttTopicI2C.c_str(), message);
@@ -3988,7 +3999,7 @@ void Daemon::gpioWrite(uint pin, bool state, bool store)
    sensors["DO"][pin].last = time(0);
    sensors["DO"][pin].valid = true;
 
-   if (sensors["DO"][pin].impulseDO)
+   if (sensors["DO"][pin].impulse)
    {
       tell(eloDebug, "Debug: Trigger impulse for DO:0x%02x", pin);
       digitalWrite(pin, false);
@@ -3999,10 +4010,10 @@ void Daemon::gpioWrite(uint pin, bool state, bool store)
    }
    else
    {
-      // invert the state on 'invertDO' - most relay board are active at 'false'
+      // invert the state on 'invert' - most relay board are active at 'false'
 
       sensors["DO"][pin].state = state;
-      digitalWrite(pin, sensors["DO"][pin].invertDO ? !state : state);
+      digitalWrite(pin, sensors["DO"][pin].invert ? !state : state);
    }
 
    if (store)
@@ -4023,7 +4034,7 @@ bool Daemon::gpioRead(uint pin, bool check)
 {
    int state = digitalRead(pin);
 
-   if (sensors["DI"][pin].invertDO)
+   if (sensors["DI"][pin].invert)
       state = !state;
 
    // tell(eloAlways, "Pin %d %d / %d", pin, sensors["DI"][pin].state, state);
@@ -4156,7 +4167,7 @@ int Daemon::loadStates()
    {
       if (sensors["DO"][output.first].opt & ooUser)
       {
-         if (sensors["DO"][output.first].impulseDO)
+         if (sensors["DO"][output.first].impulse)
             continue;
 
          gpioWrite(output.first, value & (long)pow(2, output.first), false);

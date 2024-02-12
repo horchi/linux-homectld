@@ -182,21 +182,6 @@ bool Daemon::checkRights(long client, Event event, json_t* oObject)
 }
 
 //***************************************************************************
-// WS Ping
-//***************************************************************************
-
-// int Daemon::performWebSocketPing()
-// {
-//    if (nextWebSocketPing < time(0))
-//    {
-//       webSock->performData(cWebSock::mtPing);
-//       nextWebSocketPing = time(0) + webSocketPingTime-5;
-//    }
-
-//    return done;
-// }
-
-//***************************************************************************
 // Reply Result
 //***************************************************************************
 

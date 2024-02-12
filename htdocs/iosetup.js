@@ -542,7 +542,21 @@ function sensorDiSetup(type, address)
                                   .css('align-self', 'center')
                                   .css('margin-right', '10px')
                                   .prop('for', 'invertDi')
-                                  .html('Eingang Invertieren'))));
+                                  .html('Eingang Invertieren')))
+
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<label></label>')
+                                  .css('text-align', 'end')
+                                  .css('align-self', 'center')
+                                  .css('margin-right', '10px')
+                                  .html('Pull Up/Down'))
+                          .append($('<select></select>')
+                                  .attr('id', 'pullDi')
+                                  .attr('type', 'checkbox')
+                                  .addClass('rounded-border input')
+                                  .val(valueFacts[key].calibration ? valueFacts[key].calibration.pull : 0)))
+                 );
 
    var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
 
@@ -567,7 +581,8 @@ function sensorDiSetup(type, address)
                'address' : parseInt(calSensorAddress),
                'calibration' : JSON.stringify({
                   'invert' : $('#invertDi').is(':checked'),
-                  'interrupt' : $('#interruptDi').is(':checked')
+                  'interrupt' : $('#interruptDi').is(':checked'),
+                  'pull' : $('#pullDi').val()
                })
             }});
 
@@ -590,6 +605,17 @@ function sensorDiSetup(type, address)
                                                .prop('for', 'interruptDi')
                                                .html('Interrupt')));
          }
+
+         $('#pullDi')
+            .append($('<option></option>')
+                    .val(0)
+                    .html('None'))
+            .append($('<option></option>')
+                    .val(1)
+                    .html('Up'))
+            .append($('<option></option>')
+                    .val(2)
+                    .html('Down'));
       },
       close: function() {
          calSensorType = '';

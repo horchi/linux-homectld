@@ -2,12 +2,9 @@
 # General
 
 - apply IO settings without restart (initInput / initOutput)
+    -> done (exept interrupt routine, resting interrupt routine crashes)
 
-- improve init and topic communication of i2smqtt process
-- pullup/pulldown für Digitale Eingänge konfigurierbar (also for i2smqtt)
-- change web communication of analog calibration to plain json object?
 - Rechte der valuefacts konfigurierbar
-
 
 # Pool
 

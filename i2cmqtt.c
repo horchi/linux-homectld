@@ -178,6 +178,7 @@ int I2CMqtt::init()
 
       mcp.writeRegister(Mcp23017Register::IPOL_B, 0x00);
       mcp.writeRegister(Mcp23017Register::IPOL_A, 0x00);
+      mcp.writePort(Mcp23017Port::A, 0xFF);
 
       mcp.clearInterrupts();
 
@@ -324,14 +325,13 @@ int I2CMqtt::update()
 
 int I2CMqtt::dispatchMqttMessage(const char* message)
 {
-   json_t* jData = jsonLoad(message);
+   json_t* jData {jsonLoad(message)};
 
    if (!jData)
       return fail;
 
    const char* type = getStringFromJson(jData, "type", "");
    int bit = getIntFromJson(jData, "address");
-   bool state = getBoolFromJson(jData, "state");
    std::string action = getStringFromJson(jData, "action", "");
 
    if (strncmp(type, "MCPO", 4) == 0)
@@ -341,7 +341,7 @@ int I2CMqtt::dispatchMqttMessage(const char* message)
       // std::string byte = bin2string(currentOutput);
       // tell(eloAlways, "outout is: '%s'", byte.c_str());
 
-      tell(eloDebug, "Debug: Update digital output pin %s:0x%02x, state %d, action '%s'", type, bit, state, action.c_str());
+      tell(eloDebug, "Debug: Update digital output pin %s:0x%02x, action '%s'", type, bit, action.c_str());
 
       if (action == "impulse")
       {
@@ -350,16 +350,46 @@ int I2CMqtt::dispatchMqttMessage(const char* message)
          usleep(50000);
          bitSet(currentOutput, bit);
       }
-      else if (state)
+      else if (action == "init")
+      {
+         // the following (all) MCPO settings handled by homectrld:
+         //   getBoolByPath(jData, "config/impulse");
+         //   getBoolByPath(jData, "config/invert");
+         //   getStringFromJson(jData, "config/feedbackInType", "");
+         //   getIntFromJson(jData, "config/feedbackInAddress");
+      }
+      else if (action == "set")
+      {
          bitSet(currentOutput, bit);
-      else
+      }
+      else if (action == "clear")
+      {
          bitClear(currentOutput, bit);
+      }
+      else
+         tell(eloAlways, "Info: Ignoring unexpected action '%s' fpr MCPO", action.c_str());
 
       // std::string byte = bin2string(currentOutput);
       // tell(eloAlways, "write: '%s'", byte.c_str());
 
       mcp.writePort(Mcp23017Port::A, currentOutput);
       updateMcp();
+   }
+   else if (strncmp(type, "MCPI", 4) == 0)
+   {
+      uint pull = getIntByPath(jData, "config/pull");
+
+      if (pull == 0)
+         ; // pullUpDnControl(bit, );
+      else if (pull == 1)
+         pullUpDnControl(bit, INPUT_PULLUP);
+      else if (pull == 2)
+         pullUpDnControl(bit, INPUT_PULLDOWN);
+
+      // #TODO getBoolByPath(jData, "config/interrupt");
+
+      // the following MCPI settings handled by homectrld:
+      //   getBoolByPath(jData, "config/invert");
    }
 
    return success;
@@ -372,8 +402,8 @@ int I2CMqtt::dispatchMqttMessage(const char* message)
 int I2CMqtt::updateMcp()
 {
    char type[100] {};
-   uint8_t currentOutput = mcp.readPort(Mcp23017Port::A);
-   uint8_t currentInput = mcp.readPort(Mcp23017Port::B);
+   uint8_t currentOutput {mcp.readPort(Mcp23017Port::A)};
+   uint8_t currentInput {mcp.readPort(Mcp23017Port::B)};
 
    // Port A digital outputs
 

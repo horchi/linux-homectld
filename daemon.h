@@ -183,6 +183,13 @@ class Daemon : public cWebInterface
          dirClose = 2
       };
 
+      enum Pull
+      {
+         pullNone,  // 0
+         pullUp,    // 1
+         pullDown   // 2
+      };
+
       struct SensorData        // Sensor Data
       {
          bool record {false};
@@ -216,8 +223,10 @@ class Daemon : public cWebInterface
          // 'DO' / 'DI' specials
 
          bool invert {true};
+         int pull {pullUp};
          bool impulse {false};      // change output only for a short impulse
          bool interrupt {false};
+         bool interruptSet {false};
          OutputMode mode {omAuto};
          uint opt {ooUser};
          std::string feedbackInType;  // feedback input for impuls out
@@ -305,6 +314,9 @@ class Daemon : public cWebInterface
       int initSensorByFact(std::string type, uint address);
       int initOutput(uint pin, int opt, OutputMode mode, const char* name, uint rights = urControl);
       int initInput(uint pin, const char* name);
+      int cfgOutput(std::string, uint pin, json_t* jCal = nullptr);
+      int cfgInput(std::string, uint pin, json_t* jCal = nullptr);
+
       int initScripts();
 
       void doSleep(int t);
@@ -383,6 +395,7 @@ class Daemon : public cWebInterface
 
       bool doShutDown() { return shutdown; }
 
+      void publishI2CSensorConfig(const char* type, uint pin, json_t* jParameters);
       void publishPin(const char* type, uint pin);
       void gpioWrite(uint pin, bool state, bool store = true);
       bool gpioRead(uint pin, bool check = false);

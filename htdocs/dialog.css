@@ -37,6 +37,10 @@
     border-bottom-color: var(--blue);
 }
 
+.ui-dialog-titlebar-close {
+    display: none
+}
+
 .no-close .ui-dialog-titlebar-close {
     display: none
 }

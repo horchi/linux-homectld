@@ -16,13 +16,55 @@
 #include "i2c.h"
 
 //***************************************************************************
+// I2C - Copy Konstruktor
+//***************************************************************************
+
+I2C::I2C(const I2C& source)
+{
+   if (source.tca)
+      tca = new Tca9548(*source.tca);
+   tcaChannel = source.tcaChannel;
+   device = source.device;
+   address = source.address;
+   fd = source.fd;
+}
+
+//***************************************************************************
+// I2C - Move Konstruktor
+//***************************************************************************
+
+I2C::I2C(I2C&& source)
+{
+   tca = source.tca;
+   source.tca = nullptr;
+   tcaChannel = source.tcaChannel;
+   device = source.device;
+   address = source.address;
+   fd = source.fd;
+   source.fd = na;
+}
+
+I2C::~I2C()
+{
+   delete tca;
+}
+
+//***************************************************************************
 // Init
 //***************************************************************************
 
-int I2C::init(const char* aDevice, uint8_t aAddress)
+int I2C::init(const char* aDevice, uint8_t aAddress, uint8_t aTcaAddress)
 {
    device = aDevice;
    address = aAddress;
+
+   if (aTcaAddress != 0xFF)
+   {
+      tca = new Tca9548;
+      tca->init(device.c_str(), aTcaAddress);
+   }
+
+   switchTcaChannel();
 
    if ((fd = ::open(device.c_str(), O_RDWR)) < 0)
    {
@@ -38,7 +80,10 @@ int I2C::init(const char* aDevice, uint8_t aAddress)
       return fail;
    }
 
-   tell(eloAlways, "Opened i2c '%s' device '%s' with address 0x%02x", chipName(), device.c_str(), address);
+   if (getTcaChannel() != 0xff)
+      tell(eloAlways, "Opened i2c '%s' device '%s' with address 0x%02x/%d", chipName(), device.c_str(), address, getTcaChannel());
+   else
+      tell(eloAlways, "Opened i2c '%s' device '%s' with address 0x%02x", chipName(), device.c_str(), address);
 
    return success;
 }
@@ -51,9 +96,36 @@ int I2C::exit()
 {
    if (fd >= 0)
    {
-      tell(eloAlways, "Closing device");
+      tell(eloAlways, "Closing '0x%02x' device", address);
       ::close(fd);
       fd = na;
+   }
+
+   return done;
+}
+
+//***************************************************************************
+// Get Address
+//***************************************************************************
+
+uint8_t I2C::getAddress() const
+{
+   if (tca)
+      return tca->getAddress();
+
+   return address;
+}
+
+//***************************************************************************
+// Set TCA Channel
+//***************************************************************************
+
+int I2C::switchTcaChannel()
+{
+   if (tca && tcaChannel != 0xff)
+   {
+      tell(eloDebug, "Debug: Switching TCA channel to 0x%02x", tcaChannel);
+      tca->setChannel(tcaChannel);
    }
 
    return done;
@@ -140,8 +212,16 @@ int I2C::writeByte(uint8_t byte)
    return success;
 }
 
+int I2C::writeByte(int fd, uint8_t byte)
+{
+   if (::write(fd, &byte, 1) != 1)
+      return fail;
+
+   return success;
+}
+
 //***************************************************************************
-// Write Register
+// Write Register (1 byte)
 //***************************************************************************
 
 int I2C::writeRegister(uint8_t reg, uint8_t value)
@@ -159,6 +239,10 @@ int I2C::writeRegister(uint8_t reg, uint8_t value)
    return status;
 }
 
+//***************************************************************************
+// Write Register (2 bytes)
+//***************************************************************************
+
 int I2C::writeRegister(uint8_t reg, uint8_t byte1, uint8_t byte2)
 {
    int status {};
@@ -172,4 +256,49 @@ int I2C::writeRegister(uint8_t reg, uint8_t byte1, uint8_t byte2)
    }
 
    return status;
+}
+
+//***************************************************************************
+// Scan
+//***************************************************************************
+
+int I2C::scan(const char* device)
+{
+   int fd {na};
+
+   if ((fd = ::open(device, O_RDWR)) < 0)
+   {
+      tell(eloAlways, "Error: Couldn't open i2c device '%s'", device);
+      return fail;
+   }
+
+   tell(eloAlways, "start scan ..");
+
+   for (uint addr = 1; addr < 128; ++addr)
+   {
+      if (ioctl(fd, I2C_SLAVE, addr) < 0)        // connect to i2c slave
+      {
+         tell(eloAlways, "Error: Couldn't find device on address 0x%02x", addr);
+         continue;
+      }
+
+      if (writeByte(fd, addr) == success)
+         tell(eloAlways, "0x%02x", addr);
+   }
+
+   tell(eloAlways, ".. done");
+
+   return done;
+}
+
+//***************************************************************************
+// TCA Multipexer
+//***************************************************************************
+
+int Tca9548::setChannel(uint8_t channel)
+{
+   if (writeByte(1 << channel) != success)
+      return fail;
+
+   return done;
 }

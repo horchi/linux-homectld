@@ -17,22 +17,54 @@
 #include "dht20.h"
 
 //***************************************************************************
+// Copy / Move Konstruktor
+//***************************************************************************
+
+Dht20::Dht20(const Dht20& source)
+   : I2C{source}
+{
+   humidity = source.humidity;
+   temperature = source.temperature;
+   humOffset = source.humOffset;
+   tempOffset = source.tempOffset;
+   mStatus = source.mStatus;
+   lastRequestMs = source.lastRequestMs;
+   lastReadMs = source.lastReadMs;
+   memcpy(bytes, source.bytes, 7);
+}
+
+Dht20::Dht20(Dht20&& source)
+   : I2C{std::move(source)}
+{
+   humidity = source.humidity;
+   temperature = source.temperature;
+   humOffset = source.humOffset;
+   tempOffset = source.tempOffset;
+   mStatus = source.mStatus;
+   lastRequestMs = source.lastRequestMs;
+   lastReadMs = source.lastReadMs;
+   memcpy(bytes, source.bytes, 7);
+}
+
+//***************************************************************************
 // Init
 //***************************************************************************
 
-int Dht20::init(const char* aDevice, uint8_t aAddress)
+int Dht20::init(const char* aDevice, uint8_t aAddress, uint8_t aTcaAddress)
 {
-   int status {I2C::init(aDevice, aAddress)};
+   int status {I2C::init(aDevice, aAddress, aTcaAddress)};
 
    if (status != success)
       return status;
+
+   switchTcaChannel();
 
    uint16_t word {0};
 
    if (readRegister(0x71, word) != success)
       return fail;
 
-   tell(eloDetail, "Info: Init status is '0x%04x'", word);
+   // tell(eloDetail, "Info: Init status is '0x%04x'", word);
 
    if (word != 0x18)
    {
@@ -67,6 +99,8 @@ int Dht20::read()
 {
    if (cTimeMs::now() - lastReadMs < 1000)
       return errLastRead;
+
+   switchTcaChannel();
 
    if (writeRegister(0xAC, 0x33, 0x00) != success)
       return fail;

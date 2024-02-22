@@ -25,20 +25,19 @@ function initUserConfig(users)
 
    document.getElementById("container").innerHTML =
       '<div id="userContainer" class="rounded-border inputTableConfig">' +
-      '<table class="tableMultiCol">' +
-      '  <thead>' +
-      '    <tr>' +
-      '      <td style="width:15%;">User</td>' +
-      '      <td style="width:32%;">Rights</td>' +
-      '      <td style="width:30%;"></td>' +
-      '    </tr>' +
-      '  </thead>' +
-      '  <tbody id="userTable">' +
-      '  </tbody>' +
-      '</table>' +
-      '<tbody id="ioOther"/>' +
-      '</div><br/>' +
-      '<div id="addUserDiv" class="rounded-border inputTableConfig"/>';
+      '  <table class="tableMultiCol">' +
+      '    <thead>' +
+      '      <tr>' +
+      '        <td style="width:15%;">User</td>' +
+      '        <td style="width:32%;">Rights</td>' +
+      '        <td style="width:30%;"></td>' +
+      '      </tr>' +
+      '    </thead>' +
+      '    <tbody id="userTable">' +
+      '    </tbody>' +
+      '  </table>' +
+      '  <div id="addUserDiv" class="rounded-border"/>' +
+      '</div>';
 
    var table = document.getElementById("userTable");
    table.innerHTML = "";
@@ -67,10 +66,9 @@ function initUserConfig(users)
       table.appendChild(elem);
    }
 
-   html =  "  <span>User: </span><input id=\"input_user\" class=\"rounded-border input\"/>";
-   html += "  <span>Passwort: </span><input id=\"input_passwd\" class=\"rounded-border input\"/>";
-   html += "  <button class=\"rounded-border buttonOptions\" onclick=\"addUser()\">+</button>";
-
+   html =  '  <span class="labelB1">User</span><input id="input_user" class="rounded-border input"/>';
+   html += '  <span class="labelB1">Passwort</span><input id=\"input_passwd\" class="rounded-border input"/>';
+   html += '  <button class="rounded-border buttonOptions" style="width:50px;" onclick="addUser()">+</button>';
    document.getElementById("addUserDiv").innerHTML = html;
 
    // calc container size

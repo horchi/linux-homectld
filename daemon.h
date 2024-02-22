@@ -91,15 +91,7 @@ class Daemon : public cWebInterface
 
          pinMcpIrq       = pinGpio16,  // reserved for i2cmqtt !
 
-         pinUserInput1   = pinGpio12,
-         pinUserInput2   = pinGpio13,
-         pinUserInput3   = pinGpio08,  // interrupt don't work! (at least on ODROID)
-
-#ifndef MODEL_ODROID_N2
-         pinUserInput4   = pinGpio20,
-         pinUserInput5   = pinGpio21,
-         pinUserInput6   = pinGpio26,
-#endif // MODEL_ODROID_N2
+         // aliases for user in/out
 
          pinUserOut1     = pinGpio23,
          pinUserOut2     = pinGpio24,
@@ -107,7 +99,28 @@ class Daemon : public cWebInterface
          pinUserOut4     = pinGpio09,
          pinUserOut5     = pinGpio05,
          pinUserOut6     = pinGpio06,
-         pinUserOut7     = pinGpio07
+         pinUserOut7     = pinGpio07,
+
+#ifndef _POOL
+         pinUserOut8     = pinGpio25,
+         pinUserOut9     = pinGpio19,
+#endif
+#ifndef MODEL_ODROID_N2
+         pinUserOut10    = pinGpio20,
+         pinUserOut11    = pinGpio21,
+         pinUserOut12    = pinGpio26,
+#endif // MODEL_ODROID_N2
+
+         pinUserInput1   = pinGpio12,
+         pinUserInput2   = pinGpio13,
+         pinUserInput3   = pinGpio08,  // interrupt don't work! (at least on ODROID)
+
+#ifndef _POOL
+         pinUserInput4   = pinGpio17,
+         pinUserInput5   = pinGpio18,
+         pinUserInput6   = pinGpio27,
+         pinUserInput7   = pinGpio22,
+#endif
       };
 
       enum SensorOptions
@@ -222,8 +235,8 @@ class Daemon : public cWebInterface
 
          // 'DO' / 'DI' specials
 
-         bool invert {true};
-         int pull {pullUp};
+         bool invert {false};
+         Pull pull {pullUp};
          bool impulse {false};      // change output only for a short impulse
          bool interrupt {false};
          bool interruptSet {false};

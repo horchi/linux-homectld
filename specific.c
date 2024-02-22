@@ -39,7 +39,7 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "eloquence",                 ctBitSelect, "1",          false, "Daemon", "Log Eloquence", "" },
 
    { "aggregateHistory",          ctInteger, "365",          false, "Daemon", "Historie [Tage]", "history for aggregation in days (default 0 days -> aggegation turned OFF)" },
-   { "aggregateInterval",         ctInteger, "15",           false, "Daemon", " danach aggregieren über", "aggregation interval in minutes - 'one sample per interval will be build'" },
+   { "aggregateInterval",         ctInteger, "15",           false, "Daemon", "Aggregate Interval der historisierten Daten", "aggregation interval in minutes - 'one sample per interval will be build'" },
    { "peakResetAt",               ctString,  "",             true,  "Daemon", "", "" },
 
 #ifdef _POOL
@@ -73,10 +73,6 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "phPumpDurationPer100",      ctInteger, "1000",         false, "PH", "Laufzeit Dosierpumpe/100ml [ms]", "Welche Zeit in Millisekunden benötigt die Dosierpumpe um 100ml zu fördern (default 1000ms)" },
 #endif
 
-#ifdef _WOMO
-   { "batteryCapacity",           ctInteger, "180",          false, "1 Daemon", "Kapazität der Batterie", "" },
-#endif
-
    // web
 
    { "webSSL",                    ctBool,    "",             false, "WEB Interface", "Use SSL for WebInterface", "" },
@@ -90,18 +86,18 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
 
    // MQTT interface
 
-   { "mqttUrl",                   ctString,  "tcp://localhost:1883", false, "MQTT Interface", "MQTT Broker Url", "URL der MQTT Instanz Beispiel: 'tcp://127.0.0.1:1883'" },
-   { "mqttUser",                  ctString,  "",                     false, "MQTT Interface", "User", "" },
-   { "mqttPassword",              ctString,  "",                     false, "MQTT Interface", "Password", "" },
-   { "mqttSensorTopics",          ctText,    TARGET "2mqtt/w1/#",    false, "MQTT Interface", "Zusätzliche sensor Topics", "Diese Topics werden gelesen und als Sensor Daten verwendet (Komma getrennte Liste)" },
-   { "arduinoTopic",              ctString,  TARGET "2mqtt/arduino", false, "MQTT Interface", "MQTT Topic des Arduino Interface", "" },
-   { "arduinoInterval",           ctInteger, "10",                   false, "MQTT Interface", "Intervall der Arduino Messungen", "[s]" },
+   { "mqttUrl",                   ctString,  "tcp://localhost:1883", false, "MQTT", "MQTT Broker Url", "URL der MQTT Instanz Beispiel: 'tcp://127.0.0.1:1883'" },
+   { "mqttUser",                  ctString,  "",                     false, "MQTT", "User", "" },
+   { "mqttPassword",              ctString,  "",                     false, "MQTT", "Password", "" },
+   { "mqttSensorTopics",          ctText,    TARGET "2mqtt/w1/#",    false, "MQTT", "Zusätzliche sensor Topics", "Diese Topics werden gelesen und als Sensor Daten verwendet (Komma getrennte Liste)" },
+   { "arduinoTopic",              ctString,  TARGET "2mqtt/arduino", false, "MQTT", "MQTT Topic des Arduino Interface", "" },
+   { "arduinoInterval",           ctInteger, "10",                   false, "MQTT", "Intervall der Arduino Messungen", "[s]" },
 
    // Home Automation MQTT interface
 
-   { "mqttHaDataTopic",           ctString,  "",  false, "Home Automation Interface (like Home-Assistant, ...)", "Data Topic Name", "&lt;NAME&gt; wird gegen den Messwertnamen und &lt;GROUP&gt; gegen den Namen der Gruppe ersetzt. Beispiel: p4d2mqtt/sensor/&lt;NAME&gt;/state" },
-   { "mqttHaSendWithKeyPrefix",   ctString,  "",  false, "Home Automation Interface (like Home-Assistant, ...)", "Adresse übertragen", "Wenn hier ein Präfix konfiguriert ist wird die Adresse der Sensoren nebst Präfix übertragen" },
-   { "mqttHaHaveConfigTopic",     ctBool,    "0", false, "Home Automation Interface (like Home-Assistant, ...)", "Config Topic", "Speziell für HomeAssistant" },
+   { "mqttHaDataTopic",           ctString,  "",  false, "Home Automation Interface", "MQTT Data Topic Name", "&lt;NAME&gt; wird gegen den Messwertnamen und &lt;GROUP&gt; gegen den Namen der Gruppe ersetzt. Beispiel: p4d2mqtt/sensor/&lt;NAME&gt;/state" },
+   { "mqttHaSendWithKeyPrefix",   ctString,  "",  false, "Home Automation Interface", "Adresse übertragen", "Wenn hier ein Präfix konfiguriert ist wird die Adresse der Sensoren nebst Präfix übertragen" },
+   { "mqttHaHaveConfigTopic",     ctBool,    "0", false, "Home Automation Interface", "Config Topic", "Speziell für HomeAssistant" },
 
    // mail
 
@@ -126,9 +122,9 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
 
    // LMC (Logitec Media Server)
 
-   { "lmcHost",                   ctString,  "",                   false, "Logitech Media Server (squeezebox)", "LMC Host", "" },
-   { "lmcPort",                   ctInteger, "9090",               false, "Logitech Media Server (squeezebox)", "LMC Port", "" },
-   { "lmcPlayerMac",              ctString,  "",                   false, "Logitech Media Server (squeezebox)", "MAC of LMC Player ", "" },
+   { "lmcHost",                   ctString,  "",                   false, "Logitech Media Server", "LMC Host", "" },
+   { "lmcPort",                   ctInteger, "9090",               false, "Logitech Media Server", "LMC Port", "" },
+   { "lmcPlayerMac",              ctString,  "",                   false, "Logitech Media Server", "MAC of LMC Player ", "" },
 };
 
 //***************************************************************************
@@ -325,27 +321,36 @@ void Daemon::ioInterrupt()
 int HomeCtl::applyConfigurationSpecials()
 {
 #ifndef _NO_RASPBERRY_PI_
-   initOutput(pinUserOut1, ooUser, omManual, "Digital Output 1");
-   initOutput(pinUserOut2, ooUser, omManual, "Digital Output 2");
-   initOutput(pinUserOut3, ooUser, omManual, "Digital Output 3");
-   initOutput(pinUserOut4, ooUser, omManual, "Digital Output 4");
-   initOutput(pinUserOut5, ooUser, omManual, "Digital Output 5");
-   initOutput(pinUserOut6, ooUser, omManual, "Digital Output 6");
-   initOutput(pinUserOut7, ooUser, omManual, "Digital Output 7");
+   initOutput(pinUserOut1, ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut2, ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut3, ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut4, ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut5, ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut6, ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut7, ooUser, omManual, "Digital Output");
 
-   initInput(pinUserInput1, "Digital Input 1");
-   initInput(pinUserInput2, "Digital Input 2");
-   initInput(pinUserInput3, "Digital Input 3");
+   initInput(pinUserInput1, "Digital Input");
+   initInput(pinUserInput2, "Digital Input");
+   initInput(pinUserInput3, "Digital Input");
+
+# ifndef _POOL
+   initOutput(pinUserOut8, ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut9, ooUser, omManual, "Digital Output");
+
+   initInput(pinUserInput4, "Digital Input");
+   initInput(pinUserInput5, "Digital Input");
+   initInput(pinUserInput6, "Digital Input");
+   initInput(pinUserInput7, "Digital Input");
+# endif // _POOL
 
 # ifndef MODEL_ODROID_N2
    // only at Raspberry Pi !
+   initOutput(pinUserOut10, ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut11, ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut12, ooUser, omManual, "Digital Output");
+# endif // // only at Raspberry Pi !
 
-   initInput(pinUserInput4, "Digital Input 4");
-   initInput(pinUserInput5, "Digital Input 5");
-   initInput(pinUserInput6, "Digital Input 6");
-# endif
-
-#endif
+#endif // _NO_RASPBERRY_PI_
 
 #ifdef _POOL
 

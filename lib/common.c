@@ -864,7 +864,7 @@ std::vector<std::string> split(const std::string& str, char delim, std::vector<s
    if (!strings)
       strings = &_strings;
 
-   size_t start;
+   size_t start {0};
    size_t end {0};
 
    while ((start = str.find_first_not_of(delim, end)) != std::string::npos)
@@ -1000,7 +1000,7 @@ const char* suffixOf(const char* path)
    return "";
 }
 
-int fileExists(const char* path)
+bool fileExists(const char* path)
 {
    return access(path, F_OK) == 0;
 }

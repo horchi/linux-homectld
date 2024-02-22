@@ -15,7 +15,7 @@ var ioSections = {};
 // IO Setup
 // ----------------------------------------------------------------
 
-function initIoSetup(valueFacts)
+function initIoSetup()
 {
    // console.log(JSON.stringify(valueFacts, undefined, 4));
 
@@ -30,6 +30,7 @@ function initIoSetup(valueFacts)
       .append($('<div></div>')
               .append($('<button></button>')
                       .addClass('rounded-border tool-button')
+                      .css('background-color', 'slategray')
                       .html('Speichern')
                       .click(function() { storeIoSetup(); })))
       .append($('<div></div>')
@@ -45,9 +46,8 @@ function initIoSetup(valueFacts)
               .addClass('input rounded-border clearableOD')
               .css('width', '-webkit-fill-available')
               .css('width', '-moz-available')
+              .css('margin-bottom', '8px')
               .on('input', function() { showTable(activeSection); }))
-      .append($('<div></div>')
-              .addClass('button-group-spacing'))
       .append($('<div></div>')
               .append($('<button></button>')
                       .attr('id', 'filterIoSetup')
@@ -102,8 +102,6 @@ function showTable(section)
 {
    activeSection = section;
 
-   console.log("showTable(", activeSection, ")");
-
    $('button[id^="btn_io"]').each(function () {
       $(this).css('background-color', '');
    });
@@ -131,7 +129,7 @@ function showTable(section)
       html +=
          '    <tfoot>' +
          '      <tr>' +
-         '        <td id="footer_' + sectionId + '" colspan="8" style="background-color:#333333;">' +
+         '        <td colspan="8" style="background-color:#333333;">' +
          '          <button class="buttonOptions rounded-border" onclick="sensorCvAdd()">+</button>' +
          '        </td>' +
          '      </tr>' +
@@ -147,10 +145,14 @@ function showTable(section)
    if ($("#incSearchName").val() != "")
       filterIoExpression = new RegExp($("#incSearchName").val());
 
-   for (var key in valueFacts) {
-      var sectionId = '';
-      var item = valueFacts[key];
-      var usrtitle = item.usrtitle != null ? item.usrtitle : "";
+   let valueFactsSorted = Object.keys(valueFacts).sort(function(a, b) {
+      return valueFacts[a].name.localeCompare(valueFacts[b].name);
+   });
+
+   for (let k = 0; k < valueFactsSorted.length; ++k) {
+      let key = valueFactsSorted[k];
+      let item = valueFacts[key];
+      let usrtitle = item.usrtitle != null ? item.usrtitle : "";
 
       if (!item.state && filterActive)
          continue;
@@ -160,12 +162,20 @@ function showTable(section)
 
       // console.log("item.type: " + item.type);
 
+      let sectionId = '';
+
       for (var i = 0; i < valueTypes.length; i++) {
          if (valueTypes[i].type == item.type)
             sectionId = 'io' + valueTypes[i].title.replace(' ', '');
       }
 
-      let html = '<td id="row_' + item.type + item.address + '" data-address="' + item.address + '" data-type="' + item.type + '" >' + item.title + '</td>';
+      let title = item.title.split("\n");
+
+      let html = '<td id="row_' + item.type + item.address + '" data-address="' + item.address + '" data-type="' + item.type + '" >'
+          + '<div>' + title[0] + '</div>'
+          + '<div style="font-size:smaller;color:darkgray;">' + (title.length > 1 ? title[1] : '') + '</div>'
+          + '</td>';
+
       html += '<td class="tableMultiColCell"><input id="usrtitle_' + item.type + item.address + '" class="inputSetting rounded-border" type="search" value="' + usrtitle + '"/></td>';
       html += '<td class="tableMultiColCell"><input id="unit_' + item.type + item.address + '" class="inputSetting rounded-border" type="search" value="' + item.unit + '"/></td>';
       html += '<td><input id="state_' + item.type + item.address + '" class="rounded-border input" type="checkbox" ' + (item.state ? 'checked' : '') + ' /><label for="state_' + item.type + item.address + '"></label></td>';
@@ -185,16 +195,6 @@ function showTable(section)
       else
          html += '<td></td>';
 
-//      html += '<td><select id="group_' + item.type + item.address + '" class="rounded-border input" name="group">';
-//      if (grouplist != null) {
-//         for (var g = 0; g < grouplist.length; g++) {
-//            var group = grouplist[g];
-//            var sel = item.groupid == group.id ? 'SELECTED' : '';
-//            html += '    <option value="' + group.id + '" ' + sel + '>' + group.name + '</option>';
-//         }
-//      }
-//      html += '  </select></td>';
-
       var root = document.getElementById(sectionId);
 
       if (root) {
@@ -213,7 +213,7 @@ function updateIoSetupValue()
    var key = toKey(calSensorType, calSensorAddress);
 
    if (calSensorType != '' && allSensors[key] != null && allSensors[key].plain != null) {
-      $('#actuaCalValue').html(allSensors[key].value + ' ' + valueFacts[key].unit + ' (' + allSensors[key].plain + ')');
+      $('#actuaCalValue').val(allSensors[key].value + ' ' + valueFacts[key].unit + ' (' + allSensors[key].plain + ')');
    }
 }
 
@@ -233,118 +233,91 @@ function sensorAiSetup(type, address)
    }
 
    $(form).append($('<div></div>')
+                  .addClass('settingsDialogContent')
                   .append($('<div></div>')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '50%')
-                                  .css('text-align', 'end')
-                                  .css('align-self', 'center')
-                                  .css('margin-right', '10px')
                                   .html('Kalibrieren'))
-                          .append($('<select></select>')
-                                  .attr('id', 'calPointSelect')
-                                  .addClass('rounded-border input')
-                                  .change(function() {
-                                     if ($(this).val() == 'pointA') {
-                                        $('#calPoint').val(valueFacts[key].calPointA);
-                                        $('#calPointValue').val(valueFacts[key].calPointValueA)
-                                     }
-                                     else {
-                                        $('#calPoint').val(valueFacts[key].calPointB);
-                                        $('#calPointValue').val(valueFacts[key].calPointValueB)
-                                     }
-                                  })
+                          .append($('<span></span>')
+                                  .append($('<select></select>')
+                                          .attr('id', 'calPointSelect')
+                                          .addClass('rounded-border inputSetting')
+                                          .change(function() {
+                                             if ($(this).val() == 'pointA') {
+                                                $('#calPoint').val(valueFacts[key].calPointA);
+                                                $('#calPointValue').val(valueFacts[key].calPointValueA)
+                                             }
+                                             else {
+                                                $('#calPoint').val(valueFacts[key].calPointB);
+                                                $('#calPointValue').val(valueFacts[key].calPointValueB)
+                                             }
+                                          }))
                                  ))
                   .append($('<div></div>')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '50%')
-                                  .css('text-align', 'end')
-                                  .css('align-self', 'center')
-                                  .css('margin-right', '10px')
                                   .html('Aktuell'))
                           .append($('<span></span>')
-                                  .attr('id', 'actuaCalValue')
-                                  .css('background-color', 'var(--dialogBackground)')
-                                  .css('color', 'var(--neutral0)')
-                                  .css('text-align', 'start')
-                                  .css('line-height', '32px')
-                                  .css('width', '345px')
-                                  .addClass('rounded-border input')
-                                  .html('-')
-                                 )
-                          .append($('<button></button>')
-                                  .addClass('buttonOptions rounded-border')
-                                  .css('width', 'auto')
-                                  .html('>')
-                                  .click(function() { $('#calPointValue').val(allSensors[toKey(calSensorType, calSensorAddress)].plain); })
+                                  .append($('<input></input>')
+                                          .attr('id', 'actuaCalValue')
+                                          .addClass('rounded-border inputSetting')
+                                          .css('pointer-events', 'none')
+                                          .css('background-color', 'var(--yellow2)')
+                                          .css('color', 'var(--neutral0)')
+                                          .css('width', '60%')
+                                          .val('-'))
+                                  .append($('<button></button>')
+                                          .addClass('buttonOptions rounded-border')
+                                          .css('width', 'auto')
+                                          .css('float', 'right')
+                                          .html('>')
+                                          .click(function() { $('#calPointValue').val(allSensors[toKey(calSensorType, calSensorAddress)].plain); }))
                                  ))
-                  .append($('<br></br>'))
                   .append($('<div></div>')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '50%')
-                                  .css('text-align', 'end')
-                                  .css('align-self', 'center')
-                                  .css('margin-right', '10px')
                                   .html('bei Wert'))
-                          .append($('<input></input>')
-                                  .attr('id', 'calPoint')
-                                  .attr('type', 'number')
-                                  .attr('step', 0.1)
-                                  .addClass('rounded-border input')
-                                  .val(valueFacts[key].calPointA)
-                                 ))
-                  .append($('<div></div>')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '50%')
-                                  .css('text-align', 'end')
-                                  .css('align-self', 'center')
-                                  .css('margin-right', '10px')
+                                  .append($('<input></input>')
+                                          .attr('id', 'calPoint')
+                                          .attr('type', 'number')
+                                          .attr('step', 0.1)
+                                          .addClass('rounded-border inputSetting')
+                                          .val(valueFacts[key].calPointA)
+                                         )))
+                  .append($('<div></div>')
+                          .append($('<span></span>')
                                   .html('-> Sensor Wert'))
-                          .append($('<input></input>')
-                                  .attr('id', 'calPointValue')
-                                  .attr('type', 'number')
-                                  .attr('step', 0.1)
-                                  .addClass('rounded-border input')
-                                  .val(valueFacts[key].calPointValueA)
-                                 ))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .attr('id', 'calPointValue')
+                                          .attr('type', 'number')
+                                          .attr('step', 0.1)
+                                          .addClass('rounded-border inputSetting')
+                                          .val(valueFacts[key].calPointValueA)
+                                         )))
                   .append($('<br></br>'))
                   .append($('<div></div>')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '50%')
-                                  .css('text-align', 'end')
-                                  .css('align-self', 'center')
-                                  .css('margin-right', '10px')
-                                  .html('Runden')
-                                 )
-                          .append($('<input></input>')
-                                  .attr('id', 'calRound')
-                                  .attr('type', 'number')
-                                  .attr('step', 0.1)
-                                  .addClass('rounded-border input')
-                                  .val(valueFacts[key].calRound)
-                                 ))
-                  .append($('<br></br>'))
+                                  .html('Runden'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .attr('id', 'calRound')
+                                          .attr('type', 'number')
+                                          .attr('step', 0.1)
+                                          .addClass('rounded-border inputSetting')
+                                          .val(valueFacts[key].calRound)
+                                         )))
                   .append($('<div></div>')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '50%')
-                                  .css('text-align', 'end')
-                                  .css('align-self', 'center')
-                                  .css('margin-right', '10px')
                                   .html('Abschneiden unter')
                                  )
-                          .append($('<input></input>')
-                                  .attr('id', 'calCutBelow')
-                                  .attr('type', 'number')
-                                  .attr('step', 0.1)
-                                  .addClass('rounded-border input')
-                                  .val(valueFacts[key].calCutBelow)
-                                 ))
-                         );
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .attr('id', 'calCutBelow')
+                                          .attr('type', 'number')
+                                          .attr('step', 0.1)
+                                          .addClass('rounded-border inputSetting')
+                                          .val(valueFacts[key].calCutBelow)
+                                         )))
+                 );
 
    var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
 
@@ -367,7 +340,7 @@ function sensorAiSetup(type, address)
                                      .html('Punkt 2'));
 
          if (allSensors[key] != null)
-            $('#actuaCalValue').html(allSensors[key].value + ' ' + valueFacts[key].unit + ' (' + (allSensors[key].plain != null ? allSensors[key].plain : '-') + ')');
+            $('#actuaCalValue').val(allSensors[key].value + ' ' + valueFacts[key].unit + ' (' + (allSensors[key].plain != null ? allSensors[key].plain : '-') + ')');
       },
       buttons: {
          'Abbrechen': function () {
@@ -425,48 +398,41 @@ function sensorDoSetup(type, address)
    }
 
    $(form).append($('<div></div>')
+                  .addClass('settingsDialogContent')
                   .append($('<div></div>')
-                          .css('display', 'flex')
-                          .append($('<input></input>')
-                                  .attr('id', 'invertDo')
-                                  .attr('type', 'checkbox')
-                                  .addClass('rounded-border input')
-                                  .prop('checked', valueFacts[key].calibration ? valueFacts[key].calibration.invert : true))
-                          .append($('<label></label>')
-                                  .css('text-align', 'end')
-                                  .css('align-self', 'center')
-                                  .css('margin-right', '10px')
-                                  .prop('for', 'invertDo')
-                                  .html('Ausgang Invertieren')))
-
+                          .append($('<span></span>')
+                                  .html('Invertieren'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .attr('id', 'invertDo')
+                                          .attr('type', 'checkbox')
+                                          .addClass('rounded-border inputSetting')
+                                          .prop('checked', valueFacts[key].calibration ? valueFacts[key].calibration.invert : true))
+                                  .append($('<label></label>')
+                                          .prop('for', 'invertDo'))))
                   .append($('<div></div>')
-                          .css('display', 'flex')
-                          .append($('<input></input>')
-                                  .attr('id', 'impulseDo')
-                                  .attr('type', 'checkbox')
-                                  .addClass('rounded-border input')
-                                  .prop('checked', valueFacts[key].calibration ? valueFacts[key].calibration.impulse : false))
-                          .append($('<label></label>')
-                                  .css('text-align', 'end')
-                                  .css('align-self', 'center')
-                                  .css('margin-right', '10px')
-                                  .prop('for', 'impulseDo')
-                                  .html('Impuls Ausgang (50ms)')))
+                          .append($('<span></span>')
+                                  .html('Impuls (50ms)'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .attr('id', 'impulseDo')
+                                          .attr('type', 'checkbox')
+                                          .addClass('rounded-border inputSetting')
+                                          .prop('checked', valueFacts[key].calibration ? valueFacts[key].calibration.impulse : false))
+                                  .append($('<label></label>')
+                                          .prop('for', 'impulseDo'))))
                   .append($('<div></div>')
-                          .css('display', 'flex')
-                          .append($('<div></div>')
-                                  .css('text-align', 'end')
-                                  .css('align-self', 'center')
-                                  .css('margin-right', '10px')
+                          .append($('<span></span>')
                                   .html('Feedback Input'))
-                          .append($('<input></input>')
-                                  .attr('id', 'feedbackIo')
-                                  .attr('type', 'search')
-                                  .addClass('rounded-border input')
-                                  .val(valueFacts[key].calibration && valueFacts[key].calibration.feedbackInType ?
-                                       valueFacts[key].calibration.feedbackInType
-                                       + ':0x'
-                                       + valueFacts[key].calibration.feedbackInAddress.toString(16) : '')))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .attr('id', 'feedbackIo')
+                                          .attr('type', 'search')
+                                          .addClass('rounded-border inputSetting')
+                                          .val(valueFacts[key].calibration && valueFacts[key].calibration.feedbackInType ?
+                                               valueFacts[key].calibration.feedbackInType
+                                               + ':0x'
+                                               + valueFacts[key].calibration.feedbackInAddress.toString(16) : ''))))
                          );
 
    var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
@@ -475,8 +441,8 @@ function sensorDoSetup(type, address)
       modal: true,
       resizable: false,
       closeOnEscape: true,
+      width: "500px",
       hide: "fade",
-      width: "80%",
       title: "DO settings '" + title + '"',
       open: function() {
          calSensorType = type;
@@ -528,35 +494,44 @@ function sensorDiSetup(type, address)
       return;
    }
 
-   $(form).append($('<div></div>')
-                  .attr('id', 'ioDialogSetup')
-                  .append($('<div></div>')
-                          .css('display', 'flex')
-                          .append($('<input></input>')
-                                  .attr('id', 'invertDi')
-                                  .attr('type', 'checkbox')
-                                  .addClass('rounded-border input')
-                                  .prop('checked', valueFacts[key].calibration ? valueFacts[key].calibration.invert : true))
-                          .append($('<label></label>')
-                                  .css('text-align', 'end')
-                                  .css('align-self', 'center')
-                                  .css('margin-right', '10px')
-                                  .prop('for', 'invertDi')
-                                  .html('Eingang Invertieren')))
+   dlgContent = ($('<div></div>'));
 
-                  .append($('<div></div>')
-                          .css('display', 'flex')
-                          .append($('<label></label>')
-                                  .css('text-align', 'end')
-                                  .css('align-self', 'center')
-                                  .css('margin-right', '10px')
-                                  .html('Pull Up/Down'))
-                          .append($('<select></select>')
-                                  .attr('id', 'pullDi')
-                                  .attr('type', 'checkbox')
-                                  .addClass('rounded-border input')
-                                  .val(valueFacts[key].calibration ? valueFacts[key].calibration.pull : 0)))
-                 );
+   $(form).append(dlgContent)
+      .addClass('settingsDialogContent')
+      .append($('<div></div>')
+              .append($('<span></span>')
+                      .html('Invertieren'))
+              .append($('<span></span>')
+                      .append($('<input></input>')
+                              .attr('id', 'invertDi')
+                              .attr('type', 'checkbox')
+                              .addClass('rounded-border inputSetting')
+                              .prop('checked', valueFacts[key].calibration ? valueFacts[key].calibration.invert : true))
+                      .append($('<label></label>')
+                              .prop('for', 'invertDi'))))
+      .append($('<div></div>')
+              .append($('<span></span>')
+                      .html('Pull Up/Down'))
+              .append($('<span></span>')
+                      .append($('<select></select>')
+                              .attr('id', 'pullDi')
+                              .addClass('rounded-border inputSetting'))));
+
+
+   if (type == 'DI') {
+      $(dlgContent)
+         .append($('<span></span>')
+                 .html('Interrupt'))
+         .append($('<span></span>')
+                 .append($('<input></input>')
+                         .attr('id', 'interruptDi')
+                         .attr('type', 'checkbox')
+                         .addClass('rounded-border inputSetting')
+                         .prop('checked', valueFacts[key].calibration ? valueFacts[key].calibration.interrupt : false))
+                 .append($('<label></label>')
+                         .attr('title', 'Neustart zum aktivieren')
+                         .prop('for', 'interruptDi')));
+   }
 
    var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
 
@@ -565,7 +540,7 @@ function sensorDiSetup(type, address)
       resizable: false,
       closeOnEscape: true,
       hide: "fade",
-      width: "80%",
+      width: "500px",
       title: "DI settings '" + title + '"',
       open: function() {
          calSensorType = type;
@@ -582,7 +557,7 @@ function sensorDiSetup(type, address)
                'calibration' : JSON.stringify({
                   'invert' : $('#invertDi').is(':checked'),
                   'interrupt' : $('#interruptDi').is(':checked'),
-                  'pull' : $('#pullDi').val()
+                  'pull' : parseInt($('#pullDi').val())
                })
             }});
 
@@ -590,31 +565,19 @@ function sensorDiSetup(type, address)
          }
       },
       open: function(){
-         if (type == 'DI') {
-            $('#ioDialogSetup').append($('<div></div>')
-                                       .css('display', 'flex')
-                                       .append($('<input></input>')
-                                               .attr('id', 'interruptDi')
-                                               .attr('type', 'checkbox')
-                                               .addClass('rounded-border input')
-                                               .prop('checked', valueFacts[key].calibration ? valueFacts[key].calibration.interrupt : false))
-                                       .append($('<label></label>')
-                                               .css('text-align', 'end')
-                                               .css('align-self', 'center')
-                                               .css('margin-right', '10px')
-                                               .prop('for', 'interruptDi')
-                                               .html('Interrupt')));
-         }
-
+         let pull = valueFacts[key].calibration ? valueFacts[key].calibration.pull : 0;
          $('#pullDi')
             .append($('<option></option>')
                     .val(0)
+                    .attr('selected', pull == 0)
                     .html('None'))
             .append($('<option></option>')
                     .val(1)
+                    .attr('selected', pull == 1)
                     .html('Up'))
             .append($('<option></option>')
                     .val(2)
+                    .attr('selected', pull == 2)
                     .html('Down'));
       },
       close: function() {
@@ -641,19 +604,18 @@ function sensorCvSetup(type, address)
    }
 
    $(form).append($('<div></div>')
+                  .addClass('settingsDialogContent')
                   .append($('<div></div>')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('text-align', 'end')
-                                  .css('align-self', 'center')
-                                  .css('margin-right', '10px')
+                                  .css('width', 'auto')
                                   .html('Skript'))
-                          .append($('<textarea></textarea>')
-                                  .attr('id', 'luaScript')
-                                  .addClass('rounded-border input inputSettingScript')
-                                  .css('height', '100px')
-                                  .val(valueFacts[key].luaScript)
-                                 ))
+                          .append($('<span></span>')
+                                  .append($('<textarea></textarea>')
+                                          .attr('id', 'luaScript')
+                                          .addClass('rounded-border inputSetting inputSettingScript')
+                                          .css('height', '100px')
+                                          .val(valueFacts[key].luaScript)
+                                         )))
                  );
 
    var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;

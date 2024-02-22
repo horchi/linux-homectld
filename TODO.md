@@ -1,10 +1,12 @@
 
 # General
 
+- scaling for charts and chart widgets
+
 - apply IO settings without restart (initInput / initOutput)
     -> done (exept interrupt routine, resting interrupt routine crashes)
 
-- Rechte der valuefacts konfigurierbar
+- config option for valuefact rights (digital outputs, ..)
 
 # Pool
 

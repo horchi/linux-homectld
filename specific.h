@@ -101,7 +101,6 @@ class HomeCtl : public Daemon
 #endif
 
 #ifdef _WOMO
-      int batteryCapacity {220};
       cDbStatement* selectSolarAhPerDay {};
 #endif
 

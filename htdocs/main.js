@@ -423,7 +423,7 @@ function dispatchMessage(message)
       // console.log("valueFacts " + JSON.stringify(valueFacts, undefined, 4));
 
       if (currentPage == "iosetup")
-         initIoSetup(valueFacts);
+         initIoSetup();
    }
    else if (event == "images") {
       images = jMessage.object;
@@ -519,7 +519,7 @@ function prepareMenu()
        currentPage == "alerts" || currentPage == "syslog" || currentPage == "system" || currentPage == "images" || currentPage == "commands") {
       if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10) {
          html += '<div style="margin-top:5px;">';
-         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'setup\')">Allg. Konfiguration</button>';
+         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'setup\')">Konfiguration</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'iosetup\')">IO Setup</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'userdetails\')">User</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'alerts\')">Alerts</button>';
@@ -532,12 +532,12 @@ function prepareMenu()
       }
    }
 
-   if (currentPage == "setup") {
+   /*if (currentPage == "setup") {
       html += "<div class=\"confirmDiv\">";
       html += "  <button class=\"rounded-border buttonOptions\" onclick=\"storeConfig()\">Speichern</button>";
       html += "</div>";
    }
-   else if (currentPage == "groups") {
+   else*/ if (currentPage == "groups") {
       html += "<div class=\"confirmDiv\">";
       html += "  <button class=\"rounded-border buttonOptions\" onclick=\"storeGroups()\">Speichern</button>";
       html += "</div>";
@@ -642,8 +642,10 @@ function mainMenuSel(what)
 
    if (currentPage == "setup")
       event = "setup";
-   else if (currentPage == "iosetup")
-      initIoSetup(valueFacts);
+   else if (currentPage == "iosetup") {
+      socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'valuefacts' } });
+      // initIoSetup();
+   }
    else if (currentPage == "commands")
       initCommands();
    else if (currentPage == "user")

@@ -73,7 +73,9 @@ class Mcp23017 : public I2C
       };
 
       Mcp23017() {};
-      ~Mcp23017() {}
+      Mcp23017(const Mcp23017& source);
+      Mcp23017(Mcp23017&& source);
+      ~Mcp23017() {};
 
       const char* chipName() override { return "MCP"; }
 
@@ -87,7 +89,7 @@ class Mcp23017 : public I2C
        *
        * See "3.2.1 Byte mode and Sequential mode".
        */
-      int init(const char* aDevice, uint8_t aAddress);
+      int init(const char* aDevice, uint8_t aAddress, uint8_t aTcaAddress = 0xFF) override;
       /**
        * Controls the pins direction on a whole port at once.
        *

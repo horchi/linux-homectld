@@ -12,18 +12,23 @@
 // Ads1115
 //***************************************************************************
 
-Ads1115::~Ads1115()
+Ads1115::Ads1115(const Ads1115& source)
+   : I2C{source}
 {
-   exit();
+}
+
+Ads1115::Ads1115(Ads1115&& source)
+   : I2C{std::move(source)}
+{
 }
 
 //***************************************************************************
 // Init
 //***************************************************************************
 
-int Ads1115::init(const char* aDevice, uint8_t aAddress)
+int Ads1115::init(const char* aDevice, uint8_t aAddress, uint8_t aTcaAddress)
 {
-   int status {I2C::init(aDevice, aAddress)};
+   int status {I2C::init(aDevice, aAddress, aTcaAddress)};
 
    if (status != success)
       return status;

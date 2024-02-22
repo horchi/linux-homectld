@@ -17,12 +17,26 @@
 #include "mcp23017.h"
 
 //***************************************************************************
+//
+//***************************************************************************
+
+Mcp23017::Mcp23017(const Mcp23017& source)
+   : I2C{source}
+{
+}
+
+Mcp23017::Mcp23017(Mcp23017&& source)
+   : I2C{std::move(source)}
+{
+}
+
+//***************************************************************************
 // Init
 //***************************************************************************
 
-int Mcp23017::init(const char* aDevice, uint8_t aAddress)
+int Mcp23017::init(const char* aDevice, uint8_t aAddress, uint8_t aTcaAddress)
 {
-   int status {I2C::init(aDevice, aAddress)};
+   int status {I2C::init(aDevice, aAddress, aTcaAddress)};
 
    if (status != success)
       return status;

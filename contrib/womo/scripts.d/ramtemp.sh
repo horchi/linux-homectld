@@ -1,6 +1,6 @@
 #!/bin/bash
 
-temp=`cat /sys/class/thermal/thermal_zone0/temp`
+temp=`cat /sys/class/thermal/thermal_zone1/temp`
 temp=$(echo $temp*0.001 | bc)
 temp=`echo ${temp} | sed s/","/"."/g`
 

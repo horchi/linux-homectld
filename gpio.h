@@ -3,8 +3,12 @@
 // File gpio.c
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
-// Date 04.12.2021  Jörg Wendel
+// Date 04.12.2021 Jörg Wendel
 //***************************************************************************
+
+/*
+  https://wiki.odroid.com/odroid-n2/hardware/expansion_connectors
+*/
 
 #pragma once
 

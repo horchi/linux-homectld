@@ -20,7 +20,8 @@
     --neutral3: #696969;
     --neutral4: #a3a3a3;
 
-    --listFontColor: #ffffc6;
+    --listFontColor: black;
+    --fontColor: black;
     --blue: #2177AD;
     --blueshade: #495b67;
     --yellow: #fad600;

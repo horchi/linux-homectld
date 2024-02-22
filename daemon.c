@@ -95,6 +95,7 @@ Daemon::ValueTypes Daemon::defaultValueTypes[] =
    { "^HM.*",   "Home Matic" },
    { "^P4.*",   "P4 Daemon" },
    { "^WEA",    "Wetter" },
+   { "^DHT",    "Wetter" },
    { "^CV",     "Calculated Values" },
 
    { "",        "" }
@@ -104,6 +105,7 @@ const char* Daemon::getTitleOfType(const char* type)
 {
    for (int i = 0; defaultValueTypes[i].typeExpression != ""; i++)
    {
+      tell(eloAlways, "check type '%s' against '%s'", type, defaultValueTypes[i].typeExpression.c_str());
       if (rep(type, defaultValueTypes[i].typeExpression.c_str()) == success)
          return defaultValueTypes[i].title.c_str();
    }
@@ -647,7 +649,7 @@ int Daemon::initSensorByFact(std::string type, uint address)
          }
          else if (type == "DO" || type.starts_with("MCPO"))
          {
-            sensors[type][address].invert = getBoolFromJson(jCal, "invert");
+            sensors[type][address].invert = getBoolFromJson(jCal, "invert", true);
             sensors[type][address].impulse = getBoolFromJson(jCal, "impulse");
             sensors[type][address].feedbackInType = getStringFromJson(jCal, "feedbackInType", "");
             sensors[type][address].feedbackInAddress = getIntFromJson(jCal, "feedbackInAddress");
@@ -656,8 +658,8 @@ int Daemon::initSensorByFact(std::string type, uint address)
          }
          else if (type == "DI" || type.starts_with("MCPI"))
          {
-            sensors[type][address].invert = getBoolFromJson(jCal, "invert");
-            sensors[type][address].pull = getBoolFromJson(jCal, "pull");
+            sensors[type][address].invert = getBoolFromJson(jCal, "invert", true);
+            sensors[type][address].pull = (Pull)getIntFromJson(jCal, "pull");
             sensors[type][address].interrupt = getBoolFromJson(jCal, "interrupt");
 
             cfgInput(type, address, jCal);
@@ -679,7 +681,8 @@ int Daemon::initSensorByFact(std::string type, uint address)
 
 int Daemon::initOutput(uint pin, int opt, OutputMode mode, const char* name, uint rights)
 {
-   addValueFact(pin, "DO", 1, name, "", "", rights);
+   std::string n = std::string(name) + " " + std::to_string(pin) + "\n" + physPinToGpioName(pin);
+   addValueFact(pin, "DO", 1, n.c_str(), "", "", rights);
 
    sensors["DO"][pin].opt = opt;
    sensors["DO"][pin].mode = mode;
@@ -699,16 +702,6 @@ int Daemon::cfgOutput(std::string type, uint pin, json_t* jCal)
    if (type.starts_with("MCPO"))
    {
       publishI2CSensorConfig(type.c_str(), pin, jCal);
-      // json_t* jObj = json_object();
-      // json_object_set_new(jObj, "action", json_string("init"));
-      // json_object_set_new(jObj, "type", json_string(type.c_str()));
-      // json_object_set_new(jObj, "address", json_integer(pin));
-      // json_object_set(jObj, "config", jCal);  // not json_object_set_new until calller free jCal!
-
-      // char* message = json_dumps(jObj, JSON_REAL_PRECISION(8));
-      // mqttWriter->write(mqttTopicI2C.c_str(), message);
-      // free(message);
-      // json_decref(jObj);
    }
 
    else if (type == "DO")
@@ -729,7 +722,8 @@ int Daemon::cfgOutput(std::string type, uint pin, json_t* jCal)
 
 int Daemon::initInput(uint pin, const char* name)
 {
-   addValueFact(pin, "DI", 1, name);
+   std::string n = std::string(name) + " " + std::to_string(pin) + "\n" + physPinToGpioName(pin);
+   addValueFact(pin, "DI", 1, n.c_str());
 
    tell(eloDebugWiringPi, "Debug: pinMode(%d, INPUT) (%d / %s)", pin, physPinToGpio(pin), physPinToGpioName(pin));
    pinMode(pin, INPUT);
@@ -744,22 +738,11 @@ int Daemon::cfgInput(std::string type, uint pin, json_t* jCal)
    if (type.starts_with("MCPI"))
    {
       publishI2CSensorConfig(type.c_str(), pin, jCal);
-
-      // json_t* jObj = json_object();
-      // json_object_set_new(jObj, "action", json_string("init"));
-      // json_object_set_new(jObj, "type", json_string(type.c_str()));
-      // json_object_set_new(jObj, "address", json_integer(pin));
-      // json_object_set(jObj, "config", jCal);  // not json_object_set_new until calller free jCal!
-
-      // char* message = json_dumps(jObj, JSON_REAL_PRECISION(8));
-      // mqttWriter->write(mqttTopicI2C.c_str(), message);
-      // tell(eloAlways, "DEBUG: config input %s:0x%02d [%s]", type.c_str(), pin, message);
-      // free(message);
-      // json_decref(jObj);
    }
 
    else if (type == "DI")
    {
+      tell(eloAlways, "DI %d pull %d", pin, sensors[type][pin].pull);
       if (sensors[type][pin].pull == pullUp)
          pullUpDnControl(pin, INPUT_PULLUP);
       else if (sensors[type][pin].pull == pullDown)
@@ -894,6 +877,7 @@ int Daemon::initScripts()
 
       if (!oData)
       {
+         tell(eloAlways, "Error: Got invalid JSON from script '%s'", scriptPath);
          free(scriptPath);
          continue;
       }
@@ -3569,7 +3553,7 @@ int Daemon::dispatchGrowattEvents(const char* message)
 //***************************************************************************
 // Dispatch RTL 433 MHz
 //  (rtl_433)
-//     { "time":"2023-07-14 20:45:32", "model":"Nexus-T", "id":60, "channel":1, "battery_ok":1, "temperature_C":14.8}
+//     { "time":"2023-07-14 20:45:32", "model":"Nexus-T", "id":60, "channel":1, "temperature_C":14.8}
 //***************************************************************************
 
 int Daemon::dispatchRtl433(const char* message)
@@ -3638,7 +3622,7 @@ int Daemon::dispatchRtl433(const char* message)
 
 int Daemon::dispatchOther(const char* topic, const char* message)
 {
-   json_t* jData = jsonLoad(message);
+   json_t* jData {jsonLoad(message)};
 
    if (!jData)
    {
@@ -3646,15 +3630,15 @@ int Daemon::dispatchOther(const char* topic, const char* message)
       return fail;
    }
 
+   time_t newTime {time(0)};
    std::string action = getStringFromJson(jData, "action", "update");
    std::string type = getStringFromJson(jData, "type", "");
-   int address = getIntFromJson(jData, "address");
+   uint address = getIntFromJson(jData, "address");
 
    const char* unit = getStringFromJson(jData, "unit");
    const char* title = getStringFromJson(jData, "title");
    std::string kind = getStringFromJson(jData, "kind", "");
    const char* image = getStringFromJson(jData, "image", "");
-   time_t newTime = time(0);
 
    if (action == "init")
    {
@@ -3721,10 +3705,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    // ignore data for impulse (outputs)
 
    if (sensors[type][address].impulse) // ?? type.starts_with("MCPO"))
-   {
-      tell(eloAlways, "kind of '%s:0x%02x is '%s'", type.c_str(), address, sensors[type][address].kind.c_str());
       return done;
-   }
 
    if (type.starts_with("ADS"))
       return updateAnalogInput(address, type.c_str(), getDoubleFromJson(jData, "value"), newTime, unit);
@@ -3734,6 +3715,28 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    sensors[type][address].value = getDoubleFromJson(jData, "value");
    bool state = getBoolFromJson(jData, "state");
    sensors[type][address].state = sensors[type][address].invert ? !state : state;
+
+   if (type.starts_with("MCPI"))
+   {
+      for (const auto& itType : sensors)
+      {
+         std::string _type = itType.first;
+
+         if (!_type.starts_with("MCPO") && _type != "DO")
+            continue;
+
+         for (const auto& s : sensors[_type])
+         {
+            if (s.second.feedbackInType.starts_with("MCPI") && s.second.feedbackInAddress == address)
+            {
+               sensors[_type][s.first].state = sensors[type][address].invert ? !state : state;
+               sensors[_type][s.first].last = time(0);
+               sensors[_type][s.first].valid = true;
+               publishPin(_type.c_str(), s.first);
+            }
+         }
+      }
+   }
 
    // send update to WS
    {
@@ -3956,7 +3959,7 @@ int Daemon::toggleIo(uint addr, const char* type, int state, int bri, int transi
 {
    cDbRow* fact = valueFactRowOf(type, addr);
 
-   tell(eloAlways, "toggleio() %s:0x%02d, topic '%s'", type, addr, mqttTopicI2C.c_str());
+   tell(eloDebug, "Debug: toggleio() %s:0x%02d, topic '%s'", type, addr, mqttTopicI2C.c_str());
 
    if (!fact)
       return fail;
@@ -4050,7 +4053,6 @@ void Daemon::pin2Json(json_t* ojData, const char* type, int pin)
 {
    json_object_set_new(ojData, "address", json_integer(pin));
    json_object_set_new(ojData, "type", json_string(type));
-   json_object_set_new(ojData, "last", json_integer(sensors[type][pin].last));
    json_object_set_new(ojData, "valid", json_boolean(sensors[type][pin].valid));
 
    // has to be moved to facts?
@@ -4201,10 +4203,10 @@ void Daemon::publishPin(const char* type, uint pin)
    json_t* ojData = json_object();
    pin2Json(ojData, type, pin);
 
-   char* tuple {};
-   asprintf(&tuple, "%s:0x%02x", type, pin);
-   jsonSensorList[tuple] = ojData;
-   free(tuple);
+   char* key {};
+   asprintf(&key, "%s:0x%02x", type, pin);
+   jsonSensorList[key] = ojData;
+   free(key);
 
    pushDataUpdate("update", 0L);
 }

@@ -880,7 +880,7 @@ int Daemon::performChartData(json_t* oObject, long client)
    rangeFrom.setValue(rangeStart);
    rangeTo.setValue(rangeStart + (int)(range*tmeSecondsPerDay));
 
-   tell(eloAlways, "Selecting chart '%s' data for sensors '%s' from (%ld) to (%ld) with range %.1f",
+   tell(eloDb, "Db: Selecting chart '%s' data for sensors '%s' from (%ld) to (%ld) with range %.1f",
         id, sensors, rangeFrom.getTimeValue(), rangeTo.getTimeValue(), range);
 
    tableValueFacts->clear();
@@ -961,7 +961,7 @@ int Daemon::performChartData(json_t* oObject, long client)
       else if (range > 3)
          select = selectSamplesRange60;
 
-      tell(eloAlways, "Using for '%s' select [%s]", id, select->asText());
+      tell(eloDb, "Sql: Using select [%s] for '%s'", select->asText(), id);
 
       uint count {0};
 
@@ -988,7 +988,7 @@ int Daemon::performChartData(json_t* oObject, long client)
          count++;
       }
 
-      tell(eloDetail, " collected %d samples for sensor '%s:0x%lx'", count, tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"));
+      tell(eloDb, "Sql: collected %d samples for sensor '%s:0x%lx'", count, tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"));
       select->freeResult();
    }
 
@@ -1706,11 +1706,22 @@ int Daemon::storeDashboards(json_t* obj, long client)
 
 int Daemon::performForceRefresh(json_t* obj, long client)
 {
-   json_t* oJson = json_object();
-   dashboards2Json(oJson);
-   pushOutMessage(oJson, "dashboards", client);
+   std::string action = getStringFromJson(obj, "action", "");
 
-   performData(client, "init");
+   if (action == "dashboards")
+   {
+      json_t* oJson = json_object();
+      dashboards2Json(oJson);
+      pushOutMessage(oJson, "dashboards", client);
+      performData(client, "init");
+   }
+   else if (action == "valuefacts")
+   {
+      initScripts();
+      json_t* oJson = json_object();
+      valueFacts2Json(oJson, false);
+      pushOutMessage(oJson, "valuefacts");
+   }
 
    return done;
 }
@@ -2392,18 +2403,24 @@ int Daemon::daemonState2Json(json_t* obj)
 
 int Daemon::sensor2Json(json_t* obj, const char* type, uint address)
 {
-   double peakMax {0.0};
-   double peakMin {0.0};
-
    json_object_set_new(obj, "address", json_integer(address));
    json_object_set_new(obj, "type", json_string(type));
    json_object_set_new(obj, "working", json_boolean(sensors[type][address].working));
    json_object_set_new(obj, "last", json_integer(sensors[type][address].last));
-   // tell(eloAlways, "Distributing time for sensor '%s:%d' to %ld", type, address, sensors[type][address].last);
+
+   // optional peak
 
    tablePeaks->clear();
    tablePeaks->setValue("TYPE", type); // table->getStrValue("TYPE"));
    tablePeaks->setValue("ADDRESS", (long)address); // table->getIntValue("ADDRESS"));
+
+   if (tablePeaks->find())
+   {
+      json_object_set_new(obj, "peak", json_real(tablePeaks->getFloatValue("MAX")));
+      json_object_set_new(obj, "peakmin", json_real(tablePeaks->getFloatValue("MIN")));
+   }
+
+   tablePeaks->reset();
 
    // at least one update / 2 minutes ?? -> move to configuration ??
 
@@ -2421,17 +2438,6 @@ int Daemon::sensor2Json(json_t* obj, const char* type, uint address)
       sensors[type][address].valid = false;
 
    json_object_set_new(obj, "valid", json_boolean(sensors[type][address].valid));
-
-   if (tablePeaks->find())
-   {
-      peakMax = tablePeaks->getFloatValue("MAX");
-      peakMin = tablePeaks->getFloatValue("MIN");
-   }
-
-   tablePeaks->reset();
-
-   json_object_set_new(obj, "peak", json_real(peakMax));
-   json_object_set_new(obj, "peakmin", json_real(peakMin));
 
    return done;
 }
@@ -2475,7 +2481,7 @@ bool Daemon::webFileExists(const char* file, const char* base)
 {
    char* path {};
    asprintf(&path, "%s/%s/%s", httpPath, base ? base : "", file);
-   bool exist = fileExists(path);
+   bool exist {fileExists(path)};
    free(path);
 
    return exist;

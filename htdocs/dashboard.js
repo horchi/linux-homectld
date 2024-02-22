@@ -162,7 +162,7 @@ function newDashboard()
    if (name != '') {
       console.log("new dashboard: " + name);
       socket.send({ "event" : "storedashboards", "object" : { [-1] : { 'title' : name, 'widgets' : {} } } });
-      socket.send({ "event" : "forcerefresh", "object" : {} });
+      socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'dashboards' } });
    }
 }
 
@@ -998,12 +998,16 @@ function titleClick(ctrlKey, key)
       var last = new Date(sensor.last * 1000);
       var form = document.createElement("div");
 
+      // console.log(sensor);
+      // console.log(fact);
+
       $(form).append($('<div></div>')
                      .css('z-index', '9999')
                      .css('minWidth', '40vh')
 
                      .append($('<div></div>')
                              .css('display', 'flex')
+                             .css('margin-bottom', '4px')
                              .append($('<span></span>')
                                      .css('width', '30%')
                                      .css('text-align', 'end')
@@ -1012,10 +1016,13 @@ function titleClick(ctrlKey, key)
                              .append($('<span></span>')
                                      .append($('<div></div>')
                                              .addClass('rounded-border')
+                                             .css('font-family', 'monospace')
+                                             .css('font-size', 'larger')
                                              .html(key + ' (' + parseInt(key.split(":")[1]) + ')')
                                             )))
                      .append($('<div></div>')
                              .css('display', 'flex')
+                             .css('margin-bottom', '4px')
                              .append($('<span></span>')
                                      .css('width', '30%')
                                      .css('text-align', 'end')
@@ -1023,11 +1030,13 @@ function titleClick(ctrlKey, key)
                                      .html('Title'))
                              .append($('<span></span>')
                                      .append($('<div></div>')
+                                             .css('font-style', 'italic')
                                              .addClass('rounded-border')
                                              .html(fact.title)
                                             )))
                      .append($('<div></div>')
                              .css('display', 'flex')
+                             .css('margin-bottom', '4px')
                              .append($('<span></span>')
                                      .css('width', '30%')
                                      .css('text-align', 'end')
@@ -1035,11 +1044,13 @@ function titleClick(ctrlKey, key)
                                      .html('User Title'))
                              .append($('<span></span>')
                                      .append($('<div></div>')
+                                             .css('font-style', 'italic')
                                              .addClass('rounded-border')
                                              .html(fact.usrtitle)
                                             )))
                      .append($('<div></div>')
                              .css('display', 'flex')
+                             .css('margin-bottom', '4px')
                              .append($('<span></span>')
                                      .css('width', '30%')
                                      .css('text-align', 'end')
@@ -1052,6 +1063,7 @@ function titleClick(ctrlKey, key)
                                             )))
                      .append($('<div></div>')
                              .css('display', 'flex')
+                             .css('margin-bottom', '4px')
                              .append($('<span></span>')
                                      .css('width', '30%')
                                      .css('text-align', 'end')
@@ -1061,10 +1073,11 @@ function titleClick(ctrlKey, key)
                                      .append($('<div></div>')
                                              .attr('id', 'dlgPeak')
                                              .addClass('rounded-border')
-                                             .html(sensor.peak + ' ' + widget.unit)
+                                             .html(sensor.peak ? sensor.peak + ' ' + widget.unit : '-')
                                             )))
                      .append($('<div></div>')
                              .css('display', 'flex')
+                             .css('margin-bottom', '4px')
                              .append($('<span></span>')
                                      .css('width', '30%')
                                      .css('text-align', 'end')
@@ -1075,6 +1088,19 @@ function titleClick(ctrlKey, key)
                                              .addClass('rounded-border')
                                              .html(last.toLocaleString('de-DE') + ' (' + Math.round((now-last)/1000) + 's)'))
                                     ))
+                     .append($('<div></div>')
+                             .css('display', sensor.battery ? 'flex' : 'none')
+                             .css('margin-bottom', '4px')
+                             .append($('<span></span>')
+                                     .css('width', '30%')
+                                     .css('text-align', 'end')
+                                     .css('margin-right', '10px')
+                                     .html('Battery'))
+                             .append($('<span></span>')
+                                     .append($('<div></div>')
+                                             .addClass('rounded-border')
+                                             .html(sensor.battery ? sensor.battery + ' %' :  '-')
+                                            )))
                     );
 
 
@@ -1402,7 +1428,7 @@ function addWidget()
             // console.log("storedashboards key " + $("#widgetKey").val());
 
             socket.send({ "event" : "storedashboards", "object" : { [actDashboard] : { 'title' : dashboards[actDashboard].title, 'widgets' : json } } });
-            socket.send({ "event" : "forcerefresh", "object" : {} });
+            socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'dashboards' } });
             $(this).dialog('close');
          }
       },
@@ -1612,7 +1638,7 @@ function dropDashboard(ev)
 
    // console.log("store:  " + JSON.stringify( { 'action' : 'order', 'order' : jOrder }, undefined, 4));
    socket.send({ "event" : "storedashboards", "object" : { 'action' : 'order', 'order' : jOrder } });
-   socket.send({ "event" : "forcerefresh", "object" : {} });
+   socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'dashboards' } });
 }
 
 // widgets
@@ -1671,13 +1697,11 @@ function dropWidget(ev)
    var json = {};
    $('#widgetContainer > div').each(function () {
       var key = $(this).attr('id').substring($(this).attr('id').indexOf("_") + 1);
-      // console.log(" add " + key + " for " + $(this).attr('id'));
       json[key] = dashboards[actDashboard].widgets[key];
    });
 
-   // console.log("dashboards " + JSON.stringify(json));
    socket.send({ "event" : "storedashboards", "object" : { [actDashboard] : { 'title' : dashboards[actDashboard].title, 'widgets' : json } } });
-   socket.send({ "event" : "forcerefresh", "object" : {} });
+   socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'dashboards' } });
 }
 
 function dashboardSetup(dashboardId)
@@ -1688,15 +1712,11 @@ function dashboardSetup(dashboardId)
       dashboards[dashboardId].options = {};
 
    $(form).append($('<div></div>')
-                  .css('z-index', '9999')
-                  .css('minWidth', '40vh')
+                  .addClass('settingsDialogContent')
 
                   .append($('<div></div>')
                           .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '25%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
                                   .html('Titel'))
                           .append($('<span></span>')
                                   .append($('<input></input>')
@@ -1708,9 +1728,6 @@ function dashboardSetup(dashboardId)
                   .append($('<div></div>')
                           .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '25%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
                                   .html('Symbol'))
                           .append($('<span></span>')
                                   .append($('<input></input>')
@@ -1722,21 +1739,17 @@ function dashboardSetup(dashboardId)
                   .append($('<div></div>')
                           .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '25%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
                                   .html('Zeilenhöhe'))
                           .append($('<span></span>')
                                   .append($('<select></select>')
                                           .addClass('rounded-border inputSetting')
                                           .attr('id', 'heightfactor')
                                           .val(dashboards[dashboardId].options.heightfactor)
-                                         ))
+                                         )))
+                  .append($('<div></div>')
+                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '25%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
-                                  .html('Kiosk'))
+                                  .html('Zeilenhöhe Kiosk'))
                           .append($('<span></span>')
                                   .append($('<select></select>')
                                           .addClass('rounded-border inputSetting')
@@ -1746,9 +1759,6 @@ function dashboardSetup(dashboardId)
                   .append($('<div></div>')
                           .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '25%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
                                   .html('Gruppe'))
                           .append($('<span></span>')
                                   .append($('<input></input>')
@@ -1767,7 +1777,7 @@ function dashboardSetup(dashboardId)
       width: "auto",
       title: "Dashbord - " + dashboards[dashboardId].title,
       open: function() {
-         $(".ui-dialog-buttonpane button:contains('Dashboard löschen')").attr('style','color:red');
+         $(".ui-dialog-buttonpane button:contains('Dashboard löschen')").attr('style','color:#ff5757');
 
          if (!dashboards[dashboardId].options.heightfactor)
             dashboards[dashboardId].options.heightfactor = 1;
@@ -1785,7 +1795,7 @@ function dashboardSetup(dashboardId)
          'Dashboard löschen': function () {
             console.log("delete dashboard: " + dashboards[dashboardId].title);
             socket.send({ "event" : "storedashboards", "object" : { [dashboardId] : { 'action' : 'delete' } } });
-            socket.send({ "event" : "forcerefresh", "object" : {} });
+            socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'dashboards' } });
 
             $(this).dialog('close');
          },
@@ -1802,7 +1812,7 @@ function dashboardSetup(dashboardId)
                                                                                       'group' : dashboards[dashboardId].group,
                                                                                       'symbol' : dashboards[dashboardId].symbol,
                                                                                       'options' : dashboards[dashboardId].options} } });
-            socket.send({ "event" : "forcerefresh", "object" : {} });
+            socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'dashboards' } });
             $(this).dialog('close');
          },
          'Abbrechen': function () {
@@ -1818,13 +1828,11 @@ function widgetSetup(key)
 {
    var item = valueFacts[key];
    var widget = dashboards[actDashboard].widgets[key];
-   var battery = null;
 
    if (allSensors[key] != null)
    {
       // console.log("sensor " + JSON.stringify(allSensors[key], undefined, 4));
       // console.log("sensor found, batt is : " + allSensors[key].battery);
-      battery = allSensors[key].battery;
    }
    else
       console.log("sensor not found: " + key);
@@ -1835,15 +1843,10 @@ function widgetSetup(key)
    var form = document.createElement("div");
 
    $(form).append($('<div></div>')
-                  .css('z-index', '9999')
-                  .css('minWidth', '40vh')
+                  .addClass('settingsDialogContent')
 
                   .append($('<div></div>')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '30%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
                                   .html('ID'))
                           .append($('<span></span>')
                                   .append($('<div></div>')
@@ -1851,29 +1854,9 @@ function widgetSetup(key)
                                           .html(key + ' (' + parseInt(key.split(":")[1]) + ')')
                                          )))
                   .append($('<div></div>')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '30%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
-                                  .html('Battery'))
-                          .append($('<span></span>')
-                                  .append($('<div></div>')
-                                          .addClass('rounded-border')
-                                          .html(battery ? battery + ' %' :  '-')
-                                         )))
-                  .append($('<br></br>'))
-
-                  .append($('<div></div>')
-                          .css('display', 'flex')
-                          .append($('<span></span>')
-                                  .css('width', '30%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
-                                  .css('align-self', 'center')
                                   .html('Widget'))
                           .append($('<span></span>')
-                                  .css('width', '300px')
                                   .append($('<select></select>')
                                           .change(function() {widgetTypeChanged();})
                                           .addClass('rounded-border inputSetting')
@@ -1881,15 +1864,9 @@ function widgetSetup(key)
                                          )))
 
                   .append($('<div></div>')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '30%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
-                                  .css('align-self', 'center')
                                   .html('Titel'))
                           .append($('<span></span>')
-                                  .css('width', '300px')
                                   .append($('<input></input>')
                                           .addClass('rounded-border inputSetting')
                                           .attr('type', 'search')
@@ -1899,15 +1876,9 @@ function widgetSetup(key)
 
                   .append($('<div></div>')
                           .attr('id', 'divUnit')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '30%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
-                                  .css('align-self', 'center')
                                   .html('Einheit'))
                           .append($('<span></span>')
-                                  .css('width', '300px')
                                   .append($('<input></input>')
                                           .addClass('rounded-border inputSetting')
                                           .attr('type', 'search')
@@ -1917,12 +1888,7 @@ function widgetSetup(key)
 
                   .append($('<div></div>')
                           .attr('id', 'divFactor')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '30%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
-                                  .css('align-self', 'center')
                                   .html('Faktor'))
                           .append($('<span></span>')
                                   .append($('<input></input>')
@@ -1935,12 +1901,7 @@ function widgetSetup(key)
 
                   .append($('<div></div>')
                           .attr('id', 'divScalemin')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '30%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
-                                  .css('align-self', 'center')
                                   .html('Skala Min'))
                           .append($('<span></span>')
                                   .append($('<input></input>')
@@ -1953,12 +1914,7 @@ function widgetSetup(key)
 
                   .append($('<div></div>')
                           .attr('id', 'divScalemax')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '30%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
-                                  .css('align-self', 'center')
                                   .html('Skala Max'))
                           .append($('<span></span>')
                                   .append($('<input></input>')
@@ -1971,12 +1927,7 @@ function widgetSetup(key)
 
                   .append($('<div></div>')
                           .attr('id', 'divScalestep')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '30%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
-                                  .css('align-self', 'center')
                                   .html('Skala Step'))
                           .append($('<span></span>')
                                   .append($('<input></input>')
@@ -1989,15 +1940,9 @@ function widgetSetup(key)
 
                   .append($('<div></div>')
                           .attr('id', 'divCritmin')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '30%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
-                                  .css('align-self', 'center')
                                   .html('Skala Crit Min'))
                           .append($('<span></span>')
-                                  .css('width', '300px')
                                   .append($('<input></input>')
                                           .addClass('rounded-border inputSetting')
                                           .attr('id', 'critmin')
@@ -2008,15 +1953,9 @@ function widgetSetup(key)
 
                   .append($('<div></div>')
                           .attr('id', 'divCritmax')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '30%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
-                                  .css('align-self', 'center')
                                   .html('Skala Crit Max'))
                           .append($('<span></span>')
-                                  .css('width', '300px')
                                   .append($('<input></input>')
                                           .addClass('rounded-border inputSetting')
                                           .attr('id', 'critmax')
@@ -2027,18 +1966,12 @@ function widgetSetup(key)
 
                   .append($('<div></div>')
                           .attr('id', 'divSymbol')
-                          .css('display', 'flex')
-                          .append($('<a></a>')
-                                  .css('width', '30%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
-                                  .css('color', 'blue')
-                                  .css('align-self', 'center')
-                                  .html('Icon')
-                                  .attr('target','_blank')
-                                  .attr('href', 'https://pictogrammers.github.io/@mdi/font/6.5.95'))
                           .append($('<span></span>')
-                                  .css('width', '300px')
+                                  .append($('<a></a>')
+                                          .html('Icon')
+                                          .attr('target', '_blank')  // open in new tab
+                                          .attr('href', 'https://pictogrammers.github.io/@mdi/font/6.5.95')))
+                          .append($('<span></span>')
                                   .append($('<input></input>')
                                           .addClass('rounded-border inputSetting')
                                           .attr('id', 'symbol')
@@ -2049,18 +1982,12 @@ function widgetSetup(key)
 
                   .append($('<div></div>')
                           .attr('id', 'divSymbolOn')
-                          .css('display', 'flex')
-                          .append($('<a></a>')
-                                  .css('width', '30%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
-                                  .css('color', 'blue')
-                                  .css('align-self', 'center')
-                                  .html('Icon an')
-                                  .attr('target','_blank')
-                                  .attr('href', 'https://pictogrammers.github.io/@mdi/font/6.5.95'))
                           .append($('<span></span>')
-                                  .css('width', '300px')
+                                  .append($('<a></a>')
+                                          .html('Icon an')
+                                          .attr('target', '_blank')  // open in new tab
+                                          .attr('href', 'https://pictogrammers.github.io/@mdi/font/6.5.95')))
+                          .append($('<span></span>')
                                   .append($('<input></input>')
                                           .addClass('rounded-border inputSetting')
                                           .attr('id', 'symbolOn')
@@ -2071,15 +1998,9 @@ function widgetSetup(key)
 
                   .append($('<div></div>')
                           .attr('id', 'divImgoff')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '30%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
-                                  .css('align-self', 'center')
                                   .html('Image'))
                           .append($('<span></span>')
-                                  .css('width', '300px')
                                   .append($('<select></select>')
                                           .addClass('rounded-border inputSetting')
                                           .attr('id', 'imgoff')
@@ -2087,15 +2008,9 @@ function widgetSetup(key)
 
                   .append($('<div></div>')
                           .attr('id', 'divImgon')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '30%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
-                                  .css('align-self', 'center')
-                                  .html('Image An'))
+                                  .html('Image an'))
                           .append($('<span></span>')
-                                  .css('width', '300px')
                                   .append($('<select></select>')
                                           .addClass('rounded-border inputSetting')
                                           .attr('id', 'imgon')
@@ -2103,41 +2018,35 @@ function widgetSetup(key)
 
                   .append($('<div></div>')
                           .attr('id', 'divColor')
-                          .css('display', 'flex')
                           .append($('<span></span>')
                                   .attr('id', 'spanColor')
-                                  .css('width', '30%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
-                                  .css('align-self', 'center')
-                                  .html('Farbe aus / an'))
+                                  .html('Farbe'))
                           .append($('<span></span>')
-                                  .append($('<input></input>')
-                                          .addClass('rounded-border inputSetting')
-                                          .css('width', '80px')
-                                          .attr('id', 'color')
-                                          .attr('type', 'text')
-                                          .val(widget.color)
-                                         ))
-                          .append($('<span></span>')
-                                  .append($('<input></input>')
-                                          .addClass('rounded-border inputSetting')
-                                          .css('width', '80px')
-                                          .attr('id', 'colorOn')
-                                          .attr('type', 'text')
-                                          .val(widget.colorOn)
-                                         )))
+                                  .css('display', 'flex')
+                                  .append($('<span></span>')
+                                          .css('margin-right', '5px')
+                                          .append($('<input></input>')
+                                                  .attr('id', 'color')
+                                                  .attr('type', 'text')
+                                                  .addClass('rounded-border inputSetting')
+                                                  .css('width', '80px')
+                                                  .val(widget.color)
+                                                 ))
+                                  .append($('<span></span>')
+                                          .append($('<input></input>')
+                                                  .attr('id', 'colorOn')
+                                                  .attr('type', 'text')
+                                                  .addClass('rounded-border inputSetting')
+                                                  .css('width', '80px')
+                                                  .val(widget.colorOn)
+                                         ))))
 
                   .append($('<div></div>')
                           .attr('id', 'divPeak')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '30%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
-                                  .css('align-self', 'center')
                                   .html('Peak anzeigen'))
                           .append($('<span></span>')
+                                  .css('width', '80px')
                                   .append($('<input></input>')
                                           .addClass('rounded-border inputSetting')
                                           .attr('id', 'peak')
@@ -2149,12 +2058,7 @@ function widgetSetup(key)
 
                   .append($('<div></div>')
                           .attr('id', 'divLinefeed')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '30%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
-                                  .css('align-self', 'center')
                                   .html('Zeilenumbruch'))
                           .append($('<span></span>')
                                   .append($('<input></input>')
@@ -2167,12 +2071,7 @@ function widgetSetup(key)
                                          )))
                   .append($('<div></div>')
                           .attr('id', 'divRange')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '30%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
-                                  .css('align-self', 'center')
                                   .html('Chart Bereich'))
                           .append($('<span></span>')
                                   .append($('<input></input>')
@@ -2184,28 +2083,17 @@ function widgetSetup(key)
                                           .val(widget.range)
                                          )))
                   .append($('<div></div>')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '30%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
-                                  .css('align-self', 'center')
                                   .html('Breite'))
                           .append($('<span></span>')
-                                  .css('width', '300px')
                                   .append($('<select></select>')
                                           .addClass('rounded-border inputSetting')
                                           .attr('id', 'widthfactor')
                                          )))
 /*                  .append($('<div></div>')
-                          .css('display', 'flex')
                           .append($('<span></span>')
-                                  .css('width', '30%')
-                                  .css('text-align', 'end')
-                                  .css('margin-right', '10px')
                                   .html('Höhe'))
                           .append($('<span></span>')
-                                  .css('width', '300px')
                                   .append($('<select></select>')
                                           .addClass('rounded-border inputSetting')
                                           .attr('id', 'heightfactor')
@@ -2254,9 +2142,9 @@ function widgetSetup(key)
       modal: true,
       resizable: false,
       closeOnEscape: true,
-      hide: "fade",
-      width: "auto",
-      title: "Widget - " + title,
+      hide: 'fade',
+      width: 'auto',
+      title: 'Widget - ' + title,
       open: function() {
          for (var wdKey in widgetTypes) {
             $('#widgettype').append($('<option></option>')
@@ -2298,6 +2186,7 @@ function widgetSetup(key)
 
          $('#color').spectrum({
             type: "color",
+            containerClassName: 'rounded-border',
             showPalette: true,
             showSelectionPalette: true,
             palette: [ ],
@@ -2330,7 +2219,7 @@ function widgetSetup(key)
          }
 
          widgetTypeChanged();
-         $(".ui-dialog-buttonpane button:contains('Widget löschen')").attr('style','color:red');
+         $(".ui-dialog-buttonpane button:contains('Widget löschen')").attr('style','color:#ff5757');
       },
       buttons: {
          'Widget löschen': function () {
@@ -2345,12 +2234,12 @@ function widgetSetup(key)
 
             // console.log("delete widget " + JSON.stringify(json, undefined, 4));
             socket.send({ "event" : "storedashboards", "object" : { [actDashboard] : { 'title' : dashboards[actDashboard].title, 'widgets' : json } } });
-            socket.send({ "event" : "forcerefresh", "object" : {} });
+            socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'dashboards' } });
             $(this).dialog('close');
          },
 
          'Abbrechen': function () {
-            // socket.send({ "event" : "forcerefresh", "object" : {} });
+            // socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'dashboards' } });
             if (allSensors[key] == null) {
                console.log("missing sensor!!");
             }
@@ -2453,7 +2342,7 @@ function widgetSetup(key)
             json[key]["colorOn"] = $("#colorOn").spectrum("get").toRgbString();
 
             socket.send({ "event" : "storedashboards", "object" : { [actDashboard] : { 'title' : dashboards[actDashboard].title, 'widgets' : json } } });
-            socket.send({ "event" : "forcerefresh", "object" : {} });
+            socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'dashboards' } });
 
             $(this).dialog('close');
          }

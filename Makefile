@@ -121,8 +121,7 @@ install-config:
 	   chmod a+rx $(CONFDEST); \
 	fi
 	install --mode=755 -D ./configs/sysctl $(CONFDEST)/scripts.d
-	install --mode=755 -D ./configs/example_switch.sh $(CONFDEST)/scripts.d
-	install --mode=755 -D ./configs/example_sensor.sh $(CONFDEST)/scripts.d
+	install --mode=755 -D ./configs/*.sh $(CONFDEST)/scripts.d
 	if ! test -f $(DESTDIR)/etc/msmtprc; then \
 	   install --mode=644 -D ./configs/msmtprc $(DESTDIR)/etc/; \
 	fi
@@ -170,7 +169,7 @@ dist: clean
 	@echo Distribution package created as $(ARCHIVE).tgz
 
 clean:
-	rm -f */*.o *.o core* *~ */*~ lib/t *.jpg $(DEPFILE)
+	rm -f */*.o */*/*.o *.o core* *~ */*~ lib/t *.jpg $(DEPFILE)
 	rm -f $(TARGET) $(ARCHIVE).tgz
 	rm -f com2
 

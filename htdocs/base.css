@@ -220,11 +220,12 @@ button:focus {
 .buttonOptions
 {
     display: inline;
+    font-size: 14px;
     min-width: 76px;
     padding: 4px;
     margin: 2px;
-    color: white;
-    height: 28px;
+    color: var(--buttonFont);
+    height: 32px;
     background-color: slategray;
     text-decoration: none;
 }
@@ -237,7 +238,7 @@ button:focus {
 .tool-button
 {
     height: 32px;
-    color: white;
+    color: var(--buttonFont);
     font-size: 14px !important;
     background-color: var(--neutral3);
     cursor: pointer;
@@ -261,7 +262,7 @@ button:focus {
 {
     display: inline;
     margin: 5px 3px 5px 3px;
-    color: white;
+    color: var(--buttonFont);
     background-color: transparent;
     text-decoration: none;
     cursor: pointer;
@@ -278,7 +279,7 @@ button:focus {
 .buttonDashboardActive
 {
     border-radius: 0;
-    border-bottom-color: white;
+    border-bottom-color: var(--buttonFont);
     border-bottom-style: solid;
     border-bottom-width: 2px;
 }
@@ -329,7 +330,7 @@ button:focus {
 .labelB1
 {
     font-size: 12px;
-    color: var(--neutral4);
+    color: var(--neutral4) !important;
     margin-left: 6px;
     font-weight: normal;
 }
@@ -343,7 +344,7 @@ button:focus {
     border-width: 1px;
     border-color: var(--neutral2);
     border-style: solid;
-    color: white;
+    color: var(--fontColor);
     margin-top: 2px;
     margin-bottom: 2px;
     padding-right: 3px;
@@ -358,7 +359,7 @@ button:focus {
     border-width: 1px;
     border-color: var(--neutral2);
     border-style: solid;
-    color: white;
+    color: var(--fontColor);
     margin-top: 2px;
     height: 32px;
     box-sizing: border-box;
@@ -372,7 +373,7 @@ button:focus {
     border-width: 1px;
     border-color: var(--neutral2);
     border-style: solid;
-    color: white;
+    color: var(--fontColor);
     margin-top: 2px;
     margin-bottom: 2px;
     padding: 3px;
@@ -387,7 +388,7 @@ button:focus {
     border-width: 1px;
     border-color: var(--neutral2);
     border-style: solid;
-    color: white;
+    color: var(--fontColor);
     margin-top: 2px;
     margin-bottom: 2px;
     padding: 3px;
@@ -402,7 +403,7 @@ button:focus {
     border-width: 1px;
     border-color: var(--neutral2);
     border-style: solid;
-    color: white;
+    color: var(--fontColor);
     margin-top: 2px;
     margin-bottom: 2px;
     padding: 3px;
@@ -438,7 +439,7 @@ span > input
     border-width: 1px;
     border-color: var(--neutral2);
     border-style: solid;
-    color: white;
+    color: var(--fontColor);
     margin-top: 2px;
     padding: 3px;
     width: 45px;
@@ -464,7 +465,7 @@ span > input
 .info
 {
     background-color: green;
-    color: white;
+    color: var(--fontColor);
     text-decoration: none;
     font-size: 22px;
     width: 95%;
@@ -481,7 +482,7 @@ span > input
 .infoWarn
 {
     background-color: orange;
-    color: white;
+    color: var(--fontColor);
     text-decoration: none;
     font-size: 22px;
     width: 95%;
@@ -492,7 +493,7 @@ span > input
 .infoError
 {
     background-color: red;
-    color: white;
+    color: var(--fontColor);
     text-decoration: none;
     font-size: 22px;
     width: 95%;
@@ -521,7 +522,7 @@ span > input
 
 .schemaDiv
 {
-    color: white;
+    color: var(--fontColor);
     padding-top: 5px;
     padding-left: 4px;
     padding-right: 4px;
@@ -540,7 +541,7 @@ span > input
     min-width: 100px;
     display: inline-table;
     text-align: left;
-    color: white;
+    color: var(--listFontColor);
 }
 
 .confirmDiv
@@ -584,51 +585,6 @@ span > input
     display: inline-table;
     text-align: left;
     height: 24px;
-}
-
-.inputTableConfig
-{
-    /* background-color: var(--light1); */
-    background: linear-gradient(to bottom right, #00000096, black); /* Standard syntax (must be last) */
-    padding: var(--containerPadding);
-}
-
-.inputTableConfig > div > span
-{
-    width: 24%;
-    min-width: 100px;
-    display: inline-table;
-    text-align: left;
-    height: 24px;
-    color: var(--listFontColor);
-}
-
-.inputTableConfig > div > span:nth-child(3n)
-{
-    margin-left: 10px;
-    width: 45%;
-    min-width: 100px;
-    display: inline-table;
-    text-align: left;
-    height: 24px;
-    color: var(--listFontColor);
-}
-
-.inputTableConfig > div > span > input[type="search"]
-{
-    width: 100%;
-}
-
-.inputTableConfig > div > span > textarea
-{
-    width: 100%;
-    resize: vertical;
-    padding: 0px;
-}
-
-.inputTableConfig > div > span > select
-{
-    width: 100%;
 }
 
 .content
@@ -791,16 +747,7 @@ div.greenCircle
     height: 12px;
     border-radius: 8px;
     margin-left: 4px;
-    background-color: yellow;
-}
-
-.setupContainer
-{
-    background: linear-gradient(to bottom right, #00000096, black);
-    width: fit-content;
-    padding: var(--containerPadding);
-    width: -webkit-fill-available;
-    width: -moz-available;
+    background-color: var(--yellow);
 }
 
 .tableMultiCol
@@ -809,6 +756,7 @@ div.greenCircle
     border-collapse: collapse;
     color: var(--buttonFont);
     margin-top: 5px;
+    white-space-collapse: preserve-breaks;
 }
 
 table.tableMultiCol thead
@@ -825,7 +773,7 @@ table.tableMultiCol tr
 {
     height: 48px;
     border-width: 1px;
-    border-color: white;
+    border-color: var(--neutral3);
     border-bottom-style: solid;
 }
 
@@ -1082,7 +1030,7 @@ table.tableMultiCol tr
     width: 80px;
     padding: 2px;
     margin: 2px;
-    color: white;
+    color: var(--buttonFont);
     font-size: large;
     background-color: slategray;
 }
@@ -1104,7 +1052,7 @@ table.tableMultiCol tr
     min-width: 76px;
     padding: 2px;
     margin: 2px;
-    color: white;
+    color: var(--buttonFont);
     height: 28px;
     background-color: slategray;
 }
@@ -1128,6 +1076,155 @@ table.tableMultiCol tr
     display: inline;
     width: 300px;
     padding: 0px;
+}
+
+/* ----------------------- */
+/* config page */
+
+.tabButtons
+{
+    background-color: var(--menu);
+}
+
+.tabButtons > button
+{
+    cursor: pointer;
+    background-color: transparent;
+    color: var(--fontColor);
+    fill: var(--fontColor);
+    opacity: 0.6;
+    margin-top: 6px;
+    display: inline-block;
+    padding: 6px 12px;
+    margin-top: 5px;
+    text-decoration: none;
+    transition: 0.5s;
+    border: none;
+}
+
+.tabButtons > button:hover
+{
+    opacity: 0.8;
+}
+
+.tabButtons > button.active
+{
+    opacity: 1.0;
+    font-weight: bold;
+}
+
+.setupContainer
+{
+    background: linear-gradient(to bottom right, #00000096, black);
+    padding: var(--containerPadding);
+    width: fit-content;
+    width: -webkit-fill-available;
+    width: -moz-available;
+}
+
+.inputTableConfig
+{
+    background: linear-gradient(to bottom right, #00000096, black);
+    padding: var(--containerPadding);
+    display: table;
+    width: 92%;
+    margin: 3%;
+}
+
+.inputTableConfig > div
+{
+    display: inline-grid;
+    width: 48%;
+    padding: var(--containerPadding);
+}
+
+.inputTableConfig > div > span
+{
+    min-width: 100px;
+    text-align: left;
+    align-self: center;
+    /*color: var(--listFontColor);*/
+}
+
+.inputTableConfig > div > span:nth-child(1)
+{
+    align-self: center;
+
+}
+
+.inputTableConfig > div > span > span > span
+{
+    align-self: center;
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+.inputTableConfig > div > span:nth-child(3n)
+{
+    margin-left: 10px;
+    width: 45%;
+    min-width: 100px;
+    text-align: left;
+    color: var(--listFontColor);
+}
+
+.inputTableConfig > div > span > input
+{
+    width: 100%;
+}
+
+.inputTableConfig > div > span > textarea
+{
+    width: 100%;
+    min-height: 60px;
+    resize: vertical;
+}
+
+.inputTableConfig > div > span > select
+{
+    width: 100%;
+}
+
+/* ----------------------- */
+/* Settings Dialog */
+
+.settingsDialogContent
+{
+    z-index: 9999;
+    min-width: 20vw;
+}
+
+.settingsDialogContent > div
+{
+    display: flex;
+}
+
+.settingsDialogContent > div > span:nth-child(1)
+{
+    width: 30%;
+    text-align: end;
+    margin-right: 10px;
+    align-self: center;
+}
+
+.settingsDialogContent > div > label:nth-child(1)
+{
+    width: 30%;
+    text-align: end;
+    margin-right: 10px;
+    align-self: center;
+}
+
+.settingsDialogContent > div > span:nth-child(1) > a
+{
+    color: blue;
+}
+
+.settingsDialogContent > div > span:nth-child(2)
+{
+    width: -webkit-fill-available;
+    width: -moz-available;
+    text-align: left;
 }
 
 /* ----------------------- */
@@ -1221,7 +1318,7 @@ table.tableMultiCol tr
     overflow-x: hidden;
     overflow-y: scroll;
     background-color: black;
-    color: white;
+    color: var(--fontColor);
     outline: none;
 }
 
@@ -1248,7 +1345,7 @@ table.tableMultiCol tr
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    color: white;
+    color: var(--fontColor);
 }
 
 .widgetContainer > div
@@ -1396,12 +1493,12 @@ table.tableMultiCol tr
 {
     grid-area: peak;
     font-size: 0.9em;
-    font-weight: bold;
+    /*font-weight: bold;*/
     padding-left: 12px;
     overflow: hidden;
     background-color: transparent;
     margin-top: 10px;
-    color: red;
+    color: #ff5757;
 }
 
 .chart-canvas-container
@@ -1423,7 +1520,7 @@ table.tableMultiCol tr
     background-color: transparent;
     cursor: pointer;
     border: none;
-    color: var(--listFontColor);
+    color: var(--fontColor);
     justify-self: center;
     text-align: center;
     align-self: center;
@@ -1478,7 +1575,7 @@ table.tableMultiCol tr
     outline: none;
     cursor: pointer;
     text-align: center;
-    color: white;
+    color: var(--fontColor);
     padding: 0px;
     font-size: 12vh;
 }
@@ -1549,7 +1646,7 @@ table.tableMultiCol tr
 {
     grid-area: peak;
     font-size: 0.9em;
-    font-weight: bold;
+    /*font-weight: bold;*/
     padding-left: 2px;
     overflow: hidden;
     background-color: transparent;
@@ -1647,7 +1744,7 @@ table.tableMultiCol tr
 
 .widgetGauge.participation path.data-peak
 {
-    stroke: red;
+    stroke: #ff5757;
 }
 
 .widgetGauge.participation path.data-arc
@@ -1661,7 +1758,7 @@ table.tableMultiCol tr
 .lmcButton
 {
     margin: 1px;
-    color: white;
+    color: var(--fontColor);
     padding: 0px;
     background-color: transparent;
     cursor: pointer;
@@ -1921,7 +2018,7 @@ dialog::backdrop, #backdrop
     .button1                   { margin-right: 1px; }
     .inputTableConfig > div:nth-child(odd) { background-color: #0000007d; }
     .inputTableConfig > div > span:nth-child(3) { width: 25%; }
-    .inputTableConfig > div > span              { width: 30%; }
+    .inputTableConfig > div > span              { width: 90%; }
     .buttonDashboard           { padding: 4px; margin: 1px 0px 1px 0px; }
     .menuDashboard             { margin: 2px; }
     .widgetContainer > div     { width: 180px; height: 160px; margin: 2px; }
@@ -1936,6 +2033,7 @@ dialog::backdrop, #backdrop
     .widget-weather > br       { display: none; }
     .widget-main               { font-size: 11vh;}
     .weatherForecast           { left: 2%; width: 95%; }
+    .inputTableConfig > div    { width: 100%; }
 }
 
 @media only screen and (max-width: 375px) and (min-width:321px)

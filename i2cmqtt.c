@@ -70,10 +70,11 @@ class I2CMqtt
 
       bool doShutDown() { return shutdown; }
       int show();
+      int scan(const char* device);
 
-      void setAdsAddress(int addr) { adsAddress = addr; }
-      void setMcpAddress(int addr) { mcpAddress = addr; }
-      void setDhtAddress(int addr) { dhtAddress = addr; }
+      int initDht(const char* config);
+      int initMcp(const char* config);
+      int initAds(const char* config);
 
    protected:
 
@@ -83,9 +84,6 @@ class I2CMqtt
       int performMqttRequests();
       int mqttDisconnect();
 
-      Ads1115 ads;
-      Mcp23017 mcp;
-      Dht20 dht;
       const char* mqttUrl {};
       Mqtt* mqttWriter {};
       Mqtt* mqttReader {};
@@ -94,9 +92,9 @@ class I2CMqtt
       int interval {60};
       std::string device;
 
-      int adsAddress {na};
-      int mcpAddress {na};
-      int dhtAddress {na};
+      std::vector<Dht20> dhtChips;
+      std::vector<Mcp23017> mcpChips;
+      std::vector<Ads1115> adsChips;
 
       static void ioInterrupt();
       static bool shutdown;
@@ -134,70 +132,121 @@ I2CMqtt::~I2CMqtt()
 {
 }
 
+int I2CMqtt::initDht(const char* config)
+{
+   if (isEmpty(config))
+      return done;
+
+   // --dht '0x38'
+   // --dht '0x38,0x75'
+   // --dht 'tca:0x70:0:0x38'
+   // --dht 'tca:0x70:0:0x38,tca:0x71:1:0x38'
+
+   auto tuples = split(config, ',');
+
+   for (const auto& t : tuples)
+   {
+      auto options = split(t, ':');
+
+      if (options[0] == "tca")
+      {
+         uint8_t tcaAddress = strtol(options[1].c_str(), nullptr, 0);
+         uint8_t tcaChannel = strtol(options[2].c_str(), nullptr, 0);
+         uint8_t dhtAddress = strtol(options[3].c_str(), nullptr, 0);
+
+         dhtChips.emplace_back();
+         dhtChips.back().setTcaChannel(tcaChannel);
+         dhtChips.back().init(device.c_str(), dhtAddress, tcaAddress);
+
+         tell(eloAlways, "Debug: Init DHT 0x%02x via 0x%02x/%d", dhtAddress, dhtChips.back().getAddress(), dhtChips.back().getTcaChannel());
+      }
+      else
+      {
+         uint8_t dhtAddress = strtol(options[0].c_str(), nullptr, 0);
+
+         dhtChips.emplace_back();
+         dhtChips.back().init(device.c_str(), dhtAddress);
+      }
+   }
+
+   return done;
+}
+
+int I2CMqtt::initAds(const char* config)
+{
+   if (isEmpty(config))
+      return done;
+
+   // --mcp '0x48', ...
+
+   auto tuples = split(config, ',');
+
+   for (const auto& t : tuples)
+   {
+      adsChips.emplace_back();
+      adsChips.back().init(device.c_str(), strtol(t.c_str(), nullptr, 0));
+   }
+
+   return success;
+}
+
+int I2CMqtt::initMcp(const char* config)
+{
+   if (isEmpty(config))
+      return done;
+
+   // --mcp '0x27'
+   // --mcp '0x26,0x27'
+
+   auto tuples = split(config, ',');
+
+   for (const auto& t : tuples)
+   {
+      mcpChips.emplace_back();
+      Mcp23017* mcp = &mcpChips.back();
+      mcp->init(device.c_str(), strtol(t.c_str(), nullptr, 0));
+
+      mcp->portMode(Mcp23017Port::A, 0b00000000);          // Port A as output
+      mcp->portMode(Mcp23017Port::B, 0b11111111);          // Port B as input
+
+      // enable interrupt for port B
+
+      mcp->interruptMode(Mcp23017InterruptMode::Separated);
+      mcp->interrupt(Mcp23017Port::B, Mcp23017::itChange);
+
+      mcp->writeRegister(Mcp23017Register::GPIO_A, 0x00);  // Reset port A
+      mcp->writeRegister(Mcp23017Register::GPIO_B, 0x00);  // Reset port B
+
+      // GPIO reflects the same logic as the input pins state
+
+      mcp->writeRegister(Mcp23017Register::IPOL_B, 0x00);
+      mcp->writeRegister(Mcp23017Register::IPOL_A, 0x00);
+      mcp->writePort(Mcp23017Port::A, 0xFF);
+
+      mcp->clearInterrupts();
+   }
+
+   tell(eloAlways, "Debug: pinMode(%d, INPUT) (%d / %s)", pinMcpIrq, physPinToGpio(pinMcpIrq), physPinToGpioName(pinMcpIrq));
+   pinMode(pinMcpIrq, INPUT);
+   pullUpDnControl(pinMcpIrq, INPUT_PULLUP);
+
+   if (wiringPiISR(pinMcpIrq, INT_EDGE_BOTH, &ioInterrupt) < 0)
+      tell(eloAlways, "Error: Unable to setup ISR to pin %d / %s", physPinToGpio(pinMcpIrq), physPinToGpioName(pinMcpIrq));
+
+   return done;
+}
 //***************************************************************************
 // Init
 //***************************************************************************
 
 int I2CMqtt::init()
 {
-   tell(eloAlways, "Setup wiringPi ..");
+   tell(eloAlways, "Setup wiringPi");
    wiringPiSetupPhys();     // we use the 'physical' PIN numbers
    // wiringPiSetup();      // to use the 'special' wiringPi PIN numbers
    // wiringPiSetupGpio();  // to use the 'GPIO' PIN numbers
-   tell(eloAlways, ".. done");
 
-   if (adsAddress != na)
-   {
-      if (ads.init(device.c_str(), adsAddress) != success)
-      {
-         tell(eloAlways, "Error: Init ADS failed");
-         return fail;
-      }
-   }
-
-   if (mcpAddress != na)
-   {
-      if (mcp.init(device.c_str(), mcpAddress) != success)
-      {
-         tell(eloAlways, "Error: Init '%s' failed", mcp.chipName());
-         return fail;
-      }
-
-      mcp.portMode(Mcp23017Port::A, 0b00000000);          // Port A as output
-      mcp.portMode(Mcp23017Port::B, 0b11111111);          // Port B as input
-
-      // enable interrupt for port B
-
-      mcp.interruptMode(Mcp23017InterruptMode::Separated);
-      mcp.interrupt(Mcp23017Port::B, Mcp23017::itChange);
-
-      mcp.writeRegister(Mcp23017Register::GPIO_A, 0x00);  // Reset port A
-      mcp.writeRegister(Mcp23017Register::GPIO_B, 0x00);  // Reset port B
-
-      // GPIO reflects the same logic as the input pins state
-
-      mcp.writeRegister(Mcp23017Register::IPOL_B, 0x00);
-      mcp.writeRegister(Mcp23017Register::IPOL_A, 0x00);
-      mcp.writePort(Mcp23017Port::A, 0xFF);
-
-      mcp.clearInterrupts();
-
-      tell(eloAlways, "Debug: pinMode(%d, INPUT) (%d / %s)", pinMcpIrq, physPinToGpio(pinMcpIrq), physPinToGpioName(pinMcpIrq));
-      pinMode(pinMcpIrq, INPUT);
-      pullUpDnControl(pinMcpIrq, INPUT_PULLUP);
-
-      if (wiringPiISR(pinMcpIrq, INT_EDGE_BOTH, &ioInterrupt) < 0)
-         tell(eloAlways, "Error: Unable to setup ISR to pin %d / %s", physPinToGpio(pinMcpIrq), physPinToGpioName(pinMcpIrq));
-   }
-
-   if (dhtAddress != na)
-   {
-      if (dht.init(device.c_str(), dhtAddress) != success)
-      {
-         tell(eloAlways, "Error: Init DHT failed");
-         return fail;
-      }
-   }
+   mqttConnection();
 
    return success;
 }
@@ -208,8 +257,6 @@ int I2CMqtt::init()
 
 int I2CMqtt::exit()
 {
-   ads.exit();
-   mcp.exit();
    mqttDisconnect();
 
    return done;
@@ -235,7 +282,7 @@ int I2CMqtt::loop()
          if (ioInterruptTrigger)
          {
             ioInterruptTrigger = false;
-            tell(eloDetail, "Info: Update on interrupt");
+            tell(eloDebug, "Debug: Update on interrupt");
             updateMcp();
          }
 
@@ -257,7 +304,7 @@ int I2CMqtt::update()
    if (mqttConnection() != success)
       return fail;
 
-   if (adsAddress != na)
+   for (auto& ads : adsChips)
    {
       for (uint pin = 0; pin < 4; ++pin)
       {
@@ -280,33 +327,34 @@ int I2CMqtt::update()
 
          tell(eloDebug, "%d) %4d mV", pin, value);
 
-         char type[100];
-         sprintf(type, "ADS%02x", adsAddress);
+         char type[100] {};
+         sprintf(type, "ADS%02x", ads.getAddress());
 
          char name[100] {};
-         sprintf(name, "Analog Input of ADS%02x", adsAddress);
+         sprintf(name, "ADS%02x Analog Input", ads.getAddress());
 
          SensorData sensor {};
          mqttPublish(sensor = {fInteger, type, pin, name, "mV", value, 0.0});
       }
    }
 
-   if (mcpAddress != na)
-   {
-      updateMcp();
-   }
+   updateMcp();
 
-   if (dhtAddress != na)
+   for (auto& dht : dhtChips)
    {
       if (dht.read() == success)
       {
          SensorData sensor {};
-         char name[100] {}; char type[100] {};
-         sprintf(type, "DHT%02x", dhtAddress);
+         char name[100] {}; char type[10] {};
 
-         sprintf(name, "Temperature of DHT%02x", dhtAddress);
+         if (dht.getTcaChannel() != 0xff)
+            sprintf(type, "DHT%02x%x", dht.getAddress(), dht.getTcaChannel());
+         else
+            sprintf(type, "DHT%02x", dht.getAddress());
+
+         sprintf(name, "%s Temperature", type);
          mqttPublish(sensor = {fReal, type, 0, name, "°C", 0, dht.getTemperature()});
-         sprintf(name, "Humidity of DHT%02x", dhtAddress);
+         sprintf(name, "%s Humidity", type);
          mqttPublish(sensor = {fInteger, type, 1, name, "%", dht.getHumidity(), 0.0});
       }
       else
@@ -330,23 +378,44 @@ int I2CMqtt::dispatchMqttMessage(const char* message)
    if (!jData)
       return fail;
 
+   tell(eloAlways, "<- [%s]", message);
+
    const char* type = getStringFromJson(jData, "type", "");
    int bit = getIntFromJson(jData, "address");
    std::string action = getStringFromJson(jData, "action", "");
 
    if (strncmp(type, "MCPO", 4) == 0)
    {
-      uint8_t currentOutput = mcp.readPort(Mcp23017Port::A);
+      std::string hex = std::string("0x") + std::string(type+4);
+      uint8_t mcpAddress = strtol(hex.c_str(), nullptr, 0);
+      Mcp23017* mcp {};
+
+      for (auto& m : mcpChips)
+      {
+         if (m.getAddress() == mcpAddress)
+            mcp = &m;
+      }
+
+      if (!mcp)
+      {
+         tell(eloAlways, "Device '%s' not found, skipping message [%s]", type, message);
+         return done;
+      }
+
+      tell(eloDebug, "Debug: Device '%s' found at address 0x%02x", type, mcp->getAddress());
+      uint8_t currentOutput = mcp->readPort(Mcp23017Port::A);
 
       // std::string byte = bin2string(currentOutput);
-      // tell(eloAlways, "outout is: '%s'", byte.c_str());
+      // tell(eloAlways, "output is: '%s'", byte.c_str());
 
       tell(eloDebug, "Debug: Update digital output pin %s:0x%02x, action '%s'", type, bit, action.c_str());
 
       if (action == "impulse")
       {
          bitClear(currentOutput, bit);
-         mcp.writePort(Mcp23017Port::A, currentOutput);
+         // byte = bin2string(currentOutput);
+         // tell(eloAlways, "write: '%s'", byte.c_str());
+         mcp->writePort(Mcp23017Port::A, currentOutput);
          usleep(50000);
          bitSet(currentOutput, bit);
       }
@@ -357,34 +426,31 @@ int I2CMqtt::dispatchMqttMessage(const char* message)
          //   getBoolByPath(jData, "config/invert");
          //   getStringFromJson(jData, "config/feedbackInType", "");
          //   getIntFromJson(jData, "config/feedbackInAddress");
+         return done;
       }
       else if (action == "set")
-      {
          bitSet(currentOutput, bit);
-      }
       else if (action == "clear")
-      {
          bitClear(currentOutput, bit);
-      }
       else
          tell(eloAlways, "Info: Ignoring unexpected action '%s' fpr MCPO", action.c_str());
 
-      // std::string byte = bin2string(currentOutput);
+      // byte = bin2string(currentOutput);
       // tell(eloAlways, "write: '%s'", byte.c_str());
 
-      mcp.writePort(Mcp23017Port::A, currentOutput);
+      mcp->writePort(Mcp23017Port::A, currentOutput);
       updateMcp();
    }
    else if (strncmp(type, "MCPI", 4) == 0)
    {
-      uint pull = getIntByPath(jData, "config/pull");
+      // uint pull = getIntByPath(jData, "config/pull");
 
-      if (pull == 0)
-         ; // pullUpDnControl(bit, );
-      else if (pull == 1)
-         pullUpDnControl(bit, INPUT_PULLUP);
-      else if (pull == 2)
-         pullUpDnControl(bit, INPUT_PULLDOWN);
+      // if (pull == 0)
+      //    ; // pullUpDnControl(bit, );
+      // else if (pull == 1)
+      //    pullUpDnControl(bit, INPUT_PULLUP);
+      // else if (pull == 2)
+      //    pullUpDnControl(bit, INPUT_PULLDOWN);
 
       // #TODO getBoolByPath(jData, "config/interrupt");
 
@@ -401,36 +467,39 @@ int I2CMqtt::dispatchMqttMessage(const char* message)
 
 int I2CMqtt::updateMcp()
 {
-   char type[100] {};
-   uint8_t currentOutput {mcp.readPort(Mcp23017Port::A)};
-   uint8_t currentInput {mcp.readPort(Mcp23017Port::B)};
-
-   // Port A digital outputs
-
-   sprintf(type, "MCPO%02x", mcpAddress);
-
-   for (uint bit = 0; bit < 8; ++bit)
+   for (auto& mcp : mcpChips)
    {
-      SensorData sensor {};
-      char name[100] {};
-      int state {(currentOutput >> bit) & 1};
+      char type[100] {};
+      uint8_t currentOutput {mcp.readPort(Mcp23017Port::A)};
+      uint8_t currentInput {mcp.readPort(Mcp23017Port::B)};
 
-      sprintf(name, "Digital Output %d of MCP%02x", bit, mcpAddress);
-      mqttPublish(sensor = {fBool, type, bit, name, "", state, 0.0});
-   }
+      // Port A digital outputs
 
-   // Port B digital  inputs
+      sprintf(type, "MCPO%02x", mcp.getAddress());
 
-   sprintf(type, "MCPI%02x", mcpAddress);
+      for (uint bit = 0; bit < 8; ++bit)
+      {
+         SensorData sensor {};
+         char name[100] {};
+         int state {(currentOutput >> bit) & 1};
 
-   for (uint bit = 0; bit < 8; ++bit)
-   {
-      SensorData sensor {};
-      char name[100] {};
-      int state {(currentInput >> bit) & 1};
+         sprintf(name, "MCP%02x Digital Output %d", mcp.getAddress(), bit);
+         mqttPublish(sensor = {fBool, type, bit, name, "", state, 0.0});
+      }
 
-      sprintf(name, "Digital Input %d of MCP%02x", bit+8, mcpAddress);
-      mqttPublish(sensor = {fBool, type, bit+8, name, "", state, 0.0});
+      // Port B digital  inputs
+
+      sprintf(type, "MCPI%02x", mcp.getAddress());
+
+      for (uint bit = 0; bit < 8; ++bit)
+      {
+         SensorData sensor {};
+         char name[100] {};
+         int state {(currentInput >> bit) & 1};
+
+         sprintf(name, "MCP%02x Digital Input %d", mcp.getAddress(), bit+8);
+         mqttPublish(sensor = {fBool, type, bit+8, name, "", state, 0.0});
+      }
    }
 
    return done;
@@ -571,6 +640,10 @@ int I2CMqtt::mqttConnection()
    return success;
 }
 
+//***************************************************************************
+// MQTT Disconnect
+//***************************************************************************
+
 int I2CMqtt::mqttDisconnect()
 {
    if (mqttReader) mqttReader->disconnect();
@@ -594,7 +667,7 @@ int I2CMqtt::show()
 
    tell(eloAlways, "-----------------------");
 
-   if (adsAddress != na)
+   for (auto& ads : adsChips)
    {
       tell(eloAlways, "ADS-1115");
 
@@ -623,39 +696,45 @@ int I2CMqtt::show()
       tell(eloAlways, "-----------------------");
    }
 
-   if (mcpAddress != na)
+   for (auto& mcp : mcpChips)
    {
       tell(eloAlways, "MCP-23017");
 
       uint8_t currentA = mcp.readPort(Mcp23017Port::A);
-      std::string byteA = bin2string(currentA);
-
       uint8_t currentB = mcp.readPort(Mcp23017Port::B);
-      std::string byteB = bin2string(currentB);
 
-      tell(eloAlways, "Port A: %s", byteA.c_str());
-      tell(eloAlways, "Port B: %s", byteB.c_str());
+      // std::string byteA = bin2string(currentA);
+      // std::string byteB = bin2string(currentB);
+      // tell(eloAlways, "Port A: %s", byteA.c_str());
+      // tell(eloAlways, "Port B: %s", byteB.c_str());
 
       // Port A outputs
 
       tell(eloAlways, " ");
 
       for (int i = 0; i < 8; ++i)
-         tell(eloAlways, "MCPO%02x:%d - %d", mcpAddress, i, (currentA >> i) & 1);
+         tell(eloAlways, "MCPO%02x:%d - %d", mcp.getAddress(), i, (currentA >> i) & 1);
 
       // Port B inputs
 
       tell(eloAlways, " ");
 
       for (int i = 0; i < 8; ++i)
-         tell(eloAlways, "MCPI%02x:%d - %d", mcpAddress, i+8, (currentB >> i) & 1);
+         tell(eloAlways, "MCPI%02x:%d - %d", mcp.getAddress(), i+8, (currentB >> i) & 1);
 
       tell(eloAlways, "-----------------------");
    }
 
-   if (dhtAddress != na)
+   for (auto& dht : dhtChips)
    {
-      tell(eloAlways, "DHT20");
+      char type[10] {};
+
+      if (dht.getTcaChannel() != 0xff)
+         sprintf(type, "DHT%02x%x", dht.getAddress(), dht.getTcaChannel());
+      else
+         sprintf(type, "DHT%02x", dht.getAddress());
+
+      tell(eloAlways, "%s", type);
 
       if (dht.read() == success)
       {
@@ -674,6 +753,16 @@ int I2CMqtt::show()
 }
 
 //***************************************************************************
+// Scan
+//***************************************************************************
+
+int I2CMqtt::scan(const char* device)
+{
+   I2C::scan(device);
+   return done;
+}
+
+//***************************************************************************
 // Usage
 //***************************************************************************
 
@@ -685,6 +774,7 @@ void showUsage(const char* bin)
    printf("     -l <eloquence>   set eloquence (bitmask)\n");
    printf("     -t               log to terminal\n");
    printf("     -s               show and exit\n");
+   printf("     -S               scan i2c bus and exit\n");
    printf("     -i <interval>    interval seconds (default 60)\n");
    printf("     -u <url>         MQTT url\n");
    printf("     -T <topic>       MQTT topic\n");
@@ -693,7 +783,14 @@ void showUsage(const char* bin)
    printf("     -d <device>      i2c device (defaults to /dev/i2c-0)\n");
    printf("     --ads <address>  ADS1115  address (0x48, defaults to -1/off)\n");
    printf("     --mcp <address>  MCP23017 address (0x20-0x27, defaults to -1/off)\n");
-   printf("     --dht <address>  DHT20 address (0x38, defaults to -1/off)\n");
+   printf("     --dht <config>   DHT20 config (defaults to -1/off)\n");
+   printf("        where <config>:\n");
+   printf("            <tuple>,<tuple>[,<tuple>,...]\n");
+   printf("            where <tuple>\n");
+   printf("               tca:<tca-address>:<tca-channel>:<dht-address>\n");
+   printf("            or\n");
+   printf("               <dht-address>\n");
+   printf("     Note: tca is a TCA9548A i2c bus multiplexer\n");
 }
 
 //***************************************************************************
@@ -705,14 +802,17 @@ int main(int argc, char** argv)
    bool nofork {false};
    int _stdout {na};
    bool showMode {false};
+   bool scanMode {false};
 
    const char* mqttTopic {TARGET "2mqtt/i2c"};
    const char* mqttUrl {"tcp://localhost:1883"};
    const char* device {"/dev/i2c-0"};
    int interval {60};
-   int adsAddress {na};
-   int mcpAddress {na};
-   int dhtAddress {na};
+   const char* dhtConfig {};
+   const char* mcpConfig {};
+   const char* adsConfig {};
+
+   logstdout = true;
 
    // usage ..
 
@@ -722,8 +822,6 @@ int main(int argc, char** argv)
       return 0;
    }
 
-   logstdout = true;
-
    for (int i = 1; argv[i]; i++)
    {
       if (argv[i][0] != '-' || strlen(argv[i]) < 2)
@@ -731,28 +829,40 @@ int main(int argc, char** argv)
 
       switch (argv[i][1])
       {
-         case 'u': mqttUrl = argv[i+1];                         break;
-         case 'l': if (argv[i+1]) eloquence = (Eloquence)strtol(argv[++i], nullptr, 0); break;
-         case 'i': if (argv[i+1]) interval = atoi(argv[++i]);   break;
-         case 'T': if (argv[i+1]) mqttTopic = argv[i+1];        break;
-         case 't': _stdout = yes;                               break;
-         case 'd': if (argv[i+1]) device = argv[++i];           break;
-         case 's': showMode = true;                             break;
-         case 'n': nofork = true;                               break;
+         case 'u': mqttUrl = argv[i+1];                       break;
+         case 'l':
+            if (argv[i+1])
+               eloquence = (Eloquence)strtol(argv[++i], nullptr, 0);
+            break;
+         case 'i': if (argv[i+1]) interval = atoi(argv[++i]); break;
+         case 'T': if (argv[i+1]) mqttTopic = argv[i+1];      break;
+         case 't': _stdout = yes;                             break;
+         case 'd': if (argv[i+1]) device = argv[++i];         break;
+         case 's': showMode = true;                           break;
+         case 'S': scanMode = true;                           break;
+         case 'n': nofork = true;                             break;
          case '-':
          {
             if (isEmpty(argv[i]+2))
                continue;
             if (strcmp(argv[i]+2, "ads") == 0 && argv[i+1])
-               adsAddress = strtol(argv[++i], nullptr, 0);
+               adsConfig = argv[++i];
             else if (strcmp(argv[i]+2, "mcp") == 0 && argv[i+1])
-               mcpAddress = strtol(argv[++i], nullptr, 0);
+               mcpConfig = argv[++i];
             else if (strcmp(argv[i]+2, "dht") == 0 && argv[i+1])
-               dhtAddress = strtol(argv[++i], nullptr, 0);
+               dhtConfig = argv[++i];
 
             break;
          }
       }
+   }
+
+   if (scanMode)
+   {
+      I2CMqtt* job = new I2CMqtt(device, mqttUrl, mqttTopic, interval);
+      job->scan(device);
+      delete job;
+      return 0;
    }
 
    // do work ...
@@ -782,16 +892,16 @@ int main(int argc, char** argv)
 
    I2CMqtt* job = new I2CMqtt(device, mqttUrl, mqttTopic, interval);
 
-   job->setAdsAddress(adsAddress);
-   job->setMcpAddress(mcpAddress);
-   job->setDhtAddress(dhtAddress);
-
    if (job->init() != success)
    {
       printf("Initialization failed, see syslog for details\n");
       delete job;
       return 1;
    }
+
+   job->initDht(dhtConfig);
+   job->initMcp(mcpConfig);
+   job->initAds(adsConfig);
 
    if (showMode)
       return job->show();

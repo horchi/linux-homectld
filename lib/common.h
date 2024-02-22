@@ -402,7 +402,7 @@ const char* toElapsed(int seconds, char* buf);
 std::vector<std::string> split(const std::string& str, char delim, std::vector<std::string>* strings = nullptr);
 std::string getStringBetween(std::string str, const char* begin, const char* end);
 std::string getStringBefore(std::string str, const char* begin);
-int fileExists(const char* path);
+bool fileExists(const char* path);
 const char* suffixOf(const char* path);
 int createLink(const char* link, const char* dest, int force);
 int isLink(const char* path);

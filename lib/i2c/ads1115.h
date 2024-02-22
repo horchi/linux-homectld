@@ -101,11 +101,13 @@ class Ads1115 : public I2C
       };
 
       Ads1115() {};
-      ~Ads1115();
+      Ads1115(const Ads1115& source);
+      Ads1115(Ads1115&& source);
+      ~Ads1115() {}
 
       const char* chipName() override { return "ADS"; }
 
-      int init(const char* aDevice, uint8_t aAddress) override;
+      int init(const char* aDevice, uint8_t aAddress, uint8_t aTcaAddress = 0xFF) override;
       int read(uint pin, int& milliVolt);
       void setChannel(Channel channel);
 

@@ -21,6 +21,7 @@
     --neutral4: #333333;
 
     --listFontColor: black;
+    --fontColor: black;
     --blue: #2177AD;
     --blueshade: #495b67;
     --yellow: #fad600;
@@ -46,7 +47,7 @@
     --borderStyleSchemaValue: solid;
 
     --buttonAction: #818382;
-    --buttonFont: black;
+    --buttonFont: white;
 
     --dialogColor: black;
     --dialogBackground: #818382;

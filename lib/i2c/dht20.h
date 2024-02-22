@@ -29,13 +29,12 @@ class Dht20 : public I2C
       };
 
       Dht20() {};
+      Dht20(const Dht20& source);
+      Dht20(Dht20&& source);
       ~Dht20() {};
 
       const char* chipName() override { return "DHT"; }
-      int init(const char* aDevice, uint8_t aAddress) override;
-
-      int readData();
-      int convert();
+      int init(const char* aDevice, uint8_t aAddress, uint8_t aTcaAddress = 0xFF) override;
 
       int read();
       int getHumidity()    { return (int)humidity + humOffset; }
@@ -46,17 +45,20 @@ class Dht20 : public I2C
       float getHumOffset()                 { return humOffset; };
       float getTempOffset()                { return tempOffset; };
 
-      int readStatus(uint8_t& statusByte);
-      // bool isCalibrated()      { return (readStatus() & 0x08) == 0x08; }
-      // bool isIdle()            { return (readStatus() & 0x80) == 0x00; }
-      bool isMeasuring();
       int messurementStatus()     { return mStatus; }
-
       uint64_t getLastReadMs()    { return lastReadMs; }
       uint64_t getLastRequestMs() { return lastRequestMs; }
-      int resetSensor();
 
    private:
+
+      int convert();
+      int readData();
+      int readStatus(uint8_t& statusByte);
+      int resetSensor();
+
+      bool isMeasuring();
+      // bool isCalibrated()      { return (readStatus() & 0x08) == 0x08; }
+      // bool isIdle()            { return (readStatus() & 0x80) == 0x00; }
 
       float humidity {0};
       float temperature {0};

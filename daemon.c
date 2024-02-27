@@ -265,18 +265,6 @@ const char* Daemon::getImageFor(const char* type, const char* title, const char*
 // Object
 //***************************************************************************
 
-int isDST()
-{
-   struct tm tm;
-   time_t t = time(0);
-
-   localtime_r(&t, &tm);
-   tm.tm_isdst = -1;  // force DST auto detect
-   mktime(&tm);
-
-   return tm.tm_isdst;
-}
-
 Daemon::Daemon()
 {
    nextRefreshAt = time(0) + 5;
@@ -831,7 +819,6 @@ int Daemon::initScripts()
    {
       char* scriptPath {};
       uint addr {0};
-      char* cmd {};
       std::string result;
 
       asprintf(&scriptPath, "%s/%s", path, script.name.c_str());
@@ -868,10 +855,8 @@ int Daemon::initScripts()
       else
          url = mqttUrl;
 
-      asprintf(&cmd, "%s %s %d 'mqtt://%s/%s'", scriptPath, "init", addr, url, TARGET "2mqtt/scripts");
-      tell(eloDetail, "Calling '%s'", cmd);
-      result = executeCommand(cmd);
-      free(cmd);
+      tell(eloDetail, "Calling %s %s %d 'mqtt://%s/%s'", scriptPath, "init", addr, url, TARGET "2mqtt/scripts");
+      result = executeCommand("%s %s %d 'mqtt://%s/%s'", scriptPath, "init", addr, url, TARGET "2mqtt/scripts");
 
       json_t* oData = jsonLoad(result.c_str());
 
@@ -2084,17 +2069,28 @@ int Daemon::store(time_t now, const SensorData* sensor)
    {
       tablePeaks->setValue("MIN", sensor->value);
       tablePeaks->setValue("MAX", sensor->value);
+      tablePeaks->setValue("TIMEMIN", now);
+      tablePeaks->setValue("TIMEMAX", now);
       tablePeaks->store();
    }
    else
    {
+      tablePeaks->clearChanged();
+
       if (sensor->value > tablePeaks->getFloatValue("MAX"))
+      {
          tablePeaks->setValue("MAX", sensor->value);
+         tablePeaks->setValue("TIMEMAX", now);
+      }
 
       if (sensor->value < tablePeaks->getFloatValue("MIN"))
+      {
          tablePeaks->setValue("MIN", sensor->value);
+         tablePeaks->setValue("TIMEMIN", now);
+      }
 
-      tablePeaks->store();
+      if (tablePeaks->getChanges())
+         tablePeaks->store();
    }
 
    return success;

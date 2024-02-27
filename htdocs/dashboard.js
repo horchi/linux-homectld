@@ -996,6 +996,8 @@ function titleClick(ctrlKey, key)
       let widget = dashboards[actDashboard].widgets[key];
       let now = new Date();
       var last = new Date(sensor.last * 1000);
+      let peakMaxTime = new Date(sensor.peakmaxtime * 1000);
+      let peakMinTime = new Date(sensor.peakmintime * 1000);
       var form = document.createElement("div");
 
       // console.log(sensor);
@@ -1068,12 +1070,26 @@ function titleClick(ctrlKey, key)
                                      .css('width', '30%')
                                      .css('text-align', 'end')
                                      .css('margin-right', '10px')
-                                     .html('Peak'))
+                                     .html('Peak Max'))
                              .append($('<span></span>')
                                      .append($('<div></div>')
-                                             .attr('id', 'dlgPeak')
+                                             .attr('id', 'dlgPeakMax')
                                              .addClass('rounded-border')
-                                             .html(sensor.peak ? sensor.peak + ' ' + widget.unit : '-')
+                                             .html(sensor.peakmax != null ? (sensor.peakmax + ' ' + widget.unit + ' / ' + peakMaxTime.toLocaleString('de-DE')) : '-')
+                                            )))
+                     .append($('<div></div>')
+                             .css('display', 'flex')
+                             .css('margin-bottom', '4px')
+                             .append($('<span></span>')
+                                     .css('width', '30%')
+                                     .css('text-align', 'end')
+                                     .css('margin-right', '10px')
+                                     .html('Peak Min'))
+                             .append($('<span></span>')
+                                     .append($('<div></div>')
+                                             .attr('id', 'dlgPeakMin')
+                                             .addClass('rounded-border')
+                                             .html(sensor.peakmin != null ? (sensor.peakmin + ' ' + widget.unit + ' / ' + peakMinTime.toLocaleString('de-DE')) : '-')
                                             )))
                      .append($('<div></div>')
                              .css('display', 'flex')
@@ -1108,10 +1124,12 @@ function titleClick(ctrlKey, key)
 
       if (sensor.peak) {
          btns['Reset Peak'] = function() {
-            $('#dlgPeak').html('-');
+            $('#dlgPeakMax').html('-');
+            $('#dlgPeakMin').html('-');
             socket.send({ "event" : "command", "object" : { "what" : 'peak', "type": fact.type, "address": fact.address } });
             let sensor = allSensors[key];
-            sensor.peak = null;
+            sensor.peakmax = null;
+            sensor.peakmin = null;
          };
       }
 
@@ -1266,7 +1284,7 @@ function updateWidget(sensor, refresh, widget)
    else if (widget.widgettype == 1 || widget.widgettype == 13)    // Chart
    {
       if (widget.showpeak != null && widget.showpeak)
-         $("#peak" + fact.type + fact.address).text(sensor.peak != null ? sensor.peak.toFixed(2) + " " + widget.unit : "");
+         $("#peak" + fact.type + fact.address).text(sensor.peakmax != null ? sensor.peakmax.toFixed(2) + " " + widget.unit : "");
 
       $("#value" + fact.type + fact.address).text(sensor.value.toFixed(2) + " " + widget.unit);
 
@@ -1304,14 +1322,14 @@ function updateWidget(sensor, refresh, widget)
    {
       $("#widget" + fact.type + fact.address).html(sensor.value + " " + widget.unit);
       if (widget.showpeak != null && widget.showpeak)
-         $("#peak" + fact.type + fact.address).text(sensor.peak != null ? sensor.peak.toFixed(2) + " " + widget.unit : "");
+         $("#peak" + fact.type + fact.address).text(sensor.peakmax != null ? sensor.peakmax.toFixed(2) + " " + widget.unit : "");
    }
    else if (widget.widgettype == 4)      // Gauge
    {
       var value = sensor.value.toFixed(2);
       var scaleMax = !widget.scalemax || widget.unit == '%' ? 100 : widget.scalemax.toFixed(0);
       var scaleMin = value >= 0 ? "0" : Math.ceil(value / 5) * 5 - 5;
-      var _peak = sensor.peak != null ? sensor.peak : 0;
+      var _peak = sensor.peakmax != null ? sensor.peakmax : 0;
       if (scaleMax < Math.ceil(value))
          scaleMax = value;
       if (widget.showpeak != null && widget.showpeak && scaleMax < Math.ceil(_peak))
@@ -1339,7 +1357,7 @@ function updateWidget(sensor, refresh, widget)
          else
             console.log("Missing gauge instance for " + '#widget' + fact.type + fact.address);
          if (widget.showpeak != null && widget.showpeak)
-            $("#peak" + fact.type + fact.address).text(sensor.peak != null ? sensor.peak.toFixed(2) + " " + widget.unit : "");
+            $("#peak" + fact.type + fact.address).text(sensor.peakmax != null ? sensor.peakmax.toFixed(2) + " " + widget.unit : "");
       }
       else
          console.log("Missing value for " + '#widget' + fact.type + fact.address);

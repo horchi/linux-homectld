@@ -358,7 +358,7 @@ class cMyMutexLock
 // Tools
 //***************************************************************************
 
-std::string executeCommand(const char* cmd);
+std::string __attribute__ ((format(printf, 1, 2))) executeCommand(const char* format, ...);
 
 #ifdef USEUUID
   const char* getUniqueId();
@@ -369,6 +369,7 @@ const char* bin2string(word n);
 const char* bin2string(byte n);
 const char* bytesPretty(double bytes, int precision = 0);
 double usNow();
+bool isDST();
 int l2hhmm(time_t t);
 time_t midnightOf(time_t t);
 const char* toWeekdayName(uint day);

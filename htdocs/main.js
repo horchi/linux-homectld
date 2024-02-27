@@ -26,7 +26,7 @@ var valueTypes = [];
 var valueFacts = {};
 var dashboards = {};
 var allSensors = [];
-
+var wifis = [];
 var images = [];
 var currentPage = "dashboard";
 var startPage = null;
@@ -314,7 +314,7 @@ function dispatchMessage(message)
    var event = jMessage.event;
 
    if (event != "chartdata" && event != "ping")
-      console.log("got event: " + event);
+      ; // console.log("got event: " + event);
 
    if (event == "result") {
       hideProgressDialog();
@@ -390,8 +390,12 @@ function dispatchMessage(message)
    else if (event == "syslog") {
       showSyslog(jMessage.object);
    }
-   else if (event == "system") {
-      showSystem(jMessage.object);
+   else if (event == "database") {
+      showDatabaseStatistic(jMessage.object);
+   }
+   else if (event == "wifis") {
+      wifis = jMessage.object;
+      showWifiList();
    }
    else if (event == "token") {
       localStorage.setItem(storagePrefix + 'Token', jMessage.object.value);
@@ -483,8 +487,12 @@ function prepareMenu()
    var html = "";
    // var haveToken = localStorage.getItem(storagePrefix + 'Token') && localStorage.getItem(storagePrefix + 'Token') != "";
 
-   if (kioskMode == 1)
+   if (kioskMode == 1) {
+      $('#menu').css('height', '0px');
+      $('#menu').css('padding', '0px');
+      $('#dashboardMenu').css('margin', '2px');
       return ;
+   }
 
    document.title = config.instanceName;
    console.log("prepareMenu: " + currentPage);
@@ -515,6 +523,7 @@ function prepareMenu()
 
    // buttons below menu
 
+   console.log("currentPage", currentPage);
    if (currentPage == "setup" || currentPage == "iosetup" || currentPage == "userdetails" || currentPage == "groups" ||
        currentPage == "alerts" || currentPage == "syslog" || currentPage == "system" || currentPage == "images" || currentPage == "commands") {
       if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10) {
@@ -526,18 +535,14 @@ function prepareMenu()
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'groups\')">Baugruppen</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'images\')">Images</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'syslog\')">Syslog</button>';
-         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'system\')">System</button>';
+         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'system\', \'database\')">Database</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'commands\')">Commands</button>';
+         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'system\', \'wifis\')">Wifi</button>';
          html += '</div>';
       }
    }
 
-   /*if (currentPage == "setup") {
-      html += "<div class=\"confirmDiv\">";
-      html += "  <button class=\"rounded-border buttonOptions\" onclick=\"storeConfig()\">Speichern</button>";
-      html += "</div>";
-   }
-   else*/ if (currentPage == "groups") {
+   if (currentPage == "groups") {
       html += "<div class=\"confirmDiv\">";
       html += "  <button class=\"rounded-border buttonOptions\" onclick=\"storeGroups()\">Speichern</button>";
       html += "</div>";
@@ -604,7 +609,7 @@ function menuBurger()
    });
 }
 
-function mainMenuSel(what)
+function mainMenuSel(what, action = null)
 {
    $("#burgerPopup").dialog("close");
 
@@ -637,15 +642,13 @@ function mainMenuSel(what)
    if (currentPage != "vdr")
       socket.send({ "event" : "pagechange", "object" : { "page"  : currentPage }});
 
-   var event = null;
-   var jsonRequest = {};
+   let event = null;
+   let jsonRequest = {};
 
    if (currentPage == "setup")
       event = "setup";
-   else if (currentPage == "iosetup") {
+   else if (currentPage == "iosetup")
       socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'valuefacts' } });
-      // initIoSetup();
-   }
    else if (currentPage == "commands")
       initCommands();
    else if (currentPage == "user")
@@ -689,11 +692,13 @@ function mainMenuSel(what)
    else if (currentPage == "schema")
       event = "schema";
 
-   if (currentPage != "vdr" && currentPage != "iosetup") {
-      if (jsonRequest != {} && event != null)
-         socket.send({ "event" : event, "object" : jsonRequest });
+   if (currentPage != 'vdr' && currentPage != 'iosetup') {
+      if (!isObjectEmpty(jsonRequest) && event != null)
+         socket.send({ 'event' : event, 'object' : jsonRequest });
+      else if (event != null && action != null)
+         socket.send({ 'event' : event, 'object' : { 'action' : action } });
       else if (event != null)
-         socket.send({ "event" : event, "object" : { } });
+         socket.send({ 'event' : event, 'object' : { } });
 
       if (currentPage == 'login')
          initLogin();
@@ -745,9 +750,9 @@ function showSyslog(log)
    };
 }
 
-function showSystem(system)
+function showDatabaseStatistic(statistic)
 {
-   console.log("system: " + JSON.stringify(system, undefined, 2));
+   // console.log("DatabaseStatistic: " + JSON.stringify(statistic, undefined, 2));
 
    $('#container').removeClass('hidden');
    $('#container').html('<div id="systemContainer"></div>');
@@ -766,8 +771,8 @@ function showSystem(system)
       '    </thead>' +
       '    <tbody>';
 
-   for (var i = 0; i < system.tables.length; i++) {
-      var table = system.tables[i];
+   for (var i = 0; i < statistic.tables.length; i++) {
+      var table = statistic.tables[i];
 
       html += '<tr style="height:28px;">';
       html += ' <td>' + table.name + '</td>';
@@ -784,6 +789,80 @@ function showSystem(system)
 
    $('#systemContainer').html(html)
       .addClass('setupContainer');
+}
+
+function showWifiList()
+{
+   console.log("WifiList: " + JSON.stringify(wifis, undefined, 2));
+
+/*  [{
+      "bars" : "ââ__",
+      "channel" : "1",
+      "mode" : "Infra",
+      "network" : "hierimhaus",
+      "rate" : "16 Mbit/s",
+      "security" : "WPA2",
+      "signal" : "39"
+   }] */
+
+   $('#container').removeClass('hidden');
+   $('#container').html('<div id="systemContainer"></div>');
+
+   var html = '<div>';
+
+   html += '  <div class="rounded-border seperatorFold">Wifi Networks</div>';
+   html += '  <table class="tableMultiCol">' +
+      '    <thead>' +
+      '     <tr style="height:30px;font-weight:bold;">' +
+      '       <td style="width:20%;">Network</td>' +
+      '       <td style="width:10%;">Rate</td>' +
+      '       <td style="width:8%;">Security</td>' +
+      '       <td style="width:5%;">Signal</td>' +
+      '       <td style="width:5%">Bars</td>' +
+      '       <td style="width:5%"></td>' +
+      '     </tr>' +
+      '    </thead>' +
+      '    <tbody>';
+
+   for (var i = 0; i < wifis.length; i++) {
+      var wifi = wifis[i];
+
+      let rowColor = wifi.active == 'yes' ? 'lightgreen' : '';
+      let signalColor = parseInt(wifi.signal) >= 25 ? 'lightgreen' : '';
+      let action = wifi.active == 'yes' ? 'Disconnect' : 'Connect';
+      html += '<tr style="height:28px;color:' + rowColor + ';">';
+      html += ' <td>' + wifi.network + '</td>';
+      html += ' <td>' + wifi.rate + '</td>';
+      html += ' <td>' + wifi.security + '</td>';
+      html += ' <td>' + wifi.signal + '</td>';
+      html += ' <td style="font-family:monospace;color:' + signalColor + ';">' + wifi.bars + '</td>';
+      html += ' <td>' + '<button class="buttonOptions rounded-border" onclick="wifiAction(\'' + wifi.id + '\')">' + action + '</button>' + '</td>';
+      html += '</tr>';
+   }
+
+   html += '    </tbody>' +
+      '  </table>';
+
+   html += '</div>';
+
+   $('#systemContainer').html(html)
+      .addClass('setupContainer');
+}
+
+function wifiAction(id)
+{
+   let i = 0;
+   for (i = 0; i < wifis.length; i++) {
+      if (wifis[i].id == id)
+         break;
+   }
+
+   if (wifis[i].id == id) {
+      console.log('wifiAction', wifis[i].network, wifis[i].active);
+      socket.send({ "event": "system", "object":
+                    { 'action': wifis[i].active == 'yes' ? 'wifi-disconnect' : 'wifi-connect',
+                      'ssid': wifis[i].network } });
+   }
 }
 
 window.toggleMode = function(address, type)
@@ -943,7 +1022,7 @@ function drawChartWidget(dataObject)
       console.log("draw chart row with", dataObject.rows[i].data.length, "points");
 
       dataset["data"] = dataObject.rows[i].data;
-      dataset["backgroundColor"] = kioskMode ? "#3498db33" : "#3498db1A";  // fill color
+      dataset["backgroundColor"] = "#3498db33";  // fill color
       dataset["borderColor"] = "#3498db";        // line color
       dataset["borderWidth"] = 1;
       dataset["fill"] = true;
@@ -1050,7 +1129,7 @@ function drawBarChartWidget(dataObject)
       console.log("draw bar chart row with", dataObject.rows[i].data.length, "points");
       console.log(dataObject.rows[i].data);
       dataset["data"] = dataObject.rows[i].data;
-      dataset["backgroundColor"] = kioskMode ? "#3498db33" : "#3498db1A";  // fill color
+      dataset["backgroundColor"] = "#3498db33";
       dataset["borderColor"] = "#3498db";        // line color
       dataset["borderWidth"] = 1;
       dataset["fill"] = true;
@@ -1155,8 +1234,8 @@ function drawChartDialog(dataObject)
       var dataset = {};
 
       dataset["data"] = dataObject.rows[i].data;
-      dataset["backgroundColor"] = kioskMode ? "#3498db33" : "#3498db1A";  // fill color
-      dataset["borderColor"] = "#3498db";      // line color
+      dataset["backgroundColor"] = "#3498db33";  // fill color
+      dataset["borderColor"] = "#3498db";        // line color
       dataset["borderWidth"] = 1;
       dataset["fill"] = true;
       dataset["label"] = dataObject.rows[i].title;
@@ -1252,4 +1331,9 @@ function changeFavicon(src)
    $('link[rel="shortcut icon"]').attr('href', src)
    $('link[rel="icon"]').attr('href', src)
    $('link[rel="apple-touch-icon-precomposed"]').attr('href', src)
+}
+
+function isObjectEmpty(object)
+{
+   return Object.keys(object).length === 0 && object.constructor === Object;
 }

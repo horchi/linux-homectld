@@ -163,12 +163,29 @@ void tell(Eloquence elo, const char* format, ...)
 // Execute Command
 //***************************************************************************
 
-std::string executeCommand(const char* cmd)
+std::string executeCommand(const char* format, ...)
 {
-   char buffer[128] {'\0'};
-   std::string result {""};
+   va_list ap;
+   size_t size {0};
+   char* cmd {};
+
+   va_start(ap, format);
+   int len = vsnprintf(cmd, size, format, ap);
+   va_end(ap);
+   if (len <= 0)
+      return "command failed";
+
+   size = len + 1;
+   cmd = (char*)malloc(size);
+   va_start(ap, format);
+   vsnprintf(cmd, size, format, ap);
+   va_end(ap);
 
    FILE* pipe = popen(cmd, "r");
+   free(cmd);
+
+   char buffer[128] {};
+   std::string result;
 
    while (fgets(buffer, sizeof(buffer), pipe))
       result += buffer;
@@ -300,6 +317,22 @@ const char* bytesPretty(double bytes, int precision)
    sprintf(res, "%.*f %s", precision, bytes, unit);
 
    return res;
+}
+
+//***************************************************************************
+// Is DST
+//***************************************************************************
+
+bool isDST()
+{
+   struct tm tm;
+   time_t t = time(0);
+
+   localtime_r(&t, &tm);
+   tm.tm_isdst = -1;  // force DST auto detect
+   mktime(&tm);
+
+   return tm.tm_isdst;
 }
 
 //***************************************************************************

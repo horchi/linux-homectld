@@ -430,6 +430,8 @@ class Daemon : public cWebInterface
       int performPageChange(json_t* oObject, long client);
       int performToggleIo(json_t* oObject, long client);
       int performSystem(json_t* oObject, long client);
+      int performDatabaseStatistic(json_t* oObject, long client);
+      int performWifi(json_t* oObject, long client);
       int performSyslog(json_t* oObject, long client);
       int performConfigDetails(long client);
       int performGroups(long client);

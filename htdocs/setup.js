@@ -57,7 +57,7 @@ function initConfig(configdetails)
       }
 
       if (item.category != setupCategory) {
-         console.log("Skipping category", item.category)
+         // console.log("Skipping category", item.category)
          continue;
       }
 

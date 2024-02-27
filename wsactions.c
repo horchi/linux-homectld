@@ -651,6 +651,57 @@ int Daemon::storeAlerts(json_t* oObject, long client)
 
 int Daemon::performSystem(json_t* oObject, long client)
 {
+   std::string action = getStringFromJson(oObject, "action", "");
+   const char* ssid = getStringFromJson(oObject, "ssid");
+
+   if (action == "database")
+      return performDatabaseStatistic(oObject, client);
+
+   if (action == "wifis")
+      return performWifi(oObject, client);
+
+   if (action == "wifi-disconnect")
+   {
+      tell(eloDetail, "Calling nmcli connection down \"%s\"", ssid);
+      std::string result = executeCommand("nmcli connection down \"%s\"", ssid);
+
+      tell(eloAlways, "Info: Disconnect result was [%s]", result.c_str());
+      return replyResult(done, result.c_str(), client);
+   }
+
+   if (action == "wifi-connect")
+   {
+      tell(eloDetail, "Calling nmcli connection up \"%s\"", ssid);
+      std::string result = executeCommand("nmcli connection up \"%s\"", ssid);
+
+      tell(eloAlways, "Info: Connect result was [%s]", result.c_str());
+      return replyResult(done, result.c_str(), client);
+   }
+
+   return replyResult(fail, "Unexpected action", client);
+}
+
+//***************************************************************************
+// Perform Wifi
+//***************************************************************************
+
+int Daemon::performWifi(json_t* oObject, long client)
+{
+   std::string result = executeCommand("nmcli.asjson.sh");
+   json_t* oData = jsonLoad(result.c_str());
+
+   if (!oData)
+      return replyResult(fail, "Error: Got invalid JSON from script nmcli.asjson.sh", client);
+
+   return pushOutMessage(oData, "wifis", client);
+}
+
+//***************************************************************************
+// Perform Database Statistic
+//***************************************************************************
+
+int Daemon::performDatabaseStatistic(json_t* oObject, long client)
+{
    tableTableStatistics->clear();
    tableTableStatistics->setValue("SCHEMA", connection->getName());
 
@@ -686,7 +737,7 @@ int Daemon::performSystem(json_t* oObject, long client)
       json_object_set_new(jItem, "available", json_string(bytesPretty(stat.available, 2)));
    }
 
-   pushOutMessage(jObject, "system", client);
+   pushOutMessage(jObject, "database", client);
 
    return done;
 }
@@ -2416,8 +2467,10 @@ int Daemon::sensor2Json(json_t* obj, const char* type, uint address)
 
    if (tablePeaks->find())
    {
-      json_object_set_new(obj, "peak", json_real(tablePeaks->getFloatValue("MAX")));
+      json_object_set_new(obj, "peakmax", json_real(tablePeaks->getFloatValue("MAX")));
+      json_object_set_new(obj, "peakmaxtime", json_integer(tablePeaks->getTimeValue("TIMEMAX")));
       json_object_set_new(obj, "peakmin", json_real(tablePeaks->getFloatValue("MIN")));
+      json_object_set_new(obj, "peakmintime", json_integer(tablePeaks->getTimeValue("TIMEMIN")));
    }
 
    tablePeaks->reset();

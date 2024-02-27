@@ -83,6 +83,8 @@ Table peaks
    INSSP                ""  inssp                Int         10 Meta,
    UPDSP                ""  updsp                Int         10 Meta,
 
+   TIMEMIN              ""  timemin              DateTime     0 Data,
+   TIMEMAX              ""  timemax              DateTime     0 Data,
    MIN                  ""  minv                 Float      122 Data,
    MAX                  ""  maxv                 Float      122 Data,
 }

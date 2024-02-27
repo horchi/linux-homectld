@@ -652,7 +652,6 @@ int Daemon::storeAlerts(json_t* oObject, long client)
 int Daemon::performSystem(json_t* oObject, long client)
 {
    std::string action = getStringFromJson(oObject, "action", "");
-   const char* ssid = getStringFromJson(oObject, "ssid");
 
    if (action == "database")
       return performDatabaseStatistic(oObject, client);
@@ -660,23 +659,8 @@ int Daemon::performSystem(json_t* oObject, long client)
    if (action == "wifis")
       return performWifi(oObject, client);
 
-   if (action == "wifi-disconnect")
-   {
-      tell(eloDetail, "Calling nmcli connection down \"%s\"", ssid);
-      std::string result = executeCommand("nmcli connection down \"%s\"", ssid);
-
-      tell(eloAlways, "Info: Disconnect result was [%s]", result.c_str());
-      return replyResult(done, result.c_str(), client);
-   }
-
-   if (action == "wifi-connect")
-   {
-      tell(eloDetail, "Calling nmcli connection up \"%s\"", ssid);
-      std::string result = executeCommand("nmcli connection up \"%s\"", ssid);
-
-      tell(eloAlways, "Info: Connect result was [%s]", result.c_str());
-      return replyResult(done, result.c_str(), client);
-   }
+   if (action == "wifi-disconnect" || action == "wifi-connect")
+      return performWifiCommand(oObject, client);
 
    return replyResult(fail, "Unexpected action", client);
 }
@@ -687,13 +671,66 @@ int Daemon::performSystem(json_t* oObject, long client)
 
 int Daemon::performWifi(json_t* oObject, long client)
 {
-   std::string result = executeCommand("nmcli.asjson.sh");
-   json_t* oData = jsonLoad(result.c_str());
+   std::string result = executeCommand("nmcli.asjson.sh wifi-con");
+   json_t* oConnections = jsonLoad(result.c_str());
 
-   if (!oData)
-      return replyResult(fail, "Error: Got invalid JSON from script nmcli.asjson.sh", client);
+   result = executeCommand("nmcli.asjson.sh wifi-list");
+   json_t* oWifis = jsonLoad(result.c_str());
 
-   return pushOutMessage(oData, "wifis", client);
+   if (!oWifis)
+      return replyResult(fail, "Error: Got invalid JSON from script 'nmcli.asjson.sh  wifi-list'", client);
+
+   json_t* oWifi = json_object();
+
+   json_object_set_new(oWifi, "reachable", oWifis);
+
+   if (oConnections)
+      json_object_set_new(oWifi, "known", oConnections);
+
+   return pushOutMessage(oWifi, "wifis", client);
+}
+
+//***************************************************************************
+// Perform Wifi Command
+//***************************************************************************
+
+int Daemon::performWifiCommand(json_t* oObject, long client)
+{
+   std::string action = getStringFromJson(oObject, "action", "");
+   const char* ssid = getStringFromJson(oObject, "ssid");
+
+   if (action == "wifi-disconnect")
+   {
+      tell(eloDetail, "Calling 'nmcli connection down '%s''", ssid);
+      std::string result = executeCommand("nmcli connection down '%s'", ssid);
+
+      tell(eloAlways, "Info: Disconnect result was [%s]", result.c_str());
+      performWifi(oObject, client);
+
+      return replyResult(done, result.c_str(), client);
+   }
+
+   if (action == "wifi-connect")
+   {
+      std::string result;
+      const char* pwd = getStringFromJson(oObject, "password");
+
+      if (!isEmpty(pwd))
+      {
+         result = executeCommand("nmcli device wifi connect '%s' password '%s'", ssid, pwd);
+         tell(eloAlways, "Info: Connect result was [%s]", result.c_str());
+      }
+      else
+      {
+         result = executeCommand("nmcli connection up '%s'", ssid);
+         tell(eloAlways, "Info: Connect result was [%s]", result.c_str());
+      }
+
+      performWifi(oObject, client);
+      return replyResult(done, result.c_str(), client);
+   }
+
+   return done;
 }
 
 //***************************************************************************

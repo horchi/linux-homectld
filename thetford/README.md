@@ -1,6 +1,6 @@
 # Linux - Home Control Daemon (homectld)
 
-# CI-Bus interface for thetford N400 refrigerator
+# CI-Bus interface for thetford N4000 refrigerator
 
 ## License
 This code is distributed under the terms and conditions of the GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
@@ -34,7 +34,7 @@ udevadm control --reload-rules
 ```
 
 I use this adapter as master, not yet tried as a slave.
-For the Thetford N400 series refrigerators a ready-made example for integration into the homectld can be found here thetford/README.md
+For the Thetford N4000 series refrigerators a ready-made example for integration into the homectld can be found here thetford/README.md
 
 # CI-Bus / LIN-Bus Adapter
 

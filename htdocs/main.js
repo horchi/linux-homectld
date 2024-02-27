@@ -9,6 +9,7 @@
  */
 
 var WebSocketClient = window.WebSocketClient
+var pingTimeoutMs = 4000;
 var colorStyle = null;
 var isDaytime = false;
 var daytimeCalcAt = null;
@@ -143,7 +144,7 @@ function updateSocketState()
    // VDR did not support ping
 
    if (currentPage != "vdr") {
-      if (lastPingAt + 4000 <= new Date().getTime()) {
+      if (lastPingAt + pingTimeoutMs <= new Date().getTime()) {
          console.log("Warning: Reconnecting web socket");
          socket.reopen();
          lastPingAt = new Date().getTime();
@@ -308,6 +309,24 @@ async function showProgressDialog()
    });
 }
 
+function pwdDialog(onConfirm, message, okBtn = 'Continue', cancelBtn = 'Cancel')
+{
+   var form = '<div>' +
+       '  <div class="dialog-content">' +
+       '    <input class="rounded-border input" id="pwdDlgValue"></input>'
+       '  </div>';
+
+   $(form).dialog({
+      hide: "fade",
+      title: 'Wifi key',
+      buttons: {
+         [okBtn]:     function() { $(this).dialog('close'); onConfirm($('#pwdDlgValue').val()); },
+         [cancelBtn]: function() { $(this).dialog('close'); }
+      },
+      close: function() { $(this).dialog('destroy').remove(); }
+   });
+}
+
 function dispatchMessage(message)
 {
    var jMessage = JSON.parse(message);
@@ -392,10 +411,13 @@ function dispatchMessage(message)
    }
    else if (event == "database") {
       showDatabaseStatistic(jMessage.object);
+      hideProgressDialog();
    }
    else if (event == "wifis") {
+      pingTimeoutMs = 4000;
       wifis = jMessage.object;
       showWifiList();
+      hideProgressDialog();
    }
    else if (event == "token") {
       localStorage.setItem(storagePrefix + 'Token', jMessage.object.value);
@@ -661,8 +683,12 @@ function mainMenuSel(what, action = null)
       showProgressDialog();
       event = "syslog";
    }
-   else if (currentPage == "system")
+   else if (currentPage == "system") {
       event = "system";
+      showProgressDialog();
+      if (action == "wifis")
+         pingTimeoutMs = 20000;
+   }
    else if (currentPage == "list")
       initList();
    else if (currentPage == "dashboard")
@@ -793,17 +819,7 @@ function showDatabaseStatistic(statistic)
 
 function showWifiList()
 {
-   console.log("WifiList: " + JSON.stringify(wifis, undefined, 2));
-
-/*  [{
-      "bars" : "ââ__",
-      "channel" : "1",
-      "mode" : "Infra",
-      "network" : "hierimhaus",
-      "rate" : "16 Mbit/s",
-      "security" : "WPA2",
-      "signal" : "39"
-   }] */
+   // console.log("WifiList: " + JSON.stringify(wifis, undefined, 2));
 
    $('#container').removeClass('hidden');
    $('#container').html('<div id="systemContainer"></div>');
@@ -824,12 +840,13 @@ function showWifiList()
       '    </thead>' +
       '    <tbody>';
 
-   for (var i = 0; i < wifis.length; i++) {
-      var wifi = wifis[i];
-
+   for (var i = 0; i < wifis.reachable.length; i++) {
+      let wifi = wifis.reachable[i];
+      let known = isWifiKnown(wifi.network);
       let rowColor = wifi.active == 'yes' ? 'lightgreen' : '';
-      let signalColor = parseInt(wifi.signal) >= 25 ? 'lightgreen' : '';
-      let action = wifi.active == 'yes' ? 'Disconnect' : 'Connect';
+      let signalColor = parseInt(wifi.signal) >= 50 ? 'green' : parseInt(wifi.signal) >= 20 ? 'orange' : '';
+      let action = wifi.active == 'yes' ? 'Disconnect' : known ? 'Connect' : 'Setup';
+
       html += '<tr style="height:28px;color:' + rowColor + ';">';
       html += ' <td>' + wifi.network + '</td>';
       html += ' <td>' + wifi.rate + '</td>';
@@ -849,20 +866,46 @@ function showWifiList()
       .addClass('setupContainer');
 }
 
+function isWifiKnown(network)
+{
+   for (var i = 0; i < wifis.known.length; i++) {
+      if (wifis.known[i].network == network && wifis.known[i].device != null && wifis.known[i].device != '')
+         return true;
+   }
+   return false;
+}
+
 function wifiAction(id)
 {
    let i = 0;
-   for (i = 0; i < wifis.length; i++) {
-      if (wifis[i].id == id)
+
+   for (i = 0; i < wifis.reachable.length; i++) {
+      if (wifis.reachable[i].id == id)
          break;
    }
 
-   if (wifis[i].id == id) {
-      console.log('wifiAction', wifis[i].network, wifis[i].active);
+   if (wifis.reachable[i].id != id)
+      return ;
+
+   let active = wifis.reachable[i].active == 'yes';
+
+   function doWifiAction(password = '') {
+      pingTimeoutMs = 30000;
+      showProgressDialog();
+      console.log('wifiAction', wifis.reachable[i].network, wifis.reachable[i].active);
       socket.send({ "event": "system", "object":
-                    { 'action': wifis[i].active == 'yes' ? 'wifi-disconnect' : 'wifi-connect',
-                      'ssid': wifis[i].network } });
+                    {
+                       'action': active ? 'wifi-disconnect' : 'wifi-connect',
+                       'ssid': wifis.reachable[i].network,
+                       'password': password
+                    }
+                  });
    }
+
+   if (!active && !isWifiKnown(wifis.reachable[i].network))
+      pwdDialog(doWifiAction, "Password");
+   else
+      doWifiAction();
 }
 
 window.toggleMode = function(address, type)

@@ -4625,8 +4625,8 @@ uint Daemon::toW1Id(const char* name)
 
 void* Daemon::cmdThread(void* user)
 {
-   char buffer[128] {'\0'};
-   std::string result {""};
+   char buffer[128] {};
+   std::string result;
 
    ThreadControl* threadCtl = (ThreadControl*)user;
    time_t timeoutAt = time(0) + threadCtl->timeout;

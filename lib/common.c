@@ -172,8 +172,12 @@ std::string executeCommand(const char* format, ...)
    va_start(ap, format);
    int len = vsnprintf(cmd, size, format, ap);
    va_end(ap);
+
    if (len <= 0)
+   {
+      tell(eloAlways, "Error: Failed to prepare command '%s'", format);
       return "command failed";
+   }
 
    size = len + 1;
    cmd = (char*)malloc(size);
@@ -181,6 +185,7 @@ std::string executeCommand(const char* format, ...)
    vsnprintf(cmd, size, format, ap);
    va_end(ap);
 
+   tell(eloDetail, "Info: Calling '%s' ..", cmd);
    FILE* pipe = popen(cmd, "r");
    free(cmd);
 
@@ -191,6 +196,7 @@ std::string executeCommand(const char* format, ...)
       result += buffer;
 
    pclose(pipe);
+   tell(eloDetail, "Info: .. done");
 
    return result;
 }

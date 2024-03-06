@@ -61,6 +61,7 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
 #endif
 
    { "openWeatherApiKey",         ctString,  "",             false, "Daemon", "Openweathermap API Key", "" },
+   { "weatherInterval",           ctInteger, "15",           false, "Daemon", "Weather Refresh Interval [m]", "" },
    { "toggleWeatherView",         ctBool,    "1",            false, "Daemon", "Toggle Weather Widget", "" },
 
 #ifdef _POOL
@@ -427,9 +428,9 @@ int HomeCtl::performJobs()
 // Process
 //***************************************************************************
 
-int HomeCtl::process()
+int HomeCtl::process(bool force)
 {
-   Daemon::process();
+   Daemon::process(force);
 
 #ifdef _POOL
 

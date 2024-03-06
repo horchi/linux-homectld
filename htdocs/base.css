@@ -758,6 +758,7 @@ div.greenCircle
     color: var(--buttonFont);
     margin-top: 5px;
     white-space-collapse: preserve-breaks;
+    table-layout: fixed;
 }
 
 table.tableMultiCol thead
@@ -776,6 +777,11 @@ table.tableMultiCol tr
     border-width: 1px;
     border-color: var(--neutral3);
     border-bottom-style: solid;
+}
+
+table.tableMultiCol td
+{
+    word-wrap: break-word;
 }
 
 .stateInfo
@@ -1087,7 +1093,7 @@ table.tableMultiCol tr
     background-color: var(--menu);
 }
 
-.tabButtons > button
+.tabButtons > span:nth-child(2) > button
 {
     cursor: pointer;
     background-color: transparent;
@@ -1103,12 +1109,12 @@ table.tableMultiCol tr
     border: none;
 }
 
-.tabButtons > button:hover
+.tabButtons > span:nth-child(2) > button:hover
 {
     opacity: 0.8;
 }
 
-.tabButtons > button.active
+.tabButtons > span:nth-child(2) > button.active
 {
     opacity: 1.0;
     font-weight: bold;
@@ -1355,7 +1361,7 @@ table.tableMultiCol tr
     overflow: hidden;
     width: 212px;
     height: 212px;
-    margin: 3px;
+    margin: 2px;
     background-color: var(--widgetBackground);
     padding: 1px;
 }
@@ -1673,6 +1679,41 @@ table.tableMultiCol tr
     align-items: center;
     word-break: break-word;
     color: var(--light4);
+}
+
+.widget-choice
+{
+    grid-area: main;
+    display: inline-grid;
+    text-align: center;
+    font-size: xx-large;
+    font-weight: bold;
+    align-items: center;
+    align-self: center;
+    height: fit-content;
+    word-break: break-word;
+    color: var(--light4);
+    user-select: none;
+    cursor: pointer;
+}
+
+.widget-text
+{
+    grid-area: main;
+    display: inline-grid;
+    width: -webkit-fill-available;
+    width: -moz-available;
+    text-align: left;
+    align-content: center;
+    padding: 5px;
+    color: var(--light4);
+}
+
+.widget-text > table
+{
+    /*font-size: x-large;*/
+    font-size: calc(2vh);
+    white-space: nowrap
 }
 
 .widget-time
@@ -2006,6 +2047,7 @@ dialog::backdrop, #backdrop
     .widgetChart               { grid-template-rows: 15% 18% 67%; }
     .widget-title              { font-size: 1.0em; }
     .widget-value              { font-size: 1.0em; }
+    .widget-text               { font-size: large; }
     .widget-weather            { font-size: x-large; margin-top: 0px;  }
     .widget-weather > br       { display: none; }
     .widget-main               { font-size: 13vh;}
@@ -2029,7 +2071,8 @@ dialog::backdrop, #backdrop
     .widgetMeterLinear         { grid-template-rows: 15% 25% 60%; }
     .widget-title              { padding: 3px; padding-top: 4px; font-size: 1.0em; }
     .widget-main-peak-lin      { font-size: 0.7em; }
-    .widget-value              { font-size: 1.2em; }
+    .widget-value              { font-size: x-large; }
+    .widget-text               { font-size: large; }
     .widget-weather            { font-size: x-large; margin-top: 0px;  }
     .widget-weather > br       { display: none; }
     .widget-main               { font-size: 11vh;}

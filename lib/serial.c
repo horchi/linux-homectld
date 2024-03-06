@@ -177,7 +177,7 @@ int Serial::look(byte& b, int timeoutMs)
 }
 
 //***************************************************************************
-// Send Command
+// Write
 //***************************************************************************
 
 int Serial::write(void* line, int size)
@@ -197,7 +197,31 @@ int Serial::write(void* line, int size)
    if (::write(fdDevice, line, size) != size)
       return fail;
 
+   if (eloquence & eloDebug && size < 255)
+   {
+      char buffer[1000];
+
+      for (int i = 0; i < size; ++i)
+         if (((char*)line)[i] != '\n')
+            buffer[i] = ((char*)line)[i];
+         else
+            buffer[i] = '#';
+
+      tell(eloAlways, "-> [%.*s]", size, buffer);
+   }
+
    return success;
+}
+
+//***************************************************************************
+// Write Byte
+//***************************************************************************
+
+int Serial::write(byte b)
+{
+   char line[1];
+   line[0] = b;
+   return write(line, 1);
 }
 
 //***************************************************************************
@@ -233,7 +257,7 @@ int Serial::read(void* buf, size_t count, uint timeoutMs)
       }
 
       if (!res)
-         usleep(2000);
+         usleep(500);
 
       nRead += res;
    };

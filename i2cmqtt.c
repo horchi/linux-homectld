@@ -66,7 +66,6 @@ class I2CMqtt
       int loop();
       int update();
       int updateMcp();
-      int dispatchMqttMessage(const char* message);
 
       bool doShutDown() { return shutdown; }
       int show();
@@ -79,10 +78,11 @@ class I2CMqtt
    protected:
 
       int mqttConnection();
+      int mqttDisconnect();
       int mqttPublish(json_t* jObject);
       int mqttPublish(SensorData& sensor);
       int performMqttRequests();
-      int mqttDisconnect();
+      int dispatchMqttMessage(const char* message);
 
       const char* mqttUrl {};
       Mqtt* mqttWriter {};
@@ -299,7 +299,7 @@ int I2CMqtt::loop()
 
 int I2CMqtt::update()
 {
-   tell(eloInfo, "Updating ...");
+   tell(eloInfo, "Updating ..");
 
    if (mqttConnection() != success)
       return fail;
@@ -367,6 +367,7 @@ int I2CMqtt::update()
 
    return done;
 }
+
 //***************************************************************************
 // Dispatch MQTT Message
 //***************************************************************************
@@ -778,8 +779,8 @@ void showUsage(const char* bin)
    printf("     -i <interval>    interval seconds (default 60)\n");
    printf("     -u <url>         MQTT url\n");
    printf("     -T <topic>       MQTT topic\n");
-   printf("     -                 <topic>/out - produce to\n");
-   printf("     -                 <topic>/in  - read from\n");
+   printf("                        <topic>/out - produce to\n");
+   printf("                        <topic>/in  - read from\n");
    printf("     -d <device>      i2c device (defaults to /dev/i2c-0)\n");
    printf("     --ads <address>  ADS1115  address (0x48, defaults to -1/off)\n");
    printf("     --mcp <address>  MCP23017 address (0x20-0x27, defaults to -1/off)\n");
@@ -888,7 +889,7 @@ int main(int argc, char** argv)
          return 0;
    }
 
-   // int AFTER fork !!!
+   // create/init AFTER fork !!!
 
    I2CMqtt* job = new I2CMqtt(device, mqttUrl, mqttTopic, interval);
 

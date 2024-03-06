@@ -1,0 +1,13 @@
+
+# Options
+#     -d <device>     serial device file (defaults to /dev/ttyUSB1)
+#     -l <eloquence>  set eloquence
+#     -t              log to terminal
+#     -i <interval>   interval [s] (default 10)
+#     -u <url>        MQTT url (default tcp://localhost:1883)
+#     -T <topic>      MQTT topic (default homectld2mqtt/victron)
+#                       <topic>/out - produce to
+#     -n              Don't fork in background
+#     -I <ident>      Identifier (type) of the homectld sensor (default VIC)
+
+VICTRONMQTT_OPTS="-u tcp://localhost:1883 -i 5 -l 1"

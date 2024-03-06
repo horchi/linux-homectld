@@ -433,6 +433,17 @@ function sensorDoSetup(type, address)
                                                valueFacts[key].calibration.feedbackInType
                                                + ':0x'
                                                + valueFacts[key].calibration.feedbackInAddress.toString(16) : ''))))
+                  .append($('<div></div>')
+                          .append($('<span></span>')
+                                  .css('width', 'auto')
+                                  .html('Skript'))
+                          .append($('<span></span>')
+                                  .append($('<textarea></textarea>')
+                                          .attr('id', 'scriptDo')
+                                          .addClass('rounded-border inputSetting inputSettingScript')
+                                          .css('height', '100px')
+                                          .val(valueFacts[key].calibration ? valueFacts[key].calibration.script : '')
+                                         )))
                          );
 
    var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
@@ -463,6 +474,7 @@ function sensorDoSetup(type, address)
                'calibration' : JSON.stringify({
                   'invert' : $('#invertDo').is(':checked'),
                   'impulse' : $('#impulseDo').is(':checked'),
+                  'script' : $('#scriptDo').val(),
                   'feedbackInType' : type,
                   'feedbackInAddress' : addr
                })

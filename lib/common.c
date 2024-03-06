@@ -71,6 +71,7 @@ const char* Elo::eloquences[] =
    "DebugLmc",
 
    "DebugWiringPi",
+   "Script",
 
    nullptr
 };
@@ -160,6 +161,22 @@ void tell(Eloquence elo, const char* format, ...)
 }
 
 //***************************************************************************
+// std::sting Extensions
+//***************************************************************************
+
+#include <iomanip>
+
+namespace horchi
+{
+   std::string to_string(double d, size_t precision)
+   {
+      std::ostringstream stm;
+      stm << std::setprecision(2) << d;
+      return stm.str();
+   }
+}
+
+//***************************************************************************
 // Execute Command
 //***************************************************************************
 
@@ -185,7 +202,7 @@ std::string executeCommand(const char* format, ...)
    vsnprintf(cmd, size, format, ap);
    va_end(ap);
 
-   tell(eloDetail, "Info: Calling '%s' ..", cmd);
+   tell(eloDebug, "Debug: Calling '%s' ..", cmd);
    FILE* pipe = popen(cmd, "r");
    free(cmd);
 
@@ -196,7 +213,7 @@ std::string executeCommand(const char* format, ...)
       result += buffer;
 
    pclose(pipe);
-   tell(eloDetail, "Info: .. done");
+   tell(eloDebug, "Debug: .. done");
 
    return result;
 }

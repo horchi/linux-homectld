@@ -91,8 +91,10 @@ function initDashboard(update = false)
                                     initDashboard();
                                  }));
 
-      if (kioskMode)
+      if (kioskMode) {
          $('#'+did).css('font-size', '-webkit-xxx-large');
+         $('#'+did).css('font-size', 'xxx-large');
+      }
 
       if (setupMode && did == actDashboard)
          $('#dashboardMenu').append($('<button></button>')
@@ -166,6 +168,45 @@ function newDashboard()
    }
 }
 
+function getWidgetColor(widget, value)
+{
+   if (widget.colorCondition != null && widget.colorCondition != '') {
+      let conditions = widget.colorCondition.split(",");
+      for (c = 0; c < conditions.length; ++c) {
+         if (conditions[c].indexOf('=') != -1) {
+            let [val,col] = conditions[c].split("=");
+            if (value == val)
+               return col;
+         }
+         if (conditions[c].indexOf('~') != -1) {   // ~ für stringh enthalten in
+            let [val,col] = conditions[c].split("~");
+            if (value.indexOf(val) != -1)
+               return col;
+         }
+         if (conditions[c].indexOf('<') != -1) {1
+            let [val,col] = conditions[c].split("<");
+            if (val < value)
+               return col;
+         }
+         if (conditions[c].indexOf('>') != -1) {
+            let [val,col] = conditions[c].split(">");
+            if (val > value)
+               return col;
+         }
+         if (conditions[c].indexOf('<=') != -1) {1
+            let [val,col] = conditions[c].split("<=");
+            if (val <= value)
+               return col;
+         }
+         if (conditions[c].indexOf('>=') != -1) {
+            let [val,col] = conditions[c].split(">=");
+            if (val >= value)
+               return col;
+         }
+      }
+   }
+}
+
 var keyTimeout = null;
 
 function initWidget(key, widget, fact)
@@ -195,7 +236,7 @@ function initWidget(key, widget, fact)
    if (fact && widget.unit == '')
       widget.unit = fact.unit;
 
-   const marginPadding = 8;
+   const marginPadding = 3 -1;
    var root = document.getElementById("widgetContainer");
    var id = 'div_' + key;
    var elem = document.getElementById(id);
@@ -217,7 +258,7 @@ function initWidget(key, widget, fact)
       // widget.heightfactor -> to be implementen (nur vorbereitet)
 
       if (widget.heightfactor != null && widget.heightfactor != 1)
-         eHeight = eHeight * widget.heightfactor + ((widget.heightfactor-1) * marginPadding-1);
+         eHeight = eHeight * widget.heightfactor + ((widget.heightfactor-1) * marginPadding);
 
       elem.style.height = eHeight + 'px';
    }
@@ -227,9 +268,12 @@ function initWidget(key, widget, fact)
    if (widgetWidthBase == null)
       widgetWidthBase = elem.clientWidth;
 
-   // console.log("clientWidth: " + elem.clientWidth + ' : ' + widgetWidthBase);
+   // console.log("clientWidth: ", elem.clientWidth, 'widgetWidthBase: ', widgetWidthBase, 'marginPadding:', marginPadding, 'widget.widthfactor:', widget.widthfactor);
 
-   elem.style.width = widgetWidthBase * widget.widthfactor + ((widget.widthfactor-1) * marginPadding-1) + 'px';
+   if (widget.widthfactor > 1)
+      elem.style.width = widgetWidthBase * widget.widthfactor + ((widget.widthfactor-1) * marginPadding) + 'px';
+   else
+      elem.style.width = widgetWidthBase;
 
    if (setupMode && (widget.widgettype < 900 || widget.widgettype == null)) {
       elem.setAttribute('draggable', true);
@@ -655,7 +699,7 @@ function initWidget(key, widget, fact)
          var wFact = fact;
          $(elem).append($('<div></div>')
                         .attr('id', 'widget' + fact.type + fact.address)
-                        .addClass(fact.type == 'WEA' ? 'widget-weather' : 'widget-value')
+                        .addClass(fact.type == 'WEA' ? 'widget-weather' : 'widget-text')
                         .css('user-select', 'none')
                         .css('color', widget.color)
                         .css('height', 'inherit')
@@ -664,12 +708,12 @@ function initWidget(key, widget, fact)
       }
 
       case 8: {     // 8 (Choice)
+         console.log("choices:", fact.choices);
          $(elem)
             .addClass("widget widgetDropZone")
-            .css('cursor', 'pointer')
-            .click(function() {
-               socket.send({"event": "toggleio", "object": {"address": fact.address, "type": fact.type, "action": "toggle"}});
-            })
+//            .click(function() {
+//               socket.send({"event": "toggleio", "object": {"address": fact.address, "type": fact.type, "action": "toggle"}});
+//            })
             .append($('<div></div>')
                     .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
                     .addClass(titleClass)
@@ -677,10 +721,24 @@ function initWidget(key, widget, fact)
                     .click(function(event) {titleClick(event.ctrlKey, key);})
                     .html(title))
             .append($('<div></div>')
-                    .attr('id', 'widget' + fact.type + fact.address)
-                    .addClass('widget-value')
-                    .css('user-select', 'none')
+                    // .attr('id', 'widget' + fact.type + fact.address)
+                    .attr('id', 'choice' + fact.type + fact.address)
+                    .addClass('widget-choice rounded-border')
                     .css('color', widget.color));
+         let choices = fact.choices.split(",");
+         for (c = 0; c < choices.length; ++c) {
+            console.log("c: ", choices[c]);
+            $('#choice' + fact.type + fact.address)
+               .append($('<div></div>')
+                       .attr('id', 'widget' + fact.type + fact.address + '_' + c)
+                       .addClass('rounded-border')
+                       .html(choices[c])
+                       .click({ "value" : choices[c] }, function(event) {
+                          socket.send({'event': 'toggleio', 'object': {'address': fact.address, 'type': fact.type, 'value': event.data.value, 'action': 'switch'}});
+                       }));
+            // .css('background-color', 'gray');
+         }
+
          break;
       }
 
@@ -1296,7 +1354,16 @@ function updateWidget(sensor, refresh, widget)
          socket.send({ "event" : "chartdata", "object" : jsonRequest });
       }
    }
-   else if (widget.widgettype == 2 || widget.widgettype == 7 || widget.widgettype == 8)    // Text, PlainText, Choice
+   else if (widget.widgettype == 8)    // Choice
+   {
+      // var text = sensor.text.replace(/(?:\r\n|\r|\n)/g, '<br>');
+
+      let choices = fact.choices.split(",");
+      for (c = 0; c < choices.length; ++c) {
+         $("#widget" + fact.type + fact.address + '_' + c).css('background-color', sensor.text == choices[c] ? 'gray' : "");
+      }
+   }
+   else if (widget.widgettype == 2 || widget.widgettype == 7)    // Text, PlainText
    {
       if (sensor.type == 'WEA' && sensor.text != null) {
          var bigView = false;
@@ -1314,12 +1381,32 @@ function updateWidget(sensor, refresh, widget)
          }
       }
       else if (sensor.text != null) {
-         var text = sensor.text.replace(/(?:\r\n|\r|\n)/g, '<br>');
-         $("#widget" + fact.type + fact.address).html(text);
+         $("#widget" + fact.type + fact.address).css('color', getWidgetColor(widget, sensor.text));
+         if (widget.widgettype == 7 && sensor.text.indexOf('\n') != -1) {
+            // show plain with tabs text as table
+
+            let lines = sensor.text.split(/(?:\r\n|\r|\n)/);
+            let html = '';
+
+            for (l = 0; l < lines.length; ++l) {
+               let tabs = lines[l].split(/(?:\t)/);
+               let tabHtml = '';
+               for (t = 0; t < tabs.length; ++t)
+                  tabHtml += '<td>' + tabs[t] + '</td>';
+               html += '<tr>' + tabHtml + '</tr>\n';
+            }
+
+            $("#widget" + fact.type + fact.address).html('<table>' + html + '</table>');
+         }
+         else {
+            var text = sensor.text.replace(/(?:\r\n|\r|\n)/g, '<br>');
+            $("#widget" + fact.type + fact.address).html(text);
+         }
       }
    }
-   else if (widget.widgettype == 3)      // plain value
+   else if (widget.widgettype == 3)      // Value
    {
+      $("#widget" + fact.type + fact.address).css('color', getWidgetColor(widget, sensor.value));
       $("#widget" + fact.type + fact.address).html(sensor.value + " " + widget.unit);
       if (widget.showpeak != null && widget.showpeak)
          $("#peak" + fact.type + fact.address).text(sensor.peakmax != null ? sensor.peakmax.toFixed(2) + " " + widget.unit : "");
@@ -1349,6 +1436,8 @@ function updateWidget(sensor, refresh, widget)
    {
       if (sensor.value != null) {
          var value = (widget.factor != null && widget.factor) ? widget.factor*sensor.value : sensor.value;
+         if (widget.widgettype == 6)
+            $("#widgetValue" + fact.type + fact.address).css('color', getWidgetColor(widget, value));
          // console.log("DEBUG: Update " + '#widget' + fact.type + fact.address + " to: " + value + " (" + sensor.value +")");
          $('#widgetValue' + fact.type + fact.address).html(value.toFixed(widget.unit == '%' ? 0 : 1) + ' ' + widget.unit);
          var gauge = $('#widget' + fact.type + fact.address).data('gauge');
@@ -2060,6 +2149,18 @@ function widgetSetup(key)
                                          ))))
 
                   .append($('<div></div>')
+                          .attr('id', 'divColorCondition')
+                          .append($('<span></span>')
+                                  .html('Farbe'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('type', 'search')
+                                          .attr('id', 'colorCondition')
+                                          .val(widget.colorCondition)
+                                         )))
+
+                  .append($('<div></div>')
                           .attr('id', 'divPeak')
                           .append($('<span></span>')
                                   .html('Peak anzeigen'))
@@ -2134,7 +2235,8 @@ function widgetSetup(key)
       $("#divImgon").css("display", ([0,9].includes(wType) && $('#symbol').val() == '') ? 'flex' : 'none');
       $("#divImgoff").css("display", ([0,9].includes(wType) && $('#symbol').val() == '') ? 'flex' : 'none');
       $("#divPeak").css("display", [1,3,6,9,13].includes(wType) ? 'flex' : 'none');
-      $("#divColor").css("display", [0,1,3,4,6,7,9,10,11,13].includes(wType) ? 'flex' : 'none');
+      $("#divColor").css("display", [0,1,2,3,4,6,7,8,9,10,11,13].includes(wType) ? 'flex' : 'none');
+      $("#divColorCondition").css("display", [2,3,6,7,8,10,11].includes(wType) ? 'flex' : 'none');
       $("#divLinefeed").css("display", [10].includes(wType) ? 'flex' : 'none');
       $("#divRange").css("display", [1,5,6,13].includes(wType) ? 'flex' : 'none');
 
@@ -2283,6 +2385,7 @@ function widgetSetup(key)
             widget.widgettype = parseInt($("#widgettype").val());
             widget.color = $("#color").spectrum('get').toRgbString();
             widget.colorOn = $("#colorOn").spectrum('get').toRgbString();
+            widget.colorCondition = $("#colorCondition").val();
             widget.showpeak = $("#peak").is(':checked');
             widget.linefeed = $("#linefeed").is(':checked');
             widget.widthfactor = $("#widthfactor").val();
@@ -2309,6 +2412,7 @@ function widgetSetup(key)
             widget.widgettype = parseInt($("#widgettype").val());
             widget.color = $("#color").spectrum("get").toRgbString();
             widget.colorOn = $("#colorOn").spectrum("get").toRgbString();
+            widget.colorCondition = $("#colorCondition").val();
             widget.showpeak = $("#peak").is(':checked');
             widget.linefeed = $("#linefeed").is(':checked');
             widget.widthfactor = $("#widthfactor").val();
@@ -2358,6 +2462,7 @@ function widgetSetup(key)
             json[key]["linefeed"] = $("#linefeed").is(':checked');
             json[key]["color"] = $("#color").spectrum("get").toRgbString();
             json[key]["colorOn"] = $("#colorOn").spectrum("get").toRgbString();
+            json[key]["colorCondition"] = $("#colorCondition").val();
 
             socket.send({ "event" : "storedashboards", "object" : { [actDashboard] : { 'title' : dashboards[actDashboard].title, 'widgets' : json } } });
             socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'dashboards' } });

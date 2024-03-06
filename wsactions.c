@@ -11,6 +11,8 @@
 #include <cmath>
 
 #include "lib/json.h"
+#include "lib/systemdctl.h"
+
 #include "daemon.h"
 
 //***************************************************************************
@@ -140,7 +142,7 @@ bool Daemon::checkRights(long client, Event event, json_t* oObject)
       case evChangePasswd:        return true;   // check will done in performPasswChange()
       case evCommand:             return rights & urFullControl;
       case evSyslog:              return rights & urAdmin;
-      case evSystem:              return rights & urAdmin;
+      case evSystem:              return rights & urView;
       case evForceRefresh:        return rights & urView;
 
       case evChartbookmarks:      return rights & urView;
@@ -478,6 +480,16 @@ int Daemon::performToggleIo(json_t* oObject, long client)
    const char* type = getStringFromJson(oObject, "type");
    std::string action = getStringFromJson(oObject, "action", "");
 
+   if (action == "switch")
+   {
+      const char* value = getStringFromJson(oObject, "value");
+
+      if (strncmp(type, "VIC", 3) == 0)
+         return switchVictron(type, addr, value);
+
+      return toggleIo(addr, type);
+   }
+
    if (action == "toggle")
       return toggleIo(addr, type);
 
@@ -660,7 +672,19 @@ int Daemon::performSystem(json_t* oObject, long client)
       return performWifi(oObject, client);
 
    if (action == "wifi-disconnect" || action == "wifi-connect")
-      return performWifiCommand(oObject, client);
+   {
+      if (!(wsClients[(void*)client].rights & urAdmin))
+         return performWifiCommand(oObject, client);
+      else
+         replyResult(fail, "Insufficient rights", client);
+   }
+
+   if (action == "system-services")
+   {
+      json_t* oJson = json_array();
+      systemServices2Json(oJson);
+      return pushOutMessage(oJson, "system-services", client);
+   }
 
    return replyResult(fail, "Unexpected action", client);
 }
@@ -701,7 +725,7 @@ int Daemon::performWifiCommand(json_t* oObject, long client)
 
    if (action == "wifi-disconnect")
    {
-      tell(eloDetail, "Calling 'nmcli connection down '%s''", ssid);
+      tell(eloDetail, "Detail: Calling 'nmcli connection down '%s''", ssid);
       std::string result = executeCommand("nmcli connection down '%s'", ssid);
 
       tell(eloAlways, "Info: Disconnect result was [%s]", result.c_str());
@@ -2533,7 +2557,31 @@ int Daemon::sensor2Json(json_t* obj, const char* type, uint address)
 }
 
 //***************************************************************************
-// images2Json
+// System Services To Json
+//***************************************************************************
+
+int Daemon::systemServices2Json(json_t* obj)
+{
+   SysCtl ctl;
+   SysCtl::Services services;
+
+   ctl.unitList(services);
+
+   for (const auto& s : services)
+   {
+      json_t* jService = json_object();
+
+      json_object_set_new(jService, "service", json_string(s.second.primaryName.c_str()));
+      json_object_set_new(jService, "title", json_string(s.second.humanName.c_str()));
+      json_object_set_new(jService, "status", json_string(s.second.activeState.c_str()));
+      json_array_append_new(obj, jService);
+   }
+
+   return done;
+}
+
+//***************************************************************************
+// Images 2 Json
 //***************************************************************************
 
 int Daemon::images2Json(json_t* obj)

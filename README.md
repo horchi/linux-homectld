@@ -74,7 +74,7 @@ To become root type: `sudo -i`
 It's not required to host the database local at the Raspberry. A remote database is supported as well.
 
 ```
-apt install mariadb-server
+apt -y install mariadb-server
 ```
 
 Set the database root (db admin) password during installation!
@@ -103,19 +103,24 @@ if the database is running remote, or you like to have remote access to the data
 ### install the build dependencies
 
 ```
-apt install build-essential libssl-dev libcurl4-openssl-dev uuid-dev libcap-dev
-apt install libjansson-dev libmariadb-dev liblua5.3-dev mosquitto-clients
+apt -y install build-essential libssl-dev libcurl4-openssl-dev uuid-dev libcap-dev
+apt -y install libjansson-dev libmariadb-dev liblua5.3-dev mosquitto-clients jq
 ```
-# If you dis NOT use a global mosquitto borker somewhere in your local network
-```apt install mosquitto```
+
+# If you integrate bluetooth devices
+
+```apt -y install libbluetooth-dev```
+
+# If you NOT use a global mosquitto borker somewhere in your local network
+```apt -y install mosquitto```
 
 #### Raspberry Pi
 ```
-apt install wiringpi
+apt -y install wiringpi
 ```
 #### Odroid with Ubuntu
 ```
-apt install libwiringpi-dev libwiringpi2 odroid-wiringpi
+apt -y install libwiringpi-dev libwiringpi2 odroid-wiringpi
 ```
 
 ### get and install libwebsock
@@ -123,7 +128,7 @@ We need to install it manually in case the version shipped with the distribution
 (we need at least version v4.3.0)
 
 if the version shipped with the distribution is okay simple
-```apt install libwebsockets-dev```
+```apt -y install libwebsockets-dev```
 
 else get it from git
 ```
@@ -266,7 +271,7 @@ For the interface to the `homectld` you can use `rtl-433` which is includes in m
 to MQTT where it's read and paresed by the `homectld`.
 To install the `rtl-433` package:
 ```
-apt install rtl-433
+apt -y install rtl-433
 ```
 To start the rtl-433 service a Systemd unit file is shipped with the `homectld`, install, enable and start it by:
 ```
@@ -304,7 +309,7 @@ http://wiringpi.com/reference/setup/
 
 Overview of IO pins
 ```
-apt install python3-gpiozero
+apt -y install python3-gpiozero
 pinout
 ```
 

@@ -124,7 +124,7 @@ int Daemon::lmcTrack2Json(json_t* obj, TrackInfo* track)
    std::string url;
    lmc->getCurrentCoverUrl(track, url);
 
-   tell(eloAlways, "[LMC] Artworkurl: %s", track->artworkurl);
+   tell(eloLmc, "[LMC] Usinf artworkurl '%s'", track->artworkurl);
    json_object_set_new(current, "cover", json_string(url.c_str()));
 
    return success;

@@ -15,6 +15,8 @@
 #include "lib/json.h"
 #include "lib/mqtt.h"
 
+#define isBitSet(value, bit)  ((value >> bit) & 0x01)
+
 //***************************************************************************
 // Class - Battery Management System Communication
 //***************************************************************************
@@ -37,16 +39,39 @@ class BmsCom
          double maxCapacity {0};
          word cycles {0};
          word prodDate {0};
-         word balanceState {0};
-         word balanceStateHigh {0};
-         word protectionState {0};
-         char version[10] {'\0'};
-         byte resCapacity {0};
-         byte fetControlState {0};
+         word balanceState {0};     // each bit represents each cell block’s balance, 0 is off, 1 is on ; 1~16pcs in series.
+         word balanceStateHigh {0}; // each bit represents each cell block’s balance, 0 is off, 1 is on ; 17~32pcs in series, 32pcs at the most.
+         word protectionState {0};  // each bit represents a protective state, 0 is unprotected, and 1 is protected.
+         char version[10] {'\0'};   // 0x10 is for Version 1.0
+         byte resCapacity {0};      // it means the percentage of the residual capacity
+         byte fetControlState {0};  // MOS is status, bit0 is charging. bit1 is discharging, 0 is MOS OFF
          byte cellBlockSeriesCount {0};
          byte ntcCount {0};
          std::map<int,double> ntc;
          std::map<int,word> cellVoltages;
+
+         std::string protectionStateString;
+      };
+
+      enum ProtectionState
+      {
+         psCellBlockOverVol        = 0x0,   // Cell Block Over-Vol
+         psCellBlockUnderVol       = 0x1,   // Cell Block Under-Vol
+         psBatteryOverVol          = 0x2,   // Battery Over-Vol
+         psBatteryUnderVol         = 0x3,   // Battery Under-Vol
+         psChargingOverTemp        = 0x4,   // Charging Over-temp
+         psChargingLowTemp         = 0x5,   // Charging Low-temp
+         psDischargingOverTemp     = 0x6,   // Discharging Over-temp
+         psDischargingLowTemp      = 0x7,   // Discharging Low-temp
+         psChargingOverCurrent     = 0x8,   // Charging Over-current
+         psDischargingOverCurrent  = 0x9,   // Discharging Over-current
+         psShortCircuit            = 0xA,   // Short Circuit
+         psForeEndICError          = 0xB,   // Fore-end IC Error
+         psMOSSoftwareLockIn       = 0xC,   // MOS Software Lock-in
+
+         psCount
+
+         // bit13-bit15 Reserve
       };
 
       BmsCom(const char* aDevice);
@@ -63,7 +88,34 @@ class BmsCom
       Serial serial;
       std::string device;
       byte payloadSize {0};
+
+      static std::map<uint8_t,std::string> protectionStates;
 };
+
+//***************************************************************************
+// Protection States
+//***************************************************************************
+
+std::map<uint8_t,std::string> BmsCom::protectionStates
+{
+   { psCellBlockOverVol,       "Cell Block Over Volt" },
+   { psCellBlockUnderVol,      "Cell Block Under Volt" },
+   { psBatteryOverVol,         "Battery Over Volt" },
+   { psBatteryUnderVol,        "Battery Under Volt" },
+   { psChargingOverTemp,       "Charging Over Temp" },
+   { psChargingLowTemp,        "Charging Low-temp" },
+   { psDischargingOverTemp,    "Discharging Over Temp" },
+   { psDischargingLowTemp,     "Discharging Low Temp" },
+   { psChargingOverCurrent,    "Charging Over Current" },
+   { psDischargingOverCurrent, "Discharging Over Current" },
+   { psShortCircuit,           "Short Circuit" },
+   { psForeEndICError,         "Fore-end IC Error" },
+   { psMOSSoftwareLockIn,      "MOS Software Lock-in" }
+};
+
+//***************************************************************************
+// BmsCom
+//***************************************************************************
 
 BmsCom::BmsCom(const char* aDevice)
    : serial(B9600),
@@ -221,6 +273,7 @@ int BmsCom::requestState(BatteryState& state)
    serial.readWord(state.prodDate);
    serial.readWord(state.balanceState);
    serial.readWord(state.balanceStateHigh);
+
    serial.readWord(state.protectionState);
    serial.readByte(b);
    sprintf(state.version, "%x.%x", b >> 4, b & 0x0F);
@@ -234,6 +287,17 @@ int BmsCom::requestState(BatteryState& state)
       serial.readSWord(w);
       state.ntc[i] = (w-2731) / 10.0;
    }
+
+   // determine protection state
+
+   for (uint8_t i = 0; i < psCount; ++i)
+   {
+      if (isBitSet(state.protectionState, i))
+         state.protectionStateString += protectionStates[i] + "\n";
+   }
+
+   if (state.protectionStateString == "")
+      state.protectionStateString = "Online";
 
    // very crude validity check
 
@@ -267,9 +331,11 @@ class Bms
       struct SensorData
       {
          uint address {0};
+         std::string kind;
          std::string title;
          std::string unit;
          double value {0.0};
+         std::string text;
       };
 
       Bms(const char* aDevice, const char* aMqttUrl, const char* aMqttTopic, int aInterval = 60);
@@ -353,28 +419,38 @@ int Bms::update()
    }
 
    SensorData sensor {};
-   uint addr{1};
 
-   mqttPublish(sensor = {addr++, "Spannung", "V", state.voltage});
-   mqttPublish(sensor = {addr++, "Strom", "A", state.current});
-   mqttPublish(sensor = {addr++, "Leistung", "W", state.current * state.voltage});
-   mqttPublish(sensor = {addr++, "Maximale Kapazität", "Ah", state.maxCapacity});
-   mqttPublish(sensor = {addr++, "Kapazität", "Ah", state.capacity});
-   mqttPublish(sensor = {addr++, "Ladestatus", "%", (double)state.resCapacity});
-   mqttPublish(sensor = {addr++, "Zyklen", "", (double)state.cycles});
-   mqttPublish(sensor = {addr++, "Zellen-Blöcke", "", (double)state.cellBlockSeriesCount});
-   // mqttPublish(sensor = {addr++, "BMS Version", "", state.version});
-   mqttPublish(sensor = {addr++, "FET Status", "", (double)state.fetControlState}); // bin2string(state.fetControlState));
-   mqttPublish(sensor = {addr++, "Protection State", "", (double)state.protectionState}); // bin2string(state.protectionState));
+   mqttPublish(sensor = {0x01, "value", "Spannung", "V", state.voltage});
+   mqttPublish(sensor = {0x02, "value", "Strom", "A", state.current});
+   mqttPublish(sensor = {0x03, "value", "Leistung", "W", state.current * state.voltage});
+   mqttPublish(sensor = {0x04, "value", "Maximale Kapazität", "Ah", state.maxCapacity});
+   mqttPublish(sensor = {0x05, "value", "Kapazität", "Ah", state.capacity});
+   mqttPublish(sensor = {0x06, "value", "Ladestatus", "%", (double)state.resCapacity});
+   mqttPublish(sensor = {0x07, "value", "Zyklen", "", (double)state.cycles});
+   mqttPublish(sensor = {0x08, "value", "Zellen-Blöcke", "", (double)state.cellBlockSeriesCount});
+   mqttPublish(sensor = {0x09, "value", "FET Status", "", (double)state.fetControlState}); // bin2string(state.fetControlState));
+   mqttPublish(sensor = {0x0A, "text",  "Protection State", "", 0.0, state.protectionStateString});
+   mqttPublish(sensor = {0x0B, "value", "NTC", "°C", state.ntc[0]});
 
-   for (int i = 0; i < state.ntcCount; i++)
-      mqttPublish(sensor = {addr++, "NTC", "°C", state.ntc[i]});
+   if (state.ntcCount > 1)
+      mqttPublish(sensor = {0x0C, "value", "NTC", "°C", state.ntc[1]});
 
-   // if (bmsCom.requestCellVoltage(state) != success)
-   //    return fail;
-   //
-   // for (const auto& v : state.cellVoltages)
-   //    tell(eloAlways, " Zelle %d: %d mV", v.first, v.second);
+   // mqttPublish(sensor = {0x0D, "value", "BMS Version", "", state.version});
+
+   if (bmsCom.requestCellVoltage(state) != success)
+      return fail;
+
+   std::string text;
+
+   for (const auto& v : state.cellVoltages)
+   {
+      char buf[50];
+
+      sprintf(buf, "Zelle %d\t%d mV", v.first, v.second);
+      text += std::string(buf) + "\n";
+   }
+
+   mqttPublish(sensor = {0x0E, "text", "Cell State", "", 0.0, text});
 
    tell(eloInfo, " ... done");
 
@@ -393,7 +469,12 @@ int Bms::mqttPublish(SensorData& sensor)
    json_object_set_new(obj, "address", json_integer(sensor.address));
    json_object_set_new(obj, "title", json_string(sensor.title.c_str()));
    json_object_set_new(obj, "unit", json_string(sensor.unit.c_str()));
-   json_object_set_new(obj, "value", json_real(sensor.value));
+   json_object_set_new(obj, "kind", json_string(sensor.kind.c_str()));
+
+   if (sensor.kind == "value")
+      json_object_set_new(obj, "value", json_real(sensor.value));
+   else
+      json_object_set_new(obj, "text", json_string(sensor.text.c_str()));
 
    char* message = json_dumps(obj, JSON_REAL_PRECISION(8));
    tell(eloMqtt, "-> %s", message);
@@ -486,13 +567,14 @@ void showUsage(const char* bin)
    printf("Usage: %s <command> [-l <log-level>] [-d <device>]\n", bin);
    printf("\n");
    printf("  options:\n");
-   printf("     -d <device>     serial device file (defaults to /dev/ttyUSB0)\n");
+   printf("     -d <device>     serial device file (defaults to /dev/ttyBms)\n");
    printf("     -l <eloquence>  set eloquence\n");
    printf("     -t              log to terminal\n");
    printf("     -s              show and exit\n");
-   printf("     -i <interval>   interval\n");
-   printf("     -u <url>        MQTT url\n");
-   printf("     -T <topic>      MQTT topic\n");
+   printf("     -i <interval>   interval [s] (default 60)\n");
+   printf("     -u <url>        MQTT url (default tcp://localhost:1883)\n");
+   printf("     -T <topic>      MQTT topic (default " TARGET "2mqtt/bms)\n");
+   printf("     -n              Don't fork in background\n");
 }
 
 //***************************************************************************
@@ -505,7 +587,7 @@ int main(int argc, char** argv)
    int _stdout {na};
    const char* mqttTopic = TARGET "2mqtt/bms";
    const char* mqttUrl = "tcp://localhost:1883";
-   const char* device = "/dev/ttyUSB0";
+   const char* device = "/dev/ttyBms";
    bool showMode {false};
    int interval {60};
 
@@ -526,14 +608,14 @@ int main(int argc, char** argv)
 
       switch (argv[i][1])
       {
-         case 'u': mqttUrl = argv[i+1];                     break;
          case 'l': if (argv[i+1]) eloquence = (Eloquence)atoi(argv[++i]); break;
+         case 'u': mqttUrl = argv[i+1];                       break;
          case 'i': if (argv[i+1]) interval = atoi(argv[++i]); break;
-         case 'T': if (argv[i+1]) mqttTopic = argv[i+1];    break;
-         case 't': _stdout = yes;                           break;
-         case 'd': if (argv[i+1]) device = argv[++i];       break;
-         case 's': showMode = true;                         break;
-         case 'n': nofork = true;                           break;
+         case 'T': if (argv[i+1]) mqttTopic = argv[i+1];      break;
+         case 't': _stdout = yes;                             break;
+         case 'd': if (argv[i+1]) device = argv[++i];         break;
+         case 's': showMode = true;                           break;
+         case 'n': nofork = true;                             break;
       }
    }
 
@@ -560,7 +642,7 @@ int main(int argc, char** argv)
 
    if (!nofork)
    {
-      int pid;
+      int pid {0};
 
       if ((pid = fork()) < 0)
       {

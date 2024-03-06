@@ -29,6 +29,7 @@ var dashboards = {};
 var allSensors = [];
 var wifis = [];
 var images = [];
+var systemServices = [];
 var currentPage = "dashboard";
 var startPage = null;
 var actDashboard = -1;
@@ -46,7 +47,6 @@ var lmcData = {};
 var setupMode = false;
 var dashboardGroup = 0;
 var kioskBackTime = 0;
-
 var kioskMode = null;
 
 //  0 - with menu,    normal dash symbold, normal-widget-height
@@ -477,6 +477,12 @@ function dispatchMessage(message)
    else if (event == "groups") {
       initGroupSetup(jMessage.object);
    }
+   else if (event == "system-services") {
+      // console.log("systemServices", jMessage.object);
+      hideProgressDialog();
+      systemServices = jMessage.object;
+      showSystemServicesList();
+   }
    else if (event == "grouplist") {
       grouplist = jMessage.object;
    }
@@ -560,6 +566,7 @@ function prepareMenu()
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'system\', \'database\')">Database</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'commands\')">Commands</button>';
          html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'system\', \'wifis\')">Wifi</button>';
+         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'system\', \'system-services\')">System Services</button>';
          html += '</div>';
       }
    }
@@ -800,7 +807,7 @@ function showDatabaseStatistic(statistic)
    for (var i = 0; i < statistic.tables.length; i++) {
       var table = statistic.tables[i];
 
-      html += '<tr style="height:28px;">';
+      html += '<tr style="height:39px;">';
       html += ' <td>' + table.name + '</td>';
       html += ' <td>' + table.tblsize + '</td>';
       html += ' <td>' + table.idxsize + '</td>';
@@ -830,7 +837,7 @@ function showWifiList()
    html += '  <table class="tableMultiCol">' +
       '    <thead>' +
       '     <tr style="height:30px;font-weight:bold;">' +
-      '       <td style="width:20%;">Network</td>' +
+      '       <td style="width:18%;">Network</td>' +
       '       <td style="width:10%;">Rate</td>' +
       '       <td style="width:8%;">Security</td>' +
       '       <td style="width:5%;">Signal</td>' +
@@ -843,8 +850,8 @@ function showWifiList()
    for (var i = 0; i < wifis.reachable.length; i++) {
       let wifi = wifis.reachable[i];
       let known = isWifiKnown(wifi.network);
-      let rowColor = wifi.active == 'yes' ? 'lightgreen' : '';
-      let signalColor = parseInt(wifi.signal) >= 50 ? 'green' : parseInt(wifi.signal) >= 20 ? 'orange' : '';
+      let rowColor = wifi.active == 'yes' ? 'green' : '';
+      let signalColor = parseInt(wifi.signal) >= 50 ? 'lightgreen' : parseInt(wifi.signal) >= 20 ? 'orange' : '';
       let action = wifi.active == 'yes' ? 'Disconnect' : known ? 'Connect' : 'Setup';
 
       html += '<tr style="height:28px;color:' + rowColor + ';">';
@@ -853,7 +860,7 @@ function showWifiList()
       html += ' <td>' + wifi.security + '</td>';
       html += ' <td>' + wifi.signal + '</td>';
       html += ' <td style="font-family:monospace;color:' + signalColor + ';">' + wifi.bars + '</td>';
-      html += ' <td>' + '<button class="buttonOptions rounded-border" onclick="wifiAction(\'' + wifi.id + '\')">' + action + '</button>' + '</td>';
+      html += ' <td>' + '<button class="buttonOptions rounded-border" style="min-width:unset;" onclick="wifiAction(\'' + wifi.id + '\')">' + action + '</button>' + '</td>';
       html += '</tr>';
    }
 
@@ -906,6 +913,49 @@ function wifiAction(id)
       pwdDialog(doWifiAction, "Password");
    else
       doWifiAction();
+}
+
+function showSystemServicesList()
+{
+   // console.log("SystemServices: " + JSON.stringify(systemServices, undefined, 2));
+
+   $('#container').removeClass('hidden');
+   $('#container').html('<div id="systemContainer"></div>');
+
+   var html = '<div>';
+
+   html += '  <div class="rounded-border seperatorFold">System Services</div>';
+   html += '  <table class="tableMultiCol">' +
+      '    <thead>' +
+      '     <tr style="height:30px;font-weight:bold;">' +
+      '       <td style="width:8%;">Service</td>' +
+      '       <td style="width:14%;"></td>' +
+      '       <td style="width:4%;">Status</td>' +
+      '       <td style="width:3%"></td>' +
+      '     </tr>' +
+      '    </thead>' +
+      '    <tbody>';
+
+   for (var i = 0; i < systemServices.length; i++) {
+      let svc = systemServices[i];
+      let rowColor = svc.status == 'active' ? 'lightgreen' : '';
+      let action = svc.status == 'active' ? 'Stop' : 'Start';
+
+      html += '<tr style="height:28px;color:' + rowColor + ';">';
+      html += ' <td>' + svc.service + '</td>';
+      html += ' <td>' + svc.title + '</td>';
+      html += ' <td>' + svc.status + '</td>';
+      html += ' <td>' + '<button class="buttonOptions rounded-border" style="min-width:unset;" onclick="systemServiceAction(\'' + svc.service + '\')">' + action + '</button>' + '</td>';
+      html += '</tr>';
+   }
+
+   html += '    </tbody>' +
+      '  </table>';
+
+   html += '</div>';
+
+   $('#systemContainer').html(html)
+      .addClass('setupContainer');
 }
 
 window.toggleMode = function(address, type)

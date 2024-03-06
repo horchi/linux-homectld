@@ -144,7 +144,7 @@ class Daemon : public cWebInterface
       static void downF(int aSignal) { shutdown = true; }
 
       int addValueFact(int addr, const char* type, int factor, const char* name, const char* unit = "",
-                       const char* title = nullptr, int rights = 0, const char* choices = nullptr, SensorOptions options = soNone);
+                       const char* title = nullptr, int rights = urNone, const char* choices = nullptr, SensorOptions options = soNone);
 
    protected:
 
@@ -210,6 +210,7 @@ class Daemon : public cWebInterface
          std::string kind {"value"};       // { value | status | text | trigger }
          uint64_t lastInterruptMs {0};
          time_t last {0};
+         time_t changedAt {0};
          double value {0.0};
          bool working {false};             // actually working/moving (eg for blinds or script running)
          Direction lastDir {dirOpen};
@@ -240,6 +241,8 @@ class Daemon : public cWebInterface
          bool impulse {false};      // change output only for a short impulse
          bool interrupt {false};
          bool interruptSet {false};
+         std::string script;
+         std::string choices;
          OutputMode mode {omAuto};
          uint opt {ooUser};
          std::string feedbackInType;  // feedback input for impuls out
@@ -350,7 +353,7 @@ class Daemon : public cWebInterface
       int add2AlertMail(cDbRow* alertRow, const char* title, double value, const char* unit);
       int sendAlertMail(const char* to);
 
-      virtual int process();                               // called each 'interval'
+      virtual int process(bool force = false);
       virtual int performJobs() { return done; }           // called every loop (1 second)
       int dispatchClientRequest();
       virtual int dispatchSpecialRequest(Event event, json_t* oObject, long client) { return ignore; }
@@ -366,6 +369,7 @@ class Daemon : public cWebInterface
       bool checkRights(long client, Event event, json_t* oObject);
       virtual bool onCheckRights(long client, Event event, uint rights) { return false; }
       int callScript(int addr, const char* command);
+      int switchVictron(const char* type, int address, const char* value);
       bool isInTimeRange(const std::vector<Range>* ranges, time_t t);
 
       int updateWeather();
@@ -373,7 +377,7 @@ class Daemon : public cWebInterface
 
       int store(time_t now, const SensorData* sensor);
 
-      cDbRow* valueFactRowOf(const char* type, uint addr);
+      cDbRow* valueFactRowOf(std::string type, uint addr);
       SensorData* getSensor(const char* type, int addr);
       void setSpecialValue(uint addr, double value, const std::string& text = "");
 
@@ -408,6 +412,7 @@ class Daemon : public cWebInterface
 
       bool doShutDown() { return shutdown; }
 
+      void publishVictronInit(const char* type);
       void publishI2CSensorConfig(const char* type, uint pin, json_t* jParameters);
       void publishPin(const char* type, uint pin);
       void gpioWrite(uint pin, bool state, bool store = true);
@@ -478,6 +483,7 @@ class Daemon : public cWebInterface
       virtual int commands2Json(json_t* obj);
       int daemonState2Json(json_t* obj);
       int sensor2Json(json_t* obj, const char* type, uint address);
+      int systemServices2Json(json_t* obj);
       int images2Json(json_t* obj);
       void pin2Json(json_t* ojData, const char* type, int pin);
       void publishSpecialValue(int addr);
@@ -617,6 +623,7 @@ class Daemon : public cWebInterface
       };
 
       char* mqttUrl {};
+      char* sensorTopics {};
       char* mqttUser {};
       char* mqttPassword {};
 
@@ -641,14 +648,16 @@ class Daemon : public cWebInterface
       // config
 
       char* instanceName {};
+      int interval {60};
       double latitude {50.30};
       double longitude {8.79};
       char* openWeatherApiKey {};
-      int interval {60};
+      int weatherInterval {15};           // minutes
       time_t lastStore {0};
       int arduinoInterval {10};
       char* arduinoTopic {};
       std::string mqttTopicI2C;
+      std::string mqttTopicVictron;
 
       int webPort {61109};
       char* webUrl {};
@@ -663,6 +672,7 @@ class Daemon : public cWebInterface
       char* errorMailTo {};
       std::string htmlHeader;
 
+      bool triggerProcess {false};
       LmcCom* lmc {};
 
       Deconz deconz;

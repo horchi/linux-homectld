@@ -60,7 +60,7 @@ class HomeCtl : public Daemon
       int loadStates() override;
       int atMeanwhile() override;
 
-      int process() override;
+      int process(bool force = false) override;
       int performJobs() override;
       void logReport() override;
 

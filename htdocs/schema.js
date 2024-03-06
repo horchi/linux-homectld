@@ -315,8 +315,8 @@ function editSchemaValue(type, address, newUC)
 
    form += ' <div id="imgInfo" style="display:flex;margin:4px;text-align:left;"></span><span style="font-size: smaller;">Um das vom daemon gelieferte Bild zu verwenden (' + (item != null ? item.image : "") + ') Funktion und URL leer lassen!</span></div>';
 
-   form += ' <div style="display:flex;margin:4px;text-align:left;"><span id="labelUsrText" style="width:120px;">xxx:</span><span style="width:-webkit-fill-available;"><textarea id="usrText" style="width:inherit;height:inherit;">' + (schemaDef.usrtext || "") + '</textarea></span></div>';
-   form += ' <div style="display:flex;margin:4px;text-align:left;"><span id="labelFunction" style="width:120px;">Funktion:</span><span style="width:-webkit-fill-available;height:95px;"><textarea id="function" style="width:inherit;height:inherit;font-family: monospace;">' + (schemaDef.fct != null ? schemaDef.fct : "") + '</textarea></span></div>';
+   form += ' <div style="display:flex;margin:4px;text-align:left;"><span id="labelUsrText" style="width:120px;">xxx:</span><span style="width:-webkit-fill-available;width:-moz-available;"><textarea id="usrText" style="width:inherit;height:inherit;">' + (schemaDef.usrtext || "") + '</textarea></span></div>';
+   form += ' <div style="display:flex;margin:4px;text-align:left;"><span id="labelFunction" style="width:120px;">Funktion:</span><span style="width:-webkit-fill-available;width:-moz-available;height:95px;"><textarea id="function" style="width:inherit;height:inherit;font-family: monospace;">' + (schemaDef.fct != null ? schemaDef.fct : "") + '</textarea></span></div>';
 
    if (!isUC)
       form += ' <div style="display:flex;margin:4px;text-align:left;"></span><span style="font-size: smaller;">JavaScript Funktion zum berechnen des angezeigten Wertes. Auf die Daten des Elements kann über item.value, item.unit und item.text zugegriffen werden. Anderer Elemente erhält man mit getItem(id)</span></div>';

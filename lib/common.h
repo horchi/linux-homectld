@@ -72,7 +72,9 @@ enum Misc
    na      = -1,
    ignore  = -2,
    all     = -3,
-   abrt     = -4,
+   abrt    = -4,
+   cont    = -5,
+
    yes     = 1,
    on      = 1,
    off     = 0,
@@ -94,32 +96,33 @@ enum Misc
 
 enum Eloquence
 {
-   eloInfo           = 0x00001,
-   eloDetail         = 0x00002,
-   eloDebug          = 0x00004,
-   eloDebug2         = 0x00008,
-   eloWebSock        = 0x00010,
-   eloDebugWebSock   = 0x00020,
-   eloMqtt           = 0x00040,
-   eloDb             = 0x00080,
-   eloDebugDb        = 0x00100,
+   eloInfo           = 0x000001,
+   eloDetail         = 0x000002,
+   eloDebug          = 0x000004,
+   eloDebug2         = 0x000008,
+   eloWebSock        = 0x000010,
+   eloDebugWebSock   = 0x000020,
+   eloMqtt           = 0x000040,
+   eloDb             = 0x000080,
+   eloDebugDb        = 0x000100,
 
-   eloNodeRed        = 0x00200,   // node-red MQTT topics
-   eloDeconz         = 0x00400,
-   eloDebugDeconz    = 0x00800,
-   eloWeather        = 0x01000,
+   eloNodeRed        = 0x000200,   // node-red MQTT topics
+   eloDeconz         = 0x000400,
+   eloDebugDeconz    = 0x000800,
+   eloWeather        = 0x001000,
 
-   eloHomeMatic      = 0x02000,
-   eloDebugHomeMatic = 0x04000,
-   eloLua            = 0x08000,
-   eloGroWatt        = 0x10000,
+   eloHomeMatic      = 0x002000,
+   eloDebugHomeMatic = 0x004000,
+   eloLua            = 0x008000,
+   eloGroWatt        = 0x010000,
 
-   eloLmc            = 0x20000,
-   eloDebugLmc       = 0x40000,
+   eloLmc            = 0x020000,
+   eloDebugLmc       = 0x040000,
 
-   eloDebugWiringPi  = 0x80000,
+   eloDebugWiringPi  = 0x080000,
+   eloScript         = 0x100000,
 
-   eloAlways         = 0x00000
+   eloAlways         = 0x000000
 };
 
 class Elo
@@ -353,6 +356,15 @@ class cMyMutexLock
       cMyMutex* mutex;
       bool locked;
 };
+
+//***************************************************************************
+// Strin Extensions
+//***************************************************************************
+
+namespace horchi
+{
+   std::string to_string(double d, size_t precision = 2);
+}
 
 //***************************************************************************
 // Tools

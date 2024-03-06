@@ -28,6 +28,18 @@ function initConfig(configdetails)
 
    $('#container').append(dlgTabs);
 
+   $(dlgTabs).append($('<span></span>')
+                     .css('margin-left', '10px')
+                     .append($('<button></button>')
+                             .addClass('rounded-border buttonOptions')
+                             .html('Speichern')
+                             .click(function() { storeConfig(); })));
+
+   $(dlgTabs).append($('<span></span>')
+                     .attr('id', 'btnTabs')
+                     .css('margin-right', '10px')
+                     .css('float', 'right'));
+
    dlgContent = ($('<div></div>')
                  .attr('id', 'setupContainer')
                  .addClass('inputTableConfig'));
@@ -44,12 +56,11 @@ function initConfig(configdetails)
          if (setupCategory == '')
             setupCategory = item.category;
 
-         $(dlgTabs).append($('<button></button>')
+         $('#btnTabs').append($('<button></button>')
                            .html(item.category)
                            .addClass(setupCategory == item.category ? 'active' : '')
                            .click(function() {
                               setupCategory = $(this).html();
-                              console.log("---- category", setupCategory);
                               initConfig(theConfigdetails);
                            }));
 
@@ -218,14 +229,6 @@ function initConfig(configdetails)
          break;
       }
    }
-
-   $(dlgTabs).append($('<span></span>')
-                     .css('margin-right', '10px')
-                     .css('float', 'right')
-                     .append($('<button></button>')
-                             .addClass('rounded-border buttonOptions')
-                             .html('Speichern')
-                             .click(function() { storeConfig(); })));
 
    $('input[id^="mselect_"]').each(function () {
       var item = configdetails[$(this).data('index')];

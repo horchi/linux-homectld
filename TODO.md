@@ -1,6 +1,15 @@
 
 # General
 
+- systemd
+- bluetooth for Mopeka-Pro
+- auto-scaling for meter widgets
+
+- add write of victron registers to WEBIF
+- warn or hold unsaved values of io/settings on opening sensors config dialog
+- hide widgets on condition like value < x, > y oder text is 'none', ...
+- Multi Sensor Widgets
+
 - scaling for charts and chart widgets
 
 - apply IO settings without restart (initInput / initOutput)

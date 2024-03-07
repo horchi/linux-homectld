@@ -113,11 +113,11 @@ function showTable(section)
        '    <thead>' +
        '      <tr>' +
        '        <td style="width:20%;">Name</td>' +
-       '        <td style="min-width:20vw;">Titel</td>' +
-       '        <td style="width:4%;min-width:70px;">Einheit</td>' +
-       '        <td style="width:3%;">Aktiv</td>' +
-       '        <td style="width:3%;">Aufz.</td>' +
-       '        <td style="width:6%;">ID</td>' +
+       '        <td style="min-width:15vw;">Titel</td>' +
+       '        <td style="width:7%;min-width:70px;">Einheit</td>' +
+       '        <td style="width:5%;">Aktiv</td>' +
+       '        <td style="width:5%;">Aufz.</td>' +
+       '        <td style="width:12%;">ID</td>' +
        '        <td style="width:6%;"></td>' +
        // '        <td style="width:10%;">Gruppe</td>' +
        '      </tr>' +

@@ -860,7 +860,7 @@ function showWifiList()
       html += ' <td>' + wifi.security + '</td>';
       html += ' <td>' + wifi.signal + '</td>';
       html += ' <td style="font-family:monospace;color:' + signalColor + ';">' + wifi.bars + '</td>';
-      html += ' <td>' + '<button class="buttonOptions rounded-border" style="min-width:unset;" onclick="wifiAction(\'' + wifi.id + '\')">' + action + '</button>' + '</td>';
+      html += ' <td>' + '<button class="buttonOptions rounded-border" onclick="wifiAction(\'' + wifi.id + '\')">' + action + '</button>' + '</td>';
       html += '</tr>';
    }
 
@@ -944,8 +944,8 @@ function showSystemServicesList()
       html += '<tr style="height:28px;color:' + rowColor + ';">';
       html += ' <td>' + svc.service + '</td>';
       html += ' <td>' + svc.title + '</td>';
-      html += ' <td>' + svc.status + '</td>';
-      html += ' <td>' + '<button class="buttonOptions rounded-border" style="min-width:unset;" onclick="systemServiceAction(\'' + svc.service + '\')">' + action + '</button>' + '</td>';
+      html += ' <td>' + svc.status + ' / ' + svc.subState + '</td>';
+      html += ' <td>' + '<button class="buttonOptions table rounded-border" onclick="systemServiceAction(\'' + svc.service + '\')">' + action + '</button>' + '</td>';
       html += '</tr>';
    }
 
@@ -956,6 +956,25 @@ function showSystemServicesList()
 
    $('#systemContainer').html(html)
       .addClass('setupContainer');
+}
+
+function systemServiceAction(service)
+{
+   let i = 0;
+
+   for (i = 0; i < systemServices.length; i++) {
+      if (systemServices[i].service == service)
+         break;
+   }
+
+   let active = systemServices[i].status == 'active';
+
+   socket.send({ "event": "system", "object":
+                 {
+                    'action': active ? 'sys-service-stop' : 'sys-service-start',
+                    'service': service
+                 }
+               });
 }
 
 window.toggleMode = function(address, type)

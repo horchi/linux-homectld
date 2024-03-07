@@ -121,6 +121,11 @@ int SysCtl::unitList(Services& services)
 
    while ((res = sd_bus_message_read(message, "(ssssssouso)", &primary_name, &human_name, &load_state, &active_state, &sub_state, &following, &unit_object_path, &queued_job_id, &job_type, &job_object_path)) > 0)
    {
+      if (strstr(primary_name, "user@") || strstr(primary_name, "modprobe@") || strcmp(sub_state, "plugged") == 0 || strcmp(sub_state, "mounted") == 0 || strcmp(sub_state, "exited") == 0)
+         continue;
+
+      printf("%s - %s  \n", primary_name, sub_state);
+
       if (strstr(primary_name, ".service"))
          services[primary_name] = {primary_name, human_name, load_state, active_state, sub_state};
    }

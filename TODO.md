@@ -1,7 +1,6 @@
 
 # General
 
-- systemd
 - bluetooth for Mopeka-Pro
 - auto-scaling for meter widgets
 
@@ -11,6 +10,7 @@
 - Multi Sensor Widgets
 
 - scaling for charts and chart widgets
+- add enable/disable to systemd interface?
 
 - apply IO settings without restart (initInput / initOutput)
     -> done (exept interrupt routine, resting interrupt routine crashes)

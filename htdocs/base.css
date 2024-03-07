@@ -225,7 +225,8 @@ button:focus {
     padding: 4px;
     margin: 2px;
     color: var(--buttonFont);
-    height: 32px;
+    min-height: 32px;
+    height: fit-content;
     background-color: slategray;
     text-decoration: none;
 }
@@ -304,7 +305,7 @@ button:focus {
 .seperatorFold
 {
     background-color: slategray;
-    color: var(--light2);
+    color: var(--light4);
     padding: 5px 15px;
     font-weight: bold;
     margin-top: 4px;
@@ -315,7 +316,7 @@ button:focus {
 .seperator
 {
     background-color: slategray;
-    color: var(--light2);
+    color: var(--light4);
     padding: 5px 15px;
     font-weight: bold;
     margin-top: 4px;
@@ -655,9 +656,9 @@ span > input
     padding: 0px 0px 0px 10px;
 }
 
-.tableRow
+/*.tableRow
 {
-    background: linear-gradient(to bottom right, var(--light3), var(--light1)); /* Standard syntax (must be last) */
+    background: linear-gradient(to bottom right, var(--light3), var(--light1));
     border-radius: var(--borderRadius);
     margin: 2px;
     height: 30px;
@@ -669,7 +670,6 @@ span > input
 {
     margin-left: 15px;
     align-self: center;
-    /* height: 18px; */
 }
 
 .tableRow > button
@@ -681,7 +681,6 @@ span > input
 
 .tableRow > input[type='search']
 {
-    /* height: 24px;*/
 }
 
 .tableRow > div
@@ -689,6 +688,7 @@ span > input
     margin-left: 15px;
     align-self: center;
 }
+*/
 
 div.redCircle
 {
@@ -1111,7 +1111,7 @@ table.tableMultiCol td
 
 .tabButtons > span:nth-child(2) > button:hover
 {
-    opacity: 0.8;
+    opacity: 0.9;
 }
 
 .tabButtons > span:nth-child(2) > button.active
@@ -1505,7 +1505,7 @@ table.tableMultiCol td
     overflow: hidden;
     background-color: transparent;
     margin-top: 10px;
-    color: #ff5757;
+    color: var(--peakColor);
 }
 
 .chart-canvas-container
@@ -1626,25 +1626,13 @@ table.tableMultiCol td
 .widget-main-meter
 {
     grid-area: main;
-    width: 100%;
-    height: 100%;
-    align-self: center;
-}
-
-.widget-main-meter-lin
-{
-    grid-area: main;
-    height: 100%;
-    /*align-self: center;*/
-    margin-left: 10%;
-    padding-left: 10%;
+    text-align: center;
 }
 
 .widget-main-value-lin
 {
     grid-area: value;
     font-size: 1.5em;
-    /*text-align: end;*/
     font-weight: bold;
     align-self: center;
 }
@@ -1653,20 +1641,13 @@ table.tableMultiCol td
 {
     grid-area: peak;
     font-size: 0.9em;
-    /*font-weight: bold;*/
     padding-left: 2px;
     overflow: hidden;
     background-color: transparent;
     margin-top: 5px;
-    color: #ff5757;
+    color: var(--peakColor);
     text-align: right;
     margin-right: 5px;
-}
-
-.widget-main-meter > canvas
-{
-    width: 100%;
-    height: 100%;
 }
 
 .widget-value
@@ -1695,6 +1676,12 @@ table.tableMultiCol td
     color: var(--light4);
     user-select: none;
     cursor: pointer;
+}
+
+.widget-choice > div:hover
+{
+    opacity: 0.8;
+    background-color: #335656a1;
 }
 
 .widget-text
@@ -1786,7 +1773,7 @@ table.tableMultiCol td
 
 .widgetGauge.participation path.data-peak
 {
-    stroke: #ff5757;
+    color: var(--peakColor);
 }
 
 .widgetGauge.participation path.data-arc
@@ -2052,6 +2039,11 @@ dialog::backdrop, #backdrop
     .widget-weather > br       { display: none; }
     .widget-main               { font-size: 13vh;}
     .weatherForecast           { left: 2%; width: 95%; }
+}
+
+@media only screen and (max-width:500px)
+{
+    .buttonOptions.table       { min-width: unset; }
 }
 
 @media only screen and (min-width:396px) and (max-width:1080px)

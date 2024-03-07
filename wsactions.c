@@ -675,8 +675,24 @@ int Daemon::performSystem(json_t* oObject, long client)
    {
       if (!(wsClients[(void*)client].rights & urAdmin))
          return performWifiCommand(oObject, client);
+
+      return replyResult(fail, "Insufficient rights", client);
+   }
+
+   if (action == "sys-service-stop" || action == "sys-service-start")
+   {
+      const char* service = getStringFromJson(oObject, "service");
+      SysCtl ctl;
+
+      if (ctl.unitAction(action == "sys-service-stop" ? "Stop" : "Start", service) == success)
+         replyResult(success, "success", client);
       else
-         replyResult(fail, "Insufficient rights", client);
+         replyResult(fail, "failed", client);
+
+      sleep(1);
+      json_t* oJson = json_array();
+      systemServices2Json(oJson);
+      return pushOutMessage(oJson, "system-services", client);
    }
 
    if (action == "system-services")
@@ -2574,6 +2590,7 @@ int Daemon::systemServices2Json(json_t* obj)
       json_object_set_new(jService, "service", json_string(s.second.primaryName.c_str()));
       json_object_set_new(jService, "title", json_string(s.second.humanName.c_str()));
       json_object_set_new(jService, "status", json_string(s.second.activeState.c_str()));
+      json_object_set_new(jService, "subState", json_string(s.second.subState.c_str()));
       json_array_append_new(obj, jService);
    }
 

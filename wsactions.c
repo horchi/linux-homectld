@@ -673,10 +673,10 @@ int Daemon::performSystem(json_t* oObject, long client)
 
    if (action == "wifi-disconnect" || action == "wifi-connect")
    {
-      if (!(wsClients[(void*)client].rights & urAdmin))
+      if (wsClients[(void*)client].rights & urAdmin)
          return performWifiCommand(oObject, client);
 
-      return replyResult(fail, "Insufficient rights", client);
+      return replyResult(fail, "Insufficient rights for network action", client);
    }
 
    if (action == "sys-service-stop" || action == "sys-service-start")

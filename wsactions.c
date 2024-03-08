@@ -681,6 +681,9 @@ int Daemon::performSystem(json_t* oObject, long client)
 
    if (action == "sys-service-stop" || action == "sys-service-start")
    {
+      if (!(wsClients[(void*)client].rights & urAdmin))
+         return replyResult(fail, "Insufficient rights for system service action", client);
+
       const char* service = getStringFromJson(oObject, "service");
       SysCtl ctl;
 

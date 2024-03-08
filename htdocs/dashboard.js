@@ -736,7 +736,6 @@ function initWidget(key, widget, fact)
                     .click(function(event) {titleClick(event.ctrlKey, key);})
                     .html(title))
             .append($('<div></div>')
-                    // .attr('id', 'widget' + fact.type + fact.address)
                     .attr('id', 'choice' + fact.type + fact.address)
                     .addClass('widget-choice rounded-border')
                     .css('color', widget.color));

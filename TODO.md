@@ -4,6 +4,7 @@
 - bluetooth for Mopeka-Pro
 - auto-scaling for meter widgets
 
+- io/setup Skripe auch auf der Platte löschen
 - add write of victron registers to WEBIF
 - warn or hold unsaved values of io/settings on opening sensors config dialog
 - hide widgets on condition like value < x, > y oder text is 'none', ...

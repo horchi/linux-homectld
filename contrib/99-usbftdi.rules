@@ -4,6 +4,12 @@
 #   E: ID_VENDOR_ID=0403
 #   E: ID_MODEL_ID=6001
 # where ID_MODEL_ID is idProduct and ID_VENDOR_ID is idVendor
+#
+# Copy to /etc/udev/rules.d/
+#
+# reload:
+# udevadm control --reload-rules && udevadm trigger
+#
 
 KERNEL=="ttyUSB[0-9]", ATTRS{idProduct}=="6001", ATTRS{idVendor}=="0403", SYMLINK+="ttyBms"
 KERNEL=="ttyUSB[0-9]", ATTRS{idProduct}=="6015", ATTRS{idVendor}=="0403", SYMLINK+="ttyVictron"

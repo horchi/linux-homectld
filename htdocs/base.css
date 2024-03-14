@@ -1314,7 +1314,6 @@ table.tableMultiCol td
     background-color: var(--light3);
 }
 
-
 .weatherForecast
 {
     position: absolute;
@@ -1349,8 +1348,6 @@ table.tableMultiCol td
 
 .widgetContainer
 {
-    display: flex;
-    flex-wrap: wrap;
     justify-content: center;
     color: var(--fontColor);
 }
@@ -1359,8 +1356,6 @@ table.tableMultiCol td
 {
     justify-content: center;
     overflow: hidden;
-    width: 212px;
-    height: 212px;
     margin: 2px;
     background-color: var(--widgetBackground);
     padding: 1px;
@@ -1372,7 +1367,7 @@ table.tableMultiCol td
     grid-template-areas:
       'title'
       'main';
-    grid-template-rows: 12% 88%;
+    grid-template-rows: 24px auto;
     grid-gap: 1px;
     box-shadow: 1px 1px 1px 0px var(--shadow);
 }
@@ -1388,9 +1383,8 @@ table.tableMultiCol td
     grid-template-areas:
       'title'
       'main'
-      'value'
-      'progress';
-    grid-template-rows: 14% 62% 20% 2%;
+      'value';
+    grid-template-rows: 24px auto 41px;
     grid-gap: 1px;
     box-shadow: 1px 1px 1px 0px var(--shadow);
 }
@@ -1401,9 +1395,8 @@ table.tableMultiCol td
     grid-template-areas:
       'title'
       'peak'
-      'main'
-      'progress';
-    grid-template-rows: 14% 14% 70% 2%;
+      'main';
+    grid-template-rows: 24px 20px auto;
     grid-gap: 1px;
     box-shadow: 1px 1px 1px 0px var(--shadow);
 }
@@ -1445,7 +1438,7 @@ table.tableMultiCol td
     grid-template-areas:
       'title'
       'main';
-    grid-template-rows: 15% 85%;
+    grid-template-rows: 24px auto;
     grid-gap: 1px;
     box-shadow: 1px 1px 1px 0px var(--shadow);
 }
@@ -1457,7 +1450,7 @@ table.tableMultiCol td
       'title title'
       'main main'
       'ctrl1 ctrl2';
-    grid-template-rows: 15% 66% 16%;
+    grid-template-rows: 24px auto 20px;
     grid-gap: 1px;
     box-shadow: 1px 1px 1px 0px var(--shadow);
 }
@@ -1469,7 +1462,8 @@ table.tableMultiCol td
       'title title'
       'peak value'
       'chart chart';
-    grid-template-rows: 10% 14% 75%;
+    grid-template-rows: 24px 20px auto;
+    grid-template-columns: 50% 50%;
     grid-gap: 1px;
     box-shadow: 1px 1px 1px 0px var(--shadow);
 }
@@ -1491,8 +1485,8 @@ table.tableMultiCol td
     text-align: end;
     overflow: hidden;
     background-color: transparent;
-    margin-top: 0px;
     margin-right: 4px;
+    align-self: center;
     color: var(--buttonFont);
 }
 
@@ -1500,19 +1494,17 @@ table.tableMultiCol td
 {
     grid-area: peak;
     font-size: 0.9em;
-    /*font-weight: bold;*/
     padding-left: 12px;
     overflow: hidden;
     background-color: transparent;
-    margin-top: 10px;
+    margin-top: 2px;
+    align-self: center;
     color: var(--peakColor);
 }
 
 .chart-canvas-container
 {
     grid-area: chart;
-    /* position: relative;*/
-    width: inherit;
 }
 
 .chart-canvas
@@ -1535,7 +1527,7 @@ table.tableMultiCol td
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    padding: 0px;
+    padding: 4px;
     margin: 0px;
     user-select: none;
 }
@@ -1605,7 +1597,7 @@ table.tableMultiCol td
     grid-template-areas:
         'title'
         'main';
-    grid-template-rows: 15% 85%;
+    grid-template-rows: 24px auto;
     grid-gap: 1px;
     box-shadow: 1px 1px 1px 0px var(--shadow);
 }
@@ -1617,7 +1609,7 @@ table.tableMultiCol td
         'title title'
         'main peak'
         'main value';
-    grid-template-rows: 15% 15% 70%;
+    grid-template-rows: 24px 20px auto;
     grid-template-columns: 58% 42%;
     grid-gap: 1px;
     box-shadow: 1px 1px 1px 0px var(--shadow);
@@ -1627,6 +1619,7 @@ table.tableMultiCol td
 {
     grid-area: main;
     text-align: center;
+    margin-top: 5px;
 }
 
 .widget-main-value-lin
@@ -1707,12 +1700,27 @@ table.tableMultiCol td
 {
     grid-area: main;
     display: inline-grid;
+    grid-template-areas:
+      'main'
+      'value';
+    grid-template-rows: 40% 60%;
+    height: 100%;
     text-align: center;
     font-size: xx-large;
     font-weight: bold;
     align-items: center;
     word-break: break-word;
     color: var(--light4);
+}
+
+.widget-time > div:nth-child(1)
+{
+    grid-area: main;
+}
+
+.widget-time > div:nth-child(2)
+{
+    grid-area: value;
 }
 
 .widget-ctrl1 { grid-area: ctrl1; }
@@ -2011,7 +2019,7 @@ dialog::backdrop, #backdrop
 
 @media only screen and (max-width: 320px)
 {
-    .widgetContainer > div     { width: 150px; padding: 0px; margin: 1px; }
+/*    .widgetContainer > div     { width: 150px; padding: 0px; margin: 1px; } */
     .widget-weather            { font-size: large; margin-top: 0px;  }
     .widget-weather > br       { display: none; }
     .widget-main               { font-size: 13vh;}
@@ -2028,7 +2036,7 @@ dialog::backdrop, #backdrop
     .inputTableConfig > div > span              { width: 30%; }
     .buttonDashboard           { margin: 1px 0px 1px 0px; }
     .menuDashboard             { margin: 2px; }
-    .widgetContainer > div     { width: 175px; height: 160px; margin: 1px; }
+/*    .widgetContainer > div     { width: 175px; height: 160px; margin: 1px; } */
     .widgetGauge               { grid-template-rows: 30% 70%; }
     .widget                    { grid-template-rows: 15% 85%; }
     .widgetChart               { grid-template-rows: 15% 18% 67%; }
@@ -2056,25 +2064,27 @@ dialog::backdrop, #backdrop
     .inputTableConfig > div > span              { width: 90%; }
     .buttonDashboard           { padding: 4px; margin: 1px 0px 1px 0px; }
     .menuDashboard             { margin: 2px; }
-    .widgetContainer > div     { width: 180px; height: 160px; margin: 2px; }
+    /*    .widgetContainer > div     { width: 180px; height: 160px; margin: 2px; } */
     .widgetGauge               { grid-template-rows: 30% 70%; }
     .widget                    { grid-template-rows: 15% 85%; }
     .widgetChart               { grid-template-rows: 15% 18% 67%; }
     .widgetMeterLinear         { grid-template-rows: 15% 25% 60%; }
+    .widgetMeter               { grid-template-rows: 15% 85%; }
+
     .widget-title              { padding: 3px; padding-top: 4px; font-size: 1.0em; }
     .widget-main-peak-lin      { font-size: 0.7em; }
     .widget-value              { font-size: x-large; }
     .widget-text               { font-size: large; }
-    .widget-weather            { font-size: x-large; margin-top: 0px;  }
+    .widget-weather            { font-size: larger; margin-top: 0px;  }
     .widget-weather > br       { display: none; }
     .widget-main               { font-size: 11vh;}
     .weatherForecast           { left: 2%; width: 95%; }
     .inputTableConfig > div    { width: 100%; }
 }
 
-@media only screen and (max-width: 375px) and (min-width:321px)
+@media only screen and (min-width:321px) and (max-width: 375px)
 {
-    .widgetContainer > div     { width: 168px; padding: 0px; margin: 1px; }
+/*    .widgetContainer > div     { width: 168px; padding: 0px; margin: 1px; }*/
     .widget-weather            { font-size: large; margin-top: 0px;  }
     .widget-weather > br       { display: none; }
     .widget-main               { font-size: 13vh;}
@@ -2084,7 +2094,7 @@ dialog::backdrop, #backdrop
 @media only screen and (min-height:480px) and (max-height:500px)
 {
     .content                   { margin: 0px; }
-    .widgetContainer > div     { width: 120px; height: 95px; margin: 1px; }
+/*    .widgetContainer > div     { width: 120px; height: 95px; margin: 1px; } */
     .widget                    { grid-template-rows: 15% 85%; }
     .widgetChart               { grid-template-rows: 15% 14% 71%; }
     .buttonDashboard           { padding: 4px; margin: 0px 0px 0px 0px; }

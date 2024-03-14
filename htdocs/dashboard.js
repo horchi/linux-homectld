@@ -1,15 +1,16 @@
 /*
  *  dashboard.js
  *
- *  (c) 2020-2021 Jörg Wendel
+ *  (c) 2020-2024 Jörg Wendel
  *
  * This code is distributed under the terms and conditions of the
  * GNU GENERAL PUBLIC LICENSE. See the file COPYING for details.
  *
  */
 
-var widgetWidthBase = null;
-var widgetHeightBase = null;
+// var layout = 'grid';
+var layout = 'flex';
+
 var weatherData = null;
 var weatherInterval = null;
 var moseDownOn = { 'object' : null };
@@ -37,8 +38,6 @@ function initDashboard(update = false)
 
    if (!Object.keys(dashboards).length)
       setupMode = true;
-
-   // setupMode = true;  // to debug
 
    if (setupMode) {
       $('#dashboardMenu').append($('<button></button>')
@@ -136,6 +135,15 @@ function initDashboard(update = false)
 
    document.getElementById("container").innerHTML = '<div id="widgetContainer" class="widgetContainer"></div>';
 
+   if (layout == 'flex') {
+      $('#widgetContainer').css('display', 'flex');
+      $('#widgetContainer').css('flex-wrap', 'wrap');
+   }
+   else {
+      $('#widgetContainer').css('display', 'grid');
+      $('#widgetContainer').css('gap', '0px');
+   }
+
    if (dashboards[actDashboard] != null) {
       for (var key in dashboards[actDashboard].widgets) {
          initWidget(key, dashboards[actDashboard].widgets[key]);
@@ -145,12 +153,26 @@ function initDashboard(update = false)
 
    initLightColorDialog();
 
-   // calc container size
+   resizeDashboard();
+   window.onresize = function() { resizeDashboard(); };
+}
 
+function resizeDashboard()
+{
    $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('dashboardMenu') - 15);
-   window.onresize = function() {
-      $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('dashboardMenu') - 15);
-   };
+
+   if (layout != 'flex') {
+      let style = getComputedStyle(document.documentElement);
+      let widgetWidthBase = style.getPropertyValue('--widgetWidthBase');
+      let widgetHeightBase = style.getPropertyValue('--widgetHeightBase');
+
+      let colCount = parseInt($('#container').innerWidth() / widgetWidthBase);
+      let colWidthPercent = parseInt(100 / colCount);
+      let rep = 'repeat(' + colCount + ',' + colWidthPercent + '%)';
+
+      $('#widgetContainer').css('grid-template-columns', rep);
+      $('#widgetContainer').css('grid-auto-rows', widgetHeightBase + 'px');
+   }
 }
 
 function newDashboard()
@@ -209,10 +231,12 @@ function getWidgetColor(widget, value)
 
 var keyTimeout = null;
 
+//***************************************************************************
+// Init a Widget
+//***************************************************************************
+
 function initWidget(key, widget, fact)
 {
-   // console.log("Widget " + key + ': '+ JSON.stringify(widget));
-
    if (key == null || key == '')
       return ;
 
@@ -229,6 +253,7 @@ function initWidget(key, widget, fact)
       return;
    }
 
+   // console.log("Widget " + key + ': '+ JSON.stringify(widget));
    // console.log("initWidget " + key + " : " + (fact ? fact.name : ''));
    // console.log("fact: " + JSON.stringify(fact, undefined, 4));
    // console.log("widget: " + JSON.stringify(widget, undefined, 4));
@@ -241,40 +266,65 @@ function initWidget(key, widget, fact)
    var id = 'div_' + key;
    var elem = document.getElementById(id);
 
-   var eHeight = 0;
+   // var eHeight = 0;
+
    if (elem == null) {
-      // console.log("element '" + id + "' not found, creating");
       elem = document.createElement("div");
       root.appendChild(elem);
       elem.setAttribute('id', id);
-      if (!widgetHeightBase)
-         widgetHeightBase = elem.clientHeight;
-      eHeight = parseInt(elem.style.height);
-      var useKioskHeight = kioskMode == 1 || kioskMode == 2;
-      if (!useKioskHeight && dashboards[actDashboard].options && dashboards[actDashboard].options.heightfactor)
-         eHeight = widgetHeightBase * dashboards[actDashboard].options.heightfactor;
-      if (useKioskHeight && dashboards[actDashboard].options && dashboards[actDashboard].options.heightfactorKiosk)
-         eHeight = widgetHeightBase * dashboards[actDashboard].options.heightfactorKiosk;
 
-      // widget.heightfactor -> to be implementen (nur vorbereitet)
+      if (layout == 'flex') {
+         let style = getComputedStyle(document.documentElement);
+         let widgetHeightBase = style.getPropertyValue('--widgetHeightBase') * 2;
 
-      if (widget.heightfactor != null && widget.heightfactor != 1)
-         eHeight = eHeight * widget.heightfactor + ((widget.heightfactor-1) * marginPadding);
+         //if (!widgetHeightBase)
+         //   widgetHeightBase = elem.clientHeight;
+         // eHeight = $(elem).outerHeight();
 
-      elem.style.height = eHeight + 'px';
+         eHeight = widgetHeightBase;
+
+         // verschiedene heightfactor für verscheidene dashboards und / kiosk mode
+
+         let useKioskHeight = kioskMode == 1 || kioskMode == 2;
+
+         if (!useKioskHeight && dashboards[actDashboard].options && dashboards[actDashboard].options.heightfactor)
+            eHeight = widgetHeightBase * dashboards[actDashboard].options.heightfactor;
+         if (useKioskHeight && dashboards[actDashboard].options && dashboards[actDashboard].options.heightfactorKiosk)
+            eHeight = widgetHeightBase * dashboards[actDashboard].options.heightfactorKiosk;
+
+         // widget.heightfactor für widget spezifische Höhen
+         //    -> to be implementen (nur vorbereitet)
+         // if (widget.heightfactor != null && widget.heightfactor != 1)
+         //            eHeight = eHeight * widget.heightfactor + ((widget.heightfactor-1) * marginPadding);
+
+         elem.style.height = eHeight + 'px';
+      }
+      else  // grid layout
+      {
+         if (widget.widthfactor != null)
+            $(elem).css('grid-column', 'span ' + widget.widthfactor * 2);
+         else
+            $(elem).css('grid-column', 'span 2');
+
+         if (widget.heightfactor != null)
+            $(elem).css('grid-row', 'span ' + widget.heightfactor * 2);
+         else
+            $(elem).css('grid-row', 'span 2');
+      }
    }
 
-   elem.innerHTML = "";
+   elem.innerHTML = '';
 
-   if (widgetWidthBase == null)
-      widgetWidthBase = elem.clientWidth;
+   if (layout == 'flex')
+   {
+      let style = getComputedStyle(document.documentElement);
+      let widgetWidthBase = style.getPropertyValue('--widgetWidthBase') * 2;
 
-   // console.log("clientWidth: ", elem.clientWidth, 'widgetWidthBase: ', widgetWidthBase, 'marginPadding:', marginPadding, 'widget.widthfactor:', widget.widthfactor);
-
-   if (widget.widthfactor > 1)
-      elem.style.width = widgetWidthBase * widget.widthfactor + ((widget.widthfactor-1) * marginPadding) + 'px';
-   else
-      elem.style.width = widgetWidthBase;
+      if (widget.widthfactor != null)
+         elem.style.width = widgetWidthBase * widget.widthfactor + ((widget.widthfactor-3) * marginPadding) + 'px';
+      else
+         elem.style.width = widgetWidthBase;
+   }
 
    if (setupMode && (widget.widgettype < 900 || widget.widgettype == null)) {
       elem.setAttribute('draggable', true);
@@ -832,7 +882,6 @@ function initWidget(key, widget, fact)
          $(elem).append($('<div></div>')
                         .attr('id', 'widget' + key)
                         .addClass('widget-time')
-                        .css('height', 'inherit')
                         .css('color', widget.color)
                         .css('user-select', 'none')
                         .html(getTimeHtml()));
@@ -1306,8 +1355,8 @@ function updateWidget(sensor, refresh, widget)
          $("#button" + fact.type + fact.address).addClass('widget-main');
          $("#button" + fact.type + fact.address).addClass(classes);
 
-         var fontSize = Math.min(widgetDiv.height(), widgetDiv.width()) * 0.6;
-         $("#button" + fact.type + fact.address).css('font-size', fontSize + 'px');
+         // var fontSize = Math.min(widgetDiv.height(), widgetDiv.width()) * 0.6;
+         // $("#button" + fact.type + fact.address).css('font-size', fontSize + 'px');
       }
 
       $("#button" + fact.type + fact.address).css('background-color', sensor.working ? '#7878787878' : 'transparent');
@@ -1822,9 +1871,10 @@ function dropWidget(ev)
    socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'dashboards' } });
 }
 
-function dashboardSetup(dashboardId)
+function dashboardSetup(did)
 {
-   var form = document.createElement("div");
+   let form = document.createElement("div");
+   let dashboardId = parseInt(did.substring(4));
 
    if (dashboards[dashboardId].options == null)
       dashboards[dashboardId].options = {};
@@ -2264,14 +2314,14 @@ function widgetSetup(key)
                                           .addClass('rounded-border inputSetting')
                                           .attr('id', 'widthfactor')
                                          )))
-/*                  .append($('<div></div>')
+                  .append($('<div></div>')
                           .append($('<span></span>')
                                   .html('Höhe'))
                           .append($('<span></span>')
                                   .append($('<select></select>')
                                           .addClass('rounded-border inputSetting')
                                           .attr('id', 'heightfactor')
-                                         )))*/
+                                         )))
                  );
 
    function widgetTypeChanged()
@@ -2347,20 +2397,20 @@ function widgetSetup(key)
          if (widget.widthfactor == null)
             widget.widthfactor = 1;
 
-         for (var w = 0.5; w <= 4.0; w += 0.5)
+         for (var w = 1; w <= 4.0; w += 0.5)
             $('#widthfactor').append($('<option></option>')
                                      .val(w)
                                      .html(w)
                                      .attr('selected', widget.widthfactor == w));
 
-/*         if (widget.heightfactor == null)
+         if (widget.heightfactor == null)
             widget.heightfactor = 1;
 
-         for (var h = 0.5; h <= 1.0; h += 0.5)
+         for (var h = 0.5; h <= 2.0; h += 0.5)
             $('#heightfactor').append($('<option></option>')
                                      .val(h)
-                                     .html(h)
-                                     .attr('selected', widget.heightfactor == h)); */
+                                      .html(h)
+                                     .attr('selected', widget.heightfactor == h));
 
          $('#color').spectrum({
             type: "color",

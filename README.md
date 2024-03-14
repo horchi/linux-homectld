@@ -33,7 +33,8 @@ If you like the project and want to support it
 ## Prerequisites:
 The described installation method is tested with Raspbian Buster, the homectld should work also with other Linux distributions and versions but the installation process should adapted to them, for example they use other init processes or use different tools for the package management, other package names, ...
 
-Language package 'de_DE.UTF-8' is required as language package (`dpkg-reconfigure locales`)
+Language pack 'de_DE.UTF-8' is required as language package (`dpkg-reconfigure locales`)
+Set system timezone, for example Berlin `timedatectl set-timezone Europe/Berlin`
 
 # Installation by package (only Raspbian Buster)
 
@@ -284,7 +285,7 @@ To change the MQTT borker connection (host, port, ...) adjust it in `/etc/system
 
 ## Caravan Industries (CI) Bus Interface
 
-The CI bus adapter https://www.fischl.de/usblini/ is a lightweight  solution.
+The CI bus adapter https://www.fischl.de/usblini/ is a lightweight solution.
 Details descibed here ./thetford/README.md
 
 # Information / HINTS

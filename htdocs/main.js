@@ -1131,7 +1131,7 @@ function drawChartWidget(dataObject)
    for (var i = 0; i < dataObject.rows.length; i++) {
       var dataset = {};
 
-      console.log("draw chart row with", dataObject.rows[i].data.length, "points");
+      // console.log("draw chart row with", dataObject.rows[i].data.length, "points");
 
       dataset["data"] = dataObject.rows[i].data;
       dataset["backgroundColor"] = "#3498db33";  // fill color
@@ -1142,6 +1142,7 @@ function drawChartWidget(dataObject)
       config.data.datasets.push(dataset);
    }
 
+   console.log("draw chart widget to", id, $('#'+id).innerHeight());
    var canvas = document.getElementById(id);
    widgetCharts[id] = new Chart(canvas, config);
 }

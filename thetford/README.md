@@ -27,7 +27,7 @@ apt update
 apt install -y python3 python3-pip
 pip install git+https://github.com/EmbedME/pyUSBlini
 
-apt install python3.7-tk  # (maybe needed forUSBliniGUI.py)
+apt install python3.7-tk (or python3-tk, ...) # (maybe needed forUSBliniGUI.py)
 
 bash -c $'echo \'SUBSYSTEM=="usb", ATTRS{product}=="USBlini", MODE="0666"\' > /etc/udev/rules.d/50-USBlini.rules'
 udevadm control --reload-rules
@@ -135,7 +135,7 @@ Bei Störung der Fehlercode ansonsten 0x00
 0xE0-E5    - Spannung der 230V Versorgung (224V - 229V)
 
 ### Werte Byte 5:
-0x84-0x92  - Spannung der 12V Versorgung (13,2V - 14,8V)
+0x84-0x92  - Spannung der 12V Versorgung mit Faktor 10 (13,2V - 14,8V)
 
 ### Werte Byte 6 und 7:
 0x00 - immer

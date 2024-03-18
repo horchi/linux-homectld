@@ -66,7 +66,7 @@ int Serial::open(const char* dev)
       return fail;
    }
 
-   tell(eloDetail, "Opening '%s' succeeded!", deviceName);
+   tell(eloDebug, "Opening '%s' succeeded!", deviceName);
 
    // configure serial line with 8 data bits, no parity, 1 stop bit
 
@@ -120,7 +120,7 @@ int Serial::close()
 
    if (fdDevice)
    {
-      tell(eloDetail, "Closing io device");
+      tell(eloDebug, "Closing io device");
 
       flush();
 

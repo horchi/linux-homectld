@@ -77,13 +77,11 @@ $(VICTRONTARGET): $(VICTRONOBJS)
 $(I2CTARGET): $(I2COBJS)
 	$(doLink) $(I2COBJS) $(LIBS) -o $@
 
-linstall: $(TARGET) $(W1TARGET) $(BMSTARGET) $(VICTRONTARGET) $(I2CTARGET)
+linstall: $(TARGET) $(W1TARGET) $(BMSTARGET) $(VOTROTARGET) $(VICTRONTARGET) $(I2CTARGET)
 	make install-daemon
 	make install-web
 
-install:  $(TARGET) $(W1TARGET) $(BMSTARGET) $(VICTRONTARGET) $(I2CTARGET)
-	make install-daemon
-	make install-web
+install:  linstall
 	make install-systemd
 
 install-daemon: install-config install-scripts
@@ -97,6 +95,7 @@ install-daemon: install-config install-scripts
 	install --mode=755 -D $(TARGET) $(BINDEST)/
 	install --mode=755 -D $(W1TARGET) $(BINDEST)/
 	install --mode=755 -D $(BMSTARGET) $(BINDEST)/
+	install --mode=755 -D $(VOTROTARGET) $(BINDEST)/
 	install --mode=755 -D $(VICTRONTARGET) $(BINDEST)/
 	install --mode=755 -D $(I2CTARGET) $(BINDEST)/
 	mkdir -p $(DESTDIR)$(PREFIX)/share/$(TARGET)/
@@ -110,12 +109,14 @@ install-systemd:
 	cat contrib/daemon.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | sed s:"<TARGET>":"$(TARGET)":g | sed s:"<CLASS>":"$(CLASS)":g |install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/$(TARGET).service
 	cat contrib/w1mqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/w1mqtt.service
 	cat contrib/bmsmqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/bmsmqtt.service
+	cat contrib/votromqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/votromqtt.service
 	cat contrib/i2cmqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/i2cmqtt.service
 	cat contrib/victronmqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/victronmqtt.service
 	install --mode=664 -D contrib/mosquitto-log.service $(SYSTEMDDEST)/
 	chmod a+r $(SYSTEMDDEST)/$(TARGET).service
 	chmod a+r $(SYSTEMDDEST)/w1mqtt.service
 	chmod a+r $(SYSTEMDDEST)/bmsmqtt.service
+	chmod a+r $(SYSTEMDDEST)/votromqtt.service
 	chmod a+r $(SYSTEMDDEST)/victronmqtt.service
 	chmod a+r $(SYSTEMDDEST)/i2cmqtt.service
    ifeq ($(DESTDIR),)
@@ -151,6 +152,9 @@ install-config:
 	fi
 	if ! test -f $(DESTDIR)/etc/default/bmsmqtt; then \
 	   cp contrib/bmsmqtt $(DESTDIR)/etc/default/bmsmqtt; \
+	fi
+	if ! test -f $(DESTDIR)/etc/default/votromqtt; then \
+	   cp contrib/votromqtt $(DESTDIR)/etc/default/votromqtt; \
 	fi
 	if ! test -f $(DESTDIR)/etc/default/victronmqtt; then \
 	   cp contrib/victronmqtt $(DESTDIR)/etc/default/victronmqtt; \
@@ -198,10 +202,12 @@ clean-install:
 	rm -rf $(SYSTEMDDEST)/$(TARGET).service
 	rm -rf $(SYSTEMDDEST)/w1mqtt.service
 	rm -rf $(SYSTEMDDEST)/bmsmqtt.service
+	rm -rf $(SYSTEMDDEST)/votromqtt.service
 	rm -rf $(SYSTEMDDEST)/victronmqtt.service
 	rm -rf $(SYSTEMDDEST)/i2cmqtt.service
 	rm -rf $(DESTDIR)/etc/default/w1mqtt;
 	rm -rf $(DESTDIR)/etc/default/bmsmqtt;
+	rm -rf $(DESTDIR)/etc/default/votromqtt;
 	rm -rf $(DESTDIR)/etc/default/victronmqtt;
 	rm -rf $(DESTDIR)/etc/default/i2cmqtt;
 	rm -rf $(DESTDIR)/etc/rsyslog.d/10-$(TARGET).conf
@@ -209,6 +215,7 @@ clean-install:
 	rm -rf $(BINDEST)/$(TARGET)*
 	rm -rf $(BINDEST)/$(W1TARGET)
 	rm -rf $(BINDEST)/$(BMSTARGET)
+	rm -rf $(BINDEST)/$(VOTROTARGET)
 	rm -rf $(BINDEST)/$(VICTRONTARGET)
 	rm -rf $(BINDEST)/$(I2CTARGET)
 

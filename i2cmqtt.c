@@ -560,7 +560,6 @@ int I2CMqtt::mqttPublish(SensorData& sensor)
 int I2CMqtt::mqttPublish(json_t* jObject)
 {
    char* message = json_dumps(jObject, JSON_REAL_PRECISION(8));
-   tell(eloMqtt, "-> %s", message);
    mqttWriter->write(mqttTopicOut.c_str(), message);
    free(message);
    json_decref(jObject);
@@ -813,8 +812,6 @@ int main(int argc, char** argv)
    const char* mcpConfig {};
    const char* adsConfig {};
 
-   logstdout = true;
-
    // usage ..
 
    if (argc <= 1 || (argv[1][0] == '?' || (strcmp(argv[1], "-h") == 0) || (strcmp(argv[1], "--help") == 0)))
@@ -871,7 +868,7 @@ int main(int argc, char** argv)
    if (_stdout != na)
       logstdout = _stdout;
    else
-      logstdout = no;
+      logstdout = false;
 
    // fork daemon
 

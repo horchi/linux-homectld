@@ -346,8 +346,6 @@ int main(int argc, char** argv)
    Eloquence _eloquence {eloAlways};
    const char* url {"tcp://localhost:1883"};
 
-   logstdout = yes;
-
    // Usage ..
 
    if (argc > 1 && (argv[1][0] == '?' || (strcmp(argv[1], "-h") == 0) || (strcmp(argv[1], "--help") == 0)))
@@ -376,7 +374,7 @@ int main(int argc, char** argv)
    if (_stdout != na)
       logstdout = _stdout;
    else
-      logstdout = no;
+      logstdout = false;
 
    eloquence = _eloquence;
 

@@ -477,7 +477,6 @@ int Bms::mqttPublish(SensorData& sensor)
       json_object_set_new(obj, "text", json_string(sensor.text.c_str()));
 
    char* message = json_dumps(obj, JSON_REAL_PRECISION(8));
-   tell(eloMqtt, "-> %s", message);
    mqttWriter->write(mqttTopic.c_str(), message);
    free(message);
    json_decref(obj);
@@ -585,9 +584,9 @@ int main(int argc, char** argv)
 {
    bool nofork {false};
    int _stdout {na};
-   const char* mqttTopic = TARGET "2mqtt/bms";
-   const char* mqttUrl = "tcp://localhost:1883";
-   const char* device = "/dev/ttyBms";
+   const char* mqttTopic {TARGET "2mqtt/bms"};
+   const char* mqttUrl {"tcp://localhost:1883"};
+   const char* device {"/dev/ttyBms"};
    bool showMode {false};
    int interval {60};
 
@@ -598,8 +597,6 @@ int main(int argc, char** argv)
       showUsage(argv[0]);
       return 0;
    }
-
-   logstdout = true;
 
    for (int i = 1; argv[i]; i++)
    {
@@ -627,7 +624,7 @@ int main(int argc, char** argv)
    if (_stdout != na)
       logstdout = _stdout;
    else
-      logstdout = no;
+      logstdout = false;
 
    Bms* job = new Bms(device, mqttUrl, mqttTopic, interval);
 

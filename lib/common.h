@@ -363,7 +363,7 @@ class cMyMutexLock
 
 namespace horchi
 {
-   std::string to_string(double d, size_t precision = 2);
+   std::string to_string(double d, size_t precision = 2, bool asHex = false);
 }
 
 //***************************************************************************

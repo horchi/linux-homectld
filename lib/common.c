@@ -36,9 +36,9 @@
   cMutex logMutex;
 #endif
 
-Eloquence eloquence {eloAlways};
+Eloquence eloquence {eloInfo};
 Eloquence argEloquence {eloAlways};
-bool logstdout {false};
+bool logstdout {true};
 bool logstamp {false};
 
 //***************************************************************************
@@ -106,8 +106,8 @@ void tell(Eloquence elo, const char* format, ...)
    if (elo && !(eloquence & elo))
       return ;
 
-   const int sizeBuffer = 100000;
-   char t[sizeBuffer+100]; *t = 0;
+   const int sizeBuffer {100000};
+   char t[sizeBuffer+100] {};
    va_list ap;
 
 #ifdef VDR_PLUGIN
@@ -168,10 +168,14 @@ void tell(Eloquence elo, const char* format, ...)
 
 namespace horchi
 {
-   std::string to_string(double d, size_t precision)
+   std::string to_string(double d, size_t precision, bool asHex)
    {
       std::ostringstream stm;
-      stm << std::setprecision(2) << d;
+      if (!precision && asHex)
+         stm << std::hex << (int)d;
+      else
+         stm << std::setprecision(precision) << d;
+
       return stm.str();
    }
 }

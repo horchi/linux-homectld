@@ -31,6 +31,7 @@ OBJS        += specific.o gpio.o
 
 W1OBJS       = w1.o gpio.o lib/common.o lib/thread.o $(MQTTOBJS)
 BMSOBJS      = bms.o lib/common.o lib/thread.o lib/serial.o $(MQTTOBJS)
+VOTROOBJS    = votro.o lib/common.o lib/thread.o lib/serial.o $(MQTTOBJS)
 VICTRONOBJS  = victron.o lib/common.o lib/thread.o lib/json.o lib/serial.o lib/victron/vecom.o lib/victron/veframehandler.o $(MQTTOBJS)
 I2COBJS      = i2cmqtt.o gpio.o lib/common.o lib/json.o lib/thread.o lib/i2c/i2c.o lib/i2c/mcp23017.o lib/i2c/ads1115.o lib/i2c/dht20.o $(MQTTOBJS)
 
@@ -38,7 +39,7 @@ CFLAGS      += $(shell $(SQLCFG) --include)
 
 # main taget
 
-all: $(TARGET) $(W1TARGET) $(BMSTARGET) $(VICTRONTARGET) $(I2CTARGET) $(ARDUINO_IF_CMD)
+all: $(TARGET) $(W1TARGET) $(BMSTARGET) $(VOTROTARGET) $(VICTRONTARGET) $(I2CTARGET) $(ARDUINO_IF_CMD)
 
 # auto dependencies
 
@@ -66,6 +67,9 @@ $(W1TARGET): $(W1OBJS)
 
 $(BMSTARGET): $(BMSOBJS)
 	$(doLink) $(BMSOBJS) $(LIBS) -o $@
+
+$(VOTROTARGET): $(VOTROOBJS)
+	$(doLink) $(VOTROOBJS) $(LIBS) -o $@
 
 $(VICTRONTARGET): $(VICTRONOBJS)
 	$(doLink) $(VICTRONOBJS) $(LIBS) -o $@
@@ -161,7 +165,7 @@ install-scripts:
 		mkdir -p "$(BINDEST)" \
 	   chmod a+rx $(BINDEST); \
 	fi
-	for f in ./scripts/*.sh; do \
+	for f in ./scripts/*.sh ./scripts/fwpn; do \
 		cp -v "$$f" $(BINDEST)/`basename "$$f"`; \
 	done
 

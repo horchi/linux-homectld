@@ -20,8 +20,9 @@
 // Object
 //***************************************************************************
 
-Serial::Serial(int aBaud)
-   : baud(aBaud)
+Serial::Serial(int aBaud, int aCflags)
+   : baud(aBaud),
+     cflags(aCflags)
 {
    bzero(&oldtio, sizeof(oldtio));
 }
@@ -79,7 +80,14 @@ int Serial::open(const char* dev)
       CLOCAL  : local connection, no modem control
       CREAD   : enable receiving characters  */
 
-   newtio.c_cflag = baud | CS8 | CLOCAL | CREAD;
+   if (cflags)
+   {
+      // tell(eloAlways, "c_cflag set to %d", cflags);
+      newtio.c_cflag = baud | cflags | CLOCAL | CREAD;
+   }
+   else
+      newtio.c_cflag = baud | CS8 | CLOCAL | CREAD;
+
    newtio.c_iflag = IGNPAR;  // don't set ICRNL !!
    newtio.c_oflag = 0;
    newtio.c_lflag = 0;       // ICANON - 'disable echo functionality  and don't
@@ -151,7 +159,7 @@ int Serial::reopen(const char* dev)
 
 int Serial::look(byte& b, int timeoutMs)
 {
-   int res;
+   int res {0};
    b = 0;
 
    if (!fdDevice)

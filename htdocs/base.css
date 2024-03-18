@@ -1384,7 +1384,7 @@ table.tableMultiCol td
       'title'
       'main'
       'value';
-    grid-template-rows: 24px auto 41px;
+    grid-template-rows: 15% 65% 20%;
     grid-gap: 1px;
     box-shadow: 1px 1px 1px 0px var(--shadow);
 }

@@ -29,7 +29,7 @@ class Serial
          wrnTimeout
       };
 
-      Serial(int aBaud = B57600);
+      Serial(int aBaud = B57600, int aCflags = 0);
       virtual ~Serial();
 
       // interface
@@ -62,6 +62,7 @@ class Serial
       int readTimeout {10};
       int writeTimeout {10};
       int baud {B57600};
+      int cflags {0};
       char deviceName[100] {'\0'};
 
       int fdDevice {0};

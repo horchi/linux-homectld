@@ -229,7 +229,38 @@ function getWidgetColor(widget, value)
    }
 }
 
-var keyTimeout = null;
+function getWidgetTitle(widget, fact)
+{
+   let title = ' ';
+
+   if (widget.title && widget.title != '')
+      title += widget.title;
+   else if (fact && fact.usrtitle && fact.usrtitle != '')
+      title += fact.usrtitle;
+   else if (fact)
+      title += fact.title;
+
+   return title;
+}
+
+function getWidgetTitleClass(widget, fact)
+{
+   let titleClass = '';
+
+   if (!setupMode && widget.unit == '°C')
+      titleClass = 'mdi mdi-thermometer';
+   else if (!setupMode && (widget.unit == 'hPa' || widget.unit == 'A' || widget.unit == 'mA' ||
+                           widget.unit == 'W' || widget.unit == 'V' || widget.unit == 'Ah'))
+      titleClass = 'mdi mdi-gauge';
+   else if (!setupMode && widget.unit == '%')
+      titleClass = 'mdi mdi-label-percent-outline';
+   else if (!setupMode && widget.unit == 'xxxx')  // can't detect if '%' is humidity
+      titleClass = 'mdi mdi-water-percent';
+   if (!setupMode && widget.unit == 'l')
+      titleClass = 'mdi mdi-water';
+
+   return titleClass;
+}
 
 //***************************************************************************
 // Init a Widget
@@ -336,27 +367,8 @@ function initWidget(key, widget, fact)
       elem.addEventListener('drop', function(event) {dropWidget(event)}, false);
    }
 
-   let titleClass = '';
-   let title = ' ';
-
-   if (widget.title && widget.title != '')
-      title += widget.title;
-   else if (fact && fact.usrtitle && fact.usrtitle != '')
-      title += fact.usrtitle;
-   else if (fact)
-      title += fact.title;
-
-   if (!setupMode && widget.unit == '°C')
-      titleClass = 'mdi mdi-thermometer';
-   else if (!setupMode && (widget.unit == 'hPa' || widget.unit == 'A' || widget.unit == 'mA' ||
-                           widget.unit == 'W' || widget.unit == 'V' || widget.unit == 'Ah'))
-      titleClass = 'mdi mdi-gauge';
-   else if (!setupMode && widget.unit == '%')
-      titleClass = 'mdi mdi-label-percent-outline';
-   else if (!setupMode && widget.unit == 'xxxx')  // can't detect if '%' is humidity
-      titleClass = 'mdi mdi-water-percent';
-   if (!setupMode && widget.unit == 'l')
-      titleClass = 'mdi mdi-water';
+   let titleClass = getWidgetTitleClass(widget, fact);
+   let title = getWidgetTitle(widget, fact);
 
    if (!widget.color)
       widget.color = 'white';
@@ -596,162 +608,7 @@ function initWidget(key, widget, fact)
 
       case 5:            // Meter
       case 6: {          // MeterLevel
-         var radial = widget.widgettype == 5;
-         let showValue = widget.showvalue == null || widget.showvalue == true;
-
-         if (radial || !showValue)
-            elem.className = 'widgetMeter widgetDropZone';
-         else if (showValue)
-            elem.className = 'widgetMeterLinear widgetDropZone';
-
-         var eTitle = document.createElement("div");
-         eTitle.className = "widget-title " + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : titleClass);
-         eTitle.addEventListener("click", function(event) {titleClick(event.ctrlKey, key)}, false);
-         eTitle.innerHTML = title;
-         elem.appendChild(eTitle);
-
-         var main = document.createElement("div");
-         main.className = "widget-main-meter";
-         elem.appendChild(main);
-
-         var canvas = document.createElement('canvas');
-         main.appendChild(canvas);
-         canvas.setAttribute('id', 'widget' + fact.type + fact.address);
-         var cFact = fact;
-         if (!setupMode && fact.record)
-            $(canvas).click(function() {toggleChartDialog(cFact.type, cFact.address, key);});
-
-         if (!radial && showValue) {
-            var value = document.createElement("div");
-            value.setAttribute('id', 'widgetValue' + fact.type + fact.address);
-            value.className = "widget-main-value-lin";
-            elem.appendChild(value);
-            $("#widgetValue" + fact.type + fact.address).css('color', widget.color);
-            var ePeak = document.createElement("div");
-            ePeak.setAttribute('id', 'peak' + fact.type + fact.address);
-            ePeak.className = "widget-main-peak-lin";
-            elem.appendChild(ePeak);
-         }
-
-         if (widget.scalemin == null)
-            widget.scalemin = 0;
-
-         var ticks = [];
-         var scaleRange = widget.scalemax - widget.scalemin;
-         var stepWidth = widget.scalestep != null ? widget.scalestep : 0;
-
-         if (!stepWidth) {
-            var steps = 10;
-            if (scaleRange <= 100)
-               steps = scaleRange % 10 == 0 ? 10 : scaleRange % 5 == 0 ? 5 : scaleRange;
-            if (steps < 10)
-               steps = 10;
-            if (!radial && widget.unit == '%')
-               steps = 4;
-            stepWidth = scaleRange / steps;
-         }
-
-         if (stepWidth <= 0) stepWidth = 1;
-         stepWidth = Math.round(stepWidth*10) / 10;
-         var steps = -1;
-         for (var step = widget.scalemin; step.toFixed(2) <= widget.scalemax; step += stepWidth) {
-            ticks.push(step % 1 ? parseFloat(step).toFixed(1) : parseInt(step));
-            steps++;
-         }
-
-         var scalemax = widget.scalemin + stepWidth * steps; // cals real scale max based on stepWidth and step count!
-         var highlights = {};
-         var critmin = (widget.critmin == null || widget.critmin == -1) ? widget.scalemin : widget.critmin;
-         var critmax = (widget.critmax == null || widget.critmax == -1) ? scalemax : widget.critmax;
-         var minColor = widget.unit == '°C' ? 'blue' : 'rgba(255,0,0,.6)';
-
-         highlights = [
-            { from: widget.scalemin, to: critmin,  color: minColor },
-            { from: critmin,         to: critmax,  color: 'rgba(0,255,0,.6)' },
-            { from: critmax,         to: scalemax, color: 'rgba(255,0,0,.6)' }
-         ];
-
-         let bWidth = radial ? 0 : (widget.unit == '%' || widget.unit == 'l' ? 12 : 7);
-
-         if (widget.barwidth != null)
-            bWidth = widget.barwidth;
-
-         let progressColor = widget.unit == '%' ? 'blue' : 'red';
-
-         if (widget.barcolor != null)
-            progressColor = widget.barcolor;
-
-         options = {
-            renderTo: 'widget' + fact.type + fact.address,
-
-            units: radial ? widget.unit : '',
-            minValue: widget.scalemin,
-            maxValue: scalemax,
-            majorTicks: ticks,
-            minorTicks: 5,
-            strokeTicks: false,
-            highlights: highlights,
-            highlightsWidth: radial ? 8 : 6,
-
-            colorPlate: radial ? '#2177AD' : 'rgba(0,0,0,0)',
-            colorBar: colorStyle.getPropertyValue('--scale'),        // 'gray',
-            colorBarProgress: progressColor,
-            colorBarStroke: 'red',
-            colorMajorTicks: colorStyle.getPropertyValue('--scale'), // '#f5f5f5',
-            colorMinorTicks: colorStyle.getPropertyValue('--scale'), // '#ddd',
-            colorTitle: colorStyle.getPropertyValue('--scaleText'),
-            colorUnits: colorStyle.getPropertyValue('--scaleText'),  // '#ccc',
-            colorNumbers: colorStyle.getPropertyValue('--scaleText'),
-            colorNeedle: 'rgba(240, 128, 128, 1)',
-            colorNeedleEnd: 'rgba(255, 160, 122, .9)',
-
-            fontNumbersSize: radial ? 34 : (showValue ? 40 : 30),
-            fontUnitsSize: 45,
-            fontUnitsWeight: 'bold',
-            borderOuterWidth: 0,
-            borderMiddleWidth: 0,
-            borderInnerWidth: 0,
-            borderShadowWidth: 0,
-            fontValueWeight: 'bold',
-            valueBox: radial,
-            valueInt: 0,
-            valueDec: 2,
-            colorValueText: colorStyle.getPropertyValue('--scale'),
-            colorValueBoxBackground: 'transparent',
-            valueBoxStroke: 0,
-            fontValueSize: 45,
-            valueTextShadow: false,
-            animationRule: 'bounce',
-            animationDuration: 500,
-            barWidth: bWidth,
-            numbersMargin: -3,
-            needle: radial,
-
-            // linear gauge specials
-
-            barBeginCircle: widget.unit == '°C' ? 15 : 0,
-
-            tickSide: 'left',
-            numberSide: 'left',
-            needleSide: 'left',
-            colorPlate: 'transparent'
-         };
-
-         // patch width and height due to strange behavior of (at least) the LinearGauge when wider than high
-
-         if ($(main).innerHeight() < $(main).innerWidth())
-            options.width = options.hight = $(main).innerHeight();
-
-         var gauge = null;
-
-         if (radial)
-            gauge = new RadialGauge(options);
-         else
-            gauge = new LinearGauge(options);
-
-         gauge.draw();
-         $('#widget' + fact.type + fact.address).data('gauge', gauge);
-
+         initMeter(key, widget, fact, widget.scalemax);
          break;
       }
 
@@ -914,6 +771,187 @@ function initWidget(key, widget, fact)
          break;
       }
    }
+}
+
+//***************************************************************************
+// Init Meter Widget
+//***************************************************************************
+
+function initMeter(key, widget, fact, neededScaleMax)
+{
+   let radial = widget.widgettype == 5;
+   let showValue = widget.showvalue == null || widget.showvalue == true;
+
+   let titleClass = getWidgetTitleClass(widget, fact);
+   let title = getWidgetTitle(widget, fact);
+
+   var id = 'div_' + key;
+   var elem = document.getElementById(id);
+
+   $(elem).empty();
+
+   if (radial || !showValue)
+      elem.className = 'widgetMeter widgetDropZone';
+   else if (showValue)
+      elem.className = 'widgetMeterLinear widgetDropZone';
+
+   var eTitle = document.createElement("div");
+   eTitle.className = "widget-title " + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : titleClass);
+   eTitle.addEventListener("click", function(event) {titleClick(event.ctrlKey, key)}, false);
+   eTitle.innerHTML = title;
+   elem.appendChild(eTitle);
+
+   var main = document.createElement("div");
+   main.className = "widget-main-meter";
+   elem.appendChild(main);
+
+   var canvas = document.createElement('canvas');
+   main.appendChild(canvas);
+   canvas.setAttribute('id', 'widget' + fact.type + fact.address);
+   var cFact = fact;
+   if (!setupMode && fact.record)
+      $(canvas).click(function() {toggleChartDialog(cFact.type, cFact.address, key);});
+
+   if (!radial && showValue) {
+      var value = document.createElement("div");
+      value.setAttribute('id', 'widgetValue' + fact.type + fact.address);
+      value.className = "widget-main-value-lin";
+      elem.appendChild(value);
+      $("#widgetValue" + fact.type + fact.address).css('color', widget.color);
+      var ePeak = document.createElement("div");
+      ePeak.setAttribute('id', 'peak' + fact.type + fact.address);
+      ePeak.className = "widget-main-peak-lin";
+      elem.appendChild(ePeak);
+   }
+
+   if (widget.scalemin == null)
+      widget.scalemin = 0;
+
+   let ticks = [];
+   let scaleRange = neededScaleMax - widget.scalemin;
+
+   let stepWidth = 0;
+
+   if (widget.scalestep != null) {
+      let factor = widget.scalemax / neededScaleMax;
+      stepWidth = widget.scalestep / factor;
+   }
+
+   if (!stepWidth) {
+      let steps = 10;
+      if (scaleRange <= 100)
+         steps = scaleRange % 10 == 0 ? 10 : scaleRange % 5 == 0 ? 5 : scaleRange;
+      if (steps < 10)
+         steps = 10;
+      if (!radial && widget.unit == '%')
+         steps = 4;
+      stepWidth = scaleRange / steps;
+   }
+
+   if (stepWidth <= 0)
+      stepWidth = 1;
+   stepWidth = Math.round(stepWidth*10) / 10;
+
+   if (neededScaleMax < widget.scalemax)
+      neededScaleMax += stepWidth;       // if we auto scale add one step
+
+   let steps = -1;
+   for (var step = widget.scalemin; step.toFixed(2) <= neededScaleMax; step += stepWidth) {
+      ticks.push(step % 1 ? parseFloat(step).toFixed(1) : parseInt(step));
+      steps++;
+   }
+
+   let highlights = {};
+   let critmin = (widget.critmin == null || widget.critmin == -1) ? widget.scalemin : widget.critmin;
+   let critmax = (widget.critmax == null || widget.critmax == -1) ? neededScaleMax : widget.critmax;
+   let minColor = widget.unit == '°C' ? 'blue' : 'rgba(255,0,0,.6)';
+
+   highlights = [
+      { from: widget.scalemin, to: critmin,  color: minColor },
+      { from: critmin,         to: critmax,  color: 'rgba(0,255,0,.6)' },
+      { from: critmax,         to: neededScaleMax, color: 'rgba(255,0,0,.6)' }
+   ];
+
+   let bWidth = radial ? 0 : (widget.unit == '%' || widget.unit == 'l' ? 12 : 7);
+
+   if (widget.barwidth != null)
+      bWidth = widget.barwidth;
+
+   let progressColor = widget.unit == '%' ? 'blue' : 'red';
+
+   if (widget.barcolor != null)
+      progressColor = widget.barcolor;
+
+   options = {
+      renderTo: 'widget' + fact.type + fact.address,
+
+      units: radial ? widget.unit : '',
+      minValue: widget.scalemin,
+      maxValue: neededScaleMax,
+      majorTicks: ticks,
+      minorTicks: 5,
+      highlights: highlights,
+      strokeTicks: false,
+      highlightsWidth: radial ? 8 : 6,
+
+      colorPlate: radial ? '#2177AD' : 'rgba(0,0,0,0)',
+      colorBar: colorStyle.getPropertyValue('--scale'),        // 'gray',
+      colorBarProgress: progressColor,
+      colorBarStroke: 'red',
+      colorMajorTicks: colorStyle.getPropertyValue('--scale'), // '#f5f5f5',
+      colorMinorTicks: colorStyle.getPropertyValue('--scale'), // '#ddd',
+      colorTitle: colorStyle.getPropertyValue('--scaleText'),
+      colorUnits: colorStyle.getPropertyValue('--scaleText'),  // '#ccc',
+      colorNumbers: colorStyle.getPropertyValue('--scaleText'),
+      colorNeedle: 'rgba(240, 128, 128, 1)',
+      colorNeedleEnd: 'rgba(255, 160, 122, .9)',
+
+      fontNumbersSize: radial ? 34 : (showValue ? 40 : 30),
+      fontUnitsSize: 45,
+      fontUnitsWeight: 'bold',
+      borderOuterWidth: 0,
+      borderMiddleWidth: 0,
+      borderInnerWidth: 0,
+      borderShadowWidth: 0,
+      fontValueWeight: 'bold',
+      valueBox: radial,
+      valueInt: 0,
+      valueDec: 2,
+      colorValueText: colorStyle.getPropertyValue('--scale'),
+      colorValueBoxBackground: 'transparent',
+      valueBoxStroke: 0,
+      fontValueSize: 45,
+      valueTextShadow: false,
+      animationRule: 'bounce',
+      animationDuration: 500,
+      barWidth: bWidth,
+      numbersMargin: -3,
+      needle: radial,
+
+      // linear gauge specials
+
+      barBeginCircle: widget.unit == '°C' ? 15 : 0,
+
+      tickSide: 'left',
+      numberSide: 'left',
+      needleSide: 'left',
+      colorPlate: 'transparent'
+   };
+
+   // patch width and height due to strange behavior of (at least) the LinearGauge when wider than high
+
+   if ($(main).innerHeight() < $(main).innerWidth())
+      options.width = options.hight = $(main).innerHeight();
+
+   var gauge = null;
+
+   if (radial)
+      gauge = new RadialGauge(options);
+   else
+      gauge = new LinearGauge(options);
+
+   gauge.draw();
+   $('#widget' + fact.type + fact.address).data('gauge', gauge);
 }
 
 function initLightColorDialog()
@@ -1497,15 +1535,45 @@ function updateWidget(sensor, refresh, widget)
    else if (widget.widgettype == 5 || widget.widgettype == 6)    // Meter
    {
       if (sensor.value != null) {
-         var value = (widget.factor != null && widget.factor) ? widget.factor*sensor.value : sensor.value;
-//       if (widget.barwidth >= 20) {
-//          value = 66;
-//          console.log("fake value to", value);
-//       }
-         if (widget.widgettype == 6)
+         let value = sensor.value; // (widget.factor != null && widget.factor) ? widget.factor*sensor.value : sensor.value;
+         // if (widget.barwidth >= 20) {
+         //    value = 33;
+         //   console.log("fake value to", value);
+         // }
+
+         if (widget.rescale) {
+            let neededScaleMax = widget.scalemax;
+
+            if (value <= 0)
+               ;
+            else if (value < parseInt(widget.scalemax / 100))
+               neededScaleMax = parseInt(widget.scalemax / 100);
+            else if (value < parseInt(widget.scalemax / 80))
+               neededScaleMax = parseInt(widget.scalemax / 80);
+            else if (value < parseInt(widget.scalemax / 40))
+               neededScaleMax = parseInt(widget.scalemax / 40);
+            else if (value < parseInt(widget.scalemax / 20))
+               neededScaleMax = parseInt(widget.scalemax / 20);
+            else if (value < parseInt(widget.scalemax / 10))
+               neededScaleMax = parseInt(widget.scalemax / 10);
+            else if (value < parseInt(widget.scalemax / 4))
+               neededScaleMax = parseInt(widget.scalemax / 4);
+            else if (value < parseInt(widget.scalemax / 2))
+               neededScaleMax = parseInt(widget.scalemax / 2);
+            else if (value < parseInt(widget.scalemax / 1.5))
+               neededScaleMax = parseInt(widget.scalemax / 1.5);
+
+            if (widgetDiv.data('scalemax') != neededScaleMax)  {
+               widgetDiv.data('scalemax', neededScaleMax);
+               initMeter(key, widget, fact, neededScaleMax);
+            }
+         }
+
+         if (widget.widgettype == 6) {
             $("#widgetValue" + fact.type + fact.address).css('color', getWidgetColor(widget, value));
-         // console.log("DEBUG: Update " + '#widget' + fact.type + fact.address + " to: " + value + " (" + sensor.value +")");
-         $('#widgetValue' + fact.type + fact.address).html(value.toFixed(widget.unit == '%' ? 0 : 1) + ' ' + widget.unit);
+            $('#widgetValue' + fact.type + fact.address).html(value.toFixed(widget.unit == '%' ? 0 : 1) + ' ' + widget.unit);
+         }
+
          var gauge = $('#widget' + fact.type + fact.address).data('gauge');
          if (gauge != null)
             gauge.value = value;
@@ -2054,18 +2122,18 @@ function widgetSetup(key)
                                           .val(widget.unit)
                                          )))
 
-                  .append($('<div></div>')
-                          .attr('id', 'divFactor')
-                          .append($('<span></span>')
-                                  .html('Faktor'))
-                          .append($('<span></span>')
-                                  .append($('<input></input>')
-                                          .addClass('rounded-border inputSetting')
-                                          .attr('id', 'factor')
-                                          .attr('type', 'number')
-                                          .attr('step', '0.1')
-                                          .val(widget.factor)
-                                         )))
+//                  .append($('<div></div>')
+//                          .attr('id', 'divFactor')
+//                          .append($('<span></span>')
+//                                  .html('Faktor'))
+//                          .append($('<span></span>')
+//                                  .append($('<input></input>')
+//                                          .addClass('rounded-border inputSetting')
+//                                          .attr('id', 'factor')
+//                                          .attr('type', 'number')
+//                                          .attr('step', '0.1')
+//                                          .val(widget.factor)
+//                                         )))
 
                   .append($('<div></div>')
                           .attr('id', 'divScalemin')
@@ -2091,6 +2159,21 @@ function widgetSetup(key)
                                           .attr('type', 'number')
                                           .attr('step', '0.1')
                                           .val(widget.scalemax)
+                                         )))
+
+                  .append($('<div></div>')
+                          .attr('id', 'divRescale')
+                          .append($('<span></span>')
+                                  .html('Rescale'))
+                          .append($('<span></span>')
+                                  .css('width', '80px')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'rescale')
+                                          .attr('type', 'checkbox')
+                                          .prop('checked', widget.rescale))
+                                  .append($('<label></label>')
+                                          .prop('for', 'rescale')
                                          )))
 
                   .append($('<div></div>')
@@ -2329,8 +2412,9 @@ function widgetSetup(key)
       var wType = parseInt($('#widgettype').val());
 
       $("#divUnit").css("display", [1,3,4,5,6,9,13].includes(wType) ? 'flex' : 'none');
-      $("#divFactor").css("display", [1,3,4,6,9,13].includes(wType) ? 'flex' : 'none');
+      // $("#divFactor").css("display", [1,3,4,6,9,13].includes(wType) ? 'flex' : 'none');
       $("#divScalemax").css("display", [5,6].includes(wType) ? 'flex' : 'none');
+      $("#divRescale").css("display", [5,6].includes(wType) ? 'flex' : 'none');
       $("#divScalemin").css("display", [5,6].includes(wType) ? 'flex' : 'none');
       $("#divScalestep").css("display", [5,6].includes(wType) ? 'flex' : 'none');
       $("#divCritmin").css("display", [5,6].includes(wType) ? 'flex' : 'none');
@@ -2493,9 +2577,10 @@ function widgetSetup(key)
             widget = Object.create(dashboards[actDashboard].widgets[key]); // valueFacts[key]);
             widget.title = $("#title").val();
             widget.unit = $("#unit").val();
-            widget.scalemax = parseFloat($("#factor").val()) || 1.0;
+            // widget.factor = parseFloat($("#factor").val()) || 1.0;
             widget.scalemax = parseFloat($("#scalemax").val()) || 0.0;
             widget.scalemin = parseFloat($("#scalemin").val()) || 0.0;
+            widget.rescale = $("#rescale").is(':checked');
             widget.scalestep = parseFloat($("#scalestep").val()) || 0.0;
             widget.critmin = parseFloat($("#critmin").val()) || -1;
             widget.critmax = parseFloat($("#critmax").val()) || -1;
@@ -2523,9 +2608,10 @@ function widgetSetup(key)
          'Ok': function () {
             widget.title = $("#title").val();
             widget.unit = $("#unit").val();
-            widget.scalemax = parseFloat($("#factor").val()) || 1.0;
+            // widget.factor = parseFloat($("#factor").val()) || 1.0;
             widget.scalemax = parseFloat($("#scalemax").val()) || 0.0;
             widget.scalemin = parseFloat($("#scalemin").val()) || 0.0;
+            widget.rescale = $("#rescale").is(':checked');
             widget.scalestep = parseFloat($("#scalestep").val()) || 0.0;
             widget.critmin = parseFloat($("#critmin").val()) || -1;
             widget.critmax = parseFloat($("#critmax").val()) || -1;
@@ -2560,8 +2646,8 @@ function widgetSetup(key)
                json[key]["title"] = $("#title").val();
             if ($("#unit").length)
                json[key]["unit"] = $("#unit").val();
-            if ($("#factor").length)
-               json[key]["factor"] = parseFloat($("#factor").val());
+            // if ($("#factor").length)
+            //    json[key]["factor"] = parseFloat($("#factor").val());
             if ($("#scalemax").length)
                json[key]["scalemax"] = parseFloat($("#scalemax").val());
             if ($("#scalemin").length)
@@ -2587,6 +2673,7 @@ function widgetSetup(key)
             json[key]["heightfactor"] = parseFloat($("#heightfactor").val());
             json[key]["range"] = parseFloat($("#range").val());
             json[key]["widgettype"] = parseInt($("#widgettype").val());
+            json[key]["rescale"] = $("#rescale").is(':checked');
             json[key]["showpeak"] = $("#peak").is(':checked');
             json[key]["showvalue"] = $("#showvalue").is(':checked');
             json[key]["linefeed"] = $("#linefeed").is(':checked');

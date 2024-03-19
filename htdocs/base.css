@@ -1367,7 +1367,7 @@ table.tableMultiCol td
     grid-template-areas:
       'title'
       'main';
-    grid-template-rows: 24px auto;
+    grid-template-rows: 15% 85%;
     grid-gap: 1px;
     box-shadow: 1px 1px 1px 0px var(--shadow);
 }
@@ -1396,7 +1396,7 @@ table.tableMultiCol td
       'title'
       'peak'
       'main';
-    grid-template-rows: 24px 20px auto;
+    grid-template-rows: 15% 12% 73%;
     grid-gap: 1px;
     box-shadow: 1px 1px 1px 0px var(--shadow);
 }
@@ -1438,7 +1438,7 @@ table.tableMultiCol td
     grid-template-areas:
       'title'
       'main';
-    grid-template-rows: 24px auto;
+    grid-template-rows: 15% 85%;
     grid-gap: 1px;
     box-shadow: 1px 1px 1px 0px var(--shadow);
 }
@@ -1450,7 +1450,7 @@ table.tableMultiCol td
       'title title'
       'main main'
       'ctrl1 ctrl2';
-    grid-template-rows: 24px auto 20px;
+    grid-template-rows: 15% 73% 12%;
     grid-gap: 1px;
     box-shadow: 1px 1px 1px 0px var(--shadow);
 }
@@ -1462,7 +1462,7 @@ table.tableMultiCol td
       'title title'
       'peak value'
       'chart chart';
-    grid-template-rows: 24px 20px auto;
+    grid-template-rows: 15% 12% 73%;
     grid-template-columns: 50% 50%;
     grid-gap: 1px;
     box-shadow: 1px 1px 1px 0px var(--shadow);
@@ -1597,7 +1597,7 @@ table.tableMultiCol td
     grid-template-areas:
         'title'
         'main';
-    grid-template-rows: 24px auto;
+    grid-template-rows: 15% 85%;
     grid-gap: 1px;
     box-shadow: 1px 1px 1px 0px var(--shadow);
 }
@@ -1609,7 +1609,7 @@ table.tableMultiCol td
         'title title'
         'main peak'
         'main value';
-    grid-template-rows: 24px 20px auto;
+    grid-template-rows: 15% 12% 73%;
     grid-template-columns: 58% 42%;
     grid-gap: 1px;
     box-shadow: 1px 1px 1px 0px var(--shadow);

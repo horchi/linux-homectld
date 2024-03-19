@@ -115,8 +115,7 @@ class VotroCom
       int close();
 
       int request(byte address, byte parameter);
-      int parseResponse(byte buffer[], size_t size);
-      byte calcChecksum(unsigned char buffer[], size_t size);
+      void setSilent(bool s) { silent = s; }
 
       Response* getResponse() { return &response; }
 
@@ -124,10 +123,14 @@ class VotroCom
 
    private:
 
+      byte calcChecksum(unsigned char buffer[], size_t size);
+      int parseResponse(byte buffer[], size_t size);
+
       Response response;
       std::string device;
       Serial serial;
       Sem sem;            // to protect synchronous access to device
+      bool silent {false};
 };
 
 //***************************************************************************
@@ -139,19 +142,19 @@ std::map<VotroCom::DeviceAddress,std::map<VotroCom::Parameter,VotroCom::Paramete
    //   parameter,      title,                 format, factor, unit
    //                                                  or bit
    { daSolar, {
-         { pCurrent,         { "Strom",               ptWord,  10, "A" } },
-         { pBattVoltage,     { "Batterie Spannung",   ptWord, 100, "V" } },
-         { pPanelVoltage,    { "Panel Spannung",      ptWord, 100, "V" } },
-         { pPower,           { "Leistung",            ptWord,  10, "W" } },
-         { pKfzBattVolage,   { "Kfz Batterie",        ptWord, 100, "V" } }
+         { pCurrent,         { "PV Strom",            ptWord,  10, "A" } },
+         { pBattVoltage,     { "Batterie",            ptWord, 100, "V" } },
+         { pPanelVoltage,    { "PV Spannung",         ptWord, 100, "V" } },
+         { pPower,           { "PV Leistung",         ptWord,  10, "W" } },
+         { pKfzBattVolage,   { "KFZ Batterie",        ptWord, 100, "V" } }
       }},
    { daBooster, {
          { pCurrent,         { "Strom ??",            ptWord,  10, "A" } }
       }},
    { daMainsCharger, {
-         { pCurrent04,       { "Strom",               ptWord,  10, "A" } },
-         { pBattVoltage04,   { "Batterie Spannung",   ptWord, 100, "V" } },
-         { pKfzBattVolage04, { "Kfz Batterie",        ptWord, 100, "V" } }
+         { pCurrent04,       { "Netz Strom",          ptWord,  10, "A" } },
+         { pBattVoltage04,   { "Batterie",            ptWord, 100, "V" } },
+         { pKfzBattVolage04, { "KFZ Batterie",        ptWord, 100, "V" } }
       }}
 };
 
@@ -206,7 +209,8 @@ int VotroCom::parseResponse(byte buffer[], size_t size)
        buffer[cbDestination] != daDisplay ||
        buffer[cbCommand] != cReadValue)
    {
-      tell(eloAlways, "Error: Got unexpected response, ignoring");
+      if (!silent)
+         tell(eloAlways, "Error: Got unexpected response, ignoring");
       return fail;
    }
 
@@ -258,12 +262,15 @@ int VotroCom::parseResponse(byte buffer[], size_t size)
 
 int VotroCom::request(byte address, byte parameter)
 {
-   open();
-
    if (!serial.isOpen())
+   {
+      tell(eloAlways, "Error: Can't request, device not open");
       return fail;
+   }
 
    sem.p();
+
+   tell(eloDebug, "Requesting 0x%02x:0x%02x", address, parameter);
 
    unsigned char buffer[10] {};
    size_t contentLen {0};
@@ -296,7 +303,7 @@ int VotroCom::request(byte address, byte parameter)
    byte _response[10] {};
    size_t cnt {0};
 
-   while ((status = serial.look(b, 50)) == success)
+   while ((status = serial.look(b, 500)) == success)
    {
       if (!cnt && b != sStartByte)
       {
@@ -304,30 +311,31 @@ int VotroCom::request(byte address, byte parameter)
          continue;
       }
 
-      if (cnt >= 9)
-         break;
-
       _response[cnt++] = b;
 
-      if (eloquence & eloDetail)
-      {
-         if (!shown)
-         {
-            shown = true;
-            printf("-> '");
-            for (uint i = 0; i < contentLen; ++i)
-               printf("0x%02x,", buffer[i]);
-            printf("'\n");
-         }
+      if (cnt >= 9)
+         break;
+   }
 
-         printf("<- '0x%02x'\n", b);
-         fflush(stdout);
+   if (eloquence & eloDetail)
+   {
+      if (!shown)
+      {
+         shown = true;
+         printf("-> '");
+         for (uint i = 0; i < contentLen; ++i)
+            printf("%s0x%02x", i ? ",": "", buffer[i]);
+         printf("'\n");
       }
+
+      printf("<- '");
+      for (uint i = 0; i < cnt; ++i)
+         printf("%s0x%02x", i ? ",": "", _response[i]);
+      printf("'\n");
+      fflush(stdout);
    }
 
    status = parseResponse(_response, cnt);
-
-   serial.close();
    sem.v();
 
    return status;
@@ -426,6 +434,8 @@ int Votro::update()
    VotroCom com(device.c_str());
    SensorData sensor {};
 
+   com.open();
+
    for (const auto& deviceDef : VotroCom::parameterDefinitions)
    {
       for (const auto& def : deviceDef.second)
@@ -435,13 +445,14 @@ int Votro::update()
          com.request(deviceDef.first, def.first);
          VotroCom::Response* response = com.getResponse();
 
-         // tell(eloAlways, "%s: %.2f %s", def.second.title.c_str(), response->value, def.second.unit.c_str());
+         tell(eloDebug, "%s: %.2f %s", def.second.title.c_str(), response->value, def.second.unit.c_str());
 
          std::string type = "VOTRO" + horchi::to_string(deviceDef.first, 0, true);
          mqttPublish(sensor = {def.first, "value", def.second.title.c_str(), def.second.unit.c_str(), response->value}, type.c_str());
       }
    }
 
+   com.close();
    tell(eloInfo, " ... done");
 
    return done;
@@ -502,7 +513,7 @@ int Votro::mqttConnection()
 // Show
 //***************************************************************************
 
-int showParameter(VotroCom* com, byte address, byte parameter, int factor)
+int showParameter(VotroCom* com, byte address, byte parameter, int factor, bool asCsv)
 {
    com->request(address, parameter);
 
@@ -512,32 +523,52 @@ int showParameter(VotroCom* com, byte address, byte parameter, int factor)
 
    word wValue = (response->valueHight << 8) + response->valueLow;
 
-   tell(eloAlways, "Parameter 0x%02x: byte1 %03d, byte2 %03d, word %d /  '%s' '%s'  (%.2f)",
-        response->parameter, response->valueLow, response->valueHight, wValue,
-        byte1.c_str(), byte2.c_str(),
-        (double)(wValue)/(double)factor);
+   if (asCsv)
+   {
+      tell(eloInfo, "%d,%d,\"%s\",%d,\"%s\",%d,%.2f",
+           response->parameter, response->valueLow, byte1.c_str(),
+           response->valueHight, byte2.c_str(), wValue,
+           (double)(wValue)/(double)factor);
+   }
+   else
+   {
+      if (eloquence & eloInfo)
+         tell(eloInfo, "0x%02x) byte1 %3d (%s), byte2 %3d (%s), word %5d - (%.2f)",
+              response->parameter, response->valueLow, byte1.c_str(),
+              response->valueHight, byte2.c_str(), wValue,
+              (double)(wValue)/(double)factor);
+      else
+         tell(eloAlways, "0x%02x) byte1 %3d, byte2 %3d, word %5d - (%.2f)",
+              response->parameter, response->valueLow, response->valueHight, wValue,
+              (double)(wValue)/(double)factor);
+   }
 
    return success;
 }
 
-int show(const char* device, byte address, int parameter, int factor)
+int show(const char* device, byte address, int parameter, int factor, bool asCsv)
 {
    VotroCom com(device);
+   com.open();
+
+   if (asCsv)
+      tell(eloInfo, "id,byte1,as bin,byte1,as bin,word,value");
 
    if (parameter != na)
    {
       while (!Votro::doShutDown())
       {
-         showParameter(&com, address, parameter, factor);
+         showParameter(&com, address, parameter, factor, asCsv);
          sleep(1);
       }
    }
    else
    {
       for (uint par = 0; par <= 0xff; ++par)
-         showParameter(&com, address, par, factor);
+         showParameter(&com, address, par, factor, asCsv);
    }
 
+   com.close();
    return done;
 }
 
@@ -545,14 +576,21 @@ int show(const char* device, byte address, int parameter, int factor)
 // Detect
 //***************************************************************************
 
-int detect(const char* device, byte parameter)
+int detect(const char* device)
 {
    VotroCom com(device);
 
+   com.setSilent(true);
+   com.open();
+
    for (uint addr = 0x00; addr <= 0xff; ++addr)
-      com.request(addr, parameter);
+   {
+      if (com.request(addr, 0x01) == success)
+         tell(eloAlways, "Device at address 0x%02x is reachable", addr);
+   }
 
    fflush(stdout);
+   com.close();
 
    return success;
 }
@@ -561,7 +599,7 @@ int detect(const char* device, byte parameter)
 // Usage
 //***************************************************************************
 
-void showUsage(const char* bin)
+int showUsage(int ret, const char* bin)
 {
    printf("Usage: %s <command> [-l <log-level>] [-d <device>]\n", bin);
    printf("\n");
@@ -576,7 +614,10 @@ void showUsage(const char* bin)
    printf("     -s <device-addr>     show and exit, if <parameter> is specified the value is displayed in a loop every second\n");
    printf("        [<parameter-id>]   show only <parameter> instead of all 256 possible\n");
    printf("        [<factor>]         calculate with the assumption that it is transferred with this factor\n");
+   printf("     -C                   Output as CSV - only for -s (show)\n");
    printf("     -D <parameter-id>    Try to detect devices\n");
+
+   return ret;
 }
 
 //***************************************************************************
@@ -596,14 +637,14 @@ int main(int argc, char** argv)
    int parameter {na};
    byte address {0x10};
    uint showFactor {1};
+   bool asCsv {false};
+
+   eloquence = eloAlways;
 
    // usage ..
 
    if (argc <= 1 || (argv[1][0] == '?' || (strcmp(argv[1], "-h") == 0) || (strcmp(argv[1], "--help") == 0)))
-   {
-      showUsage(argv[0]);
-      return 0;
-   }
+      return showUsage(0, argv[0]);
 
    for (int i = 1; argv[i]; i++)
    {
@@ -623,16 +664,16 @@ int main(int argc, char** argv)
          case 'd': if (argv[i+1]) device = argv[++i];         break;
          case 's':
             showMode = true;
+            if (argc < 3)
+               return showUsage(1, argv[0]);
             address = strtol(argv[++i], nullptr, 0);
             if (argc > i+1)
                parameter = strtol(argv[++i], nullptr, 0);
             if (argc > i+1)
                showFactor = strtol(argv[++i], nullptr, 0);
             break;
-         case 'D':
-            detectMode = true;
-            parameter = strtol(argv[++i], nullptr, 0);
-         break;
+         case 'C': asCsv = true;                              break;
+         case 'D': detectMode = true;                         break;
          case 'n': nofork = true;                             break;
       }
    }
@@ -640,10 +681,10 @@ int main(int argc, char** argv)
    // do work ...
 
    if (detectMode)
-      return detect(device, parameter);
+      return detect(device);
 
    if (showMode)
-      return show(device, address, parameter, showFactor);
+      return show(device, address, parameter, showFactor, asCsv);
 
    if (_stdout != na)
       logstdout = _stdout;

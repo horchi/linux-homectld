@@ -9,7 +9,7 @@
 #include <signal.h>
 
 #include "lib/common.h"
-#include "lib/serial.h"
+#include "lib/serial.h" 
 #include "lib/json.h"
 #include "lib/mqtt.h"
 
@@ -258,13 +258,15 @@ VotroCom::VotroCom(const char* aDevice, bool aUseSdi)
    {
       // 1000 ?? :o bits per second, 8 bit, no parity and 1 stop bit
 
-      serial = new Serial(B1200);
+      serial = new Serial(0);
+      serial->setSpecialSpeed(1000);
    }
    else // RS485 Interface
    {
       // 19200 bits per second, 8 bit, even parity and 1 stop bit
 
-      serial = new Serial(B19200, CS8 | PARENB);
+      serial = new Serial(0, CS8 | PARENB);
+      serial->setSpecialSpeed(19200);
    }
 }
 

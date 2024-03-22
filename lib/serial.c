@@ -113,18 +113,25 @@ int Serial::open(const char* dev)
 
    if (!ret)
    {
-      newtio.c_cflag &= ~CBAUD;
       if (cflags)
          newtio.c_cflag |= cflags | CLOCAL | CREAD;
       else
          newtio.c_cflag |= CS8 | CLOCAL | CREAD;
-      newtio.c_cflag |= BOTHER;
+
+      if (specialSpeed)
+      {
+         newtio.c_cflag &= ~CBAUD;
+         newtio.c_cflag |= BOTHER;
+         newtio.c_ispeed = specialSpeed;
+         newtio.c_ospeed = specialSpeed;
+      }
+      else
+	 newtio.c_cflag |= baud;
+
       newtio.c_iflag = IGNPAR;  // don't set ICRNL !!
       newtio.c_oflag = 0;
       newtio.c_lflag = 0;       // ICANON - 'disable echo functionality  and don't
                                 //           send signals to the calling prozess'
-      newtio.c_ispeed = baud;
-      newtio.c_ospeed = baud;
 
       ret = ioctl(fdDevice, TCSETS2, &newtio);
 
@@ -135,7 +142,7 @@ int Serial::open(const char* dev)
          return fail;
       }
 
-      tell(eloAlways, "Opening '%s' with %d baud succeeded!", deviceName, baud);
+      tell(eloAlways, "Opening '%s' with %d baud succeeded!", deviceName, specialSpeed);
    }
 #endif
 
@@ -153,7 +160,7 @@ int Serial::close()
 {
    if (fdDevice)
    {
-      tell(eloDebug, "Closing io device");
+      tell(eloAlways, "Closing io device");
 
       flush();
 

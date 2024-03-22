@@ -8,6 +8,8 @@
 
 #pragma once
 
+#define _NEW_TERMIOS
+
 #ifndef _NEW_TERMIOS
 #  include <termios.h>
 #else
@@ -34,11 +36,7 @@ class Serial
          wrnTimeout
       };
 
-#ifndef _NEW_TERMIOS
-      Serial(int aBaud = B57600, int aCflags = 0);
-#else
-      Serial(int aBaud = 57600, int aCflags = 0);
-#endif
+      Serial(int aBaud, int aCflags = 0);
       virtual ~Serial();
 
       // interface
@@ -59,7 +57,8 @@ class Serial
 
       // settings
 
-      virtual void setBaud(int b)               { baud = b; }
+      virtual void setSpecialSpeed(int s)       { specialSpeed = s; }
+      // virtual void setBaud(int b)               { baud = b; }
       virtual void setTimeout(int timeout)      { readTimeout = timeout; }
       virtual void setWriteTimeout(int timeout) { writeTimeout = timeout; }
 
@@ -70,7 +69,8 @@ class Serial
       bool opened {false};
       int readTimeout {10};
       int writeTimeout {10};
-      int baud {57600};
+      int baud {0};
+      int specialSpeed {0};
       int cflags {0};
       char deviceName[100] {};
 

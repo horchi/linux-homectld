@@ -97,7 +97,8 @@ Daemon::ValueTypes Daemon::defaultValueTypes[] =
    { "^WEA",    "Wetter" },
    { "^DHT",    "Wetter" },
    { "^CV",     "Calculated Values" },
-   { "^VIC",    "Victron Inverter" },
+   { "^VIC",    "Victron" },
+   { "^VOTRO",  "Votronic" },
 
    { "",        "" }
 };

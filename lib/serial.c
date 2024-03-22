@@ -7,12 +7,14 @@
 //***************************************************************************
 
 #include <unistd.h>
-#include <errno.h>
-#include <fcntl.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
+
+#include <stdio.h>
+#include <fcntl.h>
+#include <errno.h>
 
 #include "serial.h"
 
@@ -24,7 +26,7 @@ Serial::Serial(int aBaud, int aCflags)
    : baud(aBaud),
      cflags(aCflags)
 {
-   bzero(&oldtio, sizeof(oldtio));
+   // bzero(&oldtio, sizeof(oldtio));
 }
 
 Serial::~Serial()
@@ -38,8 +40,6 @@ Serial::~Serial()
 
 int Serial::open(const char* dev)
 {
-   struct termios newtio;
-
    if (!dev)
       dev = deviceName;
    else
@@ -66,16 +66,15 @@ int Serial::open(const char* dev)
       return fail;
    }
 
-   tell(eloDebug, "Opening '%s' succeeded!", deviceName);
+#ifndef _NEW_TERMIOS
 
-   // configure serial line with 8 data bits, no parity, 1 stop bit
-
-   tcgetattr(fdDevice, &oldtio);
+   struct termios newtio;
+   // tcgetattr(fdDevice, &oldtio);
    bzero(&newtio, sizeof(newtio));
 
    /* BAUDRATE: Set bps rate. You could also use cfsetispeed and cfsetospeed.
       CRTSCTS : output hardware flow control (only used if the cable has
-                all necessary lines. See sect. 7 of Serial-HOWTO)
+      all necessary lines. See sect. 7 of Serial-HOWTO)
       CS8     : 8n1 (8bit,no parity,1 stopbit)
       CLOCAL  : local connection, no modem control
       CREAD   : enable receiving characters  */
@@ -91,7 +90,7 @@ int Serial::open(const char* dev)
    newtio.c_iflag = IGNPAR;  // don't set ICRNL !!
    newtio.c_oflag = 0;
    newtio.c_lflag = 0;       // ICANON - 'disable echo functionality  and don't
-                             //           send signals to the calling prozess'
+   //           send signals to the calling prozess'
 
    if (tcsetattr(fdDevice, TCSANOW, &newtio) < 0)
    {
@@ -103,6 +102,42 @@ int Serial::open(const char* dev)
 
       return fail;
    }
+
+   tell(eloAlways, "Opening '%s' succeeded!", deviceName);
+
+#else
+
+   struct termios2 newtio;
+
+   int ret = ioctl(fdDevice, TCGETS2, &newtio);
+
+   if (!ret)
+   {
+      newtio.c_cflag &= ~CBAUD;
+      if (cflags)
+         newtio.c_cflag |= cflags | CLOCAL | CREAD;
+      else
+         newtio.c_cflag |= CS8 | CLOCAL | CREAD;
+      newtio.c_cflag |= BOTHER;
+      newtio.c_iflag = IGNPAR;  // don't set ICRNL !!
+      newtio.c_oflag = 0;
+      newtio.c_lflag = 0;       // ICANON - 'disable echo functionality  and don't
+                                //           send signals to the calling prozess'
+      newtio.c_ispeed = baud;
+      newtio.c_ospeed = baud;
+
+      ret = ioctl(fdDevice, TCSETS2, &newtio);
+
+      if (ret)
+      {
+         tell(eloAlways, "Error: Failed to set io settings error was '%s'", strerror(errno));
+         close();
+         return fail;
+      }
+
+      tell(eloAlways, "Opening '%s' with %d baud succeeded!", deviceName, baud);
+   }
+#endif
 
    flush();
    opened = yes;
@@ -116,17 +151,16 @@ int Serial::open(const char* dev)
 
 int Serial::close()
 {
-   // restore the old settings and close
-
    if (fdDevice)
    {
       tell(eloDebug, "Closing io device");
 
       flush();
 
-      tcsetattr(fdDevice, TCSANOW, &oldtio);
-      ::close(fdDevice);
+      // restore the old settings and close
+      // tcsetattr(fdDevice, TCSANOW, &oldtio);
 
+      ::close(fdDevice);
       fdDevice = 0;
    }
 
@@ -137,7 +171,12 @@ int Serial::close()
 
 int Serial::flush()
 {
-   tcflush(fdDevice, TCIFLUSH);
+   // tcflush(fdDevice, TCIFLUSH);
+
+   byte b {0};
+
+   while (look(b, 10) == success)
+      ;
 
    return done;
 }

@@ -853,6 +853,7 @@ function showWifiList()
       let rowColor = wifi.active == 'yes' ? 'green' : '';
       let signalColor = parseInt(wifi.signal) >= 50 ? 'lightgreen' : parseInt(wifi.signal) >= 20 ? 'orange' : '';
       let action = wifi.active == 'yes' ? 'Disconnect' : known ? 'Connect' : 'Setup';
+      let btnColor = wifi.active == 'yes' ? 'orange' : known ? 'lightgreen' : 'yellow';
 
       html += '<tr style="height:28px;color:' + rowColor + ';">';
       html += ' <td>' + wifi.network + '</td>';
@@ -860,7 +861,7 @@ function showWifiList()
       html += ' <td>' + wifi.security + '</td>';
       html += ' <td>' + wifi.signal + '</td>';
       html += ' <td style="font-family:monospace;color:' + signalColor + ';">' + wifi.bars + '</td>';
-      html += ' <td>' + '<button class="buttonOptions rounded-border" onclick="wifiAction(\'' + wifi.id + '\')">' + action + '</button>' + '</td>';
+      html += ' <td>' + '<button class="buttonOptions rounded-border" style="color:' + btnColor + ';" onclick="wifiAction(\'' + wifi.id + '\')">' + action + '</button>' + '</td>';
       html += '</tr>';
    }
 
@@ -940,12 +941,14 @@ function showSystemServicesList()
       let svc = systemServices[i];
       let rowColor = svc.status == 'active' ? 'lightgreen' : '';
       let action = svc.status == 'active' ? 'Stop' : 'Start';
+      let btnColor = svc.status == 'active' ? 'orange' : 'lightgreen';
 
       html += '<tr style="height:28px;color:' + rowColor + ';">';
       html += ' <td>' + svc.service + '</td>';
       html += ' <td>' + svc.title + '</td>';
       html += ' <td>' + svc.status + ' / ' + svc.subState + '</td>';
-      html += ' <td>' + '<button class="buttonOptions table rounded-border" onclick="systemServiceAction(\'' + svc.service + '\')">' + action + '</button>' + '</td>';
+      // html += ' <td>' + '<button class="buttonOptions table rounded-border" onclick="systemServiceAction(\'' + svc.service + '\')">' + action + '</button>' + '</td>';
+      html += ' <td>' + '<button class="buttonOptions rounded-border" style="color:' + btnColor + ';" onclick="wifiAction(\'' + svc.service + '\')">' + action + '</button>' + '</td>';
       html += '</tr>';
    }
 

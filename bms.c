@@ -77,6 +77,9 @@ class BmsCom
       BmsCom(const char* aDevice);
       virtual ~BmsCom();
 
+      int open()  { return serial.open(device.c_str()); }
+      int close() { return serial.close(); }
+
       int requestState(BatteryState& state);
       int requestCellVoltage(BatteryState& state);
 
@@ -210,20 +213,14 @@ int BmsCom::requestCellVoltage(BatteryState& state)
 
    for (uint i = 0; i < maxTries; i++)
    {
-      serial.open(device.c_str());
-
       if ((status = request(cCellVoltage)) == success)
          break;
 
-      serial.close();
       tell(eloDetail, "retrying #%d ..", i);
    }
 
    if (status != success)
-   {
-      serial.close();
       return fail;
-   }
 
    sword w {0};
 
@@ -241,8 +238,6 @@ int BmsCom::requestState(BatteryState& state)
    const uint maxTries {20};
    int status {success};
 
-   serial.open(device.c_str());
-
    for (uint i = 0; i < maxTries; i++)
    {
       if ((status = request(cState)) == success)
@@ -252,10 +247,7 @@ int BmsCom::requestState(BatteryState& state)
    }
 
    if (status != success)
-   {
-      serial.close();
       return fail;
-   }
 
    byte b {0};
    sword w {0};
@@ -315,7 +307,6 @@ int BmsCom::finish()
    serial.readWord(w);          // checksum
    serial.readByte(b);          // end byte
    payloadSize = 0;
-   serial.close();
 
    return success;
 }
@@ -410,6 +401,7 @@ int Bms::update()
    if (mqttConnection() != success)
       return fail;
 
+   bmsCom.open();
    BmsCom::BatteryState state;
 
    if (bmsCom.requestState(state) != success)
@@ -453,6 +445,7 @@ int Bms::update()
    mqttPublish(sensor = {0x0E, "text", "Cell State", "", 0.0, text});
 
    tell(eloInfo, " ... done");
+   bmsCom.close();
 
    return done;
 }
@@ -516,6 +509,7 @@ int show(const char* device)
 {
    BmsCom bms(device);
    BmsCom::BatteryState state;
+   bms.open();
 
    if (bms.requestState(state) != success)
       return fail;
@@ -553,6 +547,8 @@ int show(const char* device)
       for (const auto& v : state.cellVoltages)
          tell(eloAlways, " Zelle %d: %d mV", v.first, v.second);
    }
+
+   bms.close();
 
    return success;
 }
@@ -605,7 +601,7 @@ int main(int argc, char** argv)
 
       switch (argv[i][1])
       {
-         case 'l': if (argv[i+1]) eloquence = (Eloquence)atoi(argv[++i]); break;
+         case 'l': if (argv[i+1]) eloquence = (Eloquence)strtol(argv[++i], nullptr, 0); break;
          case 'u': mqttUrl = argv[i+1];                       break;
          case 'i': if (argv[i+1]) interval = atoi(argv[++i]); break;
          case 'T': if (argv[i+1]) mqttTopic = argv[i+1];      break;
@@ -665,3 +661,4 @@ int main(int argc, char** argv)
 
    return 0;
 }
+

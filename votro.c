@@ -327,9 +327,9 @@ int VotroCom::parseSimpleResponse(byte buffer[], size_t size)
 {
    // actually only the Solar Charger is implemented
 
-   if (buffer[bsStart] != sStartByte || buffer[bsDeviceId] != saSolarCharger)
+   if (buffer[bsDeviceId] != saSolarCharger)
    {
-      if (!silent) tell(eloAlways, "Error: Got unexpected response, ignoring");
+      if (!silent) tell(eloAlways, "Error: Got unexpected device id, ignoring");
       return fail;
    }
 

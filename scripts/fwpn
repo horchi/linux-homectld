@@ -2,7 +2,7 @@
 #
 # used tools
 
-IPTABLES="/sbin/iptables"
+IPTABLES="/usr/sbin/iptables"
 INSMOD="/sbin/modprobe"
 LSMOD="/sbin/lsmod"
 RMMOD="/sbin/rmmod"
@@ -16,12 +16,12 @@ IPT_MODLIST_REV="ipt_MASQUERADE iptable_nat ipt_state ip_conntrack_irc ip_conntr
 
 PN_FILTER="pnfilter"		         # Our firewall filter chain
 
-#MSQ_DEV="wlan0"                         # Interface to outside DSL
-MSQ_DEV="wlan0"                         # Interface to outside DSL
-#MSQ_DEV="usb0"                          # Interface to outside DSL
-INTRA_IF="eth0"                          # Internes Interface
+#MSQ_DEV="wlan0"                 # Interface to outside DSL
+MSQ_DEV="wlan0"                  # Interface to outside DSL
+#MSQ_DEV="usb0"                  # Interface to outside DSL
+INTRA_IF="eth0"                  # Internes Interface
 
-INTRA_SUBNET="192.168.230.0/24"  # Internes Netz
+INTRA_SUBNET="192.168.220.0/24"  # Internes Netz
 ANY="0.0.0.0/0"                  # Any IP
 
 DEFAULT_POL="DROP"               # Default policy for incoming connections
@@ -121,6 +121,10 @@ case "$1" in
 	     $IPTABLES -A $PN_FILTER -p TCP --dport socks -j $IRCCHK_POL
 	     $IPTABLES -A $PN_FILTER -p TCP --dport 8080 -j $IRCCHK_POL
 	     $IPTABLES -A $PN_FILTER -p TCP --dport 3128 -j $IRCCHK_POL
+
+        # DHCP aus dem internen Netz(en) erlauben
+
+        $IPTABLES -A $PN_FILTER -j ACCEPT -i $INTRA_IF -m state --state NEW,ESTABLISHED -p udp --sport 68 -d 255.255.255.255/32 --dport 67
 
 	     # Alle berechtigten Pakete sind nun behandelt,
 	     # verbleibende nun [nach logging] verwerfen:

@@ -28,7 +28,7 @@
 bool Daemon::shutdown {false};
 
 //***************************************************************************
-// Widgets
+// Widgetsactual time
 //***************************************************************************
 
 const char* Daemon::widgetTypes[] =
@@ -125,7 +125,6 @@ Daemon::DefaultWidgetProperty Daemon::defaultWidgetProperties[] =
 
    { "-",        na,   "*",      wtMeter,        0,        45,      10, false },
    { "SPACER",   na,   "*",      wtSpace,        0,         0,       0, false },
-   { "TIME",     na, "txt",  wtPlainText,        0,         0,       0, true },
    { "DO",       na,   "*",     wtSymbol,        0,         0,       0, false },
    { "DI",       na,   "*",     wtSymbol,        0,         0,       0, false },
    { "AO",       na,   "*",      wtMeter,        0,        45,      10, false },
@@ -538,6 +537,7 @@ int Daemon::init()
    }
 
    addValueFact(1, "CV", 1, "Calc Sensor 1", "", "");
+   addValueFact(2, "WEA", 1, "Windy App", "", "");
 
    initialized = true;
 

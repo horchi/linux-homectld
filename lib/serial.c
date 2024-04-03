@@ -72,9 +72,9 @@ int Serial::open(const char* dev)
    // tcgetattr(fdDevice, &oldtio);
    bzero(&newtio, sizeof(newtio));
 
-   /* BAUDRATE: Set bps rate. You could also use cfsetispeed and cfsetospeed.
+   /* BAUDRATE: Set bps rate.
       CRTSCTS : output hardware flow control (only used if the cable has
-      all necessary lines. See sect. 7 of Serial-HOWTO)
+                all necessary lines. See sect. 7 of Serial-HOWTO)
       CS8     : 8n1 (8bit,no parity,1 stopbit)
       CLOCAL  : local connection, no modem control
       CREAD   : enable receiving characters  */
@@ -90,7 +90,7 @@ int Serial::open(const char* dev)
    newtio.c_iflag = IGNPAR;  // don't set ICRNL !!
    newtio.c_oflag = 0;
    newtio.c_lflag = 0;       // ICANON - 'disable echo functionality  and don't
-   //           send signals to the calling prozess'
+                             //           send signals to the calling prozess'
 
    if (tcsetattr(fdDevice, TCSANOW, &newtio) < 0)
    {
@@ -109,24 +109,26 @@ int Serial::open(const char* dev)
 
    struct termios2 newtio;
 
-   int ret = ioctl(fdDevice, TCGETS2, &newtio);
+   int ret {success};
+   bzero(&newtio, sizeof(newtio));
 
    if (!ret)
    {
       if (cflags)
-         newtio.c_cflag |= cflags | CLOCAL | CREAD;
+         newtio.c_cflag = cflags | CLOCAL | CREAD;
       else
-         newtio.c_cflag |= CS8 | CLOCAL | CREAD;
+         newtio.c_cflag = CS8 | CLOCAL | CREAD;
 
       if (specialSpeed)
       {
-         newtio.c_cflag &= ~CBAUD;
          newtio.c_cflag |= BOTHER;
          newtio.c_ispeed = specialSpeed;
          newtio.c_ospeed = specialSpeed;
       }
       else
-	 newtio.c_cflag |= baud;
+      {
+         newtio.c_cflag |= baud;
+      }
 
       newtio.c_iflag = IGNPAR;  // don't set ICRNL !!
       newtio.c_oflag = 0;
@@ -142,8 +144,12 @@ int Serial::open(const char* dev)
          return fail;
       }
 
-      tell(eloAlways, "Opening '%s' with %d baud succeeded!", deviceName, specialSpeed);
+      if (specialSpeed)
+         tell(eloAlways, "Opening '%s' with %d baud succeeded!", deviceName, specialSpeed);
+      else
+         tell(eloAlways, "Opening '%s' succeeded!", deviceName);
    }
+
 #endif
 
    flush();

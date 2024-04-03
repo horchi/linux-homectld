@@ -1,10 +1,10 @@
 
 # General
 
+- store dnsmasq.d/womo.conf
 - bluetooth for Mopeka-Pro
-- auto-scaling for meter widgets
 
-- io/setup Skripe auch auf der Platte löschen
+- io/setup Skripe auch auf der Platte löschen?
 - add write of victron registers to WEBIF
 - warn or hold unsaved values of io/settings on opening sensors config dialog
 - hide widgets on condition like value < x, > y oder text is 'none', ...
@@ -13,10 +13,12 @@
 - scaling for charts and chart widgets
 - add enable/disable to systemd interface?
 
+- config option for valuefact rights (digital outputs, ..)
+
+# Notes
+
 - apply IO settings without restart (initInput / initOutput)
     -> done (exept interrupt routine, resting interrupt routine crashes)
-
-- config option for valuefact rights (digital outputs, ..)
 
 # Pool
 

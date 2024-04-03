@@ -32,6 +32,7 @@ class Victron
 
       static void downF(int aSignal) { shutdown = true; }
       bool doShutDown() { return shutdown; }
+      int show();
 
    protected:
 
@@ -62,6 +63,7 @@ class Victron
       int interval {60};
       std::string sensorType;
       bool structuredJson {true};
+      Sem sem;            // to protect synchronous access to device
 
       static bool shutdown;
 };
@@ -75,7 +77,8 @@ Victron::Victron(const char* aDevice, const char* aMqttUrl, const char* aMqttTop
      mqttTopicIn(aMqttTopic),
      mqttTopicOut(aMqttTopic),
      interval(aInterval),
-     sensorType(aSensorType)
+     sensorType(aSensorType),
+     sem(0x4da00002)
 {
    mqttTopicIn += "/in";
    mqttTopicOut += "/out";
@@ -95,12 +98,14 @@ int Victron::init()
    if (serial.open(device.c_str()))
       return fail;
 
-   tell(eloAlways, "Opened serial device '%s'", device.c_str());
+   // tell(eloAlways, "Opened serial device '%s'", device.c_str());
 
-   mqttConnection();
+   if (!isEmpty(mqttUrl))
+      mqttConnection();
 
    // read some data just to do it
 
+   // SemLock lock(&sem);
    serial.sendPing();
 
    return success;
@@ -243,6 +248,8 @@ int Victron::updateSettings(bool force)
    double value {0};
    std::string text;
 
+   // SemLock lock(&sem);
+
    serial.readRegister(VeService::regVoltageRangeMin, value);
    text += VeService::toPretty(VeService::regVoltageRangeMin, value) + "\n";
    serial.readRegister(VeService::regVoltageRangeMax, value);
@@ -289,6 +296,8 @@ int Victron::dispatchMqttMessage(const char* message)
 
    if (strncmp(type, "VIC", 3) != 0)
       return done;
+
+   // SemLock lock(&sem);
 
    if (action == "init")
    {
@@ -349,6 +358,49 @@ int Victron::readVeData()
    }
 
    return fail;
+}
+
+//***************************************************************************
+// Show
+//***************************************************************************
+
+int Victron::show()
+{
+   // SemLock lock(&sem);
+
+   if (readVeData() != success)
+   {
+      tell(eloInfo, ".. failed");
+      return fail;
+   }
+
+   for (int i = 0; i < myve.veEnd; i++)
+   {
+      if (isEmpty(myve.veName[i]) || isEmpty(myve.veValue[i]))
+         continue;
+
+      const auto itDef = vePrettyData.find(myve.veName[i]);
+
+      if (itDef == vePrettyData.end())
+      {
+         tell(eloAlways, "Info: No definition for '%s' found", myve.veName[i]);
+         continue;
+      }
+
+      int intValue = strtoll(myve.veValue[i], nullptr, 0);
+      std::string strValue;
+
+      if (lookupSpecialValue(itDef->first, intValue, strValue) == success)
+         tell(eloAlways, "%s: %s", itDef->second.title.c_str(), strValue.c_str());
+      else if (itDef->second.format == vtReal)
+         tell(eloAlways, "%s: %0.2f", itDef->second.title.c_str(), (int)((atof(myve.veValue[i]) / itDef->second.factor) * 100 + 0.5) / 100.0);
+      else if (itDef->second.format == vtInt)
+         tell(eloAlways, "%s: %d", itDef->second.title.c_str(), intValue);
+      else
+         tell(eloAlways, "%s: %s", itDef->second.title.c_str(), myve.veValue[i]);
+   }
+
+   return success;
 }
 
 //***************************************************************************
@@ -544,6 +596,28 @@ int Victron::lookupSpecialValue(std::string name, int value, std::string& result
 }
 
 //***************************************************************************
+// Show
+//***************************************************************************
+
+int show(const char* device)
+{
+   Victron* job = new Victron(device, "", "", 5, "");
+
+   if (job->init() != success)
+   {
+      printf("Initialization failed, see syslog for details\n");
+      delete job;
+      return fail;
+   }
+
+   job->show();
+
+   delete job;
+
+   return done;
+}
+
+//***************************************************************************
 // Usage
 //***************************************************************************
 
@@ -577,6 +651,7 @@ int main(int argc, char** argv)
    const char* device {"/dev/ttyVictron"};
    int interval {10};
    const char* sensorType {"VIC"};
+   bool showMode {false};
 
    // usage ..
 
@@ -601,8 +676,12 @@ int main(int argc, char** argv)
          case 'd': if (argv[i+1]) device = argv[++i];         break;
          case 'n': nofork = true;                             break;
          case 'I': if (argv[i+1]) sensorType = argv[++i];     break;
+         case 's': showMode = true;                           break;
       }
    }
+
+   if (showMode)
+      return show(device);
 
    // do work ...
 

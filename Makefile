@@ -168,9 +168,12 @@ install-scripts:
 		mkdir -p "$(BINDEST)" \
 	   chmod a+rx $(BINDEST); \
 	fi
-	for f in ./scripts/*.sh ./scripts/fwpn; do \
+	for f in ./scripts/*.sh; do \
 		cp -v "$$f" $(BINDEST)/`basename "$$f"`; \
 	done
+	if ! test -f $(BINDEST)/fwpn; then \
+	   cp  ./scripts/fwpn $(DESTDIR)/; \
+	fi
 
 iw: install-web
 

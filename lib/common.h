@@ -53,7 +53,7 @@
 
 class MemoryStruct;
 
-typedef unsigned char byte;
+typedef uint8_t byte;
 typedef unsigned short word;
 typedef short sword;
 typedef unsigned int dword;
@@ -718,4 +718,16 @@ class Sem
       int key {0};
       int id {0};
       bool locked {false};
+};
+
+class SemLock
+{
+   public:
+
+      SemLock(Sem* aSem) : sem(aSem) { sem->p(); }
+      ~SemLock() { sem->v(); }
+
+   private:
+
+      Sem* sem {};
 };

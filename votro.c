@@ -9,7 +9,7 @@
 #include <signal.h>
 
 #include "lib/common.h"
-#include "lib/serial.h" 
+#include "lib/serial.h"
 #include "lib/json.h"
 #include "lib/mqtt.h"
 
@@ -117,14 +117,14 @@ class VotroCom
 
       enum BytesSolar
       {
-         bsStart = 0x00,
-         bsDeviceId,
-         bsBattVolotageLsb,
-         bsBattVolotageMsb,
-         bsSolarVolotageLsb,
-         bsSolarVolotageMsb,
-         bsSolarCurrentLsb,
-         bsSolarCurrentMsb,
+         // bsStart = 0x00,
+         bsDeviceId = 0x00,   // 1
+         bsBattVolotageLsb,   // 2
+         bsBattVolotageMsb,   // 3
+         bsSolarVolotageLsb,  // 4
+         bsSolarVolotageMsb,  // 5
+         bsSolarCurrentLsb,   // 6
+         bsSolarCurrentMsb,   // 7
          bsUnknown1,
          bsUnknown2,
          bsUnknown3,
@@ -170,7 +170,7 @@ class VotroCom
 
       struct ResponseSimpleInterface
       {
-         byte deviceId {0x00};
+         uint8_t deviceId {0x00};
          double battVoltage {0.0};
          double solarVoltage {0.0};
          double solarCurrent {0.0};
@@ -183,15 +183,18 @@ class VotroCom
          byte unknown3 {0};
          byte unknown4 {0};
          byte unknown5 {0};
+         double v {0.0};
       };
 
       //
 
-      VotroCom(const char* aDevice, bool aUseSdi = false);
+      VotroCom(const char* aDevice, uint baud = 0, bool aUseSdi = false);
       ~VotroCom() { close(); }
 
       int open();
       int close();
+
+      void setSpecialSpeed(int b) { serial->setSpecialSpeed(b); }
 
       int request(byte address, byte parameter);
       void setSilent(bool s) { silent = s; }
@@ -207,8 +210,8 @@ class VotroCom
       byte calcRs485Checksum(unsigned char buffer[], size_t size);
       int parseRs485Response(byte buffer[], size_t size);
 
-      int parseSimpleResponse(byte buffer[], size_t size);
-      byte calcSimpleChecksum(unsigned char buffer[], size_t size);
+      int parseSimpleResponse(uint8_t buffer[], size_t size);
+      uint8_t calcSimpleChecksum(unsigned char buffer[], size_t size);
 
       ResponseRs485 rs485Response;
       ResponseSimpleInterface simpleInterfaceResponse;
@@ -216,6 +219,7 @@ class VotroCom
       std::string device;
       Serial* serial {};
       Sem sem;            // to protect synchronous access to device
+      uint baud {0};
       bool useSdi {false};
       bool silent {false};
 };
@@ -249,21 +253,28 @@ std::map<VotroCom::DeviceAddress,std::map<VotroCom::Parameter,VotroCom::Paramete
 // VotroCom
 //***************************************************************************
 
-VotroCom::VotroCom(const char* aDevice, bool aUseSdi)
+VotroCom::VotroCom(const char* aDevice, uint aBaud, bool aUseSdi)
    : device(aDevice),
      sem(0x4da00001),
+     baud(aBaud),
      useSdi(aUseSdi)
 {
    if (useSdi)
    {
       // 1000 ?? :o bits per second, 8 bit, no parity and 1 stop bit
 
+      if (!baud)
+         baud = 1000;
+
       serial = new Serial(0);
-      serial->setSpecialSpeed(1000);
+      serial->setSpecialSpeed(baud);
    }
    else // RS485 Interface
    {
       // 19200 bits per second, 8 bit, even parity and 1 stop bit
+
+      if (!baud)
+         baud = 19200;
 
       serial = new Serial(0, CS8 | PARENB);
       serial->setSpecialSpeed(19200);
@@ -285,35 +296,36 @@ int VotroCom::close()
 }
 
 //***************************************************************************
-// Read Simple - for the simple serial display interface
+// Read Simple - for the 'simple' serial display interface
 //  - reads one data packet
 //***************************************************************************
 
 int VotroCom::readSimple()
 {
    int status {success};
-   byte b {0};
-   byte buffer[20] {};
-   size_t cnt {0};
+   uint8_t b {0};
 
-   sem.p();
+   SemLock lock(&sem);
 
-   while ((status = serial->look(b, 500)) == success)
+   while ((status = serial->look(b, 100)) == success)
    {
-      if (!cnt && b != sStartByte)  // same start byte as for RS485
-      {
-         tell(eloAlways, "Skipping unexpected start byte 0x%02x", b);
-         continue;
-      }
-
-      buffer[cnt++] = b;
-
-      if (cnt >= 16)
+      if (b == sStartByte)  // same start byte as for RS485
          break;
+
+      tell(eloDebug, "Skipping unexpected byte 0x%02x at start", b);
    }
 
-   status = parseSimpleResponse(buffer, cnt);
-   sem.v();
+   uint8_t buffer[20] {};
+
+   if (b != sStartByte || serial->read(buffer, 15) != 15)
+   {
+      tell(eloAlways, "Error: Reading packet failed, skipping, start byte was 0x%02x", b);
+      status = fail;
+   }
+   else
+   {
+      status = parseSimpleResponse(buffer, 15);
+   }
 
    return status;
 }
@@ -323,7 +335,7 @@ int VotroCom::readSimple()
 //  - for the simple serial display interface
 //***************************************************************************
 
-int VotroCom::parseSimpleResponse(byte buffer[], size_t size)
+int VotroCom::parseSimpleResponse(uint8_t buffer[], size_t size)
 {
    // actually only the Solar Charger is implemented
 
@@ -333,18 +345,23 @@ int VotroCom::parseSimpleResponse(byte buffer[], size_t size)
       return fail;
    }
 
-   byte checksum = calcSimpleChecksum(buffer, size-1);
+   uint8_t checksum = calcSimpleChecksum(buffer, size-1);
 
    if (checksum != buffer[bsChecksum])
-      tell(eloAlways, "Warning: Checksum failure in received packet");
+      tell(eloAlways, "Warning: Checksum failure in received packet (%zu) [0x%02x/0x%02x]", size, checksum, buffer[bsChecksum]);
+   else
+      tell(eloAlways, "Checksum MATCH !!! at %d baud", baud);
 
    simpleInterfaceResponse.deviceId = buffer[bsDeviceId];
    simpleInterfaceResponse.battVoltage = (buffer[bsBattVolotageMsb] << 8) + buffer[bsBattVolotageLsb];
-   simpleInterfaceResponse.battVoltage /= 100;
+   simpleInterfaceResponse.battVoltage /= 100.0;
    simpleInterfaceResponse.solarVoltage = (buffer[bsSolarVolotageMsb] << 8) + buffer[bsSolarVolotageLsb];
-   simpleInterfaceResponse.solarVoltage /= 100;
+   simpleInterfaceResponse.solarVoltage /= 100.0;
    simpleInterfaceResponse.solarCurrent = (buffer[bsSolarCurrentMsb] << 8) + buffer[bsSolarCurrentLsb];
-   simpleInterfaceResponse.solarCurrent /= 10;
+   simpleInterfaceResponse.solarCurrent /= 20.0;
+
+   simpleInterfaceResponse.v = (buffer[bsUnknown5] << 8) + buffer[bsUnknown4];
+   simpleInterfaceResponse.v /= 100;
 
    switch (buffer[bsBattStatus] & 0x0F)
    {
@@ -371,12 +388,15 @@ int VotroCom::parseSimpleResponse(byte buffer[], size_t size)
 // Calc Checksum for the Simple Serial Interface
 //***************************************************************************
 
-byte VotroCom::calcSimpleChecksum(unsigned char buffer[], size_t size)
+uint8_t VotroCom::calcSimpleChecksum(unsigned char buffer[], size_t size)
 {
-   byte checksum {0x00};
+   uint8_t checksum {0x00};
 
    for (uint i = 0; i < size; ++i)
+   {
       checksum ^= buffer[i];
+      tell(eloDebug, "byte %d) 0x%02x", i+1, buffer[i]);
+   }
 
    return checksum;
 }
@@ -465,7 +485,7 @@ int VotroCom::request(byte address, byte parameter)
       return fail;
    }
 
-   sem.p();
+   SemLock lock(&sem);
 
    tell(eloDebug, "Requesting 0x%02x:0x%02x", address, parameter);
 
@@ -488,7 +508,6 @@ int VotroCom::request(byte address, byte parameter)
    if ((status = serial->write(buffer, contentLen)) != success)
    {
       tell(eloAlways, "Writing request failed, state was %d", status);
-      sem.v();
       return status;
    }
 
@@ -533,7 +552,6 @@ int VotroCom::request(byte address, byte parameter)
    }
 
    status = parseRs485Response(_response, cnt);
-   sem.v();
 
    return status;
 }
@@ -556,7 +574,7 @@ class Votro
          std::string text;
       };
 
-      Votro(const char* aDevice, const char* aMqttUrl, const char* aMqttTopic, int aInterval = 60, bool aUseSdi = false);
+      Votro(const char* aDevice, const char* aMqttUrl, const char* aMqttTopic, int aInterval = 60, uint aBaud = 0, bool aUseSdi = false);
       virtual ~Votro();
 
       static void downF(int aSignal) { shutdown = true; }
@@ -577,6 +595,7 @@ class Votro
       Mqtt* mqttWriter {};
       std::string mqttTopic;
       int interval {60};
+      uint baud {0};
       bool useSdi {false};
 
       static bool shutdown;
@@ -588,11 +607,12 @@ class Votro
 
 bool Votro::shutdown {false};
 
-Votro::Votro(const char* aDevice, const char* aMqttUrl, const char* aMqttTopic, int aInterval, bool aUseSdi)
+Votro::Votro(const char* aDevice, const char* aMqttUrl, const char* aMqttTopic, int aInterval, uint aBaud, bool aUseSdi)
    : device(aDevice),
      mqttUrl(aMqttUrl),
      mqttTopic(aMqttTopic),
      interval(aInterval),
+     baud(aBaud),
      useSdi(aUseSdi)
 {
 }
@@ -630,7 +650,7 @@ int Votro::update()
    if (mqttConnection() != success)
       return fail;
 
-   VotroCom com(device.c_str(), useSdi);
+   VotroCom com(device.c_str(), baud, useSdi);
    SensorData sensor {};
 
    com.open();
@@ -642,13 +662,13 @@ int Votro::update()
          VotroCom::ResponseSimpleInterface* response = com.getSimpleInterfaceResponse();
          std::string type = "VOTRO" + horchi::to_string(response->deviceId, 0, true);
 
-         mqttPublish(sensor = {response->deviceId, "value", "Batterie", "V", response->battVoltage}, type.c_str());
-         mqttPublish(sensor = {response->deviceId, "value", "PV Spannung", "V", response->solarVoltage}, type.c_str());
-         mqttPublish(sensor = {response->deviceId, "value", "PV Strom", "V", response->solarCurrent}, type.c_str());
-         mqttPublish(sensor = {response->deviceId, "text", "Battery Status", "", 0, response->battStatus}, type.c_str());
-         mqttPublish(sensor = {response->deviceId, "status", "PV Active", "", (double)response->solarActive}, type.c_str());
-         mqttPublish(sensor = {response->deviceId, "status", "PV Protection", "", (double)response->solarProtection}, type.c_str());
-         mqttPublish(sensor = {response->deviceId, "status", "PV AES", "", (double)response->solarAES}, type.c_str());
+         mqttPublish(sensor = {0, "value", "Batterie", "V", response->battVoltage}, type.c_str());
+         mqttPublish(sensor = {1, "value", "PV Spannung", "V", response->solarVoltage}, type.c_str());
+         mqttPublish(sensor = {2, "value", "PV Strom", "V", response->solarCurrent}, type.c_str());
+         mqttPublish(sensor = {3, "text", "Battery Status", "", 0, response->battStatus}, type.c_str());
+         mqttPublish(sensor = {4, "status", "PV Active", "", (double)response->solarActive}, type.c_str());
+         mqttPublish(sensor = {5, "status", "PV Protection", "", (double)response->solarProtection}, type.c_str());
+         mqttPublish(sensor = {6, "status", "PV AES", "", (double)response->solarAES}, type.c_str());
       }
    }
    else
@@ -766,9 +786,9 @@ int showParameter(VotroCom* com, byte address, byte parameter, int factor, bool 
    return success;
 }
 
-int show(const char* device, byte address, int parameter, int factor, bool asCsv)
+int show(const char* device, byte address, int parameter, int factor, uint baud, bool asCsv)
 {
-   VotroCom com(device, false);
+   VotroCom com(device, baud, false);
    com.open();
 
    if (asCsv)
@@ -798,9 +818,10 @@ int show(const char* device, byte address, int parameter, int factor, bool asCsv
 //   - show data of Simple Serial Display Interface
 //***************************************************************************
 
-int showSimple(const char* device)
+int showSimple(const char* device, uint baud)
 {
-   VotroCom com(device, true);
+   VotroCom com(device, baud, true);
+
    com.open();
 
    while (!Votro::doShutDown())
@@ -816,6 +837,13 @@ int showSimple(const char* device)
          tell(eloAlways, "solarActive: %s", response->solarActive ? "yes" : "no");
          tell(eloAlways, "solarProtection: %s", response->solarProtection ? "yes" : "no");
          tell(eloAlways, "solarAES: %s", response->solarAES ? "yes" : "no");
+
+         //  tell(eloAlways, "unkown: %.2f V", response->v);
+
+         // com.close();
+         // baud += 5;
+         // com.setSpecialSpeed(baud);
+         // com.open();
       }
       else
       {
@@ -834,9 +862,9 @@ int showSimple(const char* device)
 // Detect
 //***************************************************************************
 
-int detect(const char* device)
+int detect(const char* device, uint baud)
 {
-   VotroCom com(device, false);
+   VotroCom com(device, baud, false);
 
    com.setSilent(true);
    com.open();
@@ -903,6 +931,7 @@ int main(int argc, char** argv)
    uint showFactor {1};
    bool asCsv {false};
    bool useSdi {false};
+   uint baud {0};
 
    eloquence = eloAlways;
 
@@ -924,6 +953,7 @@ int main(int argc, char** argv)
             break;
          case 'u': mqttUrl = argv[i+1];                       break;
          case 'i': if (argv[i+1]) interval = atoi(argv[++i]); break;
+         case 'b': baud = atoi(argv[i+1]);                    break;
          case 'T': if (argv[i+1]) mqttTopic = argv[i+1];      break;
          case 't': _stdout = yes;                             break;
          case 'd': if (argv[i+1]) device = argv[++i];         break;
@@ -949,14 +979,14 @@ int main(int argc, char** argv)
    // do work ...
 
    if (detectMode)
-      return detect(device);
+      return detect(device, baud);
 
    if (showMode)
    {
       if (useSdi)
-         return showSimple(device);
+         return showSimple(device, baud);
       else
-         return show(device, address, parameter, showFactor, asCsv);
+         return show(device, address, parameter, showFactor, baud, asCsv);
    }
 
    if (_stdout != na)
@@ -964,7 +994,7 @@ int main(int argc, char** argv)
    else
       logstdout = false;
 
-   Votro* job = new Votro(device, mqttUrl, mqttTopic, interval, useSdi);
+   Votro* job = new Votro(device, mqttUrl, mqttTopic, interval, baud, useSdi);
 
    if (job->init() != success)
    {

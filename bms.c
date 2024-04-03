@@ -124,6 +124,7 @@ BmsCom::BmsCom(const char* aDevice)
    : serial(B9600),
      device(aDevice)
 {
+   // serial.setSpecialSpeed(9600);
 }
 
 BmsCom::~BmsCom()
@@ -661,4 +662,3 @@ int main(int argc, char** argv)
 
    return 0;
 }
-

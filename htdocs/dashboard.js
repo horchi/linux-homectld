@@ -297,8 +297,6 @@ function initWidget(key, widget, fact)
    var id = 'div_' + key;
    var elem = document.getElementById(id);
 
-   // var eHeight = 0;
-
    if (elem == null) {
       elem = document.createElement("div");
       root.appendChild(elem);
@@ -307,10 +305,6 @@ function initWidget(key, widget, fact)
       if (layout == 'flex') {
          let style = getComputedStyle(document.documentElement);
          let widgetHeightBase = style.getPropertyValue('--widgetHeightBase') * 2;
-
-         //if (!widgetHeightBase)
-         //   widgetHeightBase = elem.clientHeight;
-         // eHeight = $(elem).outerHeight();
 
          eHeight = widgetHeightBase;
 
@@ -325,8 +319,8 @@ function initWidget(key, widget, fact)
 
          // widget.heightfactor für widget spezifische Höhen
          //    -> to be implementen (nur vorbereitet)
-         // if (widget.heightfactor != null && widget.heightfactor != 1)
-         //            eHeight = eHeight * widget.heightfactor + ((widget.heightfactor-1) * marginPadding);
+         if (widget.heightfactor != null && widget.heightfactor != 1)
+            eHeight = eHeight * widget.heightfactor + ((widget.heightfactor-1) * marginPadding);
 
          elem.style.height = eHeight + 'px';
       }
@@ -354,7 +348,7 @@ function initWidget(key, widget, fact)
       if (widget.widthfactor != null)
          elem.style.width = widgetWidthBase * widget.widthfactor + ((widget.widthfactor-3) * marginPadding) + 'px';
       else
-         elem.style.width = widgetWidthBase;
+         elem.style.width = widgetWidthBase + 'px';
    }
 
    if (setupMode && (widget.widgettype < 900 || widget.widgettype == null)) {
@@ -628,7 +622,7 @@ function initWidget(key, widget, fact)
                         .css('user-select', 'none')
                         .css('color', widget.color)
                         .css('height', 'inherit')
-                        .click(function() { if (wFact.type == 'WEA') weatherForecast(); }));
+                        .click(function() { if (wFact.type == 'WEA' && wFact.address == 1) weatherForecast(); }));
          break;
       }
 
@@ -916,7 +910,7 @@ function initMeter(key, widget, fact, neededScaleMax)
       fontValueWeight: 'bold',
       valueBox: radial,
       valueInt: 0,
-      valueDec: 2,
+      valueDec: widget.unit == '%' ? 0 : 2,
       colorValueText: colorStyle.getPropertyValue('--scale'),
       colorValueBoxBackground: 'transparent',
       valueBoxStroke: 0,
@@ -1356,6 +1350,9 @@ function updateWidget(sensor, refresh, widget)
       sensor.valid = true;
    }
 
+   if (sensor.type == 'WEA' && sensor.address == 2) // Windy App
+      sensor.valid = true;
+
    widgetDiv.css('opacity', sensor.valid ? '100%' : '45%');
    // $('#div_' + key.replace(':', '\\:')).css('opacity', sensor.valid ? '100%' : '25%');
 
@@ -1393,8 +1390,8 @@ function updateWidget(sensor, refresh, widget)
          $("#button" + fact.type + fact.address).addClass('widget-main');
          $("#button" + fact.type + fact.address).addClass(classes);
 
-         // var fontSize = Math.min(widgetDiv.height(), widgetDiv.width()) * 0.6;
-         // $("#button" + fact.type + fact.address).css('font-size', fontSize + 'px');
+         var fontSize = Math.min(widgetDiv.height(), widgetDiv.width()) * 0.6;
+         $("#button" + fact.type + fact.address).css('font-size', fontSize + 'px');
       }
 
       $("#button" + fact.type + fact.address).css('background-color', sensor.working ? '#7878787878' : 'transparent');
@@ -1412,7 +1409,7 @@ function updateWidget(sensor, refresh, widget)
       $("#button" + fact.type + fact.address).css('color', state ? widget.colorOn : widget.color);
 
       if (widget.widgettype == 9)
-         $("#value" + fact.type + fact.address).text(sensor.value.toFixed(widget.unit=="%" ? 0 : 2) + (widget.unit!="" ? " " : "") + widget.unit);
+         $("#value" + fact.type + fact.address).text(sensor.value.toFixed(widget.unit == '%' || widget.unit == '' ? 0 : 2) + (widget.unit != '' ? ' ' : '') + widget.unit);
       else if (widget.widgettype == 12 && sensor.text != null)
          $("#value" + fact.type + fact.address).text(sensor.text.replace(/(?:\r\n|\r|\n)/g, '<br>'));
 
@@ -1465,7 +1462,7 @@ function updateWidget(sensor, refresh, widget)
    }
    else if (widget.widgettype == 2 || widget.widgettype == 7)    // Text, PlainText
    {
-      if (sensor.type == 'WEA' && sensor.text != null) {
+      if (sensor.type == 'WEA' && sensor.address == 1 && sensor.text != null) { // Open Weather Map
          var bigView = false;
          var wfact = fact;
          weatherData = JSON.parse(sensor.text);
@@ -1479,6 +1476,41 @@ function updateWidget(sensor, refresh, widget)
                $("#widget" + wfact.type + wfact.address).html(getWeatherHtml(bigView, wfact, weatherData));
             }, 5*1000);
          }
+      }
+      else if (sensor.type == 'WEA' && sensor.address == 2) { // Windy App
+         //allFields = [
+         //   'wind-direction',
+         //   'wind-speed',
+         //   'wind-gust',
+         //   'air-temp',
+         //   'clouds',
+         //   'precipitation',
+         //   'waves-direction',
+         //   'waves-height',
+         //   'waves-period',
+         //   'tides',
+         //   'moon-phase'];
+
+         let html = '<div ' +
+             ' data-windywidget="forecast"' +
+             ' data-thememode="dark"' +
+             ' data-tempunit="C"' +
+             ' data-spotid="52321"' +
+             ' data-fields="wind-speed,wind-gust,wind-direction,air-temp,clouds,precipitation"' +
+             // ' data-appid="widgets_295e6ac276">' +
+             '   </div>' +
+             '   <script async="true" data-cfasync="false" type="text/javascript"' +
+             '      src="https://windy.app/widgets-code/forecast/windy_forecast_async.js?v1.4.6"></script>';
+
+         $("#widget" + fact.type + fact.address).html(html);
+//            .css('overflow', 'auto')
+//            .append($('<div></div>')
+//                    .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
+//                    .addClass(titleClass)
+//                    .css('user-select', 'none')
+//                    .css('padding', '0px')
+//                    .click(function(event) {titleClick(event.ctrlKey, key);})
+//                    .html(setupMode ? ' time' : ''))
       }
       else if (sensor.text != null) {
          $("#widget" + fact.type + fact.address).css('color', getWidgetColor(widget, sensor.text));

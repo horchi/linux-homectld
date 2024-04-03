@@ -1145,7 +1145,7 @@ function drawChartWidget(dataObject)
       config.data.datasets.push(dataset);
    }
 
-   console.log("draw chart widget to", id, $('#'+id).innerHeight());
+   // console.log("draw chart widget to", id, $('#'+id).innerHeight());
    var canvas = document.getElementById(id);
    widgetCharts[id] = new Chart(canvas, config);
 }

@@ -256,7 +256,8 @@ button:focus {
     background-color: var(--dashboardMenuBackground);
     width: 99%;
     margin: 7px;
-    display: inline-block;
+    display: inline-flex;
+    overflow-x: auto;
 }
 
 .buttonDashboard
@@ -2035,7 +2036,7 @@ dialog::backdrop, #backdrop
     .inputTableConfig > div > span:nth-child(3) { width: 25%; }
     .inputTableConfig > div > span              { width: 30%; }
     .buttonDashboard           { margin: 1px 0px 1px 0px; }
-    .menuDashboard             { margin: 2px; }
+    .menuDashboard             { margin: 1px; }
 /*    .widgetContainer > div     { width: 175px; height: 160px; margin: 1px; } */
     .widgetGauge               { grid-template-rows: 30% 70%; }
     .widget                    { grid-template-rows: 15% 85%; }
@@ -2063,7 +2064,7 @@ dialog::backdrop, #backdrop
     .inputTableConfig > div > span:nth-child(3) { width: 25%; }
     .inputTableConfig > div > span              { width: 90%; }
     .buttonDashboard           { padding: 4px; margin: 1px 0px 1px 0px; }
-    .menuDashboard             { margin: 2px; }
+    .menuDashboard             { margin: 1px; }
     /*    .widgetContainer > div     { width: 180px; height: 160px; margin: 2px; } */
     .widgetGauge               { grid-template-rows: 30% 70%; }
     .widget                    { grid-template-rows: 15% 85%; }

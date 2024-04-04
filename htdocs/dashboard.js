@@ -606,23 +606,30 @@ function initWidget(key, widget, fact)
          break;
       }
 
-      case 7: {    // 7 (PlainText)
+      case 7: {          // PlainText
          $(elem).addClass('widgetPlain widgetDropZone');
          if (setupMode)
             $(elem).append($('<div></div>')
                            .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
                            .addClass(titleClass)
                            .css('user-select', 'none')
+                           .css('padding', fact.type == 'WEA' ? '0px' : '')
                            .click(function(event) {titleClick(event.ctrlKey, key);})
                            .html(title));
-         var wFact = fact;
-         $(elem).append($('<div></div>')
-                        .attr('id', 'widget' + fact.type + fact.address)
-                        .addClass(fact.type == 'WEA' ? 'widget-weather' : 'widget-text')
-                        .css('user-select', 'none')
-                        .css('color', widget.color)
-                        .css('height', 'inherit')
-                        .click(function() { if (wFact.type == 'WEA' && wFact.address == 1) weatherForecast(); }));
+
+         if (fact.type == 'WEA' && fact.address == 2) {
+            initWindy(key, widget, fact);
+         }
+         else {
+            var wFact = fact;
+            $(elem).append($('<div></div>')
+                           .attr('id', 'widget' + fact.type + fact.address)
+                           .addClass(fact.type == 'WEA' ? 'widget-weather' : 'widget-text')
+                           .css('user-select', 'none')
+                           .css('color', widget.color)
+                           .css('height', 'inherit')
+                           .click(function() { if (wFact.type == 'WEA' && wFact.address == 1) weatherForecast(); }));
+         }
          break;
       }
 
@@ -642,7 +649,7 @@ function initWidget(key, widget, fact)
                     .css('color', widget.color));
          let choices = fact.choices.split(",");
          for (c = 0; c < choices.length; ++c) {
-            console.log("c: ", choices[c]);
+            // console.log("c: ", choices[c]);
             $('#choice' + fact.type + fact.address)
                .append($('<div></div>')
                        .attr('id', 'widget' + fact.type + fact.address + '_' + c)
@@ -768,6 +775,48 @@ function initWidget(key, widget, fact)
 }
 
 //***************************************************************************
+// Init WindyApp Widget
+//***************************************************************************
+
+function initWindy(key, widget, fact)
+{
+   //   'wind-direction',
+   //   'wind-speed',
+   //   'wind-gust',
+   //   'air-temp',
+   //   'clouds',
+   //   'precipitation',
+   //   'waves-direction',
+   //   'waves-height',
+   //   'waves-period',
+   //   'tides',
+   //   'moon-phase'
+
+   let html = '<div ' +
+       '     data-windywidget="forecast"' +
+       '     data-thememode="dark"' +         // white|dark
+       '     data-tempunit="C"' +             // C|F
+       '     data-windunit="bft"' +           // knots|bft|m/s|mph|km/h
+       '     data-heightunit="m"' +           // m|ft
+       '     data-spotid="52321"' +
+       // '     data-lat="54.0951002"' +         //
+       // '     data-lng="8.9516540"' +          //
+       '     data-fields="wind-speed,wind-gust,wind-direction,air-temp,clouds,precipitation"' +
+       '     data-appid="widgets_7e484018b8"' +
+       ' >' +
+       '</div>' +
+       '<script async="true" data-cfasync="false" type="text/javascript"' +
+       '        src="https://windy.app/widgets-code/forecast/windy_forecast_async.js?v1.4.6"></script>';
+
+   let elem = document.getElementById('div_' + key);
+   // special widget, shoud use the whole wisth and self adjusted height
+
+   $(elem).css('height', '');
+   $(elem).css('width', '');
+   $(elem).html(html);
+}
+
+//***************************************************************************
 // Init Meter Widget
 //***************************************************************************
 
@@ -775,12 +824,9 @@ function initMeter(key, widget, fact, neededScaleMax)
 {
    let radial = widget.widgettype == 5;
    let showValue = widget.showvalue == null || widget.showvalue == true;
-
    let titleClass = getWidgetTitleClass(widget, fact);
    let title = getWidgetTitle(widget, fact);
-
-   var id = 'div_' + key;
-   var elem = document.getElementById(id);
+   let elem = document.getElementById('div_' + key);
 
    $(elem).empty();
 
@@ -1478,39 +1524,7 @@ function updateWidget(sensor, refresh, widget)
          }
       }
       else if (sensor.type == 'WEA' && sensor.address == 2) { // Windy App
-         //allFields = [
-         //   'wind-direction',
-         //   'wind-speed',
-         //   'wind-gust',
-         //   'air-temp',
-         //   'clouds',
-         //   'precipitation',
-         //   'waves-direction',
-         //   'waves-height',
-         //   'waves-period',
-         //   'tides',
-         //   'moon-phase'];
-
-         let html = '<div ' +
-             ' data-windywidget="forecast"' +
-             ' data-thememode="dark"' +
-             ' data-tempunit="C"' +
-             ' data-spotid="52321"' +
-             ' data-fields="wind-speed,wind-gust,wind-direction,air-temp,clouds,precipitation"' +
-             // ' data-appid="widgets_295e6ac276">' +
-             '   </div>' +
-             '   <script async="true" data-cfasync="false" type="text/javascript"' +
-             '      src="https://windy.app/widgets-code/forecast/windy_forecast_async.js?v1.4.6"></script>';
-
-         $("#widget" + fact.type + fact.address).html(html);
-//            .css('overflow', 'auto')
-//            .append($('<div></div>')
-//                    .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
-//                    .addClass(titleClass)
-//                    .css('user-select', 'none')
-//                    .css('padding', '0px')
-//                    .click(function(event) {titleClick(event.ctrlKey, key);})
-//                    .html(setupMode ? ' time' : ''))
+         // initWindy(key, widget, fact);
       }
       else if (sensor.text != null) {
          $("#widget" + fact.type + fact.address).css('color', getWidgetColor(widget, sensor.text));

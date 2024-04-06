@@ -780,24 +780,17 @@ function initWidget(key, widget, fact)
 
 function initWindy(key, widget, fact)
 {
-   //   'wind-direction',
-   //   'wind-speed',
-   //   'wind-gust',
-   //   'air-temp',
-   //   'clouds',
-   //   'precipitation',
-   //   'waves-direction',
-   //   'waves-height',
-   //   'waves-period',
-   //   'tides',
-   //   'moon-phase'
+   //   wind-direction, wind-speed, wind-gust, air-temp,
+   //   clouds, precipitation, waves-direction, waves-height,
+   //   waves-period, tides, moon-phase
 
    let html = '<div ' +
        '     data-windywidget="forecast"' +
-       '     data-thememode="dark"' +         // white|dark
-       '     data-tempunit="C"' +             // C|F
-       '     data-windunit="bft"' +           // knots|bft|m/s|mph|km/h
-       '     data-heightunit="m"' +           // m|ft
+       '     data-customcss="windy-dark.css"' +
+       '     data-thememode="dark"' +            // white|dark
+       '     data-tempunit="C"' +                // C|F
+       '     data-windunit="bft"' +              // knots|bft|m/s|mph|km/h
+       '     data-heightunit="m"' +              // m|ft
        '     data-spotid="52321"' +
        // '     data-lat="54.0951002"' +         //
        // '     data-lng="8.9516540"' +          //
@@ -806,10 +799,12 @@ function initWindy(key, widget, fact)
        ' >' +
        '</div>' +
        '<script async="true" data-cfasync="false" type="text/javascript"' +
-       '        src="https://windy.app/widgets-code/forecast/windy_forecast_async.js?v1.4.6"></script>';
+       '        src="windy_forecast_async.js?v1.4.6"></script>';
+      // '        src="https://windy.app/widgets-code/forecast/windy_forecast_async.js?v1.4.6"></script>';
 
    let elem = document.getElementById('div_' + key);
-   // special widget, shoud use the whole wisth and self adjusted height
+
+   // special - use the whole width and self adjusted height
 
    $(elem).css('height', '');
    $(elem).css('width', '');

@@ -1,6 +1,7 @@
 
 # General
 
+- squeecebox Player wählen im WEBIF
 - store dnsmasq.d/womo.conf
 - bluetooth for Mopeka-Pro
 

@@ -92,9 +92,11 @@ def toError(code):
 	if code == 13:
 		return "Fehler Temp Fühler"
 	if code == 23:
-		return "Kühlt?"
+		return "Störung 23"
 
-	return "Störung"
+	tell(3, '{0:} {1:}'.format("Unexpected status code", code))
+
+	return "Störung?"
 
 def isAuto(val):
 	if val & 0x08:
@@ -171,7 +173,7 @@ def frame_listener(frame):
 		elif byte == 3:
 			sensor['kind'] = 'text'
 			sensor['text'] = toError(sensor['value'])
-			tell(3, '{0:} {1:}'.format("In Betrieb" if sensor['value'] == 0 else "Störung", "" if sensor['value'] == 0 else sensor['value']))
+			tell(3, '{0:} {1:}'.format("Status", sensor['value']))
 		elif byte == 4:
 			tell(3, '{}: {} {}'.format(toSensorTitle(byte), sensor['value'], toSensorUnit(byte)))
 		elif byte == 5:
@@ -192,6 +194,8 @@ def frame_listener(frame):
 					'text'    : "Automatik" if isAuto(byte2uint(frame.data[byte])) else "Manuell"
 				}
 				publishMqtt(sensor)
+
+	tell(0, "... done")
 
 # --------------------------------------------
 

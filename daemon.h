@@ -151,20 +151,21 @@ class Daemon : public cWebInterface
       enum WidgetType
       {
          wtUnknown = -1,
-         wtSymbol  = 0,  // == 0
-         wtChart,        // == 1
-         wtText,         // == 2
-         wtValue,        // == 3
-         wtGauge,        // == 4
-         wtMeter,        // == 5
-         wtMeterLevel,   // == 6
-         wtPlainText,    // == 7  without title
-         wtChoice,       // == 8  option choice
-         wtSymbolValue,  // == 9
-         wtSpace,        // == 10
-         wtTime,         // == 11  // dummy to display current time at WEBIF
-         wtSymbolText,   // == 12
-         wtChartBar,     // == 13
+         wtSymbol  = 0,   // == 0
+         wtChart,         // == 1
+         wtText,          // == 2
+         wtValue,         // == 3
+         wtGauge,         // == 4
+         wtMeter,         // == 5
+         wtMeterLevel,    // == 6
+         wtPlainText,     // == 7  without title
+         wtChoice,        // == 8  option choice
+         wtSymbolValue,   // == 9
+         wtSpace,         // == 10
+         wtTime,          // == 11  // dummy to display current time at WEBIF
+         wtSymbolText,    // == 12
+         wtChartBar,      // == 13
+         wtSpecialSymbol, // == 14
          wtCount
       };
 
@@ -652,6 +653,7 @@ class Daemon : public cWebInterface
       double latitude {50.30};
       double longitude {8.79};
       char* openWeatherApiKey {};
+      char* windyAppSpotID {};
       int weatherInterval {15};           // minutes
       time_t lastStore {0};
       int arduinoInterval {10};

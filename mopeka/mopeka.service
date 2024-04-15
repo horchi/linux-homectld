@@ -1,0 +1,17 @@
+[Unit]
+
+Description = MOPEKA Gas Level Sensor
+After = network.target
+StartLimitInterval = 200
+StartLimitBurst = 5
+
+[Service]
+EnvironmentFile=-/etc/default/mopeka2mqtt
+Type = simple
+ExecStart = /usr/bin/python3 /usr/local/bin/mopeka.py ${MOPEKA_MQTT} ${MOPEKA_TOPIC} ${MOPEKA_SENSOR_MAC} ${MOPEKA_TANK_HEIGHT} ${MOPEKA_LOG_LEVEL} ${MOPEKA_OPTS}
+Restart = always
+RestartSec = 30
+
+[Install]
+
+WantedBy = multi-user.target

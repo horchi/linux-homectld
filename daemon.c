@@ -47,6 +47,7 @@ const char* Daemon::widgetTypes[] =
    "Time",
    "SymbolText",
    "BarChart",
+   "SpecialSymbol",
    0
 };
 
@@ -78,27 +79,28 @@ Daemon::ValueTypes Daemon::defaultValueTypes[] =
 {
    // expression, title
 
-   { "^VA",     "Messwerte" },
-   { "^SD",     "Status Laufzeiten" },
-   { "^DO",     "Digitale Ausgänge" },
-   { "^MCPO",   "Digitale Ausgänge" },
-   { "^DI",     "Digitale Eingänge" },
-   { "^MCPI",   "Digitale Eingänge" },
-   { "^W1",     "One Wire Sensoren" },
-   { "^SC",     "Skripte" },
-   { "^AO",     "Analog Ausgänge" },
-   { "^AI",     "Analog Eingänge" },
-   { "^ADS",    "Analog Eingänge" },
-   { "^Sp",     "Weitere Sensoren" },
-   { "^DZL",    "DECONZ Lampen" },
-   { "^DZS",    "DECONZ Sensoren" },
-   { "^HM.*",   "Home Matic" },
-   { "^P4.*",   "P4 Daemon" },
-   { "^WEA",    "Wetter" },
-   { "^DHT",    "Wetter" },
-   { "^CV",     "Calculated Values" },
-   { "^VIC",    "Victron" },
-   { "^VOTRO",  "Votronic" },
+   { "^VA",       "Messwerte" },
+   { "^SD",       "Status Laufzeiten" },
+   { "^DO",       "Digitale Ausgänge" },
+   { "^MCPO",     "Digitale Ausgänge" },
+   { "^DI",       "Digitale Eingänge" },
+   { "^MCPI",     "Digitale Eingänge" },
+   { "^W1",       "One Wire Sensoren" },
+   { "^SC",       "Skripte" },
+   { "^AO",       "Analog Ausgänge" },
+   { "^AI",       "Analog Eingänge" },
+   { "^ADS",      "Analog Eingänge" },
+   { "^Sp",       "Weitere Sensoren" },
+   { "^DZL",      "DECONZ Lampen" },
+   { "^DZS",      "DECONZ Sensoren" },
+   { "^HM.*",     "Home Matic" },
+   { "^P4.*",     "P4 Daemon" },
+   { "^WEA",      "Wetter" },
+   { "^DHT",      "Wetter" },
+   { "^CV",       "Calculated Values" },
+   { "^VIC",      "Victron" },
+   { "^VOTRO",    "Votronic" },
+   { "^MOPEKA.*", "Mopeka" },
 
    { "",        "" }
 };
@@ -332,7 +334,6 @@ int Daemon::pushOutMessage(json_t* oContents, const char* event, long client)
 
    webSock->pushOutMessage(p, (lws*)client);
    free(p);
-
    webSock->performData(cWebSock::mtData);
 
    return done;
@@ -538,6 +539,7 @@ int Daemon::init()
 
    addValueFact(1, "CV", 1, "Calc Sensor 1", "", "");
    addValueFact(2, "WEA", 1, "Windy App", "", "");
+   addValueFact(3, "WEA", 1, "Windy App Map", "", "");
 
    initialized = true;
 
@@ -1725,6 +1727,7 @@ int Daemon::readConfiguration(bool initial)
    getConfigItem("webUrl", webUrl);
    getConfigItem("webSsl", webSsl);
    getConfigItem("iconSet", iconSet, "light");
+   getConfigItem("windyAppSpotID", windyAppSpotID, "5247411");
 
    char* tmp {};
    getConfigItem("schema", tmp);
@@ -3285,10 +3288,7 @@ int Daemon::dispatchDeconz()
       sensor->last = time(0);
       sensor->changedAt = time(0); // #TODO set only if changed
       sensor->valid = true;
-
-      int battery = getIntFromJson(oData, "battery", na);
-      if (battery != na)
-         sensor->battery = battery;
+      sensor->battery = getIntFromJson(oData, "battery", na);
 
       // send update to WS
       {
@@ -3796,7 +3796,8 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    }
    else  // SC - script sensor (send result async via MQTT)
    {
-      newTime += 1;  // workaround due to async result of SC (if last is identical it's never stored)
+      newTime += 1;         // workaround due to async result of SC (if last is identical it's never stored)
+      sensors[type][address].working = false;               // reset 'working' state (needed for SC sensors)
    }
 
    // ignore data for not active sensors
@@ -3804,7 +3805,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    if (!sensors[type][address].active)
       return done;
 
-   sensors[type][address].working = false;               // reset 'working' state (needed for SC sensors)
+   sensors[type][address].battery = getIntFromJson(jData, "battery", na);
    sensors[type][address].last = newTime;
    sensors[type][address].valid = true;
    sensors[type][address].kind = getStringFromJson(jData, "kind", "value");
@@ -3863,6 +3864,9 @@ int Daemon::dispatchOther(const char* topic, const char* message)
          json_object_set_new(ojData, "value", json_real(sensors[type][address].value));
 
       json_object_set_new(ojData, "text", json_string(sensors[type][address].text.c_str()));
+
+      if (sensors[type][address].battery != na)
+         json_object_set_new(ojData, "battery", json_integer(sensors[type][address].battery));
 
       if (sensors[type][address].image.length())
          json_object_set_new(ojData, "image", json_string(sensors[type][address].image.c_str()));

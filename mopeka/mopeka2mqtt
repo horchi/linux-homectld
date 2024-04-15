@@ -1,0 +1,21 @@
+# Usage:
+#  mopekamqtt [-h] [-i [I]] [-m [M]] [-p [P]] [-v [V]] [-l] [-T [T]] [-t [T]] [-s] [-M [M]] [-D]
+#
+# optional arguments:
+#   -h, --help  show this help message and exit
+#   -i [I]      interval [seconds] (default 5)
+#   -m [M]      MQTT host
+#   -p [P]      MQTT port
+#   -v [V]      Verbosity Level (0-3) (default 0)
+#   -l          Log to Syslog (default console)
+#   -T [T]      MQTT topic
+#   -s          Show
+#   -M [M]      Sensor MAC
+#   -D          Discover Sensors
+
+MOPEKA_MQTT="-m localhost"
+MOPEKA_TOPIC="-T homectld2mqtt/mopeka"
+MOPEKA_OPTS="-l"
+MOPEKA_LOG_LEVEL="-v 0"
+MOPEKA_SENSOR_MAC="-M f0:87:60:83:ab:10"
+MOPEKA_TANK_HEIGHT="-F 376"

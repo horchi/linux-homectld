@@ -264,7 +264,7 @@ VotroCom::VotroCom(const char* aDevice, uint aBaud, bool aUseSdi)
       // 1000 ?? :o bits per second, 8 bit, no parity and 1 stop bit
 
       if (!baud)
-         baud = 1000;
+         baud = 1020;
 
       serial = new Serial(0);
       serial->setSpecialSpeed(baud);
@@ -303,31 +303,41 @@ int VotroCom::close()
 int VotroCom::readSimple()
 {
    int status {success};
-   uint8_t b {0};
 
    SemLock lock(&sem);
+   usleep(500000);                  // collect some bytes
 
-   while ((status = serial->look(b, 100)) == success)
+   constexpr uint maxTries {3};     // after open it can take up to 3 cycle to snchronice
+   uint nTry {0};
+
+   while (nTry < maxTries)
    {
-      if (b == sStartByte)  // same start byte as for RS485
-         break;
+      uint8_t b {0};
 
-      tell(eloDebug, "Skipping unexpected byte 0x%02x at start", b);
+      while ((status = serial->look(b, 100)) == success)
+      {
+         if (b == sStartByte)  // same start byte as for RS485
+            break;
+
+         tell(eloDebug, "Skipping unexpected byte 0x%02x at start", b);
+      }
+
+      uint8_t buffer[20] {};
+      nTry++;
+
+      if (b != sStartByte || serial->read(buffer, 15) != 15)
+      {
+         tell(eloAlways, "Error: Reading packet failed, skipping, start byte was 0x%02x", b);
+         status = fail;
+         continue;
+      }
+      else
+      {
+         return parseSimpleResponse(buffer, 15);
+      }
    }
 
-   uint8_t buffer[20] {};
-
-   if (b != sStartByte || serial->read(buffer, 15) != 15)
-   {
-      tell(eloAlways, "Error: Reading packet failed, skipping, start byte was 0x%02x", b);
-      status = fail;
-   }
-   else
-   {
-      status = parseSimpleResponse(buffer, 15);
-   }
-
-   return status;
+   return fail;
 }
 
 //***************************************************************************
@@ -349,8 +359,6 @@ int VotroCom::parseSimpleResponse(uint8_t buffer[], size_t size)
 
    if (checksum != buffer[bsChecksum])
       tell(eloAlways, "Warning: Checksum failure in received packet (%zu) [0x%02x/0x%02x]", size, checksum, buffer[bsChecksum]);
-   else
-      tell(eloAlways, "Checksum MATCH !!! at %d baud", baud);
 
    simpleInterfaceResponse.deviceId = buffer[bsDeviceId];
    simpleInterfaceResponse.battVoltage = (buffer[bsBattVolotageMsb] << 8) + buffer[bsBattVolotageLsb];
@@ -358,7 +366,7 @@ int VotroCom::parseSimpleResponse(uint8_t buffer[], size_t size)
    simpleInterfaceResponse.solarVoltage = (buffer[bsSolarVolotageMsb] << 8) + buffer[bsSolarVolotageLsb];
    simpleInterfaceResponse.solarVoltage /= 100.0;
    simpleInterfaceResponse.solarCurrent = (buffer[bsSolarCurrentMsb] << 8) + buffer[bsSolarCurrentLsb];
-   simpleInterfaceResponse.solarCurrent /= 20.0;
+   simpleInterfaceResponse.solarCurrent /= 10.0;
 
    simpleInterfaceResponse.v = (buffer[bsUnknown5] << 8) + buffer[bsUnknown4];
    simpleInterfaceResponse.v /= 100;
@@ -652,20 +660,21 @@ int Votro::update()
 
    VotroCom com(device.c_str(), baud, useSdi);
    SensorData sensor {};
+   int status {success};
 
    com.open();
 
    if (useSdi)
    {
-      if (com.readSimple() == success)
+      if ((status = com.readSimple()) == success)
       {
          VotroCom::ResponseSimpleInterface* response = com.getSimpleInterfaceResponse();
          std::string type = "VOTRO" + horchi::to_string(response->deviceId, 0, true);
 
-         mqttPublish(sensor = {0, "value", "Batterie", "V", response->battVoltage}, type.c_str());
+         mqttPublish(sensor = {0, "value", "Battery", "V", response->battVoltage}, type.c_str());
          mqttPublish(sensor = {1, "value", "PV Spannung", "V", response->solarVoltage}, type.c_str());
-         mqttPublish(sensor = {2, "value", "PV Strom", "V", response->solarCurrent}, type.c_str());
-         mqttPublish(sensor = {3, "text", "Battery Status", "", 0, response->battStatus}, type.c_str());
+         mqttPublish(sensor = {2, "value", "PV Strom", "A", response->solarCurrent}, type.c_str());
+         mqttPublish(sensor = {3, "text", "Charging Status", "", 0, response->battStatus}, type.c_str());
          mqttPublish(sensor = {4, "status", "PV Active", "", (double)response->solarActive}, type.c_str());
          mqttPublish(sensor = {5, "status", "PV Protection", "", (double)response->solarProtection}, type.c_str());
          mqttPublish(sensor = {6, "status", "PV AES", "", (double)response->solarAES}, type.c_str());
@@ -679,7 +688,7 @@ int Votro::update()
          {
             tell(eloDebug, "Requesting parameter '0x%02x/%s' (0x%02x)", deviceDef.first, def.second.title.c_str(), def.first);
 
-            com.request(deviceDef.first, def.first);
+            status = com.request(deviceDef.first, def.first);
             VotroCom::ResponseRs485* response = com.getRs485Response();
 
             tell(eloDebug, "%s: %.2f %s", def.second.title.c_str(), response->value, def.second.unit.c_str());
@@ -691,7 +700,7 @@ int Votro::update()
    }
 
    com.close();
-   tell(eloInfo, " ... done");
+   tell(eloInfo, " ... %s", status == success ? "done" : "failed");
 
    return done;
 }
@@ -826,29 +835,24 @@ int showSimple(const char* device, uint baud)
 
    while (!Votro::doShutDown())
    {
-      if (com.readSimple() == success)
-      {
-         VotroCom::ResponseSimpleInterface* response = com.getSimpleInterfaceResponse();
-
-         tell(eloAlways, "battVoltage: %.2f V", response->battVoltage);
-         tell(eloAlways, "solarVoltage: %.2f V", response->solarVoltage);
-         tell(eloAlways, "solarCurrent: %.2f A", response->solarCurrent);
-         tell(eloAlways, "battStatus: %s", response->battStatus.c_str());
-         tell(eloAlways, "solarActive: %s", response->solarActive ? "yes" : "no");
-         tell(eloAlways, "solarProtection: %s", response->solarProtection ? "yes" : "no");
-         tell(eloAlways, "solarAES: %s", response->solarAES ? "yes" : "no");
-
-         //  tell(eloAlways, "unkown: %.2f V", response->v);
-
-         // com.close();
-         // baud += 5;
-         // com.setSpecialSpeed(baud);
-         // com.open();
-      }
-      else
+      if (com.readSimple() != success)
       {
          tell(eloAlways, "Error: Reading failed");
+         sleep(3);
+         continue;
       }
+
+      VotroCom::ResponseSimpleInterface* response = com.getSimpleInterfaceResponse();
+
+      tell(eloAlways, "battVoltage: %.2f V", response->battVoltage);
+      tell(eloAlways, "solarVoltage: %.2f V", response->solarVoltage);
+      tell(eloAlways, "solarCurrent: %.2f A", response->solarCurrent);
+      tell(eloAlways, "battStatus: %s", response->battStatus.c_str());
+      tell(eloAlways, "solarActive: %s", response->solarActive ? "yes" : "no");
+      tell(eloAlways, "solarProtection: %s", response->solarProtection ? "yes" : "no");
+      tell(eloAlways, "solarAES: %s", response->solarAES ? "yes" : "no");
+
+      tell(eloAlways, "unkown: %.2f V", response->v);
 
       sleep(1);
    }

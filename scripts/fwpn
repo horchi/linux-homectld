@@ -98,9 +98,9 @@ case "$1" in
         # Zugriffe von 'world' aus
         #   - nur zuhause aktivieren, für Zugriff über VPN nicht nötig!
 
-        $IPTABLES -A $PN_FILTER -p TCP -s $ANY --dport 22 -j ACCEPT   # ssh
-        $IPTABLES -A $PN_FILTER -p TCP -s $ANY --dport 8090 -j ACCEPT # womod
-        $IPTABLES -A $PN_FILTER -p icmp -s $ANY -j ACCEPT             # ping
+        $IPTABLES -A $PN_FILTER -p TCP -s $ANY --dport 22 -j ACCEPT    # ssh
+        $IPTABLES -A $PN_FILTER -p TCP -s $ANY --dport 61109 -j ACCEPT # homectld
+        $IPTABLES -A $PN_FILTER -p icmp -s $ANY -j ACCEPT              # ping
 
 	     # Wir akzeptieren alles was zu bestehenden, externen Verbindungen gehoert
 

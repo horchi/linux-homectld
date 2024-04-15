@@ -38,8 +38,8 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "webPort",                   ctInteger, "61109",        false, "Daemon", "Port des Web Interfaces", "" },
    { "eloquence",                 ctBitSelect, "1",          false, "Daemon", "Log Eloquence", "" },
 
-   { "aggregateHistory",          ctInteger, "365",          false, "Daemon", "Historie [Tage]", "history for aggregation in days (default 0 days -> aggegation turned OFF)" },
-   { "aggregateInterval",         ctInteger, "15",           false, "Daemon", "Aggregate Interval der historisierten Daten", "aggregation interval in minutes - 'one sample per interval will be build'" },
+   { "aggregateHistory",          ctInteger, "365",          false, "Daemon", "Historie [Tage]", "history for aggregation [days] (default 0 days -> aggegation turned OFF)" },
+   { "aggregateInterval",         ctInteger, "15",           false, "Daemon", "Aggregate Interval der historisierten Daten [m]", "aggregation interval in minutes - 'one sample per interval will be build'" },
    { "peakResetAt",               ctString,  "",             true,  "Daemon", "", "" },
 
 #ifdef _POOL
@@ -84,6 +84,7 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "chartRange",                ctNum,     "1.5",          true,  "WEB Interface", "Chart Range", "" },
    { "chartSensors",              ctNum,     "VA:0x0",       true,  "WEB Interface", "Chart Sensors", "" },
    { "showList",                  ctBool,    "0",            false, "WEB Interface", "Liste anzeigen", "" },
+   { "windyAppSpotID",            ctString,  "5247411",      false, "WEB Interface", "Windy App Spot ID", "" },
 
    // MQTT interface
 

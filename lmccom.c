@@ -6,6 +6,7 @@
  */
 
 #include "lib/common.h"
+#include "lib/json.h"
 
 #include "lmccom.h"
 #include "lmctag.h"
@@ -17,10 +18,7 @@
 LmcCom::LmcCom(const char* aMac)
    : TcpChannel()
 {
-   // init curl, used only for (de)escape the url encoding
-
-   curl_global_init(CURL_GLOBAL_NOTHING);
-   curl = curl_easy_init();
+   curl = new cCurl;
 
    if (!isEmpty(aMac))
    {
@@ -34,12 +32,14 @@ LmcCom::~LmcCom()
    if (notify)
       stopNotify();
 
-   curl_easy_cleanup(curl);
    close();
    free(host);
    free(mac);
    free(escId);
    free(queryTitle);
+   free(curlUrl);
+
+   delete curl;
 }
 
 //***************************************************************************
@@ -59,6 +59,9 @@ int LmcCom::open(const char* aHost, unsigned short aPort)
 
    if (res == success)
       tell(eloAlways, "[LMC] Connection to LMC server established");
+
+   free(curlUrl);
+   asprintf(&curlUrl, "http://%s:%d/jsonrpc.js", host, 9000);
 
    return res;
 }
@@ -224,6 +227,45 @@ int LmcCom::queryInt(const char* command, int& value)
    return status;
 }
 
+int LmcCom::queryPlayers(RangeList* list)
+{
+   std::string sOutput;
+   const char* request {"{ \"method\": \"slim.request\", \"params\":[\"00:00:00:00:00:00\", [\"players\", \"0\", \"20\"]]}"};
+
+   // tell(eloAlways, "DEBUG: requesting players at %s", curlUrl);
+
+   if (curl->post(curlUrl, request, &sOutput) != success)
+      return fail;
+
+   json_t* oData = jsonLoad(sOutput.c_str());
+
+   if (!oData)
+      return fail;
+
+   json_t* oResult = getObjectByPath(oData, "result/players_loop");
+
+   if (!oResult)
+      return fail;
+
+   size_t index {0};
+   json_t* jObj {};
+
+   json_array_foreach(oResult, index, jObj)
+   {
+      ListItem item;
+      item.clear();
+
+      item.id = atoi(getStringFromJson(jObj, "playerindex"));
+      item.content = getStringFromJson(jObj, "playerid");
+      item.command = getStringFromJson(jObj, "name");
+      item.isConnected = getIntFromJson(jObj, "connected");
+
+      list->push_back(item);
+   }
+
+   return done;
+}
+
 //***************************************************************************
 // Query Range
 //***************************************************************************
@@ -269,10 +311,10 @@ int LmcCom::queryRange(RangeQueryType queryType, int from, int count,
          firstTag = LmcTag::tIcon;
          break;
 
-      case rqtPlayers:
-         sprintf(query, "players");
-         firstTag = LmcTag::tPlayerindex;
-         break;
+      // case rqtPlayers:
+      //    sprintf(query, "players");
+      //    firstTag = LmcTag::tPlayerindex;
+      //    break;
 
       default: break;
    }
@@ -377,16 +419,16 @@ int LmcCom::queryRange(RangeQueryType queryType, int from, int count,
             else if (tag == LmcTag::tName)    item.content = value;
             break;
          }
-         case rqtPlayers:
-         {
-            // tell(eloDebugLmc, "Got '%s : %s'", LmcTag::toName(tag), value);
-            if      (tag == LmcTag::tPlayerindex) item.id = value;
-            else if (tag == LmcTag::tPlayerid)    item.content = value;
-            else if (tag == LmcTag::tName)        item.command = value;
-            else if (tag == LmcTag::tConnected)   item.isConnected = atoi(value);
+         // case rqtPlayers:
+         // {
+         //    // tell(eloDebugLmc, "Got '%s : %s'", LmcTag::toName(tag), value);
+         //    if      (tag == LmcTag::tPlayerindex) item.id = value;
+         //    else if (tag == LmcTag::tPlayerid)    item.content = value;
+         //    else if (tag == LmcTag::tName)        item.command = value;
+         //    else if (tag == LmcTag::tConnected)   item.isConnected = atoi(value);
 
-            break;
-         }
+         //    break;
+         // }
 
          default: break;
       };
@@ -458,8 +500,6 @@ int LmcCom::request(const char* command, const char* par)
 
 int LmcCom::request(const char* command, Parameters* pars)
 {
-   int status {success};
-
    snprintf(lastCommand, sizeMaxCommand, "%s", command);
    lastPar = "";
 
@@ -475,8 +515,10 @@ int LmcCom::request(const char* command, Parameters* pars)
       }
    }
 
-   tell(eloDebugLmc, "[LMC] Requesting '%s' with '%s'", lastCommand, lastPar.c_str());
+   tell(eloDebugLmc, "[LMC] Requesting '%s' with '%s', escId '%s'", lastCommand, lastPar.c_str(), escId);
    flush();
+
+   int status {success};
 
    status = write(escId)
       + write(" ")
@@ -655,22 +697,17 @@ int LmcCom::checkNotify(uint64_t timeout)
       checkPlayersNext = time(0) + 10;
 
       bool myPlayerConnected {false};
-      LmcCom::Parameters filters;
-      LmcCom::RangeList list;
-      int total {0};
+      LmcCom::RangeList players;
 
-      if (queryRange(LmcCom::rqtPlayers, 0, 20, &list, total, "", &filters) == success)
+      if (queryPlayers(&players) == success)
       {
-         tell(eloDebugLmc, "[LMC] Query players succeeded (%d)", total);
+         tell(eloDebugLmc, "[LMC] Query players succeeded (%zu)", players.size());
 
-         LmcCom::RangeList::iterator it;
-
-         for (it = list.begin(); it != list.end(); ++it)
+         for (const auto player : players)
          {
-            tell(eloLmc, "[LMC] Player %s) %s '%s'", (*it).id.c_str(), (*it).command.c_str(), (*it).content.c_str());
-
-            if ((*it).content == mac && (*it).isConnected)
+            if (player.content == mac && player.isConnected)
                myPlayerConnected = true;
+            tell(eloLmc, "[LMC] Player %s) %s '%s', connected %d", player.id.c_str(), player.command.c_str(), player.content.c_str(), myPlayerConnected);
          }
 
          if (notify && !myPlayerConnected)

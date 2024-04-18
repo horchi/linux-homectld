@@ -14,8 +14,7 @@
 
 # some examples
 
-# KERNEL=="ttyUSB[0-9]", ATTRS{idProduct}=="6015", ATTRS{idVendor}=="0403", SYMLINK+="ttyVictron"
-# KERNEL=="ttyUSB[0-9]", ATTRS{idProduct}=="6001", ATTRS{idVendor}=="0403", ENV{ID_SERIAL_SHORT}=="B002FO3G", SYMLINK+="ttyVotro"
-# KERNEL=="ttyUSB[0-9]", ATTRS{idProduct}=="6001", ATTRS{idVendor}=="0403", ENV{ID_SERIAL_SHORT}=="A50285BI", SYMLINK+="ttyBms"
-# KERNEL=="ttyUSB[0-9]", ATTRS{idProduct}=="ea60", ATTRS{idVendor}=="10c4", SYMLINK+="ttyBms"
-# KERNEL=="ttyUSB[0-9]", ATTRS{idProduct}=="ea60", ATTRS{idVendor}=="10c4", SYMLINK+="ttyVotro"
+#KERNEL=="ttyUSB[0-9]", ATTRS{idProduct}=="6001", ATTRS{idVendor}=="0403", ENV{ID_SERIAL_SHORT}=="A50285BI", SYMLINK+="ttyBms"
+#KERNEL=="ttyUSB[0-9]", ATTRS{idProduct}=="6001", ATTRS{idVendor}=="0403", ENV{ID_SERIAL_SHORT}=="A5XK3RJT", SYMLINK+="ttyVotro"
+#KERNEL=="ttyUSB[0-9]", ATTRS{idProduct}=="6015", ATTRS{idVendor}=="0403", ENV{ID_SERIAL_SHORT}=="VE7DMKUF", SYMLINK+="ttyVictron"
+#KERNEL=="ttyUSB[0-9]", ATTRS{idProduct}=="ea60", ATTRS{idVendor}=="10c4", SYMLINK+="ttyVotro"

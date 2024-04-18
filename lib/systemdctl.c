@@ -74,7 +74,7 @@ int SysCtl::getProperty(const char* unit, const char* property, std::string& val
 // List Units
 //***************************************************************************
 
-int SysCtl::unitList(Services& services)
+int SysCtl::unitList(Services& services, const char* filter)
 {
    sd_bus_error error {SD_BUS_ERROR_NULL};
    sd_bus_message* message {};
@@ -121,13 +121,33 @@ int SysCtl::unitList(Services& services)
 
    while ((res = sd_bus_message_read(message, "(ssssssouso)", &primary_name, &human_name, &load_state, &active_state, &sub_state, &following, &unit_object_path, &queued_job_id, &job_type, &job_object_path)) > 0)
    {
+      // tell(eloAlways, "-> %s [%s]", human_name, primary_name);
+
       if (strstr(primary_name, "user@") || strstr(primary_name, "modprobe@") || strcmp(sub_state, "plugged") == 0 || strcmp(sub_state, "mounted") == 0 || strcmp(sub_state, "exited") == 0)
          continue;
 
-      printf("%s - %s  \n", primary_name, sub_state);
+      if (strstr(primary_name, filter))
+      {
+         std::string unitFileState;
+         std::string unitPath;
 
-      if (strstr(primary_name, ".service"))
-         services[primary_name] = {primary_name, human_name, load_state, active_state, sub_state};
+         if (loadUnit(primary_name, unitPath) == 0)
+            getProperty(unitPath.c_str(), "UnitFileState", unitFileState);
+
+         // skip less intresting services
+
+         if (!unitFileState.length() || unitFileState == "static" || unitFileState == "indirect" || unitFileState == "masked")
+         {
+            tell(eloDebug, "Ignoring service '%s' due to unit file state '%s'", human_name, unitFileState.c_str());
+            // continue;
+         }
+
+         // add to list
+
+         services[primary_name] = {primary_name, human_name, load_state, active_state, sub_state, unitFileState};
+      }
+      else
+         tell(eloDebug, "Ignoring service '%s' due to it's name '%s'", human_name, primary_name);
    }
 
    if (res < 0)
@@ -145,40 +165,109 @@ int SysCtl::unitList(Services& services)
 // Unit Action
 //***************************************************************************
 
-int SysCtl::unitAction(const char* command, const char* unit)
+int SysCtl::reload()
 {
    sd_bus_error error {SD_BUS_ERROR_NULL};
-   sd_bus_message* message {};
-   const char* path {};
-
-   // Issue the method call and store the respons message in m
-
-   std::string cmd = std::string(command) + "Unit";
 
    int res = sd_bus_call_method(bus,
-                            "org.freedesktop.systemd1",          // service to contact
-                            "/org/freedesktop/systemd1",         // object path
-                            "org.freedesktop.systemd1.Manager",  // interface name
-                            cmd.c_str(),                         // method name
-                            &error,                              // object to return error in
-                            &message,                            // return message on success
-                            "ss",                                // input signature
-                            unit,                                // first argument
-                            "replace");                          // second argument
+                                "org.freedesktop.systemd1",          // service to contact
+                                "/org/freedesktop/systemd1",         // object path
+                                "org.freedesktop.systemd1.Manager",  // interface name
+                                "Reload",                            // method name
+                                &error,                              // object to return error in
+                                nullptr,
+                                nullptr);
 
    if (res < 0)
    {
       tell(eloAlways, "Failed to issue method call: '%s'", error.message);
       sd_bus_error_free(&error);
-      sd_bus_message_unref(message);
       return fail;
    }
 
-   // parse response
+   return success;
+}
 
-   if (sd_bus_message_read(message, "o", &path) < 0)
+//***************************************************************************
+// Unit Action
+//***************************************************************************
+
+int SysCtl::unitAction(const char* command, const char* unit)
+{
+   sd_bus_error error {SD_BUS_ERROR_NULL};
+   sd_bus_message* message {};
+   const char* path {""};
+   int res {0};
+
+   // Issue the method call and store the respons message in m
+
+   if (strcmp(command, "Enable") == 0)
    {
-      tell(eloAlways, "Failed to parse response message: '%s'", strerror(-res));
+      std::string cmd = std::string(command) + "UnitFiles";
+
+      res = sd_bus_call_method(bus,
+                               "org.freedesktop.systemd1",          // service to contact
+                               "/org/freedesktop/systemd1",         // object path
+                               "org.freedesktop.systemd1.Manager",  // interface name
+                               cmd.c_str(),                         // method name
+                               &error,                              // object to return error in
+                               nullptr,                             // return message on success
+                               "asbb",                              // input signature
+                               1,                                   //
+                               unit,                                //
+                               false,                               // 'true' um nur für 'diese' Laufzeit zu deaktivieren
+                               true);                               // 'force'
+
+      reload();
+   }
+   else if (strcmp(command, "Disable") == 0)
+   {
+      std::string cmd = std::string(command) + "UnitFiles";
+
+      res = sd_bus_call_method(bus,
+                               "org.freedesktop.systemd1",          // service to contact
+                               "/org/freedesktop/systemd1",         // object path
+                               "org.freedesktop.systemd1.Manager",  // interface name
+                               cmd.c_str(),                         // method name
+                               &error,                              // object to return error in
+                               nullptr,                             // return message on success
+                               "asb",                               // input signature
+                               1,                                   //
+                               unit,                                //
+                               false);                              // 'true' um nur für 'diese' Laufzeit zu deaktivieren
+      reload();
+   }
+   else
+   {
+      std::string cmd = std::string(command) + "Unit";
+      res = sd_bus_call_method(bus,
+                               "org.freedesktop.systemd1",          // service to contact
+                               "/org/freedesktop/systemd1",         // object path
+                               "org.freedesktop.systemd1.Manager",  // interface name
+                               cmd.c_str(),                         // method name
+                               &error,                              // object to return error in
+                               &message,                            // return message on success
+                               "ss",                                // input signature
+                               unit,                                // first argument
+                               "replace");                          // second argument
+
+      // parse response
+
+      if (res >= 0)
+      {
+         if (sd_bus_message_read(message, "o", &path) < 0)
+         {
+            tell(eloAlways, "Failed to parse response message: '%s'", strerror(-res));
+            sd_bus_error_free(&error);
+            sd_bus_message_unref(message);
+            return fail;
+         }
+      }
+   }
+
+   if (res < 0)
+   {
+      tell(eloAlways, "Failed to issue method call: '%s'", error.message);
       sd_bus_error_free(&error);
       sd_bus_message_unref(message);
       return fail;

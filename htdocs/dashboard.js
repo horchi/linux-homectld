@@ -247,9 +247,12 @@ function getWidgetTitleClass(widget, fact)
 {
    let titleClass = '';
 
-   console.log(widget, fact);
+   // #TODO move to configuration
 
-   if (!setupMode && widget.unit == '°C')
+   if (!setupMode && widget.unit == '°C' &&
+       (fact.usrtitle.toUpperCase().indexOf('BOILER') != -1 || fact.title.toUpperCase().indexOf('BOILER') != -1))
+      titleClass = 'mdi mdi-shower-head';
+   else if (!setupMode && widget.unit == '°C')
       titleClass = 'mdi mdi-thermometer';
    else if (!setupMode && (widget.unit == 'hPa' || widget.unit == 'A' || widget.unit == 'mA' ||
                            widget.unit == 'W' || widget.unit == 'V' || widget.unit == 'Ah'))
@@ -262,7 +265,7 @@ function getWidgetTitleClass(widget, fact)
       titleClass = 'mdi mdi-gas-cylinder';
    else if (!setupMode && widget.unit == '%')
       titleClass = 'mdi mdi-label-percent-outline';
-   if (!setupMode && widget.unit == 'l')
+   else if (!setupMode && widget.unit == 'l')
       titleClass = 'mdi mdi-water';
 
    return titleClass;
@@ -784,8 +787,6 @@ function initWidget(key, widget, fact)
             xPos = (maxWidth - symbolWidth) / 2 + 10;
          }
 
-         console.log("widget.barwidth", widget.barwidth, "symbolWidth", symbolWidth);
-
          if (widget.symbol == null || widget.symbol == 0) {
             // plain rectangular tank symbol
 
@@ -799,8 +800,10 @@ function initWidget(key, widget, fact)
                // Füllung in widget Farbe
                '  <rect id="svg' + key + '" x="' + (xPos +0.5) + '" y="14" width="' + (symbolWidth - 3) + '" height="170" fill="' + widget.color + '" />' +
                // Text
-               '  <ellipse rx="30" ry="20" cx="150" cy="10" stroke="' + widget.color + '" style="fill:white;stroke-width:2" />' +
-               '  <text id="value' + key + '" x="150" y="10" fill="black" alignment-baseline="central" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="18">--</text>' +
+               '  <ellipse rx="30" ry="20" cx="' + (xPos + symbolWidth - 20) + '" cy="10" stroke="' + widget.color + '" style="fill:white;stroke-width:2" />' +
+               '  <text id="value' + key + '" x="' + (xPos + symbolWidth - 20) + '" y="10" fill="black" alignment-baseline="central" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="18">--</text>' +
+               // die Oberfläche mit 3D Effekt
+               '  <ellipse id="svgEllipse' + key + '" rx="' + ((symbolWidth-6)/2) + '" ry="' + 10 + '" cx="' + (xPos + symbolWidth/2) + '" cy="100" stroke="' + widget.color + '" fill="' + alterColor(widget.color, 'lighten', 30) + '" style="stroke-width:2" />' +
                '</svg>';
          }
 
@@ -887,6 +890,8 @@ function initWindy(key, widget, fact)
 
 function initWindyMap(key, widget, fact)
 {
+   return;
+
    let html = '<div ' +
       '    data-windywidget="map"' +
       '    data-thememode="white"' +
@@ -955,14 +960,21 @@ function initMeter(key, widget, fact, neededScaleMax)
    if (widget.scalemin == null)
       widget.scalemin = 0;
 
+   let neededScaleMin = widget.scalemin;
+
+   if (widget.scalemin < 0)
+      neededScaleMin = neededScaleMax*-1;
+
    let ticks = [];
-   let scaleRange = neededScaleMax - widget.scalemin;
+   let scaleRange = neededScaleMax - neededScaleMin;
+   let stepWidth = widget.scalestep;
 
-   let stepWidth = 0;
-
-   if (widget.scalestep != null) {
+   if (widget.rescale && widget.scalestep != null && widget.scalemax != neededScaleMax) {
       let factor = widget.scalemax / neededScaleMax;
       stepWidth = widget.scalestep / factor;
+
+      if (neededScaleMax >= 10)
+         stepWidth = Math.round(stepWidth);
    }
 
    if (!stepWidth) {
@@ -978,26 +990,30 @@ function initMeter(key, widget, fact, neededScaleMax)
 
    if (stepWidth <= 0)
       stepWidth = 1;
+
    stepWidth = Math.round(stepWidth*10) / 10;
 
    if (neededScaleMax < widget.scalemax)
       neededScaleMax += stepWidth;       // if we auto scale add one step
 
+   if (widget.scalemin < 0)
+      neededScaleMin = neededScaleMax*-1;
+
    let steps = -1;
-   for (var step = widget.scalemin; step.toFixed(2) <= neededScaleMax; step += stepWidth) {
+   for (var step = neededScaleMin; step.toFixed(2) <= neededScaleMax; step += stepWidth) {
       ticks.push(step % 1 ? parseFloat(step).toFixed(1) : parseInt(step));
       steps++;
    }
 
    let highlights = {};
-   let critmin = (widget.critmin == null || widget.critmin == -1) ? widget.scalemin : widget.critmin;
+   let critmin = (widget.critmin == null || widget.critmin == -1) ? neededScaleMin : widget.critmin;
    let critmax = (widget.critmax == null || widget.critmax == -1) ? neededScaleMax : widget.critmax;
    let minColor = widget.unit == '°C' ? 'blue' : 'rgba(255,0,0,.6)';
 
    highlights = [
-      { from: widget.scalemin, to: critmin,  color: minColor },
-      { from: critmin,         to: critmax,  color: 'rgba(0,255,0,.6)' },
-      { from: critmax,         to: neededScaleMax, color: 'rgba(255,0,0,.6)' }
+      { 'from': neededScaleMin, 'to': critmin,        'color': minColor },
+      { 'from': critmin,        'to': critmax,        'color': 'rgba(0,255,0,.6)' },
+      { 'from': critmax,        'to': neededScaleMax, 'color': 'rgba(255,0,0,.6)' }
    ];
 
    let bWidth = radial ? 0 : (widget.unit == '%' || widget.unit == 'l' ? 12 : 7);
@@ -1014,7 +1030,7 @@ function initMeter(key, widget, fact, neededScaleMax)
       renderTo: 'widget' + fact.type + fact.address,
 
       units: radial ? widget.unit : '',
-      minValue: widget.scalemin,
+      minValue: neededScaleMin,
       maxValue: neededScaleMax,
       majorTicks: ticks,
       minorTicks: 5,
@@ -1667,10 +1683,6 @@ function updateWidget(sensor, refresh, widget)
    {
       if (sensor.value != null) {
          let value = sensor.value; // (widget.factor != null && widget.factor) ? widget.factor*sensor.value : sensor.value;
-         // if (widget.barwidth >= 20) {
-         //    value = 33;
-         //   console.log("fake value to", value);
-         // }
 
          if (widget.rescale) {
             let neededScaleMax = widget.scalemax;
@@ -1727,6 +1739,12 @@ function updateWidget(sensor, refresh, widget)
       v.innerHTML = sensor.value + ' ' + widget.unit;
       l.setAttribute('y', full - level + y);
       l.setAttribute('height', level);
+
+      var ellipse = document.getElementById('svgEllipse' + key);
+
+      if (ellipse != null)
+         ellipse.setAttribute('cy', full - level + y);
+
       // console.log("value:", sensor.value, "level:", level);
    }
 }

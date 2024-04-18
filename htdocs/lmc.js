@@ -1,7 +1,7 @@
 /*
  *  lmc.js
  *
- *  (c) 2020-2022 Jörg Wendel
+ *  (c) 2020-2024 Jörg Wendel
  *
  * This code is distributed under the terms and conditions of the
  * GNU GENERAL PUBLIC LICENSE. See the file COPYING for details.
@@ -125,14 +125,23 @@ function initLmc()
                                      )
                               .append($('<div></div>')
                                       .css('flex-grow', '1'))
+                              .append($('<select></select>')
+                                      .attr('id', 'playerSelect')
+                                      .css('height', '30px')
+                                      .css('align-self', 'center')
+                                      .css('background-color', 'transparent')
+                                      .css('color', 'white')
+                                      .css('border-radius', '5px')
+                                      .on('change', function() {
+                                         socket.send({ 'event' : 'lmcaction', 'object' : { 'action' : 'changePlayer', 'mac' : $(this).val()} });
+                                      }))
                               .append($('<button></button>')
                                       .attr('id', 'lmcBtnBurgerMenu')
                                       .addClass('rounded-border burgerMenu lmcButton')
                                       .click(function() { onMenu(); })
                                       .append($('<div></div>'))
                                       .append($('<div></div>'))
-                                      .append($('<div></div>'))
-                                     )
+                                      .append($('<div></div>')))
                              )
                       .append($('<div></div>')
                               .attr('id', 'lmcPlaylist')
@@ -155,12 +164,28 @@ var progressTrigger = 0;
 
 function updateLmc()
 {
-   console.log("updateLmc lmcData.state =", JSON.stringify(lmcData.state, undefined, 4));
+   // console.log("updateLmc lmcData.state =", JSON.stringify(lmcData.state, undefined, 4));
 
    if (!lmcData || !lmcData.current || !lmcData.state) {
       clearProgressTrigger();
       return;
    }
+
+   $('#playerSelect').empty();
+   let playerFound = false;
+
+   for (var i = 0; i < lmcData.players.length; i++) {
+      $('#playerSelect').append($('<option></option>')
+                                .html(lmcData.players[i].name)
+                                .val(lmcData.players[i].mac)
+                                .attr('selected', lmcData.players[i].iscurrent)
+                               );
+      if (lmcData.players[i].iscurrent)
+         playerFound = true;
+   }
+
+   // $('#playerSelect').append($('<option>xx</option>')
+   //                           .attr('selected', !playerFound));
 
    if (lmcData.state.mode != "play")
       clearProgressTrigger();
@@ -224,7 +249,7 @@ function updatePlaylist()
    if (startWith < 0)
       startWith = 0;
 
-   console.log("staring playlist display at", startWith, "of", lmcData.playlist.length, " : ", lmcData.playlist[startWith].title, " visibleCount:", visibleCount);
+   // console.log("staring playlist display at", startWith, "of", lmcData.playlist.length, " : ", lmcData.playlist[startWith].title, " visibleCount:", visibleCount);
 
    for (let i = startWith; i < lmcData.playlist.length; i++) {
       // console.log("track", i, lmcData.playlist[i].title);
@@ -322,5 +347,5 @@ function lmcMenu(menu)
 
 function lmcAction(action)
 {
-   socket.send({ 'event' : 'lmcaction', 'object' : { 'action' : action} });
+   socket.send({ 'event' : 'lmcaction', 'object' : { 'action' : action } });
 }

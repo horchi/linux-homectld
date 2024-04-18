@@ -13,14 +13,15 @@
 // Init / Exit
 //***************************************************************************
 
-int Daemon::lmcInit()
+int Daemon::lmcInit(bool force)
 {
+   static time_t lastTryAt {0};
+
    if (isEmpty(lmcHost) || isEmpty(lmcPlayerMac))
       return done;
 
-   static time_t lastTryAt {0};
 
-   if (lastTryAt > time(0) - 10)
+   if (!force && lastTryAt > time(0) - 10)
       return done;
 
    lastTryAt = time(0);
@@ -28,13 +29,15 @@ int Daemon::lmcInit()
    if (!lmc)
       lmc = new LmcCom(lmcPlayerMac);
 
+   tell(eloAlways, "[LMC] Try pening connection to server at '%s:%d' for player '%s'", lmcHost, lmcPort, lmcPlayerMac);
+
    if (lmc->open(lmcHost, lmcPort) != success)
    {
       tell(eloAlways, "[LMC] Opening connection to server at '%s:%d' failed", lmcHost, lmcPort);
       return fail;
    }
 
-   tell(eloAlways, "[LMC] Opening connection to server at '%s:%d' succeeded", lmcHost, lmcPort);
+   tell(eloAlways, "[LMC] Opening connection to server at '%s:%d' for player '%s' succeeded", lmcHost, lmcPort, lmcPlayerMac);
 
    lmc->update();
    // lmc->startNotify();
@@ -86,11 +89,12 @@ int Daemon::lmcUpdates(long client)
    if (!lmc)
       return done;
 
-   json_t* oJson = json_object();
+   json_t* oJson {json_object()};
    lmcTrack2Json(oJson, lmc->getCurrentTrack());
    lmcPlayerState2Json(oJson);
    lmcPlaylist2Json(oJson);
    lmcMainMenu2Json(oJson);
+   lmcPlayers2Json(oJson);
 
    return pushOutMessage(oJson, "lmcdata", client);
 }
@@ -124,7 +128,7 @@ int Daemon::lmcTrack2Json(json_t* obj, TrackInfo* track)
    std::string url;
    lmc->getCurrentCoverUrl(track, url);
 
-   tell(eloLmc, "[LMC] Usinf artworkurl '%s'", track->artworkurl);
+   tell(eloLmc, "[LMC] Using artworkurl '%s'", track->artworkurl);
    json_object_set_new(current, "cover", json_string(url.c_str()));
 
    return success;
@@ -159,6 +163,30 @@ int Daemon::lmcPlayerState2Json(json_t* obj)
       lastTime = currentState->trackTime + (cTimeMs::Now() - currentState->updatedAt) / 1000;
 
    json_object_set_new(state, "trackTime", json_integer(lastTime));
+
+   return success;
+}
+
+int Daemon::lmcPlayers2Json(json_t* obj)
+{
+   LmcCom::RangeList players;
+   json_t* oPlayers = json_array();
+   json_object_set_new(obj, "players", oPlayers);
+
+   if (lmc->queryPlayers(&players) == success)
+   {
+      for (const auto& player : players)
+      {
+         json_t* oPlayer {json_object()};
+         json_array_append_new(oPlayers, oPlayer);
+
+         json_object_set_new(oPlayer, "id", json_integer(atoi(player.id.c_str())));
+         json_object_set_new(oPlayer, "name", json_string(player.command.c_str()));
+         json_object_set_new(oPlayer, "mac", json_string(player.content.c_str()));
+         json_object_set_new(oPlayer, "connected", json_boolean(player.isConnected));
+         json_object_set_new(oPlayer, "iscurrent", json_boolean(player.content == lmcPlayerMac));
+      }
+   }
 
    return success;
 }
@@ -302,6 +330,16 @@ int Daemon::performLmcAction(json_t* oObject, long client)
       lmc->volumeUp();
    else if (action == "muteToggle")
       lmc->muteToggle();
+   else if (action == "changePlayer")
+   {
+      const char* mac = getStringFromJson(oObject, "mac");
+
+      lmcExit();
+      tell(eloAlways, "Changing player to '%s'", mac);
+      free(lmcPlayerMac);
+      lmcPlayerMac = strdup(mac);
+      lmcInit(true);
+   }
 
    return done;
 }

@@ -333,7 +333,7 @@ function dispatchMessage(message)
    var event = jMessage.event;
 
    if (event != "chartdata" && event != "ping")
-      ; // console.log("got event: " + event);
+      console.log("got event: " + event);
 
    if (event == "result") {
       hideProgressDialog();
@@ -533,7 +533,7 @@ function prepareMenu()
    if (config.schema)
       html += '<button class="rounded-border button1" onclick="mainMenuSel(\'schema\')">Schema</button>';
    if (config.lmcHost != '')
-      html += '<button id="vdrMenu" class="rounded-border button1" onclick="mainMenuSel(\'lmc\')">Squeezebox</button>';
+      html += '<button id="vdrMenu" class="rounded-border button1" onclick="mainMenuSel(\'lmc\')">Music</button>';
    if (config.vdr != '')
       html += '<button id="vdrMenu" class="rounded-border button1" onclick="mainMenuSel(\'vdr\')">VDR</button>';
    if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10)
@@ -608,12 +608,12 @@ function menuBurger()
    var form = '<div id="burgerPopup" style="padding:0px;">';
 
    if (haveToken)
-      form += '<button style="width:120px;" class="rounded-border button1" onclick="mainMenuSel(\'user\')">[' + localStorage.getItem(storagePrefix + 'User') + ']</button>';
+      form += '<button style="width:120px;margin:2px;" class="rounded-border button1" onclick="mainMenuSel(\'user\')">[' + localStorage.getItem(storagePrefix + 'User') + ']</button>';
    else
-      form += '<button style="width:120px;" class="rounded-border button1" onclick="mainMenuSel(\'login\')">Login</button>';
+      form += '<button style="width:120px;margin:2px;" class="rounded-border button1" onclick="mainMenuSel(\'login\')">Login</button>';
 
    if (currentPage == 'dashboard' && localStorage.getItem(storagePrefix + 'Rights') & 0x10)
-      form += '  <br/><div><button style="width:120px;color" class="rounded-border button1 mdi mdi-lead-pencil" onclick=" setupDashboard()">' + (setupMode ? ' Stop Setup' : ' Setup Dashboard') + '</button></div>';
+      form += '  <br/><div><button style="width:120px;margin:2px;color" class="rounded-border button1 mdi mdi-lead-pencil" onclick=" setupDashboard()">' + (setupMode ? ' Stop Setup' : ' Setup Dashboard') + '</button></div>';
 
    form += '</div>';
 
@@ -923,6 +923,10 @@ function showSystemServicesList()
    $('#container').removeClass('hidden');
    $('#container').html('<div id="systemContainer"></div>');
 
+   // systemServices.sort(function(a, b) {
+   //    return b.unitFileState.localeCompare(a.unitFileState);
+   // });
+
    var html = '<div>';
 
    html += '  <div class="rounded-border seperatorFold">System Services</div>';
@@ -931,7 +935,7 @@ function showSystemServicesList()
       '     <tr style="height:30px;font-weight:bold;">' +
       '       <td style="width:8%;">Service</td>' +
       '       <td style="width:14%;"></td>' +
-      '       <td style="width:4%;">Status</td>' +
+      '       <td style="width:6%;">Status</td>' +
       '       <td style="width:3%"></td>' +
       '     </tr>' +
       '    </thead>' +
@@ -939,16 +943,15 @@ function showSystemServicesList()
 
    for (var i = 0; i < systemServices.length; i++) {
       let svc = systemServices[i];
-      let rowColor = svc.status == 'active' ? 'lightgreen' : '';
-      let action = svc.status == 'active' ? 'Stop' : 'Start';
+      let rowColor = svc.status == 'active' ? 'lightgreen' : 'var(--light4)';
+      // let action = svc.status == 'active' ? 'Stop' : 'Start';
       let btnColor = svc.status == 'active' ? 'orange' : 'lightgreen';
 
       html += '<tr style="height:28px;color:' + rowColor + ';">';
       html += ' <td>' + svc.service + '</td>';
       html += ' <td>' + svc.title + '</td>';
-      html += ' <td>' + svc.status + ' / ' + svc.subState + '</td>';
-      // html += ' <td>' + '<button class="buttonOptions table rounded-border" onclick="systemServiceAction(\'' + svc.service + '\')">' + action + '</button>' + '</td>';
-      html += ' <td>' + '<button class="buttonOptions rounded-border" style="color:' + btnColor + ';" onclick="wifiAction(\'' + svc.service + '\')">' + action + '</button>' + '</td>';
+      html += ' <td>' + svc.status + ' / ' + svc.subState + ' / ' + svc.unitFileState + '</td>';
+      html += ' <td>' + '<button id="btn_' + svc.service + '"class="rounded-border button1 burgerMenuInline" onclick="systemServiceMenu(\'' + svc.service + '\')"><div></div><div></div><div></div></button>' + '</td>';
       html += '</tr>';
    }
 
@@ -961,7 +964,7 @@ function showSystemServicesList()
       .addClass('setupContainer');
 }
 
-function systemServiceAction(service)
+function systemServiceMenu(service)
 {
    let i = 0;
 
@@ -971,10 +974,69 @@ function systemServiceAction(service)
    }
 
    let active = systemServices[i].status == 'active';
+   let enabled = systemServices[i].unitFileState == 'enabled';
+   let form = document.createElement("div");
 
+   $(form)
+      .attr('id', 'actionPopup')
+      .css('display', 'grid')
+      .css('padding', '2px')
+      .append($('<button></button>')
+              .addClass('rounded-border button1')
+              .css('width', '80px')
+              .css('margin', '2px')
+              .html(active ? 'Stop' : 'Start')
+              .click({ "service" : service }, function(event) {
+                 systemServiceAction(event.data.service, active ? 'sys-service-Stop' : 'sys-service-Start');
+                 $("#actionPopup").dialog('close');
+              }))
+      .append($('<button></button>')
+              .addClass('rounded-border button1')
+              .css('width', '80px')
+              .css('margin', '2px')
+              .html('Kill')
+              .click({ "service" : service }, function(event) {
+                 systemServiceAction(event.data.service, active ? 'sys-service-Stop' : 'sys-service-Kill');
+                 $("#actionPopup").dialog('close');
+              }));
+   if (systemServices[i].unitFileState == 'enabled' || systemServices[i].unitFileState == 'disabled')
+      $(form).append($('<button></button>')
+                     .addClass('rounded-border button1')
+                     .css('width', '80px')
+                     .css('margin', '2px')
+                     .html(enabled ? 'Disable' : 'Enable')
+                     .click({ "service" : service }, function(event) {
+                        systemServiceAction(event.data.service, enabled ? 'sys-service-Disable' : 'sys-service-Enable');
+                        $("#actionPopup").dialog('close');
+                     })
+                    );
+
+   $(form).dialog({
+      position: { my: "right top", at: "left top", of: document.getElementById('btn_' + service)},
+      minHeight: "auto",
+      width: "auto",
+      dialogClass: "no-titlebar rounded-border",
+		modal: true,
+      resizable: false,
+		closeOnEscape: true,
+      hide: "fade",
+      open: function(event, ui) {
+         $(event.target).parent().css('background-color', 'var(--light1)');
+         $('.ui-widget-overlay').bind('click', function()
+                                      { $("#actionPopup").dialog('close'); });
+      },
+      close: function() {
+         $("body").off("click");
+         $(this).dialog('destroy').remove();
+      }
+   });
+}
+
+function systemServiceAction(service, action)
+{
    socket.send({ "event": "system", "object":
                  {
-                    'action': active ? 'sys-service-stop' : 'sys-service-start',
+                    'action': action,
                     'service': service
                  }
                });
@@ -1452,4 +1514,31 @@ function changeFavicon(src)
 function isObjectEmpty(object)
 {
    return Object.keys(object).length === 0 && object.constructor === Object;
+}
+
+function trim()
+{
+   return this.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
+}
+
+function alterColor(rgb, type, percent)
+{
+	rgb = rgb.replace('rgb(', '').replace(')', '').split(',');
+
+	var red = trim.call(rgb[0]);
+	var green = trim.call(rgb[1]);
+	var blue = trim.call(rgb[2]);
+
+	if (type === "darken") {
+		red = parseInt(red * (100 - percent) / 100, 10);
+		green = parseInt(green * (100 - percent) / 100, 10);
+		blue = parseInt(blue * (100 - percent) / 100, 10);
+	}
+   else {
+		red = parseInt(red * (100 + percent) / 100, 10);
+		green = parseInt(green * (100 + percent) / 100, 10);
+		blue = parseInt(blue * (100 + percent) / 100, 10);
+	}
+
+	return 'rgb(' + red + ', ' + green + ', ' + blue + ')';
 }

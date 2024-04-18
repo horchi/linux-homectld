@@ -125,13 +125,13 @@ class VotroCom
          bsSolarVolotageMsb,  // 5
          bsSolarCurrentLsb,   // 6
          bsSolarCurrentMsb,   // 7
-         bsUnknown1,
-         bsUnknown2,
-         bsUnknown3,
-         bsUnknown4,
-         bsUnknown5,
+         bsFlags1,
+         bsFlags2,
+         bsFlags3,
+         bsControllerTemp,
+         bsChargeMode,
          bsBattStatus,
-         bsSolarStatus,
+         bsControllerStatus,
          bsChecksum
       };
 
@@ -147,13 +147,13 @@ class VotroCom
          bsbUnknown3    = 7
       };
 
-      enum SolarStatusBits
+      enum ControllerStatusBits
       {
-         ssbUnknown0    = 0,
+         ssbMppt        = 0,
          ssbUnknown1    = 1,
          ssbUnknown2    = 2,
          ssbActive      = 3,
-         ssbProtection  = 4,  // Overcharge protection
+         ssbProtection  = 4,  // charged over 80%
          ssbAES         = 5,  // Automatic Energy Selector
          ssbUnknown6    = 6,
          ssbUnknown7    = 7
@@ -178,12 +178,13 @@ class VotroCom
          bool solarActive {false};
          bool solarProtection {false};
          bool solarAES {false};
-         byte unknown1 {0};
-         byte unknown2 {0};
-         byte unknown3 {0};
-         byte unknown4 {0};
-         byte unknown5 {0};
-         double v {0.0};
+         bool solarMppt {false};
+         int controllerTemp {0};
+         byte flags1 {0};
+         byte flags2 {0};
+         byte flags3 {0};
+         std::string chargeMode;
+         byte controllerStatusByte {};  // for debugging
       };
 
       //
@@ -201,7 +202,6 @@ class VotroCom
 
       ResponseRs485* getRs485Response() { return &rs485Response; }
       static std::map<DeviceAddress,std::map<Parameter,ParameterDefinition>> parameterDefinitions;  // for RS48%
-
       int readSimple();
       ResponseSimpleInterface* getSimpleInterfaceResponse() { return &simpleInterfaceResponse; }
 
@@ -222,6 +222,8 @@ class VotroCom
       uint baud {0};
       bool useSdi {false};
       bool silent {false};
+
+      static std::map<byte,std::string> chargeModes;  // for Simple ...
 };
 
 //***************************************************************************
@@ -247,6 +249,18 @@ std::map<VotroCom::DeviceAddress,std::map<VotroCom::Parameter,VotroCom::Paramete
          { pBattVoltage04,   { "Batterie",            ptWord, 100, "V" } },
          { pKfzBattVolage04, { "KFZ Batterie",        ptWord, 100, "V" } }
       }}
+};
+
+std::map<byte,std::string> VotroCom::chargeModes
+{
+   { 0x35, "Lead GEL" },
+   { 0x22, "Lead AGM1" },
+   { 0x2F, "Lead AGM2" },
+   { 0x50, "LifePo4 13.9 V" },
+   { 0x52, "LifePo4 14.2 V" },
+   { 0x54, "LifePo4 14.4 V" },
+   { 0x56, "LifePo4 14.6 V" },
+   { 0x58, "LifePo4 14.8 V" }
 };
 
 //***************************************************************************
@@ -368,8 +382,7 @@ int VotroCom::parseSimpleResponse(uint8_t buffer[], size_t size)
    simpleInterfaceResponse.solarCurrent = (buffer[bsSolarCurrentMsb] << 8) + buffer[bsSolarCurrentLsb];
    simpleInterfaceResponse.solarCurrent /= 10.0;
 
-   simpleInterfaceResponse.v = (buffer[bsUnknown5] << 8) + buffer[bsUnknown4];
-   simpleInterfaceResponse.v /= 100;
+   simpleInterfaceResponse.controllerTemp = buffer[bsControllerTemp];
 
    switch (buffer[bsBattStatus] & 0x0F)
    {
@@ -379,15 +392,18 @@ int VotroCom::parseSimpleResponse(uint8_t buffer[], size_t size)
       case bsbPhaseU3: simpleInterfaceResponse.battStatus = "Phase U3"; break;
    }
 
-   simpleInterfaceResponse.solarActive = isBitSet(buffer[bsSolarStatus], ssbActive);
-   simpleInterfaceResponse.solarProtection = isBitSet(buffer[bsSolarStatus], ssbProtection);
-   simpleInterfaceResponse.solarAES = isBitSet(buffer[bsSolarStatus], ssbAES);
+   simpleInterfaceResponse.controllerStatusByte = buffer[bsControllerStatus];
+   simpleInterfaceResponse.solarActive = isBitSet(buffer[bsControllerStatus], ssbActive);
+   simpleInterfaceResponse.solarProtection = isBitSet(buffer[bsControllerStatus], ssbProtection);
+   simpleInterfaceResponse.solarAES = isBitSet(buffer[bsControllerStatus], ssbAES);
+   simpleInterfaceResponse.solarMppt = isBitSet(buffer[bsControllerStatus], ssbMppt);
 
-   simpleInterfaceResponse.unknown1 = buffer[bsUnknown1];
-   simpleInterfaceResponse.unknown2 = buffer[bsUnknown2];
-   simpleInterfaceResponse.unknown3 = buffer[bsUnknown3];
-   simpleInterfaceResponse.unknown4 = buffer[bsUnknown4];
-   simpleInterfaceResponse.unknown5 = buffer[bsUnknown5];
+   simpleInterfaceResponse.flags1 = buffer[bsFlags1];
+   simpleInterfaceResponse.flags2 = buffer[bsFlags2];
+   simpleInterfaceResponse.flags3 = buffer[bsFlags3];
+
+   if (chargeModes.find(buffer[bsChargeMode]) != chargeModes.end())
+      simpleInterfaceResponse.chargeMode = chargeModes[buffer[bsChargeMode]];
 
    return success;
 }
@@ -676,8 +692,11 @@ int Votro::update()
          mqttPublish(sensor = {2, "value", "PV Strom", "A", response->solarCurrent}, type.c_str());
          mqttPublish(sensor = {3, "text", "Charging Status", "", 0, response->battStatus}, type.c_str());
          mqttPublish(sensor = {4, "status", "PV Active", "", (double)response->solarActive}, type.c_str());
-         mqttPublish(sensor = {5, "status", "PV Protection", "", (double)response->solarProtection}, type.c_str());
+         mqttPublish(sensor = {5, "status", "PV 80%", "", (double)response->solarProtection}, type.c_str());
          mqttPublish(sensor = {6, "status", "PV AES", "", (double)response->solarAES}, type.c_str());
+         mqttPublish(sensor = {7, "value", "Controller Temp", "°C", (double)response->controllerTemp}, type.c_str());
+         mqttPublish(sensor = {8, "text", "Charge Mode", "", 0, response->chargeMode}, type.c_str());
+         mqttPublish(sensor = {9, "status", "PV MPPT", "", (double)response->solarMppt}, type.c_str());
       }
    }
    else
@@ -851,8 +870,17 @@ int showSimple(const char* device, uint baud)
       tell(eloAlways, "solarActive: %s", response->solarActive ? "yes" : "no");
       tell(eloAlways, "solarProtection: %s", response->solarProtection ? "yes" : "no");
       tell(eloAlways, "solarAES: %s", response->solarAES ? "yes" : "no");
+      tell(eloAlways, "solarMppt: %s", response->solarMppt ? "yes" : "no");
+      tell(eloAlways, "controllerTemp: %d °C", response->controllerTemp);
+      tell(eloAlways, "chargeMode: %s", response->chargeMode.c_str());
+      tell(eloAlways, "flags1: 0x%02x", response->flags1);
+      tell(eloAlways, "flags2: 0x%02x", response->flags2);
+      tell(eloAlways, "flags3: 0x%02x", response->flags3);
 
-      tell(eloAlways, "unkown: %.2f V", response->v);
+      tell(eloAlways, "ssbUnknown1: %s", isBitSet(response->controllerStatusByte, VotroCom::ssbUnknown1) ? "yes" : "no");
+      tell(eloAlways, "ssbUnknown2: %s", isBitSet(response->controllerStatusByte, VotroCom::ssbUnknown2) ? "yes" : "no");
+      tell(eloAlways, "ssbUnknown6: %s", isBitSet(response->controllerStatusByte, VotroCom::ssbUnknown6) ? "yes" : "no");
+      tell(eloAlways, "ssbUnknown7: %s", isBitSet(response->controllerStatusByte, VotroCom::ssbUnknown7) ? "yes" : "no");
 
       sleep(1);
    }

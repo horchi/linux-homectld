@@ -671,7 +671,7 @@ int Daemon::performSystem(json_t* oObject, long client)
    if (action == "wifis")
       return performWifi(oObject, client);
 
-   if (action == "wifi-disconnect" || action == "wifi-connect")
+   if (action.starts_with("wifi-"))
    {
       if (wsClients[(void*)client].rights & urAdmin)
          return performWifiCommand(oObject, client);
@@ -679,7 +679,7 @@ int Daemon::performSystem(json_t* oObject, long client)
       return replyResult(fail, "Insufficient rights for network action", client);
    }
 
-   if (action == "sys-service-stop" || action == "sys-service-start")
+   if (action.starts_with("sys-service-"))
    {
       if (!(wsClients[(void*)client].rights & urAdmin))
          return replyResult(fail, "Insufficient rights for system service action", client);
@@ -687,7 +687,13 @@ int Daemon::performSystem(json_t* oObject, long client)
       const char* service = getStringFromJson(oObject, "service");
       SysCtl ctl;
 
-      if (ctl.unitAction(action == "sys-service-stop" ? "Stop" : "Start", service) == success)
+      std::vector<std::string> tuples;
+      split(action, '-', &tuples);
+
+      if (tuples.size() != 3)
+         return replyResult(fail, "Unexpected action", client);
+
+      if (ctl.unitAction(tuples[2].c_str(), service) == success)
          replyResult(success, "success", client);
       else
          replyResult(fail, "failed", client);
@@ -2594,6 +2600,7 @@ int Daemon::systemServices2Json(json_t* obj)
       json_object_set_new(jService, "title", json_string(s.second.humanName.c_str()));
       json_object_set_new(jService, "status", json_string(s.second.activeState.c_str()));
       json_object_set_new(jService, "subState", json_string(s.second.subState.c_str()));
+      json_object_set_new(jService, "unitFileState", json_string(s.second.unitFileState.c_str()));
       json_array_append_new(obj, jService);
    }
 

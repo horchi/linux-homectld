@@ -26,6 +26,7 @@
 #include <string>
 
 #include "lib/tcpchannel.h"
+#include "lib/curl.h"
 #include "lmcservice.h"
 
 // #define LmcLock cMutexLock lock(&comMutex)
@@ -112,6 +113,8 @@ class LmcCom : public TcpChannel
 
       int queryRange(RangeQueryType queryType, int from, int count,
                      RangeList* list, int& total, const char* special = "", Parameters* pars = nullptr);
+
+      int queryPlayers(RangeList* list);
 
       // cover
 
@@ -252,7 +255,8 @@ class LmcCom : public TcpChannel
       char* mac {};
       char* escId {};                       // escaped player id (build from mac)
 
-      CURL* curl {};
+      cCurl* curl {};
+      char* curlUrl {};
       char lastCommand[sizeMaxCommand+TB] {};
       std::string lastPar;
 

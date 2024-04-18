@@ -2,18 +2,15 @@
 # General
 
 - add write of victron registers to WEBIF
-- squeezebox Player wählen im WEBIF
 
-- io/setup Skripe auch auf der Platte löschen?
 - hide widgets on condition like value < x, > y oder text is 'none', ...
-- check refresh of systemd interface after user action
+- scaling for charts / chart widgets
 
-- scaling for charts and chart widgets
-- add enable/disable/kill to systemd interface?
+- add filter expression to systemd list view
 
 - warn or hold unsaved values of io/settings on opening sensors config dialog
 
-# Notes / Idea
+# Notes / Ideas
 
 - config option for valuefact rights (digital outputs, ..)
 - apply IO settings without restart (initInput / initOutput)

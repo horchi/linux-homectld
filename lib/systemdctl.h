@@ -18,7 +18,7 @@
 //   https://www.freedesktop.org/wiki/Software/systemd/dbus/
 //   https://stackoverflow.com/questions/61940461/how-to-get-the-state-of-a-service-with-sd-bus
 //
-// Query service state - for examplr of the 'dnsmasq.service' service:
+// Query service state - for example of the 'dnsmasq.service' service:
 // #> busctl call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager LoadUnit s "dnsmasq.service"
 //   o "/org/freedesktop/systemd1/unit/dnsmasq_2eservice"
 // #> busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1/unit/docker_2eservice org.freedesktop.systemd1.Unit ActiveState
@@ -52,6 +52,7 @@ class SysCtl
          std::string loadState;
          std::string activeState;
          std::string subState;
+         std::string unitFileState;
       };
 
       typedef std::map<std::string,SysCtl::Unit> Services;
@@ -64,9 +65,10 @@ class SysCtl
       int exit();
 
       int getProperty(const char* unit, const char* property, std::string& value);
-      int unitList(Services& services);
+      int unitList(Services& services, const char* filter = ".service");
       int unitAction(const char* command, const char* unit);
       int loadUnit(const char* unit, std::string& unitPath);
+      int reload();
 
    private:
 

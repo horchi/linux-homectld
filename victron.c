@@ -4,6 +4,8 @@
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
 // Date 23.02.2024 - Jörg Wendel
+
+//  https://www.victronenergy.com/upload/documents/VE.Direct-HEX-Protocol-Phoenix-Inverter.pdf
 //***************************************************************************
 
 #include <signal.h>
@@ -50,6 +52,7 @@ class Victron
       int mqttPublish(json_t* jObject);
       int performMqttRequests();
       int dispatchMqttMessage(const char* message);
+      int reconnect();
 
       VeCom serial;
       std::string device;
@@ -344,6 +347,18 @@ int Victron::loop()
 }
 
 //***************************************************************************
+// Reconnect
+//***************************************************************************
+
+int Victron::reconnect()
+{
+   serial.close();
+   int res = serial.open(device.c_str());
+   serial.sendPing();
+   return res;
+}
+
+//***************************************************************************
 // Read VE Data
 //***************************************************************************
 
@@ -356,6 +371,8 @@ int Victron::readVeData()
       if (myve.rxData(b) == done)
          return success;
    }
+
+   reconnect();
 
    return fail;
 }

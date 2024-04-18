@@ -22,7 +22,7 @@ int main(int argc, char* argv[])
 
    if (argc < 2 || (argc < 3 && strcmp(argv[1], "List") != 0))
    {
-      tell(eloAlways, "Usage: %s {List|State|Restart|Start|Stop} <service>", argv[0]);
+      tell(eloAlways, "Usage: %s {List|State|Restart|Start|Stop|Enable|Disable} <service>", argv[0]);
       exit(1);
    }
 
@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
    if (!ctl.conncected())
       return EXIT_FAILURE;
 
-   if (strstr("Restart|Start|Stop", cmd.c_str()))
+   if (strstr("Restart|Start|Stop|Enable|Disable", cmd.c_str()))
    {
       ctl.unitAction(cmd.c_str(), unit.c_str());
    }
@@ -47,7 +47,7 @@ int main(int argc, char* argv[])
 
       tell(eloAlways, "----------------------------------");
       for (const auto& s : services)
-         tell(eloAlways, "'%s': %-40s  %s", s.second.activeState.c_str(), s.second.primaryName.c_str(), s.second.humanName.c_str());
+         tell(eloAlways, "%s/%s: %-40s  %s", s.second.activeState.c_str(), s.second.unitFileState.c_str(),s.second.primaryName.c_str(), s.second.humanName.c_str());
       tell(eloAlways, "----------------------------------");
    }
    else if (cmd == "State")
@@ -59,13 +59,15 @@ int main(int argc, char* argv[])
       {
          // tell(eloAlways, "Unit path is '%s'", unitPath.c_str());
 
-         tell(eloAlways, "State of unit '%s'", unit.c_str());
+         tell(eloAlways, "State of unit '%s' [%s]", unit.c_str(), unitPath.c_str());
          ctl.getProperty(unitPath.c_str(), "ActiveState", result);
          tell(eloAlways, "   ActiveState: %s", result.c_str());
          ctl.getProperty(unitPath.c_str(), "SubState", result);
          tell(eloAlways, "   SubState: %s", result.c_str());
          ctl.getProperty(unitPath.c_str(), "LoadState", result);
          tell(eloAlways, "   LoadState: %s", result.c_str());
+         ctl.getProperty(unitPath.c_str(), "UnitFileState", result);
+         tell(eloAlways, "   UnitFileState: %s", result.c_str());
       }
    }
    else

@@ -492,6 +492,7 @@ class Daemon : public cWebInterface
 
       int lmcTrack2Json(json_t* obj, TrackInfo* track);
       int lmcPlayerState2Json(json_t* obj);
+      int lmcPlayers2Json(json_t* obj);
       int lmcPlaylist2Json(json_t* obj);
       int lmcMainMenu2Json(json_t* obj);
 
@@ -506,7 +507,7 @@ class Daemon : public cWebInterface
 
       // LMC
 
-      int lmcInit();
+      int lmcInit(bool force = false);
       int lmcExit();
       int lmcUpdates(long client = 0);
       int performLmcUpdates();

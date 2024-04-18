@@ -110,6 +110,20 @@ button:focus {
     background-color: white;
 }
 
+.burgerMenuInline
+{
+    float: right;
+    width: 35px;
+    padding: 2px 2px !important;
+    margin-left: 8px;
+}
+
+.burgerMenuInline > div {
+    height: 1px;
+    margin: 4px;
+    background-color: white;
+}
+
 .vdrContent
 {
     margin: 0px 5px 0px 5px;

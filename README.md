@@ -64,8 +64,8 @@ dpkg --purge homectld`
 ## Preliminary
 Update your system
 ```
-sudo apt update
-sudo apt dist-upgrade
+apt update
+apt dist-upgrade
 ```
 
 Perform all following steps as root user! Either by getting root or by prefix each command with sudo.
@@ -77,6 +77,8 @@ It's not required to host the database local at the Raspberry. A remote database
 ```
 apt -y install mariadb-server
 ```
+or if you like mariadb-server 10.6 on ubuntu 20.04 follow this instructions:
+https://community.hetzner.com/tutorials/how-to-install-mariadb-10-6-on-ubuntu-20-04
 
 Set the database root (db admin) password during installation!
 
@@ -105,7 +107,7 @@ if the database is running remote, or you like to have remote access to the data
 
 ```
 apt -y install build-essential libssl-dev libcurl4-openssl-dev uuid-dev libcap-dev libsystemd-dev
-apt -y install libjansson-dev libmariadb-dev liblua5.3-dev mosquitto-clients jq
+apt -y install libjansson-dev libmariadb-dev liblua5.3-dev mosquitto-clients jq bc
 ```
 
 # If you integrate bluetooth devices

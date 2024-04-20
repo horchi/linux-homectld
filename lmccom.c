@@ -703,7 +703,7 @@ int LmcCom::checkNotify(uint64_t timeout)
       {
          tell(eloDebugLmc, "[LMC] Query players succeeded (%zu)", players.size());
 
-         for (const auto player : players)
+         for (const auto& player : players)
          {
             if (player.content == mac && player.isConnected)
                myPlayerConnected = true;

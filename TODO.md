@@ -1,12 +1,11 @@
 
 # General
 
+- add filter expression to systemd list view
 - add write of victron registers to WEBIF
 
 - hide widgets on condition like value < x, > y oder text is 'none', ...
 - scaling for charts / chart widgets
-
-- add filter expression to systemd list view
 
 - warn or hold unsaved values of io/settings on opening sensors config dialog
 
@@ -15,7 +14,6 @@
 - config option for valuefact rights (digital outputs, ..)
 - apply IO settings without restart (initInput / initOutput)
     -> done (exept interrupt routine, resting interrupt routine crashes)
-- io/setup Skripe auch auf der Platte löschen?
 
 # Pool
 

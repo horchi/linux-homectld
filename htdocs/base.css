@@ -303,13 +303,9 @@ button:focus {
 
 .buttonDashboardTool
 {
-    display: inline;
     margin: 5px 5px 5px 2px;
+    align-self: center;
     color: orange;
-    background-color: transparent;
-    height: 28px;
-    text-decoration: none;
-    cursor: pointer;
 }
 
 .buttonDashboardTool:hover

@@ -11,6 +11,8 @@ import paho.mqtt.client as paho
 
 from usblini import USBlini
 
+syslog.openlog(ident="thetfordmqtt",logoption=syslog.LOG_PID)
+
 def tell(level, msg):
 	if args.v >= level:
 		if args.l:

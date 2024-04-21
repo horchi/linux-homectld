@@ -9,6 +9,8 @@ import time
 import json
 import paho.mqtt.client as paho
 
+syslog.openlog(ident="mopekamqtt",logoption=syslog.LOG_PID)
+
 # functions
 
 def tell(level, msg):

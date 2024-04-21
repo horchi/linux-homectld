@@ -4448,6 +4448,9 @@ int Daemon::loadStates()
 
    for (const auto& output : sensors["DO"])
    {
+      if (output.first == pinW1Power)
+         continue;
+
       if (sensors["DO"][output.first].opt & ooUser)
       {
          if (sensors["DO"][output.first].impulse)

@@ -1,5 +1,4 @@
-/var/log/<TARGET>.log
-/var/log/sensormqtt.log
+/var/log/vdr.log
 {
    rotate 2
    size 10M

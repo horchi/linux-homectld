@@ -361,7 +361,7 @@ function widgetSetup(key)
 
       $("#divUnit").css("display", [1,3,4,5,6,9,13,14].includes(wType) ? 'flex' : 'none');
       // $("#divFactor").css("display", [1,3,4,6,9,13].includes(wType) ? 'flex' : 'none');
-      $("#divScalemax").css("display", [5,6].includes(wType) ? 'flex' : 'none');
+      $("#divScalemax").css("display", [5,6,14].includes(wType) ? 'flex' : 'none');
       $("#divRescale").css("display", [5,6].includes(wType) ? 'flex' : 'none');
       $("#divScalemin").css("display", [5,6].includes(wType) ? 'flex' : 'none');
       $("#divScalestep").css("display", [5,6].includes(wType) ? 'flex' : 'none');

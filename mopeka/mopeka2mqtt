@@ -12,6 +12,7 @@
 #   -s          Show
 #   -M [M]      Sensor MAC
 #   -D          Discover Sensors
+#   -K [K]      Tank amount (full) [kg]
 
 MOPEKA_MQTT="-m localhost"
 MOPEKA_TOPIC="-T homectld2mqtt/mopeka"
@@ -19,3 +20,4 @@ MOPEKA_OPTS="-l"
 MOPEKA_LOG_LEVEL="-v 0"
 MOPEKA_SENSOR_MAC="-M f0:87:60:83:ab:10"
 MOPEKA_TANK_HEIGHT="-F 376"
+MOPEKA_AMOUNT="-K 11"

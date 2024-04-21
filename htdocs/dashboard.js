@@ -250,22 +250,23 @@ function getWidgetTitle(widget, fact)
 function getWidgetTitleClass(widget, fact)
 {
    let titleClass = '';
+   let title = '';
+
+   if (fact != null)
+      title = (fact.usrtitle != null ? fact.usrtitle : fact.title).toUpperCase();
 
    // #TODO move to configuration
 
-   if (!setupMode && widget.unit == '°C' &&
-       (fact.usrtitle.toUpperCase().indexOf('BOILER') != -1 || fact.title.toUpperCase().indexOf('BOILER') != -1))
+   if (!setupMode && widget.unit == '°C' && title.indexOf('BOILER') != -1)
       titleClass = 'mdi mdi-shower-head';
    else if (!setupMode && widget.unit == '°C')
       titleClass = 'mdi mdi-thermometer';
    else if (!setupMode && (widget.unit == 'hPa' || widget.unit == 'A' || widget.unit == 'mA' ||
                            widget.unit == 'W' || widget.unit == 'V' || widget.unit == 'Ah'))
       titleClass = 'mdi mdi-gauge';
-   else if (!setupMode && widget.unit == '%' &&
-            (fact.usrtitle.toUpperCase().indexOf('FEUCHT') != -1 || fact.title.toUpperCase().indexOf('FEUCHT') != -1))
+   else if (!setupMode && widget.unit == '%' && title.indexOf('FEUCHT') != -1)
       titleClass = 'mdi mdi-water-percent';
-   else if (!setupMode && widget.unit == '%' &&
-            (fact.usrtitle.toUpperCase().indexOf('GAS') != -1 || fact.title.toUpperCase().indexOf('GAS') != -1))
+   else if (!setupMode && title.indexOf('GAS') != -1)
       titleClass = 'mdi mdi-gas-cylinder';
    else if (!setupMode && widget.unit == '%')
       titleClass = 'mdi mdi-label-percent-outline';
@@ -804,7 +805,7 @@ function initWidget(key, widget, fact)
                // Füllung in widget Farbe
                '  <rect id="svg' + key + '" x="' + (xPos +0.5) + '" y="14" width="' + (symbolWidth - 3) + '" height="170" fill="' + widget.color + '" />' +
                // Text
-               '  <ellipse rx="30" ry="20" cx="' + (xPos + symbolWidth - 20) + '" cy="10" stroke="' + widget.color + '" style="fill:white;stroke-width:2" />' +
+               '  <ellipse rx="40" ry="20" cx="' + (xPos + symbolWidth - 20) + '" cy="10" stroke="' + widget.color + '" style="fill:white;stroke-width:2" />' +
                '  <text id="value' + key + '" x="' + (xPos + symbolWidth - 20) + '" y="10" fill="black" alignment-baseline="central" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="18">--</text>' +
                // die Oberfläche mit 3D Effekt
                '  <ellipse id="svgEllipse' + key + '" rx="' + ((symbolWidth-6)/2) + '" ry="' + 10 + '" cx="' + (xPos + symbolWidth/2) + '" cy="100" stroke="' + widget.color + '" fill="' + alterColor(widget.color, 'lighten', 30) + '" style="stroke-width:2" />' +
@@ -1732,23 +1733,26 @@ function updateWidget(sensor, refresh, widget)
          console.log("Missing value for " + '#widget' + fact.type + fact.address);
    }
    else if (widget.widgettype == 14) {  // Special Symbol
-      var div = document.getElementById('widget' + key);
-      var l = document.getElementById('svg' + key);
-      var v = document.getElementById('value' + key);
-      var y = parseFloat($(div).data('yStart'));
-      var full = parseFloat($(div).data('heightStart')); // parseFloat(l.getAttribute('height'));
-      var level = Math.round((full / 100) * sensor.value);
+      let div = document.getElementById('widget' + key);
+      let l = document.getElementById('svg' + key);
+      let v = document.getElementById('value' + key);
+      let y = parseFloat($(div).data('yStart'));
+      let fullPx = parseFloat($(div).data('heightStart'));
+      let percent = sensor.value;
+      if (widget.unit != '%')
+         percent = sensor.value / (widget.scalemax / 100);
+      let levelPx = Math.round((fullPx / 100) * percent);
 
       v.innerHTML = sensor.value + ' ' + widget.unit;
-      l.setAttribute('y', full - level + y);
-      l.setAttribute('height', level);
+      l.setAttribute('y', fullPx - levelPx + y);
+      l.setAttribute('height', levelPx);
 
       var ellipse = document.getElementById('svgEllipse' + key);
 
       if (ellipse != null)
-         ellipse.setAttribute('cy', full - level + y);
+         ellipse.setAttribute('cy', fullPx - levelPx + y);
 
-      // console.log("value:", sensor.value, "level:", level);
+      // console.log("value:", sensor.value, "levelPx:", levelPx);
    }
 }
 

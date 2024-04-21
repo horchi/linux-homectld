@@ -632,7 +632,7 @@ function initWidget(key, widget, fact)
                            .click(function(event) {titleClick(event.ctrlKey, key);})
                            .html(title));
 
-         if (fact.type == 'WEA') {
+         if (fact.type == 'WEA' && fact.address != 1) {
             if (fact.address == 2)
                initWindy(key, widget, fact);
             else if (fact.address == 3)
@@ -1617,14 +1617,13 @@ function updateWidget(sensor, refresh, widget)
          var bigView = false;
          var wfact = fact;
          weatherData = JSON.parse(sensor.text);
-         // console.log("weather" + JSON.stringify(weatherData, undefined, 4));
-         $("#widget" + wfact.type + wfact.address).html(getWeatherHtml(bigView, wfact, weatherData));
+         $("#widget" + fact.type + fact.address).html(getWeatherHtml(bigView, wfact, weatherData));
          if (weatherInterval)
             clearInterval(weatherInterval);
          if (weatherData && config.toggleWeatherView != 0) {
             weatherInterval = setInterval(function() {
                bigView = !bigView;
-               $("#widget" + wfact.type + wfact.address).html(getWeatherHtml(bigView, wfact, weatherData));
+               $("#widget" + fact.type + fact.address).html(getWeatherHtml(bigView, wfact, weatherData));
             }, 5*1000);
          }
       }

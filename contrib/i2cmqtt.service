@@ -9,7 +9,7 @@ StartLimitBurst = 5
 
 EnvironmentFile=-/etc/default/i2cmqtt
 Type = forking
-ExecStart = <BINDEST>/i2cmqtt $I2CMQTT_OPTS
+ExecStart = /usr/local/bin/i2cmqtt $I2CMQTT_OPTS
 Restart = always
 RestartSec = 30
 

@@ -79,7 +79,7 @@ if args.D:
 	sleep(5)
 	service.Stop()
 
-	print(f"\nFinished Discovery. Found {len(service.SensorDiscoveredList)} new sensors")
+	print(f"\nFinished Discovery. Found {len(service.SensorDiscoveredList)} sensors")
 	print("Stats %s" % str(service.ServiceStats))
 
 	for s in service.SensorDiscoveredList.values():

@@ -176,7 +176,7 @@ def frame_listener(frame):
 
 		if byte == 0:
 			sensor['kind'] = 'text'
-			sensor['value'] = sensor['value'] & 0x07
+			sensor['value'] = sensor['value'] & 0x0F
 			sensor['text'] = toModeString(sensor['value'])
 			tell(3, '{0:} / {1:}'.format(toModeString(sensor['value']), "Automatik" if isAuto(sensor['value']) else "Manuell"))
 		elif byte == 1:
@@ -222,7 +222,7 @@ parser = argparse.ArgumentParser('thetford')
 parser.add_argument('-i', type=int, nargs='?', help='interval [seconds] (default 5)', default=5)
 parser.add_argument('-m',           nargs='?', help='MQTT host', default="")
 parser.add_argument('-p', type=int, nargs='?', help='MQTT port', default=1883)
-parser.add_argument('-v', type=int, nargs='?', help='Verbosity Level (0-3) (default 0)', default=0)
+parser.add_argument('-v', type=int, nargs='?', help='Verbosity Level (0-3) (default 1)', default=1)
 parser.add_argument('-c', type=int, nargs='?', help='Sample Count', default=0)
 parser.add_argument('-l', action='store_true', help='Log to Syslog (default console)')
 parser.add_argument('-T',           nargs='?', help='MQTT topic', default="n4000")

@@ -107,8 +107,10 @@ def isAuto(val):
 	return False
 
 def toModeString(mode):
-	if mode == 1:
-		return "Tag"
+	if mode == 0:
+		return "Aus"
+	elif mode == 1:
+		return "An"
 	elif mode == 2:
 		return "Aus"
 	elif mode == 3:
@@ -166,7 +168,8 @@ def frame_listener(frame):
 			sensor['text'] = toModeString(sensor['value'])
 			tell(3, '{0:} / {1:}'.format(toModeString(sensor['value']), "Automatik" if isAuto(sensor['value']) else "Manuell"))
 		elif byte == 1:
-			sensor['value'] += 1
+			if args.M.strip() == "N4000":
+				sensor['value'] += 1
 			tell(3, '{}: {} {}'.format(toSensorTitle(byte), sensor['value'], toSensorUnit(byte)))
 		elif byte == 2:
 			sensor['kind'] = 'status'

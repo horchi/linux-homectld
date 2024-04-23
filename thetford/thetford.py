@@ -96,7 +96,7 @@ def toError(code):
 	if code == 23:
 		return "Störung 23"
 
-	tell(3, '{0:} {1:}'.format("Unexpected status code", code))
+	tell(0, '{0:} {1:}'.format("Unexpected status code", code))
 
 	return "Störung?"
 
@@ -126,6 +126,18 @@ def toModeString(mode):
 	elif mode == 9:
 		return "Nacht"
 	return str(mode)
+
+def open():
+	while True:
+		try:
+			ulini.open()
+			ulini.set_baudrate(19200)
+			print("Open succeeded")
+			break;     # open succeeded
+		except:
+			print("Open failed, USBlini device with id '04d8:e870' not found, aborting, check connection and cable")
+			print("Retrying in 5 seconds ..")
+			time.sleep(5.0)
 
 def publishMqtt(sensor):
 	if args.m.strip() != '':
@@ -229,8 +241,7 @@ if args.m.strip() != '':
 # init usblini
 
 ulini = USBlini()
-ulini.open()
-ulini.set_baudrate(19200)
+open()
 
 # send one frame to wakeup devices
 

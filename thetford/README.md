@@ -52,6 +52,7 @@ Adjust configuration in `/etc/default/thetford2mqtt`
 
 ## Check if device USBlini was detected
 
+The Device alwas have the ID 04d8:e870
 ```
 lsusb |grep -i Microc
 Bus 001 Device 011: ID 04d8:e870 Microchip Technology, Inc.

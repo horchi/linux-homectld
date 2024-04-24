@@ -29,8 +29,8 @@ function initUserConfig(users)
       '    <thead>' +
       '      <tr>' +
       '        <td style="width:15%;">User</td>' +
-      '        <td style="width:32%;">Rights</td>' +
-      '        <td style="width:30%;"></td>' +
+      '        <td style="width:50%;">Rights</td>' +
+      '        <td style="width:35%;"></td>' +
       '      </tr>' +
       '    </thead>' +
       '    <tbody id="userTable">' +

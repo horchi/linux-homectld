@@ -1,6 +1,8 @@
 
 # General
 
+- improve thetford script to reconnect
+
 - add filter expression to systemd list view
 - add write of victron registers to WEBIF
 

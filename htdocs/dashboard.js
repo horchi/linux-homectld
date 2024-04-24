@@ -108,7 +108,8 @@ function initDashboard(update = false)
    if (setupMode) {
       $('#dashboardMenu')
          .append($('<div></div>')
-                 .css('width', '-webkit-fill-available'))
+                 .css('width', '-webkit-fill-available')
+                 .css('width', '-moz-available'))
          .append($('<div></div>')
                  .css('display', 'flex')
                  .css('float', 'right')
@@ -806,9 +807,9 @@ function initWidget(key, widget, fact)
                '  <rect id="svg' + key + '" x="' + (xPos +0.5) + '" y="14" width="' + (symbolWidth - 3) + '" height="170" fill="' + widget.color + '" />' +
                // Text
                '  <ellipse rx="40" ry="20" cx="' + (xPos + symbolWidth - 20) + '" cy="10" stroke="' + widget.color + '" style="fill:white;stroke-width:2" />' +
-               '  <text id="value' + key + '" x="' + (xPos + symbolWidth - 20) + '" y="10" fill="black" alignment-baseline="central" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="18">--</text>' +
+               '  <text id="value' + key + '" x="' + (xPos + symbolWidth - 20) + '" y="11" fill="black" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="18">--</text>' +
                // die Oberfläche mit 3D Effekt
-               '  <ellipse id="svgEllipse' + key + '" rx="' + ((symbolWidth-6)/2) + '" ry="' + 10 + '" cx="' + (xPos + symbolWidth/2) + '" cy="100" stroke="' + widget.color + '" fill="' + alterColor(widget.color, 'lighten', 30) + '" style="stroke-width:2" />' +
+               '  <ellipse id="svgEllipse' + key + '" rx="' + ((symbolWidth-6)/2) + '" ry="' + 8 + '" cx="' + (xPos + symbolWidth/2) + '" cy="100" stroke="' + widget.color + '" fill="' + alterColor(widget.color, 'lighten', 100) + '" style="stroke-width:2" />' +
                '</svg>';
          }
 

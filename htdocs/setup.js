@@ -29,16 +29,13 @@ function initConfig(configdetails)
    $('#container').append(dlgTabs);
 
    $(dlgTabs).append($('<span></span>')
-                     .css('margin-left', '10px')
                      .append($('<button></button>')
                              .addClass('rounded-border buttonOptions')
                              .html('Speichern')
                              .click(function() { storeConfig(); })));
 
    $(dlgTabs).append($('<span></span>')
-                     .attr('id', 'btnTabs')
-                     .css('margin-right', '10px')
-                     .css('float', 'right'));
+                     .attr('id', 'btnTabs'));
 
    dlgContent = ($('<div></div>')
                  .attr('id', 'setupContainer')

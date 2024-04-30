@@ -272,6 +272,7 @@ button:focus {
     margin: 7px;
     display: inline-flex;
     overflow-x: auto;
+    padding: 0px 0px 0px env(safe-area-inset-left);
 }
 
 .buttonDashboard
@@ -620,6 +621,7 @@ span > input
     overflow-y: auto;
     width: -webkit-fill-available;
     width: -moz-available;
+    padding: 0px 0px 0px env(safe-area-inset-left);
 }
 
 .listContainer

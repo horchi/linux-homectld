@@ -1,6 +1,7 @@
 
 # General
 
+- Info Anzeige im WEBIF dhsetup style dem anpassen
 - improve thetford script to reconnect
 
 - add filter expression to systemd list view

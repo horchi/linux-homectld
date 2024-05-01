@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.0"
-#define VERSION_DATE "03.03.2024"
+#define _VERSION     "0.1.1"
+#define VERSION_DATE "01.05.2024"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,10 @@
 
 /*
  * ------------------------------------
+
+2024-05-01: version 0.1.1
+   - added:  raspberry pi porting
+   - change: style adjustments
 
 2024-03-03: version 0.1.0
    - added:  i2c bus components

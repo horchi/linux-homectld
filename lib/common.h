@@ -366,6 +366,27 @@ namespace horchi
    std::string to_string(double d, size_t precision = 2, bool asHex = false);
 }
 
+class myString : public std::string
+{
+   public:
+
+      myString() : std::string() { }
+      myString(const std::string& s) : std::string(s) {}
+      myString(const std::string& s, std::size_t n) : std::string(s, n) {}
+      myString(const char *s, std::size_t n) : std::string(s, n) {}
+      myString(const char *s) : std::string(s) {}
+      myString(std::size_t n, char c) : std::string (n, c) {}
+      template <class InputIterator>
+      myString(InputIterator first, InputIterator last) : std::string(first,last) {}
+
+#if __cplusplus < 202002L
+      bool starts_with(const std::string& start) const
+      {
+         return substr(0, start.length()) == start;
+      }
+#endif
+};
+
 //***************************************************************************
 // Tools
 //***************************************************************************

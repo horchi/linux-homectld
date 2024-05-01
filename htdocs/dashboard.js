@@ -307,7 +307,7 @@ function initWidget(key, widget, fact)
    if (fact && widget.unit == '')
       widget.unit = fact.unit;
 
-   const marginPadding = 3 -1;
+   const marginWidth = 3 *2;
    var root = document.getElementById("widgetContainer");
    var id = 'div_' + key;
    var elem = document.getElementById(id);
@@ -332,10 +332,10 @@ function initWidget(key, widget, fact)
          if (useKioskHeight && dashboards[actDashboard].options && dashboards[actDashboard].options.heightfactorKiosk)
             eHeight = widgetHeightBase * dashboards[actDashboard].options.heightfactorKiosk;
 
-         // widget.heightfactor für widget spezifische Höhen
-         //    -> to be implementen (nur vorbereitet)
+         // widget.heightfactor für widget spezifische Höhen -> to be implementen (nur vorbereitet)
+
          if (widget.heightfactor != null && widget.heightfactor != 1)
-            eHeight = eHeight * widget.heightfactor + ((widget.heightfactor-1) * marginPadding);
+            eHeight = eHeight * widget.heightfactor + ((widget.heightfactor-1) * marginWidth);
 
          elem.style.height = eHeight + 'px';
       }
@@ -360,10 +360,12 @@ function initWidget(key, widget, fact)
       let style = getComputedStyle(document.documentElement);
       let widgetWidthBase = style.getPropertyValue('--widgetWidthBase') * 2;
 
-      if (widget.widthfactor != null)
-         elem.style.width = widgetWidthBase * widget.widthfactor + ((widget.widthfactor-3) * marginPadding) + 'px';
+      if (widget.widthfactor != null && widget.widthfactor > 0)
+         elem.style.width = widgetWidthBase * widget.widthfactor + ((widget.widthfactor-1) * marginWidth) + 'px'; // adjust margin not the formula
       else
          elem.style.width = widgetWidthBase + 'px';
+
+      // console.log("widget", key, "width", elem.style.width, "widgetWidthBase", widgetWidthBase, "widget.widthfactor", widget.widthfactor);
    }
 
    if (setupMode && (widget.widgettype < 900 || widget.widgettype == null)) {
@@ -805,11 +807,11 @@ function initWidget(key, widget, fact)
                '  <rect x="' + (xPos +0.5) + '" y="14"    width="' + (symbolWidth - 3) + '" height="169" fill="rgb(255 255 255)" />' +
                // Füllung in widget Farbe
                '  <rect id="svg' + key + '" x="' + (xPos +0.5) + '" y="14" width="' + (symbolWidth - 3) + '" height="170" fill="' + widget.color + '" />' +
+               // die Oberfläche mit 3D Effekt
+               '  <ellipse id="svgEllipse' + key + '" rx="' + ((symbolWidth-6)/2) + '" ry="' + 8 + '" cx="' + (xPos + symbolWidth/2) + '" cy="100" stroke="' + widget.color + '" fill="' + alterColor(widget.color, 'lighten', 100) + '" style="stroke-width:2" />' +
                // Text
                '  <ellipse rx="40" ry="20" cx="' + (xPos + symbolWidth - 20) + '" cy="10" stroke="' + widget.color + '" style="fill:white;stroke-width:2" />' +
                '  <text id="value' + key + '" x="' + (xPos + symbolWidth - 20) + '" y="11" fill="black" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="18">--</text>' +
-               // die Oberfläche mit 3D Effekt
-               '  <ellipse id="svgEllipse' + key + '" rx="' + ((symbolWidth-6)/2) + '" ry="' + 8 + '" cx="' + (xPos + symbolWidth/2) + '" cy="100" stroke="' + widget.color + '" fill="' + alterColor(widget.color, 'lighten', 100) + '" style="stroke-width:2" />' +
                '</svg>';
          }
 

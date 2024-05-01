@@ -24,7 +24,15 @@
 //***************************************************************************
 
 extern const char* physToGpioName_odroid_n2[64];
+extern const char* physToGpioName_raspberry_pi[64];
 const char* physPinToGpioName(int pin);
+
+#ifdef MODEL_ODROID_N2
+
+#else
+#  define INPUT_PULLUP PUD_UP
+#  define INPUT_PULLDOWN PUD_DOWN
+#endif
 
 //***************************************************************************
 // dummy functions

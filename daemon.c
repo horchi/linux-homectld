@@ -596,7 +596,7 @@ int Daemon::exit()
 // Init Sensor
 //***************************************************************************
 
-int Daemon::initSensorByFact(std::string type, uint address)
+int Daemon::initSensorByFact(myString type, uint address)
 {
    cDbRow* fact = valueFactRowOf(type.c_str(), address);
 
@@ -695,7 +695,7 @@ int Daemon::initOutput(uint pin, int opt, OutputMode mode, const char* name, uin
    return done;
 }
 
-int Daemon::cfgOutput(std::string type, uint pin, json_t* jCal)
+int Daemon::cfgOutput(myString type, uint pin, json_t* jCal)
 {
    if (type.starts_with("MCPO"))
    {
@@ -731,7 +731,7 @@ int Daemon::initInput(uint pin, const char* name)
    return done;
 }
 
-int Daemon::cfgInput(std::string type, uint pin, json_t* jCal)
+int Daemon::cfgInput(myString type, uint pin, json_t* jCal)
 {
    if (type.starts_with("MCPI"))
    {
@@ -3728,7 +3728,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
    time_t newTime {time(0)};
    std::string action = getStringFromJson(jData, "action", "update");
-   std::string type = getStringFromJson(jData, "type", "");
+   myString type = getStringFromJson(jData, "type", "");
    uint address = getIntFromJson(jData, "address");
 
    const char* unit = getStringFromJson(jData, "unit");
@@ -3757,7 +3757,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
       for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
       {
-         if (std::string(tableValueFacts->getStrValue("TYPE")).starts_with("MCP"))
+         if (myString(tableValueFacts->getStrValue("TYPE")).starts_with("MCP"))
          {
             if (!tableValueFacts->getValue("CALIBRATION")->isEmpty())
             {
@@ -3834,14 +3834,16 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    {
       for (const auto& itType : sensors)
       {
-         std::string _type = itType.first;
+         myString _type = itType.first;
 
          if (!_type.starts_with("MCPO") && _type != "DO")
             continue;
 
          for (const auto& s : sensors[_type])
          {
-            if (s.second.feedbackInType.starts_with("MCPI") && s.second.feedbackInAddress == address)
+            myString feedbackInType = s.second.feedbackInType;
+
+            if (feedbackInType.starts_with("MCPI") && s.second.feedbackInAddress == address)
             {
                sensors[_type][s.first].state = sensors[type][address].invert ? !state : state;
                sensors[_type][s.first].last = time(0);
@@ -4095,7 +4097,7 @@ int Daemon::toggleIo(uint addr, const char* type, int state, int bri, int transi
    else if (strcmp(type, "DZL") == 0)
       deconz.toggle(type, addr, newState, bri, transitiontime);
 
-   else if (std::string(type).starts_with("MCPO"))
+   else if (myString(type).starts_with("MCPO"))
    {
       // {"type": "MCPO27", "address": 0, "state": false}'
 
@@ -4271,7 +4273,7 @@ bool Daemon::gpioRead(uint pin, bool check)
 
    for (const auto& itType : sensors)
    {
-      std::string type = itType.first;
+      myString type = itType.first;
 
       if (!type.starts_with("MCPO") && type != "DO")
           continue;

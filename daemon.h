@@ -328,11 +328,11 @@ class Daemon : public cWebInterface
       virtual int readConfiguration(bool initial);
       virtual int applyConfigurationSpecials() { return done; }
 
-      int initSensorByFact(std::string type, uint address);
+      int initSensorByFact(myString type, uint address);
       int initOutput(uint pin, int opt, OutputMode mode, const char* name, uint rights = urControl);
       int initInput(uint pin, const char* name);
-      int cfgOutput(std::string, uint pin, json_t* jCal = nullptr);
-      int cfgInput(std::string, uint pin, json_t* jCal = nullptr);
+      int cfgOutput(myString type, uint pin, json_t* jCal = nullptr);
+      int cfgInput(myString type, uint pin, json_t* jCal = nullptr);
 
       int initScripts();
 

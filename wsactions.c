@@ -663,7 +663,7 @@ int Daemon::storeAlerts(json_t* oObject, long client)
 
 int Daemon::performSystem(json_t* oObject, long client)
 {
-   std::string action = getStringFromJson(oObject, "action", "");
+   myString action = getStringFromJson(oObject, "action", "");
 
    if (action == "database")
       return performDatabaseStatistic(oObject, client);
@@ -1478,7 +1478,7 @@ int Daemon::storeConfig(json_t* obj, long client)
 int Daemon::storeCalibration(json_t* obj, long client)
 {
    int status {success};
-   std::string type = getStringFromJson(obj, "type", "");
+   myString type = getStringFromJson(obj, "type", "");
    std::string action = getStringFromJson(obj, "action", "");
    long address = getLongFromJson(obj, "address", na);
 
@@ -2303,7 +2303,7 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
          continue;
 
       char* key {};
-      std::string type = tableValueFacts->getStrValue("TYPE");
+      myString type = tableValueFacts->getStrValue("TYPE");
       ulong address = tableValueFacts->getIntValue("ADDRESS");
       asprintf(&key, "%s:0x%02lx", type.c_str(), tableValueFacts->getIntValue("ADDRESS"));
       json_t* oData = json_object();

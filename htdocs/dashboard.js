@@ -1289,7 +1289,8 @@ function weatherForecast()
 function titleClick(ctrlKey, key)
 {
    let fact = valueFacts[key];
-   let hasMode = fact && (fact.type == 'DO' || fact.type == 'SC');
+   let widget = dashboards[actDashboard].widgets[key];
+   let hasMode = fact && fact.options == 1 //  -> omManual and omAuto is set
 
    // console.log("titleClick: ", ctrlKey, key);
 
@@ -1303,7 +1304,6 @@ function titleClick(ctrlKey, key)
    }
    else {
       let sensor = allSensors[key];
-      let widget = dashboards[actDashboard].widgets[key];
       let now = new Date();
       var last = new Date(sensor.last * 1000);
       let peakMaxTime = new Date(sensor.peakmaxtime * 1000);
@@ -1432,7 +1432,7 @@ function titleClick(ctrlKey, key)
 
       let btns = {};
 
-      if (sensor.peak) {
+      if (sensor.peakmax) {
          btns['Reset Peak'] = function() {
             $('#dlgPeakMax').html('-');
             $('#dlgPeakMin').html('-');

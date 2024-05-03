@@ -77,7 +77,7 @@ function initList()
       }
       else {
          html += '<span class="listFirstCol" id=widget' + elemId + '">' + (sensor.value ? sensor.value.toFixed(2) : '-') + '&nbsp;' + fact.widget.unit;
-         html += '&nbsp; <p style="display:inline;font-size:12px;font-style:italic;">(' + (sensor.peak != null ? sensor.peak.toFixed(2) : '  ') + ')</p>';
+         html += '&nbsp; <p style="display:inline;font-size:12px;font-style:italic;">(' + (sensor.peakmax != null ? sensor.peakmax.toFixed(2) : '  ') + ')</p>';
          html += '</span>';
       }
 
@@ -112,7 +112,7 @@ function updateList()
       var elemId = "#widget" + key.replace(':', '_');
 
       if (fact.widget.widgettype == 1 || fact.widget.widgettype == 3 || fact.widget.widgettype == 5) {
-         var peak = sensor.peak != null ? sensor.peak.toFixed(2) : "  ";
+         var peak = sensor.peakmax != null ? sensor.peakmax.toFixed(2) : "  ";
          $(elemId).html(sensor.value.toFixed(2) + "&nbsp;" + fact.widget.unit +
                         "&nbsp; <p style=\"display:inline;font-size:12px;font-style:italic;\">(" + peak + ")</p>");
       }

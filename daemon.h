@@ -11,6 +11,10 @@
 #include <queue>
 #include <jansson.h>
 
+#ifndef _NO_RASPBERRY_PI_
+#  include <wiringPi.h>
+#endif
+
 #include "lib/common.h"
 #include "lib/db.h"
 #include "lib/mqtt.h"

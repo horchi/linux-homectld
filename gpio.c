@@ -84,8 +84,6 @@ const char* physToGpioName_raspberry_pi[64]
 // compile WITH wiringPi
 //***************************************************************************
 
-#include <wiringPi.h>
-
 const char* physPinToGpioName(int pin)
 {
    if (pin < 0 || pin >= 64)

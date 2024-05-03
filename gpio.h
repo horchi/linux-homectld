@@ -12,6 +12,10 @@
 
 #pragma once
 
+#ifndef _NO_RASPBERRY_PI_
+#  include <wiringPi.h>
+#endif
+
 #define bitSet(value, bit)   (value |= (1UL << bit))
 #define bitClear(value, bit) (value &= ~(1UL << bit))
 #define bitRead(value, bit)  ((value >> bit) & 0x01)

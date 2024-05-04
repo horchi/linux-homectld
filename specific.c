@@ -381,15 +381,15 @@ int HomeCtl::applyConfigurationSpecials()
    addValueFact(spSolarWork, "SP", 1, "Solar Energie (heute)", "kWh");
 
 #ifndef _NO_RASPBERRY_PI_
-   uint opt {ooUser};
+   uint outputModes {ooUser};
 
    if (poolLightTimes.size() > 0)
-      opt |= ooAuto;
+      outputModes |= ooAuto;
 
-   if (sensors["DO"][pinPoolLight].opt != opt)
+   if (sensors["DO"][pinPoolLight].outputModes != outputModes)
    {
-      sensors["DO"][pinPoolLight].opt = opt;
-      sensors["DO"][pinPoolLight].mode = opt & ooAuto ? omAuto : omManual;
+      sensors["DO"][pinPoolLight].outputModes = outputModes;
+      sensors["DO"][pinPoolLight].mode = outputModes & ooAuto ? omAuto : omManual;
    }
 #endif
 

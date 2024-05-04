@@ -2321,6 +2321,9 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
       json_object_set_new(oData, "rights", json_integer(tableValueFacts->getIntValue("RIGHTS")));
       json_object_set_new(oData, "options", json_integer(tableValueFacts->getIntValue("OPTIONS")));
 
+      if (sensors.find(type) != sensors.end())
+         json_object_set_new(oData, "outputModes", json_integer(sensors[type][address].outputModes));
+
       // #TODO check actor properties if dimmable ...
       json_object_set_new(oData, "dim", json_boolean(type == "DZL" || type == "HMB"));
 

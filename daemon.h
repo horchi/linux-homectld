@@ -249,15 +249,15 @@ class Daemon : public cWebInterface
          std::string script;
          std::string choices;
          OutputMode mode {omAuto};
-         uint opt {ooUser};
+         uint outputModes {ooUser};
          std::string feedbackInType;  // feedback input for impuls out
          uint feedbackInAddress {0};  // feedback input for impuls out
       };
 
       struct Range
       {
-         uint from;
-         uint to;
+         uint from {};
+         uint to {};
          bool inRange(uint t) const {
             if (from < to)
                return t >= from && t <= to;
@@ -333,7 +333,7 @@ class Daemon : public cWebInterface
       virtual int applyConfigurationSpecials() { return done; }
 
       int initSensorByFact(myString type, uint address);
-      int initOutput(uint pin, int opt, OutputMode mode, const char* name, uint rights = urControl);
+      int initOutput(uint pin, int outputModes, OutputMode mode, const char* name, uint rights = urControl);
       int initInput(uint pin, const char* name);
       int cfgOutput(myString type, uint pin, json_t* jCal = nullptr);
       int cfgInput(myString type, uint pin, json_t* jCal = nullptr);

@@ -1106,6 +1106,8 @@ table.tableMultiCol td
     display: inline-flex;
     width: inherit;
     background-color: var(--menu);
+    margin-left: 3px;
+    margin-right: 3px;
 }
 
 .tabButtons > span:nth-child(1)
@@ -1153,6 +1155,16 @@ table.tableMultiCol td
     width: fit-content;
     width: -webkit-fill-available;
     width: -moz-available;
+}
+
+.setupMenu
+{
+    margin-top: 4px;
+}
+
+.setupMenu > button
+{
+    margin: 1px;
 }
 
 .inputTableConfig

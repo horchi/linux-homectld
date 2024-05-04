@@ -677,12 +677,12 @@ int Daemon::initSensorByFact(myString type, uint address)
 // Init digital Output
 //***************************************************************************
 
-int Daemon::initOutput(uint pin, int opt, OutputMode mode, const char* name, uint rights)
+int Daemon::initOutput(uint pin, int outputModes, OutputMode mode, const char* name, uint rights)
 {
    std::string n = std::string(name) + " " + std::to_string(pin) + "\n" + physPinToGpioName(pin);
    addValueFact(pin, "DO", 1, n.c_str(), "", "", rights);
 
-   sensors["DO"][pin].opt = opt;
+   sensors["DO"][pin].outputModes = outputModes;
    sensors["DO"][pin].mode = mode;
 
    tell(eloDebugWiringPi, "Debug: pinMode(%d, OUTPUT) (%d / %s)", pin, physPinToGpio(pin), physPinToGpioName(pin));
@@ -4178,10 +4178,7 @@ void Daemon::pin2Json(json_t* ojData, const char* type, int pin)
    json_object_set_new(ojData, "address", json_integer(pin));
    json_object_set_new(ojData, "type", json_string(type));
    json_object_set_new(ojData, "valid", json_boolean(sensors[type][pin].valid));
-
-   // has to be moved to facts?
    json_object_set_new(ojData, "mode", json_string(sensors[type][pin].mode == omManual ? "manual" : "auto"));
-   json_object_set_new(ojData, "options", json_integer(sensors[type][pin].opt));
 
    // pin state -> value
 
@@ -4201,7 +4198,7 @@ int Daemon::toggleOutputMode(uint pin)
 {
    // allow mode toggle only if more than one option is given
 
-   if (sensors["DO"][pin].opt & ooAuto && sensors["DO"][pin].opt & ooUser)
+   if (sensors["DO"][pin].outputModes & ooAuto && sensors["DO"][pin].outputModes & ooUser)
    {
       OutputMode mode = sensors["DO"][pin].mode == omAuto ? omManual : omAuto;
       sensors["DO"][pin].mode = mode;
@@ -4453,7 +4450,7 @@ int Daemon::loadStates()
       if (output.first == pinW1Power)
          continue;
 
-      if (sensors["DO"][output.first].opt & ooUser)
+      if (sensors["DO"][output.first].outputModes & ooUser)
       {
          if (sensors["DO"][output.first].impulse)
             continue;
@@ -4468,7 +4465,7 @@ int Daemon::loadStates()
    {
       for (const auto& output : sensors["DO"])
       {
-         if (sensors["DO"][output.first].opt & ooAuto && sensors["DO"][output.first].opt & ooUser)
+         if (sensors["DO"][output.first].outputModes & ooAuto && sensors["DO"][output.first].outputModes & ooUser)
          {
             OutputMode m = mode & (long)pow(2, output.first) ? omManual : omAuto;
             sensors["DO"][output.first].mode = m;

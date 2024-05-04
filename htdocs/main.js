@@ -533,19 +533,19 @@ function prepareMenu()
    if (config.schema)
       html += '<button class="rounded-border button1" onclick="mainMenuSel(\'schema\')">Schema</button>';
    if (config.lmcHost != '')
-      html += '<button id="vdrMenu" class="rounded-border button1" onclick="mainMenuSel(\'lmc\')">Music</button>';
+      html += '<button id="lmcMenu" class="rounded-border button1" onclick="mainMenuSel(\'lmc\')">Music</button>';
    if (config.vdr != '')
       html += '<button id="vdrMenu" class="rounded-border button1" onclick="mainMenuSel(\'vdr\')">VDR</button>';
    if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10)
       html += '<button class="rounded-border button1" onclick="mainMenuSel(\'setup\')">Setup</button>';
    html +=
       '<div style="display:flex;float:right;">' +
-      ' <span id="socketState" class="socketState ' + 'grayCircle' + '" style="min-width:max-content;"></span>' +
-      ' <button id="burgerMenu" class="rounded-border button1 burgerMenu" onclick="menuBurger()">' +
-      '  <div></div>' +
-      '  <div></div>' +
-      '  <div></div>' +
-      ' </button>' +
+      '<span id="socketState" class="socketState ' + 'grayCircle' + '" style="min-width:max-content;"></span>' +
+      '<button id="burgerMenu" class="rounded-border button1 burgerMenu" onclick="menuBurger()">' +
+      '<div></div>' +
+      '<div></div>' +
+      '<div></div>' +
+      '</button>' +
       '</div>';
    html += '</div>';
 
@@ -555,18 +555,18 @@ function prepareMenu()
    if (currentPage == "setup" || currentPage == "iosetup" || currentPage == "userdetails" || currentPage == "groups" ||
        currentPage == "alerts" || currentPage == "syslog" || currentPage == "system" || currentPage == "images" || currentPage == "commands") {
       if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10) {
-         html += '<div style="margin-top:5px;">';
-         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'setup\')">Konfiguration</button>';
-         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'iosetup\')">IO Setup</button>';
-         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'userdetails\')">User</button>';
-         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'alerts\')">Alerts</button>';
-         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'groups\')">Baugruppen</button>';
-         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'images\')">Images</button>';
-         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'syslog\')">Syslog</button>';
-         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'system\', \'database\')">Database</button>';
-         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'commands\')">Commands</button>';
-         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'system\', \'wifis\')">Wifi</button>';
-         html += '  <button class="rounded-border button2" onclick="mainMenuSel(\'system\', \'system-services\')">System Services</button>';
+         html += '<div class="setupMenu">';
+         html += '<button class="rounded-border button2" onclick="mainMenuSel(\'setup\')">Konfiguration</button>';
+         html += '<button class="rounded-border button2" onclick="mainMenuSel(\'iosetup\')">IO Setup</button>';
+         html += '<button class="rounded-border button2" onclick="mainMenuSel(\'userdetails\')">User</button>';
+         html += '<button class="rounded-border button2" onclick="mainMenuSel(\'alerts\')">Alerts</button>';
+         html += '<button class="rounded-border button2" onclick="mainMenuSel(\'groups\')">Baugruppen</button>';
+         html += '<button class="rounded-border button2" onclick="mainMenuSel(\'images\')">Images</button>';
+         html += '<button class="rounded-border button2" onclick="mainMenuSel(\'syslog\')">Syslog</button>';
+         html += '<button class="rounded-border button2" onclick="mainMenuSel(\'system\', \'database\')">Database</button>';
+         html += '<button class="rounded-border button2" onclick="mainMenuSel(\'commands\')">Commands</button>';
+         html += '<button class="rounded-border button2" onclick="mainMenuSel(\'system\', \'wifis\')">Wifi</button>';
+         html += '<button class="rounded-border button2" onclick="mainMenuSel(\'system\', \'system-services\')">System Services</button>';
          html += '</div>';
       }
    }

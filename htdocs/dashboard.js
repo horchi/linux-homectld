@@ -1290,9 +1290,9 @@ function titleClick(ctrlKey, key)
 {
    let fact = valueFacts[key];
    let widget = dashboards[actDashboard].widgets[key];
-   let hasMode = fact && fact.options == 1 //  -> omManual and omAuto is set
+   let hasMode = fact && fact.outputModes == 3 //  -> ooUser and ooAuto are set
 
-   // console.log("titleClick: ", ctrlKey, key);
+   // console.log("titleClick: ", ctrlKey, key, "fact.outputModes", fact.outputModes);
 
    if (setupMode) {
       widgetSetup(key);
@@ -1551,8 +1551,8 @@ function updateWidget(sensor, refresh, widget)
 
       $("#button" + fact.type + fact.address).css('background-color', sensor.working ? '#7878787878' : 'transparent');
 
-      // $('#div_'+key.replace(':', '\\:')).css('background-color', (sensor.options == 3 && sensor.mode == 'manual') ? '#a27373' : '');
-      widgetDiv.css('background-color', (sensor.options == 3 && sensor.mode == 'manual') ? '#a27373' : '');
+      // $('#div_'+key.replace(':', '\\:')).css('background-color', (fact.outputModes == 3 && sensor.mode == 'manual') ? '#a27373' : '');
+      widgetDiv.css('background-color', (fact.outputModes == 3 && sensor.mode == 'manual') ? '#a27373' : '');
       widget.colorOn = widget.colorOn == null ? symbolOnColorDefault : widget.colorOn;
 
       if (sensor.hue)

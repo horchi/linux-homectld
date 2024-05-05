@@ -98,7 +98,10 @@ if args.s:
 	sleep(5)
 	service.Stop()
 	for s in service.SensorMonitoredList.values():
-		show(s._last_packet)
+		if s._last_packet is not None:
+			show(s._last_packet)
+		else:
+			print("Sensor not found")
 	sys.exit()
 
 while True:
@@ -107,6 +110,10 @@ while True:
 	service.Stop()
 
 	tell(0, "Update ...")
+
+	if s._last_packet is not None:
+		tell(0, 'Sensor "{}" not found'.format(args.M))
+		continue
 
 	for s in service.SensorMonitoredList.values():
 		sensorType = "MOPEKA0"  # the number (0) shoud be set dynamicly on the position of the MAC in the list once we allow mor than one Sensor/MAC

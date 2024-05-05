@@ -30,6 +30,7 @@ var allSensors = [];
 var wifis = [];
 var images = [];
 var systemServices = [];
+var syslogs = [];
 var currentPage = "dashboard";
 var startPage = null;
 var actDashboard = -1;
@@ -529,6 +530,9 @@ function dispatchMessage(message)
    else if (event == "widgettypes") {
       widgetTypes = jMessage.object;
    }
+   else if (event == "syslogs") {
+      syslogs = jMessage.object;
+   }
    else if (event == "syslog") {
       showSyslog(jMessage.object);
    }
@@ -897,7 +901,39 @@ function initLogin()
 
 function showSyslog(log)
 {
+	$('#controlContainer').removeClass('hidden');
    $('#container').removeClass('hidden');
+
+   $("#controlContainer")
+      .empty()
+      .append($('<div></div>')
+              .addClass('labelB1')
+              .html('System Log'))
+      .append($('<select></select>')
+              .attr('id', 'selectSyslog')
+              .addClass('input rounded-border')
+              .css('width', '-webkit-fill-available')
+              .css('width', '-moz-available')
+              .css('margin-bottom', '8px')
+              .on('input', function() {
+					  showProgressDialog();
+					  socket.send({ "event" : "syslog", "object" : { 'log' : $('#selectSyslog').val() } });
+				  }))
+      .append($('<div></div>')
+              .append($('<button></button>')
+                      .addClass('rounded-border tool-button')
+                      .html('Refresh')
+                      .click(function() {
+								 showProgressDialog();
+								 socket.send({ "event" : "syslog", "object" : { 'log' : $('#selectSyslog').val() } });
+							 })));
+
+	for (let i = 0; i < syslogs.length; ++i) {
+		$('#selectSyslog').append($('<option></option>')
+										  .attr('selected', syslogs[i].name == log.name)
+										  .html(syslogs[i].name));
+	}
+
    document.getElementById("container").innerHTML = '<div id="syslogContainer" class="setupContainer log"></div>';
 
    var root = document.getElementById("syslogContainer");

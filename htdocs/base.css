@@ -703,6 +703,7 @@ span > select
 .controlContainer
 {
     padding: var(--containerPadding);
+	 background-color: var(--menu);
     font-size: 10px;
     color: var(--light2);
     margin: 0px 4px 0px 0px;

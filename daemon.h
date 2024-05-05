@@ -486,6 +486,7 @@ class Daemon : public cWebInterface
       int dashboards2Json(json_t* obj);
       int groups2Json(json_t* obj);
       virtual int commands2Json(json_t* obj);
+		int syslogs2Json(json_t* obj);
       int daemonState2Json(json_t* obj);
       int sensor2Json(json_t* obj, const char* type, uint address);
       int systemServices2Json(json_t* obj);

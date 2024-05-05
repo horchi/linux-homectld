@@ -308,6 +308,10 @@ int Daemon::performLogin(json_t* oObject)
    commands2Json(oJson);
    pushOutMessage(oJson, "commands", client);
 
+	oJson = json_array();
+   syslogs2Json(oJson);
+   pushOutMessage(oJson, "syslogs", client);
+
    lmcUpdates(client);
 
    performData(client, "init");
@@ -834,7 +838,7 @@ int Daemon::performDatabaseStatistic(json_t* oObject, long client)
 
 int Daemon::performSyslog(json_t* oObject, long client)
 {
-   const char* name {"/var/log/" TARGET ".log"};
+	std::string name {"/var/log/"};
 
    if (!client)
       return done;
@@ -845,12 +849,26 @@ int Daemon::performSyslog(json_t* oObject, long client)
    std::string result;
 
    if (!isEmpty(log))
-      name = log;
+	{
+		name += std::string(log);
+		json_object_set_new(oJson, "name", json_string(log));
+	}
+	else
+	{
+      name += std::string(TARGET) + ".log";
+		json_object_set_new(oJson, "name", json_string((std::string(TARGET) + ".log").c_str()));
+	}
 
-   if (loadTailLinesFromFile(name, 150, lines) == success)
+	size_t count {0};
+
+	if (loadLinesFromFile(name.c_str(), lines, true, 500000) == success)
+		// if (loadTailLinesFromFile(name.c_str(), 150, lines) == success)
    {
-      for (auto it = lines.rbegin(); it != lines.rend(); ++it)
+      for (auto it = lines.rbegin(); count < 150 && it != lines.rend(); ++it)
+		{
          result += *it + "\n";
+			count++;
+		}
    }
 
    result += "...\n...\n";
@@ -2467,6 +2485,29 @@ int Daemon::commands2Json(json_t* obj)
    json_object_set_new(jCommand, "title", json_string("Test Mail"));
    json_object_set_new(jCommand, "cmd", json_string("testmail"));
    json_object_set_new(jCommand, "description", json_string("Test Mail senden"));
+
+   return done;
+}
+
+//***************************************************************************
+// Syslogs 2 Json
+//***************************************************************************
+
+int Daemon::syslogs2Json(json_t* obj)
+{
+	FileList syslogs;
+	int count {0};
+
+	if (getFileList("/var/log/", DT_REG, "log", false, &syslogs, count) == success)
+	{
+		for (const auto& opt : syslogs)
+		{
+			json_t* jLog {json_object()};
+			json_array_append_new(obj, jLog);
+			// json_object_set_new(jLog, "file", json_string(opt.path.c_str()));
+			json_object_set_new(jLog, "name", json_string(opt.name.c_str()));
+		}
+	}
 
    return done;
 }

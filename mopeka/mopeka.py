@@ -101,7 +101,7 @@ if args.s:
 		if s._last_packet is not None:
 			show(s._last_packet)
 		else:
-			print("Sensor not found")
+			tell(0, 'Sensor "{}" not found'.format(args.M.strip()))
 	sys.exit()
 
 while True:

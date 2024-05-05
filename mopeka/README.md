@@ -13,7 +13,6 @@ And adjust settings in /etc/default/mopeka2mqtt
 ## get the device MAC
 
 press Sync button and call `mopeka.py -D`
-The MAC shout start with `f0:87:60:`
 
 ## Tank heights
 

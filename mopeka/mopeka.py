@@ -116,8 +116,8 @@ while True:
 		adv = s._last_packet
 		percent = -1;
 
-		if s._last_packet is not None:
-			tell(0, 'Sensor "{}" not found'.format(args.M))
+		if adv is None:
+			tell(0, 'Sensor "{}" not found'.format(args.M.strip()))
 			continue
 
 		if args.F != 0:

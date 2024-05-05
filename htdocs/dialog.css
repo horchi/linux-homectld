@@ -28,7 +28,8 @@
 }
 
 .ui-dialog .ui-dialog-content {
-    text-align: center;
+    padding: 0px;
+    margin: 20px;
 }
 
 .ui-dialog .ui-dialog-titlebar {

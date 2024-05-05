@@ -75,6 +75,34 @@ button:focus {
 
 .infoBox
 {
+    background-color: var(--neutral3);
+    padding: var(--containerPadding);
+    box-sizing: border-box;
+    color: white;
+    width: 100%;
+    margin-top: 2px;
+    display: none;
+    max-height: 33%;
+    z-index: 9999;
+    position: fixed;
+    overflow: auto;
+}
+
+.infoBox > div
+{
+    display: inline-flex;
+    align-items: center;
+    width: -webkit-fill-available;
+    width: -moz-available;
+}
+
+.infoBox-active
+{
+    display: block;
+}
+/*
+.infoBox
+{
     background-color: var(--info);
     color: black;
     padding: 5px;
@@ -95,7 +123,7 @@ button:focus {
     top: 0.5rem;
     left: 0.5rem;
 }
-
+*/
 .burgerMenu
 {
     float: right;
@@ -265,6 +293,52 @@ button:focus {
     margin-bottom: 4px;
 }
 
+.tool-button-svg
+{
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    fill: var(--buttonFont);
+    color: var(--buttonFont);
+    height: 33px;
+    width: 33px;
+    align-self: center;
+    font-size: 14px;
+    background-color: var(--neutral3);
+    cursor: pointer;
+    white-space: nowrap;
+    vertical-align: middle;
+    transition: 0.3s;
+}
+
+.tool-button-svg > svg
+{
+    height: 20px;
+    width: 20px;
+}
+
+.tool-button-svg-smal
+{
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    fill: var(--buttonFont);
+    color: var(--buttonFont);
+    align-self: center;
+    font-size: 14px;
+    background-color: transparent;
+    cursor: pointer;
+    white-space: nowrap;
+    vertical-align: middle;
+    transition: 0.3s;
+}
+
+.tool-button-svg-smal > svg
+{
+    height: 18px;
+    width: 18px;
+}
+
 .menuDashboard
 {
     background-color: var(--dashboardMenuBackground);
@@ -349,6 +423,14 @@ button:focus {
     font-weight: normal;
 }
 
+.labelB2
+{
+    font-size: 12px;
+    color: var(--neutral0) !important;
+    margin-left: 6px;
+    font-weight: normal;
+}
+
 /* ----------------------- */
 /* Input */
 
@@ -424,7 +506,7 @@ button:focus {
     margin: 1px;
     height: 32px;
     box-sizing: border-box;
-    width: 100%;
+    width: 99%;
 }
 
 .inputSettingScript
@@ -437,6 +519,18 @@ button:focus {
 }
 
 span > input
+{
+    display: inline-block;
+    width: 98%;
+}
+
+span > input
+{
+    display: inline-block;
+    width: 98%;
+}
+
+span > select
 {
     display: inline-block;
     width: 98%;

@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.2"
+#define _VERSION     "0.1.3"
 #define VERSION_DATE "05.05.2024"
 
 #ifdef GIT_REV
@@ -16,6 +16,9 @@
 
 /*
  * ------------------------------------
+
+2024-05-05: version 0.1.3
+   - change: improved info dialog
 
 2024-05-05: version 0.1.2
    - fixed: Pool pump steering

@@ -174,6 +174,129 @@ var infoDialog = null;
 
 async function showInfoDialog(object)
 {
+   let message = object.message;
+   let titleMsg = '';
+
+   var msDuration = 2000;
+
+   if (object.status == 0)
+      msDuration = 4000;
+   else if (object.status <= 1)
+      msDuration = 10000;
+   else if (object.status >= 10)
+      msDuration = 5000;
+
+   hideInfoDialog();
+
+//   if (object.status == 0) {
+//      $('#action-state').css('opacity', 0);
+//      $('#action-state').html(message + ' - success');
+//      $('#action-state').animate({'opacity': '1'}, 300);
+//   }
+
+   if (object.status == 0) {
+      titleMsg = '<a style="color:darkgreen;">Success</a>';
+   }
+   else if (object.status == -1) {
+      titleMsg = "Error";
+      titleMsg = '<a style="color:var(--red1);">Error</a>';
+   }
+   else if (object.status < -1) {
+      titleMsg = '<a style="color:var(--red1);">Error (' + object.status + ')</a>';
+   }
+   else if (object.status == 1) {
+      var array = message.split("#:#");
+      titleMsg = array[0];
+   }
+   else if (object.status >= 10) {
+      titleMsg = '<a style="color:yellow;">Note</a>';
+   }
+
+   var now = new Date();
+   titleMsg = now.toDatetimeLocal() + '  ' + titleMsg;
+
+   if ($('#infoBox').html() == '')
+      $('#infoBox').append($('<div></div>')
+                           .attr('id', 'infoBoxFirstElement')
+                           .addClass('rounded-border')
+                           .append($('<span></span>')
+                                   .css('width', '-webkit-fill-available')
+                                   .append($('<button></button>')
+                                           .addClass('rounded-border tool-button-svg-smal')
+                                           .html('<svg><use xlink:href="#close"></use></svg>')
+                                           .click(function(event) { $('#infoBox').html(''); }))
+                                   .append($('<span></span>')
+                                           .html('Clear messages'))));
+
+   let newDiv = $('<div></div>')
+       .addClass('rounded-border')
+       .css('background-color', 'rgb(173 169 87)')
+       .append($('<span></span>')
+               .css('width', '-webkit-fill-available')
+               .append($('<button></button>')
+                       .addClass('rounded-border tool-button-svg-smal')
+                       .html('<svg><use xlink:href="#close"></use></svg>')
+                       .click(function(event) { $(this).closest('div').remove(); }))
+               .append($('<span></span>')
+                       .css('font-weight', 'bold')
+                       .html(titleMsg))
+               .append($('<br></br>')
+                       .addClass(titleMsg == '' ? 'hidden' : ''))
+               .append($('<div></div>')
+                       .css('white-space', 'pre')
+                       .css('padding-left', '20px')
+                       .text(message)));
+
+   newDiv.insertAfter('#infoBoxFirstElement');
+   newDiv.animate({backgroundColor: 'transparent'}, 2000);
+
+   if (object.status != 0) {
+      viewInfoDialog();
+      $("#infoBox").scrollTop(0);
+   }
+
+   infoDialogTimer = setTimeout(function() {
+      hideInfoDialog();
+   }, msDuration);
+}
+
+function toggleInfoDialog()
+{
+   if (infoDialogTimer) {
+      clearTimeout(infoDialogTimer);
+      infoDialogTimer = null;
+   }
+
+   if ($("#infoBox").hasClass('infoBox-active'))
+      hideInfoDialog();
+   else
+      viewInfoDialog();
+}
+
+function viewInfoDialog()
+{
+   $("#infoBox").css('top', $("#content").position().top);
+   $('#infoBox').addClass('infoBox-active');
+   $("#content").click(function() { hideInfoDialog(); });
+   $("#toggleMsgBtn").html('<svg><use xlink:href="#angle-up"></use></svg>');
+}
+
+function hideInfoDialog()
+{
+   $("#content").off("click");
+
+   if (infoDialogTimer) {
+      clearTimeout(infoDialogTimer);
+      infoDialogTimer = null;
+   }
+
+   $('#infoBox').removeClass('infoBox-active');
+   $('#toggleMsgBtn').html('<svg><use xlink:href="#angle-down"></use></svg>');
+   // $('#action-state').animate({'opacity': '0'}, 1000);
+}
+
+/*async function showInfoDialog(object)
+{
    var message = object.message;
    var titleMsg = "";
 
@@ -258,7 +381,7 @@ function hideInfoDialog()
    $('#infoBox').html('');
    $('#infoBox').removeClass('infoBox-active');
    $('#infoBox').removeClass('error-border');
-}
+} */
 
 var progressDialog = null;
 
@@ -538,6 +661,12 @@ function prepareMenu()
       html += '<button id="vdrMenu" class="rounded-border button1" onclick="mainMenuSel(\'vdr\')">VDR</button>';
    if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10)
       html += '<button class="rounded-border button1" onclick="mainMenuSel(\'setup\')">Setup</button>';
+
+   html += '<span><button id="toggleMsgBtn" class="rounded-border tool-button-svg" ' +
+      'style="background-color:transparent;width:22px;float:right;" onclick="toggleInfoDialog()" title="view messages">' +
+      '<svg><use xlink:href="#angle-down"></use></svg>' +
+      '</button><span>';
+
    html +=
       '<div style="display:flex;float:right;">' +
       '<span id="socketState" class="socketState ' + 'grayCircle' + '" style="min-width:max-content;"></span>' +

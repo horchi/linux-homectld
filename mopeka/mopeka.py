@@ -111,14 +111,15 @@ while True:
 
 	tell(0, "Update ...")
 
-	if s._last_packet is not None:
-		tell(0, 'Sensor "{}" not found'.format(args.M))
-		continue
-
 	for s in service.SensorMonitoredList.values():
 		sensorType = "MOPEKA0"  # the number (0) shoud be set dynamicly on the position of the MAC in the list once we allow mor than one Sensor/MAC
 		adv = s._last_packet
 		percent = -1;
+
+		if s._last_packet is not None:
+			tell(0, 'Sensor "{}" not found'.format(args.M))
+			continue
+
 		if args.F != 0:
 			percent = round(adv.TankLevelInMM / (args.F / 100))
 		if args.K != 0:

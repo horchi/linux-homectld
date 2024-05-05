@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.1"
-#define VERSION_DATE "01.05.2024"
+#define _VERSION     "0.1.2"
+#define VERSION_DATE "05.05.2024"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,9 @@
 
 /*
  * ------------------------------------
+
+2024-05-05: version 0.1.2
+   - fixed: Pool pump steering
 
 2024-05-01: version 0.1.1
    - added:  raspberry pi porting

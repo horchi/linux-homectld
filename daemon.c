@@ -4392,62 +4392,74 @@ void Daemon::publishSpecialValue(int addr)
 }
 
 //***************************************************************************
-// Store/Load States to DB
-//  used to recover at restart
+// Store/Load IO States
+//  used to recover state and mode at restart
+//  #TODO - use only for GPIO Pins (we need a other type for P4 'DO' !!
 //***************************************************************************
 
 int Daemon::storeStates()
 {
-   ulong value {0};
-   ulong mode {0};
+   constexpr int maxIos {50};
+   char states[maxIos+TB] {};
+   char modes[maxIos+TB] {};
+
+   memset(states, '0', maxIos);
+   memset(modes, '1', maxIos);
+   states[maxIos] = '\0';
+   modes[maxIos] = '\0';
 
    if (!ioStatesLoaded)
       return done;
 
+   // tell(eloAlways, "storeStates()");
+
    for (const auto& output : sensors["DO"])
    {
-      if (output.second.state)
-         value += pow(2, output.first);
+      if (output.first >= maxIos)
+      {
+         tell(eloAlways, "Fatal: Can't store state of DO:%02d", output.first);
+         break;
+      }
 
-      if (output.second.mode == omManual)
-         mode += pow(2, output.first);
+      states[output.first] = output.second.state ? '1' : '0';
+      modes[output.first] = '0' + output.second.mode;
 
-      setConfigItem("ioStates", (long)value);
-      setConfigItem("ioModes", (long)mode);
+      setConfigItem("ioStates", states);
+      setConfigItem("ioModes", modes);
 
-      tell(eloDebug2, "Debug2: iomode bit '%s/%d' %d [%s] stored", output.second.name.c_str(), output.first, output.second.mode, bin2string(mode));
-      tell(eloDebug2, "Debug2: iostate bit '%s/%d' %d [%s] stored", output.second.name.c_str(), output.first, output.second.state, bin2string(value));
+      tell(eloDebug2, "Debug2: iomode bit '%s/%d' %d [%s] stored", output.second.name.c_str(), output.first, output.second.mode, modes);
+      tell(eloDebug2, "Debug2: iostate bit '%s/%d' %d [%s] stored", output.second.name.c_str(), output.first, output.second.state, states);
    }
 
-   tell(eloDebug2, "Debug2: Stored iostates: [%s]", bin2string((ulong)value));
-   tell(eloDebug2, "Debug2: Stored iomodes: [%s]", bin2string((ulong)mode));
+   tell(eloDebug2, "Debug2: Stored iostates: [%s]", states);
+   tell(eloDebug2, "Debug2: Stored iomodes: [%s]", modes);
 
    return done;
 }
 
 int Daemon::loadStates()
 {
-   long value {0};
-   long mode {0};
+   constexpr int maxIos {50};
+   char defStates[maxIos+TB] {};
+   char defModes[maxIos+TB] {};
 
-   getConfigItem("ioStates", value, na);
-   getConfigItem("ioModes", mode, 0);
+   memset(defStates, '0', maxIos);
+   memset(defModes, '1', maxIos);
+   defStates[maxIos] = '\0';
+   defModes[maxIos] = '\0';
 
-   // #TODO - use only for GPIO Pins (we need a other type for P4 'DO' !!
+   char* states {};
+   char* modes {};
 
-   if (value == na)
-   {
-      tell(eloAlways, "Info: No iostates found!");
-      ioStatesLoaded = true;
-      return done;
-   }
+   getConfigItem("ioStates", states, defStates);
+   getConfigItem("ioModes", modes, defModes);
 
-   tell(eloDebug2, "Info: Loaded iostates: [%s]", bin2string((ulong)value));
-   tell(eloDebug2, "Info: Loaded iomodes: [%s]", bin2string((ulong)mode));
+   tell(eloDetail, "Info: Loaded iostates: [%s]", states);
+   tell(eloDetail, "Info: Loaded iomodes: [%s]", modes);
 
    for (const auto& output : sensors["DO"])
    {
-      if (output.first == pinW1Power)
+      if (output.first == pinW1Power || output.first >= maxIos)
          continue;
 
       if (sensors["DO"][output.first].outputModes & ooUser)
@@ -4455,21 +4467,20 @@ int Daemon::loadStates()
          if (sensors["DO"][output.first].impulse)
             continue;
 
-         gpioWrite(output.first, value & (long)pow(2, output.first), false);
-         tell(eloDebug2, "Info: iomode '%s/%d' recovered to %d", output.second.name.c_str(), output.first, output.second.mode);
+         gpioWrite(output.first, states[output.first] == '1', false);
          tell(eloDebug2, "Info: iostate '%s/%d' recovered to %d", output.second.name.c_str(), output.first, output.second.state);
       }
    }
 
-   if (mode)
+   for (const auto& output : sensors["DO"])
    {
-      for (const auto& output : sensors["DO"])
+      if (output.first == pinW1Power || output.first >= maxIos)
+         continue;
+
+      if (sensors["DO"][output.first].outputModes & ooAuto && sensors["DO"][output.first].outputModes & ooUser)
       {
-         if (sensors["DO"][output.first].outputModes & ooAuto && sensors["DO"][output.first].outputModes & ooUser)
-         {
-            OutputMode m = mode & (long)pow(2, output.first) ? omManual : omAuto;
-            sensors["DO"][output.first].mode = m;
-         }
+         sensors["DO"][output.first].mode = (OutputMode)(modes[output.first] - '0');
+         tell(eloDebug2, "Info: iomode '%s/%d' recovered to %d", output.second.name.c_str(), output.first, sensors["DO"][output.first].mode);
       }
    }
 
@@ -4484,7 +4495,7 @@ int Daemon::loadStates()
 
 int Daemon::dispatchArduinoMsg(const char* message)
 {
-   json_t* jObject = jsonLoad(message);
+   json_t* jObject {jsonLoad(message)};
 
    if (!jObject)
    {

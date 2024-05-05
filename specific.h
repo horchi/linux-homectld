@@ -37,8 +37,8 @@ class HomeCtl : public Daemon
 #ifdef _POOL
       enum AnalogInputs
       {
-         aiFilterPressure = 0x08,
-         aiPh             = 0x09
+         aiFilterPressure = 0x00,
+         aiPh             = 0x01
       };
 
       enum SpecialValues  // 'SP'
@@ -82,7 +82,7 @@ class HomeCtl : public Daemon
       int showerDuration {20};              // seconds
       int minSolarPumpDuration {10};        // minutes
       int deactivatePumpsAtLowWater {no};
-      int alertSwitchOffPressure {0};
+      double alertSwitchOffPressure {0.0};
 
       // config - PH stuff
 

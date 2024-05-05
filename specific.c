@@ -42,36 +42,36 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "aggregateInterval",         ctInteger, "15",           false, "Daemon", "Aggregate Interval der historisierten Daten [m]", "aggregation interval in minutes - 'one sample per interval will be build'" },
    { "peakResetAt",               ctString,  "",             true,  "Daemon", "", "" },
 
-#ifdef _POOL
-   { "filterPumpTimes",           ctRange,   "10:00-17:00",  false, "Daemon", "Zeiten Filter Pumpe", "[hh:mm] - [hh:mm]" },
-   { "uvcLightTimes",             ctRange,   "",             false, "Daemon", "Zeiten UV-C Licht", "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!" },
-   { "poolLightTimes",            ctRange,   "",             false, "Daemon", "Zeiten Pool Licht", "[hh:mm] - [hh:mm] (ansonsten manuell schalten)" },
-   { "poolLightColorToggle",      ctBool,    "0",            false, "Daemon", "Pool Licht Farb-Toggel", "" },
-
-   { "alertSwitchOffPressure",    ctInteger, "0",            false, "Daemon", "Trockenlaufschutz unter x bar", "Deaktiviert Pumpen nach 5 Minuten (0 deaktiviert)" },
-
-   { "tPoolMax",                  ctNum,     "28.0",         false, "Daemon", "Pool max Temperatur", "" },
-   { "tSolarDelta",               ctNum,     "5.0",          false, "Daemon", "Einschaltdifferenz Solarpumpe", "" },
-   { "showerDuration",            ctInteger, "20",           false, "Daemon", "Laufzeit der Dusche", "Laufzeit [s]" },
-   { "minSolarPumpDuration",      ctInteger, "10",           false, "Daemon", "Mindestlaufzeit der Solarpumpe [m]", "" },
-//   { "deactivatePumpsAtLowWater", ctBool,    "0",            false, "Daemon", "Pumpen bei geringem Wasserstand deaktivieren", "" },
-   { "w1AddrPool",                ctString,  "",             false, "Daemon", "Adresse Fühler Temperatur Pool", "" },
-   { "w1AddrSolar",               ctString,  "",             false, "Daemon", "Adresse Fühler Temperatur Kollektor", "" },
-   { "massPerSecond",             ctNum,     "11.0",         false, "Daemon", "Durchfluss Solar", "[Liter/min]" },
-#endif
-
    { "openWeatherApiKey",         ctString,  "",             false, "Daemon", "Openweathermap API Key", "" },
    { "weatherInterval",           ctInteger, "15",           false, "Daemon", "Weather Refresh Interval [m]", "" },
    { "toggleWeatherView",         ctBool,    "1",            false, "Daemon", "Toggle Weather Widget", "" },
 
 #ifdef _POOL
+   { "filterPumpTimes",           ctRange,   "10:00-17:00",  false, "Pool", "Zeiten Filter Pumpe", "[hh:mm] - [hh:mm]" },
+   { "uvcLightTimes",             ctRange,   "",             false, "Pool", "Zeiten UV-C Licht", "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!" },
+   { "poolLightTimes",            ctRange,   "",             false, "Pool", "Zeiten Pool Licht", "[hh:mm] - [hh:mm] (ansonsten manuell schalten)" },
+   { "poolLightColorToggle",      ctBool,    "0",            false, "Pool", "Pool Licht Farb-Toggel", "" },
+
+   { "alertSwitchOffPressure",    ctNum,     "0",            false, "Pool", "Trockenlaufschutz unter x bar", "Deaktiviert Pumpen nach 5 Minuten (0 deaktiviert)" },
+
+   { "tPoolMax",                  ctNum,     "28.0",         false, "Pool", "Pool max Temperatur", "" },
+   { "tSolarDelta",               ctNum,     "5.0",          false, "Pool", "Einschaltdifferenz Solarpumpe", "" },
+   { "showerDuration",            ctInteger, "20",           false, "Pool", "Laufzeit der Dusche", "Laufzeit [s]" },
+   { "minSolarPumpDuration",      ctInteger, "10",           false, "Pool", "Mindestlaufzeit der Solarpumpe [m]", "" },
+// { "deactivatePumpsAtLowWater", ctBool,    "0",            false, "Pool", "Pumpen bei geringem Wasserstand deaktivieren", "" },
+   { "w1AddrPool",                ctString,  "",             false, "Pool", "Adresse Fühler Temperatur Pool", "" },
+   { "w1AddrSolar",               ctString,  "",             false, "Pool", "Adresse Fühler Temperatur Kollektor", "" },
+   { "massPerSecond",             ctNum,     "11.0",         false, "Pool", "Durchfluss Solar", "[Liter/min]" },
+#endif
+
+#ifdef _POOL
    // PH stuff
 
-   { "phReference",               ctNum,     "7.2",          false, "PH", "PH Sollwert", "Sollwert [PH] (default 7,2)" },
-   { "phMinusDensity",            ctNum,     "1.4",          false, "PH", "Dichte PH Minus [kg/l]", "Wie viel kg wiegt ein Liter PH Minus (default 1,4)" },
-   { "phMinusDemand01",           ctInteger, "85",           false, "PH", "Menge zum Senken um 0,1 [g]", "Wie viel Gramm PH Minus wird zum Senken des PH Wertes um 0,1 für das vorhandene Pool Volumen benötigt (default 60g)" },
-   { "phMinusDayLimit",           ctInteger, "100",          false, "PH", "Obergrenze PH Minus/Tag [ml]", "Wie viel PH Minus wird pro Tag maximal zugegeben [ml] (default 100ml)" },
-   { "phPumpDurationPer100",      ctInteger, "1000",         false, "PH", "Laufzeit Dosierpumpe/100ml [ms]", "Welche Zeit in Millisekunden benötigt die Dosierpumpe um 100ml zu fördern (default 1000ms)" },
+   { "phReference",               ctNum,     "7.2",          false, "Pool", "PH Sollwert", "Sollwert [PH] (default 7,2)" },
+   { "phMinusDensity",            ctNum,     "1.4",          false, "Pool", "Dichte PH Minus [kg/l]", "Wie viel kg wiegt ein Liter PH Minus (default 1,4)" },
+   { "phMinusDemand01",           ctInteger, "85",           false, "Pool", "Menge zum Senken um 0,1 [g]", "Wie viel Gramm PH Minus wird zum Senken des PH Wertes um 0,1 für das vorhandene Pool Volumen benötigt (default 60g)" },
+   { "phMinusDayLimit",           ctInteger, "100",          false, "Pool", "Obergrenze PH Minus/Tag [ml]", "Wie viel PH Minus wird pro Tag maximal zugegeben [ml] (default 100ml)" },
+   { "phPumpDurationPer100",      ctInteger, "1000",         false, "Pool", "Laufzeit Dosierpumpe/100ml [ms]", "Welche Zeit in Millisekunden benötigt die Dosierpumpe um 100ml zu fördern (default 1000ms)" },
 #endif
 
    // web
@@ -252,6 +252,8 @@ int HomeCtl::readConfiguration(bool initial)
    getConfigItem("minSolarPumpDuration", minSolarPumpDuration, 10);
    getConfigItem("deactivatePumpsAtLowWater", deactivatePumpsAtLowWater, no);
    getConfigItem("alertSwitchOffPressure", alertSwitchOffPressure, 0);
+
+   tell(eloAlways, "Pump 'alertSwitchOffPressure' is set to %.2f", alertSwitchOffPressure);
 
    // Solar stuff
 
@@ -494,11 +496,11 @@ int HomeCtl::process(bool force)
    // -----------
    // Pumps Alert
 
-   if (deactivatePumpsAtLowWater)
-   {
-      // TODO
-   }
-   else
+   // if (deactivatePumpsAtLowWater)
+   // {
+   //    // TODO
+   // }
+   // else
    {
       // -----------
       // Solar Pump
@@ -587,26 +589,51 @@ int HomeCtl::process(bool force)
    // --------------------
    // check pump condition
 
-   if (alertSwitchOffPressure != 0 && sensors["AI"][aiFilterPressure].value < alertSwitchOffPressure)
+   if (alertSwitchOffPressure != 0)
    {
-      // pressure is less than configured value
+      static time_t pressureAlarmDetectedAt {0};
 
-      if (sensors["DO"][pinFilterPump].state &&
-          sensors["DO"][pinFilterPump].last < time(0) - 5*tmeSecondsPerMinute)
+      // tell(eloAlways, "aiFilterPressure %02.2f; alertSwitchOffPressure %02.2f", sensors["AI"][aiFilterPressure].value, alertSwitchOffPressure);
+
+      if (sensors["AI"][aiFilterPressure].value < alertSwitchOffPressure)
       {
-         // and pump is runnning longer than 5 minutes
+         // pressure is less than configured value
 
-         gpioWrite(pinFilterPump, false);
-         gpioWrite(pinSolarPump, false);
-         sensors["DO"][pinFilterPump].mode = omManual;
-         sensors["DO"][pinSolarPump].mode = omManual;
+         if (sensors["DO"][pinFilterPump].state && pressureAlarmDetectedAt && pressureAlarmDetectedAt < time(0) - 5*tmeSecondsPerMinute)
+         {
+            // and pump is runnning longer than 5 minutes
 
-         char* body;
-         asprintf(&body, "Filter pressure is %.2f bar and pump is running!\n Pumps switched off now!", sensors["AI"][aiFilterPressure].value);
-         tell(eloAlways, "%s", body);
-         if (sendMail(stateMailTo, "Pool pump alert", body, "text/plain") != success)
-            tell(eloAlways, "Error: Sending alert mail failed");
-         free(body);
+            tell(eloAlways, "Filter pressure is %.2f bar, alarm detected at '%s', switching off now",
+                 sensors["AI"][aiFilterPressure].value, l2pTime(pressureAlarmDetectedAt).c_str());
+
+            gpioWrite(pinFilterPump, false);
+            gpioWrite(pinSolarPump, false);
+            gpioWrite(pinUVC, false);
+            sensors["DO"][pinFilterPump].mode = omManual;
+            sensors["DO"][pinSolarPump].mode = omManual;
+            sensors["DO"][pinUVC].mode = omManual;
+
+            char* body {};
+            asprintf(&body, "Filter pressure is %.2f bar and pump is running!\n Pumps switched off now!", sensors["AI"][aiFilterPressure].value);
+
+            if (sendMail(stateMailTo, "Pool pump alert", body, "text/plain") != success)
+               tell(eloAlways, "Error: Sending alert mail failed");
+            free(body);
+         }
+         else if (sensors["DO"][pinFilterPump].state && !pressureAlarmDetectedAt)
+         {
+            pressureAlarmDetectedAt = time(0);
+
+            tell(eloAlways, "Filter pressure is %.2f bar, setting alarm detection time to '%s'",
+                 sensors["AI"][aiFilterPressure].value, l2pTime(pressureAlarmDetectedAt).c_str());
+         }
+      }
+      else if (pressureAlarmDetectedAt)
+      {
+         // reset pressure alarm
+
+         tell(eloAlways, "Pressure back to normal (%.2f), resetting alarm time", sensors["AI"][aiFilterPressure].value);
+         pressureAlarmDetectedAt = 0;
       }
    }
 
@@ -630,9 +657,8 @@ void HomeCtl::logReport()
 #ifdef _POOL
    static time_t nextLogAt {0};
    static time_t nextDetailLogAt {0};
-   char buf[255+TB];
-
-   time_t tPoolLast, tSolarLast;
+   char buf[255+TB] {};
+   time_t tPoolLast {0}, tSolarLast {0};
    double tPool = valueOfW1(toW1Id(w1AddrPool), tPoolLast);
    double tSolar = valueOfW1(toW1Id(w1AddrSolar), tSolarLast);
 
@@ -661,7 +687,6 @@ void HomeCtl::logReport()
    if (time(0) > nextDetailLogAt)
    {
       nextDetailLogAt = time(0) + 5 * tmeSecondsPerMinute;
-
       tell(eloAlways, "# Solar Work");
 
       for (int i = 0, f = selectSolarWorkPerDay->find(); f && i++ < 5; f = selectSolarWorkPerDay->fetch())

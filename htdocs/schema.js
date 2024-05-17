@@ -84,9 +84,9 @@ function initSchema(schemaData)
 
    updateSchema();
 
-   $("#container").height($(window).height() - getTotalHeightOf('menu') - 8);
+   $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('footer') - sab - 8);
    window.onresize = function() {
-      $("#container").height($(window).height() - getTotalHeightOf('menu') - 8);
+      $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('footer') - sab - 8);
    };
 }
 

@@ -31,6 +31,7 @@ var wifis = [];
 var images = [];
 var systemServices = [];
 var syslogs = [];
+var syslogFilter = "";
 var currentPage = "dashboard";
 var startPage = null;
 var actDashboard = -1;
@@ -48,16 +49,15 @@ var lmcData = {};
 var setupMode = false;
 var dashboardGroup = 0;
 var kioskBackTime = 0;
-var kioskMode = null;
+var kioskMode = null;    // 0 - with menu,    normal dash symbold, normal-widget-height
+							    // 1 - without menu, big dash symbold,    kiosk-widget-height
+							    // 2 - with menu,    big dash symbold,    kiosk-widget-height
+							    // 3 - with menu,    big dash symbold,    normal-widget-height
 
-//  0 - with menu,    normal dash symbold, normal-widget-height
-//  1 - without menu, big dash symbold,    kiosk-widget-height
-//  2 - with menu,    big dash symbold,    kiosk-widget-height
-//  3 - with menu,    big dash symbold,    normal-widget-height
+var sab = 0;             // env(safe-area-inset-bottom)
 
 $('document').ready(function() {
    daemonState.state = -1;
-
    const urlParams = new URLSearchParams(window.location.href);
    kioskMode = urlParams.get('kiosk');
    dashboardGroup = urlParams.get('group') != null ? urlParams.get('group') : 0;
@@ -110,6 +110,8 @@ function onSocketConnect(protocol)
 
    onSmalDevice = window.matchMedia("(max-width: 740px)").matches;
    console.log("onSmalDevice : " + onSmalDevice);
+
+	sab = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--sab"));
 }
 
 function connectWebSocket(useUrl, protocol)
@@ -163,8 +165,6 @@ function updateSocketState()
 
    $('#socketState').attr('class', '');
    $('#socketState').addClass('socketState ' + circle);
-
-   // console.log("updated socket state to", $('#socketState').attr('class'));
 }
 
 function sleep(ms) {
@@ -189,11 +189,11 @@ async function showInfoDialog(object)
 
    hideInfoDialog();
 
-//   if (object.status == 0) {
-//      $('#action-state').css('opacity', 0);
-//      $('#action-state').html(message + ' - success');
-//      $('#action-state').animate({'opacity': '1'}, 300);
-//   }
+   if (object.status == 0) {
+      $('#action-state').css('opacity', 0);
+      $('#action-state').html(message + ' - success');
+      $('#action-state').animate({'opacity': '1'}, 300);
+   }
 
    if (object.status == 0) {
       titleMsg = '<a style="color:darkgreen;">Success</a>';
@@ -293,96 +293,8 @@ function hideInfoDialog()
 
    $('#infoBox').removeClass('infoBox-active');
    $('#toggleMsgBtn').html('<svg><use xlink:href="#angle-down"></use></svg>');
-   // $('#action-state').animate({'opacity': '0'}, 1000);
+   $('#action-state').animate({'opacity': '0'}, 1000);
 }
-
-/*async function showInfoDialog(object)
-{
-   var message = object.message;
-   var titleMsg = "";
-
-   hideInfoDialog();
-
-   if (object.status == -1) {
-      titleMsg = "Error";
-      message = message.replace(/\n/g, "<br/>");
-      $('#infoBox').addClass('error-border');
-   }
-   else if (object.status < -1) {
-      message = message.replace(/\n/g, "<br/>");
-      titleMsg = "Information (" + object.status + ")";
-      $('#infoBox').addClass('error-border');
-   }
-   else if (object.status == 1) {
-      var array = message.split("#:#");
-      titleMsg = array[0];
-      message = array[1].replace(/\n/g, "<br/>");;
-   }
-
-   var msDuration = 2000;
-   var bgColor = "";
-   var cls = "no-titlebar";
-   var align = "center";
-
-   if (object.status != 0) {
-      msDuration = 30000;
-      cls = "";
-      align = "left";
-   }
-
-   var progress = ($('<div></div>')
-                   .addClass('progress-smaller')
-                   .css('margin-right', '15px')
-                   .click(function() { hideInfoDialog(); }));
-
-   $('#infoBox').append($('<div></div>')
-                        .css('overflow', 'hidden')
-                        .css('display', 'inline-flex')
-                        .css('align-items', 'center')
-                        .click(function() {
-                           clearTimeout(infoDialogTimer);
-                           infoDialogTimer = null;
-                           progress.addClass('hidden');
-                           $('#progressButton').removeClass('hidden');
-                        })
-                        .append($('<span></span>')
-                                .append($('<button></button>')
-                                        .attr('id', 'progressButton')
-                                        .css('margin-right', '15px')
-                                        .addClass('rounded-border')
-                                        .addClass('hidden')
-                                        .click(function() { hideInfoDialog(); })
-                                        .html('x')))
-                        .append($('<span></span>')
-                                .append(progress))
-                        .append($('<span></span>')
-                                .append($('<span></span>')
-                                        .css('font-weight', 'bold')
-                                        .html(titleMsg))
-                                .append($('<br></br>')
-                                        .addClass(titleMsg == '' ? 'hidden' : ''))
-                                .append($('<span></span>')
-                                        .html(message)))
-                       );
-
-   $('#infoBox').addClass('infoBox-active');
-
-   infoDialogTimer = setTimeout(function() {
-      hideInfoDialog();
-   }, msDuration);
-}
-
-function hideInfoDialog()
-{
-   infoDialogTimer = null;
-
-   if ($('#progressDiv') != null)
-      $('#progressDiv').css("visibility", "hidden");
-
-   $('#infoBox').html('');
-   $('#infoBox').removeClass('infoBox-active');
-   $('#infoBox').removeClass('error-border');
-} */
 
 var progressDialog = null;
 
@@ -456,8 +368,8 @@ function dispatchMessage(message)
    var jMessage = JSON.parse(message);
    var event = jMessage.event;
 
-   if (event != "chartdata" && event != "ping")
-      console.log("got event: " + event);
+   // if (event != "chartdata" && event != "ping")
+   //    console.log("got event: " + event);
 
    if (event == "result") {
       hideProgressDialog();
@@ -526,6 +438,10 @@ function dispatchMessage(message)
    }
    else if (event == "daemonstate") {
       daemonState = jMessage.object;
+		let now = new Date();
+		daemonState.timeOffset = Math.round(now/1000 - daemonState.systime);
+		// console.log("timeOffset", daemonState.timeOffset, "s");
+		updateFooter();
    }
    else if (event == "widgettypes") {
       widgetTypes = jMessage.object;
@@ -666,20 +582,20 @@ function prepareMenu()
    if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10)
       html += '<button class="rounded-border button1" onclick="mainMenuSel(\'setup\')">Setup</button>';
 
-   html += '<span><button id="toggleMsgBtn" class="rounded-border tool-button-svg" ' +
-      'style="background-color:transparent;width:22px;float:right;" onclick="toggleInfoDialog()" title="view messages">' +
-      '<svg><use xlink:href="#angle-down"></use></svg>' +
-      '</button><span>';
-
    html +=
       '<div style="display:flex;float:right;">' +
-      '<span id="socketState" class="socketState ' + 'grayCircle' + '" style="min-width:max-content;"></span>' +
+      // '<span id="socketState" class="socketState ' + 'grayCircle' + '" style="min-width:max-content;"></span>' +
       '<button id="burgerMenu" class="rounded-border button1 burgerMenu" onclick="menuBurger()">' +
       '<div></div>' +
       '<div></div>' +
       '<div></div>' +
       '</button>' +
-      '</div>';
+		'<button id="toggleMsgBtn" class="rounded-border tool-button-svg" ' +
+      'style="background-color:transparent;width:22px;" onclick="toggleInfoDialog()" title="view messages">' +
+      '<svg><use xlink:href="#angle-down"></use></svg>' +
+      '</button>' +
+
+	'</div>';
    html += '</div>';
 
    // buttons below menu
@@ -733,6 +649,11 @@ function prepareMenu()
 
    // var msg = "DEBUG: Browser: '" + $.browser.name + "' : '" + $.browser.versionNumber + "' : '" + $.browser.version + "'";
    // socket.send({ "event" : "logmessage", "object" : { "message" : msg } });
+}
+
+function updateFooter()
+{
+   $("#version").html(daemonState.version);
 }
 
 function menuBurger()
@@ -820,8 +741,8 @@ function mainMenuSel(what, action = null)
    else if (currentPage == "images")
       initImages();
    else if (currentPage == "syslog") {
-      showProgressDialog();
-      event = "syslog";
+		updateSyslog();
+		return;
    }
    else if (currentPage == "system") {
       event = "system";
@@ -915,18 +836,33 @@ function showSyslog(log)
               .css('width', '-webkit-fill-available')
               .css('width', '-moz-available')
               .css('margin-bottom', '8px')
-              .on('input', function() {
-					  showProgressDialog();
-					  socket.send({ "event" : "syslog", "object" : { 'log' : $('#selectSyslog').val() } });
-				  }))
+              .on('input', function() { updateSyslog(); }))
+
+	   .append($('<div></div>')
+              .addClass('button-group-spacing'))
+
       .append($('<div></div>')
+              .addClass('labelB1')
+              .html('Filter'))
+      .append($('<input></input>')
+              .attr('id', 'syslogFilter')
+              .attr('placeholder', 'expression...')
+              .attr('type', 'search')
+              .addClass('input rounded-border clearableOD')
+              .css('width', '-webkit-fill-available')
+              .css('width', '-moz-available')
+              .css('margin-bottom', '8px')
+				  .val(syslogFilter))
+              // .on('input', function() { updateSyslog(); }))
+
+	   .append($('<div></div>')
+              .addClass('button-group-spacing'))
+
+	   .append($('<div></div>')
               .append($('<button></button>')
                       .addClass('rounded-border tool-button')
                       .html('Refresh')
-                      .click(function() {
-								 showProgressDialog();
-								 socket.send({ "event" : "syslog", "object" : { 'log' : $('#selectSyslog').val() } });
-							 })));
+                      .click(function() { updateSyslog(); })));
 
 	for (let i = 0; i < syslogs.length; ++i) {
 		$('#selectSyslog').append($('<option></option>')
@@ -934,7 +870,8 @@ function showSyslog(log)
 										  .html(syslogs[i].name));
 	}
 
-   document.getElementById("container").innerHTML = '<div id="syslogContainer" class="setupContainer log"></div>';
+   $('#container').html('<div id="syslogContainer" class="setupContainer log"></div>');
+	$('#syslogContainer').css('width', 'fit-content');
 
    var root = document.getElementById("syslogContainer");
    root.innerHTML = log.lines.replace(/(?:\r\n|\r|\n)/g, '<br/>');
@@ -942,10 +879,18 @@ function showSyslog(log)
 
    // calc container size
 
-   $("#container").height($(window).height() - getTotalHeightOf('menu') - 10);
+   $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('footer') - sab - 10);
    window.onresize = function() {
-      $("#container").height($(window).height() - getTotalHeightOf('menu') - 10);
+      $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('footer') - sab - 10);
    };
+}
+
+function updateSyslog()
+{
+	syslogFilter = $('#syslogFilter').val();
+	showProgressDialog();
+	socket.send({ "event" : "syslog", "object" :
+					  { 'log' : $('#selectSyslog').val(), 'filter' : syslogFilter } });
 }
 
 function showDatabaseStatistic(statistic)

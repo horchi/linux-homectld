@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.3"
-#define VERSION_DATE "05.05.2024"
+#define _VERSION     "0.1.4"
+#define VERSION_DATE "07.05.2024"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,11 @@
 
 /*
  * ------------------------------------
+
+2024-05-07: version 0.1.4
+   - change: style improveents
+   - change: Added color condition for meters bar color
+   - added:  script update.sh to update homectld via WEBIF
 
 2024-05-05: version 0.1.3
    - change: improved info dialog

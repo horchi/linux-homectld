@@ -1259,7 +1259,7 @@ int isZero(const char* str)
 // Load Lines
 //***************************************************************************
 
-int loadLinesFromFile(const char* infile, std::vector<std::string>& lines, bool removeLF, size_t maxLines)
+int loadLinesFromFile(const char* infile, std::vector<std::string>& lines, bool removeLF, size_t maxLines, const char* expression, bool invert)
 {
    FILE* fp;
 
@@ -1280,6 +1280,14 @@ int loadLinesFromFile(const char* infile, std::vector<std::string>& lines, bool 
 
    while (getline(&line, &len, fp) != -1)
    {
+		if (!isEmpty(expression))
+		{
+			if (!invert && rep(line, expression) != success)
+				continue;
+			if (invert && rep(line, expression) == success)
+				continue;
+		}
+
       if (removeLF)
          line[strlen(line)-1] = 0;
 

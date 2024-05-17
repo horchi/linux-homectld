@@ -70,19 +70,6 @@ function widgetSetup(key)
                                           .val(widget.unit)
                                          )))
 
-//                  .append($('<div></div>')
-//                          .attr('id', 'divFactor')
-//                          .append($('<span></span>')
-//                                  .html('Faktor'))
-//                          .append($('<span></span>')
-//                                  .append($('<input></input>')
-//                                          .addClass('rounded-border inputSetting')
-//                                          .attr('id', 'factor')
-//                                          .attr('type', 'number')
-//                                          .attr('step', '0.1')
-//                                          .val(widget.factor)
-//                                         )))
-
                   .append($('<div></div>')
                           .attr('id', 'divScalemin')
                           .append($('<span></span>')
@@ -114,7 +101,6 @@ function widgetSetup(key)
                           .append($('<span></span>')
                                   .html('Rescale'))
                           .append($('<span></span>')
-                                  .css('width', '80px')
                                   .append($('<input></input>')
                                           .addClass('rounded-border inputSetting')
                                           .attr('id', 'rescale')
@@ -179,7 +165,7 @@ function widgetSetup(key)
                   .append($('<div></div>')
                           .attr('id', 'divBarColor')
                           .append($('<span></span>')
-                                  .html('Bar Farbe'))
+                                  .html('Bar Farbe, condition'))
                           .append($('<span></span>')
                                   .css('display', 'flex')
                                   .append($('<span></span>')
@@ -188,9 +174,17 @@ function widgetSetup(key)
                                                   .attr('id', 'barcolor')
                                                   .attr('type', 'text')
                                                   .addClass('rounded-border inputSetting')
-                                                  .css('width', '80px')
-                                                  .val(widget.barcolor)
-                                                 ))))
+                                                  .val(widget.barcolor)))
+                                  .append($('<span></span>')
+														.css('width', '-webkit-fill-available')
+														.css('width', '-moz-available')
+														.append($('<input></input>')
+																  .attr('id', 'colorConditionBar')
+																  .attr('title', 'Syntax:\nWert1=Farbe1,Wert2=Farbe2,...\n Operatoren =,<,>,>=,<=,<>,~\n ~ enthalten in\nFarbe: rgb(r g b), #xxxxxx, <color>')
+																  .attr('type', 'search')
+																  .addClass('rounded-border inputSetting')
+																  .val(widget.colorConditionBar)
+																 ))))
 
                   .append($('<div></div>')
                           .attr('id', 'divSymbol')
@@ -248,45 +242,44 @@ function widgetSetup(key)
                           .attr('id', 'divColor')
                           .append($('<span></span>')
                                   .attr('id', 'spanColor')
-                                  .html('Farbe'))
+                                  .html('Farbe, condition'))
                           .append($('<span></span>')
                                   .css('display', 'flex')
                                   .append($('<span></span>')
-                                          .css('margin-right', '5px')
+														.attr('id', 'colorSpan')
                                           .append($('<input></input>')
                                                   .attr('id', 'color')
                                                   .attr('type', 'text')
                                                   .addClass('rounded-border inputSetting')
-                                                  .css('width', '80px')
                                                   .val(widget.color)
                                                  ))
                                   .append($('<span></span>')
+														.css('margin-right', '5px')
                                           .append($('<input></input>')
                                                   .attr('id', 'colorOn')
                                                   .attr('type', 'text')
                                                   .addClass('rounded-border inputSetting')
-                                                  .css('width', '80px')
                                                   .val(widget.colorOn)
-                                         ))))
+																 ))
 
-                  .append($('<div></div>')
-                          .attr('id', 'divColorCondition')
-                          .append($('<span></span>')
-                                  .html('Farbe (condition)'))
-                          .append($('<span></span>')
-                                  .append($('<input></input>')
-                                          .addClass('rounded-border inputSetting')
-                                          .attr('type', 'search')
-                                          .attr('id', 'colorCondition')
-                                          .val(widget.colorCondition)
-                                         )))
+											 .append($('<span></span>')
+														.attr('id', 'divColorCondition')
+														.css('width', '-webkit-fill-available')
+														.css('width', '-moz-available')
+														.append($('<input></input>')
+																  .attr('id', 'colorCondition')
+																  .attr('title', 'Syntax:\nWert1=Farbe1,Wert2=Farbe2,...\n Operatoren =,<,>,>=,<=,<>,~\n ~ enthalten in\nFarbe: rgb(r g b), #xxxxxx, <color>')
+																  .attr('type', 'search')
+																  .addClass('rounded-border inputSetting')
+																  .val(widget.colorCondition)
+																 ))
+											))
 
                   .append($('<div></div>')
                           .attr('id', 'divPeak')
                           .append($('<span></span>')
                                   .html('Peak anzeigen'))
                           .append($('<span></span>')
-                                  .css('width', '80px')
                                   .append($('<input></input>')
                                           .addClass('rounded-border inputSetting')
                                           .attr('id', 'peak')
@@ -301,7 +294,6 @@ function widgetSetup(key)
                           .append($('<span></span>')
                                   .html('Value anzeigen'))
                           .append($('<span></span>')
-                                  .css('width', '80px')
                                   .append($('<input></input>')
                                           .addClass('rounded-border inputSetting')
                                           .attr('id', 'showvalue')
@@ -385,11 +377,12 @@ function widgetSetup(key)
 
       if (![0,9].includes(wType) || $('#symbolOn').val() == '') {
          $('.spColorOn').css('display', 'none');
-         $('#spanColor').html("Farbe");
+         $('#spanColor').html("Farbe, condition");
       }
       else {
          $('.spColorOn').css('display', 'flex');
-         $('#spanColor').html("Farbe aus / an");
+         $('#spanColor').html("Farbe aus, an, condition");
+			$('#colorSpan').css("margin-right", '5px');
       }
    }
 
@@ -525,7 +518,6 @@ function widgetSetup(key)
             widget = Object.create(dashboards[actDashboard].widgets[key]); // valueFacts[key]);
             widget.title = $("#title").val();
             widget.unit = $("#unit").val();
-            // widget.factor = parseFloat($("#factor").val()) || 1.0;
             widget.scalemax = parseFloat($("#scalemax").val()) || 0.0;
             widget.scalemin = parseFloat($("#scalemin").val()) || 0.0;
             widget.rescale = $("#rescale").is(':checked');
@@ -542,6 +534,7 @@ function widgetSetup(key)
             widget.color = $("#color").spectrum('get').toRgbString();
             widget.colorOn = $("#colorOn").spectrum('get').toRgbString();
             widget.colorCondition = $("#colorCondition").val();
+				widget.colorConditionBar = $("#colorConditionBar").val();
             widget.showpeak = $("#peak").is(':checked');
             widget.showvalue = $("#showvalue").is(':checked');
             widget.linefeed = $("#linefeed").is(':checked');
@@ -556,7 +549,6 @@ function widgetSetup(key)
          'Ok': function () {
             widget.title = $("#title").val();
             widget.unit = $("#unit").val();
-            // widget.factor = parseFloat($("#factor").val()) || 1.0;
             widget.scalemax = parseFloat($("#scalemax").val()) || 0.0;
             widget.scalemin = parseFloat($("#scalemin").val()) || 0.0;
             widget.rescale = $("#rescale").is(':checked');
@@ -573,6 +565,7 @@ function widgetSetup(key)
             widget.color = $("#color").spectrum("get").toRgbString();
             widget.colorOn = $("#colorOn").spectrum("get").toRgbString();
             widget.colorCondition = $("#colorCondition").val();
+				widget.colorConditionBar = $("#colorConditionBar").val();
             widget.showpeak = $("#peak").is(':checked');
             widget.showvalue = $("#showvalue").is(':checked');
             widget.linefeed = $("#linefeed").is(':checked');
@@ -628,6 +621,7 @@ function widgetSetup(key)
             json[key]["color"] = $("#color").spectrum("get").toRgbString();
             json[key]["colorOn"] = $("#colorOn").spectrum("get").toRgbString();
             json[key]["colorCondition"] = $("#colorCondition").val();
+				json[key]["colorConditionBar"] = $("#colorConditionBar").val();
             json[key]["barcolor"] = $("#barcolor").spectrum("get").toRgbString();
 
             socket.send({ "event" : "storedashboards", "object" : { [actDashboard] : { 'title' : dashboards[actDashboard].title, 'widgets' : json } } });

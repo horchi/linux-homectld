@@ -152,9 +152,9 @@ function initLmc()
 
    // calc container size
 
-   $("#container").height($(window).height() - getTotalHeightOf('menu') - 5);
+   $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('footer') - sab - 5);
    window.onresize = function() {
-      $("#container").height($(window).height() - getTotalHeightOf('menu') - 5);
+      $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('footer') - sab - 5);
    };
 }
 

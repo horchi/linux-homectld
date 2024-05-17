@@ -92,9 +92,9 @@ function initList()
 
    // calc container size
 
-   $("#container").height($(window).height() - getTotalHeightOf('menu'));
+   $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('footer') - sab);
    window.onresize = function() {
-      $("#container").height($(window).height() - getTotalHeightOf('menu'));
+      $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('footer') - sab);
    };
 }
 
@@ -119,7 +119,7 @@ function updateList()
       else if (fact.widget.widgettype == 0) {   // Symbol
          var image = sensor.value != 0 ? fact.widget.imgon : fact.widget.imgoff;
          $(elemId).attr("src", image);
-         // $("#container").height($(window).height() - getTotalHeightOf('menu'));
+         // $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('footer') - sab );
       }
       else if (fact.widget.widgettype == 2 || fact.widget.widgettype == 7 || fact.widget.widgettype == 12) {   // Text, PlainText
          $(elemId).html(sensor.text);

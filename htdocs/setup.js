@@ -237,9 +237,9 @@ function initConfig(configdetails)
       }
    });
 
-   $("#container").height($(window).height() - $("#menu").height() - 8);
+   $("#container").height($(window).height() - $("#menu").height() - getTotalHeightOf('footer') - sab - 8);
    window.onresize = function() {
-      $("#container").height($(window).height() - $("#menu").height() - 8);
+      $("#container").height($(window).height() - $("#menu").height() - getTotalHeightOf('footer') - sab - 8);
    };
 }
 

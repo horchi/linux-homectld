@@ -164,7 +164,7 @@ function initDashboard(update = false)
 
 function resizeDashboard()
 {
-   $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('dashboardMenu') - 15);
+   $("#container").height($(window).outerHeight() - getTotalHeightOf('menu') - getTotalHeightOf('dashboardMenu') - getTotalHeightOf('footer') - sab - 20);
 
    if (layout != 'flex') {
       let style = getComputedStyle(document.documentElement);
@@ -195,39 +195,49 @@ function newDashboard()
    }
 }
 
-function getWidgetColor(widget, value)
+function getWidgetColor(widget, colorCondition, defaultColor, value)
 {
-   if (widget.colorCondition != null && widget.colorCondition != '') {
-      let conditions = widget.colorCondition.split(",");
+   if (colorCondition == null || colorCondition == '') {
+		if (defaultColor != null)
+			return defaultColor;
+		return 'white';
+	}
+	else {
+		let conditions = colorCondition.split(",");
       for (c = 0; c < conditions.length; ++c) {
          if (conditions[c].indexOf('=') != -1) {
             let [val,col] = conditions[c].split("=");
             if (value == val)
                return col;
          }
-         if (conditions[c].indexOf('~') != -1) {   // ~ für stringh enthalten in
+         else if (conditions[c].indexOf('~') != -1) {   // ~ für string enthalten in
             let [val,col] = conditions[c].split("~");
             if (value.indexOf(val) != -1)
                return col;
          }
-         if (conditions[c].indexOf('<') != -1) {1
+         else if (conditions[c].indexOf('<') != -1) {1
             let [val,col] = conditions[c].split("<");
             if (val < value)
                return col;
          }
-         if (conditions[c].indexOf('>') != -1) {
+         else if (conditions[c].indexOf('>') != -1) {
             let [val,col] = conditions[c].split(">");
             if (val > value)
                return col;
          }
-         if (conditions[c].indexOf('<=') != -1) {1
+         else if (conditions[c].indexOf('<=') != -1) {1
             let [val,col] = conditions[c].split("<=");
             if (val <= value)
                return col;
          }
-         if (conditions[c].indexOf('>=') != -1) {
+         else if (conditions[c].indexOf('>=') != -1) {
             let [val,col] = conditions[c].split(">=");
             if (val >= value)
+               return col;
+         }
+         else if (conditions[c].indexOf('<>') != -1) {
+            let [val,col] = conditions[c].split("<>");
+            if (val != value)
                return col;
          }
       }
@@ -431,22 +441,6 @@ function initWidget(key, widget, fact)
                             .css('user-select', 'none'))
                    );
 
-//            .append($('<div></div>')
-//                    .attr('id', 'progress' + fact.type + fact.address)
-//                    .addClass('widget-progress')
-//                    .css('user-select', 'none')
-//                    .on({'mousedown touchstart' : function(e){
-//                       e.preventDefault();
-//                       moseDownOn.object = $('#progressBar' + fact.type + fact.address);
-//                       moseDownOn.fact = fact;
-//                       moseDownOn.div = $(this);
-//                       console.log("mousedown on " + moseDownOn.object.attr('id'));
-//                    }})
-//                    .append($('<div></div>')
-//                            .attr('id', 'progressBar' + fact.type + fact.address)
-//                            .css('user-select', 'none')
-//                            .addClass('progress-bar')));
-
          if (!setupMode) {
             $('#button' + fact.type + fact.address)
                .on('mousedown touchstart', {"fact" : fact}, function(e) {
@@ -523,8 +517,10 @@ function initWidget(key, widget, fact)
          var eChart = document.createElement("div");
          eChart.className = "chart-canvas-container";
          var cFact = fact;
-         if (!setupMode && fact.record)
+         if (!setupMode && fact.record) {
             eChart.setAttribute("onclick", "toggleChartDialog('" + cFact.type + "'," + cFact.address + ")");
+				$(eChart).css('cursor', 'pointer');
+			}
          elem.appendChild(eChart);
 
          var eCanvas = document.createElement("canvas");
@@ -548,6 +544,7 @@ function initWidget(key, widget, fact)
                     .addClass('widget-value')
                     .css('user-select', 'none')
                     .css('color', widget.color)
+						  .css('cursor', !setupMode && fact.record ? 'pointer' : '')
                     .click(function() {
                        var cFact = fact;
                        if (!setupMode && fact.record)
@@ -556,10 +553,6 @@ function initWidget(key, widget, fact)
                     .attr('id', 'peak' + fact.type + fact.address)
                     .css('user-select', 'none')
                     .addClass('chart-peak'));
-
-//         var cFact = fact;
-//         if (!setupMode && fact.record)
-//            $(elem).click(function() {toggleChartDialog(cFact.type, cFact.address, key);});
 
          break;
       }
@@ -611,8 +604,10 @@ function initWidget(key, widget, fact)
                                     .attr('x', '950')
                                     .attr('y', '550'))));
          var cFact = fact;
-         if (!setupMode && fact.record)
+         if (!setupMode && fact.record) {
             $(elem).click(function() {toggleChartDialog(cFact.type, cFact.address, key);});
+				$(elem).css('cursor', 'pointer');
+			}
 
          var divId = '#svgDiv' + fact.type + fact.address;
          $(divId).html($(divId).html());  // redraw to activate the SVG !!
@@ -621,7 +616,7 @@ function initWidget(key, widget, fact)
 
       case 5:            // Meter
       case 6: {          // MeterLevel
-         initMeter(key, widget, fact, widget.scalemax);
+         initMeter(key, widget, fact, widget.scalemax, null);
          break;
       }
 
@@ -707,21 +702,6 @@ function initWidget(key, widget, fact)
                             .addClass('rounded-border')
                             .css('user-select', 'none'))
                     .click(function() { toggleIo(fact.address, fact.type); }))
-//            .append($('<div></div>')
-//                    .attr('id', 'progress' + fact.type + fact.address)
-//                    .addClass('widget-progress')
-//                    .css('user-select', 'none')
-//                    .on({'mousedown touchstart' : function(e){
-//                       e.preventDefault();
-//                       moseDownOn.object = $('#progressBar' + fact.type + fact.address);
-//                       moseDownOn.fact = fact;
-//                       moseDownOn.div = $(this);
-//                       console.log("mousedown on " + moseDownOn.object.attr('id'));
-//                    }})
-//                    .append($('<div></div>')
-//                            .attr('id', 'progressBar' + fact.type + fact.address)
-//                            .css('user-select', 'none')
-//                            .addClass('progress-bar')))
             .append($('<div></div>')
                     .attr('id', 'value' + fact.type + fact.address)
                     .addClass('symbol-value')
@@ -850,8 +830,10 @@ function initWidget(key, widget, fact)
                     .addClass('widget-value'));
 
          var cFact = fact;
-         if (!setupMode && fact.record)
+         if (!setupMode && fact.record) {
             $(elem).click(function() {toggleChartDialog(cFact.type, cFact.address, key);});
+				$(elem).css('cursor', 'pointer');
+			}
          break;
       }
    }
@@ -921,7 +903,7 @@ function initWindyMap(key, widget, fact)
 // Init Meter Widget
 //***************************************************************************
 
-function initMeter(key, widget, fact, neededScaleMax)
+function initMeter(key, widget, fact, neededScaleMax, value)
 {
    let radial = widget.widgettype == 5;
    let showValue = widget.showvalue == null || widget.showvalue == true;
@@ -949,15 +931,18 @@ function initMeter(key, widget, fact, neededScaleMax)
    var canvas = document.createElement('canvas');
    main.appendChild(canvas);
    canvas.setAttribute('id', 'widget' + fact.type + fact.address);
+
    var cFact = fact;
-   if (!setupMode && fact.record)
+   if (!setupMode && fact.record) {
       $(canvas).click(function() {toggleChartDialog(cFact.type, cFact.address, key);});
+		canvas.style.cursor = 'pointer';
+	}
 
    if (!radial && showValue) {
-      var value = document.createElement("div");
-      value.setAttribute('id', 'widgetValue' + fact.type + fact.address);
-      value.className = "widget-main-value-lin";
-      elem.appendChild(value);
+      var _value = document.createElement("div");
+      _value.setAttribute('id', 'widgetValue' + fact.type + fact.address);
+      _value.className = "widget-main-value-lin";
+      elem.appendChild(_value);
       $("#widgetValue" + fact.type + fact.address).css('color', widget.color);
       var ePeak = document.createElement("div");
       ePeak.setAttribute('id', 'peak' + fact.type + fact.address);
@@ -1031,8 +1016,10 @@ function initMeter(key, widget, fact, neededScaleMax)
 
    let progressColor = widget.unit == '%' ? 'blue' : 'red';
 
-   if (widget.barcolor != null)
-      progressColor = widget.barcolor;
+	if (widget.barcolor != null && widget.barcolor != '')
+		progressColor = widget.barcolor
+
+	progressColor = getWidgetColor(widget, widget.colorConditionBar, progressColor, value);
 
    options = {
       renderTo: 'widget' + fact.type + fact.address,
@@ -1305,7 +1292,8 @@ function titleClick(ctrlKey, key)
    else {
       let sensor = allSensors[key];
       let now = new Date();
-      var last = new Date(sensor.last * 1000);
+      let last = new Date(sensor.last * 1000);
+		let before = Math.round((now - daemonState.timeOffset -last)/1000)
       let peakMaxTime = new Date(sensor.peakmaxtime * 1000);
       let peakMinTime = new Date(sensor.peakmintime * 1000);
       var form = document.createElement("div");
@@ -1412,7 +1400,7 @@ function titleClick(ctrlKey, key)
                              .append($('<span></span>')
                                      .append($('<div></div>')
                                              .addClass('rounded-border')
-                                             .html(last.toLocaleString('de-DE') + ' (' + Math.round((now-last)/1000) + 's)'))
+                                             .html(last.toLocaleString('de-DE') + ' (' + before + 's)'))
                                     ))
                      .append($('<div></div>')
                              .css('display', sensor.battery ? 'flex' : 'none')
@@ -1635,7 +1623,7 @@ function updateWidget(sensor, refresh, widget)
 
       }
       else if (sensor.text != null) {
-         $("#widget" + fact.type + fact.address).css('color', getWidgetColor(widget, sensor.text));
+         $("#widget" + fact.type + fact.address).css('color', getWidgetColor(widget, widget.colorCondition, widget.color, sensor.text));
          if (widget.widgettype == 7 && sensor.text.indexOf('\n') != -1) {
             // show plain with tabs text as table
 
@@ -1660,7 +1648,7 @@ function updateWidget(sensor, refresh, widget)
    }
    else if (widget.widgettype == 3)      // Value
    {
-      $("#widget" + fact.type + fact.address).css('color', getWidgetColor(widget, sensor.value));
+      $("#widget" + fact.type + fact.address).css('color', getWidgetColor(widget, widget.colorCondition, widget.color, sensor.value));
       $("#widget" + fact.type + fact.address).html(sensor.value + " " + widget.unit);
       if (widget.showpeak != null && widget.showpeak)
          $("#peak" + fact.type + fact.address).text(sensor.peakmax != null ? sensor.peakmax.toFixed(2) + " " + widget.unit : "");
@@ -1689,7 +1677,11 @@ function updateWidget(sensor, refresh, widget)
    else if (widget.widgettype == 5 || widget.widgettype == 6)    // Meter
    {
       if (sensor.value != null) {
-         let value = sensor.value; // (widget.factor != null && widget.factor) ? widget.factor*sensor.value : sensor.value;
+         let value = sensor.value;
+			let reInitMeter = false;
+
+			if (widgetDiv.data('scalemax') != widget.scalemax)
+				widgetDiv.data('scalemax', widget.scalemax);
 
          if (widget.rescale) {
             let neededScaleMax = widget.scalemax;
@@ -1713,14 +1705,25 @@ function updateWidget(sensor, refresh, widget)
             else if (value < parseInt(widget.scalemax / 1.5))
                neededScaleMax = parseInt(widget.scalemax / 1.5);
 
-            if (widgetDiv.data('scalemax') != neededScaleMax)  {
+            if (widgetDiv.data('scalemax') != neededScaleMax) {
                widgetDiv.data('scalemax', neededScaleMax);
-               initMeter(key, widget, fact, neededScaleMax);
+					reInitMeter = true;
+               // initMeter(key, widget, fact, neededScaleMax, sensor.value);
             }
          }
 
+			let progressColor = getWidgetColor(widget, widget.colorConditionBar, widget.barcolor, value);
+
+			if (widgetDiv.data('progressColor') != progressColor) {
+            widgetDiv.data('progressColor', progressColor);
+				reInitMeter = true;
+			}
+
+			if (reInitMeter)
+            initMeter(key, widget, fact, widgetDiv.data('scalemax'), sensor.value);
+
          if (widget.widgettype == 6) {
-            $("#widgetValue" + fact.type + fact.address).css('color', getWidgetColor(widget, value));
+            $("#widgetValue" + fact.type + fact.address).css('color', getWidgetColor(widget, widget.colorCondition, widget.color, value));
             $('#widgetValue' + fact.type + fact.address).html(value.toFixed(widget.unit == '%' ? 0 : 1) + ' ' + widget.unit);
          }
 

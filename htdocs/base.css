@@ -6,20 +6,6 @@ button:focus {
     outline: none;
 }
 
-/* .body-background:after
-{
-    background: transparent url(/img/backgrounds/background.jpg) no-repeat 50% 0 fixed;
-    background-size: cover;
-    content: "";
-    opacity: 0.7;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    right: 0;
-    position: absolute;
-    z-index: -1;
-} */
-
 .ui-autocomplete
 {
   height: 120px;
@@ -100,30 +86,7 @@ button:focus {
 {
     display: block;
 }
-/*
-.infoBox
-{
-    background-color: var(--info);
-    color: black;
-    padding: 5px;
-    width: fit-content;
-    opacity: 0;
-    position: fixed;
-    margin: 5px;
-    top: -20rem;
-    left: -20rem;
-    transition-property: all;
-    transition-duration: 1.5s;
-    transition-timing-function: cubic-bezier(0, 1, 0.5, 1);
-}
 
-.infoBox-active
-{
-    opacity: 1;
-    top: 0.5rem;
-    left: 0.5rem;
-}
-*/
 .burgerMenu
 {
     float: right;
@@ -150,6 +113,41 @@ button:focus {
     height: 1px;
     margin: 4px;
     background-color: white;
+}
+
+.footer
+{
+    height: 30px;
+    position: fixed;
+    bottom: 0;
+    width: -webkit-fill-available;
+    width: -moz-available;
+    padding: 3px;
+	 margin: 2px 5px env(safe-area-inset-bottom) 5px;
+    background-color: var(--menu);
+    display: flex;
+    color: white;
+    font-size: 12px;
+    align-items: center;
+}
+
+.footer :nth-child(2)
+{
+    width: -webkit-fill-available;
+    width: -moz-available;
+    color: #4d9143;
+    font-weight: bold;
+    text-align: center;
+    font-size: 16px;
+    opacity: 0;
+}
+
+.footer :nth-child(3)
+{
+    width: 125px;
+    text-align: end;
+    padding-right: 5px;
+    padding-top: 3px;
 }
 
 .vdrContent
@@ -314,7 +312,7 @@ button:focus {
 .tool-button-svg > svg
 {
     height: 20px;
-    width: 20px;
+    min-width: 20px;
 }
 
 .tool-button-svg-smal
@@ -655,6 +653,7 @@ span > select
 .confirmDiv
 {
     margin-top: 5px;
+	 padding: 0px 0px 0px env(safe-area-inset-left);
 }
 
 .configDescriptionCaption
@@ -703,10 +702,11 @@ span > select
 .controlContainer
 {
     padding: var(--containerPadding);
+	 margin: 0px 0px 0px env(safe-area-inset-left);
 	 background-color: var(--menu);
     font-size: 10px;
     color: var(--light2);
-    margin: 0px 4px 0px 0px;
+    /*margin: 0px 4px 0px 0px;*/
     min-width: 180px;
     overflow-y: auto;
 }
@@ -861,7 +861,7 @@ div.greenCircle
 
 .tableMultiCol
 {
-    width: 100%;
+    /*width: 100%;*/
     border-collapse: collapse;
     color: var(--buttonFont);
     margin-top: 5px;
@@ -1247,18 +1247,22 @@ table.tableMultiCol td
 {
     background: linear-gradient(to bottom right, #00000096, black);
     padding: var(--containerPadding);
-    width: fit-content;
-    width: -webkit-fill-available;
-    width: -moz-available;
+    /*width: fit-content;*/
+    /*width: -webkit-fill-available;
+    width: -moz-available;*/
 }
 
 .setupMenu
 {
     margin-top: 4px;
+/*    display: inline-flex;
+    overflow-x: auto;
+	 width: 94%; */
 }
 
 .setupMenu > button
 {
+	 text-wrap: nowrap;
     margin: 1px;
 }
 
@@ -1341,7 +1345,7 @@ table.tableMultiCol td
 
 .settingsDialogContent > div > span:nth-child(1)
 {
-    width: 30%;
+    width: 40%;
     text-align: end;
     margin-right: 10px;
     align-self: center;
@@ -1672,26 +1676,8 @@ table.tableMultiCol td
 
 .widget-edit:hover
 {
-/*    font-size: 1em;*/
     font-weight: bold;
 }
-
-/*.widget-progress {
-    grid-area: progress;
-    background-color: gray;
-    width: 80%;
-    justify-self: center;
-    border-radius: 8px;
-    margin-top: 7px;
-    margin-bottom: 7px;
-}
-
-.progress-bar {
-    width: 0%;
-    height: 100%;
-    background-color: #3498db;
-    border-radius: 8px;
-}*/
 
 .widget-mode
 {

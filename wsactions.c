@@ -844,6 +844,7 @@ int Daemon::performSyslog(json_t* oObject, long client)
       return done;
 
    const char* log = getStringFromJson(oObject, "log");
+	const char* filter = getStringFromJson(oObject, "filter");
    json_t* oJson = json_object();
    std::vector<std::string> lines;
    std::string result;
@@ -861,8 +862,8 @@ int Daemon::performSyslog(json_t* oObject, long client)
 
 	size_t count {0};
 
-	if (loadLinesFromFile(name.c_str(), lines, true, 500000) == success)
-		// if (loadTailLinesFromFile(name.c_str(), 150, lines) == success)
+	// if (loadTailLinesFromFile(name.c_str(), 150, lines) == success)
+	if (loadLinesFromFile(name.c_str(), lines, true, 500000, filter) == success)
    {
       for (auto it = lines.rbegin(); count < 150 && it != lines.rend(); ++it)
 		{
@@ -2569,6 +2570,7 @@ int Daemon::daemonState2Json(json_t* obj)
    getloadavg(averages, 3);
 
    json_object_set_new(obj, "state", json_integer(success));
+	json_object_set_new(obj, "systime", json_integer(time(0)));
    json_object_set_new(obj, "version", json_string(VERSION));
    json_object_set_new(obj, "runningsince", json_string(d));
    json_object_set_new(obj, "average0", json_real(averages[0]));

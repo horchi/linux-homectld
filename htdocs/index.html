@@ -5,10 +5,13 @@
     <meta charset="utf-8">
     <meta name="author" content="Jörg Wendel"/>
     <meta name="copyright" content="Jörg Wendel"/>
+
     <meta name="viewport" content="initial-scale=1.0, width=device-width, user-scalable=no, maximum-scale=1, minimum-scale=1, viewport-fit=cover"/>
+	 <!-- see also env(safe-area-inset... in JS and CSS -->
+
     <meta name="mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-capable" content="yes"/>
-<!--    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/> -->
+    <!--    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/> -->
     <meta name="theme-color" content="#171717" media="(prefers-color-scheme: dark)">
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
     <link rel="icon" href="img/home.png" type="image/png"/>
@@ -24,7 +27,7 @@
     <link rel="stylesheet" type="text/css" href="stylesheet.css">
     <link rel="stylesheet" type="text/css" href="scrollbar.css">
 
-<!--    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@mdi/font@6.5.95/css/materialdesignicons.min.css"> -->
+    <!-- <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@mdi/font@6.5.95/css/materialdesignicons.min.css"> -->
     <link rel="stylesheet" href="css/materialdesignicons.min.css">
 
     <script src="jquery/jquery-3.5.1.min.js"></script>
@@ -73,6 +76,12 @@
     <div id="content" class="content">
       <div id="controlContainer" class="controlContainer hidden"></div>
       <div id="container" class="container"></div>
+    </div>
+
+	 <div id="footer" class="footer">
+		<span id="socketState"class="socketState greenCircle" style="min-width:max-content;"></span>
+      <span id="action-state"></span>
+      <span id="version">Version 1.0</span>
     </div>
 
     <dialog role="dialog">

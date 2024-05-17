@@ -41,7 +41,6 @@ function initIoSetup()
       .append($('<input></input>')
               .attr('id', 'incSearchName')
               .attr('placeholder', 'expression...')
-              .attr('title', 'Type title, path, state, GOOD or BAD')
               .attr('type', 'search')
               .addClass('input rounded-border clearableOD')
               .css('width', '-webkit-fill-available')
@@ -78,10 +77,10 @@ function initIoSetup()
       }
    }
 
-   $("#content").height($(window).height() - getTotalHeightOf('menu'));
+   $("#content").height($(window).height() - getTotalHeightOf('menu')- getTotalHeightOf('footer') - sab);
    $("#container").css('height', '');  // reset until all pages using the height of 'content'
    window.onresize = function() {
-      $("#content").height($(window).height() - getTotalHeightOf('menu'));
+      $("#content").height($(window).height() - getTotalHeightOf('menu')- getTotalHeightOf('footer') - sab);
    };
 
    showTable(activeSection);
@@ -112,8 +111,8 @@ function showTable(section)
        '  <table class="tableMultiCol">' +
        '    <thead>' +
        '      <tr>' +
-       '        <td style="width:20%;">Name</td>' +
-       '        <td style="min-width:15vw;">Titel</td>' +
+       '        <td style="width:22%;">Name</td>' +
+       '        <td style="min-width:25vw;">Titel</td>' +
        '        <td style="width:7%;min-width:70px;">Einheit</td>' +
        '        <td style="width:5%;">Aktiv</td>' +
        '        <td style="width:5%;">Aufz.</td>' +

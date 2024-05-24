@@ -31,13 +31,6 @@ extern const char* physToGpioName_odroid_n2[64];
 extern const char* physToGpioName_raspberry_pi[64];
 const char* physPinToGpioName(int pin);
 
-#ifdef MODEL_ODROID_N2
-
-#else
-#  define INPUT_PULLUP PUD_UP
-#  define INPUT_PULLDOWN PUD_DOWN
-#endif
-
 //***************************************************************************
 // dummy functions
 //***************************************************************************
@@ -47,12 +40,12 @@ const char* physPinToGpioName(int pin);
 #include <stdlib.h>   // uint
 
 #define PUD_UP 0
-#define INT_EDGE_FALLING 0#
+#define PUD_DOWN 0
+
+#define INT_EDGE_FALLING 0
 #define INT_EDGE_BOTH 2
 #define OUTPUT 0
 #define INPUT 0
-#define INPUT_PULLUP 0
-#define INPUT_PULLDOWN 0
 #define HIGH 1
 #define LOW 0
 
@@ -65,3 +58,12 @@ int digitalRead(uint pin);
 int wiringPiSetupPhys();
 
 #endif // _NO_RASPBERRY_PI_
+
+#ifdef MODEL_ODROID_N2
+
+#else
+
+#  define INPUT_PULLUP PUD_UP
+#  define INPUT_PULLDOWN PUD_DOWN
+
+#endif  // MODEL_ODROID_N2

@@ -483,9 +483,6 @@ int Daemon::init()
 
    if (homeMaticInterface)
    {
-      mqttSensorTopics.push_back(TARGET "2mqtt/homematic/rpcresult");
-      mqttSensorTopics.push_back(TARGET "2mqtt/homematic/events");
-
       if (mqttCheckConnection() == success && !isEmpty(mqttUrl))
       {
          const char* request = "{ \"method\" : \"listDevices\" }";
@@ -1801,6 +1798,8 @@ int Daemon::readConfiguration(bool initial)
    if (!isEmpty(openWeatherApiKey) && openWeatherApiKey != apiKey)
       updateWeather();
 
+   getConfigItem("homeMaticInterface", homeMaticInterface, false);
+
    // MQTT
 
    getConfigItem("mqttUser", mqttUser, mqttUser);
@@ -1817,6 +1816,13 @@ int Daemon::readConfiguration(bool initial)
    mqttSensorTopics.push_back(TARGET "2mqtt/command/#");
    mqttSensorTopics.push_back(TARGET "2mqtt/nodered/#");
    mqttSensorTopics.push_back(TARGET "2mqtt/scripts/#");
+
+   if (homeMaticInterface)
+   {
+      tell(eloAlways, "Adding homematic topics");
+      mqttSensorTopics.push_back(TARGET "2mqtt/homematic/rpcresult");
+      mqttSensorTopics.push_back(TARGET "2mqtt/homematic/events");
+   }
 
    if (url != mqttUrl || sTopics != sensorTopics)
    {
@@ -1837,8 +1843,6 @@ int Daemon::readConfiguration(bool initial)
    getConfigItem("mqttTopicVictron", topic, TARGET "2mqtt/victron/in");
    mqttTopicVictron = topic;
    free(topic);
-
-   getConfigItem("homeMaticInterface", homeMaticInterface, false);
 
    getConfigItem("lmcHost", lmcHost, "");
    getConfigItem("lmcPort", lmcPort, 9090);

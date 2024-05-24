@@ -19,25 +19,26 @@ Table valuetypes
 
 Table valuefacts
 {
-   ADDRESS              ""          address              UInt         4 Primary,
-   TYPE                 ""          type                 Ascii        8 Primary,
+   ADDRESS              ""               address              UInt         4 Primary,
+   TYPE                 ""               type                 Ascii        8 Primary,
 
-   INSSP                ""          inssp                Int         10 Meta,
-   UPDSP                ""          updsp                Int         10 Meta,
+   INSSP                ""               inssp                Int         10 Meta,
+   UPDSP                ""               updsp                Int         10 Meta,
 
-   GROUPID              ""          groupid              Int         10 Data,
-   STATE                ""          state                Ascii        1 Data,
-   RECORD               ""          record               Ascii        1 Data,
-   UNIT                 ""          unit                 Ascii        5 Data,
-   OPTIONS              ""          options              Int         10 Data,
-   FACTOR               ""          factor               Int          4 Data,
-   NAME                 ""          name                 Ascii      100 Data,
-   TITLE                ""          title                Ascii      100 Data,
-   USRTITLE             ""          usrtitle             Ascii      100 Data,
-   SUBTYPE              "data type" res1                 Int          4 Data,
-   CHOICES              ""          choices              Ascii      250 Data,
-   RIGHTS   "needed control rights" rights               Int          0 Data,
-   CALIBRATION          ""          calibration          Text      1000 Data,
+   GROUPID              ""               groupid              Int         10 Data,
+   STATE                ""               state                Ascii        1 Data,
+   RECORD               ""               record               Ascii        1 Data,
+   UNIT                 ""               unit                 Ascii        5 Data,
+   OPTIONS              ""               options              Int         10 Data,
+   FACTOR               ""               factor               Int          4 Data,
+   NAME                 ""               name                 Ascii      100 Data,
+   TITLE                ""               title                Ascii      100 Data,
+   USRTITLE             ""               usrtitle             Ascii      100 Data,
+   SUBTYPE              "data type"      res1                 Int          4 Data,
+   CHOICES              ""               choices              Ascii      250 Data,
+   RIGHTS        "needed control rights" rights               Int          0 Data,
+   PARAMETER            ""               parameter            Text      1000 Data,
+   SETTINGS             "user settings"  calibration          Text      1000 Data,
 }
 
 // ----------------------------------------------------------------
@@ -194,24 +195,24 @@ Table sensoralert
 // Table
 // ----------------------------------------------------------------
 
-Table scripts
-{
-   ID                   ""                      id                   UInt        11 Primary|Autoinc,
-
-   INSSP                ""                      inssp                Int          0 Meta,
-   UPDSP                ""                      updsp                Int          0 Meta,
-
-   PATH                 ""                      path                 Ascii      100 Data,
-}
-
+// Table scripts
+// {
+//    ID                   ""                      id                   UInt        11 Primary|Autoinc,
+//
+//    INSSP                ""                      inssp                Int          0 Meta,
+//    UPDSP                ""                      updsp                Int          0 Meta,
+//
+//    PATH                 ""                      path                 Ascii      100 Data,
+// }
+//
 // ----------------------------------------------------------------
 // Indices for scrips table
 // ----------------------------------------------------------------
-
-Index scripts
-{
-   path             ""  PATH
-}
+//
+// Index scripts
+// {
+//    path             ""  PATH
+// }
 
 // ----------------------------------------------------------------
 // Table SchemaConf

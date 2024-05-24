@@ -88,7 +88,7 @@ int Daemon::dispatchClientRequest()
             case evSchema:          status = performSchema(oObject, client);         break;
             case evStoreSchema:     status = storeSchema(oObject, client);           break;
             case evStoreChartbookmarks: status = storeChartbookmarks(oObject, client); break;
-            case evStoreCalibration:    status = storeCalibration(oObject, client);    break;
+            case evStoreSensorSetup:    status = storeSensorSetup(oObject, client);    break;
             case evLmcAction:           status = performLmcAction(oObject, client);    break;
             default:
             {
@@ -154,7 +154,7 @@ bool Daemon::checkRights(long client, Event event, json_t* oObject)
       case evImageConfig:         return rights & urSettings;
 
       case evSchema:              return rights & urView;
-      case evStoreCalibration:    return rights & urSettings;
+      case evStoreSensorSetup:    return rights & urSettings;
       case evStoreSchema:         return rights & urSettings;
       case evLmcAction:           return rights & urControl;
 
@@ -1491,10 +1491,10 @@ int Daemon::storeConfig(json_t* obj, long client)
 }
 
 //***************************************************************************
-// Store Calibration
+// Store User Settings
 //***************************************************************************
 
-int Daemon::storeCalibration(json_t* obj, long client)
+int Daemon::storeSensorSetup(json_t* obj, long client)
 {
    int status {success};
    myString type = getStringFromJson(obj, "type", "");
@@ -1502,17 +1502,19 @@ int Daemon::storeCalibration(json_t* obj, long client)
    long address = getLongFromJson(obj, "address", na);
 
    if (type == "AI" || type.starts_with("ADS"))
-      status = storeAiCalibration(obj, client);
+      status = storeAiSettings(obj, client);
    else if (type == "CV")
-      status = storeCvCalibration(obj, client);
+      status = storeCvSettings(obj, client);
    else if (type == "DO" || type.starts_with("MCPO"))
-      status = storeIoCalibration(obj, client);
+      status = storeIoSettings(obj, client);
    else if (type == "DI" || type.starts_with("MCPI"))
-      status = storeIoCalibration(obj, client);
+      status = storeIoSettings(obj, client);
+   else if (type == "SC")
+      status = storeIoSettings(obj, client);
    else if (action == "delete")
       status = deleteValueFact(type.c_str(), address);
    else
-      return replyResult(fail, "Ignoring config request, only supported for 'AI', 'DO', 'W1' and 'CV' sensors", client);
+      return replyResult(fail, "Ignoring config request, only supported for 'AI', 'DO', 'W1', 'SC' and 'CV' sensors", client);
 
    if (status == success)
    {
@@ -1540,10 +1542,10 @@ int Daemon::deleteValueFact(const char* type, long address)
 }
 
 //***************************************************************************
-// Store CV Calibration
+// Store CV User Settings
 //***************************************************************************
 
-int Daemon::storeCvCalibration(json_t* obj, long client)
+int Daemon::storeCvSettings(json_t* obj, long client)
 {
    std::string action = getStringFromJson(obj, "action", "");
    const char* type = getStringFromJson(obj, "type");
@@ -1572,7 +1574,7 @@ int Daemon::storeCvCalibration(json_t* obj, long client)
 
       if (tableValueFacts->find())
       {
-         tableValueFacts->setValue("CALIBRATION", luaScript.c_str());
+         tableValueFacts->setValue("SETTINGS", luaScript.c_str());
          tableValueFacts->store();
       }
    }
@@ -1580,30 +1582,48 @@ int Daemon::storeCvCalibration(json_t* obj, long client)
    return success;
 }
 
-int Daemon::storeIoCalibration(json_t* obj, long client)
+int Daemon::storeIoSettings(json_t* obj, long client)
 {
+   std::string action = getStringFromJson(obj, "action", "");
    const char* type = getStringFromJson(obj, "type");
-   long address = getIntFromJson(obj, "address", na);
-   std::string calibration = getStringFromJson(obj, "calibration", "");
+   uint address = getIntFromJson(obj, "address", na);
+   std::string settings = getStringFromJson(obj, "settings", "");
 
-   // store to valuefacts
-
-   tableValueFacts->clear();
-   tableValueFacts->setValue("TYPE", type);
-   tableValueFacts->setValue("ADDRESS", address);
-
-   if (tableValueFacts->find())
+   if (action == "clone" && strcmp(type, "SC") == 0)
    {
-      tableValueFacts->setValue("CALIBRATION", calibration.c_str());
-      tableValueFacts->store();
-   }
+      tell(eloAlways, "Clone sensor '%s/0x%02x", type, sensors[type][address].address);
+      tableValueFacts->clear();
+      tableValueFacts->setValue("TYPE", type);
 
-   initSensorByFact(type, address);
+      if (!selectMaxValueFactsByType->find() && tableValueFacts->getValue("ADDRESS")->isNull())
+         return replyResult(fail, "Cloning sensor failed", client);
+
+      uint newAddress = tableValueFacts->getIntValue("ADDRESS") + 1;
+      tell(eloAlways, "Cloning sensor '%s:0x%02x' '%s' with address %d", type, address, sensors[type][address].name.c_str(), newAddress);
+      auto tuple = split(sensors[type][address].name, '.');
+      addValueFact(newAddress, type, 1, sensors[type][address].name.c_str(), sensors[type][address].unit.c_str(), tuple[0].c_str(),
+                   urControl, "", soNone, sensors[type][address].parameter.c_str());
+   }
+   else
+   {
+      // store to valuefacts
+
+      tableValueFacts->clear();
+      tableValueFacts->setValue("TYPE", type);
+      tableValueFacts->setValue("ADDRESS", (long)address);
+
+      if (tableValueFacts->find())
+      {
+         tableValueFacts->setValue("SETTINGS", settings.c_str());
+         tableValueFacts->store();
+      }
+
+      initSensorByFact(type, address);}
 
    return success;
 }
 
-int Daemon::storeAiCalibration(json_t* obj, long client)
+int Daemon::storeAiSettings(json_t* obj, long client)
 {
    std::string type = getStringFromJson(obj, "type", "");
    long address = getIntFromJson(obj, "address", na);
@@ -1614,9 +1634,9 @@ int Daemon::storeAiCalibration(json_t* obj, long client)
    double calCutBelow = getDoubleFromJson(obj, "calCutBelow");
 
    if (calPointSelect == "" || address == na || type.empty())
-      return replyResult(fail, "Ignoring invalid calibration request", client);
+      return replyResult(fail, "Ignoring invalid calibration setting request", client);
 
-   tell(eloAlways, "Storing calibration values of AI:0x%lx for '%s' (%f/%f)", address, calPointSelect.c_str(),
+   tell(eloAlways, "Storing calibration settings of AI:0x%lx for '%s' (%f/%f)", address, calPointSelect.c_str(),
         calPoint, calPointValue);
 
    aiSensorConfig[type][address].round = calRound;
@@ -1657,7 +1677,7 @@ int Daemon::storeAiCalibration(json_t* obj, long client)
 
       if (p)
       {
-         tableValueFacts->setValue("CALIBRATION", p);
+         tableValueFacts->setValue("SETTINGS", p);
          tableValueFacts->store();
          free(p);
       }
@@ -1816,6 +1836,8 @@ int Daemon::storeDashboards(json_t* obj, long client)
 
                if (isEmpty(opts))
                {
+                  // seems to be a new widget
+
                   tableValueFacts->clear();
                   tableValueFacts->setValue("TYPE", tuple[0].c_str());
                   tableValueFacts->setValue("ADDRESS", strtoll(tuple[1].c_str(), nullptr, 0));
@@ -1827,6 +1849,20 @@ int Daemon::storeDashboards(json_t* obj, long client)
                      widgetDefaults2Json(jDefaults, tableValueFacts->getStrValue("TYPE"),
                                          tableValueFacts->getStrValue("UNIT"), title,
                                          tableValueFacts->getIntValue("ADDRESS"));
+
+                     // enrich with optional default settings of valuefacts 'parameter'
+                     //  actually at least uses by script sensors (see ping.sh)
+
+                     const char* paramId {};
+                     json_t* jParam {};
+                     json_t* jParameters {jsonLoad(tableValueFacts->getStrValue("PARAMETER"))};
+
+                     json_object_foreach(jParameters, paramId, jParam)
+                     {
+                        json_object_set_new(jDefaults, paramId, jParam);
+                     }
+
+                     //
 
                      opts = json_dumps(jDefaults, JSON_REAL_PRECISION(4));
                      json_decref(jDefaults);
@@ -2340,6 +2376,12 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
       json_object_set_new(oData, "rights", json_integer(tableValueFacts->getIntValue("RIGHTS")));
       json_object_set_new(oData, "options", json_integer(tableValueFacts->getIntValue("OPTIONS")));
 
+      if (!tableValueFacts->getValue("PARAMETER")->isEmpty())
+      {
+         json_t* o = jsonLoad(tableValueFacts->getStrValue("PARAMETER"));
+         json_object_set_new(oData, "parameter", o);
+      }
+
       if (sensors.find(type) != sensors.end())
          json_object_set_new(oData, "outputModes", json_integer(sensors[type][address].outputModes));
 
@@ -2357,14 +2399,14 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
       }
       else if (type == "CV")
       {
-         json_object_set_new(oData, "luaScript", json_string(tableValueFacts->getStrValue("CALIBRATION")));
+         json_object_set_new(oData, "luaScript", json_string(tableValueFacts->getStrValue("SETTINGS")));
       }
-      else if (type == "DO" || type == "DI" || type.starts_with("MCP"))
+      else // if (type == "DO" || type == "SC" || type == "DI" || type.starts_with("MCP"))
       {
-         if (!tableValueFacts->getValue("CALIBRATION")->isEmpty())
+         if (!tableValueFacts->getValue("SETTINGS")->isEmpty())
          {
-            json_t* o = jsonLoad(tableValueFacts->getStrValue("CALIBRATION"));
-            json_object_set_new(oData, "calibration", o);
+            json_t* o = jsonLoad(tableValueFacts->getStrValue("SETTINGS"));
+            json_object_set_new(oData, "settings", o);
          }
       }
 

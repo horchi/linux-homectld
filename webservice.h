@@ -52,7 +52,7 @@ class cWebService
          evImageConfig,
          evSchema,
          evStoreSchema,
-         evStoreCalibration,
+         evStoreSensorSetup,
          evLmcAction,
 
          evCount

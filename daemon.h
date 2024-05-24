@@ -148,7 +148,7 @@ class Daemon : public cWebInterface
       static void downF(int aSignal) { shutdown = true; }
 
       int addValueFact(int addr, const char* type, int factor, const char* name, const char* unit = "",
-                       const char* title = nullptr, int rights = urNone, const char* choices = nullptr, SensorOptions options = soNone);
+                       const char* title = nullptr, int rights = urNone, const char* choices = nullptr, SensorOptions options = soNone, const char* parameter = nullptr);
 
    protected:
 
@@ -239,7 +239,7 @@ class Daemon : public cWebInterface
          int rights {cWebService::urView};
          int group {0};
 
-         // 'DO' / 'DI' specials
+         // specials
 
          bool invert {false};
          Pull pull {pullUp};
@@ -247,6 +247,7 @@ class Daemon : public cWebInterface
          bool interrupt {false};
          bool interruptSet {false};
          std::string script;
+         std::string parameter;
          std::string choices;
          OutputMode mode {omAuto};
          uint outputModes {ooUser};
@@ -467,10 +468,10 @@ class Daemon : public cWebInterface
       int performSchema(json_t* oObject, long client);
       int storeSchema(json_t* oObject, long client);
       int deleteValueFact(const char* type, long address);
-      int storeCalibration(json_t* oObject, long client);
-      int storeCvCalibration(json_t* oObject, long client);
-      int storeAiCalibration(json_t* oObject, long client);
-      int storeIoCalibration(json_t* oObject, long client);
+      int storeSensorSetup(json_t* oObject, long client);
+      int storeCvSettings(json_t* oObject, long client);
+      int storeAiSettings(json_t* oObject, long client);
+      int storeIoSettings(json_t* oObject, long client);
       int performLmcAction(json_t* oObject, long client);
       virtual int performCommand(json_t* obj, long client);
       virtual const char* getTextImage(const char* key, const char* text) { return nullptr; }
@@ -543,7 +544,6 @@ class Daemon : public cWebInterface
       cDbTable* tableValueFacts {};
       cDbTable* tableValueTypes {};
       cDbTable* tableConfig {};
-      cDbTable* tableScripts {};
       cDbTable* tableSensorAlert {};
       cDbTable* tableUsers {};
       cDbTable* tableGroups {};
@@ -557,6 +557,8 @@ class Daemon : public cWebInterface
       cDbStatement* selectAllValueTypes {};
       cDbStatement* selectActiveValueFacts {};
       cDbStatement* selectValueFactsByType {};
+      cDbStatement* selectMaxValueFactsByType {};
+      cDbStatement* selectValueFactsByTypeAndName {};
       cDbStatement* selectAllValueFacts {};
       cDbStatement* selectAllConfig {};
       cDbStatement* selectAllUser {};
@@ -566,8 +568,6 @@ class Daemon : public cWebInterface
       cDbStatement* selectSamplesRange360 {};           // for chart
       cDbStatement* selectSamplesRangeMonth {};         // for chart
       cDbStatement* selectSamplesRangeMonthOfDayMax {}; // for chart
-      cDbStatement* selectScriptByPath {};
-      cDbStatement* selectScripts {};
       cDbStatement* selectSensorAlerts {};
       cDbStatement* selectAllSensorAlerts {};
       cDbStatement* selectSampleInRange {};        // for alert check

@@ -18,10 +18,11 @@ else
 	STATE="false"
 fi
 
-RESULT="{ \"type\":\"SC\",\"address\":$2,\"kind\":\"status\",\"valid\":true,\"value\":${STATE} }"
-echo -n ${RESULT}
-
-if [[ "${COMMAND}" == "toggle" ]]; then
+if [[ "${COMMAND}" == "init" ]]; then
+   PARAMETER='{"cloneable": false, "symbol": "mdi:mdi-progress-upload", "symbolOn": "mdi:mdi-progress-upload"}'
+   RESULT="{ \"type\":\"SC\",\"address\":$2,\"kind\":\"status\",\"valid\":true,\"value\":${STATE}, \"parameter\": ${PARAMETER}  }"
+   echo -n ${RESULT}
+elif [[ "${COMMAND}" == "toggle" ]]; then
 	if [[ ! -d "${GIT_ROOT}" ]]; then
 		${LOGGER} "Abort update, directory ${GIT_ROOT} not found"
 	elif [[ "${STATE}" == "false" ]]; then
@@ -38,9 +39,7 @@ if [[ "${COMMAND}" == "toggle" ]]; then
 		${LOGGER} "update.sh: restart"
 		/bin/systemctl restart homectld.service 2>&1 | ${LOGGER}
 	fi
-fi
-
-if [ "${COMMAND}" == "status" ]; then
+elif [ "${COMMAND}" == "status" ]; then
    mosquitto_pub --quiet -L ${MQTTURL} -m "{ \"type\":\"SC\",\"address\":${ADDRESS},\"kind\":\"status\",\"state\":${STATE} }"
 fi
 

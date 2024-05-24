@@ -616,6 +616,9 @@ int Daemon::initSensorByFact(myString type, uint address)
    sensors[type][address].active = fact->hasValue("STATE", "A");
    sensors[type][address].choices = fact->getStrValue("CHOICES");
 
+   if (!fact->getValue("PARAMETER")->isEmpty())
+      sensors[type][address].parameter = fact->getStrValue("PARAMETER");
+
    if (type == "DO" || type == "DI" || type == "DZL")
       sensors[type][address].kind = "status";
 
@@ -629,9 +632,9 @@ int Daemon::initSensorByFact(myString type, uint address)
    else
       sensors[type][address].title = fact->getStrValue("NAME");
 
-   if (type != "CV" && !fact->getValue("CALIBRATION")->isEmpty())
+   if (type != "CV" && !fact->getValue("SETTINGS")->isEmpty())
    {
-      json_t* jCal = jsonLoad(fact->getStrValue("CALIBRATION"));
+      json_t* jCal = jsonLoad(fact->getStrValue("SETTINGS"));
 
       if (jCal)
       {
@@ -661,6 +664,11 @@ int Daemon::initSensorByFact(myString type, uint address)
             sensors[type][address].interrupt = getBoolFromJson(jCal, "interrupt");
 
             cfgInput(type, address, jCal);
+         }
+         else if (type == "SC")
+         {
+            tell(eloScript, "Script: ping [%s]", fact->getStrValue("SETTINGS"));
+            sensors[type][address].script = fact->getStrValue("SETTINGS");
          }
 
          json_decref(jCal);
@@ -773,42 +781,29 @@ int Daemon::cfgInput(myString type, uint pin, json_t* jCal)
 
 int Daemon::initScripts()
 {
-   char* path {};
    int count {0};
-
-   // clear removed scripts ...
-
-   tableScripts->clear();
-
-   for (int f = selectScripts->find(); f; f = selectScripts->fetch())
-   {
-      if (!fileExists(tableScripts->getStrValue("PATH")))
-      {
-         char* stmt {};
-         asprintf(&stmt, "%s = '%s'", tableScripts->getField("PATH")->getDbName(), tableScripts->getStrValue("PATH"));
-         tableScripts->deleteWhere("%s", stmt);
-         free(stmt);
-         tell(eloAlways, "Removed script '%s'", tableScripts->getStrValue("PATH"));
-      }
-   }
 
    tableValueFacts->clear();
    tableValueFacts->setValue("TYPE", "SC");
 
+   // cleanup valuefacts (delete all 'SC' sensors which not exist)
+
    for (int f = selectValueFactsByType->find(); f; f = selectValueFactsByType->fetch())
    {
-      tableScripts->setValue("ID", tableValueFacts->getIntValue("ADDRESS"));
+      char* path {};
+      asprintf(&path, "%s/scripts.d/%s", confDir, tableValueFacts->getStrValue("NAME"));
 
-      if (!tableScripts->find())
+      if (!fileExists(path))
       {
          char* stmt {};
          asprintf(&stmt, "%s = %ld and %s = 'SC'",
                   tableValueFacts->getField("ADDRESS")->getDbName(), tableValueFacts->getIntValue("ADDRESS"),
                   tableValueFacts->getField("TYPE")->getDbName());
+         tell(eloScript, "Script: Removing value fact for script '%s'", path);
          tableValueFacts->deleteWhere("%s", stmt);
-         free(stmt);
-         tell(eloAlways, "Removed valuefact 'SC/%ld'", tableValueFacts->getIntValue("ADDRESS"));
       }
+
+      free(path);
    }
 
    tableValueFacts->reset();
@@ -816,6 +811,7 @@ int Daemon::initScripts()
    // check for new scripts
 
    FileList scripts;
+   char* path {};
 
    asprintf(&path, "%s/scripts.d", confDir);
    int status = getFileList(path, DT_REG, "sh", false, &scripts, count);
@@ -828,55 +824,62 @@ int Daemon::initScripts()
 
    for (const auto& script : scripts)
    {
-      char* scriptPath {};
-      uint addr {0};
       std::string result;
 
+      tableValueFacts->clear();
+      tableValueFacts->setValue("TYPE", "SC");
+      tableValueFacts->setValue("NAME", script.name.c_str());
+
+      bool found = selectValueFactsByTypeAndName->find();
+      char* scriptPath {};
       asprintf(&scriptPath, "%s/%s", path, script.name.c_str());
 
-      // get address
+      // if (found && !tableValueFacts->hasValue("STATE", "A"))
+      // {
+      //    tell(eloDebug, "Script: Skipping deactivated script '%s'", scriptPath);
+      //    free(scriptPath);
+      //    continue;
+      // }
 
-      tableScripts->clear();
-      tableScripts->setValue("PATH", scriptPath);
+      uint addr {0};
 
-      if (!selectScriptByPath->find())
-      {
-         tableScripts->store();
-         addr = tableScripts->getLastInsertId();
-      }
+      if (found)
+         addr = tableValueFacts->getIntValue("ADDRESS");
       else
-         addr = tableScripts->getIntValue("ID");
-
-      selectScriptByPath->freeResult();
-
-      cDbRow* factRow = valueFactRowOf("SC", addr);
-
-      if (factRow && !factRow->hasValue("STATE", "A"))
       {
-         tell(eloDebug, "Skipping deactivated script '%s'", scriptPath);
-         free(scriptPath);
-         continue;
+         tableValueFacts->clear();
+         tableValueFacts->setValue("TYPE", "SC");
+
+         if (selectMaxValueFactsByType->find() && !tableValueFacts->getValue("ADDRESS")->isNull())
+            addr = tableValueFacts->getIntValue("ADDRESS") + 1;
+
+         tell(eloScript, "Script: Adding new script sensor '%s' with address %d", script.name.c_str(), addr);
       }
 
       // execute script
 
       const char* url = strrchr(mqttUrl, '/');
+
       if (url)
          url++;
       else
          url = mqttUrl;
 
-      tell(eloScript, "Script: Calling %s %s %d 'mqtt://%s/%s'", scriptPath, "init", addr, url, TARGET "2mqtt/scripts");
-      result = executeCommand("%s %s %d 'mqtt://%s/%s'", scriptPath, "init", addr, url, TARGET "2mqtt/scripts");
+      const char* arguments = found ? sensors["SC"][addr].script.c_str() : "";
+
+      tell(eloScript, "Script: Calling %s %s %d 'mqtt://%s/%s' '%s'", scriptPath, "init", addr, url, TARGET "2mqtt/scripts", arguments);
+      result = executeCommand("%s %s %d 'mqtt://%s/%s' '%s'", scriptPath, "init", addr, url, TARGET "2mqtt/scripts", arguments);
 
       json_t* oData = jsonLoad(result.c_str());
 
       if (!oData)
       {
-         tell(eloAlways, "Error: Got invalid JSON from script '%s'", scriptPath);
+         tell(eloAlways, "Script: Error, got invalid JSON from script '%s'", scriptPath);
          free(scriptPath);
          continue;
       }
+
+      // parsing result to initialize script sensor
 
       std::string kind = getStringFromJson(oData, "kind", "status");
       const char* title = getStringFromJson(oData, "title");
@@ -885,19 +888,25 @@ int Daemon::initScripts()
       double value = getDoubleFromJson(oData, "value");
       const char* text = getStringFromJson(oData, "text");
       bool valid = getBoolFromJson(oData, "valid", true);
+      json_t* jParameter = getObjectFromJson(oData, "parameter");
 
       if (kind == "text")
          unit = "";
       else if (kind == "status")
          unit = "zst";
 
-      auto tuple = split(script.name, '.');
-      addValueFact(addr, "SC", 1, !isEmpty(title) ? title : script.name.c_str(), unit, tuple[0].c_str(), urControl, choices);
-      tell(eloScript, "Script: Init script value of 'SC:%d' to %.2f", addr, value);
-
       sensors["SC"][addr].kind = kind;
       sensors["SC"][addr].last = time(0);
       sensors["SC"][addr].valid = valid;
+
+      if (jParameter)
+      {
+         char* p = json_dumps(jParameter, 0);
+         json_decref(jParameter);
+         tell(eloScript, "Script: parameter: '%s'", p);
+         sensors["SC"][addr].parameter = p;
+         free(p);
+      }
 
       if (sensors["SC"][addr].kind == "value" && sensors["SC"][addr].value != value)
          sensors["SC"][addr].changedAt = time(0);
@@ -912,6 +921,9 @@ int Daemon::initScripts()
          sensors["SC"][addr].text = text;
       else if (kind == "value")
          sensors["SC"][addr].value = value;
+
+      auto tuple = split(script.name, '.');
+      addValueFact(addr, "SC", 1, !isEmpty(title) ? title : script.name.c_str(), unit, tuple[0].c_str(), urControl, choices, soNone, sensors["SC"][addr].parameter.c_str());
 
       tell(eloScript, "Script: Found script '%s' addr (%d), unit '%s'; result was [%s]", scriptPath, addr, unit, result.c_str());
       free(scriptPath);
@@ -938,10 +950,11 @@ int Daemon::callScript(int addr, const char* command)
       }
    }
 
-   tableScripts->clear();
-   tableScripts->setValue("ID", addr);
+   tableValueFacts->clear();
+   tableValueFacts->setValue("TYPE", "SC");
+   tableValueFacts->setValue("ADDRESS", addr);
 
-   if (!tableScripts->find())
+   if (!tableValueFacts->find())
    {
       tell(eloAlways, "Fatal: Script for 'SC:0x%02x' not found", addr);
       return fail;
@@ -954,13 +967,16 @@ int Daemon::callScript(int addr, const char* command)
    else
       url = mqttUrl;
 
-   asprintf(&cmd, "%s %s %d 'mqtt://%s/%s'", tableScripts->getStrValue("PATH"), command, addr, url, TARGET "2mqtt/scripts");
+   const char* arguments {sensors["SC"][addr].script.c_str()};
+
+   asprintf(&cmd, "%s/scripts.d/%s %s %d 'mqtt://%s/%s' '%s'", confDir, tableValueFacts->getStrValue("NAME"),
+            command, addr, url, TARGET "2mqtt/scripts", arguments);
 
    tell(eloScript, "Script: Calling '%s' ..", cmd);
    int result = executeCommandAsync(addr, cmd);
    tell(eloScript, ".. done");
 
-   tableScripts->reset();
+   tableValueFacts->reset();
 
    if (result == success && strstr("start|stop|toggle", command))
    {
@@ -1180,9 +1196,6 @@ int Daemon::initDb()
    tableConfig = new cDbTable(connection, "config");
    if (tableConfig->open() != success) return fail;
 
-   tableScripts = new cDbTable(connection, "scripts");
-   if (tableScripts->open() != success) return fail;
-
    tableSensorAlert = new cDbTable(connection, "sensoralert");
    if (tableSensorAlert->open() != success) return fail;
 
@@ -1238,6 +1251,29 @@ int Daemon::initDb()
    selectValueFactsByType->bind("TYPE", cDBS::bndIn | cDBS::bndSet);
 
    status += selectValueFactsByType->prepare();
+
+   // ------------------
+
+   selectValueFactsByTypeAndName = new cDbStatement(tableValueFacts);
+
+   selectValueFactsByTypeAndName->build("select ");
+   selectValueFactsByTypeAndName->bindAllOut();
+   selectValueFactsByTypeAndName->build(" from %s where ", tableValueFacts->TableName());
+   selectValueFactsByTypeAndName->bind("TYPE", cDBS::bndIn | cDBS::bndSet);
+   selectValueFactsByTypeAndName->bind("NAME", cDBS::bndIn | cDBS::bndSet, " and ");
+
+   status += selectValueFactsByTypeAndName->prepare();
+
+   // ------------------
+
+   selectMaxValueFactsByType = new cDbStatement(tableValueFacts);
+
+   selectMaxValueFactsByType->build("select ");
+   selectMaxValueFactsByType->bind("ADDRESS", cDBS::bndOut, "max(");
+   selectMaxValueFactsByType->build(") from %s where ", tableValueFacts->TableName());
+   selectMaxValueFactsByType->bind("TYPE", cDBS::bndIn | cDBS::bndSet);
+
+   status += selectMaxValueFactsByType->prepare();
 
    // ------------------
 
@@ -1426,29 +1462,6 @@ int Daemon::initDb()
    selectSamplesRangeMonthOfDayMax->build(" order by time");
 
    status += selectSamplesRangeMonthOfDayMax->prepare();
-
-   // ------------------
-   // select all scripts
-
-   selectScripts = new cDbStatement(tableScripts);
-
-   selectScripts->build("select ");
-   selectScripts->bindAllOut();
-   selectScripts->build(" from %s", tableScripts->TableName());
-
-   status += selectScripts->prepare();
-
-   // ------------------
-   // select script by path
-
-   selectScriptByPath = new cDbStatement(tableScripts);
-
-   selectScriptByPath->build("select ");
-   selectScriptByPath->bindAllOut();
-   selectScriptByPath->build(" from %s where ", tableScripts->TableName());
-   selectScriptByPath->bind("PATH", cDBS::bndIn | cDBS::bndSet);
-
-   status += selectScriptByPath->prepare();
 
    // ------------------
 
@@ -1659,7 +1672,6 @@ int Daemon::exitDb()
    delete tableConfig;             tableConfig = nullptr;
    delete tableUsers;              tableUsers = nullptr;
    delete tableGroups;             tableGroups = nullptr;
-   delete tableScripts;            tableScripts = nullptr;
    delete tableSensorAlert;        tableSensorAlert = nullptr;
    delete tableDashboards;         tableDashboards = nullptr;
    delete tableDashboardWidgets;   tableDashboardWidgets = nullptr;
@@ -1670,6 +1682,8 @@ int Daemon::exitDb()
    delete selectAllGroups;         selectAllGroups = nullptr;
    delete selectActiveValueFacts;  selectActiveValueFacts = nullptr;
    delete selectValueFactsByType;  selectValueFactsByType = nullptr;
+   delete selectMaxValueFactsByType;     selectMaxValueFactsByType = nullptr;
+   delete selectValueFactsByTypeAndName; selectValueFactsByTypeAndName = nullptr;
    delete selectAllValueFacts;     selectAllValueFacts = nullptr;
    delete selectAllValueTypes;     selectAllValueTypes = nullptr;
    delete selectAllConfig;         selectAllConfig = nullptr;
@@ -1681,8 +1695,6 @@ int Daemon::exitDb()
    delete selectSamplesRangeMonth; selectSamplesRangeMonth = nullptr;
    delete selectSamplesRangeMonthOfDayMax; selectSamplesRangeMonthOfDayMax = nullptr;
    delete selectSampleInRange;     selectSampleInRange = nullptr;
-   delete selectScriptByPath;      selectScriptByPath = nullptr;
-   delete selectScripts;           selectScripts = nullptr;
    delete selectSensorAlerts;      selectSensorAlerts = nullptr;
    delete selectAllSensorAlerts;   selectAllSensorAlerts = nullptr;
    delete selectDashboards;        selectDashboards = nullptr;
@@ -2195,7 +2207,7 @@ int Daemon::process(bool force)
       std::string expression;
 
       if (tableValueFacts->hasValue("TYPE", "CV"))
-         expression = tableValueFacts->getStrValue("CALIBRATION");
+         expression = tableValueFacts->getStrValue("SETTINGS");
       else
          expression = sensors[type][address].script;
 
@@ -2869,7 +2881,7 @@ int Daemon::sendMail(const char* receiver, const char* subject, const char* body
 }
 
 //***************************************************************************
-// Load Html Header
+// Load HTML Mail Header
 //***************************************************************************
 
 int Daemon::loadHtmlHeader()
@@ -2940,7 +2952,7 @@ int Daemon::loadHtmlHeader()
 //***************************************************************************
 
 int Daemon::addValueFact(int addr, const char* type, int factor, const char* name, const char* unit,
-                         const char* aTitle, int rights, const char* choices, SensorOptions options)
+                         const char* aTitle, int rights, const char* choices, SensorOptions options, const char* parameter)
 
 {
    const char* title = !isEmpty(aTitle) ? aTitle : name;
@@ -2976,6 +2988,9 @@ int Daemon::addValueFact(int addr, const char* type, int factor, const char* nam
       if (!isEmpty(unit))
          tableValueFacts->setValue("UNIT", unit);
 
+      if (!isEmpty(parameter))
+         tableValueFacts->setValue("PARAMETER", parameter);
+
       if (!isEmpty(choices))
          tableValueFacts->setValue("CHOICES", choices);
 
@@ -2992,13 +3007,13 @@ int Daemon::addValueFact(int addr, const char* type, int factor, const char* nam
    tableValueFacts->setValue("TITLE", title);
    tableValueFacts->setValue("FACTOR", factor);
    tableValueFacts->setValue("RIGHTS", rights);
-
-   // if (tableValueFacts->getValue("OPTIONS")->isNull())
    tableValueFacts->setValue("OPTIONS", options);
 
-   // if (tableValueFacts->getValue("UNIT")->isNull())
    if (!tableValueFacts->hasValue("UNIT", unit))
       tableValueFacts->setValue("UNIT", unit);
+
+   if (!isEmpty(parameter))
+      tableValueFacts->setValue("PARAMETER", parameter);
 
    if (!isEmpty(choices))
       tableValueFacts->setValue("CHOICES", choices);
@@ -3759,9 +3774,9 @@ int Daemon::dispatchOther(const char* topic, const char* message)
       {
          if (myString(tableValueFacts->getStrValue("TYPE")).starts_with("MCP"))
          {
-            if (!tableValueFacts->getValue("CALIBRATION")->isEmpty())
+            if (!tableValueFacts->getValue("SETTINGS")->isEmpty())
             {
-               json_t* jCal = jsonLoad(tableValueFacts->getStrValue("CALIBRATION"));
+               json_t* jCal = jsonLoad(tableValueFacts->getStrValue("SETTINGS"));
                publishI2CSensorConfig(tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"), jCal);
                json_decref(jCal);
             }
@@ -4643,7 +4658,7 @@ int Daemon::updateAnalogInput(uint addr, const char* type, double value, time_t 
    sensor2Json(ojData, type, addr);
 
    json_object_set_new(ojData, "value", json_real(sensors[type][addr].value));
-   json_object_set_new(ojData, "plain", json_real(value)); // plain sensor value (without calibration conversion)
+   json_object_set_new(ojData, "plain", json_real(value)); // plain sensor value (without user settings)
 
    char* tuple {};
    asprintf(&tuple, "%s:0x%02x", type, addr);

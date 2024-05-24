@@ -189,7 +189,13 @@ function showTable(section)
          html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorDoSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
       else if (item.type == 'DI' || item.type.startsWith('MCPI'))
          html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorDiSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
-      else if (item.type == 'W1' || item.type == 'RTL433' || item.type == 'SC')
+      else if (item.type == 'SC') {
+         html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorScSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
+         if (item.parameter != null && item.parameter.cloneable) {
+            html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorScClone(\'' + item.type + '\', \'' + item.address + '\')">Clone</button>' + '</td>';
+         }
+      }
+      else if (item.type == 'W1' || item.type == 'RTL433')
          html += '<td>' + '<button class="buttonOptions rounded-border" onclick="deleteValueFact(\'' + item.type + '\', \'' + item.address + '\')">Löschen</button>' + '</td>';
       else
          html += '<td></td>';
@@ -346,9 +352,9 @@ function sensorAiSetup(type, address)
             $(this).dialog('close');
          },
          'Speichern': function () {
-            console.log("store calibration value", $('#calPoint').val(), '/', $('#calPointValue').val(), 'for', $('#calPointSelect').val());
+            console.log("store sensor settings", $('#calPoint').val(), '/', $('#calPointValue').val(), 'for', $('#calPointSelect').val());
 
-            socket.send({ "event" : "storecalibration", "object" : {
+            socket.send({ "event" : "storesensorsetup", "object" : {
                'type' : calSensorType,
                'address' : calSensorAddress,
                'calPoint' : parseFloat($('#calPoint').val()),
@@ -374,7 +380,7 @@ function deleteValueFact(type, address)
 {
    console.log("sensor delete ", type, address);
 
-   socket.send({ "event" : "storecalibration", "object" : {
+   socket.send({ "event" : "storesensorsetup", "object" : {
       'type' : type,
       'address' : parseInt(address),
       'action' : 'delete'
@@ -406,7 +412,7 @@ function sensorDoSetup(type, address)
                                           .attr('id', 'invertDo')
                                           .attr('type', 'checkbox')
                                           .addClass('rounded-border inputSetting')
-                                          .prop('checked', valueFacts[key].calibration ? valueFacts[key].calibration.invert : true))
+                                          .prop('checked', valueFacts[key].settings ? valueFacts[key].calibration.invert : true))
                                   .append($('<label></label>')
                                           .prop('for', 'invertDo'))))
                   .append($('<div></div>')
@@ -417,7 +423,7 @@ function sensorDoSetup(type, address)
                                           .attr('id', 'impulseDo')
                                           .attr('type', 'checkbox')
                                           .addClass('rounded-border inputSetting')
-                                          .prop('checked', valueFacts[key].calibration ? valueFacts[key].calibration.impulse : false))
+                                          .prop('checked', valueFacts[key].settings ? valueFacts[key].calibration.impulse : false))
                                   .append($('<label></label>')
                                           .prop('for', 'impulseDo'))))
                   .append($('<div></div>')
@@ -428,10 +434,10 @@ function sensorDoSetup(type, address)
                                           .attr('id', 'feedbackIo')
                                           .attr('type', 'search')
                                           .addClass('rounded-border inputSetting')
-                                          .val(valueFacts[key].calibration && valueFacts[key].calibration.feedbackInType ?
-                                               valueFacts[key].calibration.feedbackInType
+                                          .val(valueFacts[key].settings && valueFacts[key].calibration.feedbackInType ?
+                                               valueFacts[key].settings.feedbackInType
                                                + ':0x'
-                                               + valueFacts[key].calibration.feedbackInAddress.toString(16) : ''))))
+                                               + valueFacts[key].settings.feedbackInAddress.toString(16) : ''))))
                   .append($('<div></div>')
                           .append($('<span></span>')
                                   .css('width', 'auto')
@@ -441,7 +447,7 @@ function sensorDoSetup(type, address)
                                           .attr('id', 'scriptDo')
                                           .addClass('rounded-border inputSetting inputSettingScript')
                                           .css('height', '100px')
-                                          .val(valueFacts[key].calibration ? valueFacts[key].calibration.script : '')
+                                          .val(valueFacts[key].settings ? valueFacts[key].calibration.script : '')
                                          )))
                          );
 
@@ -467,16 +473,90 @@ function sensorDoSetup(type, address)
             let addr = parseInt($('#feedbackIo').val().split(":")[1]);
             let type = $('#feedbackIo').val().split(":")[0];
 
-            socket.send({ "event" : "storecalibration", "object" : {
+            socket.send({ "event" : "storesensorsetup", "object" : {
                'type' : calSensorType,
                'address' : parseInt(calSensorAddress),
-               'calibration' : JSON.stringify({
+               'settings' : JSON.stringify({
                   'invert' : $('#invertDo').is(':checked'),
                   'impulse' : $('#impulseDo').is(':checked'),
                   'script' : $('#scriptDo').val(),
                   'feedbackInType' : type,
                   'feedbackInAddress' : addr
                })
+            }});
+
+            $(this).dialog('close');
+         }
+      },
+      close: function() {
+         calSensorType = '';
+         calSensorAddress = -1;
+         $(this).dialog('destroy').remove();
+      }
+   });
+}
+
+function sensorScClone(type, address)
+{
+   socket.send({ "event" : "storesensorsetup", "object" : {
+      'type' : type,
+      'address' : parseInt(address),
+      'action' : 'clone'
+   }});
+}
+
+function sensorScSetup(type, address)
+{
+   calSensorType = type;
+   calSensorAddress = parseInt(address);
+
+   var key = toKey(calSensorType, calSensorAddress);
+   var form = document.createElement("div");
+
+   if (valueFacts[key] == null) {
+      console.log("Sensor ", key, "undefined");
+      return;
+   }
+
+   $(form).append($('<div></div>')
+                  .addClass('settingsDialogContent')
+                  .append($('<div></div>')
+                          .append($('<span></span>')
+                                  .css('width', 'auto')
+                                  .html('Argumente (JSON)'))
+                          .append($('<span></span>')
+                                  .append($('<textarea></textarea>')
+                                          .attr('id', 'arguments')
+                                          .addClass('rounded-border inputSetting inputSettingScript')
+                                          .css('height', '100px')
+                                          .val(JSON.stringify(valueFacts[key].settings, undefined, 3))
+                                         )))
+                 );
+
+   var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
+
+   $(form).dialog({
+      modal: true,
+      resizable: false,
+      closeOnEscape: true,
+      hide: "fade",
+      width: "80%",
+      title: "Skript Argumente für '" + title + "'",
+      open: function() {
+         calSensorType = type;
+         calSensorAddress = parseInt(address);
+      },
+      buttons: {
+         'Abbrechen': function () {
+            $(this).dialog('close');
+         },
+         'Speichern': function () {
+            console.log("store script arguments", $('#arguments').val());
+
+            socket.send({ "event" : "storesensorsetup", "object" : {
+               'type' : calSensorType,
+               'address' : calSensorAddress,
+               'settings' : $('#arguments').val().replace(/\s\s+/g, ' ')
             }});
 
             $(this).dialog('close');
@@ -517,7 +597,7 @@ function sensorDiSetup(type, address)
                               .attr('id', 'invertDi')
                               .attr('type', 'checkbox')
                               .addClass('rounded-border inputSetting')
-                              .prop('checked', valueFacts[key].calibration ? valueFacts[key].calibration.invert : true))
+                              .prop('checked', valueFacts[key].settings ? valueFacts[key].calibration.invert : true))
                       .append($('<label></label>')
                               .prop('for', 'invertDi'))))
       .append($('<div></div>')
@@ -538,7 +618,7 @@ function sensorDiSetup(type, address)
                          .attr('id', 'interruptDi')
                          .attr('type', 'checkbox')
                          .addClass('rounded-border inputSetting')
-                         .prop('checked', valueFacts[key].calibration ? valueFacts[key].calibration.interrupt : false))
+                         .prop('checked', valueFacts[key].settings ? valueFacts[key].calibration.interrupt : false))
                  .append($('<label></label>')
                          .attr('title', 'Neustart zum aktivieren')
                          .prop('for', 'interruptDi')));
@@ -562,10 +642,10 @@ function sensorDiSetup(type, address)
             $(this).dialog('close');
          },
          'Speichern': function () {
-            socket.send({ "event" : "storecalibration", "object" : {
+            socket.send({ "event" : "storesensorsetup", "object" : {
                'type' : calSensorType,
                'address' : parseInt(calSensorAddress),
-               'calibration' : JSON.stringify({
+               'settings' : JSON.stringify({
                   'invert' : $('#invertDi').is(':checked'),
                   'interrupt' : $('#interruptDi').is(':checked'),
                   'pull' : parseInt($('#pullDi').val())
@@ -576,7 +656,7 @@ function sensorDiSetup(type, address)
          }
       },
       open: function(){
-         let pull = valueFacts[key].calibration ? valueFacts[key].calibration.pull : 0;
+         let pull = valueFacts[key].settings ? valueFacts[key].calibration.pull : 0;
          $('#pullDi')
             .append($('<option></option>')
                     .val(0)
@@ -649,7 +729,7 @@ function sensorCvSetup(type, address)
          'Speichern': function () {
             console.log("store lua script", $('#luaScript').val());
 
-            socket.send({ "event" : "storecalibration", "object" : {
+            socket.send({ "event" : "storesensorsetup", "object" : {
                'type' : calSensorType,
                'address' : calSensorAddress,
                'luaScript' : $('#luaScript').val()
@@ -668,7 +748,7 @@ function sensorCvSetup(type, address)
 
 function sensorCvAdd()
 {
-   socket.send({ "event" : "storecalibration", "object" : {
+   socket.send({ "event" : "storesensorsetup", "object" : {
       'type' : 'CV',
       'action' : 'add'
    }});

@@ -150,12 +150,6 @@ button:focus {
     padding-top: 3px;
 }
 
-.vdrContent
-{
-    margin: 0px 5px 0px 5px;
-    /*background-color: var(--background); */
-}
-
 .rounded-border
 {
     border-radius: var(--borderRadius);
@@ -976,6 +970,18 @@ table.tableMultiCol td
 /* ----------------------- */
 /* VDR FB */
 
+.vdrContent
+{
+    margin: 0px 5px 0px 5px;
+    /*background-color: var(--background); */
+}
+
+.vdrPresent
+{
+    padding: var(--containerPadding);
+    background-color: var(--background);
+}
+
 .vdrFbContainer
 {
     display: flex;
@@ -991,13 +997,13 @@ table.tableMultiCol td
     display: block;
     overflow: hidden;
     width: 31%;
-    height: 90vh;
+    height: 80vh;
     margin: 2px;
 }
 
 @media only screen and (orientation:portrait)
 {
-    .vdrFbContainer > div { width: 99%; height: 33vh; }
+    .vdrFbContainer > div { width: 99%; height: 25vh; }
 }
 
 .vdrFbContainer > div > div

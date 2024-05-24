@@ -368,6 +368,19 @@ function dispatchMessage(message)
    var jMessage = JSON.parse(message);
    var event = jMessage.event;
 
+   if (currentPage == "vdr") {
+      if (event == 'actual') {
+         let actual = jMessage.object;
+         // console.log("VDR: Got", event, JSON.stringify(actual, undefined, 4));
+         const actualStart = new Date(actual.present.starttime * 1000)
+         $('#vdrChannel').html(actual.channel.channelname);
+         $('#vdrStartTime').html(actualStart.toTimeLocal());
+         $('#vdrTitle').html(actual.present.title);
+         $('#vdrShorttext').html(actual.present.shorttext);
+      }
+      return ;
+   }
+
    // if (event != "chartdata" && event != "ping")
    //    console.log("got event: " + event);
 
@@ -1593,6 +1606,21 @@ Date.prototype.toDateLocal = function toDateLocal()
 
    return YYYY + '-' + MM + '-' + DD;
 };
+
+Date.prototype.toTimeLocal = function toTimeLocal()
+{
+   var date = this,
+       ten = function (i) {
+          return (i < 10 ? '0' : '') + i;
+       },
+       HH = ten(date.getHours()),
+       II = ten(date.getMinutes()),
+       SS = ten(date.getSeconds())
+   ;
+
+   return HH + ':' + II; //  + ':' + SS;
+};
+
 
 function fileExist(url)
 {

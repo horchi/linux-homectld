@@ -31,8 +31,8 @@ else
 fi
 
 if [[ "${COMMAND}" == "init" ]]; then
-   PARAMETER="{\"cloneable\": false, \"symbol\": \"mdi:mdi-progress-upload\", \"symbolOn\": \"mdi:mdi-progress-upload\""
-   RESULT="{ \"type\":\"SC\",\"address\":$2,\"kind\":\"status\",\"valid\":true,\"value\":${STATE}, \"color\": ${COLOR}}, \"parameter\": ${PARAMETER}  }"
+   PARAMETER="{\"cloneable\": false, \"symbol\": \"mdi:mdi-progress-upload\", \"symbolOn\": \"mdi:mdi-progress-upload\"}"
+   RESULT="{ \"type\":\"SC\",\"address\":$2,\"kind\":\"status\",\"valid\":true,\"value\":${STATE}, \"color\": ${COLOR}, \"parameter\": ${PARAMETER}  }"
    echo -n ${RESULT}
 elif [[ "${COMMAND}" == "toggle" ]]; then
 	if [[ ! -d "${GIT_ROOT}" ]]; then

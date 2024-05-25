@@ -1552,13 +1552,15 @@ function updateWidget(sensor, refresh, widget)
 
       if (sensor.hue)
          widget.colorOn = tinycolor({ 'h': sensor.hue, 's': sensor.sat, 'v': sensor.score }).toHslString();
-      else if (sensor.color)
-         widget.colorOn = sensor.color;
 
       widget.color = widget.color == null ? symbolColorDefault : widget.color;
 
-      // console.log("set color to: : ", widget.colorOn);
-      $("#button" + fact.type + fact.address).css('color', state ? widget.colorOn : widget.color);
+      let color = state ? widget.colorOn : widget.color;
+
+      if (sensor.color)
+         color = sensor.color;
+
+      $("#button" + fact.type + fact.address).css('color', color);
 
       if (widget.widgettype == 9)
          $("#value" + fact.type + fact.address).text(sensor.value.toFixed(widget.unit == '%' || widget.unit == '' ? 0 : 2) + (widget.unit != '' ? ' ' : '') + widget.unit);

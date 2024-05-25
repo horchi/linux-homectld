@@ -2671,10 +2671,7 @@ int Daemon::sensor2Json(json_t* obj, const char* type, uint address)
    json_object_set_new(obj, "valid", json_boolean(sensors[type][address].valid));
 
    if (!sensors[type][address].color.empty())
-   {
       json_object_set_new(obj, "color", json_string(sensors[type][address].color.c_str()));
-      tell(eloAlways, "publish color '%s'", sensors[type][address].color.c_str());
-   }
 
    return done;
 }

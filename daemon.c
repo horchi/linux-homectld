@@ -3840,7 +3840,6 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
    sensors[type][address].text = getStringFromJson(jData, "text", "");
    sensors[type][address].image = image;
-   tell(eloAlways, "setting color of '%s:0x%02x' to '%s'", type.c_str(), address, color);
    sensors[type][address].color = color;
 
    if (sensors[type][address].kind == "value" && sensors[type][address].value != getDoubleFromJson(jData, "value"))

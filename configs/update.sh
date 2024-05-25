@@ -8,7 +8,7 @@ LOGGER="logger -t homectld -p kern.warn"
 
 GIT_ROOT="/root/source/linux-homectld"
 STATE="false"
-COLOR="null"
+COLOR="\"green\""
 
 if [[ ! -d "${GIT_ROOT}" ]]; then
 	STATE="false"
@@ -21,7 +21,7 @@ elif ping -q -c 1 -W 1 8.8.8.8 >/dev/null; then
    REMOTE=`echo $REMOTE | sed s/" .*"/""/`
 
    if [[ "${LOCAL}" != "${REMOTE}" ]]; then
-      COLOR="\"green\""
+      COLOR="null"
    fi
 
    STATE="true"

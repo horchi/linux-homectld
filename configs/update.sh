@@ -6,16 +6,24 @@ MQTTURL="$3"
 
 LOGGER="logger -t homectld -p kern.warn"
 
-GIT_ROOT=/root/source/linux-homectld
+GIT_ROOT="/root/source/linux-homectld"
 STATE="false"
-#COLOR="null"
-COLOR="\"green\""
+COLOR="null"
 
 if [[ ! -d "${GIT_ROOT}" ]]; then
 	STATE="false"
-fi
+elif ping -q -c 1 -W 1 8.8.8.8 >/dev/null; then
 
-if ping -q -c 1 -W 1 8.8.8.8 >/dev/null; then
+   cd "${GIT_ROOT}"
+   export HOME="/root"
+   LOCAL=`git rev-parse HEAD`
+   REMOTE=`git ls-remote origin -h refs/heads/master`
+   REMOTE=`echo $REMOTE | sed s/" .*"/""/`
+
+   if [[ "${LOCAL}" != "${REMOTE}" ]]; then
+      COLOR="\"green\""
+   fi
+
    STATE="true"
 	echo -n
 else

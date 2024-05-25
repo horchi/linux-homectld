@@ -903,7 +903,7 @@ int Daemon::initScripts()
       if (jParameter)
       {
          char* p = json_dumps(jParameter, 0);
-         json_decref(jParameter);
+         // don't free it's only a reference onto oData! // json_decref(jParameter);
          tell(eloScript, "Script: parameter: '%s'", p);
          sensors["SC"][addr].parameter = p;
          free(p);

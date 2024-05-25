@@ -706,7 +706,7 @@ void cWebSock::atLogin(lws* wsi, const char* message, const char* clientInfo, js
 
    json_t* obj = json_object();
    addToJson(obj, "event", "login");
-   json_object_set_new(obj, "object", object);
+   json_object_set(obj, "object", object);
    addToJson(object, "client", (long)wsi);
 
    char* p = json_dumps(obj, 0);

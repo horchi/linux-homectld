@@ -664,7 +664,7 @@ int Daemon::initSensorByFact(myString type, uint address)
          }
          else if (type == "SC")
          {
-            tell(eloScript, "Script: ping [%s]", fact->getStrValue("SETTINGS"));
+            // tell(eloScript, "Script: settings [%s]", fact->getStrValue("SETTINGS"));
             sensors[type][address].script = fact->getStrValue("SETTINGS");
          }
 
@@ -828,6 +828,7 @@ int Daemon::initScripts()
       tableValueFacts->setValue("NAME", script.name.c_str());
 
       bool found = selectValueFactsByTypeAndName->find();
+
       char* scriptPath {};
       asprintf(&scriptPath, "%s/%s", path, script.name.c_str());
 
@@ -862,7 +863,10 @@ int Daemon::initScripts()
       else
          url = mqttUrl;
 
-      const char* arguments = found ? sensors["SC"][addr].script.c_str() : "";
+      if (found)
+         sensors["SC"][addr].script = tableValueFacts->getStrValue("SETTINGS");
+
+      const char* arguments = sensors["SC"][addr].script.c_str();
 
       tell(eloScript, "Script: Calling %s %s %d 'mqtt://%s/%s' '%s'", scriptPath, "init", addr, url, TARGET "2mqtt/scripts", arguments);
       result = executeCommand("%s %s %d 'mqtt://%s/%s' '%s'", scriptPath, "init", addr, url, TARGET "2mqtt/scripts", arguments);

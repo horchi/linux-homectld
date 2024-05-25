@@ -31,8 +31,8 @@ else
 fi
 
 if [[ "${COMMAND}" == "init" ]]; then
-   PARAMETER="{\"cloneable\": false, \"symbol\": \"mdi:mdi-progress-upload\", \"symbolOn\": \"mdi:mdi-progress-upload\", \"color\": ${COLOR}}"
-   RESULT="{ \"type\":\"SC\",\"address\":$2,\"kind\":\"status\",\"valid\":true,\"value\":${STATE}, \"parameter\": ${PARAMETER}  }"
+   PARAMETER="{\"cloneable\": false, \"symbol\": \"mdi:mdi-progress-upload\", \"symbolOn\": \"mdi:mdi-progress-upload\""
+   RESULT="{ \"type\":\"SC\",\"address\":$2,\"kind\":\"status\",\"valid\":true,\"value\":${STATE}, \"color\": ${COLOR}}, \"parameter\": ${PARAMETER}  }"
    echo -n ${RESULT}
 elif [[ "${COMMAND}" == "toggle" ]]; then
 	if [[ ! -d "${GIT_ROOT}" ]]; then
@@ -45,7 +45,7 @@ elif [[ "${COMMAND}" == "toggle" ]]; then
 		git pull >/dev/null 2>&1 | ${LOGGER}
 		${LOGGER} "update.sh: rebuild"
 		make -s clean >/dev/null 2>&1 | ${LOGGER}
-		make -j >/dev/null 2>&1 | ${LOGGER}
+		make -j 3 >/dev/null 2>&1 | ${LOGGER}
 		${LOGGER} "update.sh: install"
 		make linstall >/dev/null 2>&1 | ${LOGGER}
 		${LOGGER} "update.sh: restart"

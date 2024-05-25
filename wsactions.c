@@ -360,6 +360,9 @@ int Daemon::performData(long client, const char* event)
 
          // send text/image if set, independent of 'kind'
 
+         if (!sensor->color.empty())
+            json_object_set_new(ojData, "color", json_string(sensor->color.c_str()));
+
          if (sensor->image != "")
             json_object_set_new(ojData, "image", json_string(sensor->image.c_str()));
 
@@ -1859,7 +1862,8 @@ int Daemon::storeDashboards(json_t* obj, long client)
 
                      json_object_foreach(jParameters, paramId, jParam)
                      {
-                        json_object_set_new(jDefaults, paramId, jParam);
+                        if (!json_is_null(jParam))
+                           json_object_set_new(jDefaults, paramId, jParam);
                      }
 
                      //
@@ -2665,6 +2669,12 @@ int Daemon::sensor2Json(json_t* obj, const char* type, uint address)
       sensors[type][address].valid = false;
 
    json_object_set_new(obj, "valid", json_boolean(sensors[type][address].valid));
+
+   if (!sensors[type][address].color.empty())
+   {
+      json_object_set_new(obj, "color", json_string(sensors[type][address].color.c_str()));
+      tell(eloAlways, "publish color '%s'", sensors[type][address].color.c_str());
+   }
 
    return done;
 }

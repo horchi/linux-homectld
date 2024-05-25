@@ -164,7 +164,12 @@ function initDashboard(update = false)
 
 function resizeDashboard()
 {
-   $("#container").height($(window).outerHeight() - getTotalHeightOf('menu') - getTotalHeightOf('dashboardMenu') - getTotalHeightOf('footer') - sab - 20);
+   let space = 20;
+
+   if (getTotalHeightOf('menu') == 0)
+      space = 10;
+
+   $("#container").height($(window).outerHeight() - getTotalHeightOf('menu') - getTotalHeightOf('dashboardMenu') - getTotalHeightOf('footer') - sab - space);
 
    if (layout != 'flex') {
       let style = getComputedStyle(document.documentElement);
@@ -337,9 +342,11 @@ function initWidget(key, widget, fact)
 
          let useKioskHeight = kioskMode == 1 || kioskMode == 2;
 
-         if (!useKioskHeight && dashboards[actDashboard].options && dashboards[actDashboard].options.heightfactor)
+         if (heightFactor && heightFactor != 1)
+            eHeight = widgetHeightBase * heightFactor;
+         else if (!useKioskHeight && dashboards[actDashboard].options && dashboards[actDashboard].options.heightfactor)
             eHeight = widgetHeightBase * dashboards[actDashboard].options.heightfactor;
-         if (useKioskHeight && dashboards[actDashboard].options && dashboards[actDashboard].options.heightfactorKiosk)
+         else if (useKioskHeight && dashboards[actDashboard].options && dashboards[actDashboard].options.heightfactorKiosk)
             eHeight = widgetHeightBase * dashboards[actDashboard].options.heightfactorKiosk;
 
          // widget.heightfactor für widget spezifische Höhen -> to be implementen (nur vorbereitet)
@@ -1545,6 +1552,8 @@ function updateWidget(sensor, refresh, widget)
 
       if (sensor.hue)
          widget.colorOn = tinycolor({ 'h': sensor.hue, 's': sensor.sat, 'v': sensor.score }).toHslString();
+      else if (sensor.color)
+         widget.colorOn = sensor.color;
 
       widget.color = widget.color == null ? symbolColorDefault : widget.color;
 

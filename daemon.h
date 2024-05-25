@@ -225,6 +225,7 @@ class Daemon : public cWebInterface
          bool disabled {false};
          bool valid {false};               // set if the value, text or state is valid
          int battery {na};
+         std::string color;
          int hue {0};                      // 0-360° hue
          int sat {0};                      // 0-100% saturation
 

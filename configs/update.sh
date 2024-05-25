@@ -4,22 +4,26 @@ COMMAND="$1"
 ADDRESS="$2"
 MQTTURL="$3"
 
-GIT_ROOT=/root/source/linux-homectld
-STATE="true"
 LOGGER="logger -t homectld -p kern.warn"
+
+GIT_ROOT=/root/source/linux-homectld
+STATE="false"
+#COLOR="null"
+COLOR="\"green\""
 
 if [[ ! -d "${GIT_ROOT}" ]]; then
 	STATE="false"
 fi
 
 if ping -q -c 1 -W 1 8.8.8.8 >/dev/null; then
+   STATE="true"
 	echo -n
 else
 	STATE="false"
 fi
 
 if [[ "${COMMAND}" == "init" ]]; then
-   PARAMETER='{"cloneable": false, "symbol": "mdi:mdi-progress-upload", "symbolOn": "mdi:mdi-progress-upload"}'
+   PARAMETER="{\"cloneable\": false, \"symbol\": \"mdi:mdi-progress-upload\", \"symbolOn\": \"mdi:mdi-progress-upload\", \"color\": ${COLOR}}"
    RESULT="{ \"type\":\"SC\",\"address\":$2,\"kind\":\"status\",\"valid\":true,\"value\":${STATE}, \"parameter\": ${PARAMETER}  }"
    echo -n ${RESULT}
 elif [[ "${COMMAND}" == "toggle" ]]; then
@@ -40,7 +44,9 @@ elif [[ "${COMMAND}" == "toggle" ]]; then
 		/bin/systemctl restart homectld.service 2>&1 | ${LOGGER}
 	fi
 elif [ "${COMMAND}" == "status" ]; then
-   mosquitto_pub --quiet -L ${MQTTURL} -m "{ \"type\":\"SC\",\"address\":${ADDRESS},\"kind\":\"status\",\"state\":${STATE} }"
+   RESULT="{ \"type\": \"SC\", \"address\": ${ADDRESS}, \"kind\": \"status\", \"state\": ${STATE}, \"color\": ${COLOR} }"
+   ${LOGGER} "Publish ${RESULT}"
+   mosquitto_pub --quiet -L ${MQTTURL} -m "${RESULT}"
 fi
 
 exit 0

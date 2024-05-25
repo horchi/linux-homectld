@@ -49,10 +49,12 @@ var lmcData = {};
 var setupMode = false;
 var dashboardGroup = 0;
 var kioskBackTime = 0;
-var kioskMode = null;    // 0 - with menu,    normal dash symbold, normal-widget-height
-							    // 1 - without menu, big dash symbold,    kiosk-widget-height
-							    // 2 - with menu,    big dash symbold,    kiosk-widget-height
-							    // 3 - with menu,    big dash symbold,    normal-widget-height
+var kioskMode = null;    // 0 - with menu,    normal dash symbols, normal-widget-height
+							    // 1 - without menu, big dash symbols,    kiosk-widget-height
+							    // 2 - with menu,    big dash symbols,    kiosk-widget-height
+							    // 3 - with menu,    big dash symbols,    normal-widget-height
+
+var heightFactor = null;
 
 var sab = 0;             // env(safe-area-inset-bottom)
 
@@ -60,9 +62,10 @@ $('document').ready(function() {
    daemonState.state = -1;
    const urlParams = new URLSearchParams(window.location.href);
    kioskMode = urlParams.get('kiosk');
+   heightFactor = urlParams.get('heightFactor');
    dashboardGroup = urlParams.get('group') != null ? urlParams.get('group') : 0;
    kioskBackTime = urlParams.get('backTime');
-   console.log("kioskMode" + " : " + kioskMode);
+   console.log("kioskMode", kioskMode, "heightFactor", heightFactor);
    console.log("dashboardGroup" + " : " + dashboardGroup);
    startPage = urlParams.get('page') != null ? urlParams.get('page') : null;
    actDashboard = urlParams.get('dash') != null ? urlParams.get('dash') : -1;
@@ -1000,7 +1003,7 @@ function showWifiList()
 function isWifiKnown(network)
 {
    for (var i = 0; i < wifis.known.length; i++) {
-      if (wifis.known[i].network == network && wifis.known[i].device != null && wifis.known[i].device != '')
+      if (wifis.known[i].network == network) // && wifis.known[i].device != null && wifis.known[i].device != '')
          return true;
    }
    return false;

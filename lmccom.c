@@ -255,7 +255,13 @@ int LmcCom::queryPlayers(RangeList* list)
       ListItem item;
       item.clear();
 
-      item.id = atoi(getStringFromJson(jObj, "playerindex"));
+      const char* playerindex = getStringFromJson(jObj, "playerindex");
+
+      if (!isEmpty(playerindex))
+         item.id = atoi(playerindex);
+      else
+         item.id = getIntFromJson(jObj, "playerindex");
+
       item.content = getStringFromJson(jObj, "playerid");
       item.command = getStringFromJson(jObj, "name");
       item.isConnected = getIntFromJson(jObj, "connected");

@@ -11,6 +11,17 @@ import paho.mqtt.client as paho
 
 syslog.openlog(ident="mopekamqtt",logoption=syslog.LOG_PID)
 
+initial = True
+
+# default widget settings
+
+parameters = []
+parameters.append('{"parameter": {"cloneable": false, "widgettype": 9, "symbol": "mdi:mdi-battery-high", "symbolOn": "mdi:mdi-battery-high", "colorCondition": "20>red,50>orange,51<rgb(40 172 45)"}}')
+parameters.append('{"parameter": {"cloneable": false, "widgettype": 14, "scalemax": 11, "color": "rgb(40, 172, 45)", "colorOn": "rgb(235, 197, 5)", "barwidth": 120, "showvalue": true }}')
+parameters.append('{"parameter": {"cloneable": false, "widgettype": 6}}')
+parameters.append('{"parameter": {"cloneable": false, "widgettype": 14, "scalemax": 11, "color": "rgb(40, 172, 45)", "colorOn": "rgb(235, 197, 5)", "barwidth": 120, "showvalue": true }}')
+parameters.append('{"parameter": {"cloneable": false, "widgettype": 0, "symbol": "mdi:mdi-bluetooth", "symbolOn": "mdi:mdi-bluetooth", "colorCondition": "1=red,2=orange,3=rgb(40 172 45)"}}')
+
 # functions
 
 def tell(level, msg):
@@ -21,6 +32,10 @@ def tell(level, msg):
 			print(msg)
 
 def publishMqtt(sensor):
+	if initial and parameters[sensor['address']] != '':
+		tell(0, "appending {}".format(parameters[sensor['address']]))
+		p = json.loads(parameters[sensor['address']]);
+		sensor.update(p)
 	if args.m.strip() != '':
 		msg = json.dumps(sensor)
 		tell(2, '{}'.format(msg))
@@ -114,7 +129,7 @@ while True:
 	for s in service.SensorMonitoredList.values():
 		sensorType = "MOPEKA0"  # the number (0) shoud be set dynamicly on the position of the MAC in the list once we allow mor than one Sensor/MAC
 		adv = s._last_packet
-		percent = -1;
+		percent = -1
 
 		if adv is None:
 			tell(0, 'Sensor "{}" not found'.format(args.M.strip()))
@@ -131,7 +146,7 @@ while True:
 		  'kind'    : 'value',
 		  'unit'    : '%',
 		  'battery' : round(adv.BatteryPercent),
-		  'title'   : 'Tank Level' })
+		  'title'   : 'Battery' })
 		publishMqtt({
 		  'type'    : sensorType,
 		  'address' : 1,
@@ -153,8 +168,16 @@ while True:
 		  'kind'    : 'value',
 		  'unit'    : 'kg',
 		  'title'   : 'Tank Amount' })
+		publishMqtt({
+		  'type'    : sensorType,
+		  'address' : 4,
+		  'value'   : round(adv.ReadingQualityStars),
+		  'kind'    : 'value',
+		  'unit'    : '',
+		  'title'   : 'Signal Quality' })
 	tell(0, "... done")
 	time.sleep(args.l)
+	initial = False
 
 if args.m.strip() != '':
 	mqtt.disconnect()

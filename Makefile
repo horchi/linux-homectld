@@ -80,6 +80,15 @@ $(I2CTARGET): $(I2COBJS)
 linstall: $(TARGET) $(W1TARGET) $(BMSTARGET) $(VOTROTARGET) $(VICTRONTARGET) $(I2CTARGET)
 	make install-daemon
 	make install-web
+   ifdef MOPEKA
+	   (cd mopeka; $(MAKE) install)
+   endif
+   ifdef THETFORD
+	   (cd thetford; $(MAKE) install)
+   endif
+   ifdef WOMO
+	   (cd contrib/womo; $(MAKE) install)
+   endif
 
 install:  linstall
 	make install-systemd

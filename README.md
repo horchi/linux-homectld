@@ -200,13 +200,40 @@ grep -i "error" /var/log/homectld.log
 ```
 
 
-## The WEB interface:
+# The WEB interface:
 
 The default username and password for login to the web interface is:
 ```
 User: homectl
 Password: homectl
 ```
+
+## Connect to the WEB interface:
+
+The default Port is 61109. You reacg the WEB interface with this url (replace your-ip):
+
+http://your-ip:61109
+
+### URL Parameters
+
+kiosk   - start in kiosk mode:
+
+// 0 - with menu,    normal dash symbols, use normal-widget-height-factor
+// 1 - without menu, big dash symbols,    use kiosk-widget-height-factor
+// 2 - with menu,    big dash symbols,    use kiosk-widget-height-factor
+// 3 - with menu,    big dash symbols,    use normal-widget-height-factor
+
+heightFactor
+group
+backTime
+page - specify the start page (dashboard, setup, chart, ...)
+dash - specify the start page of the dashboard (dashbord ID)
+
+For example to start in kiosk mode 2
+
+http://your-ip:61109/index.html&kiosk=2
+
+
 
 ### Fist steps to enable data logging:
 

@@ -3,7 +3,7 @@
 // File daemon.c
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
-// Date 2010 - 2023  Jörg Wendel
+// Date 2010 - 2024  Jörg Wendel
 //***************************************************************************
 
 #include <stdio.h>
@@ -3760,6 +3760,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    std::string kind = getStringFromJson(jData, "kind", "");
    const char* image = getStringFromJson(jData, "image", "");
    const char* choices = getStringFromJson(jData, "choices");
+	json_t* jParameter = getObjectFromJson(jData, "parameter");
 
    if (action == "init")
    {
@@ -3811,12 +3812,21 @@ int Daemon::dispatchOther(const char* topic, const char* message)
          return fail;
       }
 
+		if (jParameter)
+		{
+			char* p = json_dumps(jParameter, 0);
+			// don't free it's only a reference onto oData! // json_decref(jParameter);
+			tell(eloDebug, "Sensor parameter: '%s'", p);
+			sensors[type][address].parameter = p;
+			free(p);
+		}
+
       if (type.starts_with("MCPO"))
-         addValueFact(address, type.c_str(), 1, title, unit, title, urControl);  // if output set rights
+         addValueFact(address, type.c_str(), 1, title, unit, title, urControl, nullptr, soNone, sensors[type][address].parameter.c_str());  // if output set rights
       else if (!isEmpty(choices))
-         addValueFact(address, type.c_str(), 1, title, unit, title, urControl, choices);
+         addValueFact(address, type.c_str(), 1, title, unit, title, urControl, choices, soNone, sensors[type][address].parameter.c_str());
       else
-         addValueFact(address, type.c_str(), 1, title, unit, title);
+         addValueFact(address, type.c_str(), 1, title, unit, title, urNone, nullptr, soNone, sensors[type][address].parameter.c_str());
    }
    else  // SC - script sensor (send result async via MQTT)
    {

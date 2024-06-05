@@ -17,6 +17,7 @@ var moseDownOn = { 'object' : null };
 var lightClickTimeout = null;
 var lightClickPosX = null;
 var lightClickPosY = null;
+var dashboardGauges = {};
 
 const symbolColorDefault = '#ffffff';
 const symbolOnColorDefault = '#059eeb';
@@ -29,6 +30,14 @@ function initDashboard(update = false)
       console.log("Fatal: Missing widgets!");
       return;
    }
+
+	for (const gkey in dashboardGauges) {
+		if (dashboardGauges.hasOwnProperty(gkey)) {
+			dashboardGauges[gkey].destroy();
+		}
+	}
+
+	dashboardGauges = {};
 
    if (!update) {
       $('#container').removeClass('hidden');
@@ -48,15 +57,15 @@ function initDashboard(update = false)
                                 );
    }
 
-   var jDashboards = [];
-   for (var did in dashboards) {
+   let jDashboards = [];
+   for (let did in dashboards) {
       if (!dashboardGroup || dashboards[did].group == dashboardGroup)
          jDashboards.push([dashboards[did].order, did]);
    }
    jDashboards.sort();
 
-   for (var i = 0; i < jDashboards.length; i++) {
-      var did = jDashboards[i][1];
+   for (let i = 0; i < jDashboards.length; i++) {
+      let did = jDashboards[i][1];
       if (actDashboard < 0)
          actDashboard = did;
 
@@ -67,7 +76,7 @@ function initDashboard(update = false)
          }, kioskBackTime * 1000);
       }
 
-      var classes = dashboards[did].symbol != '' ? dashboards[did].symbol.replace(':', ' ') : '';
+      let classes = dashboards[did].symbol != '' ? dashboards[did].symbol.replace(':', ' ') : '';
 
       if (dashboards[actDashboard] == dashboards[did])
          classes += ' buttonDashboardActive';
@@ -150,7 +159,7 @@ function initDashboard(update = false)
    }
 
    if (dashboards[actDashboard] != null) {
-      for (var key in dashboards[actDashboard].widgets) {
+      for (let key in dashboards[actDashboard].widgets) {
          initWidget(key, dashboards[actDashboard].widgets[key]);
          updateWidget(allSensors[key], true, dashboards[actDashboard].widgets[key]);
       }
@@ -190,7 +199,7 @@ function newDashboard()
    if (!$('#newDashboard').length)
       return;
 
-   var name = $('#newDashboard').val();
+   let name = $('#newDashboard').val();
    $('#newDashboard').val('');
 
    if (name != '') {
@@ -323,9 +332,9 @@ function initWidget(key, widget, fact)
       widget.unit = fact.unit;
 
    const marginWidth = 3 *2;
-   var root = document.getElementById("widgetContainer");
-   var id = 'div_' + key;
-   var elem = document.getElementById(id);
+   let root = document.getElementById("widgetContainer");
+   let id = 'div_' + key;
+   let elem = document.getElementById(id);
 
    if (elem == null) {
       elem = document.createElement("div");
@@ -405,7 +414,7 @@ function initWidget(key, widget, fact)
       if (!moseDownOn.object)
          return;
       e.preventDefault();
-      var scale = parseInt((e.pageX - $(moseDownOn.div).position().left) / ($(moseDownOn.div).innerWidth() / 100));
+      let scale = parseInt((e.pageX - $(moseDownOn.div).position().left) / ($(moseDownOn.div).innerWidth() / 100));
       if (scale > 100) scale = 100;
       if (scale < 0) scale = 0;
       console.log("dim: " + scale + '%');
@@ -417,7 +426,7 @@ function initWidget(key, widget, fact)
       if (!moseDownOn.object)
          return;
       e.preventDefault();
-      var scale = parseInt((e.pageX - $(moseDownOn.div).position().left) / ($(moseDownOn.div).innerWidth() / 100));
+      let scale = parseInt((e.pageX - $(moseDownOn.div).position().left) / ($(moseDownOn.div).innerWidth() / 100));
       if (scale > 100) scale = 100;
       if (scale < 0) scale = 0;
       $(moseDownOn.object).css('width', scale + '%');
@@ -503,34 +512,34 @@ function initWidget(key, widget, fact)
       case 1:         // Chart
       case 13: {
          elem.className = "widgetChart widgetDropZone";
-         var eTitle = document.createElement("div");
-         var cls = setupMode ? 'mdi mdi-lead-pencil widget-edit' : '';
+         let eTitle = document.createElement("div");
+         let cls = setupMode ? 'mdi mdi-lead-pencil widget-edit' : '';
          eTitle.className = "widget-title " + cls + ' ' + titleClass;
          eTitle.innerHTML = title;
          eTitle.addEventListener("click", function(event) {titleClick(event.ctrlKey, key)}, false);
          elem.appendChild(eTitle);
 
-         var ePeak = document.createElement("div");
+         let ePeak = document.createElement("div");
          ePeak.setAttribute('id', 'peak' + fact.type + fact.address);
          ePeak.className = "chart-peak";
          elem.appendChild(ePeak);
 
-         var eValue = document.createElement("div");
+         let eValue = document.createElement("div");
          eValue.setAttribute('id', 'value' + fact.type + fact.address);
          eValue.className = "chart-value";
          eValue.style.color = widget.color;
          elem.appendChild(eValue);
 
-         var eChart = document.createElement("div");
+         let eChart = document.createElement("div");
          eChart.className = "chart-canvas-container";
-         var cFact = fact;
+         let cFact = fact;
          if (!setupMode && fact.record) {
             eChart.setAttribute("onclick", "toggleChartDialog('" + cFact.type + "'," + cFact.address + ")");
 				$(eChart).css('cursor', 'pointer');
 			}
          elem.appendChild(eChart);
 
-         var eCanvas = document.createElement("canvas");
+         let eCanvas = document.createElement("canvas");
          eCanvas.setAttribute('id', 'widget' + fact.type + fact.address);
          eCanvas.className = "chart-canvas";
          eChart.appendChild(eCanvas);
@@ -553,7 +562,7 @@ function initWidget(key, widget, fact)
                     .css('color', widget.color)
 						  .css('cursor', !setupMode && fact.record ? 'pointer' : '')
                     .click(function() {
-                       var cFact = fact;
+                       let cFact = fact;
                        if (!setupMode && fact.record)
                           toggleChartDialog(cFact.type, cFact.address, key);}))
             .append($('<div></div>')
@@ -610,13 +619,13 @@ function initWidget(key, widget, fact)
                                     .attr('alignment-baseline', 'middle')
                                     .attr('x', '950')
                                     .attr('y', '550'))));
-         var cFact = fact;
+         let cFact = fact;
          if (!setupMode && fact.record) {
             $(elem).click(function() {toggleChartDialog(cFact.type, cFact.address, key);});
 				$(elem).css('cursor', 'pointer');
 			}
 
-         var divId = '#svgDiv' + fact.type + fact.address;
+         let divId = '#svgDiv' + fact.type + fact.address;
          $(divId).html($(divId).html());  // redraw to activate the SVG !!
          break;
       }
@@ -645,7 +654,7 @@ function initWidget(key, widget, fact)
                initWindyMap(key, widget, fact);
          }
          else {
-            var wFact = fact;
+            let wFact = fact;
             $(elem).append($('<div></div>')
                            .attr('id', 'widget' + fact.type + fact.address)
                            .addClass(fact.type == 'WEA' ? 'widget-weather' : 'widget-text')
@@ -753,7 +762,7 @@ function initWidget(key, widget, fact)
                         .css('user-select', 'none')
                         .html(getTimeHtml()));
          setInterval(function() {
-            var timeId = '#widget'+key.replace(':', '\\:');
+            let timeId = '#widget'+key.replace(':', '\\:');
             $(timeId).html(getTimeHtml());
          }, 1*1000);
 
@@ -813,7 +822,7 @@ function initWidget(key, widget, fact)
                         .addClass('widget-main')
                         .html(html)
                         .click(function() {
-                           var cFact = fact;
+                           let cFact = fact;
                            if (!setupMode && fact.record)
                               toggleChartDialog(cFact.type, cFact.address, key);})
                        );
@@ -836,7 +845,7 @@ function initWidget(key, widget, fact)
                     .css('color', widget.color)
                     .addClass('widget-value'));
 
-         var cFact = fact;
+         let cFact = fact;
          if (!setupMode && fact.record) {
             $(elem).click(function() {toggleChartDialog(cFact.type, cFact.address, key);});
 				$(elem).css('cursor', 'pointer');
@@ -925,33 +934,33 @@ function initMeter(key, widget, fact, neededScaleMax, value)
    else if (showValue)
       elem.className = 'widgetMeterLinear widgetDropZone';
 
-   var eTitle = document.createElement("div");
+   let eTitle = document.createElement("div");
    eTitle.className = "widget-title " + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : titleClass);
    eTitle.addEventListener("click", function(event) {titleClick(event.ctrlKey, key)}, false);
    eTitle.innerHTML = title;
    elem.appendChild(eTitle);
 
-   var main = document.createElement("div");
+   let main = document.createElement("div");
    main.className = "widget-main-meter";
    elem.appendChild(main);
 
-   var canvas = document.createElement('canvas');
+   let canvas = document.createElement('canvas');
    main.appendChild(canvas);
    canvas.setAttribute('id', 'widget' + fact.type + fact.address);
 
-   var cFact = fact;
+   let cFact = fact;
    if (!setupMode && fact.record) {
       $(canvas).click(function() {toggleChartDialog(cFact.type, cFact.address, key);});
 		canvas.style.cursor = 'pointer';
 	}
 
    if (!radial && showValue) {
-      var _value = document.createElement("div");
+      let _value = document.createElement("div");
       _value.setAttribute('id', 'widgetValue' + fact.type + fact.address);
       _value.className = "widget-main-value-lin";
       elem.appendChild(_value);
       $("#widgetValue" + fact.type + fact.address).css('color', widget.color);
-      var ePeak = document.createElement("div");
+      let ePeak = document.createElement("div");
       ePeak.setAttribute('id', 'peak' + fact.type + fact.address);
       ePeak.className = "widget-main-peak-lin";
       elem.appendChild(ePeak);
@@ -1000,7 +1009,7 @@ function initMeter(key, widget, fact, neededScaleMax, value)
       neededScaleMin = neededScaleMax*-1;
 
    let steps = -1;
-   for (var step = neededScaleMin; step.toFixed(2) <= neededScaleMax; step += stepWidth) {
+   for (let step = neededScaleMin; step.toFixed(2) <= neededScaleMax; step += stepWidth) {
       ticks.push(step % 1 ? parseFloat(step).toFixed(1) : parseInt(step));
       steps++;
    }
@@ -1089,15 +1098,17 @@ function initMeter(key, widget, fact, neededScaleMax, value)
    if ($(main).innerHeight() < $(main).innerWidth())
       options.width = options.hight = $(main).innerHeight();
 
-   var gauge = null;
+	if (dashboardGauges[fact.type + fact.address] != null) {
+      dashboardGauges[fact.type + fact.address].destroy();
+      dashboardGauges[fact.type + fact.address] = null;
+   }
 
    if (radial)
-      gauge = new RadialGauge(options);
+      dashboardGauges[fact.type + fact.address] = new RadialGauge(options);
    else
-      gauge = new LinearGauge(options);
+      dashboardGauges[fact.type + fact.address] = new LinearGauge(options);
 
-   gauge.draw();
-   $('#widget' + fact.type + fact.address).data('gauge', gauge);
+   dashboardGauges[fact.type + fact.address].draw();
 }
 
 function initLightColorDialog()
@@ -1114,7 +1125,7 @@ function initLightColorDialog()
                                   .click(function() { $('#lightColorDiv').css('display', 'none'); }))
                          );
 
-   var options = {
+   let options = {
       'cssClass' : 'lightColor',
       'layout' :  'block',
       'format' : 'hsv',
@@ -1129,10 +1140,10 @@ function initLightColorDialog()
       if (!$(this).data('key'))
          return;
 
-      var fact = valueFacts[$(this).data('key')];
-      var hue = parseInt($(this).wheelColorPicker('getColor').h * 360);
-      var sat = parseInt($(this).wheelColorPicker('getColor').s * 100);
-      var bri = parseInt($(this).wheelColorPicker('getColor').v * 100);
+      let fact = valueFacts[$(this).data('key')];
+      let hue = parseInt($(this).wheelColorPicker('getColor').h * 360);
+      let sat = parseInt($(this).wheelColorPicker('getColor').s * 100);
+      let bri = parseInt($(this).wheelColorPicker('getColor').v * 100);
 
       console.log("color of " + fact.address + " changed to '" + hue + "' / " + bri + '% / ' + sat + '%');
 
@@ -1159,9 +1170,9 @@ function initLightColorDialog()
 
 function showLightColorDialog(key)
 {
-   var posX = ($('#container').innerWidth() - $('#lightColorDiv').outerWidth()) / 2;
-   var posY = ($('#container').innerHeight() - $('#lightColorDiv').outerHeight()) / 2;
-   var sensor = allSensors[key];
+   let posX = ($('#container').innerWidth() - $('#lightColorDiv').outerWidth()) / 2;
+   let posY = ($('#container').innerHeight() - $('#lightColorDiv').outerHeight()) / 2;
+   let sensor = allSensors[key];
 
    $('#lightColor').data('key', key);
    $('#lightColorDiv').css('left', posX + 'px');
@@ -1172,19 +1183,19 @@ function showLightColorDialog(key)
 
 function getTimeHtml()
 {
-   var now = new Date();
+   let now = new Date();
 
    // calc daytime every 60 seconds
 
    if (!daytimeCalcAt || now.getTime() >= daytimeCalcAt.getTime()+60000){
       daytimeCalcAt = now;
-      var sunset = new Date().sunset(config.latitude.replace(',', '.'), config.longitude.replace(',', '.'));
-      var sunrise = new Date().sunrise(config.latitude.replace(',', '.'), config.longitude.replace(',', '.'));
+      let sunset = new Date().sunset(config.latitude.replace(',', '.'), config.longitude.replace(',', '.'));
+      let sunrise = new Date().sunrise(config.latitude.replace(',', '.'), config.longitude.replace(',', '.'));
       isDaytime = daytimeCalcAt > sunrise && daytimeCalcAt < sunset;
       // console.log("isDaytime: " + isDaytime + ' : ' + sunrise + ' : '+ sunset);
    }
 
-   var cls = isDaytime ? 'mdi mdi-weather-sunny' : 'mdi mdi-weather-night';
+   let cls = isDaytime ? 'mdi mdi-weather-sunny' : 'mdi mdi-weather-night';
 
    return '<div>'
       + '<span class="' + cls + ' " style="color:orange;"></span>'
@@ -1198,10 +1209,10 @@ function getWeatherHtml(symbolView, wfact, weather)
 {
    // https://openweathermap.org/weather-conditions#Weather-Condition-Codes-2
 
-   var html = '';
+   let html = '';
 
    if (symbolView) {
-      var wIconRef = 'img/weather/' + weather.icon + '@4x.png';
+      let wIconRef = 'img/weather/' + weather.icon + '@4x.png';
       if (!images.find(img => img == wIconRef))
          wIconRef = 'http://openweathermap.org/img/wn/' + weather.icon + '@4x.png';
       html += '<div style="display:block;font-weight:bold;height:75%;padding-left:5px;"><span>' + weather.detail + '</span><img style="height:100%" src="' + wIconRef + '"></img></div>';
@@ -1212,7 +1223,7 @@ function getWeatherHtml(symbolView, wfact, weather)
 
    }
    else {
-      var wIconRef = 'img/weather/' + weather.icon + '.png';
+      let wIconRef = 'img/weather/' + weather.icon + '.png';
       if (!images.find(img => img == wIconRef))
          wIconRef = 'http://openweathermap.org/img/wn/' + weather.icon + '.png';
       html += '<div style="display:inline-flex;align-items:center;font-weight:bold;"><span><img src="' + wIconRef + '"></img></span><span>' + weather.detail + '</span></div>';
@@ -1228,22 +1239,22 @@ function getWeatherHtml(symbolView, wfact, weather)
 
 function weatherForecast()
 {
-   var lastDay = '';
-   var form = document.createElement("div");
+   let lastDay = '';
+   let form = document.createElement("div");
 
    $(form).addClass('rounded-border weatherForecast');
    $(form).attr('tabindex', 0);
    $(form).click(function() { $(form).remove(); });
    $('#container').append(form);
 
-   var showExtras = $(form).outerWidth() > 580;
-   var html = '<div class="rounded-border" style="justify-content:center;font-weight:bold;background-color:#2f2f2fd1;">' + weatherData.city + '</div>';
+   let showExtras = $(form).outerWidth() > 580;
+   let html = '<div class="rounded-border" style="justify-content:center;font-weight:bold;background-color:#2f2f2fd1;">' + weatherData.city + '</div>';
 
-   for (var i = 0; i < weatherData.forecasts.length; i++) {
-      var weather = weatherData.forecasts[i];
-      var day = moment(weather.time*1000).format('dddd Do MMMM');
-      var time = moment(weather.time*1000).format('HH:00');
-      var wIconRef = 'img/weather/' + weather.icon + '.png';
+   for (let i = 0; i < weatherData.forecasts.length; i++) {
+      let weather = weatherData.forecasts[i];
+      let day = moment(weather.time*1000).format('dddd Do MMMM');
+      let time = moment(weather.time*1000).format('HH:00');
+      let wIconRef = 'img/weather/' + weather.icon + '.png';
 
       if (!images.find(img => img == wIconRef))
          wIconRef = 'http://openweathermap.org/img/wn/' + weather.icon + '.png';
@@ -1253,7 +1264,7 @@ function weatherForecast()
          html += '<div class="rounded-border" style="background-color:#2f2f2fd1;">' + day + '</div>';
       }
 
-      var tempColor = weather.temp < 0 ? '#2c99eb' : (weather.temp > 20 ? 'red' : 'white');
+      let tempColor = weather.temp < 0 ? '#2c99eb' : (weather.temp > 20 ? 'red' : 'white');
 
       html += '<div class="rounded-border">';
       html += '<span>' + time + '</span>';
@@ -1303,7 +1314,7 @@ function titleClick(ctrlKey, key)
 		let before = Math.round((now - daemonState.timeOffset -last)/1000)
       let peakMaxTime = new Date(sensor.peakmaxtime * 1000);
       let peakMinTime = new Date(sensor.peakmintime * 1000);
-      var form = document.createElement("div");
+      let form = document.createElement("div");
 
       // console.log(sensor);
       // console.log(fact);
@@ -1463,7 +1474,7 @@ function titleClick(ctrlKey, key)
 function updateDashboard(widgets, refresh)
 {
    if (widgets != null && dashboards[actDashboard] != null) {
-      for (var key in widgets) {
+      for (let key in widgets) {
          if (dashboards[actDashboard].widgets[key] == null)
             continue;
 
@@ -1477,7 +1488,7 @@ function updateWidget(sensor, refresh, widget)
    if (sensor == null)
       return ;
 
-   var key = toKey(sensor.type, sensor.address);
+   let key = toKey(sensor.type, sensor.address);
    fact = valueFacts[key];
 
    // console.log("updateWidget " + fact.name + " of type " + widget.widgettype);
@@ -1495,7 +1506,7 @@ function updateWidget(sensor, refresh, widget)
    if (widget.unit == '')
       widget.unit = fact.unit;
 
-   var widgetDiv = $('#div_' + key.replace(':', '\\:'));
+   let widgetDiv = $('#div_' + key.replace(':', '\\:'));
 
    if (widget.range > 2)
    {
@@ -1512,9 +1523,9 @@ function updateWidget(sensor, refresh, widget)
    if (widget.widgettype == 0 || widget.widgettype == 9 || widget.widgettype == 12)         // Symbol, Symbol-Value, Symbol-Text
    {
       // console.log("sensor: ", JSON.stringify(sensor));
-      var state = fact.type != 'HMB' ? sensor.value != 0 : sensor.value == 100;
-      var image = '';
-      var classes = '';
+      let state = fact.type != 'HMB' ? sensor.value != 0 : sensor.value == 100;
+      let image = '';
+      let classes = '';
 
       if (sensor.image != null)                                      // own image got by data
          image = sensor.image;
@@ -1540,7 +1551,7 @@ function updateWidget(sensor, refresh, widget)
          $("#button" + fact.type + fact.address).addClass('widget-main');
          $("#button" + fact.type + fact.address).addClass(classes);
 
-         var fontSize = Math.min(widgetDiv.height(), widgetDiv.width()) * 0.6;
+         let fontSize = Math.min(widgetDiv.height(), widgetDiv.width()) * 0.6;
          $("#button" + fact.type + fact.address).css('font-size', fontSize + 'px');
       }
 
@@ -1550,15 +1561,16 @@ function updateWidget(sensor, refresh, widget)
       widgetDiv.css('background-color', (fact.outputModes == 3 && sensor.mode == 'manual') ? '#a27373' : '');
       widget.colorOn = widget.colorOn == null ? symbolOnColorDefault : widget.colorOn;
 
+		let color = state ? widget.colorOn : widget.color;
+
+		color = getWidgetColor(widget, widget.colorCondition, color, sensor.value);
+
       if (sensor.hue)
-         widget.colorOn = tinycolor({ 'h': sensor.hue, 's': sensor.sat, 'v': sensor.score }).toHslString();
+         color = tinycolor({ 'h': sensor.hue, 's': sensor.sat, 'v': sensor.score }).toHslString();
+		else if (sensor.color)
+			color = sensor.color;
 
-      widget.color = widget.color == null ? symbolColorDefault : widget.color;
-
-      let color = state ? widget.colorOn : widget.color;
-
-      if (sensor.color)
-         color = sensor.color;
+      // widget.color = widget.color == null ? symbolColorDefault : widget.color;
 
       $("#button" + fact.type + fact.address).css('color', color);
 
@@ -1567,23 +1579,23 @@ function updateWidget(sensor, refresh, widget)
       else if (widget.widgettype == 12 && sensor.text != null)
          $("#value" + fact.type + fact.address).text(sensor.text.replace(/(?:\r\n|\r|\n)/g, '<br>'));
 
-//      var prs = $('#progressBar' + fact.type + fact.address);
+//      let prs = $('#progressBar' + fact.type + fact.address);
 //      $('#progress' + fact.type + fact.address).css('display', fact.options & 0x02 && sensor.value ? 'block' : 'none');
 //
 //      if (sensor.score && prs != null)
 //         $(prs).css('width', sensor.score + '%');
 //
 //      if (sensor.mode == "auto" && sensor.next > 0) {
-//         var pWidth = 100;
-//         var s = sensor;
-//         var id = fact.type + fact.address;
-//         var iid = setInterval(progress, 200);
+//         let pWidth = 100;
+//         let s = sensor;
+//         let id = fact.type + fact.address;
+//         let iid = setInterval(progress, 200);
 //
 //         function progress() {
 //            if (pWidth <= 0) {
 //               clearInterval(iid);
 //            } else {
-//               var d = new Date();
+//               let d = new Date();
 //               pWidth = 100 - ((d/1000 - s.last) / ((s.next - s.last) / 100));
 //               document.getElementById("progressBar" + id).style.width = pWidth + "%";
 //            }
@@ -1598,7 +1610,7 @@ function updateWidget(sensor, refresh, widget)
       $("#value" + fact.type + fact.address).text(sensor.value.toFixed(2) + " " + widget.unit);
 
       if (refresh) {
-         var jsonRequest = {};
+         let jsonRequest = {};
          if (!widget.range)
             widget.range = 1;
          prepareChartRequest(jsonRequest, toKey(fact.type, fact.address), 0, widget.range, widget.widgettype == 13 ? "chartwidgetbar" : "chartwidget");
@@ -1607,7 +1619,7 @@ function updateWidget(sensor, refresh, widget)
    }
    else if (widget.widgettype == 8)    // Choice
    {
-      // var text = sensor.text.replace(/(?:\r\n|\r|\n)/g, '<br>');
+      // let text = sensor.text.replace(/(?:\r\n|\r|\n)/g, '<br>');
 
       let choices = fact.choices.split(",");
       for (c = 0; c < choices.length; ++c) {
@@ -1617,8 +1629,8 @@ function updateWidget(sensor, refresh, widget)
    else if (widget.widgettype == 2 || widget.widgettype == 7)    // Text, PlainText
    {
       if (sensor.type == 'WEA' && sensor.address == 1 && sensor.text != null) { // Open Weather Map
-         var bigView = false;
-         var wfact = fact;
+         let bigView = false;
+         let wfact = fact;
          weatherData = JSON.parse(sensor.text);
          $("#widget" + fact.type + fact.address).html(getWeatherHtml(bigView, wfact, weatherData));
          if (weatherInterval)
@@ -1652,7 +1664,7 @@ function updateWidget(sensor, refresh, widget)
             $("#widget" + fact.type + fact.address).html('<table>' + html + '</table>');
          }
          else {
-            var text = sensor.text.replace(/(?:\r\n|\r|\n)/g, '<br>');
+            let text = sensor.text.replace(/(?:\r\n|\r|\n)/g, '<br>');
             $("#widget" + fact.type + fact.address).html(text);
          }
       }
@@ -1666,10 +1678,10 @@ function updateWidget(sensor, refresh, widget)
    }
    else if (widget.widgettype == 4)      // Gauge
    {
-      var value = sensor.value.toFixed(2);
-      var scaleMax = !widget.scalemax || widget.unit == '%' ? 100 : widget.scalemax.toFixed(0);
-      var scaleMin = value >= 0 ? "0" : Math.ceil(value / 5) * 5 - 5;
-      var _peak = sensor.peakmax != null ? sensor.peakmax : 0;
+      let value = sensor.value.toFixed(2);
+      let scaleMax = !widget.scalemax || widget.unit == '%' ? 100 : widget.scalemax.toFixed(0);
+      let scaleMin = value >= 0 ? "0" : Math.ceil(value / 5) * 5 - 5;
+      let _peak = sensor.peakmax != null ? sensor.peakmax : 0;
       if (scaleMax < Math.ceil(value))
          scaleMax = value;
       if (widget.showpeak != null && widget.showpeak && scaleMax < Math.ceil(_peak))
@@ -1677,8 +1689,8 @@ function updateWidget(sensor, refresh, widget)
       $("#sMin" + fact.type + fact.address).text(scaleMin);
       $("#sMax" + fact.type + fact.address).text(scaleMax);
       $("#value" + fact.type + fact.address).text(value + " " + widget.unit);
-      var ratio = (value - scaleMin) / (scaleMax - scaleMin);
-      var peak = (_peak.toFixed(2) - scaleMin) / (scaleMax - scaleMin);
+      let ratio = (value - scaleMin) / (scaleMax - scaleMin);
+      let peak = (_peak.toFixed(2) - scaleMin) / (scaleMax - scaleMin);
 
       $("#pb" + fact.type + fact.address).attr("d", "M 950 500 A 450 450 0 0 0 50 500");
       $("#pv" + fact.type + fact.address).attr("d", svg_circle_arc_path(500, 500, 450 /*radius*/, -90, ratio * 180.0 - 90));
@@ -1738,11 +1750,13 @@ function updateWidget(sensor, refresh, widget)
             $('#widgetValue' + fact.type + fact.address).html(value.toFixed(widget.unit == '%' ? 0 : 1) + ' ' + widget.unit);
          }
 
-         var gauge = $('#widget' + fact.type + fact.address).data('gauge');
+			let gauge = dashboardGauges[fact.type + fact.address];
+
          if (gauge != null)
             gauge.value = value;
          else
             console.log("Missing gauge instance for " + '#widget' + fact.type + fact.address);
+
          if (widget.showpeak != null && widget.showpeak)
             $("#peak" + fact.type + fact.address).text(sensor.peakmax != null ? sensor.peakmax.toFixed(2) + " " + widget.unit : "");
       }
@@ -1764,7 +1778,7 @@ function updateWidget(sensor, refresh, widget)
       l.setAttribute('y', fullPx - levelPx + y);
       l.setAttribute('height', levelPx);
 
-      var ellipse = document.getElementById('svgEllipse' + key);
+      let ellipse = document.getElementById('svgEllipse' + key);
 
       if (ellipse != null)
          ellipse.setAttribute('cy', fullPx - levelPx + y);
@@ -1780,7 +1794,7 @@ function addWidget()
 {
    // console.log("add widget ..");
 
-   var form = document.createElement("div");
+   let form = document.createElement("div");
 
    $(form)
       .append($('<div></div>')
@@ -1821,15 +1835,15 @@ function addWidget()
             $(this).dialog('close');
          },
          'Ok': function () {
-            var json = {};
+            let json = {};
             console.log("store widget");
             $('#widgetContainer > div').each(function () {
-               var key = $(this).attr('id').substring($(this).attr('id').indexOf("_") + 1);
+               let key = $(this).attr('id').substring($(this).attr('id').indexOf("_") + 1);
                json[key] = dashboards[actDashboard].widgets[key];
             });
 
             if ($("#widgetKey").val() == 'ALL') {
-               for (var key in valueFacts) {
+               for (let key in valueFacts) {
                   if (!valueFacts[key].state)   // use only active facts
                      continue;
                   if (filterExpression && !filterExpression.test(valueFacts[key].title) &&
@@ -1853,11 +1867,11 @@ function addWidget()
    });
 
    function updateSelection() {
-      var addrSpacer = -1;
-      var addrTime = -1;
+      let addrSpacer = -1;
+      let addrTime = -1;
       $('#widgetKey').empty();
       // console.log("update selection: " + $('#incFilter').val());
-      for (var key in dashboards[actDashboard].widgets) {
+      for (let key in dashboards[actDashboard].widgets) {
          n = parseInt(key.split(":")[1]);
          if (key.split(":")[0] == 'SPACER' && n > addrSpacer)
             addrSpacer = n;
@@ -1871,14 +1885,14 @@ function addWidget()
                              .val('TIME:0x' + (addrTime + 1).toString(16))
                              .html('Time'));
 
-      var jArray = [];
+      let jArray = [];
       filterExpression = null;
       addFilterString = $('#incFilter').val();
 
       if ($('#incFilter').val() != '')
          filterExpression = new RegExp(addFilterString);
 
-      for (var key in valueFacts) {
+      for (let key in valueFacts) {
          if (!valueFacts[key].state)   // use only active facts here
             continue;
          // if (dashboards[actDashboard].widgets[key] != null)
@@ -1892,16 +1906,16 @@ function addWidget()
       }
       jArray.push(['ALL', { 'title': '- ALLE -'}]);
       jArray.sort(function(a, b) {
-         var A = (a[1].usrtitle ? a[1].usrtitle : a[1].title).toLowerCase();
-         var B = (b[1].usrtitle ? b[1].usrtitle : b[1].title).toLowerCase();
+         let A = (a[1].usrtitle ? a[1].usrtitle : a[1].title).toLowerCase();
+         let B = (b[1].usrtitle ? b[1].usrtitle : b[1].title).toLowerCase();
          if (B > A) return -1;
          if (A > B) return  1;
          return 0;
 
       });
-      for (var i = 0; i < jArray.length; i++) {
-         var key = jArray[i][0];
-         var title = jArray[i][1].usrtitle ? jArray[i][1].usrtitle : jArray[i][1].title;
+      for (let i = 0; i < jArray.length; i++) {
+         let key = jArray[i][0];
+         let title = jArray[i][1].usrtitle ? jArray[i][1].usrtitle : jArray[i][1].title;
 
          if (valueFacts[key] != null)
             title += ' / ' + valueFacts[key].type;
@@ -1917,12 +1931,12 @@ function addWidget()
 
 function toggleChartDialog(type, address)
 {
-   var dialog = document.querySelector('dialog');
+   let dialog = document.querySelector('dialog');
    dialog.style.position = 'fixed';
    console.log("chart for " + type + address);
 
    if (type != "" && !dialog.hasAttribute('open')) {
-      var canvas = document.querySelector("#chartDialog");
+      let canvas = document.querySelector("#chartDialog");
       canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
       chartDialogSensor = type + address;
 
@@ -1947,7 +1961,7 @@ function toggleChartDialog(type, address)
       // only hide the background *after* you've moved focus out of
       //   the content that will be "hidden"
 
-      var div = document.createElement('div');
+      let div = document.createElement('div');
       div.id = 'backdrop';
       document.body.appendChild(div);
    }
@@ -1955,7 +1969,7 @@ function toggleChartDialog(type, address)
       chartDialogSensor = "";
       document.removeEventListener('keydown', closeChartDialog);
       dialog.removeAttribute('open');
-      var div = document.querySelector('#backdrop');
+      let div = document.querySelector('#backdrop');
       div.parentNode.removeChild(div);
    }
 }
@@ -1971,14 +1985,14 @@ function closeChartDialog(event)
 
 function polar_to_cartesian(cx, cy, radius, angle)
 {
-   var radians = (angle - 90) * Math.PI / 180.0;
+   let radians = (angle - 90) * Math.PI / 180.0;
    return [Math.round((cx + (radius * Math.cos(radians))) * 100) / 100, Math.round((cy + (radius * Math.sin(radians))) * 100) / 100];
 };
 
 function svg_circle_arc_path(x, y, radius, start_angle, end_angle)
 {
-   var start_xy = polar_to_cartesian(x, y, radius, end_angle);
-   var end_xy = polar_to_cartesian(x, y, radius, start_angle);
+   let start_xy = polar_to_cartesian(x, y, radius, end_angle);
+   let end_xy = polar_to_cartesian(x, y, radius, start_angle);
    return "M " + start_xy[0] + " " + start_xy[1] + " A " + radius + " " + radius + " 0 0 0 " + end_xy[0] + " " + end_xy[1];
 };
 
@@ -1995,35 +2009,35 @@ function dragDashboard(ev)
 function dragOverDashboard(ev)
 {
    event.preventDefault();
-   var target = ev.target;
+   let target = ev.target;
    target.setAttribute('drop-active', true);
 }
 
 function dragLeaveDashboard(ev)
 {
    event.preventDefault();
-   var target = ev.target;
+   let target = ev.target;
    target.removeAttribute('drop-active', true);
 }
 
 function dropDashboard(ev)
 {
    ev.preventDefault();
-   var target = ev.target;
+   let target = ev.target;
    target.removeAttribute('drop-active', true);
    // console.log("drop: " + ev.target.getAttribute('id'));
 
-   var source = document.getElementById(ev.originalEvent.dataTransfer.getData("source"));
+   let source = document.getElementById(ev.originalEvent.dataTransfer.getData("source"));
 
    if (source.dataset.dragtype == 'widget') {
-      var key = source.getAttribute('id').substring(source.getAttribute('id').indexOf("_") + 1);
+      let key = source.getAttribute('id').substring(source.getAttribute('id').indexOf("_") + 1);
       // console.log("drag widget " + key + " from dashboard " + parseInt(actDashboard) + " to " + parseInt(target.getAttribute('id')));
       source.remove();
       socket.send({ "event" : "storedashboards", "object" :
                     { 'action' : 'move',
                       'key' : key,
                       'from' : parseInt(actDashboard),
-                      'to': parseInt(target.getAttribute('id')) } });
+                      'to': parseInt(target.getAttribute('id').substring(4)) } });
 
       return;
    }
@@ -2041,12 +2055,12 @@ function dropDashboard(ev)
    //    and ascending order for number keys
    // terefore we use a array instead
 
-   var jOrder = [];
-   var i = 0;
+   let jOrder = [];
+   let i = 0;
 
    $('#dashboardMenu > button').each(function () {
       if ($(this).attr('data-dragtype') == 'dashboard') {
-         var did = $(this).attr('id');
+         let did = $(this).attr('id');
          console.log("add: " + did);
          jOrder[i++] = parseInt(did.substring(4));
       }
@@ -2067,7 +2081,7 @@ function dragWidget(ev)
 function dragOver(ev)
 {
    event.preventDefault();
-   var target = ev.target;
+   let target = ev.target;
    while (target) {
       if (target.dataset.droppoint)
          break;
@@ -2079,7 +2093,7 @@ function dragOver(ev)
 function dragLeave(ev)
 {
    event.preventDefault();
-   var target = ev.target;
+   let target = ev.target;
    while (target) {
       if (target.dataset.droppoint)
          break;
@@ -2091,7 +2105,7 @@ function dragLeave(ev)
 function dropWidget(ev)
 {
    ev.preventDefault();
-   var target = ev.target;
+   let target = ev.target;
    while (target) {
       if (target.dataset.droppoint)
          break;
@@ -2099,7 +2113,7 @@ function dropWidget(ev)
    }
    target.removeAttribute('drop-active', true);
 
-   var source = document.getElementById(ev.dataTransfer.getData("source"));
+   let source = document.getElementById(ev.dataTransfer.getData("source"));
 
    if (source.dataset.dragtype != 'widget') {
       console.log("drag source not a widget");
@@ -2109,9 +2123,9 @@ function dropWidget(ev)
    console.log("drop element: " + source.getAttribute('id') + ' on ' + target.getAttribute('id'));
    target.after(source);
 
-   var json = {};
+   let json = {};
    $('#widgetContainer > div').each(function () {
-      var key = $(this).attr('id').substring($(this).attr('id').indexOf("_") + 1);
+      let key = $(this).attr('id').substring($(this).attr('id').indexOf("_") + 1);
       json[key] = dashboards[actDashboard].widgets[key];
    });
 
@@ -2200,7 +2214,7 @@ function dashboardSetup(did)
          if (!dashboards[dashboardId].options.heightfactorKiosk)
             dashboards[dashboardId].options.heightfactorKiosk = 1;
 
-         for (var w = 0.5; w <= 2.0; w += 0.5) {
+         for (let w = 0.5; w <= 2.0; w += 0.5) {
             $('#heightfactor').append($('<option></option>')
                                       .val(w).html(w).attr('selected', dashboards[dashboardId].options.heightfactor == w));
             $('#heightfactorKiosk').append($('<option></option>')

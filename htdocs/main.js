@@ -72,14 +72,14 @@ $('document').ready(function() {
    console.log("currentPage: " + currentPage);
    console.log("startPage: " + startPage);
 
-   var connectUrl = "";
+   let connectUrl = "";
 
    if (window.location.href.startsWith("https"))
       connectUrl = "wss://" + location.hostname + ":" + location.port;
    else
       connectUrl = "ws://" + location.hostname + ":" + location.port;
 
-   var protocol = myProtocol;
+   let protocol = myProtocol;
 
    moment.locale('de');
    connectWebSocket(connectUrl, protocol);
@@ -90,8 +90,8 @@ var socketStateInterval = null;
 
 function onSocketConnect(protocol)
 {
-   var token = localStorage.getItem(storagePrefix + 'Token');
-   var user = localStorage.getItem(storagePrefix + 'User');
+   let token = localStorage.getItem(storagePrefix + 'Token');
+   let user = localStorage.getItem(storagePrefix + 'User');
 
    if (token == null) token = "";
    if (user == null)  user = "";
@@ -141,6 +141,7 @@ function connectWebSocket(useUrl, protocol)
 }
 
 var socketStateCount = 0;
+var socketStateTimeInterval = null;
 
 function updateSocketState()
 {
@@ -168,6 +169,9 @@ function updateSocketState()
 
    $('#socketState').attr('class', '');
    $('#socketState').addClass('socketState ' + circle);
+
+	let now = new Date();
+	$('#footerTime').html(now.toTimeLocal());
 }
 
 function sleep(ms) {
@@ -181,7 +185,7 @@ async function showInfoDialog(object)
    let message = object.message;
    let titleMsg = '';
 
-   var msDuration = 2000;
+   let msDuration = 2000;
 
    if (object.status == 0)
       msDuration = 4000;
@@ -209,14 +213,14 @@ async function showInfoDialog(object)
       titleMsg = '<a style="color:var(--red1);">Error (' + object.status + ')</a>';
    }
    else if (object.status == 1) {
-      var array = message.split("#:#");
+      let array = message.split("#:#");
       titleMsg = array[0];
    }
    else if (object.status >= 10) {
       titleMsg = '<a style="color:yellow;">Note</a>';
    }
 
-   var now = new Date();
+   let now = new Date();
    titleMsg = now.toDatetimeLocal() + '  ' + titleMsg;
 
    if ($('#infoBox').html() == '')
@@ -315,11 +319,11 @@ async function showProgressDialog()
    while (progressDialog)
       await sleep(100);
 
-   var msDuration = 300000;   // timeout 5 minutes
+   let msDuration = 300000;   // timeout 5 minutes
 
-   var form = document.createElement("div");
+   let form = document.createElement("div");
    form.style.overflow = "hidden";
-   var div = document.createElement("div");
+   let div = document.createElement("div");
    form.appendChild(div);
    div.className = "progress";
 
@@ -350,7 +354,7 @@ async function showProgressDialog()
 
 function pwdDialog(onConfirm, message, okBtn = 'Continue', cancelBtn = 'Cancel')
 {
-   var form = '<div>' +
+   let form = '<div>' +
        '  <div class="dialog-content">' +
        '    <input class="rounded-border input" id="pwdDlgValue"></input>'
        '  </div>';
@@ -368,8 +372,8 @@ function pwdDialog(onConfirm, message, okBtn = 'Continue', cancelBtn = 'Cancel')
 
 function dispatchMessage(message)
 {
-   var jMessage = JSON.parse(message);
-   var event = jMessage.event;
+   let jMessage = JSON.parse(message);
+   let event = jMessage.event;
 
    if (currentPage == "vdr") {
       if (event == 'actual') {
@@ -411,7 +415,7 @@ function dispatchMessage(message)
          allSensors = jMessage.object;
       }
       else {
-         for (var key in jMessage.object)
+         for (let key in jMessage.object)
             allSensors[key] = jMessage.object[key];
       }
       if (currentPage == 'dashboard')
@@ -518,7 +522,7 @@ function dispatchMessage(message)
    }
    else if (event == "chartdata") {
       hideProgressDialog();
-      var id = jMessage.object.id;
+      let id = jMessage.object.id;
 
       if (currentPage == 'chart') {                                 // the charts page
          drawCharts(jMessage.object);
@@ -571,8 +575,8 @@ function dispatchMessage(message)
 
 function prepareMenu()
 {
-   var html = "";
-   // var haveToken = localStorage.getItem(storagePrefix + 'Token') && localStorage.getItem(storagePrefix + 'Token') != "";
+   let html = "";
+   // let haveToken = localStorage.getItem(storagePrefix + 'Token') && localStorage.getItem(storagePrefix + 'Token') != "";
 
    if (kioskMode == 1) {
       $('#menu').css('height', '0px');
@@ -663,7 +667,7 @@ function prepareMenu()
 
    $("#navMenu").html(html);
 
-   // var msg = "DEBUG: Browser: '" + $.browser.name + "' : '" + $.browser.versionNumber + "' : '" + $.browser.version + "'";
+   // let msg = "DEBUG: Browser: '" + $.browser.name + "' : '" + $.browser.versionNumber + "' : '" + $.browser.version + "'";
    // socket.send({ "event" : "logmessage", "object" : { "message" : msg } });
 }
 
@@ -674,8 +678,8 @@ function updateFooter()
 
 function menuBurger()
 {
-   var haveToken = localStorage.getItem(storagePrefix + 'Token') && localStorage.getItem(storagePrefix + 'Token') != "";
-   var form = '<div id="burgerPopup" style="padding:0px;">';
+   let haveToken = localStorage.getItem(storagePrefix + 'Token') && localStorage.getItem(storagePrefix + 'Token') != "";
+   let form = '<div id="burgerPopup" style="padding:0px;">';
 
    if (haveToken)
       form += '<button style="width:120px;margin:2px;" class="rounded-border button1" onclick="mainMenuSel(\'user\')">[' + localStorage.getItem(storagePrefix + 'User') + ']</button>';
@@ -712,7 +716,7 @@ function mainMenuSel(what, action = null)
 {
    $("#burgerPopup").dialog("close");
 
-   var lastPage = currentPage;
+   let lastPage = currentPage;
    currentPage = what;
    console.log("switch to " + currentPage);
    hideAllContainer();
@@ -723,8 +727,8 @@ function mainMenuSel(what, action = null)
       // delete socket;
       socket = null;
 
-      var protocol = myProtocol;
-      var url = "ws://" + location.hostname + ":" + location.port;
+      let protocol = myProtocol;
+      let url = "ws://" + location.hostname + ":" + location.port;
 
       if (currentPage == "vdr") {
          protocol = "osd2vdr";
@@ -889,7 +893,7 @@ function showSyslog(log)
    $('#container').html('<div id="syslogContainer" class="setupContainer log"></div>');
 	$('#syslogContainer').css('width', 'fit-content');
 
-   var root = document.getElementById("syslogContainer");
+   let root = document.getElementById("syslogContainer");
    root.innerHTML = log.lines.replace(/(?:\r\n|\r|\n)/g, '<br/>');
    hideProgressDialog();
 
@@ -916,7 +920,7 @@ function showDatabaseStatistic(statistic)
    $('#container').removeClass('hidden');
    $('#container').html('<div id="systemContainer"></div>');
 
-   var html = '<div>';
+   let html = '<div>';
 
    html += '  <div class="rounded-border seperatorFold">Tabellen</div>';
    html += '  <table class="tableMultiCol">' +
@@ -930,8 +934,8 @@ function showDatabaseStatistic(statistic)
       '    </thead>' +
       '    <tbody>';
 
-   for (var i = 0; i < statistic.tables.length; i++) {
-      var table = statistic.tables[i];
+   for (let i = 0; i < statistic.tables.length; i++) {
+      let table = statistic.tables[i];
 
       html += '<tr style="height:39px;">';
       html += ' <td>' + table.name + '</td>';
@@ -957,7 +961,7 @@ function showWifiList()
    $('#container').removeClass('hidden');
    $('#container').html('<div id="systemContainer"></div>');
 
-   var html = '<div>';
+   let html = '<div>';
 
    html += '  <div class="rounded-border seperatorFold">Wifi Networks</div>';
    html += '  <table class="tableMultiCol">' +
@@ -973,7 +977,7 @@ function showWifiList()
       '    </thead>' +
       '    <tbody>';
 
-   for (var i = 0; i < wifis.reachable.length; i++) {
+   for (let i = 0; i < wifis.reachable.length; i++) {
       let wifi = wifis.reachable[i];
       let known = isWifiKnown(wifi.network);
       let rowColor = wifi.active == 'yes' ? 'green' : '';
@@ -1002,7 +1006,7 @@ function showWifiList()
 
 function isWifiKnown(network)
 {
-   for (var i = 0; i < wifis.known.length; i++) {
+   for (let i = 0; i < wifis.known.length; i++) {
       if (wifis.known[i].network == network) // && wifis.known[i].device != null && wifis.known[i].device != '')
          return true;
    }
@@ -1053,7 +1057,7 @@ function showSystemServicesList()
    //    return b.unitFileState.localeCompare(a.unitFileState);
    // });
 
-   var html = '<div>';
+   let html = '<div>';
 
    html += '  <div class="rounded-border seperatorFold">System Services</div>';
    html += '  <table class="tableMultiCol">' +
@@ -1067,7 +1071,7 @@ function showSystemServicesList()
       '    </thead>' +
       '    <tbody>';
 
-   for (var i = 0; i < systemServices.length; i++) {
+   for (let i = 0; i < systemServices.length; i++) {
       let svc = systemServices[i];
       let rowColor = svc.status == 'active' ? 'lightgreen' : 'var(--light4)';
       // let action = svc.status == 'active' ? 'Stop' : 'Start';
@@ -1225,7 +1229,7 @@ function hideAllContainer()
 
 function prepareChartRequest(jRequest, sensors, start, range, id)
 {
-   var gaugeSelected = false;
+   let gaugeSelected = false;
 
    if (!$.browser.safari || $.browser.versionNumber > 9)
    {
@@ -1260,8 +1264,8 @@ function prepareChartRequest(jRequest, sensors, start, range, id)
 
 function drawChartWidget(dataObject)
 {
-   var root = document.getElementById("container");
-   var id = "widget" + dataObject.rows[0].sensor;
+   let root = document.getElementById("container");
+   let id = "widget" + dataObject.rows[0].sensor;
 
    if (widgetCharts[id] != null) {
       widgetCharts[id].destroy();
@@ -1319,8 +1323,8 @@ function drawChartWidget(dataObject)
       }
    };
 
-   for (var i = 0; i < dataObject.rows.length; i++) {
-      var dataset = {};
+   for (let i = 0; i < dataObject.rows.length; i++) {
+      let dataset = {};
 
       // console.log("draw chart row with", dataObject.rows[i].data.length, "points");
 
@@ -1334,7 +1338,8 @@ function drawChartWidget(dataObject)
    }
 
    // console.log("draw chart widget to", id, $('#'+id).innerHeight());
-   var canvas = document.getElementById(id);
+
+   let canvas = document.getElementById(id);
    widgetCharts[id] = new Chart(canvas, config);
 }
 
@@ -1352,8 +1357,8 @@ function drawBarChartWidget(dataObject)
    //  letzteres ist derzeit krude hardcoded
    // soiwie die Anpassung der Axis im chart hier
 
-   var root = document.getElementById("container");
-   var id = "widget" + dataObject.rows[0].sensor;
+   let root = document.getElementById("container");
+   let id = "widget" + dataObject.rows[0].sensor;
 
    if (widgetCharts[id] != null) {
       widgetCharts[id].destroy();
@@ -1427,8 +1432,8 @@ function drawBarChartWidget(dataObject)
       }
    };
 
-   for (var i = 0; i < dataObject.rows.length; i++) {
-      var dataset = {};
+   for (let i = 0; i < dataObject.rows.length; i++) {
+      let dataset = {};
 
       console.log("draw bar chart row with", dataObject.rows[i].data.length, "points");
       console.log(dataObject.rows[i].data);
@@ -1441,7 +1446,7 @@ function drawBarChartWidget(dataObject)
       config.data.datasets.push(dataset);
    }
 
-   var canvas = document.getElementById(id);
+   let canvas = document.getElementById(id);
    widgetCharts[id] = new Chart(canvas, config);
 }
 
@@ -1451,7 +1456,7 @@ function drawBarChartWidget(dataObject)
 
 function drawChartDialog(dataObject)
 {
-   var root = document.querySelector('dialog')
+   let root = document.querySelector('dialog')
    if (dataObject.rows[0].sensor != chartDialogSensor) {
       return ;
    }
@@ -1461,7 +1466,7 @@ function drawChartDialog(dataObject)
       theChart = null;
    }
 
-   var data = {
+   let data = {
       type: "line",
       data: {
          datasets: []
@@ -1531,11 +1536,11 @@ function drawChartDialog(dataObject)
       }
    };
 
-   var key = '';
+   let key = '';
 
-   for (var i = 0; i < dataObject.rows.length; i++)
+   for (let i = 0; i < dataObject.rows.length; i++)
    {
-      var dataset = {};
+      let dataset = {};
 
       dataset["data"] = dataObject.rows[i].data;
       dataset["backgroundColor"] = "#3498db33";  // fill color
@@ -1551,7 +1556,7 @@ function drawChartDialog(dataObject)
 
    data.options.scales.yAxes[0].scaleLabel.labelString = '[' + valueFacts[key].unit + ']';
 
-   var canvas = root.querySelector("#chartDialog");
+   let canvas = root.querySelector("#chartDialog");
    theChart = new Chart(canvas, data);
 }
 
@@ -1572,14 +1577,14 @@ function parseBool(val)
 
 Number.prototype.pad = function(size)
 {
-  var s = String(this);
+  let s = String(this);
   while (s.length < (size || 2)) {s = "0" + s;}
   return s;
 }
 
 Date.prototype.toDatetimeLocal = function toDatetimeLocal()
 {
-   var date = this,
+   let date = this,
        ten = function (i) {
           return (i < 10 ? '0' : '') + i;
        },
@@ -1598,7 +1603,7 @@ Date.prototype.toDatetimeLocal = function toDatetimeLocal()
 
 Date.prototype.toDateLocal = function toDateLocal()
 {
-   var date = this,
+   let date = this,
        ten = function (i) {
           return (i < 10 ? '0' : '') + i;
        },
@@ -1612,7 +1617,7 @@ Date.prototype.toDateLocal = function toDateLocal()
 
 Date.prototype.toTimeLocal = function toTimeLocal()
 {
-   var date = this,
+   let date = this,
        ten = function (i) {
           return (i < 10 ? '0' : '') + i;
        },
@@ -1627,7 +1632,7 @@ Date.prototype.toTimeLocal = function toTimeLocal()
 
 function fileExist(url)
 {
-   var xhr = new XMLHttpRequest();
+   let xhr = new XMLHttpRequest();
    xhr.open('HEAD', url, false);
    xhr.send();
    return xhr.status != "404";
@@ -1640,7 +1645,7 @@ function getTotalHeightOf(id)
 
 function lNow()
 {
-   var currentDateTime = new Date();
+   let currentDateTime = new Date();
    return currentDateTime.getTime() / 1000;
 }
 
@@ -1666,9 +1671,9 @@ function alterColor(rgb, type, percent)
 {
 	rgb = rgb.replace('rgb(', '').replace(')', '').split(',');
 
-	var red = trim.call(rgb[0]);
-	var green = trim.call(rgb[1]);
-	var blue = trim.call(rgb[2]);
+	let red = trim.call(rgb[0]);
+	let green = trim.call(rgb[1]);
+	let blue = trim.call(rgb[2]);
 
 	if (type === "darken") {
 		red = parseInt(red * (100 - percent) / 100, 10);

@@ -719,11 +719,12 @@ void HomeCtl::logReport()
    {
       nextDetailLogAt = time(0) + 10 * tmeSecondsPerMinute;
 
-      tell(eloAlways, "# Solar Ladung / Tag der letzen 14 Tage");
+      tell(eloAlways, "# Solar Ladung/Tag");
 
       for (int f = selectSolarAhPerDay->find(); f; f = selectSolarAhPerDay->fetch())
       {
-         tell(eloAlways, "#   %s: %.2f [Ah]", l2pTime(tableSamples->getTimeValue("TIME"), "%d.%m.%Y").c_str(),
+         tell(eloAlways, "#   %s: %3.2f [Ah]",
+				  l2pTime(tableSamples->getTimeValue("TIME"), "%d.%m.%Y").c_str(),
               tableSamples->getFloatValue("VALUE"));
       }
 

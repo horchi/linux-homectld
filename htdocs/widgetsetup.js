@@ -362,13 +362,13 @@ function widgetSetup(key)
       $("#divBarWidth").css("display", [6,14].includes(wType) ? 'flex' : 'none');
       $("#divBarColor").css("display", [6].includes(wType) ? 'flex' : 'none');
       $("#divSymbolOn").css("display", [6].includes(wType) ? 'flex' : 'none');
-      $("#divSymbol").css("display", [0,9].includes(wType) ? 'flex' : 'none');
-      $("#divSymbolOn").css("display", [0,9].includes(wType) ? 'flex' : 'none');
+      $("#divSymbol").css("display", [0,9,12].includes(wType) ? 'flex' : 'none');
+      $("#divSymbolOn").css("display", [0,9,12].includes(wType) ? 'flex' : 'none');
       $("#divImgon").css("display", ([0,9].includes(wType) && $('#symbol').val() == '') ? 'flex' : 'none');
       $("#divImgoff").css("display", ([0,9].includes(wType) && $('#symbol').val() == '') ? 'flex' : 'none');
       $("#divPeak").css("display", [1,3,6,9,13].includes(wType) ? 'flex' : 'none');
       $("#divColor").css("display", [0,1,2,3,4,6,7,8,9,10,11,12,13,14].includes(wType) ? 'flex' : 'none');
-      $("#divColorCondition").css("display", [2,3,6,7,8,10,11].includes(wType) ? 'flex' : 'none');
+      $("#divColorCondition").css("display", [0,2,3,6,7,8,9,10,11,12].includes(wType) ? 'flex' : 'none');
       $("#divLinefeed").css("display", [10].includes(wType) ? 'flex' : 'none');
       $("#divRange").css("display", [1,5,6,13].includes(wType) ? 'flex' : 'none');
 

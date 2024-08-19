@@ -142,7 +142,7 @@ Bei Störung der Fehlercode ansonsten 0x00
 0x00 - immer
 
 
-# Thetford T24000 CI-Bus
+# Thetford T2400 CI-Bus
 
 ```01 02 00 17 00 81 00 00```
 

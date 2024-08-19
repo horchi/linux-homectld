@@ -55,7 +55,7 @@ parser.add_argument('-T',           nargs='?', help='MQTT topic', default=" home
 parser.add_argument('-s', action='store_true', help='Show', default=False)
 parser.add_argument('-M',           nargs='?', help='Sensor MAC', default="")
 parser.add_argument('-D', action='store_true', help='Discover sensors', default=False)
-parser.add_argument('-F', type=int, nargs='?', help='Tank level full [mm]', default=376)
+parser.add_argument('-F', type=int, nargs='?', help='Tank level full [mm]', default=365)
 parser.add_argument('-K', type=int, nargs='?', help='Tank amount [kg]', default=0)
 
 args = parser.parse_args()

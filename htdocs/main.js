@@ -84,6 +84,7 @@ $('document').ready(function() {
    moment.locale('de');
    connectWebSocket(connectUrl, protocol);
    colorStyle = getComputedStyle(document.body);
+   $('#socketState').click(function() { daemonStateDlg(); });
 });
 
 var socketStateInterval = null;
@@ -140,6 +141,43 @@ function connectWebSocket(useUrl, protocol)
       return !($el.innerHTML = "Your Browser will not support Websockets!");
 }
 
+function daemonStateDlg()
+{
+   let isOnline = daemonState.state != null && daemonState.state == 0;
+   let isConnected = socket && socket.ws.readyState == WebSocket.OPEN;
+   let form = '<div id="daemonStateDlg">';
+
+   form += ' <div class="dialog-content">';
+
+   if (isOnline) {
+      form += '  <div style="display:flex;padding:2px;"><span style="width:30%;display:inline-block;">Läuft seit:</span><span display="inline-block">' + daemonState.runningsince + '</span></div>\n';
+      form += '  <div style="display:flex;padding:2px;"><span style="width:30%;display:inline-block;">Version:</span> <span display="inline-block">' + daemonState.version + '</span></div>\n';
+      form += '  <div style="display:flex;padding:2px;"><span style="width:30%;display:inline-block;">CPU Last:</span><span display="inline-block">' + daemonState.average0 + ' / ' + daemonState.average1 + ' / '  + daemonState.average2 + '</span></div>\n';
+      form += '  <div style="display:flex;padding:2px;"><span style="width:30%;display:inline-block;">Verbunden:</span><span display="inline-block">' + (isConnected ? 'JA' : 'NEIN') + '</span></div>\n';
+   }
+
+   form += ' </div>';
+   form += '</div>';
+
+   $(form).dialog({
+      title: config.instanceName + (isOnline ? ' - ONLINE' : ' - OFFLINE'),
+      width: "400px",
+      modal: true,
+      resizable: false,
+      closeOnEscape: true,
+      hide: "fade",
+      open: function(event, ui) {
+         $('.ui-widget-overlay').bind('click', function()
+                                      { $("#daemonStateDlg").dialog('close'); });
+      },
+      close: function() {
+         $("body").off("click");
+         $(this).dialog('destroy').remove();
+      }
+   });
+
+}
+
 var socketStateCount = 0;
 var socketStateTimeInterval = null;
 
@@ -184,7 +222,6 @@ async function showInfoDialog(object)
 {
    let message = object.message;
    let titleMsg = '';
-
    let msDuration = 2000;
 
    if (object.status == 0)
@@ -460,6 +497,7 @@ function dispatchMessage(message)
       daemonState = jMessage.object;
 		let now = new Date();
 		daemonState.timeOffset = Math.round(now/1000 - daemonState.systime);
+      console.log("daemonState", daemonState);
 		// console.log("timeOffset", daemonState.timeOffset, "s");
 		updateFooter();
    }

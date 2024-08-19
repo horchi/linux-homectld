@@ -107,6 +107,7 @@ def isAuto(val):
 	return False
 
 def toModeString(mode):
+	mode = mode & ~0x08     # mask additional auto bit, we check it by isAuto
 	if mode == 0:
 		return "Aus"
 	elif mode == 1:
@@ -176,7 +177,6 @@ def frame_listener(frame):
 
 		if byte == 0:
 			sensor['kind'] = 'text'
-			sensor['value'] = sensor['value'] & 0x0F
 			sensor['text'] = toModeString(sensor['value'])
 			tell(3, '{0:} / {1:}'.format(toModeString(sensor['value']), "Automatik" if isAuto(sensor['value']) else "Manuell"))
 		elif byte == 1:

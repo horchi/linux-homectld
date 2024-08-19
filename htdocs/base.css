@@ -1225,6 +1225,7 @@ table.tableMultiCol td
 
 .tabButtons > span:nth-child(2)
 {
+    display: flex;
     align-content: center;
     margin-right: 10px;
 }

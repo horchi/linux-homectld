@@ -412,7 +412,7 @@ function sensorDoSetup(type, address)
                                           .attr('id', 'invertDo')
                                           .attr('type', 'checkbox')
                                           .addClass('rounded-border inputSetting')
-                                          .prop('checked', valueFacts[key].settings ? valueFacts[key].calibration.invert : true))
+                                          .prop('checked', valueFacts[key].settings ? valueFacts[key].settings.invert : true))
                                   .append($('<label></label>')
                                           .prop('for', 'invertDo'))))
                   .append($('<div></div>')
@@ -423,7 +423,7 @@ function sensorDoSetup(type, address)
                                           .attr('id', 'impulseDo')
                                           .attr('type', 'checkbox')
                                           .addClass('rounded-border inputSetting')
-                                          .prop('checked', valueFacts[key].settings ? valueFacts[key].calibration.impulse : false))
+                                          .prop('checked', valueFacts[key].settings ? valueFacts[key].settings.impulse : false))
                                   .append($('<label></label>')
                                           .prop('for', 'impulseDo'))))
                   .append($('<div></div>')
@@ -434,7 +434,7 @@ function sensorDoSetup(type, address)
                                           .attr('id', 'feedbackIo')
                                           .attr('type', 'search')
                                           .addClass('rounded-border inputSetting')
-                                          .val(valueFacts[key].settings && valueFacts[key].calibration.feedbackInType ?
+                                          .val(valueFacts[key].settings && valueFacts[key].settings.feedbackInType ?
                                                valueFacts[key].settings.feedbackInType
                                                + ':0x'
                                                + valueFacts[key].settings.feedbackInAddress.toString(16) : ''))))
@@ -447,7 +447,7 @@ function sensorDoSetup(type, address)
                                           .attr('id', 'scriptDo')
                                           .addClass('rounded-border inputSetting inputSettingScript')
                                           .css('height', '100px')
-                                          .val(valueFacts[key].settings ? valueFacts[key].calibration.script : '')
+                                          .val(valueFacts[key].settings ? valueFacts[key].settings.script : '')
                                          )))
                          );
 
@@ -597,7 +597,7 @@ function sensorDiSetup(type, address)
                               .attr('id', 'invertDi')
                               .attr('type', 'checkbox')
                               .addClass('rounded-border inputSetting')
-                              .prop('checked', valueFacts[key].settings ? valueFacts[key].calibration.invert : true))
+                              .prop('checked', valueFacts[key].settings ? valueFacts[key].settings.invert : true))
                       .append($('<label></label>')
                               .prop('for', 'invertDi'))))
       .append($('<div></div>')
@@ -618,7 +618,7 @@ function sensorDiSetup(type, address)
                          .attr('id', 'interruptDi')
                          .attr('type', 'checkbox')
                          .addClass('rounded-border inputSetting')
-                         .prop('checked', valueFacts[key].settings ? valueFacts[key].calibration.interrupt : false))
+                         .prop('checked', valueFacts[key].settings ? valueFacts[key].settings.interrupt : false))
                  .append($('<label></label>')
                          .attr('title', 'Neustart zum aktivieren')
                          .prop('for', 'interruptDi')));
@@ -656,7 +656,7 @@ function sensorDiSetup(type, address)
          }
       },
       open: function(){
-         let pull = valueFacts[key].settings ? valueFacts[key].calibration.pull : 0;
+         let pull = valueFacts[key].settings ? valueFacts[key].settings.pull : 0;
          $('#pullDi')
             .append($('<option></option>')
                     .val(0)

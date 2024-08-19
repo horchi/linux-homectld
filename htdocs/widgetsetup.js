@@ -633,3 +633,139 @@ function widgetSetup(key)
       close: function() { $(this).dialog('destroy').remove(); }
    });
 }
+function dashboardSetup(did)
+{
+   let form = document.createElement("div");
+   let dashboardId = parseInt(did.substring(4));
+
+   if (dashboards[dashboardId].options == null)
+      dashboards[dashboardId].options = {};
+
+   $(form).append($('<div></div>')
+                  .addClass('settingsDialogContent')
+
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .html('Titel'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'dashTitle')
+                                          .attr('type', 'search')
+                                          .val(dashboards[dashboardId].title)
+                                         )))
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .html('Symbol'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'dashSymbol')
+                                          .attr('type', 'search')
+                                          .val(dashboards[dashboardId].symbol)
+                                         )))
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .html('Zeilenhöhe'))
+                          .append($('<span></span>')
+                                  // .append($('<select></select>')
+											 .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'heightfactor')
+                                          .val(dashboards[dashboardId].options.heightfactor)
+                                         )))
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .html('Zeilenhöhe Kiosk'))
+                          .append($('<span></span>')
+                                  // .append($('<select></select>')
+											 .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'heightfactorKiosk')
+                                          .val(dashboards[dashboardId].options.heightfactorKiosk)
+                                         )))
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .html('Widget Breite Kiosk'))
+                          .append($('<span></span>')
+                                  // .append($('<select></select>')
+											 .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'widthfactorKiosk')
+                                          .val(dashboards[dashboardId].options.widthfactorKiosk)
+                                         )))
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .html('Gruppe'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('type', 'number')
+                                          .attr('id', 'group')
+                                          .val(dashboards[dashboardId].group)
+                                         )))
+                 );
+
+   $(form).dialog({
+      modal: true,
+      resizable: false,
+      closeOnEscape: true,
+      hide: "fade",
+      width: "auto",
+      title: "Dashbord - " + dashboards[dashboardId].title,
+      open: function() {
+         $(".ui-dialog-buttonpane button:contains('Dashboard löschen')").attr('style','color:#ff5757');
+
+         if (!dashboards[dashboardId].options.heightfactor)
+            dashboards[dashboardId].options.heightfactor = 1;
+         if (!dashboards[dashboardId].options.heightfactorKiosk)
+            dashboards[dashboardId].options.heightfactorKiosk = 1;
+			if (!dashboards[dashboardId].options.widthfactorKiosk)
+            dashboards[dashboardId].options.widthfactorKiosk = 1;
+
+//         for (let w = 0.5; w <= 2.0; w += 0.5) {
+//            $('#heightfactor').append($('<option></option>')
+//                                      .val(w).html(w).attr('selected', dashboards[dashboardId].options.heightfactor == w));
+//            $('#heightfactorKiosk').append($('<option></option>')
+//                                      .val(w).html(w).attr('selected', dashboards[dashboardId].options.heightfactorKiosk == w));
+//         }
+      },
+      buttons: {
+         'Dashboard löschen': function () {
+            console.log("delete dashboard: " + dashboards[dashboardId].title);
+            socket.send({ "event" : "storedashboards", "object" : { [dashboardId] : { 'action' : 'delete' } } });
+            socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'dashboards' } });
+
+            $(this).dialog('close');
+         },
+         'Ok': function () {
+            dashboards[dashboardId].options = {};
+            dashboards[dashboardId].options.heightfactor = $("#heightfactor").val();
+            dashboards[dashboardId].options.heightfactorKiosk = $("#heightfactorKiosk").val();
+            dashboards[dashboardId].options.widthfactorKiosk = $("#widthfactorKiosk").val();
+            console.log("set options: " + JSON.stringify(dashboards[dashboardId].options, undefined, 4));
+            dashboards[dashboardId].title = $("#dashTitle").val();
+            dashboards[dashboardId].symbol = $("#dashSymbol").val();
+            dashboards[dashboardId].group = parseInt($("#group").val());
+
+            socket.send({ "event" : "storedashboards", "object" : { [dashboardId] : { 'title' : dashboards[dashboardId].title,
+                                                                                      'group' : dashboards[dashboardId].group,
+                                                                                      'symbol' : dashboards[dashboardId].symbol,
+                                                                                      'options' : dashboards[dashboardId].options} } });
+            socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'dashboards' } });
+            $(this).dialog('close');
+         },
+         'Abbrechen': function () {
+            $(this).dialog('close');
+         }
+      },
+
+      close: function() { $(this).dialog('destroy').remove(); }
+   });
+}

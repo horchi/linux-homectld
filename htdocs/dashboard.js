@@ -332,11 +332,13 @@ function initWidget(key, widget, fact)
       widget.unit = fact.unit;
 
    const marginWidth = 3 *2;
+	const useKioskHeight = kioskMode == 1 || kioskMode == 2;
    let root = document.getElementById("widgetContainer");
    let id = 'div_' + key;
    let elem = document.getElementById(id);
 
    if (elem == null) {
+
       elem = document.createElement("div");
       root.appendChild(elem);
       elem.setAttribute('id', id);
@@ -348,8 +350,6 @@ function initWidget(key, widget, fact)
          eHeight = widgetHeightBase;
 
          // verschiedene heightfactor für verscheidene dashboards und / kiosk mode
-
-         let useKioskHeight = kioskMode == 1 || kioskMode == 2;
 
          if (heightFactor && heightFactor != 1)
             eHeight = widgetHeightBase * heightFactor;
@@ -385,13 +385,17 @@ function initWidget(key, widget, fact)
    {
       let style = getComputedStyle(document.documentElement);
       let widgetWidthBase = style.getPropertyValue('--widgetWidthBase') * 2;
+      let widthFactor = widget.widthfactor != null ? widget.widthfactor : 1;
 
-      if (widget.widthfactor != null && widget.widthfactor > 0)
-         elem.style.width = widgetWidthBase * widget.widthfactor + ((widget.widthfactor-1) * marginWidth) + 'px'; // adjust margin not the formula
+      if (useKioskHeight && dashboards[actDashboard].options && dashboards[actDashboard].options.widthfactorKiosk)
+         widthFactor *= dashboards[actDashboard].options.widthfactorKiosk;
+
+      if (widthFactor != 1)
+         elem.style.width = widgetWidthBase * widthFactor + ((widthFactor-1) * marginWidth) + 'px'; // adjust margin not the formula
       else
          elem.style.width = widgetWidthBase + 'px';
 
-      // console.log("widget", key, "width", elem.style.width, "widgetWidthBase", widgetWidthBase, "widget.widthfactor", widget.widthfactor);
+      // console.log("widget", key, "width", elem.style.width, "widgetWidthBase", widgetWidthBase, "widthFactor", widthFactor);
    }
 
    if (setupMode && (widget.widgettype < 900 || widget.widgettype == null)) {
@@ -2131,125 +2135,4 @@ function dropWidget(ev)
 
    socket.send({ "event" : "storedashboards", "object" : { [actDashboard] : { 'title' : dashboards[actDashboard].title, 'widgets' : json } } });
    socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'dashboards' } });
-}
-
-function dashboardSetup(did)
-{
-   let form = document.createElement("div");
-   let dashboardId = parseInt(did.substring(4));
-
-   if (dashboards[dashboardId].options == null)
-      dashboards[dashboardId].options = {};
-
-   $(form).append($('<div></div>')
-                  .addClass('settingsDialogContent')
-
-                  .append($('<div></div>')
-                          .css('display', 'flex')
-                          .append($('<span></span>')
-                                  .html('Titel'))
-                          .append($('<span></span>')
-                                  .append($('<input></input>')
-                                          .addClass('rounded-border inputSetting')
-                                          .attr('id', 'dashTitle')
-                                          .attr('type', 'search')
-                                          .val(dashboards[dashboardId].title)
-                                         )))
-                  .append($('<div></div>')
-                          .css('display', 'flex')
-                          .append($('<span></span>')
-                                  .html('Symbol'))
-                          .append($('<span></span>')
-                                  .append($('<input></input>')
-                                          .addClass('rounded-border inputSetting')
-                                          .attr('id', 'dashSymbol')
-                                          .attr('type', 'search')
-                                          .val(dashboards[dashboardId].symbol)
-                                         )))
-                  .append($('<div></div>')
-                          .css('display', 'flex')
-                          .append($('<span></span>')
-                                  .html('Zeilenhöhe'))
-                          .append($('<span></span>')
-                                  .append($('<select></select>')
-                                          .addClass('rounded-border inputSetting')
-                                          .attr('id', 'heightfactor')
-                                          .val(dashboards[dashboardId].options.heightfactor)
-                                         )))
-                  .append($('<div></div>')
-                          .css('display', 'flex')
-                          .append($('<span></span>')
-                                  .html('Zeilenhöhe Kiosk'))
-                          .append($('<span></span>')
-                                  .append($('<select></select>')
-                                          .addClass('rounded-border inputSetting')
-                                          .attr('id', 'heightfactorKiosk')
-                                          .val(dashboards[dashboardId].options.heightfactorKiosk)
-                                         )))
-                  .append($('<div></div>')
-                          .css('display', 'flex')
-                          .append($('<span></span>')
-                                  .html('Gruppe'))
-                          .append($('<span></span>')
-                                  .append($('<input></input>')
-                                          .addClass('rounded-border inputSetting')
-                                          .attr('type', 'number')
-                                          .attr('id', 'group')
-                                          .val(dashboards[dashboardId].group)
-                                         )))
-                 );
-
-   $(form).dialog({
-      modal: true,
-      resizable: false,
-      closeOnEscape: true,
-      hide: "fade",
-      width: "auto",
-      title: "Dashbord - " + dashboards[dashboardId].title,
-      open: function() {
-         $(".ui-dialog-buttonpane button:contains('Dashboard löschen')").attr('style','color:#ff5757');
-
-         if (!dashboards[dashboardId].options.heightfactor)
-            dashboards[dashboardId].options.heightfactor = 1;
-         if (!dashboards[dashboardId].options.heightfactorKiosk)
-            dashboards[dashboardId].options.heightfactorKiosk = 1;
-
-         for (let w = 0.5; w <= 2.0; w += 0.5) {
-            $('#heightfactor').append($('<option></option>')
-                                      .val(w).html(w).attr('selected', dashboards[dashboardId].options.heightfactor == w));
-            $('#heightfactorKiosk').append($('<option></option>')
-                                      .val(w).html(w).attr('selected', dashboards[dashboardId].options.heightfactorKiosk == w));
-         }
-      },
-      buttons: {
-         'Dashboard löschen': function () {
-            console.log("delete dashboard: " + dashboards[dashboardId].title);
-            socket.send({ "event" : "storedashboards", "object" : { [dashboardId] : { 'action' : 'delete' } } });
-            socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'dashboards' } });
-
-            $(this).dialog('close');
-         },
-         'Ok': function () {
-            dashboards[dashboardId].options = {};
-            dashboards[dashboardId].options.heightfactor = $("#heightfactor").val();
-            dashboards[dashboardId].options.heightfactorKiosk = $("#heightfactorKiosk").val();
-            console.log("change title from: " + dashboards[dashboardId].title + " to " + $("#dashTitle").val());
-            dashboards[dashboardId].title = $("#dashTitle").val();
-            dashboards[dashboardId].symbol = $("#dashSymbol").val();
-            dashboards[dashboardId].group = parseInt($("#group").val());
-
-            socket.send({ "event" : "storedashboards", "object" : { [dashboardId] : { 'title' : dashboards[dashboardId].title,
-                                                                                      'group' : dashboards[dashboardId].group,
-                                                                                      'symbol' : dashboards[dashboardId].symbol,
-                                                                                      'options' : dashboards[dashboardId].options} } });
-            socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'dashboards' } });
-            $(this).dialog('close');
-         },
-         'Abbrechen': function () {
-            $(this).dialog('close');
-         }
-      },
-
-      close: function() { $(this).dialog('destroy').remove(); }
-   });
 }

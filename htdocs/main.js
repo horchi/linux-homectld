@@ -788,8 +788,10 @@ function mainMenuSel(what, action = null)
 
    if (currentPage == "setup")
       event = "setup";
-   else if (currentPage == "iosetup")
+   else if (currentPage == "iosetup") {
+      showProgressDialog();
       socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'valuefacts' } });
+   }
    else if (currentPage == "commands")
       initCommands();
    else if (currentPage == "user")

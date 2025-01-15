@@ -18,6 +18,7 @@ const char* LmcTag::tags[] =
    "player_ip",
    "player_needs_upgrade", // Connected player needs a firmware upgrade.
    "player_is_upgrading",  // Connected player is in the process of performing a firmware update.
+   "randomplay",           // bool
 
    "rescan",               // Returned with value 1 if the Squeezebox Server is still scanning the database. The results may therefore be incomplete. Not returned if no scan is in progress.
    "error",                // Returned with value "invalid player" if the player this subscription query referred to does no longer exist.In non subscription mode, the query simply echoes itself (i.e. produces no result) if <playerid> is wrong.
@@ -176,8 +177,8 @@ int LmcTag::getNext(int& tag, char* value, unsigned short max, int track)
 
 int LmcTag::getNext(char* name, char* value, unsigned short max)
 {
-   int status;
-   char* v;
+   int status {success};
+   char* v {};
 
    *name = 0;
    *value = 0;

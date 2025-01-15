@@ -64,6 +64,8 @@ typedef unsigned int dword;
 
 inline long min(long a, long b) { return a < b ? a : b; }
 
+#define naf -1.0
+
 enum Misc
 {
    success = 0,

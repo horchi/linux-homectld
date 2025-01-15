@@ -114,7 +114,7 @@ class VeService
          dmHibernate  = 0xfd    // VE.Direct is affected 2)
       };
 
-      static std::map<uint8_t,RegisterDefinition> registerDefinitions;
+      static std::map<uint16_t,RegisterDefinition> registerDefinitions;
       static const char* titleOf(uint16_t reg);
       static const char* unitOf(uint16_t reg);
       static std::string toPretty(uint16_t reg, double value);

@@ -126,7 +126,7 @@ int Daemon::lmcTrack2Json(json_t* obj, TrackInfo* track)
    // json_object_set_new(current, "id", json_integer(track->id));
 
    std::string url;
-   lmc->getCurrentCoverUrl(track, url);
+   lmc->getCurrentCoverUrl(track, url, true);
 
    tell(eloLmc, "[LMC] Using artworkurl '%s'", track->artworkurl);
    json_object_set_new(current, "cover", json_string(url.c_str()));
@@ -241,13 +241,17 @@ MenuItem menuItems[] =
 
 int Daemon::lmcMainMenu2Json(json_t* obj)
 {
-   json_t* oMenu = json_array();
+   json_t* oMenu {json_object()};
    json_object_set_new(obj, "menu", oMenu);
+   json_object_set_new(oMenu, "type", json_integer(na));
+
+   json_t* oItems {json_array()};
+   json_object_set_new(oMenu, "items", oItems);
 
    for (const auto& item : menuItems)
    {
       json_t* oItem = json_object();
-      json_array_append_new(oMenu, oItem);
+      json_array_append_new(oItems, oItem);
 
       json_object_set_new(oItem, "name", json_string(item.name));
       json_object_set_new(oItem, "id", json_integer(item.queryType));
@@ -266,33 +270,60 @@ int Daemon::performLmcAction(json_t* oObject, long client)
       return done;
 
    std::string action = getStringFromJson(oObject, "action", "");
-   int index = getIntFromJson(oObject, "index", na);
-   LmcCom::RangeQueryType queryType = (LmcCom::RangeQueryType)getIntFromJson(oObject, "query", na);
+   int id {getIntFromJson(oObject, "id", na)};
 
-   tell(eloAlways, "[LMC] Action '%s' (%d)", action.c_str(), queryType);
-
-   if (action == "menu" && queryType != LmcCom::rqtUnknown)
+   if (action == "menu") //  && queryType != LmcCom::rqtUnknown)
    {
       static int maxElements {50000};
       LmcCom::Parameters filters;
       LmcCom::RangeList list;
       int total {0};
 
-      if (queryType == LmcCom::rqtNewMusic)
+      LmcCom::RangeQueryType currentMenuType = (LmcCom::RangeQueryType)getIntFromJson(oObject, "type", na);
+
+      if (currentMenuType == LmcCom::rqtUnknown)
+      {
+         currentMenuType = (LmcCom::RangeQueryType)id;
+      }
+      else if (id != na)
+      {
+         if (currentMenuType == LmcCom::rqtGenres)
+         {
+            currentMenuType = LmcCom::rqtTracks;
+            char* tmp {};
+            asprintf(&tmp, "genre_id:%d", id);
+            filters.push_back(tmp);
+            free(tmp);
+         }
+         else if (currentMenuType == LmcCom::rqtTracks)
+         {
+            lmc->clear();
+            lmc->append(id);
+            lmc->play();
+            return done;
+         }
+      }
+
+      if (currentMenuType == LmcCom::rqtNewMusic)
          filters.push_back("sort:new");
 
-      json_t* oMenu = json_array();
+      tell(eloAlways, "[LMC] Menu action '%s', type (%d), id (%d)", action.c_str(), currentMenuType, id);
 
-      tell(eloAlways, "[LMC] Query (%d)", queryType);
+      json_t* oMenu {json_object()};
+      json_t* oItems {json_array()};
+      json_object_set_new(oMenu, "items", oItems);
+      json_object_set_new(oMenu, "type", json_integer(currentMenuType));
 
-      if (lmc->queryRange(queryType, 0, maxElements, &list, total, "", &filters) == success)
+      tell(eloAlways, "[LMC] Query (%d)", currentMenuType);
+
+      if (lmc->queryRange(currentMenuType, 0, maxElements, &list, total, "", &filters) == success)
       {
          LmcCom::RangeList::iterator it;
 
          for (it = list.begin(); it != list.end(); ++it)
          {
             json_t* oItem = json_object();
-            json_array_append_new(oMenu, oItem);
+            json_array_append_new(oItems, oItem);
 
             json_object_set_new(oItem, "name", json_string((*it).content.c_str()));
             json_object_set_new(oItem, "id", json_string((*it).id.c_str()));
@@ -304,8 +335,8 @@ int Daemon::performLmcAction(json_t* oObject, long client)
             tell(eloAlways, "[LMC] Warning: %d more, only maxElements supported", total-maxElements);
       }
    }
-   else if (action == "play" && index != na)
-      lmc->track(index);
+   else if (action == "play" && id != na)
+      lmc->track(id);
    else if (action == "play")
       lmc->play();
    else if (action == "pause")

@@ -92,6 +92,7 @@ Daemon::ValueTypes Daemon::defaultValueTypes[] =
    { "^ADS",      "Analog Eingänge" },
    { "^Sp",       "Weitere Sensoren" },
    { "^DZL",      "DECONZ Lampen" },
+   { "^DZLG",      "DECONZ Lampen Gruppe" },
    { "^DZS",      "DECONZ Sensoren" },
    { "^HM.*",     "Home Matic" },
    { "^P4.*",     "P4 Daemon" },
@@ -149,6 +150,7 @@ Daemon::DefaultWidgetProperty Daemon::defaultWidgetProperties[] =
    { "VA",       na,   "*",      wtMeter,        0,        45,      10, true },
    { "HMB",      na,   "*",wtSymbolValue,        0,         0,       0, true },
    { "DZL",      na,   "*",     wtSymbol,        0,         0,       0, true },
+   { "DZLG",     na,   "*",     wtSymbol,        0,         0,       0, true },
    { "DZS",      na, "zst",     wtSymbol,        0,         0,       0, true },
    { "DZS",      na,  "°C", wtMeterLevel,        0,        45,      10, true },
    { "DZS",      na,   "%",      wtChart,        0,         0,       0, true },
@@ -208,6 +210,13 @@ int Daemon::widgetDefaults2Json(json_t* jDefaults, const char* type, const char*
    {
       symbol = "mdi:mdi-lightbulb-variant-outline";
       symbolOn = "mdi:mdi-lightbulb-variant";
+      color = "rgb(255, 255, 255)";
+      colorOn = "rgb(235, 197, 5)";
+   }
+   else if (strcmp(type, "DZLG") == 0)
+   {
+      symbol = "mdi:mdi-lightbulb-group-outline";
+      symbolOn = "mdi:mdi-lightbulb-group";
       color = "rgb(255, 255, 255)";
       colorOn = "rgb(235, 197, 5)";
    }
@@ -512,7 +521,8 @@ int Daemon::init()
    lmcInit();
 
    if (!isEmpty(deconz.getHttpUrl()) && !isEmpty(deconz.getApiKey()))
-      deconz.initDevices();
+      deconz.initWsClient();
+   // deconz.initDevices();
 
    if (!isEmpty(deconz.getHttpUrl()) && isEmpty(deconz.getApiKey()))
    {
@@ -616,7 +626,7 @@ int Daemon::initSensorByFact(myString type, uint address)
    if (!fact->getValue("PARAMETER")->isEmpty())
       sensors[type][address].parameter = fact->getStrValue("PARAMETER");
 
-   if (type == "DO" || type == "DI" || type == "DZL")
+   if (type == "DO" || type == "DI" || type == "DZL" || type == "DZLG")
       sensors[type][address].kind = "status";
 
    if (sensors[type][address].unit == "txt")
@@ -3271,8 +3281,16 @@ int Daemon::dispatchDeconz()
    {
       tell(eloDeconz, "<- (DECONZ) '%s'", Deconz::messagesIn.front().c_str());
 
-      json_t* oData = jsonLoad(Deconz::messagesIn.front().c_str());
+      const char* msg = Deconz::messagesIn.front().c_str();
 
+      if (strcmp(msg, "WS CONNECTED") == 0)
+      {
+         Deconz::messagesIn.pop();
+         tell(eloAlways, "DECONZ: Init devices on WS connected");
+         return deconz.initDevices();
+      }
+
+      json_t* oData = jsonLoad(msg);
       const char* type = getStringFromJson(oData, "type");
       uint address = getIntFromJson(oData, "address");
       SensorData* sensor = getSensor(type, address);
@@ -4007,7 +4025,7 @@ int Daemon::getConfigItem(const char* name, double& value, double def)
 
    if (!isEmpty(txt))
       value = strtod(txt, nullptr);
-   else if (isEmpty(txt) && def != na)
+   else if (isEmpty(txt) && def != naf)
    {
       value = def;
       setConfigItem(name, value);
@@ -4129,7 +4147,7 @@ int Daemon::toggleIo(uint addr, const char* type, int state, int bri, int transi
       gpioWrite(addr, newState);
    else if (strcmp(type, "SC") == 0)
       callScript(addr, "toggle");
-   else if (strcmp(type, "DZL") == 0)
+   else if (strcmp(type, "DZL") == 0 || strcmp(type, "DZLG") == 0)
       deconz.toggle(type, addr, newState, bri, transitiontime);
 
    else if (myString(type).starts_with("MCPO"))

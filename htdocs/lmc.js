@@ -310,7 +310,7 @@ function onMenu()
    if ($('#lmcLeftColumnMenu').hasClass('hidden')) {
       $('#lmcLeftColumnMenu').removeClass('hidden');
       $('#lmcLeftColumn').addClass('hidden');
-      showMenu();
+      lmcMenu();
    }
    else {
       $('#lmcLeftColumnMenu').addClass('hidden');
@@ -318,7 +318,7 @@ function onMenu()
    }
 }
 
-function showMenu(menuData)
+function lmcMenu(menuData)
 {
    let menu = menuData ? menuData : lmcData.menu;
 
@@ -326,23 +326,22 @@ function showMenu(menuData)
 
    $('#lmcLeftColumnMenu').empty();
 
-   for (let i = 0; i < menu.length; i++) {
+   for (let i = 0; i < menu.items.length; i++) {
       $('#lmcLeftColumnMenu')
          .append($('<div></div>')
-                 .data('id', menu[i].id)
+                 .data('id', menu.items[i].id)
                  .addClass('rounded-border lmcWidget')
                  .click(function() {
-                    // console.log("send menu request", { 'event' : 'lmcaction', 'object' : { 'action' : 'menu', 'queryType' :  $(this).data('id')} });
-                    socket.send({ 'event' : 'lmcaction', 'object' : { 'action' : 'menu', 'query' :  $(this).data('id')} });
+                    console.log("send menu request", { 'event' : 'lmcaction', 'object' : { 'action' : 'menu', 'type' : menu.type, 'id' :  $(this).data('id')} });
+                    socket.send({ 'event' : 'lmcaction', 'object' : {
+                       'action' : 'menu',
+                       'type' : menu.type,
+                       'id' :  parseInt($(this).data('id'))
+                    }});
                  })
-                 .html(menu[i].name)
+                 .html(menu.items[i].name)
                 );
    }
-}
-
-function lmcMenu(menu)
-{
-   showMenu(menu);
 }
 
 function lmcAction(action)

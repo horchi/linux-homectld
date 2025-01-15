@@ -38,6 +38,7 @@ class LmcTag
          tPlayerIp,
          tPlayerNeedsUpgrade,
          tPlayerIsUpgrading,
+         tRandomplay,
 
          rRescan,
          tError,

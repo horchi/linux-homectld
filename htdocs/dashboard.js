@@ -355,8 +355,10 @@ function initWidget(key, widget, fact)
             eHeight = widgetHeightBase * heightFactor;
          else if (!useKioskHeight && dashboards[actDashboard].options && dashboards[actDashboard].options.heightfactor)
             eHeight = widgetHeightBase * dashboards[actDashboard].options.heightfactor;
-         else if (useKioskHeight && dashboards[actDashboard].options && dashboards[actDashboard].options.heightfactorKiosk)
+         else if (useKioskHeight && dashboards[actDashboard].options && dashboards[actDashboard].options.heightfactorKiosk) {
             eHeight = widgetHeightBase * dashboards[actDashboard].options.heightfactorKiosk;
+            // console.log("eHeight", eHeight, "dashboards[actDashboard].options.heightfactorKiosk", dashboards[actDashboard].options.heightfactorKiosk);
+         }
 
          // widget.heightfactor für widget spezifische Höhen -> to be implementen (nur vorbereitet)
 

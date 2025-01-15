@@ -1877,10 +1877,12 @@ table.tableMultiCol td
 
 .widget > button > img
 {
+    /*
+    auskommentiert wegen verschobener Darstellung (auffällig z.B. bei heightfactor 0,75)
     max-width: 100%;
     max-height: 90%;
     justify-self: center;
-    vertical-align: middle;
+    vertical-align: middle;*/
 }
 
 .widgetGauge > button > img

@@ -9,12 +9,19 @@
 
 /*
   or (better) use JSON interface like:
+
+  - the first parameter is the player id or "" for 'global' commands
+
    curl -X POST -d '{ "method": "slim.request", "params":["b8:27:eb:91:96:1b", ["mixer", "volume", "100"]]}' gate:9000/jsonrpc.js
    curl -X POST -d '{ "method": "slim.request", "params":["b8:27:eb:91:96:1b", ["status"]]}' gate:9000/jsonrpc.js | json_pp
    curl -X POST -d '{ "method": "slim.request", "params":["", ["players", "0", "100"]]}' gate:9000/jsonrpc.js | json_pp
    curl -X POST -d '{ "method": "slim.request", "id":1, "params":[ "", ["albums", "0","100" ]]}' gate:9000/jsonrpc.js | json_pp
    curl -X POST -d '{ "method": "slim.request", "id":1, "params":[ "", ["serverstatus", "0","100" ]]}' gate:9000/jsonrpc.js | json_pp
 
+   // query tracks with genre_id 2:
+   curl -X POST -d '{ "method": "slim.request", "id":4711, "params":[ 0, ["tracks", "0","100", "genre_id:2"]]}' gate:9000/jsonrpc.js | json_pp | less
+
+   -> https://lyrion.org/reference/cli/using-the-cli/#jsonrpcjs
    -> https://forums.slimdevices.com/showthread.php?82985-JSON-help
 */
 
@@ -49,23 +56,23 @@ class LmcCom : public TcpChannel
       {
          rqtUnknown = na,
 
-         rqtGenres,
-         rqtArtists,
-         rqtAlbums,
-         rqtNewMusic,
-         rqtTracks,
-         rqtYears,
-         rqtPlaylists,
-         rqtRadios,
-         rqtRadioApps,
-         rqtFavorites,
-         rqtPlayers
+         rqtGenres,     //  0
+         rqtArtists,    //  1
+         rqtAlbums,     //  2
+         rqtNewMusic,   //  3
+         rqtTracks,     //  4
+         rqtYears,      //  5
+         rqtPlaylists,  //  6
+         rqtRadios,     //  7
+         rqtRadioApps,  //  8
+         rqtFavorites,  //  9
+         rqtPlayers     // 10
       };
 
       struct ListItem
       {
          ListItem()     { }
-            void clear()   { id = ""; content = ""; command = ""; hasItems = false; isAudio = false, isConnected = false; }
+         void clear()   { id = ""; content = ""; command = ""; hasItems = false; isAudio = false, isConnected = false; }
          int isEmpty()  { return content == ""; }
 
          std::string id;
@@ -118,8 +125,8 @@ class LmcCom : public TcpChannel
 
       // cover
 
-      int getCurrentCover(MemoryStruct* cover, TrackInfo* track = nullptr);
-      int getCurrentCoverUrl(TrackInfo* track, std::string& coverUrl);
+      int getCurrentCover(MemoryStruct* cover, TrackInfo* track = nullptr, bool big = false);
+      int getCurrentCoverUrl(TrackInfo* track, std::string& coverUrl, bool big = false);
       int getCover(MemoryStruct* cover, TrackInfo* track);
       int getCoverUrl(TrackInfo* track, std::string& coverUrl);
 
@@ -158,6 +165,18 @@ class LmcCom : public TcpChannel
 
       int nextTrack()      { return execute("playlist index", "+1"); }
       int prevTrack()      { return execute("playlist index", "-1"); }
+
+      int append(int id)
+      {
+         Parameters params;
+
+         params.push_back("cmd:add");
+
+         char par[50] {};
+         sprintf(par, "track_id:%d", id);
+         params.push_back(par);
+         return execute("playlistcontrol", &params);
+      }
 
       int track(unsigned short index)
       {

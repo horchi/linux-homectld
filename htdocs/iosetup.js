@@ -19,6 +19,8 @@ function initIoSetup()
 {
    // console.log(JSON.stringify(valueFacts, undefined, 4));
 
+   hideProgressDialog();
+
    $('#controlContainer').removeClass('hidden');
    $('#container').removeClass('hidden');
 

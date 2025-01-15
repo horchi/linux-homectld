@@ -1034,10 +1034,10 @@ int Daemon::performChartData(json_t* oObject, long client)
    json_t* oJson = json_array();
 
    if (!rangeStart)
-      rangeStart = time(0) - (range*tmeSecondsPerDay);
+      rangeStart = time(0) - (range*(int)tmeSecondsPerDay);
 
    rangeFrom.setValue(rangeStart);
-   rangeTo.setValue(rangeStart + (int)(range*tmeSecondsPerDay));
+   rangeTo.setValue(rangeStart + (int)(range*(int)tmeSecondsPerDay));
 
    tell(eloDb, "Db: Selecting chart '%s' data for sensors '%s' from (%ld) to (%ld) with range %.1f",
         id, sensors, rangeFrom.getTimeValue(), rangeTo.getTimeValue(), range);
@@ -2661,7 +2661,7 @@ int Daemon::sensor2Json(json_t* obj, const char* type, uint address)
       sensors[type][address].valid = sensors[type][address].last >= time(0) - 60*tmeSecondsPerMinute;
    else if (strcmp(type, "HMB") == 0)
       ;
-   else if (strcmp(type, "DZS") == 0 || strcmp(type, "DZL") == 0)
+   else if (strcmp(type, "DZS") == 0 || strncmp(type, "DZL", 3) == 0)
       ;
    else if (strncmp(type, "P4", 2) == 0)
       sensors[type][address].valid = sensors[type][address].last >= time(0) - 10*tmeSecondsPerMinute;

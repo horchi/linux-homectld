@@ -60,6 +60,9 @@ int LmcCom::open(const char* aHost, unsigned short aPort)
    if (res == success)
       tell(eloAlways, "[LMC] Connection to LMC server established");
 
+   // Endpoint for new LMC REST API
+   //   actually only used for players query
+
    free(curlUrl);
    asprintf(&curlUrl, "http://%s:%d/jsonrpc.js", host, 9000);
 
@@ -74,9 +77,9 @@ int LmcCom::update(int stateOnly)
 {
    LmcLock;
 
-   const int maxValue = 10000;
-   char* value = 0;
-   int tag;
+   const int maxValue {10000};
+   char* value {};
+   int tag {0};
 
    LmcTag lt(this);
    char cmd[100] {};
@@ -194,10 +197,9 @@ int LmcCom::query(const char* command, char* result, int max)
 {
    LmcLock;
 
-   int status;
-
    setQueryTitle(command);
-   status = request(command);
+
+   int status = request(command);
    status += write(" ?\n");
 
    if ((status += response(result, max)) != success)
@@ -343,7 +345,7 @@ int LmcCom::queryRange(RangeQueryType queryType, int from, int count,
    }
 
    lt.set(result);
-   tell(eloDebugLmc, "[LMC] Got [%s]", unescape(result));
+   // tell(eloDebugLmc, "[LMC] Got [%s]", unescape(result));
    free(result); result = 0;
 
    while (lt.getNext(tag, value, maxValue) != LmcTag::wrnEndOfPacket)
@@ -548,7 +550,7 @@ int LmcCom::responseP(char*& result)
 
    result = 0;
 
-   // wait op to 30 seconds to receive answer ..
+   // wait up to 30 seconds to receive answer ..
 
    if (look(30000) == success && (buf = readln()))
    {
@@ -759,48 +761,64 @@ int LmcCom::checkNotify(uint64_t timeout)
 
 //***************************************************************************
 // Get Current Cover
+//
+//   /imageproxy/http%3A%2F%2Fcdn-profiles.tunein.com%2Fs312162%2Fimages%2Flogoq.png%3Ft%3D484/image_300x300_f.png
+//   /imageproxy/http%3A%2F%2Fcdn-profiles.tunein.com%2Fs312162%2Fimages%2Flogoq.png%3Ft%3D484/image.png
+//   /imageproxy/http%3A%2F%2Fcdn-profiles.tunein.com%2Fs312162%2Fimages%2Flogoq.png%3Ft%3D484/image_1024x1024_f.png
 //***************************************************************************
 
-int LmcCom::getCurrentCover(MemoryStruct* cover, TrackInfo* track)
+int LmcCom::getCurrentCover(MemoryStruct* cover, TrackInfo* track, bool big)
 {
-   char* url {};
+   char* tmp {};
    int status {fail};
 
    if (track && !isEmpty(track->artworkurl))
    {
-      asprintf(&url, "http://%s:%d/%s", host, 9000, track->artworkurl);
-      status = downloadFile(url, cover);
-      free(url);
+      asprintf(&tmp, "http://%s:%d%s", host, 9000, track->artworkurl);
+      std::string url {tmp};
+      free(tmp);
+
+      if (big)
+         url = strReplace("image.png", "image_1024x1024_f.png", url);
+
+      status = downloadFile(url.c_str(), cover);
+
    }
 
    if (status != success)
    {
       // http://localhost:9000/music/current/cover.jpg?player=f0:4d:a2:33:b7:ed
 
-      asprintf(&url, "http://%s:%d/music/current/cover.jpg?player=%s", host, 9000, escId);
-      status = downloadFile(url, cover);
-      free(url);
+      asprintf(&tmp, "http://%s:%d/music/current/cover.jpg?player=%s", host, 9000, escId);
+      status = downloadFile(tmp, cover);
+      free(tmp);
    }
 
    return status;
 }
 
-int LmcCom::getCurrentCoverUrl(TrackInfo* track, std::string& coverUrl)
+int LmcCom::getCurrentCoverUrl(TrackInfo* track, std::string& coverUrl, bool big)
 {
-   char* url {};
+   char* tmp {};
 
    if (track && !isEmpty(track->artworkurl))
    {
-      asprintf(&url, "http://%s:%d/%s", host, 9000, track->artworkurl);
+      asprintf(&tmp, "http://%s:%d%s", host, 9000, track->artworkurl);
+      coverUrl = tmp;
+
+      if (big)
+         coverUrl = strReplace("image.png", "image_1024x1024_f.png", coverUrl);
+
+      // asprintf(&tmp, "http://%s:%d%s%s", host, 9000, track->artworkurl[0] == '/' ? "" : "/", track->artworkurl);
    }
    else
    {
       // http://localhost:9000/music/current/cover.jpg?player=f0:4d:a2:33:b7:ed
-      asprintf(&url, "http://%s:%d/music/current/cover.jpg?player=%s&nocache=%ld", host, 9000, escId, time(0));
+      asprintf(&tmp, "http://%s:%d/music/current/cover.jpg?player=%s&nocache=%ld", host, 9000, escId, time(0));
+      coverUrl = tmp;
    }
 
-   coverUrl = url;
-   free(url);
+   free(tmp);
 
    return done;
 }
@@ -816,7 +834,7 @@ int LmcCom::getCover(MemoryStruct* cover, TrackInfo* track)
 
    if (track && !isEmpty(track->artworkurl))
    {
-      asprintf(&url, "http://%s:%d/%s", host, 9000, track->artworkurl);
+      asprintf(&url, "http://%s:%d%s", host, 9000, track->artworkurl);
       status = downloadFile(url, cover);
       free(url);
    }
@@ -843,7 +861,7 @@ int LmcCom::getCoverUrl(TrackInfo* track, std::string& coverUrl)
 
    if (track && !isEmpty(track->artworkurl))
    {
-      asprintf(&url, "http://%s:%d/%s", host, 9000, track->artworkurl);
+      asprintf(&url, "http://%s:%d%s", host, 9000, track->artworkurl);
    }
    else
    {

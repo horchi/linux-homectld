@@ -24,7 +24,7 @@ uint8_t ctob(char c)
 // VE Service
 //***************************************************************************
 
-std::map<uint8_t,VeService::RegisterDefinition> VeService::registerDefinitions
+std::map<uint16_t,VeService::RegisterDefinition> VeService::registerDefinitions
 {
    { regInvNvmCommand,                   { "Invergter NVM Command",                rmWrite, rtByte,    1,  "" } },
    { regRestoreDefault,                  { "Restore NVM Default",                  rmWrite, rtNone,    1,  "" } },

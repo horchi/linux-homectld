@@ -50,6 +50,13 @@ function initLmc()
                                               .attr('id', 'lmcCurrenStream')))
                               .append($('<div></div>')
                                       .addClass('lmcTrackProgress')
+                                      .attr('id', 'lmcTrackProgress')
+                                      .click(function(event) {
+                                         let relX = event.pageX - $(this).offset().left;
+                                         let percent = parseInt(relX / ($(this).width()/100));
+                                         // console.log("click position", percent, '%');
+                                         socket.send({ 'event' : 'lmcaction', 'object' : { 'action' : 'time', 'percent' : percent} });
+                                      })
                                       .append($('<div></div>')
                                               .attr('id', 'lmcTrackProgressBar')
                                               .addClass('lmcTrackProgressBar')))

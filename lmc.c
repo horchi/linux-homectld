@@ -272,9 +272,9 @@ int Daemon::performLmcAction(json_t* oObject, long client)
    std::string action = getStringFromJson(oObject, "action", "");
    int id {getIntFromJson(oObject, "id", na)};
 
-   if (action == "menu") //  && queryType != LmcCom::rqtUnknown)
+   if (action == "menu")
    {
-      static int maxElements {50000};
+      constexpr int maxElements {50000};
       LmcCom::Parameters filters;
       LmcCom::RangeList list;
       int total {0};
@@ -335,6 +335,12 @@ int Daemon::performLmcAction(json_t* oObject, long client)
             tell(eloAlways, "[LMC] Warning: %d more, only maxElements supported", total-maxElements);
       }
    }
+   else if (action == "time")
+   {
+      int percent {getIntFromJson(oObject, "percent", na)};
+      int seconds = lmc->getCurrentTrack()->duration / 100 * percent;
+      lmc->jump(seconds);
+   }
    else if (action == "play" && id != na)
       lmc->track(id);
    else if (action == "play")
@@ -343,18 +349,14 @@ int Daemon::performLmcAction(json_t* oObject, long client)
       lmc->pause();
    else if (action == "stop")
       lmc->stop();
-
    else if (action == "prevTrack")
       lmc->prevTrack();
    else if (action == "nextTrack")
       lmc->nextTrack();
-
    else if (action == "repeat")
       lmc->repeat();
    else if (action == "shuffle")
-      lmc->randomTracks();
-   // lmc->shuffle();  //       lmc->randomTracks();
-
+      lmc->randomTracks();  // lmc->shuffle();
    else if (action == "volumeDown")
       lmc->volumeDown();
    else if (action == "volumeUp")
@@ -364,9 +366,8 @@ int Daemon::performLmcAction(json_t* oObject, long client)
    else if (action == "changePlayer")
    {
       const char* mac = getStringFromJson(oObject, "mac");
-
       lmcExit();
-      tell(eloAlways, "Changing player to '%s'", mac);
+      tell(eloAlways, "[LMC] Changing player to '%s'", mac);
       free(lmcPlayerMac);
       lmcPlayerMac = strdup(mac);
       lmcInit(true);

@@ -360,7 +360,7 @@ function initWidget(key, widget, fact)
             // console.log("eHeight", eHeight, "dashboards[actDashboard].options.heightfactorKiosk", dashboards[actDashboard].options.heightfactorKiosk);
          }
 
-         // widget.heightfactor für widget spezifische Höhen -> to be implementen (nur vorbereitet)
+         // widget.heightfactor für widget spezifische Höhen -> to be implemented (nur vorbereitet)
 
          if (widget.heightfactor != null && widget.heightfactor != 1)
             eHeight = eHeight * widget.heightfactor + ((widget.heightfactor-1) * marginWidth);

@@ -161,6 +161,13 @@ class LmcCom : public TcpChannel
          return execute("time", par);
       }
 
+      int jump(uint seconds)
+      {
+         char par[50] {};
+         sprintf(par, "%d", seconds);
+         return execute("time", par);
+      }
+
       const char* getLastQueryTitle() { return queryTitle ? queryTitle : ""; }
 
       int nextTrack()      { return execute("playlist index", "+1"); }

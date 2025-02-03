@@ -6,6 +6,9 @@
 
 :root
 {
+    --widgetWidthBase: 110;
+    --widgetHeightBase: 110;
+
     /* colors */
 
     --menu: #001129;
@@ -60,6 +63,16 @@
     --sar: env(safe-area-inset-right);
     --sab: env(safe-area-inset-bottom);
     --sal: env(safe-area-inset-left);
+}
+
+@media only screen and (max-width: 500px)
+{
+    :root { --containerPadding: 5px; }
+}
+
+@media only screen and (max-width:900px)
+{
+    :root { --widgetWidthBase: 90; --widgetHeightBase:80; }
 }
 
 Body

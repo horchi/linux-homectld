@@ -764,7 +764,8 @@ span > select
     padding: 0px 0px 0px 10px;
 }
 
-/*.tableRow
+/* used for p4d */
+.tableRow
 {
     background: linear-gradient(to bottom right, var(--light3), var(--light1));
     border-radius: var(--borderRadius);
@@ -796,7 +797,6 @@ span > select
     margin-left: 15px;
     align-self: center;
 }
-*/
 
 div.redCircle
 {
@@ -867,6 +867,7 @@ div.greenCircle
     margin-top: 5px;
     white-space-collapse: preserve-breaks;
     table-layout: fixed;
+    background: linear-gradient(to bottom right, #00000096, black);
 }
 
 table.tableMultiCol thead
@@ -1340,6 +1341,55 @@ table.tableMultiCol td
 .inputTableConfig > div > span > select
 {
     width: 100%;
+}
+
+/* ----------------------- */
+/* Schema Settings Dialog */
+
+.schemaSettingsForm
+{
+    display: grid;
+    max-width_ 650px;
+    min-width: 750;
+}
+
+.schemaSettingsForm > div
+{
+    display: flex;
+    margin: 4px;
+    text-align: left;
+}
+
+.schemaSettingsForm > div > span:nth-child(2)
+{
+    width: -webkit-fill-available;
+    width: -moz-available;
+}
+
+.schemaSettingsForm > div > span:nth-child(1)
+{
+    min-width: 120px;
+    align-self: center;
+}
+
+.schemaSettingsForm > div > span > input
+{
+    width: auto;
+}
+
+.schemaSettingsForm > div > span > textarea
+{
+    width: inherit;
+    height: 22px;
+    resize: vertical;
+    font-family: monospace;
+}
+
+.schemaSettingsForm > div > span > span > input[type='radio']
+{
+    margin-right: 20px;
+    margin-left:7px;
+    width:auto;
 }
 
 /* ----------------------- */
@@ -1947,7 +1997,7 @@ table.tableMultiCol td
     margin: 2px;
     background-color: var(--widgetBackground);
     padding: 4px;
-    box-shadow: 1px 1px 1px 0px var(--shadow);
+    /*box-shadow: 1px 1px 1px 0px var(--shadow);*/
 }
 
 .lmcContainer
@@ -1979,6 +2029,13 @@ table.tableMultiCol td
     margin: 2px;
     background-color: var(--widgetBackground);
     box-shadow: 1px 1px 1px 0px var(--shadow);
+}
+
+.lmcControl > div > span
+{
+    align-self: center;
+    margin: 2px;
+    font-size: large;
 }
 
 .lmcCurrentTrack
@@ -2076,10 +2133,22 @@ table.tableMultiCol td
 
 .lmcMenu > div
 {
-    /* line-height: 30px;
-    vertical-align: middle; */
+    height: 20px;
+    margin: 2px;
     padding: 12px;
     background-color: var(--widgetBackground);
+    align-items: center;
+    display: flex;
+}
+
+.lmcMenu > div > span
+{
+    height: 100%;
+}
+
+.lmcMenu > div > span > img
+{
+    height: 100%;
 }
 
 .lmcCover
@@ -2093,9 +2162,11 @@ table.tableMultiCol td
 
 .lmcCover > img
 {
-    width: 95%;
-    height: 95%;
-    object-fit: contain;
+    height: 100%;
+    width: 100%;
+    object-fit: fill;
+    border-radius: max(6px, min(14px, 7%)) !important;
+    box-shadow: rgba(0, 0, 0, 0.25) 0px 0px 25px;
 }
 
 .lmcTrackProgress
@@ -2111,6 +2182,13 @@ table.tableMultiCol td
   height: 10px;
   background-color: var(--yellow2);
   border-radius: 10px;
+}
+
+.lmcContextMenu > button
+{
+    width: -webkit-fill-available;
+    width: -moz-available;
+    margin: 4px;
 }
 
 /* -------------- */

@@ -2,7 +2,6 @@
 @import url("normalize.css");
 @import url("checkbox.css");
 @import url("dialog.css");
-
 @import url("base.css");
 
 :root
@@ -56,7 +55,8 @@
 
     --dialogColor: black;
     --dialogBackground: lightgray;
-
+    --dialogColorDark: lightgray;
+    --dialogBackgroundDark: #272727;
     --scaleText: white;
     --scale: #ccc;
 

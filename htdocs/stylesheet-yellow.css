@@ -6,6 +6,9 @@
 
 :root
 {
+    --widgetWidthBase: 110;
+    --widgetHeightBase: 110;
+
     /* colors */
 
     --menu: #ececb8;
@@ -20,8 +23,7 @@
     --neutral3: #696969;
     --neutral4: #a3a3a3;
 
-    --listFontColor: black;
-    --fontColor: black;
+    --listFontColor: #ffffc6;
     --blue: #2177AD;
     --blueshade: #495b67;
     --yellow: #fad600;
@@ -55,11 +57,16 @@
 
     --scaleText: white;
     --scale: #ccc;
+}
 
-    --sat: env(safe-area-inset-top);
-    --sar: env(safe-area-inset-right);
-    --sab: env(safe-area-inset-bottom);
-    --sal: env(safe-area-inset-left);
+@media only screen and (max-width: 500px)
+{
+    :root { --containerPadding: 5px; }
+}
+
+@media only screen and (max-width:900px)
+{
+    :root { --widgetWidthBase: 90; --widgetHeightBase:80; }
 }
 
 Body

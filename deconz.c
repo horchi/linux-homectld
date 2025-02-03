@@ -253,7 +253,7 @@ int Deconz::processDevices(json_t* jData, std::string kind)
          if (kind == "light")
          {
             lights[uuid] = address;
-            // tell(eloAlways, "DEBUG: Address of '%s' uuid '%s' is set to 0x%0x", type, uuid, address);
+            // tell(eloAlways, "DECONZ: Debug: Address of '%s' uuid '%s' is set to 0x%0x", type, uuid, address);
          }
          else
             sensors[uuid] = address;
@@ -757,7 +757,7 @@ int Deconz::atInMessage(const char* data)
 
    json_t* obj = jsonLoad(data);
 
-   tell(eloDeconz, "DEBUG: Got [%s]", data);
+   tell(eloDeconz, "DECONZ: Debug: Got [%s]", data);
 
    if (!obj)
       return fail;

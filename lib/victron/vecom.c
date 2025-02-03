@@ -153,7 +153,7 @@ int VeCom::read2CharsAsByte(byte& b)
 // Read Word
 //***************************************************************************
 
-int VeCom::readWord(uint16_t& w)
+int VeCom::_readWord(uint16_t& w)
 {
    byte lByte {0};
    byte hByte {0};
@@ -232,7 +232,7 @@ int VeCom::sendPing()
 
    uint16_t w {0};
 
-   if (readWord(w) != success)
+   if (_readWord(w) != success)
       return onComError(fail);
 
    // version like 4124 => 1.24
@@ -277,7 +277,7 @@ int VeCom::readRegister(uint16_t reg, double& value)
    uint8_t b {0};
    uint8_t flags {0};
 
-   readWord(w);               // read echo of address
+   _readWord(w);               // read echo of address
    read2CharsAsByte(flags);   // flags
 
    if (flags != sgfSuccess)
@@ -290,7 +290,7 @@ int VeCom::readRegister(uint16_t reg, double& value)
    }
    else if (def.type == rtWord)
    {
-      readWord(w);            // read word value
+      _readWord(w);            // read word value
       value = w / (double)def.factor;
    }
 
@@ -348,7 +348,7 @@ int VeCom::writeRegister(uint16_t reg, double& value)
    uint8_t b {0};
    uint8_t flags {0};
 
-   readWord(w);               // read echo of address
+   _readWord(w);               // read echo of address
    read2CharsAsByte(flags);   // flags
 
    if (flags != sgfSuccess)
@@ -361,7 +361,7 @@ int VeCom::writeRegister(uint16_t reg, double& value)
    }
    else if (def.type == rtWord)
    {
-      readWord(w);            // read word value
+      _readWord(w);            // read word value
       value = w / (double)def.factor;
    }
 

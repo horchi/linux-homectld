@@ -99,6 +99,8 @@ Daemon::ValueTypes Daemon::defaultValueTypes[] =
    { "^WEA",      "Wetter" },
    { "^DHT",      "Wetter" },
    { "^CV",       "Calculated Values" },
+   { "^PA",    "Parameter" },
+   { "^UD",    "UD" },
    { "^VIC",      "Victron" },
    { "^VOTRO",    "Votronic" },
    { "^MOPEKA.*", "Mopeka" },
@@ -110,7 +112,7 @@ const char* Daemon::getTitleOfType(const char* type)
 {
    for (int i = 0; defaultValueTypes[i].typeExpression != ""; i++)
    {
-      tell(eloAlways, "check type '%s' against '%s'", type, defaultValueTypes[i].typeExpression.c_str());
+      // tell(eloAlways, "check type '%s' against '%s'", type, defaultValueTypes[i].typeExpression.c_str());
       if (rep(type, defaultValueTypes[i].typeExpression.c_str()) == success)
          return defaultValueTypes[i].title.c_str();
    }
@@ -128,6 +130,7 @@ Daemon::DefaultWidgetProperty Daemon::defaultWidgetProperties[] =
 
    { "-",        na,   "*",      wtMeter,        0,        45,      10, false },
    { "SPACER",   na,   "*",      wtSpace,        0,         0,       0, false },
+   { "TIME",     na, "txt",  wtPlainText,        0,         0,       0, true },
    { "DO",       na,   "*",     wtSymbol,        0,         0,       0, false },
    { "DI",       na,   "*",     wtSymbol,        0,         0,       0, false },
    { "AO",       na,   "*",      wtMeter,        0,        45,      10, false },
@@ -1742,7 +1745,7 @@ int Daemon::readConfiguration(bool initial)
       free(elo);
    }
 
-   tell(eloAlways, "Info: Eloquence set to 0x%04x", eloquence);
+   tell(eloAlways, "Info: Eloquence set to 0x%04x (%d)", eloquence, eloquence);
 
    getConfigItem("interval", interval, interval);
    getConfigItem("arduinoInterval", arduinoInterval, arduinoInterval);
@@ -2022,23 +2025,70 @@ int Daemon::loop()
          continue;
 
       nextRefreshAt = time(0) + interval;
+      uint64_t loopDuration {0};
 
-      // aggregate
+      {
+         LogDuration ld("loop total", eloLoopTimings);
 
-      if (aggregateHistory && nextAggregateAt <= time(0))
-         aggregate();
+         // aggregate
 
-      // main work in 'interval'
+         if (aggregateHistory && nextAggregateAt <= time(0))
+         {
+            LogDuration ld("aggregate", eloLoopTimings);
+            aggregate();
+         }
 
-      updateInputs(false);
-      updateWeather();
-      updateSensors();  // update some sensors for wich we get no trigger
+         // main work in 'interval'
 
-      performData(0L);
-      updateScriptSensors();
-      process(true /*force*/);
-      storeSamples();
-      afterUpdate();
+         {
+            LogDuration ld("updateInputs", eloLoopTimings);
+            updateInputs(false);
+         }
+
+         {
+            LogDuration ld("updateWeather", eloLoopTimings);
+            updateWeather();
+         }
+
+         {
+            LogDuration ld("updateSensors", eloLoopTimings);
+            updateSensors();  // update some sensors for wich we get no trigger
+         }
+
+         performData(0L);
+
+         {
+            LogDuration ld("updateScriptSensors", eloLoopTimings);
+            updateScriptSensors();
+         }
+
+         {
+            LogDuration ld("process", eloLoopTimings);
+            process(true /*force*/);
+         }
+
+         {
+            LogDuration ld("storeSamples", eloLoopTimings);
+            storeSamples();
+         }
+
+         {
+            LogDuration ld("updateInputs", eloLoopTimings);
+            storeSamples();
+         }
+
+         {
+            LogDuration ld("afterUpdate", eloLoopTimings);
+            afterUpdate();
+         }
+
+         loopDuration = ld.getDuration();
+      }
+
+      if (loopDuration > (uint)(interval*1000))
+         tell(eloAlways, "Warning: The duration of the main loop takes %jxms longer than the configured "
+              "interval of %d seconds, as a result, the web interface responds slowly or not at all.",
+              loopDuration, interval);
 
       initialRun = false;
    }
@@ -2143,7 +2193,7 @@ int Daemon::store(time_t now, const SensorData* sensor)
 
    if (sensor->last <= lastStore)
    {
-      tell(eloDetail, "Info: No update for '%s:0x%02x' (%s) until last store, skipping store (%s / %s)",
+      tell(eloDebug, "Debug: No update for '%s:0x%02x' (%s) until last store, skipping store (%s / %s)",
            sensor->type.c_str(), sensor->address, sensor->name.c_str(), l2pTime(sensor->last).c_str(), l2pTime(lastStore).c_str());
       return ignore;
    }
@@ -2836,7 +2886,9 @@ int Daemon::aggregate()
    char* stmt {};
    time_t history = time(0) - (aggregateHistory * tmeSecondsPerDay);
    int aggCount {0};
+   int status {fail};
 
+   tell(eloAlways, "Starting aggregation ..");
    asprintf(&stmt,
             "replace into samples "
             "  select address, type, 'A' as aggregate, "
@@ -2865,18 +2917,13 @@ int Daemon::aggregate()
 
       asprintf(&stmt, "aggregate != 'A' and time <= from_unixtime(%ld)", history);
 
-      if (tableSamples->deleteWhere("%s", stmt) == success)
-      {
-         tell(eloAlways, "Aggregation with interval of %d minutes done; "
-              "Created %d aggregation rows", aggregateInterval, aggCount);
-      }
+      if ((status = tableSamples->deleteWhere("%s", stmt)) == success)
+         tell(eloAlways, "Aggregation with interval of %d minutes done; Created %d aggregation rows", aggregateInterval, aggCount);
    }
 
    free(stmt);
-
-   // schedule even in case of error!
-
-   scheduleAggregate();
+   tell(eloAlways, ".. aggregation %s", status == success ? "done" : "failed");
+   scheduleAggregate();      // schedule next aggregation even in case of error!
 
    return success;
 }
@@ -4635,7 +4682,7 @@ int Daemon::initArduino()
    {
       std::string topic = std::string(arduinoTopic) + "/in";
       mqttReader->write(topic.c_str(), p);
-      tell(eloDebug, "DEBUG: PushMessage to arduino [%s]", p);
+      tell(eloDebug, "Debug: [ARDUINO] PushMessage to arduino [%s]", p);
    }
 
    free(p);
@@ -4731,12 +4778,6 @@ int Daemon::dispatchW1Msg(const char* message)
       double value = getDoubleFromJson(jValue, "value");
       time_t stamp = getIntFromJson(jValue, "time");
 
-      if (stamp < time(0)-300)
-      {
-         tell(eloInfo, "Skipping old (%ld seconds) w1 value", time(0)-stamp);
-         continue;
-      }
-
       updateW1(name, value, stamp);
    }
 
@@ -4764,6 +4805,12 @@ void Daemon::updateW1(const char* id, double value, time_t stamp)
 
    if (!tableValueFacts->find() || !tableValueFacts->hasValue("STATE", "A"))
       return ;
+
+   if (stamp < time(0)-300)
+   {
+      tell(eloInfo, "Skipping old (%ld seconds) value of 'W1:%d'", time(0)-stamp, address);
+      return ;
+   }
 
    bool changed = sensors["W1"][address].value != value;
 

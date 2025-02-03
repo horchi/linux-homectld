@@ -34,6 +34,7 @@
 
 #include "lib/tcpchannel.h"
 #include "lib/curl.h"
+#include "lib/json.h"
 #include "lmcservice.h"
 
 // #define LmcLock cMutexLock lock(&comMutex)
@@ -66,18 +67,28 @@ class LmcCom : public TcpChannel
          rqtRadios,     //  7
          rqtRadioApps,  //  8
          rqtFavorites,  //  9
-         rqtPlayers     // 10
+         rqtPlayers,    // 10
+         rqtMusic,      // 11
+
+         rqtCount
       };
+
+      static const char* rangeQueryTypes [];
+      static const char* toName(LmcCom::RangeQueryType rqt);
 
       struct ListItem
       {
-         ListItem()     { }
-         void clear()   { id = ""; content = ""; command = ""; hasItems = false; isAudio = false, isConnected = false; }
-         int isEmpty()  { return content == ""; }
+         ListItem() {};
+         void clear() { id = ""; content = ""; command = ""; hasItems = false; isAudio = false, isConnected = false; }
+         int isEmpty() { return content == ""; }
 
          std::string id;
+         int tracknum {na};
          std::string content;
          std::string command;
+         std::string commandSpecial;
+         std::string icon;
+         bool contextMenu {false};
          bool hasItems {false};
          bool isAudio {false};
          bool isConnected {false};
@@ -111,15 +122,13 @@ class LmcCom : public TcpChannel
 
       int open(const char* host = "localhost", unsigned short port = 9090);
 
-      int execute(const char* command, Parameters* pars = nullptr);
-      int execute(const char* command, int par);
-      int execute(const char* command, const char* par);
+      int restQuery(std::string what);
+      int restQuery(std::string what,  Parameters pars);
 
-      int query(const char* command, char* response, int max);
-      int queryInt(const char* command, int& value);
+      int restQueryRange(std::string what, int from, int count, const char* special,
+                         RangeList* list, int& total, std::string& title, Parameters* pars = nullptr);
 
-      int queryRange(RangeQueryType queryType, int from, int count,
-                     RangeList* list, int& total, const char* special = "", Parameters* pars = nullptr);
+      json_t* getRestResult();
 
       int queryPlayers(RangeList* list);
 
@@ -135,112 +144,9 @@ class LmcCom : public TcpChannel
       int startNotify();
       int stopNotify();
       int checkNotify(uint64_t timeout = 0);
+      int execute(const char* command);
 
-      // player steering
-
-      int play()           { return execute("play"); }
-      int pause()          { return execute("pause", "1"); }
-      int pausePlay()      { return execute("pause"); }    // toggle pause/play
-      int stop()           { return execute("stop"); }
-      int volumeUp()       { return execute("mixer volume", "+5"); }
-      int volumeDown()     { return execute("mixer volume", "-5"); }
-      int mute()           { return execute("mixer muting", "1"); }
-      int unmute()         { return execute("mixer muting", "0"); }
-      int muteToggle()     { return execute("mixer muting toggle"); }
-      int clear()          { return execute("playlist clear"); }
-      int save()           { return execute("playlist save", escId); }
-      int resume()         { return execute("playlist resume", escId); }
-      int randomTracks()   { return execute("randomplay tracks"); }
-      int shuffle()        { return execute("playlist shuffle"); }
-      int repeat()         { return execute("playlist repeat"); }
-
-      int scroll(short step)
-      {
-         char par[50] {};
-         sprintf(par, "%c%d", step < 0 ? '-' : '+', (int)abs(step));
-         return execute("time", par);
-      }
-
-      int jump(uint seconds)
-      {
-         char par[50] {};
-         sprintf(par, "%d", seconds);
-         return execute("time", par);
-      }
-
-      const char* getLastQueryTitle() { return queryTitle ? queryTitle : ""; }
-
-      int nextTrack()      { return execute("playlist index", "+1"); }
-      int prevTrack()      { return execute("playlist index", "-1"); }
-
-      int append(int id)
-      {
-         Parameters params;
-
-         params.push_back("cmd:add");
-
-         char par[50] {};
-         sprintf(par, "track_id:%d", id);
-         params.push_back(par);
-         return execute("playlistcontrol", &params);
-      }
-
-      int track(unsigned short index)
-      {
-         char par[50] {};
-         sprintf(par, "%d", index);
-         return execute("playlist index", par);
-      }
-
-      int loadAlbum(const char* genre = "*", const char* artist = "*", const char* album = "*")
-      {
-         return ctrlAlbum("loadalbum", genre, artist, album);
-      }
-
-      int appendAlbum(const char* genre = "*", const char* artist = "*", const char* album = "*")
-      {
-         return ctrlAlbum("addalbum", genre, artist, album);
-      }
-
-      int ctrlAlbum(const char* command, const char* genre = "*", const char* artist = "*", const char* album = "*")
-      {
-         int status;
-         char *a {}, *g {}, *l {};
-         char* cmd {};
-
-         asprintf(&cmd, "playlist %s %s %s %s", command,
-                  *genre == '*' ? genre : g = escape(genre),
-                  *artist == '*' ? artist : a = escape(artist),
-                  *album == '*' ? album : l = escape(album));
-
-         status = execute(cmd);
-         free(cmd); free(a); free(g); free(l);
-         return status;
-      }
-
-      int loadPlaylist(const char* playlist)
-      {
-         char par[500] {};
-         Parameters pars;
-
-         pars.push_back("cmd:load");
-         sprintf(par, "playlist_name:%s", playlist);
-         pars.push_back(par);
-
-         return execute("playlistcontrol", &pars);
-      }
-
-      int appendPlaylist(const char* playlist)
-      {
-         char par[500] {};
-         Parameters pars;
-
-         pars.push_back("cmd:add");
-         sprintf(par, "playlist_name:%s", playlist);
-         pars.push_back(par);
-
-         return execute("playlistcontrol", &pars);
-      }
+      // const char* getLastQueryTitle() { return queryTitle ? queryTitle : ""; }
 
       // infos
 
@@ -263,18 +169,27 @@ class LmcCom : public TcpChannel
 
       char* unescape(char* buf);       // url like encoding
       char* escape(const char* buf);
-
-      int request(const char* command, Parameters* par = nullptr);
-      int request(const char* command, const char* par);
-
-      int responseP(char*& result);
+      int request(const char* command);
       int response(char* response = nullptr, int max = 0);
 
    private:
 
-      void setQueryTitle(const char* title) { free(queryTitle); queryTitle = strdup(title); }
+      int parseLocalRadio(json_t* jObj, ListItem& item);
+      int parseArtists(json_t* jObj, ListItem& item);
+      int parseAlbums(json_t* jObj, ListItem& item);
+      int parseNewmusic(json_t* jObj, ListItem& item);
+      int parseTracks(json_t* jObj, ListItem& item);
+      int parseYears(json_t* jObj, ListItem& item);
+      int parsePlaylists(json_t* jObj, ListItem& item);
+      int parseRadios(json_t* jObj, ListItem& item);
+      int parseRadioapps(json_t* jObj, ListItem& item);
+      int parseFavorites(json_t* jObj, ListItem& item);
+      int parsePlayers(json_t* jObj, ListItem& item);
+      int parseMusic(json_t* jObj, ListItem& item);
+      int parseGenres(json_t* jObj, ListItem& item);
 
-      // data
+      // void setQueryTitle(const char* title) { free(queryTitle); queryTitle = strdup(title); }
+      // char* queryTitle {};
 
       char* host {};
       unsigned short port {9090};
@@ -291,8 +206,9 @@ class LmcCom : public TcpChannel
       PlayerState playerState;
       LmcCom* notify {};
       std::vector<TrackInfo> tracks;
-      char* queryTitle {};
       bool metaDataChanged {false};
+
+      std::string lastRestResult;
 
 #ifdef VDR_PLUGIN
       cMutex comMutex;

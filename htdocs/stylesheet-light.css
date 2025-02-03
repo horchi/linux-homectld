@@ -6,6 +6,9 @@
 
 :root
 {
+    --widgetWidthBase: 110;
+    --widgetHeightBase: 110;
+
     /* colors */
 
     --menu: #eeeeee;
@@ -14,11 +17,11 @@
     --light2: #d3d3d3;
     --light3: #cccccc;
     --light4: #818382;
-    --neutral0: #a3a3a3;
-    --neutral1: #696969
+    --neutral0: #333333;
+    --neutral1: #454545;
     --neutral2: #545454;
-    --neutral3: #454545;
-    --neutral4: #333333;
+    --neutral3: #696969;
+    --neutral4: #a3a3a3;
 
     --listFontColor: black;
     --fontColor: black;
@@ -48,7 +51,7 @@
     --borderStyleSchemaValue: solid;
 
     --buttonAction: #818382;
-    --buttonFont: white;
+    --buttonFont: black;
 
     --dialogColor: black;
     --dialogBackground: #818382;
@@ -60,6 +63,16 @@
     --sar: env(safe-area-inset-right);
     --sab: env(safe-area-inset-bottom);
     --sal: env(safe-area-inset-left);
+}
+
+@media only screen and (max-width: 500px)
+{
+    :root { --containerPadding: 5px; }
+}
+
+@media only screen and (max-width:900px)
+{
+    :root { --widgetWidthBase: 90; --widgetHeightBase:80; }
 }
 
 Body

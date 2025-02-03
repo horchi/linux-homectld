@@ -308,7 +308,7 @@ int Daemon::performLogin(json_t* oObject)
    commands2Json(oJson);
    pushOutMessage(oJson, "commands", client);
 
-	oJson = json_array();
+   oJson = json_array();
    syslogs2Json(oJson);
    pushOutMessage(oJson, "syslogs", client);
 
@@ -1621,7 +1621,8 @@ int Daemon::storeIoSettings(json_t* obj, long client)
          tableValueFacts->store();
       }
 
-      initSensorByFact(type, address);}
+      initSensorByFact(type, address);
+   }
 
    return success;
 }

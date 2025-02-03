@@ -53,7 +53,7 @@ elif [[ "${COMMAND}" == "toggle" ]]; then
 	fi
 elif [ "${COMMAND}" == "status" ]; then
    RESULT="{ \"type\": \"SC\", \"address\": ${ADDRESS}, \"kind\": \"status\", \"state\": ${STATE}, \"color\": ${COLOR} }"
-   ${LOGGER} "Publish ${RESULT}"
+   # ${LOGGER} "update.sh: Publish ${RESULT}"
    mosquitto_pub --quiet -L ${MQTTURL} -m "${RESULT}"
 fi
 

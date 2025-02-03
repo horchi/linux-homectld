@@ -145,7 +145,7 @@ class VeCom : public Serial, public VeService
       int readChar(unsigned char& c, const char* expected = nullptr);
       int readCharAsByte(byte& b);
       int read2CharsAsByte(byte& b);
-      int readWord(uint16_t& w);
+      int _readWord(uint16_t& w);
 
       int onComError(int result);
       void veFlush();

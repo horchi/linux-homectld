@@ -11,6 +11,9 @@ core
 Make.user
 
 mqt
+p4d
+p4
+
 build-nano-atmega328
 dbchart
 .dependencies
@@ -23,3 +26,4 @@ htdocs/stylesheet.css.save
 /victronmqtt
 /blescan
 /votromqtt
+victronmqtt

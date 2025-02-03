@@ -46,7 +46,8 @@ function initConfig(configdetails)
    let lastCat = '';
 
    for (var i = 0; i < configdetails.length; i++) {
-      var item = configdetails[i];
+      let item = configdetails[i];
+      let choiceSel = null;
 
       if (lastCat != item.category) {
 
@@ -157,7 +158,6 @@ function initConfig(configdetails)
          break;
       }
       case 5:    // ctChoice
-         let choiceSel = null;
          $(itemsDiv)
             .append($('<span></span>')
                     .append(choiceSel = $('<select></select>')

@@ -13,6 +13,7 @@ var pingTimeoutMs = 4000;
 var colorStyle = null;
 var isDaytime = false;
 var daytimeCalcAt = null;
+var schemaEditActive = false;
 
 var onSmalDevice = false;
 var isActive = null;
@@ -57,6 +58,11 @@ var kioskMode = null;    // 0 - with menu,    normal dash symbols, normal-widget
 var heightFactor = null;
 
 var sab = 0;             // env(safe-area-inset-bottom)
+
+//  0 - with menu,    normal dash symbold, normal-widget-height
+//  1 - without menu, big dash symbold,    kiosk-widget-height
+//  2 - with menu,    big dash symbold,    kiosk-widget-height
+//  3 - with menu,    big dash symbold,    normal-widget-height
 
 $('document').ready(function() {
    daemonState.state = -1;
@@ -115,7 +121,7 @@ function onSocketConnect(protocol)
    onSmalDevice = window.matchMedia("(max-width: 740px)").matches;
    console.log("onSmalDevice : " + onSmalDevice);
 
-	sab = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--sab"));
+   sab = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--sab"));
 }
 
 function connectWebSocket(useUrl, protocol)
@@ -208,8 +214,8 @@ function updateSocketState()
    $('#socketState').attr('class', '');
    $('#socketState').addClass('socketState ' + circle);
 
-	let now = new Date();
-	$('#footerTime').html(now.toTimeLocal());
+   let now = new Date();
+   $('#footerTime').html(now.toTimeLocal());
 }
 
 function sleep(ms) {
@@ -266,6 +272,7 @@ async function showInfoDialog(object)
                            .addClass('rounded-border')
                            .append($('<span></span>')
                                    .css('width', '-webkit-fill-available')
+                                   .css('width', '-moz-available')
                                    .append($('<button></button>')
                                            .addClass('rounded-border tool-button-svg-smal')
                                            .html('<svg><use xlink:href="#close"></use></svg>')
@@ -278,6 +285,7 @@ async function showInfoDialog(object)
        .css('background-color', 'rgb(173 169 87)')
        .append($('<span></span>')
                .css('width', '-webkit-fill-available')
+               .css('width', '-moz-available')
                .append($('<button></button>')
                        .addClass('rounded-border tool-button-svg-smal')
                        .html('<svg><use xlink:href="#close"></use></svg>')
@@ -693,16 +701,6 @@ function prepareMenu()
       html += '<div id="confirm" class="confirmDiv"/>';
    }
 
-   if (currentPage == "schema") {
-      if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10) {
-         html += "<div class=\"confirmDiv\">";
-         html += "  <button class=\"rounded-border buttonOptions\" onclick=\"schemaEditModeToggle()\">Anpassen</button>";
-         html += "  <button class=\"rounded-border buttonOptions\" id=\"buttonSchemaAddItem\" title=\"Konstante (Text) hinzufügen\" style=\"visibility:hidden;\" onclick=\"schemaAddItem()\">&#10010;</button>";
-         html += "  <button class=\"rounded-border buttonOptions\" id=\"buttonSchemaStore\" style=\"visibility:hidden;\" onclick=\"schemaStore()\">Speichern</button>";
-         html += "</div>";
-      }
-   }
-
    $("#navMenu").html(html);
 
    // let msg = "DEBUG: Browser: '" + $.browser.name + "' : '" + $.browser.versionNumber + "' : '" + $.browser.version + "'";
@@ -726,6 +724,9 @@ function menuBurger()
 
    if (currentPage == 'dashboard' && localStorage.getItem(storagePrefix + 'Rights') & 0x10)
       form += '  <br/><div><button style="width:120px;margin:2px;color" class="rounded-border button1 mdi mdi-lead-pencil" onclick=" setupDashboard()">' + (setupMode ? ' Stop Setup' : ' Setup Dashboard') + '</button></div>';
+
+   if (currentPage == 'schema' && (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10))
+      form += '  <br/><div><button style="width:120px;margin:2px;color" class="rounded-border button1 mdi mdi-lead-pencil" onclick=" setupSchema()">' + (schemaEditActive ? ' Stop Setup' : ' Setup Schema') + '</button></div>';
 
    form += '</div>';
 
@@ -758,6 +759,7 @@ function mainMenuSel(what, action = null)
    currentPage = what;
    console.log("switch to " + currentPage);
    hideAllContainer();
+   schemaEditActive = false;
 
    if (currentPage != lastPage && (currentPage == "vdr" || lastPage == "vdr")) {
       console.log("closing socket " + socket.protocol);
@@ -882,7 +884,7 @@ function initLogin()
 
 function showSyslog(log)
 {
-	$('#controlContainer').removeClass('hidden');
+   $('#controlContainer').removeClass('hidden');
    $('#container').removeClass('hidden');
 
    $("#controlContainer")

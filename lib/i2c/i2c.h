@@ -47,10 +47,10 @@ class I2C
 
       virtual int switchTcaChannel();
 
-      virtual int readRegister(uint8_t reg, uint8_t& byte1, uint8_t& byte2);
-      virtual int readRegister(uint8_t reg, uint16_t& word);
-      virtual int writeRegister(uint8_t reg, uint8_t value);
-      virtual int writeRegister(uint8_t reg, uint8_t byte1, uint8_t byte2);
+      int readRegister(uint8_t reg, uint8_t& byte1, uint8_t& byte2);
+      int readRegister(uint8_t reg, uint16_t& word);
+      int writeRegister(uint8_t reg, uint8_t value);
+      int writeRegister(uint8_t reg, uint8_t byte1, uint8_t byte2);
 
       static int scan(const char* device);
 

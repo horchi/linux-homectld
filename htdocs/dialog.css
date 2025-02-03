@@ -9,8 +9,18 @@
     border-radius: var(--borderRadius);
     border-color: var(--light2);
     background-color: var(--dialogBackground);
-    background: var(--dialogBackground);
+    /* background: var(--dialogBackground); */
     color: var(--dialogColor);
+    align-items: center;
+}
+
+.ui-widget-content-dark {
+    border-width: 1px;
+    border-radius: var(--borderRadius);
+    border-color: var(--light2);
+    background-color: var(--dialogBackgroundDark);
+    /* background: var(--dialogBackground); */
+    color: var(--dialogColorDark);
     align-items: center;
 }
 

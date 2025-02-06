@@ -36,7 +36,6 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
 
    { "interval",                  ctInteger, "60",           false, "Daemon", "Intervall der Aufzeichung", "Datenbank Aufzeichung [s]" },
    { "webPort",                   ctInteger, "61109",        false, "Daemon", "Port des Web Interfaces", "" },
-   { "eloquence",                 ctBitSelect, "1",          false, "Daemon", "Log Eloquence", "" },
 
    { "aggregateHistory",          ctInteger, "365",          false, "Daemon", "Historie [Tage]", "history for aggregation [days] (default 0 days -> aggegation turned OFF)" },
    { "aggregateInterval",         ctInteger, "15",           false, "Daemon", "Aggregate Interval der historisierten Daten [m]", "aggregation interval in minutes - 'one sample per interval will be build'" },
@@ -45,6 +44,8 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "openWeatherApiKey",         ctString,  "",             false, "Daemon", "Openweathermap API Key", "" },
    { "weatherInterval",           ctInteger, "15",           false, "Daemon", "Weather Refresh Interval [m]", "" },
    { "toggleWeatherView",         ctBool,    "1",            false, "Daemon", "Toggle Weather Widget", "" },
+
+   { "eloquence",                 ctBitSelect, "1",          false, "Daemon", "Log Eloquence", "" },
 
 #ifdef _POOL
    { "filterPumpTimes",           ctRange,   "10:00-17:00",  false, "Pool", "Zeiten Filter Pumpe", "[hh:mm] - [hh:mm]" },

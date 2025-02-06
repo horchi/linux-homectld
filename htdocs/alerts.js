@@ -14,6 +14,17 @@ function initAlerts(alerts)
    var root = document.getElementById("container");
    root.innerHTML = '<div class="rounded-border seperatorFold">Sensor Alerts</div>';
 
+   prepareSetupMenu();
+
+   $("#navMenu")
+      .append($('<div></div>')
+              .attr('id', 'confirmDiv')
+              .addClass('confirmDiv')
+              .append($('<button></button>')
+                      .addClass('rounded-border buttonOptions')
+                      .html('Speichern')
+                      .click(function() { storeAlerts(); })))
+
    for (var i = 0; i < alerts.length; i++)
    {
       var html = printAlert(alerts[i]);

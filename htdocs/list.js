@@ -34,7 +34,7 @@ function initList()
 
    // daemon state
 
-   var rootState = document.getElementById("stateContainerDaemon");
+   let rootState = document.getElementById("stateContainerDaemon");
 
    if (daemonState.state != null && daemonState.state == 0)
    {

@@ -1,7 +1,7 @@
 /*
  *  main.js
  *
- *  (c) 2020-2021 Jörg Wendel
+ *  (c) 2020-2025 Jörg Wendel
  *
  * This code is distributed under the terms and conditions of the
  * GNU GENERAL PUBLIC LICENSE. See the file COPYING for details.
@@ -36,6 +36,7 @@ var syslogFilter = "";
 var currentPage = "dashboard";
 var startPage = null;
 var actDashboard = -1;
+var s3200State = {};
 var widgetCharts = {};
 var theChart = null;
 var theChartRange = null;
@@ -56,16 +57,12 @@ var kioskMode = null;    // 0 - with menu,    normal dash symbols, normal-widget
 							    // 3 - with menu,    big dash symbols,    normal-widget-height
 
 var heightFactor = null;
-
 var sab = 0;             // env(safe-area-inset-bottom)
-
-//  0 - with menu,    normal dash symbold, normal-widget-height
-//  1 - without menu, big dash symbold,    kiosk-widget-height
-//  2 - with menu,    big dash symbold,    kiosk-widget-height
-//  3 - with menu,    big dash symbold,    normal-widget-height
 
 $('document').ready(function() {
    daemonState.state = -1;
+   s3200State.state = -1;
+
    const urlParams = new URLSearchParams(window.location.href);
    kioskMode = urlParams.get('kiosk');
    heightFactor = urlParams.get('heightFactor');
@@ -119,8 +116,9 @@ function onSocketConnect(protocol)
    }, 1*1000);
 
    onSmalDevice = window.matchMedia("(max-width: 740px)").matches;
-   console.log("onSmalDevice : " + onSmalDevice);
+   // console.log("onSmalDevice : " + onSmalDevice);
 
+   mainMenuSel(currentPage);
    sab = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--sab"));
 }
 
@@ -494,6 +492,8 @@ function dispatchMessage(message)
       }
       changeFavicon(config.instanceIcon);
       prepareMenu();
+      if (currentPage == 'setup')
+         initConfig();
    }
    else if (event == "configdetails" && currentPage == 'setup') {
       initConfig(jMessage.object)
@@ -505,7 +505,6 @@ function dispatchMessage(message)
       daemonState = jMessage.object;
 		let now = new Date();
 		daemonState.timeOffset = Math.round(now/1000 - daemonState.systime);
-      console.log("daemonState", daemonState);
 		// console.log("timeOffset", daemonState.timeOffset, "s");
 		updateFooter();
    }
@@ -609,6 +608,20 @@ function dispatchMessage(message)
    else if (event == "s3200-state") {
       s3200State = jMessage.object;
    }
+   // else if (event == "errors") {
+   //    initErrors(jMessage.object);
+   // }
+   // else if (event == "menu") {
+   //    initMenu(jMessage.object);
+   //    hideProgressDialog();
+   // }
+   // else if (event == "pareditrequest") {
+   //    editMenuParameter(jMessage.object);
+   // }
+   // else if (event == "pellets") {
+   //    hideProgressDialog();
+   //    initPellets(jMessage.object);
+   // }
    else if (event == "ready") {
       if (startPage) {
          mainMenuSel(startPage);
@@ -619,11 +632,31 @@ function dispatchMessage(message)
    // console.log("event: " + event + " dispatched");
 }
 
+function addSetupMenuButton(title, page, action = null)
+{
+   $("#setupMenu")
+      .append($('<button></button>')
+              .addClass('rounded-border button2')
+              .html(title)
+              .click(function() { mainMenuSel(page, action); }));
+
+}
+
+function addMainMenuButton(title, page, condition = true)
+{
+   if (!condition)
+      return;
+
+   $("#mainMenu")
+      .append($('<button></button>')
+              .attr('id', 'mainmenu_' + page)
+              .addClass('rounded-border tabButton ' + (page == currentPage ? 'active' : ''))
+              .html(title)
+              .click(function() { mainMenuSel(page); }));
+}
+
 function prepareMenu()
 {
-   let html = "";
-   // let haveToken = localStorage.getItem(storagePrefix + 'Token') && localStorage.getItem(storagePrefix + 'Token') != "";
-
    if (kioskMode == 1) {
       $('#menu').css('height', '0px');
       $('#menu').css('padding', '0px');
@@ -632,79 +665,72 @@ function prepareMenu()
    }
 
    document.title = config.instanceName;
-   console.log("prepareMenu: " + currentPage);
+   console.log("---- prepareMenu: " + currentPage);
 
-   html += '<div>';
-   html += '<button class="rounded-border button1" onclick="mainMenuSel(\'dashboard\')">Dash</button>';
-   if (config.showList == '1')
-      html += '<button class="rounded-border button1" onclick="mainMenuSel(\'list\')">Liste</button>';
-   html += '<button class="rounded-border button1" onclick="mainMenuSel(\'chart\')">Charts</button>';
-   if (config.schema)
-      html += '<button class="rounded-border button1" onclick="mainMenuSel(\'schema\')">Schema</button>';
-   if (config.lmcHost != '')
-      html += '<button id="lmcMenu" class="rounded-border button1" onclick="mainMenuSel(\'lmc\')">Music</button>';
-   if (config.vdr != '')
-      html += '<button id="vdrMenu" class="rounded-border button1" onclick="mainMenuSel(\'vdr\')">VDR</button>';
-   if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10)
-      html += '<button class="rounded-border button1" onclick="mainMenuSel(\'setup\')">Setup</button>';
+   $("#navMenu").empty()
+      .append($('<div></div>')
+              .attr('id', 'mainMenu'));
 
-   html +=
-      '<div style="display:flex;float:right;">' +
-      // '<span id="socketState" class="socketState ' + 'grayCircle' + '" style="min-width:max-content;"></span>' +
-      '<button id="burgerMenu" class="rounded-border button1 burgerMenu" onclick="menuBurger()">' +
-      '<div></div>' +
-      '<div></div>' +
-      '<div></div>' +
-      '</button>' +
-		'<button id="toggleMsgBtn" class="rounded-border tool-button-svg" ' +
-      'style="background-color:transparent;width:22px;" onclick="toggleInfoDialog()" title="view messages">' +
-      '<svg><use xlink:href="#angle-down"></use></svg>' +
-      '</button>' +
+   addMainMenuButton('Dash', 'dashboard', true);
+   addMainMenuButton('List', 'list', config.showList == '1');
+   addMainMenuButton('Charts', 'chart');
+   addMainMenuButton('Schema', 'schema', config.schema);
+   addMainMenuButton('Music', 'lmc', config.lmcHost != '');
+   addMainMenuButton('VDR', 'vdr', config.vdr != '');
+   // addMainMenuButton('Service Menü', 'menu');
+   // addMainMenuButton('Fehler', 'errors');
+   // addMainMenuButton('Pellets', 'pellets', localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x02);
+   addMainMenuButton('Setup', 'setup', localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10);
 
-	'</div>';
-   html += '</div>';
+   // burger menu
 
-   // buttons below menu
+   $("#mainMenu")
+      .append($('<div></div>')
+              .css('display', 'flex')
+              .css('float', 'right')
+              .append($('<button></button>')
+                      .attr('id', 'burgerMenu')
+                      .addClass('rounded-border button1 burgerMenu')
+                      .click(function() { openMenuBurger(); } )
+                      .append($('<div></div>'))
+                      .append($('<div></div>'))
+                      .append($('<div></div>')))
+              .append($('<button></button>')
+                      .attr('id', 'toggleMsgBtn')
+                      .addClass('rounded-border tool-button-svg')
+                      .attr('title', 'view messages')
+                      .css('background-color', 'transparent')
+                      .css('width', '22px')
+                      .html('<svg><use xlink:href="#angle-down"></use></svg>')
+                      .click(function() { toggleInfoDialog(); } )));
+}
 
-   console.log("currentPage", currentPage);
-   if (currentPage == "setup" || currentPage == "iosetup" || currentPage == "userdetails" || currentPage == "groups" ||
-       currentPage == "alerts" || currentPage == "syslog" || currentPage == "system" || currentPage == "images" || currentPage == "commands") {
+function prepareSetupMenu()
+{
+   // sub menu for setup
+
+   $('#confirmDiv').remove();
+   $('#setupMenu').remove();
+
+   if (['setup', 'iosetup', 'userdetails', 'groups', 'alerts', 'syslog', 'system', 'images', 'commands'].includes(currentPage)) {
       if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10) {
-         html += '<div class="setupMenu">';
-         html += '<button class="rounded-border button2" onclick="mainMenuSel(\'setup\')">Konfiguration</button>';
-         html += '<button class="rounded-border button2" onclick="mainMenuSel(\'iosetup\')">IO Setup</button>';
-         html += '<button class="rounded-border button2" onclick="mainMenuSel(\'userdetails\')">User</button>';
-         html += '<button class="rounded-border button2" onclick="mainMenuSel(\'alerts\')">Alerts</button>';
-         html += '<button class="rounded-border button2" onclick="mainMenuSel(\'groups\')">Baugruppen</button>';
-         html += '<button class="rounded-border button2" onclick="mainMenuSel(\'images\')">Images</button>';
-         html += '<button class="rounded-border button2" onclick="mainMenuSel(\'syslog\')">Syslog</button>';
-         html += '<button class="rounded-border button2" onclick="mainMenuSel(\'system\', \'database\')">Database</button>';
-         html += '<button class="rounded-border button2" onclick="mainMenuSel(\'commands\')">Commands</button>';
-         html += '<button class="rounded-border button2" onclick="mainMenuSel(\'system\', \'wifis\')">Wifi</button>';
-         html += '<button class="rounded-border button2" onclick="mainMenuSel(\'system\', \'system-services\')">System Services</button>';
-         html += '</div>';
-      }
-   }
 
-   if (currentPage == "groups") {
-      html += "<div class=\"confirmDiv\">";
-      html += "  <button class=\"rounded-border buttonOptions\" onclick=\"storeGroups()\">Speichern</button>";
-      html += "</div>";
-   }
-   else if (currentPage == "alerts") {
-      html += "<div class=\"confirmDiv\">";
-      html += "  <button class=\"rounded-border buttonOptions\" onclick=\"storeAlerts()\">Speichern</button>";
-      html += "</div>";
-   }
+         $("#navMenu").append($('<div></div>')
+                              .attr('id', 'setupMenu')
+                              .addClass('setupMenu'));
 
-   else if (currentPage == "login") {
-      html += '<div id="confirm" class="confirmDiv"/>';
+         addSetupMenuButton('Konfiguration', 'setup');
+         addSetupMenuButton('IO Setup', 'iosetup');
+         addSetupMenuButton('User', 'userdetails');
+         addSetupMenuButton('Alerts', 'alerts');
+         addSetupMenuButton('Baugruppen', 'groups');
+         addSetupMenuButton('Syslog', 'syslog');
+         addSetupMenuButton('Database', 'system', 'database');
+         addSetupMenuButton('Commands', 'commands');
+         addSetupMenuButton('Wifi', 'system', 'wifis');
+         addSetupMenuButton('System Services', 'system', 'system-services');
    }
-
-   $("#navMenu").html(html);
-
-   // let msg = "DEBUG: Browser: '" + $.browser.name + "' : '" + $.browser.versionNumber + "' : '" + $.browser.version + "'";
-   // socket.send({ "event" : "logmessage", "object" : { "message" : msg } });
+   }
 }
 
 function updateFooter()
@@ -712,7 +738,7 @@ function updateFooter()
    $("#version").html(daemonState.version);
 }
 
-function menuBurger()
+function openMenuBurger()
 {
    let haveToken = localStorage.getItem(storagePrefix + 'Token') && localStorage.getItem(storagePrefix + 'Token') != "";
    let form = '<div id="burgerPopup" style="padding:0px;">';
@@ -757,30 +783,38 @@ function mainMenuSel(what, action = null)
 
    let lastPage = currentPage;
    currentPage = what;
-   console.log("switch to " + currentPage);
    hideAllContainer();
    schemaEditActive = false;
+
+   prepareSetupMenu();
+
+   console.log("---- switch to " + currentPage);
+
+   if (document.getElementById('mainMenu')) {
+      let children = document.getElementById('mainMenu').children;
+
+      for (let i = 0; i < children.length; i++)
+         children[i].className = children[i].className.replace(" active", "");
+
+      $('#mainmenu_' + currentPage).addClass('active');
+   }
 
    if (currentPage != lastPage && (currentPage == "vdr" || lastPage == "vdr")) {
       console.log("closing socket " + socket.protocol);
       socket.close();
-      // delete socket;
-      socket = null;
+      socket = null;         // delete socket;
 
       let protocol = myProtocol;
       let url = "ws://" + location.hostname + ":" + location.port;
 
       if (currentPage == "vdr") {
          protocol = "osd2vdr";
-         // url = "ws://" + location.hostname + ":4444";
          url = "ws://" + config.vdr;
-         console.log("connecting ", url);
       }
 
+      console.log("connecting ", url);
       connectWebSocket(url, protocol);
    }
-
-   prepareMenu();
 
    if (currentPage != "vdr")
       socket.send({ "event" : "pagechange", "object" : { "page"  : currentPage }});
@@ -840,6 +874,14 @@ function mainMenuSel(what, action = null)
       event = "alerts";
    else if (currentPage == "schema")
       event = "schema";
+   // else if (currentPage == "menu")
+   //    event = "menu";
+   // else if (currentPage == "errors")
+   //    event = "errors";
+   // else if (currentPage == "pellets") {
+   //    showProgressDialog();
+   //    event = "pellets";
+   // }
 
    if (currentPage != 'vdr' && currentPage != 'iosetup') {
       if (!isObjectEmpty(jsonRequest) && event != null)
@@ -857,7 +899,6 @@ function mainMenuSel(what, action = null)
 function setupDashboard()
 {
    $("#burgerPopup").dialog("close");
-
    setupMode = !setupMode;
    initDashboard();
 }
@@ -886,6 +927,8 @@ function showSyslog(log)
 {
    $('#controlContainer').removeClass('hidden');
    $('#container').removeClass('hidden');
+
+   prepareSetupMenu();
 
    $("#controlContainer")
       .empty()
@@ -962,6 +1005,8 @@ function showDatabaseStatistic(statistic)
    $('#container').removeClass('hidden');
    $('#container').html('<div id="systemContainer"></div>');
 
+   prepareSetupMenu();
+
    let html = '<div>';
 
    html += '  <div class="rounded-border seperatorFold">Tabellen</div>';
@@ -1002,6 +1047,8 @@ function showWifiList()
 
    $('#container').removeClass('hidden');
    $('#container').html('<div id="systemContainer"></div>');
+
+   prepareSetupMenu();
 
    let html = '<div>';
 
@@ -1094,6 +1141,8 @@ function showSystemServicesList()
 
    $('#container').removeClass('hidden');
    $('#container').html('<div id="systemContainer"></div>');
+
+   prepareSetupMenu();
 
    // systemServices.sort(function(a, b) {
    //    return b.unitFileState.localeCompare(a.unitFileState);
@@ -1293,7 +1342,7 @@ function prepareChartRequest(jRequest, sensors, start, range, id)
       jRequest["sensors"] = sensors;
    }
    else {
-      console.log("requesting chart for '" + start + "' range " + range);
+      // console.log("requesting chart for '" + start + "' range " + range);
       jRequest["start"] = start == 0 ? 0 : Math.floor(start.getTime()/1000);  // calc unix timestamp
       jRequest["range"] = range;
       jRequest["sensors"] = sensors;

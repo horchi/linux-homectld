@@ -11,7 +11,7 @@
 
     /* colors */
 
-    --menu: #171717;
+    --menu: #272727;
 
     --light1: #272727;
     --light2: lightgray;
@@ -82,9 +82,4 @@ Body
     font-size: 1.0em;
     color: white;
     background-color: black;
-}
-
-.content
-{
-    margin: 2px;
 }

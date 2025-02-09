@@ -35,7 +35,6 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "longitude",                 ctNum,     "8.79",         false, "Daemon", "Längengrad", "" },
 
    { "interval",                  ctInteger, "60",           false, "Daemon", "Intervall der Aufzeichung", "Datenbank Aufzeichung [s]" },
-   { "webPort",                   ctInteger, "61109",        false, "Daemon", "Port des Web Interfaces", "" },
 
    { "aggregateHistory",          ctInteger, "365",          false, "Daemon", "Historie [Tage]", "history for aggregation [days] (default 0 days -> aggegation turned OFF)" },
    { "aggregateInterval",         ctInteger, "15",           false, "Daemon", "Aggregate Interval der historisierten Daten [m]", "aggregation interval in minutes - 'one sample per interval will be build'" },
@@ -77,6 +76,7 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
 
    // web
 
+   { "webPort",                   ctInteger, "61109",        false, "WEB Interface", "Port des Web Interfaces", "" },
    { "webSSL",                    ctBool,    "",             false, "WEB Interface", "Use SSL for WebInterface", "" },
    { "style",                     ctChoice,  "dark",         false, "WEB Interface", "Farbschema", "" },
    { "iconSet",                   ctChoice,  "light",        true,  "WEB Interface", "Status Icon Set", "" },

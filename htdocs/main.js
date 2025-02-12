@@ -193,8 +193,9 @@ function updateSocketState()
    // VDR did not support ping
 
    if (currentPage != "vdr") {
-      if (lastPingAt + pingTimeoutMs <= new Date().getTime()) {
-         console.log("Warning: Reconnecting web socket");
+		let now = new Date().getTime();
+      if (lastPingAt + pingTimeoutMs <= now) {
+         console.log("Warning: Reconnecting web socket due to timeout, last keep alive was ", now - lastPingAt, "ms ago");
          socket.reopen();
          lastPingAt = new Date().getTime();
       }
@@ -521,7 +522,7 @@ function dispatchMessage(message)
       hideProgressDialog();
    }
    else if (event == "wifis") {
-      pingTimeoutMs = 4000;
+      pingTimeoutMs = 10000;
       wifis = jMessage.object;
       showWifiList();
       hideProgressDialog();

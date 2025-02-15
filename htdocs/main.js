@@ -435,13 +435,14 @@ function dispatchMessage(message)
    // if (event != "chartdata" && event != "ping")
    //    console.log("got event: " + event);
 
+	lastPingAt = new Date().getTime();
+
    if (event == "result") {
       hideProgressDialog();
       showInfoDialog(jMessage.object);
    }
    else if (event == "ping") {
       // console.log("Got ping");
-      lastPingAt = new Date().getTime();
    }
    else if (event == "init") {
       // console.log("init " + JSON.stringify(jMessage.object, undefined, 4));
@@ -522,7 +523,7 @@ function dispatchMessage(message)
       hideProgressDialog();
    }
    else if (event == "wifis") {
-      pingTimeoutMs = 10000;
+      pingTimeoutMs = 4000;
       wifis = jMessage.object;
       showWifiList();
       hideProgressDialog();

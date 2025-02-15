@@ -4031,7 +4031,23 @@ int Daemon::setConfigItem(const char* name, const char* value)
 
 int Daemon::getConfigItem(const char* name, int& value, int def)
 {
-   return getConfigItem(name, (long&)value, (long)def);
+   char* txt {};
+
+   getConfigItem(name, txt);
+
+   if (!isEmpty(txt))
+      value = atoi(txt);
+   else if (isEmpty(txt) && def != na)
+   {
+      value = def;
+      setConfigItem(name, (long)value);
+   }
+   else
+      value = 0;
+
+   free(txt);
+
+   return success;
 }
 
 int Daemon::getConfigItem(const char* name, long& value, long def)
@@ -4041,7 +4057,7 @@ int Daemon::getConfigItem(const char* name, long& value, long def)
    getConfigItem(name, txt);
 
    if (!isEmpty(txt))
-      value = atoi(txt);
+      value = atol(txt);
    else if (isEmpty(txt) && def != na)
    {
       value = def;

@@ -1,3 +1,3 @@
 
-var myProtocol = "homectld";
-var storagePrefix = "homectld";
+const myProtocol = "homectld";
+const storagePrefix = "homectld";

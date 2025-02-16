@@ -75,19 +75,22 @@ function schemaContextMenu(event)
                        .append($('<button></button>')
                                .addClass('rounded-border button1')
                                .html('&#10010')
-                               .click(function() { $("#schemaContextMenu").dialog('close');
-																	schemaAddItem(); }))
+                               .click(function() {
+                                  $("#schemaContextMenu").dialog('close');
+                                  schemaAddItem(); }))
                        .append($('<button></button>')
                                .attr('title', 'add user defines value')
                                .addClass('rounded-border button1')
                                .html('Leitung hinzufügen')
-                               .click(function() { $("#schemaContextMenu").dialog('close');
-																	makeResizableDiv(); }))
+                               .click(function() {
+                                  $("#schemaContextMenu").dialog('close');
+                                  makeResizableDiv(); }))
                        .append($('<button></button>')
                                .addClass('rounded-border button1')
                                .html('Speichern')
-                               .click(function() { $("#schemaContextMenu").dialog('close');
-																	schemaStore(); })
+                               .click(function() {
+                                  $("#schemaContextMenu").dialog('close');
+                                  schemaStore(); })
                               )));
 
    form.dialog({
@@ -95,15 +98,13 @@ function schemaContextMenu(event)
       position: { my: "left top", at: "center", of: event },
       width: "250px",
       dialogClass: "no-titlebar",
-		modal: true,
+      modal: true,
       minHeight: "0px",
       resizable: false,
-		closeOnEscape: true,
+      closeOnEscape: true,
       hide: "fade",
       open: function() {
-			$('.ui-widget-overlay').bind('click', function()
-                                      { $("#schemaContextMenu").dialog('close'); });
-      },
+         $('.ui-widget-overlay').bind('click', function() { $("#schemaContextMenu").dialog('close'); }); },
       close: function() {
          $(this).dialog('destroy').remove();
       }
@@ -515,9 +516,9 @@ function editSchemaValue(type, address, newUC)
                        .append($('<input></input>')
                                .attr('id', 'showBorder')
                                .attr('type', 'checkbox')
-                               .val(schemaDef.properties['border'] != 'none')
-                               .append($('<label></label>')
-                                       .attr('for', 'showBorder')))))
+                               .prop('checked', schemaDef.properties['border'] != 'none'))
+                       .append($('<label></label>')
+                               .attr('for', 'showBorder'))))
 
        .append($('<div></div>')
                .append($('<span></span>')

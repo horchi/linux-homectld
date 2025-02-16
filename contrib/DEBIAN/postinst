@@ -25,7 +25,7 @@ COMMAND="CREATE DATABASE IF NOT EXISTS homectl charset utf8;
 case "$1" in
     configure)
         echo "postinst called for configure" >&2
-        if pgrep mariadbd; then
+      if pgrep mariadbd || pgrep mysqld; then
            echo "Enter your database root password:" >&2
            echo ${COMMAND} | mysql -u root -Dmysql -p
         else

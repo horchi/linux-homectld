@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.5"
-#define VERSION_DATE "18.12.2024"
+#define _VERSION     "0.1.6"
+#define VERSION_DATE "23.02.2025"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,9 @@
 
 /*
  * ------------------------------------
+
+2025-02-23: version 0.1.6
+    - change: Update of README
 
 2024-12-18: version 0.1.5
     - change: Improved deconz websocket reconnect

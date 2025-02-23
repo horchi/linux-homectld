@@ -6,6 +6,39 @@ Project page: https://github.com/horchi/linux-homectld
 ## License
 This code is distributed under the terms and conditions of the GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
 
+## Donation
+If you like the project and want to support it
+
+[![paypal](https://www.paypalobjects.com/de_DE/DE/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=KUF9ZAQ5UTHUN)
+
+# Features
+
+## Supported Sensors / Interfaces
+
+These sensors and interfaces are supported out of the box
+
+- GPIO of Raspberry Pi or Odroid (tested with Odroid N2+)
+- Deconz https://www.dresden-elektronik.de/funk/software/deconz.html
+- OpenWeatherMap https://openweathermap.org/
+- NodeRed - interface from and to NodeRed
+- Growatt PV Inverter via https://github.com/OpenInverterGateway/OpenInverterGateway
+- Rtl433 wireless sensors - details below
+- One Wire Sensors
+- Support of some i2c bus circuits like ADS1115, MCP23017, DHT20 and the TCA9548A multiplexer
+- Arduino(s) with analog and digital inputs via MQTT
+- BMS Interface (Battery Management System) like this https://www.lithiumbatterypcb.com/product/4s-lifepo4-battery-bluetooth-bms-with-100a-constant-discharge-current-for-12v-lfp-battery-pack/
+  as used for example for the LIONTRON LiFePO4
+- Supports the RS485 Bus and the 'Simple Serial Display' interface of Votronic
+- Supports the VE.Direct-HEX-Protocol-Phoenix-Inverter protocol of Victron devices
+- Act as frontend of LMS (Logitech Media Server)
+- Act as a remote control of the VDR (Linux Video Disc Recorder)
+- Script adapter/converter interface for custom MQTT messages - to be able to integrate almost all sensors that deliver data via MQTT
+- Windy App / Windy App Map to display wind data from https://windy.app/de/widgets
+
+These sensors and interfaces are indirectly supported
+
+- HomeMatic - by using NodeRed as an adapter to the CCU
+
 # Some Screenshots
 
 ## As Camper Control
@@ -25,39 +58,11 @@ The software was created for personal use, it's published here for free under th
 The construction of the required hardware, especially in the handling of mains voltage (230V, 110V, ...), is carried out on one's own responsibility, local guidelines and regulations must also be observed especially in connection with water and pool!
 All explanations about the hardware are only indications of how it is technically feasible, security and legal provisions are not discussed here!
 
-## Donation
-If you like the project and want to support it
-
-[![paypal](https://www.paypalobjects.com/de_DE/DE/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=KUF9ZAQ5UTHUN)
-
 ## Prerequisites:
-The described installation method is tested with Raspbian Buster, the homectld should work also with other Linux distributions and versions but the installation process should adapted to them, for example they use other init processes or use different tools for the package management, other package names, ...
+The described installation method and dependencies fit to ubuntu 24.04, the homectld work also with other Linux distributions
 
 Language pack 'de_DE.UTF-8' is required as language package (`dpkg-reconfigure locales`)
 Set system timezone, for example Berlin `timedatectl set-timezone Europe/Berlin`
-
-# Installation by package (only Raspbian Buster)
-
-**The install package is not available yet! Please use the ""custom build" section below!**
-
-### install
-
-```
-wget www.jwendel.de/homectld/install-deb.sh -O /tmp/install-deb.sh
-sudo bash /tmp/install-deb.sh
-```
-
-### uninstall
-
-```
-dpkg --remove homectld
-```
-
-### uninstall (with remove of all configurations, data and the homectl database)
-
-```
-dpkg --purge homectld`
-```
 
 # Building and installing by source
 
@@ -107,7 +112,7 @@ if the database is running remote, or you like to have remote access to the data
 
 ```
 apt -y install build-essential libssl-dev libcurl4-openssl-dev uuid-dev libcap-dev libsystemd-dev
-apt -y install libjansson-dev libmariadb-dev liblua5.3-dev mosquitto-clients jq bc
+apt -y install libjansson-dev libmariadb-dev liblua5.3-dev mosquitto-clients jq jo bc
 ```
 
 # If you integrate bluetooth devices

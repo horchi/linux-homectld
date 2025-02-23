@@ -17,7 +17,7 @@
 
 //***************************************************************************
 // Class - VotroCom
-//   Supports the RS485 Bus and the Simple Serial Display Include)
+//   Supports the RS485 Bus and the Simple Serial Display
 //***************************************************************************
 
 class VotroCom

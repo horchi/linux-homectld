@@ -104,16 +104,20 @@ To check what is written on the topic call `mosquitto_sub -t n4000`
 {"type": "N4000", "address": 5, "value": 0.1, "kind": "value", "title": "IntSupply", "unit": "V"}
 ```
 
-# Thetford N4000 CI-Bus
+# Thetford N4000 CI-Bus - Reversengineering
 
-Bus ID: 0x0c
+Bus ID Info Frame: 0x0c
+Bus ID Control Frame: 0x0b - immer 8 Bytes senden
 
 ### Werte Byte 0:
 Betriebsmodus
 
+ 0x00 - off
+ 0x01 - auto
 0x03 - Gas Betrieb
 0x05 - 12V Betrieb
 0x07 - 230 Betrieb
+ 0x09 - auto night
 0x0B - Automatik Betrieb (Gas)
 0x0D - Automatik Betrieb (12V)
 0x0F - Automatik Betrieb (230V)

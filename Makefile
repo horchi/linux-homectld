@@ -243,7 +243,6 @@ upload:
 build-deb:
 	rm -rf $(DEB_DEST)
 	make -s install-daemon DESTDIR=$(DEB_DEST) PREFIX=/usr INIT_AFTER=mysql.service
-	make -s install-systemd
 	make -s install-web DESTDIR=$(DEB_DEST) PREFIX=/usr
 	dpkg-deb --build $(DEB_BASE_DIR)/$(TARGET)-$(VERSION)
 

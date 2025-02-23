@@ -7,6 +7,7 @@
 //***************************************************************************
 // The GroWatt need MQTT communication as described here:
 //   https://github.com/otti/Growatt_ShineWiFi-S
+//   https://github.com/OpenInverterGateway/OpenInverterGateway
 //***************************************************************************
 
 #include <vector>

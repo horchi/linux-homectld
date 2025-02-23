@@ -26,6 +26,7 @@ If you like the project and want to support it
 - One Wire Sensors
 - Support of some i2c bus circuits like ADS1115, MCP23017, DHT20 and the TCA9548A multiplexer
 - Arduino(s) with analog and digital inputs via MQTT
+- Thetford refrigerator via CI bus
 - BMS Interface (Battery Management System) like this https://www.lithiumbatterypcb.com/product/4s-lifepo4-battery-bluetooth-bms-with-100a-constant-discharge-current-for-12v-lfp-battery-pack/
   as used for example for the LIONTRON LiFePO4
 - Supports the RS485 Bus and the 'Simple Serial Display' interface of Votronic

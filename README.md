@@ -15,7 +15,7 @@ If you like the project and want to support it
 
 ## Supported Sensors / Interfaces
 
-These sensors and interfaces are supported out of the box
+### These sensors and interfaces are supported out of the box
 
 - GPIO of Raspberry Pi or Odroid (tested with Odroid N2+)
 - Deconz https://www.dresden-elektronik.de/funk/software/deconz.html
@@ -34,8 +34,11 @@ These sensors and interfaces are supported out of the box
 - Act as a remote control of the VDR (Linux Video Disc Recorder)
 - Script adapter/converter interface for custom MQTT messages - to be able to integrate almost all sensors that deliver data via MQTT
 - Windy App / Windy App Map to display wind data from https://windy.app/de/widgets
+- Control of WiFi management via nmcli client integrated in the web interface
+- Control of system services via systemd integrated in the web interface
+- Display and filtering of rsyslog logs files integrated in the web interface
 
-These sensors and interfaces are indirectly supported
+### These sensors and interfaces are indirectly supported
 
 - HomeMatic - by using NodeRed as an adapter to the CCU
 

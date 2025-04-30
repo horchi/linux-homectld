@@ -326,9 +326,11 @@ int showUsage(const char* bin)
    printf("  options:\n");
    printf("     -u <url>        MQTT url\n");
    printf("     -T <topic>      MQTT topic\n");
+   printf("     -m <value>      minimum value to be recorded (optional)\n");
+   printf("     -M <value>      maximum value to be recorded (optional)\n");
    printf("     -c <count>      <count> of expected W1 sensors (optional)\n");
-   printf("                      if not <count> sensors present and <power pin> is configured\n");
-   printf("                      power line will be reset once per interval (optional)\n");
+   printf("                       if not <count> sensors present and <power pin> is configured\n");
+   printf("                       power line will be reset once per interval (optional)\n");
    printf("     -p <GPIO pin>   physical number of GPIO pin of W1 power supply (optional)\n");
    printf("     -l <eloquence>  set eloquence\n");
    printf("     -n              don't demonize (optional)\n");

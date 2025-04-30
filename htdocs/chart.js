@@ -113,7 +113,7 @@ function drawCharts(dataObject)
       }
    };
 
-   // console.log("dataObject: " + JSON.stringify(dataObject, undefined, 4));
+   console.log("dataObject: " + JSON.stringify(dataObject, undefined, 4));
 
    var colors = ['gray','yellow','white','red','lightblue','lightgreen','purple','blue','green','pink','#E69138'];
    var yAxes = [];

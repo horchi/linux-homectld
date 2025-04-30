@@ -2274,12 +2274,10 @@ dialog::backdrop, #backdrop
     .menu                      { padding: 0px; margin: 0px; }
     .button1                   { margin-right: 1px; }
     .tabButton                 { padding: 6px 6px 0px 6px; }
-/*    .inputTableConfig > div:nth-child(odd) { background-color: #0000007d; } */
+    .inputTableConfig > div    { width: 90%; }
     .inputTableConfig > div > span:nth-child(3) { width: 25%; }
-    .inputTableConfig > div > span              { width: 30%; }
     .buttonDashboard           { margin: 1px 0px 1px 0px; }
     .menuDashboard             { margin: 1px; }
-/*    .widgetContainer > div     { width: 175px; height: 160px; margin: 1px; } */
     .widgetGauge               { grid-template-rows: 30% 70%; }
     .widget                    { grid-template-rows: 15% 85%; }
     .widgetChart               { grid-template-rows: 15% 18% 67%; }
@@ -2303,7 +2301,6 @@ dialog::backdrop, #backdrop
     .menu                      { padding: 0px; margin: 0px; }
     .button1                   { margin-right: 1px; }
     .tabButton                 { padding: 6px 6px 0px 6px; }
-/*    .inputTableConfig > div:nth-child(odd) { background-color: #0000007d; }*/
     .inputTableConfig > div > span:nth-child(3) { width: 25%; }
     .inputTableConfig > div > span              { width: 90%; }
     .buttonDashboard           { padding: 4px; margin: 1px 0px 1px 0px; }

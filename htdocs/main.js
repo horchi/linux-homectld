@@ -570,16 +570,16 @@ function dispatchMessage(message)
       hideProgressDialog();
       let id = jMessage.object.id;
 
-      if (currentPage == 'chart') {                                 // the charts page
+      if (currentPage == 'chart') {                                      // the charts page
          drawCharts(jMessage.object);
       }
-      else if (currentPage == 'dashboard' && id == "chartwidget") { // the dashboard widget
+      else if (currentPage == 'dashboard' && id == "chartwidget") {      // the dashboard widget
          drawChartWidget(jMessage.object);
       }
-      else if (currentPage == 'dashboard' && id == "chartwidgetbar") { // the dashboard bar chart widget
+      else if (currentPage == 'dashboard' && id == "chartwidgetbar") {   // the dashboard bar chart widget
          drawBarChartWidget(jMessage.object);
       }
-      else if (currentPage == 'dashboard' && id == "chartdialog") { // the dashboard chart dialog
+      else if (currentPage == 'dashboard' && id == "chartdialog") {      // the dashboard chart dialog
          drawChartDialog(jMessage.object);
       }
    }
@@ -1549,9 +1549,9 @@ function drawBarChartWidget(dataObject)
 function drawChartDialog(dataObject)
 {
    let root = document.querySelector('dialog')
-   if (dataObject.rows[0].sensor != chartDialogSensor) {
+
+   if (dataObject.rows[0].sensor != chartDialogSensor)
       return ;
-   }
 
    if (theChart != null) {
       theChart.destroy();
@@ -1647,6 +1647,46 @@ function drawChartDialog(dataObject)
    }
 
    data.options.scales.yAxes[0].scaleLabel.labelString = '[' + valueFacts[key].unit + ']';
+
+//   const _values = {
+//      labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+//      datasets: [{
+//         label: 'Weekly Sales',
+//         data: [18, 12, 6, 9, 12, 3, 9],
+//         backgroundColor: [
+//            'rgba(255, 26, 104, 0.2)',
+//            'rgba(54, 162, 235, 0.2)',
+//            'rgba(255, 206, 86, 0.2)',
+//            'rgba(75, 192, 192, 0.2)',
+//            'rgba(153, 102, 255, 0.2)',
+//            'rgba(100, 0, 5, 0.2)',
+//            'rgba(255, 159, 64, 0.2)'
+//         ],
+//         borderColor: [
+//            'rgba(255, 26, 104, 1)',
+//            'rgba(54, 162, 235, 1)',
+//            'rgba(255, 206, 86, 1)',
+//            'rgba(75, 192, 192, 1)',
+//            'rgba(153, 102, 255, 1)',
+//            'rgba(0, 200, 15, 1)',
+//            'rgba(255, 159, 64, 1)'
+//         ],
+//         borderWidth: 1
+//      }]
+//   };
+//
+//   const data = {
+//      type: 'bar',
+//      data: _values,
+//      options: {
+//         indexAxis: 'y',
+//         scales: {
+//            'y': {
+//               beginAtZero: true
+//            }
+//         }
+//      }
+//   };
 
    let canvas = root.querySelector("#chartDialog");
    theChart = new Chart(canvas, data);

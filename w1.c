@@ -25,6 +25,8 @@
 bool W1::shutdown {false};
 int W1::w1PowerPin {na};
 int W1::w1Count {na};
+int W1::min {na};
+int W1::max {na};
 
 W1::W1(const char* aUrl, const char* topic)
 {
@@ -215,16 +217,16 @@ int W1::update()
          else if ((p = strstr(line, " t=")))
          {
             double value = atoi(p+3) / 1000.0;
+            myString tmp = it->first;
 
-            // myString tmp = it->first;
-            // #TODO deactivated - check later
             // if (!tmp.starts_with("3b-") && (value == 85 || value < -55 || value > 125))
-            // {
-            //    // at error we get sometimes like +85 or -85 from the sensor :o
+            if ((max != na && value > max) || (min != na && value < min))
+            {
+               // at error we get sometimes like +85 or -85 from the sensor :o
 
-            //    tell(eloAlways, "Error: Ignoring invalid value (%0.2f) of w1 sensor '%s'", value, it->first.c_str());
-            //    break;
-            // }
+               tell(eloAlways, "Error: Ignoring value (%0.2f) of sensor '%s' out of configured range", value, it->first.c_str());
+               break;
+            }
 
             if (sensors[it->first].values.size() >= 3)
             {
@@ -368,6 +370,8 @@ int main(int argc, char** argv)
          case 'c': if (argv[i+1]) W1::w1Count = atoi(argv[i+1]);           break;
          case 'p': if (argv[i+1]) W1::w1PowerPin = atoi(argv[i+1]);        break;
          case 'l': if (argv[i+1]) _eloquence = (Eloquence)atoi(argv[i+1]); break;
+         case 'm': if (argv[i+1]) W1::min = atoi(argv[i+1]);               break;
+         case 'M': if (argv[i+1]) W1::max = atoi(argv[i+1]);               break;
          case 't': _stdout = yes;                                          break;
          case 'n': nofork = true;                                          break;
          case 'v': printf("Version %s\n", VERSION);                        return 1;

@@ -92,15 +92,15 @@ Daemon::ValueTypes Daemon::defaultValueTypes[] =
    { "^ADS",      "Analog Eingänge" },
    { "^Sp",       "Weitere Sensoren" },
    { "^DZL",      "DECONZ Lampen" },
-   { "^DZLG",      "DECONZ Lampen Gruppe" },
+   { "^DZLG",     "DECONZ Lampen Gruppe" },
    { "^DZS",      "DECONZ Sensoren" },
    { "^HM.*",     "Home Matic" },
    { "^P4.*",     "P4 Daemon" },
    { "^WEA",      "Wetter" },
    { "^DHT",      "Wetter" },
    { "^CV",       "Calculated Values" },
-   { "^PA",    "Parameter" },
-   { "^UD",    "UD" },
+   { "^PA",       "Parameter" },
+   { "^UD",       "User Defined" },
    { "^VIC",      "Victron" },
    { "^VOTRO",    "Votronic" },
    { "^MOPEKA.*", "Mopeka" },
@@ -4437,6 +4437,14 @@ void Daemon::publishVictronInit(const char* type)
    if (mqttTopicVictron.empty())
    {
       tell(eloAlways, "Error: Can't init victron for '%s', missing topic", type);
+      return;
+   }
+
+   mqttCheckConnection();
+
+   if (!mqttWriter)
+   {
+      tell(eloAlways, "Error: Can't init victron for '%s', missing broker at '%s'", type, mqttUrl);
       return;
    }
 

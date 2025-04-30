@@ -50,6 +50,8 @@ class W1
 
       static int w1PowerPin;
       static int w1Count;
+      static int min;
+      static int max;
 
    protected:
 

@@ -497,7 +497,6 @@ int Deconz::put(std::string type, json_t*& jResult, const char* uuid, json_t* jD
 {
    // /api/<apikey>/lights/<id>/state
 
-   std::string data;
    char* url {};
 
    if (type == "DZL")
@@ -509,6 +508,7 @@ int Deconz::put(std::string type, json_t*& jResult, const char* uuid, json_t* jD
 
    char* payload = json_dumps(jData, JSON_REAL_PRECISION(4));
    json_decref(jData);
+   std::string data;
 
    if (curl.put(url, payload, &data) != success)
    {
@@ -728,9 +728,7 @@ void* Deconz::syncFct(void* user)
    tell(eloDebugDeconz, "DECONZ: Started syncThread");
 
    while (!threadCtl->close)
-   {
-		lws_service(context, 0);
-   }
+      lws_service(context, 0);
 
    threadCtl->active = false;
    tell(eloDebugDeconz, "DECONZ:  Stopped syncThread regular");

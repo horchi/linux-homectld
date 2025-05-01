@@ -125,7 +125,13 @@ def toModeString(mode):
 	elif mode == 7:
 		return "Netz ~230V"
 	elif mode == 9:
-		return "Nacht"
+		return "Auto Nacht"
+	elif mode == 11:
+		return "Gas Nacht"
+	elif mode == 13:
+		return "Batt Nacht"
+	elif mode == 15:
+		return "Netz Nacht"
 	return str(mode)
 
 def open():

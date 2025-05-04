@@ -123,7 +123,7 @@ modeMapping = {
 	'Batterie'      : Mode('Batterie',      0x05, 'N4000'),
 	'Störung'       : Mode('Störung',       0x06, '-'),
 	'Netz ~230V'    : Mode('Netz ~230V',    0x07, 'N4000'),
-	'Auto Nacht'    : Mode('Auto Nacht',    0x09, 'T2400'),
+	'Auto Nacht'    : Mode('Auto Nacht',    0x09, 'T2090'),
 	'Gas Nacht'     : Mode('Gas Nacht',     0x0b, '-'),
 	'Batt Nacht'    : Mode('Batt Nacht',    0x0d, '-'),
 	'~230V Nacht'   : Mode('~230V Nacht',   0x0f, '-')

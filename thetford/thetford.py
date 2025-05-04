@@ -118,7 +118,7 @@ modeMapping = {
 	'Aus'           : Mode('Aus',           0x00, 'T2090'),
 	'Auto'          : Mode('Auto',          0x01, 'N4000'),
 	'Tag'           : Mode('Tag',           0x01, 'T2090'),
-	'Aus'           : Mode('Aus',           0x02, 'N4000'),
+	'_Aus'           : Mode('Aus',           0x02, 'N4000'),
 	'Gas'           : Mode('Gas',           0x03, 'N4000'),
 	'Störung Batt?' : Mode('Störung Batt?', 0x04, '-'),
 	'Batterie'      : Mode('Batterie',      0x05, 'N4000'),
@@ -270,7 +270,7 @@ def frame_listener(frame):
 		if byte == 0:
 			choices = ''
 			for key in modeMapping:
-				print("modeMapping {} / {}  '{}'".format(key, modeMapping[key].title, modeMapping[key].flt))
+				#print("modeMapping {} / {}  '{}'".format(key, modeMapping[key].title, modeMapping[key].flt))
 				if modeMapping[key].flt == 'all' or modeMapping[key].flt.find(args.M.strip()) != -1:
 					choices += modeMapping[key].title + ','
 			sensor = {

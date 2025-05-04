@@ -114,22 +114,22 @@ def isAuto(val):
 
 Mode = namedtuple('Mode', ['title', 'mode', 'flt'])
 
-modeMapping = {
-	'Aus'           : Mode('Aus',           0x00, 'T2090'),
-	'Auto'          : Mode('Auto',          0x01, 'N4000'),
-	'Tag'           : Mode('Tag',           0x01, 'T2090'),
-	'_Aus'           : Mode('Aus',           0x02, 'N4000'),
-	'Gas'           : Mode('Gas',           0x03, 'N4000'),
-	'Störung Batt?' : Mode('Störung Batt?', 0x04, '-'),
-	'Batterie'      : Mode('Batterie',      0x05, 'N4000'),
-	'Störung'       : Mode('Störung',       0x06, '-'),
-	'Netz ~230V'    : Mode('Netz ~230V',    0x07, 'N4000'),
-	'_Aus'          : Mode('Aus',           0x08, '-'),
-	'Nacht'         : Mode('Nacht',         0x09, 'T2090'),
-	'Gas Nacht'     : Mode('Gas Nacht',     0x0b, '-'),
-	'Batt Nacht'    : Mode('Batt Nacht',    0x0d, '-'),
-	'~230V Nacht'   : Mode('~230V Nacht',   0x0f, '-')
-}
+modeMapping = [
+	Mode('Aus',           0x00, 'T2090'),
+	Mode('Auto',          0x01, 'N4000'),
+	Mode('Tag',           0x01, 'T2090'),
+	Mode('Aus',           0x02, 'N4000'),
+	Mode('Gas',           0x03, 'N4000'),
+	Mode('Störung Batt?', 0x04, '-'),
+	Mode('Batterie',      0x05, 'N4000'),
+	Mode('Störung',       0x06, '-'),
+	Mode('Netz ~230V',    0x07, 'N4000'),
+	Mode('Aus',           0x08, '-'),
+	Mode('Nacht',         0x09, 'T2090'),
+	Mode('Gas Nacht',     0x0b, '-'),
+	Mode('Batt Nacht',    0x0d, '-'),
+	Mode('~230V Nacht',   0x0f, '-')
+]
 
 def toModeString(mode):
 	if args.M.strip() != 'T2090':

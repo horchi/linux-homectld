@@ -134,7 +134,8 @@ modeMapping = {
 def toModeString(mode):
 	if args.M.strip() != 'T2090':
 		mode = mode & ~0x08     # mask additional auto bit, we check it by isAuto
-
+	elif args.M.strip() == 'T2090' and mode == 0x08:
+		mode = 0x00
 	for key in modeMapping:
 		if modeMapping[key].mode == mode and (modeMapping[key].flt.find(args.M.strip()) != -1 or modeMapping[key].flt == 'all'):
 			return modeMapping[key].title
@@ -266,12 +267,12 @@ def frame_listener(frame):
 					'text'    : "Automatik" if isAuto(byte2uint(frame.data[byte])) else "Manuell"
 				}
 				publishMqtt(sensor)
-		choices = ''
-		for key in modeMapping:
-			if modeMapping[key].flt == 'all' or modeMapping[key].flt.find(args.M.strip()) != -1:
-				choices += modeMapping[key].title + ','
-
 		if byte == 0:
+			choices = ''
+			for key in modeMapping:
+				print("modeMapping {} / {} / {} / {}", key, modeMapping[key].title, modeMapping[key].flt, args.M.strip())
+				if modeMapping[key].flt == 'all' or modeMapping[key].flt.find(args.M.strip()) != -1:
+					choices += modeMapping[key].title + ','
 			sensor = {
 				'type'    : args.t.strip(),
 				'address' : 11,

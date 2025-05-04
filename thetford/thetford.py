@@ -158,14 +158,6 @@ def openLini():
 			print("Retrying in 5 seconds ..")
 			time.sleep(5.0)
 
-def publishMqtt(sensor):
-	if args.m.strip() != '':
-		msg = json.dumps(sensor)
-		tell(2, '{}'.format(msg))
-		ret = mqtt.publish(args.T.strip(), msg)
-	if args.s:
-		tell(0, "  {}: {} '{}'".format(sensor["title"], sensor["value"], "" if sensor['kind'] != 'text' else sensor["text"]))
-
 def writeLini(byte, value):
 	tell(0, "write {} to byte {}".format(value, byte))
 	tell(2, "lastData was {}".format(lastData))
@@ -176,6 +168,14 @@ def writeLini(byte, value):
 	except:
 		tell(0, "write failed");
 	tell(2, "Wrote {}".format(lastData))
+
+def publishMqtt(sensor):
+	if args.m.strip() != '':
+		msg = json.dumps(sensor)
+		tell(2, '{}'.format(msg))
+		ret = mqtt.publish(args.T.strip(), msg)
+	if args.s:
+		tell(0, "  {}: {} '{}'".format(sensor["title"], sensor["value"], "" if sensor['kind'] != 'text' else sensor["text"]))
 
 def onConnect(client, userdata, flags, reason_code, properties=None):
 	tell(0, f"Connected MQTT with result code {reason_code}")
@@ -200,7 +200,7 @@ def onMessage(client, userdata, msg):
 		byte = 0
 		value = toModeCode(s['value'])
 		tell(0, "write {} ({}) to byte {}".format(toModeString(value), value, byte))
-	elif byte == 1:   # cooling level
+	elif byte == 1 and args.M.strip() == "N4000":   # cooling level
 		value = int(value) - 1
 	writeLini(int(byte), int(value))
 

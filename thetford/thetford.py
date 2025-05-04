@@ -263,10 +263,10 @@ def frame_listener(frame):
 					'text'    : "Automatik" if isAuto(byte2uint(frame.data[byte])) else "Manuell"
 				}
 				publishMqtt(sensor)
-			choices = ''
-			for key in modeMapping:
-				if modeMapping[key].flt == 'all' or modeMapping[key].flt.find(args.M.strip()) != -1:
-					choices += modeMapping[key].title + ','
+		choices = ''
+		for key in modeMapping:
+			if modeMapping[key].flt == 'all' or modeMapping[key].flt.find(args.M.strip()) != -1:
+				choices += modeMapping[key].title + ','
 
 		if byte == 0:
 			sensor = {

@@ -1879,7 +1879,10 @@ table.tableMultiCol td
     font-weight: bold;
     align-items: center;
     align-self: center;
-    height: fit-content;
+    overflow-y: auto;
+    height: -webkit-fill-available;
+    height: -moz-available;
+    width: inherit;
     word-break: break-word;
     color: var(--light4);
     user-select: none;

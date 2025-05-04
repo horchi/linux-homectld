@@ -270,7 +270,7 @@ def frame_listener(frame):
 		if byte == 0:
 			choices = ''
 			for key in modeMapping:
-				# print("modeMapping {} / {} / {} / {}".format(key, modeMapping[key].title, modeMapping[key].flt, args.M.strip()))
+				print("modeMapping {} / {} / {} / {}".format(key, modeMapping[key].title, modeMapping[key].flt, args.M.strip()))
 				if modeMapping[key].flt == 'all' or modeMapping[key].flt.find(args.M.strip()) != -1:
 					choices += modeMapping[key].title + ','
 			sensor = {

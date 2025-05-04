@@ -121,6 +121,7 @@ Read                      Write
  0x05 - 12V Betrieb      -> Manuell / 12V
  0x06 - Störung ?
  0x07 - ~230V Betrieb    -> Manuell / ~230V
+ 0x08 - Aus              -> Manuell / Aus   // sumindest beim T2090
  0x09 - Auto Night       -> Auto / Night
  0x0B - Gas Night        -> Manuell / Night Gas
  0x0D - 12V Night        -> Manuell / Night 12V
@@ -150,7 +151,7 @@ Bei Störung der Fehlercode ansonsten 0x00
 0x00 - immer
 
 
-# Thetford T2400 CI-Bus
+# Thetford T2000 CI-Bus
 
 ```01 02 00 17 00 81 00 00```
 

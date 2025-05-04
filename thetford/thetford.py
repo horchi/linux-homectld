@@ -116,9 +116,9 @@ Mode = namedtuple('Mode', ['title', 'mode', 'flt'])
 
 modeMapping = [
 	Mode('Aus',           0x00, 'T2090'),
+	Mode('Aus',           0x02, 'N4000'),
 	Mode('Auto',          0x01, 'N4000'),
 	Mode('Tag',           0x01, 'T2090'),
-	Mode('Aus',           0x02, 'N4000'),
 	Mode('Gas',           0x03, 'N4000'),
 	Mode('Störung Batt?', 0x04, '-'),
 	Mode('Batterie',      0x05, 'N4000'),
@@ -131,14 +131,20 @@ modeMapping = [
 	Mode('~230V Nacht',   0x0f, '-')
 ]
 
+def toModeCode(title):
+	for i in range(len(modeMapping)):
+		if modeMapping[i].title == title and (modeMapping[i].flt.find(args.M.strip()) != -1 or modeMapping[i].flt == 'all'):
+			return modeMapping[i].mode
+
 def toModeString(mode):
 	if args.M.strip() != 'T2090':
 		mode = mode & ~0x08     # mask additional auto bit, we check it by isAuto
 	elif args.M.strip() == 'T2090' and mode == 0x08:
 		mode = 0x00
-	for key in modeMapping:
-		if modeMapping[key].mode == mode and (modeMapping[key].flt.find(args.M.strip()) != -1 or modeMapping[key].flt == 'all'):
-			return modeMapping[key].title
+
+	for i in range(len(modeMapping)):
+		if modeMapping[i].mode == mode and (modeMapping[i].flt.find(args.M.strip()) != -1 or modeMapping[i].flt == 'all'):
+			return modeMapping[i].title
 
 def openLini():
 	while True:
@@ -192,7 +198,7 @@ def onMessage(client, userdata, msg):
 	value = s['value']
 	if byte == 11:    # mode
 		byte = 0
-		value = modeMapping[s['value']].mode
+		value = toModeCode(s['value'])
 		tell(0, "write {} ({}) to byte {}".format(toModeString(value), value, byte))
 	elif byte == 1:   # cooling level
 		value = int(value) - 1
@@ -269,10 +275,9 @@ def frame_listener(frame):
 				publishMqtt(sensor)
 		if byte == 0:
 			choices = ''
-			for key in modeMapping:
-				#print("modeMapping {} / {}  '{}'".format(key, modeMapping[key].title, modeMapping[key].flt))
-				if modeMapping[key].flt == 'all' or modeMapping[key].flt.find(args.M.strip()) != -1:
-					choices += modeMapping[key].title + ','
+			for i in range(len(modeMapping)):
+				if modeMapping[i].flt == 'all' or modeMapping[i].flt.find(args.M.strip()) != -1:
+					choices += modeMapping[i].title + ','
 			sensor = {
 				'type'    : args.t.strip(),
 				'address' : 11,

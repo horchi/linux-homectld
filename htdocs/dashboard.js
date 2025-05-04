@@ -1629,6 +1629,8 @@ function updateWidget(sensor, refresh, widget)
    {
       // let text = sensor.text.replace(/(?:\r\n|\r|\n)/g, '<br>');
 
+      if (!sensor.text)
+         sensor.text = sensor.value;
       let choices = fact.choices.split(",");
       for (c = 0; c < choices.length; ++c) {
          $("#widget" + fact.type + fact.address + '_' + c).css('background-color', sensor.text == choices[c] ? 'gray' : "");

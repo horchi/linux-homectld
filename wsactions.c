@@ -491,10 +491,10 @@ int Daemon::performToggleIo(json_t* oObject, long client)
    {
       const char* value = getStringFromJson(oObject, "value");
 
-      if (strncmp(type, "VIC", 3) == 0)
-         return switchVictron(type, addr, value);
+      // if (strncmp(type, "VIC", 3) == 0)
+      return switchCommand(type, addr, value);
 
-      return toggleIo(addr, type);
+      // NEEDED?? return toggleIo(addr, type);
    }
 
    if (action == "toggle")

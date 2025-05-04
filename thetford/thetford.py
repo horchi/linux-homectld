@@ -9,6 +9,7 @@ import argparse
 import json
 import paho.mqtt.client as paho
 
+from collections import namedtuple
 from usblini import USBlini
 
 syslog.openlog(ident="thetfordmqtt",logoption=syslog.LOG_PID)
@@ -20,7 +21,9 @@ def tell(level, msg):
 		else:
 			print(msg)
 
+inTopic = ''
 received = 0
+lastData = []
 
 titles = {
 	0  : "Supply",
@@ -106,40 +109,39 @@ def isAuto(val):
 
 	return False
 
+
+# flt is a colon separated list of models supporting a switch to this mode ('-' for none)
+
+Mode = namedtuple('Mode', ['title', 'mode', 'flt'])
+
+modeMapping = {
+	'unknown'       : Mode('unknown',       0x00, '-'),
+	'Aus'           : Mode('Aus',           0x02, 'all'),
+	'Auto'          : Mode('Auto',          0x01, 'all'),
+	'Gas'           : Mode('Gas',           0x03, 'N4000'),
+	'Störung Batt?' : Mode('Störung Batt?', 0x04, '-'),
+	'Batterie'      : Mode('Batterie',      0x05, 'N4000'),
+	'Störung'       : Mode('Störung',       0x06, '-'),
+	'Netz ~230V'    : Mode('Netz ~230V',    0x07, 'N4000'),
+	'Auto Nacht'    : Mode('Auto Nacht',    0x09, 'T2400'),
+	'Gas Nacht'     : Mode('Gas Nacht',     0x0b, '-'),
+	'Batt Nacht'    : Mode('Batt Nacht',    0x0d, '-'),
+	'~230V Nacht'   : Mode('~230V Nacht',   0x0f, '-')
+}
+
 def toModeString(mode):
 	mode = mode & ~0x08     # mask additional auto bit, we check it by isAuto
-	if mode == 0:
-		return "Aus"
-	elif mode == 1:
-		return "An"
-	elif mode == 2:
-		return "Aus"
-	elif mode == 3:
-		return "Gas"
-	elif mode == 4:
-		return "4 Störung Batt?"
-	elif mode == 5:
-		return "Batterie"
-	elif mode == 6:
-		return "6 Störung?"
-	elif mode == 7:
-		return "Netz ~230V"
-	elif mode == 9:
-		return "Auto Nacht"
-	elif mode == 11:
-		return "Gas Nacht"
-	elif mode == 13:
-		return "Batt Nacht"
-	elif mode == 15:
-		return "Netz Nacht"
-	return str(mode)
 
-def open():
+	for key in modeMapping:
+		if modeMapping[key].mode == mode:
+			return modeMapping[key].title
+
+def openLini():
 	while True:
 		try:
 			ulini.open()
 			ulini.set_baudrate(19200)
-			print("Open succeeded")
+			print("Open usblini succeeded")
 			break;     # open succeeded
 		except:
 			print("Open failed, USBlini device with id '04d8:e870' not found, aborting, check connection and cable")
@@ -151,17 +153,60 @@ def publishMqtt(sensor):
 		msg = json.dumps(sensor)
 		tell(2, '{}'.format(msg))
 		ret = mqtt.publish(args.T.strip(), msg)
+	if args.s:
+		tell(0, "  {}: {} '{}'".format(sensor["title"], sensor["value"], "" if sensor['kind'] != 'text' else sensor["text"]))
+
+def writeLini(byte, value):
+	tell(0, "write {} to byte {}".format(value, byte))
+	tell(2, "lastData was {}".format(lastData))
+	lastData[byte] = value
+	tell(2, "Writing {}".format(lastData))
+	try:
+		response = ulini.master_write(0x0b, USBlini.CHECKSUM_MODE_LIN2, lastData)
+	except:
+		tell(0, "write failed");
+	tell(2, "Wrote {}".format(lastData))
+
+def onConnect(client, userdata, flags, reason_code, properties=None):
+	tell(0, f"Connected MQTT with result code {reason_code}")
+	global inTopic
+	tell(0, 'Subscribe topic {}'.format(inTopic))
+	client.subscribe(inTopic)
+	init = {
+		'type'    : args.t.strip(),
+		'action'  : 'init',
+		'topic'   : inTopic,
+	}
+	msg = json.dumps(init)
+	tell(2, '{}'.format(msg))
+	ret = mqtt.publish(args.T.strip(), msg)
+
+def onMessage(client, userdata, msg):
+	tell(0, "Received {}".format(msg.payload.decode()))
+	s = json.loads(msg.payload.decode())
+	byte = s['address']
+	value = s['value']
+	if byte == 11:    # mode
+		byte = 0
+		value = modeMapping[s['value']].mode
+		tell(0, "write {} ({}) to byte {}".format(toModeString(value), value, byte))
+	elif byte == 1:   # cooling level
+		value = int(value) - 1
+	writeLini(int(byte), int(value))
 
 def frame_listener(frame):
 
 	if frame.frameid != 0x0c:
 		return
 
+	global lastData
 	global received
-	received += 1
 
 	tell(0, 'Updating ...')
 	tell(2, '-----------------------')
+
+	received += 1
+	lastData = frame.data
 
 	for byte in range(8):
 		tell(1, 'Byte {0:}: 0b{1:08b} 0x{1:02x} ({1:})'.format(byte, byte2uint(frame.data[byte])))
@@ -188,6 +233,7 @@ def frame_listener(frame):
 		elif byte == 1:
 			if args.M.strip() == "N4000":
 				sensor['value'] += 1
+			sensor['choices'] = '1,2,3,4,5'
 			tell(3, '{}: {} {}'.format(toSensorTitle(byte), sensor['value'], toSensorUnit(byte)))
 		elif byte == 2:
 			sensor['kind'] = 'status'
@@ -217,6 +263,22 @@ def frame_listener(frame):
 					'text'    : "Automatik" if isAuto(byte2uint(frame.data[byte])) else "Manuell"
 				}
 				publishMqtt(sensor)
+			choices = ''
+			for key in modeMapping:
+				if modeMapping[key].flt == 'all' or modeMapping[key].flt.find(args.M.strip()) != -1:
+					choices += modeMapping[key].title + ','
+
+		if byte == 0:
+			sensor = {
+				'type'    : args.t.strip(),
+				'address' : 11,
+				'title'   : 'Mode Setting',
+				'kind'    : 'text',
+				'text'    : toModeString(byte2uint(frame.data[byte])),
+				'value'   : frame.data[byte],
+				'choices' : choices
+			}
+			publishMqtt(sensor)
 
 	tell(0, "... done")
 
@@ -228,26 +290,35 @@ parser = argparse.ArgumentParser('thetford')
 parser.add_argument('-i', type=int, nargs='?', help='interval [seconds] (default 5)', default=5)
 parser.add_argument('-m',           nargs='?', help='MQTT host', default="")
 parser.add_argument('-p', type=int, nargs='?', help='MQTT port', default=1883)
-parser.add_argument('-v', type=int, nargs='?', help='Verbosity Level (0-3) (default 1)', default=1)
+parser.add_argument('-v', type=int, nargs='?', help='Verbosity Level (0-3) (default 1)', default=0)
 parser.add_argument('-c', type=int, nargs='?', help='Sample Count', default=0)
 parser.add_argument('-l', action='store_true', help='Log to Syslog (default console)')
 parser.add_argument('-T',           nargs='?', help='MQTT topic', default="n4000")
 parser.add_argument('-t',           nargs='?', help='Sensor type', default="N4000")
 parser.add_argument('-M',           nargs='?', help='Fridge model', default="N4000")
+parser.add_argument('-s', action='store_true', help='Show values and exit')
+parser.add_argument('-w',           nargs='?', help='Write value to byte, format <byte>:<value>')
+parser.add_argument('-V', type=int, nargs='?', help='Value for Mode Setting')
 
 args = parser.parse_args()
 
 # open mqtt connection
 
 if args.m.strip() != '':
-	tell(0, 'Connecting to "{}:{}", topic "{}"'.format(args.m.strip(), args.p, args.T.strip()))
-	mqtt = paho.Client("thetford")
-	mqtt.connect(args.m.strip(), args.p)
+	tell(0, 'Connecting to "{}:{}", write to topic "{}"'.format(args.m.strip(), args.p, args.T.strip()))
+	mqtt = paho.Client("thetford", protocol=paho.MQTTv311, clean_session=True)
+	inTopic = args.T.strip() + '/in'
+	mqtt.on_connect = onConnect
+	mqtt.on_message = onMessage
+	mqtt.connect(args.m.strip(), args.p, 60)
+
+if args.s:
+	args.c = 1
 
 # init usblini
 
 ulini = USBlini()
-open()
+openLini()
 
 # send one frame to wakeup devices
 
@@ -259,13 +330,26 @@ time.sleep(0.2)
 ulini.frame_listener_add(frame_listener)
 ulini.master_set_sequence(args.i * 1000, 200, [0x0c])
 
-while True:
-	time.sleep(1.0)
-	abort = args.c != 0 and received >= args.c
-	if abort:
-		break
-	pass
+if args.m.strip() != '':
+	mqtt.loop_start()
 
+if args.w:
+	time.sleep(4)
+	t = args.w.split(':')
+	writeLini(int(t[0]), int(t[1]))
+	time.sleep(4)
+else:
+	while True:
+		time.sleep(1.0)
+		abort = args.c != 0 and received >= args.c
+		if abort:
+			break
+		pass
+
+if args.m.strip() != '':
+	mqtt.loop_stop()
+
+tell(0, "closing device")
 ulini.close()
 
 if args.m.strip() != '':

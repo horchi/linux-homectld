@@ -377,7 +377,7 @@ class Daemon : public cWebInterface
       bool checkRights(long client, Event event, json_t* oObject);
       virtual bool onCheckRights(long client, Event event, uint rights) { return false; }
       int callScript(int addr, const char* command);
-      int switchVictron(const char* type, int address, const char* value);
+      int switchCommand(const char* type, int address, const char* value);
       bool isInTimeRange(const std::vector<Range>* ranges, time_t t);
 
       int updateWeather();
@@ -667,8 +667,8 @@ class Daemon : public cWebInterface
       time_t lastStore {0};
       int arduinoInterval {10};
       char* arduinoTopic {};
-      std::string mqttTopicI2C;
-      std::string mqttTopicVictron;
+
+      std::map<std::string,std::string> commandTopicsMap; // like "VIC":"homectld2mqtt/victron/in"
 
       int webPort {61109};
       char* webUrl {};

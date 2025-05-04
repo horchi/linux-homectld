@@ -999,28 +999,21 @@ int Daemon::callScript(int addr, const char* command)
 }
 
 //***************************************************************************
-// Toggle Victron
+// Toggle Command
 //***************************************************************************
 
-int Daemon::switchVictron(const char* type, int address, const char* value)
+int Daemon::switchCommand(const char* type, int address, const char* value)
 {
-   // const auto choices = split(sensors[type][address].choices, ',');
-   // std::string next;
+   if (commandTopicsMap.find(type) == commandTopicsMap.end())
+   {
+      char* topic {};
+      getConfigItem((std::string("mqttCmdTopic") + type).c_str(), topic);
+      if (!isEmpty(topic))
+         commandTopicsMap[type] = topic;
+      free(topic);
+   }
 
-   // for (size_t i = 0; i < choices.size(); ++i)
-   // {
-   //    if (choices.at(i) == sensors[type][address].text)
-   //    {
-   //       if (i+1 >= choices.size())
-   //          next = choices.at(0);
-   //       else
-   //          next = choices.at(i+1);
-
-   //       break;
-   //    }
-   // }
-
-   if (mqttTopicVictron.empty())
+   if (commandTopicsMap.find(type) == commandTopicsMap.end() || commandTopicsMap[type].empty())
    {
       tell(eloAlways, "Error: Can't toggle %s:0x%02d, missing victron topic", type, address);
       return done;
@@ -1028,7 +1021,7 @@ int Daemon::switchVictron(const char* type, int address, const char* value)
 
    // Send to Victron
 
-   tell(eloAlways, "switchVictron from '%s' to '%s'", sensors[type][address].text.c_str(), value);
+   tell(eloAlways, "send switch command for '%s' from '%s' to '%s'", type, sensors[type][address].text.c_str(), value);
 
    json_t* obj = json_object();
    json_object_set_new(obj, "type", json_string(type));
@@ -1036,7 +1029,7 @@ int Daemon::switchVictron(const char* type, int address, const char* value)
    json_object_set_new(obj, "value", json_string(value));
 
    char* message = json_dumps(obj, JSON_REAL_PRECISION(8));
-   mqttWriter->write(mqttTopicVictron.c_str(), message);
+   mqttWriter->write(commandTopicsMap[type].c_str(), message);
    free(message);
    json_decref(obj);
 
@@ -1841,15 +1834,6 @@ int Daemon::readConfiguration(bool initial)
 
    if (!isEmpty(arduinoTopic))
       mqttSensorTopics.push_back(std::string(arduinoTopic) + "/out");
-
-   char* topic {};
-   getConfigItem("mqttTopicI2C", topic, TARGET "2mqtt/i2c/in");
-   mqttTopicI2C = topic;
-   free(topic);
-   topic = nullptr;
-   getConfigItem("mqttTopicVictron", topic, TARGET "2mqtt/victron/in");
-   mqttTopicVictron = topic;
-   free(topic);
 
    getConfigItem("lmcHost", lmcHost, "");
    getConfigItem("lmcPort", lmcPort, 9090);
@@ -3846,19 +3830,8 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
    if (action == "init")
    {
-      // #TODO we need a map for this topics like
-      // std::map<std::string,std::string> commandTopics; // <type,cmdTopic>
-
-      if (type == "I2C")
-      {
-         mqttTopicI2C = getStringFromJson(jData, "topic", "");
-         setConfigItem("mqttTopicI2C", mqttTopicI2C.c_str());
-      }
-      else if (type == "VIC")
-      {
-         mqttTopicVictron = getStringFromJson(jData, "topic", "");
-         setConfigItem("mqttTopicVictron", mqttTopicVictron.c_str());
-      }
+      commandTopicsMap[type] = getStringFromJson(jData, "topic", "");
+      setConfigItem(("mqttCmdTopic" + type).c_str(), commandTopicsMap[type].c_str());
 
       tableValueFacts->clear();
 
@@ -4236,7 +4209,7 @@ int Daemon::toggleIo(uint addr, const char* type, int state, int bri, int transi
 
       if (sensors[type][addr].active)
       {
-         if (mqttTopicI2C.empty())
+         if (commandTopicsMap[type].empty())
          {
             tell(eloAlways, "Error: Can't toggle %s:0x%02d, missing i2c topic", type, addr);
             return done;
@@ -4259,7 +4232,7 @@ int Daemon::toggleIo(uint addr, const char* type, int state, int bri, int transi
             json_object_set_new(obj, "action", json_string("impulse"));
 
          char* message = json_dumps(obj, JSON_REAL_PRECISION(8));
-         mqttWriter->write(mqttTopicI2C.c_str(), message);
+         mqttWriter->write(commandTopicsMap[type].c_str(), message);
          free(message);
          json_decref(obj);
       }
@@ -4434,7 +4407,16 @@ bool Daemon::gpioRead(uint pin, bool check)
 
 void Daemon::publishVictronInit(const char* type)
 {
-   if (mqttTopicVictron.empty())
+   if (commandTopicsMap.find(type) == commandTopicsMap.end())
+   {
+      char* topic {};
+      getConfigItem((std::string("mqttCmdTopic") + type).c_str(), topic);
+      if (!isEmpty(topic))
+         commandTopicsMap[type] = topic;
+      free(topic);
+   }
+
+   if (commandTopicsMap.find(type) == commandTopicsMap.end() || commandTopicsMap[type].empty())
    {
       tell(eloAlways, "Error: Can't init victron for '%s', missing topic", type);
       return;
@@ -4454,7 +4436,7 @@ void Daemon::publishVictronInit(const char* type)
    json_object_set_new(jConfig, "type", json_string(type));
 
    char* message = json_dumps(jConfig, JSON_REAL_PRECISION(8));
-   mqttWriter->write(mqttTopicI2C.c_str(), message);
+   mqttWriter->write(commandTopicsMap[type].c_str(), message);
    free(message);
    json_decref(jConfig);
 }
@@ -4465,13 +4447,22 @@ void Daemon::publishVictronInit(const char* type)
 
 void Daemon::publishI2CSensorConfig(const char* type, uint pin, json_t* jParameters)
 {
-   if (mqttTopicI2C.empty())
+   if (commandTopicsMap.find(type) == commandTopicsMap.end())
    {
-      tell(eloAlways, "Error: Can't init %s:0x%02d, missing i2c topic", type, pin);
+      char* topic {};
+      getConfigItem((std::string("mqttCmdTopic") + type).c_str(), topic);
+      if (!isEmpty(topic))
+         commandTopicsMap[type] = topic;
+      free(topic);
+   }
+
+   if (commandTopicsMap.find(type) == commandTopicsMap.end() || commandTopicsMap[type].empty())
+   {
+      tell(eloAlways, "Error: Can't init victron for '%s', missing topic", type);
       return;
    }
 
-   json_t* jConfig = json_object();
+   json_t* jConfig {json_object()};
 
    json_object_set_new(jConfig, "action", json_string("init"));
    json_object_set_new(jConfig, "type", json_string(type));
@@ -4479,7 +4470,7 @@ void Daemon::publishI2CSensorConfig(const char* type, uint pin, json_t* jParamet
    json_object_set(jConfig, "config", jParameters);  // not json_object_set_new until calller free jCal!
 
    char* message = json_dumps(jConfig, JSON_REAL_PRECISION(8));
-   mqttWriter->write(mqttTopicI2C.c_str(), message);
+   mqttWriter->write(commandTopicsMap[type].c_str(), message);
    free(message);
    json_decref(jConfig);
 }

@@ -62,7 +62,7 @@ Bus 001 Device 011: ID 04d8:e870 Microchip Technology, Inc.
 
 # Usage
 
-Just call `thetford.py -v 1` to retrieve the available values
+Just call `thetford.py -v 1 -c 1` to retrieve the available values
 ```
 root@womo {master u=} ~/build/homectld/thetford> ./thetford.py -h
 usage: thetford [-h] [-i [I]] [-v [V]] [-c [C]]
@@ -107,20 +107,24 @@ To check what is written on the topic call `mosquitto_sub -t n4000`
 # Thetford N4000 CI-Bus - Reversengineering
 
 Bus ID Info Frame: 0x0c
-Bus ID Control Frame: 0x0b - immer 8 Bytes senden
+Bus ID Control Frame: 0x0b - always send all 8 bytes
 
 ### Werte Byte 0:
 Betriebsmodus
 
- 0x00 - off
- 0x01 - auto
-0x03 - Gas Betrieb
-0x05 - 12V Betrieb
-0x07 - 230 Betrieb
- 0x09 - auto night
-0x0B - Automatik Betrieb (Gas)
-0x0D - Automatik Betrieb (12V)
-0x0F - Automatik Betrieb (230V)
+Read                      Write
+ 0x00 - ?
+ 0x01 - Auto             -> On Auto
+ 0x02 - off ?            -> Manuell / Aus
+ 0x03 - Gas Betrieb      -> Manuell / Gas
+ 0x04 - Störung Batt ?
+ 0x05 - 12V Betrieb      -> Manuell / 12V
+ 0x06 - Störung ?
+ 0x07 - ~230V Betrieb    -> Manuell / ~230V
+ 0x09 - Auto Night       -> Auto / Night
+ 0x0B - Gas Night        -> Manuell / Night Gas
+ 0x0D - 12V Night        -> Manuell / Night 12V
+ 0x0F - ~230V Night      -> Manuell / Night ~230V
 
 ### Werte Byte 1:
 Leistungsstufe
@@ -153,24 +157,22 @@ Bei Störung der Fehlercode ansonsten 0x00
 Bus ID: 0x0c
 
 ### Werte Byte 0:
-01 - Tag
-09 - Nacht
+siehe N4000
 
 ### Werte Byte 1:
-Leistungsstufe
-0x00-0x04 - Level (Stufe 1-5)
+siehe N4000
 
 ### Werte Byte 2:
 00 ?
 
 ### Werte Byte 3:
-Bei Störung der Fehlercode ansonsten 0x00
+siehe N4000
 
 ### Werte Byte 4:
 00 ?
 
 ### Werte Byte 5:
-0x84-0x92  - Spannung der 12V Versorgung (13,2V - 14,8V)
+siehe N4000
 
 ### Werte Byte 6 und 7:
-0x00 - immer ?
+siehe N4000

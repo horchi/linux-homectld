@@ -116,9 +116,9 @@ Mode = namedtuple('Mode', ['title', 'mode', 'flt'])
 
 modeMapping = {
 	'Aus'           : Mode('Aus',           0x00, 'T2090'),
-	'Aus'           : Mode('Aus',           0x02, 'N4000'),
 	'Auto'          : Mode('Auto',          0x01, 'N4000'),
 	'Tag'           : Mode('Tag',           0x01, 'T2090'),
+	'Aus'           : Mode('Aus',           0x02, 'N4000'),
 	'Gas'           : Mode('Gas',           0x03, 'N4000'),
 	'Störung Batt?' : Mode('Störung Batt?', 0x04, '-'),
 	'Batterie'      : Mode('Batterie',      0x05, 'N4000'),
@@ -135,7 +135,7 @@ def toModeString(mode):
 	mode = mode & ~0x08     # mask additional auto bit, we check it by isAuto
 
 	for key in modeMapping:
-		if modeMapping[key].mode == mode:
+		if modeMapping[key].mode == mode and (modeMapping[key].flt.find(args.M.strip()) != -1 or modeMapping[key].flt == 'all'):
 			return modeMapping[key].title
 
 def openLini():

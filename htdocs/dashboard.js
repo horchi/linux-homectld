@@ -897,9 +897,11 @@ function initWindy(key, widget, fact)
 
    // special - use the whole width and self adjusted height
 
-   $(elem).css('height', '');
-   $(elem).css('width', '');
-   $(elem).html(html);
+   $(elem)
+      .css('height', '')
+      .css('width', '')
+      .append($('<div></div>')
+              .html(html));
 }
 
 function initWindyMap(key, widget, fact)

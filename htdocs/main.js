@@ -724,6 +724,7 @@ function prepareSetupMenu()
          addSetupMenuButton('IO Setup', 'iosetup');
          addSetupMenuButton('User', 'userdetails');
          addSetupMenuButton('Alerts', 'alerts');
+         addSetupMenuButton('Images', 'images');
          addSetupMenuButton('Baugruppen', 'groups');
          addSetupMenuButton('Syslog', 'syslog');
          addSetupMenuButton('Database', 'system', 'database');

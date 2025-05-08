@@ -3221,10 +3221,13 @@ int Daemon::updateWeather()
    json_t* jArray = getObjectFromJson(jData, "list");
 
    if (!jArray)
+   {
+      json_decref(jData);
       return fail;
+   }
 
-   json_t* jWeather = json_object();
-   json_t* jForecasts = json_array();
+   json_t* jWeather {json_object()};
+   json_t* jForecasts {json_array()};
 
    json_object_set_new(jWeather, "forecasts", jForecasts);
    json_object_set_new(jWeather, "city", json_string(city));
@@ -3267,7 +3270,6 @@ int Daemon::updateWeather()
    }
 
    json_decref(jData);
-
    curl.exit();
 
    return done;

@@ -133,16 +133,19 @@ function getSchemDef(id)
    }
 }
 
-// get schema definition by '<Type>:0x<HexAddr>' notation
-
-function getItemDef(key)
+function getItemDef(id)
 {
-   for (let i = 0; i < lastSchemadata.length; i++) {
-      if (lastSchemadata[i].type + ':0x' + ((lastSchemadata[i].address)>>>0).toString(16).toUpperCase() == key)
-         return lastSchemadata[i];
+   let idPar = id.split(':');
+
+   if (idPar.length == 2) {
+      for (let key in valueFacts) {
+         if (idPar[0] == valueFacts[key].type && parseInt(idPar[1]) == valueFacts[key].address) {
+            return valueFacts[key];
+         }
+      }
    }
 
-   return { 'value' : 'unkown id', 'title' : 'unkown', 'name' : 'unkown', type : 'NN', address : -1 };
+   return { name: "-", title :  "-", unit : "", usrtitle : "--" };
 }
 
 function getItemById(id)

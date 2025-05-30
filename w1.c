@@ -188,7 +188,6 @@ int W1::update()
          continue;
 
       asprintf(&path, "%s/%s/w1_slave", w1Path, it->first.c_str());
-
       tell(eloDetail, "Query '%s'", it->first.c_str());
 
       if (!(in = fopen(path, "r")))

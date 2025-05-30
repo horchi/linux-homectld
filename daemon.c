@@ -302,14 +302,8 @@ Daemon::~Daemon()
    exit();
    delete webSock;
    cCurl::destroy();
-
-   // #TODO free() all char* configuration variables
-
-   free(mailScript);
-   free(stateMailTo);
-   free(errorMailTo);
-
    cDbConnection::exit();
+   free(mqttUrlPlain);
 }
 
 //***************************************************************************
@@ -496,7 +490,7 @@ int Daemon::init()
 
    if (homeMaticInterface)
    {
-      if (mqttCheckConnection() == success && !isEmpty(mqttUrl))
+      if (mqttCheckConnection() == success && !mqttUrl.empty())
       {
          const char* request = "{ \"method\" : \"listDevices\" }";
          mqttWriter->write(TARGET "2mqtt/homematic/rpccall", request);
@@ -813,6 +807,7 @@ int Daemon::initScripts()
                   tableValueFacts->getField("TYPE")->getDbName());
          tell(eloScript, "Script: Removing value fact for script '%s'", path);
          tableValueFacts->deleteWhere("%s", stmt);
+         free(stmt);
       }
 
       free(path);
@@ -976,6 +971,7 @@ int Daemon::callScript(int addr, const char* command)
 
    tell(eloScript, "Script: Calling '%s' ..", cmd);
    int result = executeCommandAsync(addr, cmd);
+   free(cmd);
    tell(eloScript, ".. done");
 
    tableValueFacts->reset();
@@ -1006,11 +1002,11 @@ int Daemon::switchCommand(const char* type, int address, const char* value)
 {
    if (commandTopicsMap.find(type) == commandTopicsMap.end())
    {
-      char* topic {};
+      std::string topic {};
       getConfigItem((std::string("mqttCmdTopic") + type).c_str(), topic);
-      if (!isEmpty(topic))
+
+      if (!topic.empty())
          commandTopicsMap[type] = topic;
-      free(topic);
    }
 
    if (commandTopicsMap.find(type) == commandTopicsMap.end() || commandTopicsMap[type].empty())
@@ -1719,11 +1715,10 @@ int Daemon::readConfiguration(bool initial)
    }
    else
    {
-      char* elo {};
+      std::string elo;
       getConfigItem("eloquence", elo, "");
-      eloquence = Elo::stringToEloquence(elo);
-      tell(eloDetail, "Info: Eloquence configured to '%s' => 0x%04x", elo, eloquence);
-      free(elo);
+      eloquence = Elo::stringToEloquence(elo.c_str());
+      tell(eloDetail, "Info: Eloquence configured to '%s' => 0x%04x", elo.c_str(), eloquence);
    }
 
    tell(eloAlways, "Info: Eloquence set to 0x%04x (%d)", eloquence, eloquence);
@@ -1736,23 +1731,25 @@ int Daemon::readConfiguration(bool initial)
    getConfigItem("iconSet", iconSet, "light");
    getConfigItem("windyAppSpotID", windyAppSpotID, "5247411");
 
-   char* tmp {};
+   std::string tmp;
    getConfigItem("schema", tmp);
-   free(tmp);
 
    char* port {};
    asprintf(&port, "%d", webPort);
-   if (isEmpty(webUrl) || !strstr(webUrl, port))
+
+   if (webUrl.empty() || !strstr(webUrl.c_str(), port))
    {
-      asprintf(&webUrl, "http%s://%s:%d", webSsl ? "s" : "", getFirstIp(), webPort);
-      setConfigItem("webUrl", webUrl);
+      char* tmp {};
+      asprintf(&tmp, "http%s://%s:%d", webSsl ? "s" : "", getFirstIp(), webPort);
+      webUrl = tmp;
+      free(tmp);
+      setConfigItem("webUrl", webUrl.c_str());
    }
    free(port);
 
-   char* addrs {};
+   std::string addrs;
    getConfigItem("addrsDashboard", addrs, "");
-   addrsDashboard = split(addrs, ',');
-   free(addrs);
+   addrsDashboard = split(addrs.c_str(), ',');
 
    getConfigItem("mail", sendMails, no);
    getConfigItem("mailScript", mailScript);
@@ -1764,19 +1761,17 @@ int Daemon::readConfiguration(bool initial)
 
    // DECONZ
 
-   char* deconzUrl {};
+   std::string deconzUrl;
    getConfigItem("deconzHttpUrl", deconzUrl, "");
 
-   if (!isEmpty(deconzUrl))
+   if (!deconzUrl.empty())
    {
-      deconz.setHttpUrl(deconzUrl);
-      free(deconzUrl);
-      char* deconzKey {};
+      deconz.setHttpUrl(deconzUrl.c_str());
+      std::string deconzKey;
       getConfigItem("deconzApiKey", deconzKey, "");
 
-      if (!isEmpty(deconzKey))
-         deconz.setApiKey(deconzKey);
-      free(deconzKey);
+      if (!deconzKey.empty())
+         deconz.setApiKey(deconzKey.c_str());
    }
 
    getConfigItem("instanceName", instanceName);
@@ -1790,25 +1785,25 @@ int Daemon::readConfiguration(bool initial)
 
    getConfigItem("weatherInterval", weatherInterval, weatherInterval);
 
-   std::string apiKey {openWeatherApiKey ? openWeatherApiKey : ""};
+   std::string apiKey {!openWeatherApiKey.empty() ? openWeatherApiKey : ""};
    getConfigItem("openWeatherApiKey", openWeatherApiKey);
 
-   if (!isEmpty(openWeatherApiKey) && openWeatherApiKey != apiKey)
+   if (!openWeatherApiKey.empty() && openWeatherApiKey != apiKey)
       updateWeather();
 
    getConfigItem("homeMaticInterface", homeMaticInterface, false);
 
    // MQTT
 
-   getConfigItem("mqttUser", mqttUser, mqttUser);
-   getConfigItem("mqttPassword", mqttPassword, mqttPassword);
+   getConfigItem("mqttUser", mqttUser, mqttUser.c_str());
+   getConfigItem("mqttPassword", mqttPassword, mqttPassword.c_str());
 
-   std::string url {mqttUrl ? mqttUrl : ""};
+   std::string url {mqttUrl};
    getConfigItem("mqttUrl", mqttUrl);
    free(mqttUrlPlain);
-   mqttUrlPlain = strdup(strrchr(mqttUrl, '/') ? strrchr(mqttUrl, '/')+1 : mqttUrl);
+   mqttUrlPlain = strdup(strrchr(mqttUrl.c_str(), '/') ? strrchr(mqttUrl.c_str(), '/')+1 : mqttUrl.c_str());
 
-   std::string sTopics = sensorTopics ? sensorTopics : "";
+   std::string sTopics {sensorTopics};
    getConfigItem("mqttSensorTopics", sensorTopics, "+/w1/#");
    mqttSensorTopics = split(sensorTopics, ',');
    mqttSensorTopics.push_back(TARGET "2mqtt/ping/#");
@@ -1832,7 +1827,7 @@ int Daemon::readConfiguration(bool initial)
 
    getConfigItem("arduinoTopic", arduinoTopic, "");
 
-   if (!isEmpty(arduinoTopic))
+   if (!arduinoTopic.empty())
       mqttSensorTopics.push_back(std::string(arduinoTopic) + "/out");
 
    getConfigItem("lmcHost", lmcHost, "");
@@ -1847,14 +1842,14 @@ int Daemon::readConfiguration(bool initial)
 
    mqttHaInterfaceStyle = misNone;
 
-   if (!isEmpty(mqttHaDataTopic) && !isEmpty(mqttUrl))
+   if (!mqttHaDataTopic.empty() && !mqttUrl.empty())
    {
-      if (mqttHaDataTopic[strlen(mqttHaDataTopic)-1] == '/')
-         mqttHaDataTopic[strlen(mqttHaDataTopic)-1] = '\0';
+      if (mqttHaDataTopic[mqttHaDataTopic.length()-1] == '/')
+         mqttHaDataTopic[mqttHaDataTopic.length()-1] = '\0';
 
-      if (strstr(mqttHaDataTopic, "<NAME>"))
+      if (strstr(mqttHaDataTopic.c_str(), "<NAME>"))
          mqttHaInterfaceStyle = misMultiTopic;
-      else if (strstr(mqttHaDataTopic, "<GROUP>"))
+      else if (strstr(mqttHaDataTopic.c_str(), "<GROUP>"))
          mqttHaInterfaceStyle = misGroupedTopic;
       else
          mqttHaInterfaceStyle = misSingleTopic;
@@ -1868,7 +1863,7 @@ int Daemon::readConfiguration(bool initial)
       else if (mqttHaInterfaceStyle == misSingleTopic)
          styleName = "SingleTopic";
 
-      tell(eloAlways, "MQTT interface style set to '%s' for [%s]", styleName.c_str(), mqttHaDataTopic);
+      tell(eloAlways, "MQTT interface style set to '%s' for [%s]", styleName.c_str(), mqttHaDataTopic.c_str());
    }
 
    for (int f = selectAllGroups->find(); f; f = selectAllGroups->fetch())
@@ -2732,7 +2727,7 @@ int Daemon::sendAlertMail(const char* to)
 {
    // check
 
-   if (isEmpty(to) || isEmpty(mailScript))
+   if (isEmpty(to) || mailScript.empty())
       return done;
 
    if (alertMailBody.empty())
@@ -2916,7 +2911,7 @@ int Daemon::sendMail(const char* receiver, const char* subject, const char* body
    char* command {};
    int result {0};
 
-   asprintf(&command, "%s '%s' '%s' '%s' '%s'", mailScript, subject, body, mimeType, receiver);
+   asprintf(&command, "%s '%s' '%s' '%s' '%s'", mailScript.c_str(), subject, body, mimeType, receiver);
    result = system(command);
    free(command);
 
@@ -3181,7 +3176,7 @@ int Daemon::updateWeather()
 {
    static time_t nextWeatherAt {0};
 
-   if (isEmpty(openWeatherApiKey))
+   if (openWeatherApiKey.empty())
       return done;
 
    if (time(0) < nextWeatherAt)
@@ -3197,7 +3192,7 @@ int Daemon::updateWeather()
    char* url {};
 
    asprintf(&url, "http://api.openweathermap.org/data/2.5/forecast?appid=%s&units=metric&lang=de&lat=%f&lon=%f",
-            openWeatherApiKey, latitude, longitude);
+            openWeatherApiKey.c_str(), latitude, longitude);
 
    tell(eloWeather, "-> (openweathermap) [%s]", url);
    int status = curl.downloadFile(url, size, &data, 2);
@@ -3852,12 +3847,14 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
       selectActiveValueFacts->freeResult();
 
+      json_decref(jData);
       return done;
    }
 
    if (type.empty())
    {
       tell(eloAlways, "Error: Missing 'type' in '%s' (dispatchOther) [%s]", topic, message);
+      json_decref(jData);
       return fail;
    }
 
@@ -3866,6 +3863,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
       if (!title)
       {
          tell(eloAlways, "Error: Missing 'title' in '%s' (dispatchOther) [%s]", topic, message);
+         json_decref(jData);
          return fail;
       }
 
@@ -3894,7 +3892,10 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    // ignore data for not active sensors
 
    if (!sensors[type][address].active)
+   {
+      json_decref(jData);
       return done;
+   }
 
    sensors[type][address].battery = getIntFromJson(jData, "battery", na);
    sensors[type][address].last = newTime;
@@ -3904,10 +3905,16 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    // ignore data for impulse (outputs)
 
    if (sensors[type][address].impulse) // ?? type.starts_with("MCPO"))
+   {
+      json_decref(jData);
       return done;
+   }
 
    if (type.starts_with("ADS"))
+   {
+      json_decref(jData);
       return updateAnalogInput(address, type.c_str(), getDoubleFromJson(jData, "value"), newTime, unit);
+   }
 
    sensors[type][address].text = getStringFromJson(jData, "text", "");
    sensors[type][address].image = image;
@@ -3986,10 +3993,9 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 // Config Data
 //***************************************************************************
 
-int Daemon::getConfigItem(const char* name, char*& value, const char* def)
+int Daemon::getConfigItem(const char* name, std::string& value, const char* def)
 {
-   free(value);
-   value = nullptr;
+   value.clear();
 
    tableConfig->clear();
    tableConfig->setValue("OWNER", myName());
@@ -3997,12 +4003,12 @@ int Daemon::getConfigItem(const char* name, char*& value, const char* def)
 
    if (tableConfig->find())
    {
-      value = strdup(tableConfig->getStrValue("VALUE"));
+      value = tableConfig->getStrValue("VALUE");
    }
    else if (def)
    {
-      value = strdup(def);
-      setConfigItem(name, value);  // store the default
+      value = def;
+      setConfigItem(name, value.c_str());  // store the default
    }
 
    tableConfig->reset();
@@ -4023,13 +4029,13 @@ int Daemon::setConfigItem(const char* name, const char* value)
 
 int Daemon::getConfigItem(const char* name, int& value, int def)
 {
-   char* txt {};
+   std::string txt;
 
    getConfigItem(name, txt);
 
-   if (!isEmpty(txt))
-      value = atoi(txt);
-   else if (isEmpty(txt) && def != na)
+   if (!txt.empty())
+      value = atoi(txt.c_str());
+   else if (txt.empty() && def != na)
    {
       value = def;
       setConfigItem(name, (long)value);
@@ -4037,28 +4043,24 @@ int Daemon::getConfigItem(const char* name, int& value, int def)
    else
       value = 0;
 
-   free(txt);
-
    return success;
 }
 
 int Daemon::getConfigItem(const char* name, long& value, long def)
 {
-   char* txt {};
+   std::string txt;
 
    getConfigItem(name, txt);
 
-   if (!isEmpty(txt))
-      value = atol(txt);
-   else if (isEmpty(txt) && def != na)
+   if (!txt.empty())
+      value = atol(txt.c_str());
+   else if (txt.empty() && def != na)
    {
       value = def;
       setConfigItem(name, value);
    }
    else
       value = 0;
-
-   free(txt);
 
    return success;
 }
@@ -4074,13 +4076,13 @@ int Daemon::setConfigItem(const char* name, long value)
 
 int Daemon::getConfigItem(const char* name, double& value, double def)
 {
-   char* txt {};
+   std::string txt;
 
    getConfigItem(name, txt);
 
-   if (!isEmpty(txt))
-      value = strtod(txt, nullptr);
-   else if (isEmpty(txt) && def != naf)
+   if (!txt.empty())
+      value = strtod(txt.c_str(), nullptr);
+   else if (txt.empty() && def != naf)
    {
       value = def;
       setConfigItem(name, value);
@@ -4088,8 +4090,7 @@ int Daemon::getConfigItem(const char* name, double& value, double def)
    else
       value = 0.0;
 
-   tell(eloDebug, "Debug: getConfigItem '%s' now %.2f [%s]", name, value, txt);
-   free(txt);
+   tell(eloDebug, "Debug: getConfigItem '%s' now %.2f [%s]", name, value, txt.c_str());
 
    return success;
 }
@@ -4103,19 +4104,17 @@ int Daemon::setConfigItem(const char* name, double value)
 
 int Daemon::getConfigItem(const char* name, bool& value, bool def)
 {
-   char* txt {};
+   std::string txt;
 
    getConfigItem(name, txt);
 
-   if (!isEmpty(txt))
-      value = atoi(txt);
-   else if (isEmpty(txt))
+   if (!txt.empty())
+      value = atoi(txt.c_str());
+   else if (txt.empty())
    {
       value = def;
       setConfigItem(name, value);
    }
-
-   free(txt);
 
    return success;
 }
@@ -4135,12 +4134,14 @@ int Daemon::setConfigItem(const char* name, bool value)
 
 int Daemon::getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges)
 {
-   char* tmp {};
-
+   std::string tmp;
    getConfigItem(name, tmp, "");
    ranges.clear();
 
-   for (const char* r = strtok(tmp, ","); r; r = strtok(0, ","))
+   char* buf {};
+   asprintf(&buf, "%s", tmp.c_str());
+
+   for (const char* r = strtok(buf, ","); r; r = strtok(0, ","))
    {
       uint fromHH {0}, fromMM {0}, toHH {0}, toMM {0};
 
@@ -4158,7 +4159,7 @@ int Daemon::getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges)
       }
    }
 
-   free(tmp);
+   free(buf);
 
    return success;
 }
@@ -4411,11 +4412,10 @@ void Daemon::publishVictronInit(const char* type)
 {
    if (commandTopicsMap.find(type) == commandTopicsMap.end())
    {
-      char* topic {};
+      std::string topic;
       getConfigItem((std::string("mqttCmdTopic") + type).c_str(), topic);
-      if (!isEmpty(topic))
+      if (!topic.empty())
          commandTopicsMap[type] = topic;
-      free(topic);
    }
 
    if (commandTopicsMap.find(type) == commandTopicsMap.end() || commandTopicsMap[type].empty())
@@ -4428,7 +4428,7 @@ void Daemon::publishVictronInit(const char* type)
 
    if (!mqttWriter)
    {
-      tell(eloAlways, "Error: Can't init victron for '%s', missing broker at '%s'", type, mqttUrl);
+      tell(eloAlways, "Error: Can't init victron for '%s', missing broker at '%s'", type, mqttUrl.c_str());
       return;
    }
 
@@ -4451,11 +4451,10 @@ void Daemon::publishI2CSensorConfig(const char* type, uint pin, json_t* jParamet
 {
    if (commandTopicsMap.find(type) == commandTopicsMap.end())
    {
-      char* topic {};
+      std::string topic;
       getConfigItem((std::string("mqttCmdTopic") + type).c_str(), topic);
-      if (!isEmpty(topic))
+      if (!topic.empty())
          commandTopicsMap[type] = topic;
-      free(topic);
    }
 
    if (commandTopicsMap.find(type) == commandTopicsMap.end() || commandTopicsMap[type].empty())
@@ -4582,14 +4581,14 @@ int Daemon::loadStates()
    defStates[maxIos] = '\0';
    defModes[maxIos] = '\0';
 
-   char* states {};
-   char* modes {};
+   std::string states;
+   std::string modes;
 
    getConfigItem("ioStates", states, defStates);
    getConfigItem("ioModes", modes, defModes);
 
-   tell(eloDetail, "Info: Loaded iostates: [%s]", states);
-   tell(eloDetail, "Info: Loaded iomodes: [%s]", modes);
+   tell(eloDetail, "Info: Loaded iostates: [%s]", states.c_str());
+   tell(eloDetail, "Info: Loaded iomodes: [%s]", modes.c_str());
 
    for (const auto& output : sensors["DO"])
    {
@@ -4695,7 +4694,7 @@ int Daemon::initArduino()
 {
    mqttCheckConnection();
 
-   if (isEmpty(mqttUrl) || !mqttReader->isConnected())
+   if (mqttUrl.empty() || !mqttReader->isConnected())
       return fail;
 
    json_t* oJson = json_object();

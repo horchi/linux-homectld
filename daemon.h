@@ -406,7 +406,7 @@ class Daemon : public cWebInterface
       int loadHtmlHeader();
       int sendMail(const char* receiver, const char* subject, const char* body, const char* mimeType);
 
-      int getConfigItem(const char* name, char*& value, const char* def = "");
+      int getConfigItem(const char* name, std::string& value, const char* def = "");
       int setConfigItem(const char* name, const char* value);
       int getConfigItem(const char* name, int& value, int def = na);
       int getConfigItem(const char* name, long& value, long def = na);
@@ -631,14 +631,14 @@ class Daemon : public cWebInterface
          json_t* oHaJson {};
       };
 
-      char* mqttUrl {};          // like tcp://192.168.200.101:1883
+      std::string mqttUrl;          // like tcp://192.168.200.101:1883
       char* mqttUrlPlain {};     // like 192.168.200.101:1883
-      char* sensorTopics {};
-      char* mqttUser {};
-      char* mqttPassword {};
+      std::string sensorTopics;
+      std::string mqttUser;
+      std::string mqttPassword;
 
-      char* mqttHaDataTopic {};                          // for home automation interface
-      char* mqttHaSendWithKeyPrefix {};                  // for home automation interface
+      std::string mqttHaDataTopic;                       // for home automation interface
+      std::string mqttHaSendWithKeyPrefix;              // for home automation interface
       bool mqttHaHaveConfigTopic {false};                // for home automation interface
       MqttInterfaceStyle mqttHaInterfaceStyle {misNone}; // for home automation interface
 
@@ -657,30 +657,30 @@ class Daemon : public cWebInterface
 
       // config
 
-      char* instanceName {};
+      std::string instanceName;
       int interval {60};
       double latitude {50.30};
       double longitude {8.79};
-      char* openWeatherApiKey {};
-      char* windyAppSpotID {};
+      std::string openWeatherApiKey;
+      std::string windyAppSpotID;
       int weatherInterval {15};           // minutes
       time_t lastStore {0};
       int arduinoInterval {10};
-      char* arduinoTopic {};
+      std::string arduinoTopic;
 
       std::map<std::string,std::string> commandTopicsMap; // like "VIC":"homectld2mqtt/victron/in"
 
       int webPort {61109};
-      char* webUrl {};
+      std::string webUrl;
       bool webSsl {false};
-      char* iconSet {};
+      std::string iconSet;
       int aggregateInterval {15};         // aggregate interval in minutes
       int aggregateHistory {0};           // history in days
 
       bool sendMails {false};
-      char* mailScript {};
-      char* stateMailTo {};
-      char* errorMailTo {};
+      std::string mailScript;
+      std::string stateMailTo;
+      std::string errorMailTo;
       std::string htmlHeader;
 
       bool triggerProcess {false};
@@ -690,9 +690,9 @@ class Daemon : public cWebInterface
       bool homeMaticInterface {false};
       std::map<uint,std::string> homeMaticUuids;
 
-      char* lmcHost {};
+      std::string lmcHost {};
       int lmcPort {9090};
-      char* lmcPlayerMac {};
+      std::string lmcPlayerMac {};
 
       struct AiSensorConfig
       {

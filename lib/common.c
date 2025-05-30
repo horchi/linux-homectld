@@ -78,7 +78,7 @@ const char* Elo::eloquences[] =
    nullptr
 };
 
-Eloquence Elo::stringToEloquence(const std::string string)
+Eloquence Elo::stringToEloquence(const std::string& string)
 {
    int elo {0};
    int n {0};

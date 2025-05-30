@@ -133,7 +133,7 @@ class Elo
    public:
 
       static const char* eloquences[];
-      static Eloquence stringToEloquence(const std::string string);
+      static Eloquence stringToEloquence(const std::string& string);
       static int toEloquence(const char* str);
 };
 
@@ -175,7 +175,7 @@ class MemoryStruct
 {
    public:
 
-      MemoryStruct()   { expireAt = 0; memory = 0; zmemory = 0; clear(); }
+      MemoryStruct()   { clear(); }
       explicit MemoryStruct(const MemoryStruct* o)
       {
          size = o->size;

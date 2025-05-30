@@ -72,8 +72,8 @@ class HomeCtl : public Daemon
       cDbStatement* selectSolarWorkPerDay {};
 
       int poolLightColorToggle {no};
-      char* w1AddrPool {};
-      char* w1AddrSolar {};
+      std::string w1AddrPool;
+      std::string w1AddrSolar;
 
       double tPoolMax {28.0};
       double tSolarDelta {5.0};

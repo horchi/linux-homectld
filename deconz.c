@@ -370,7 +370,6 @@ int Deconz::processDevices(json_t* jData, std::string kind)
 int Deconz::toggle(const char* type, uint address, bool state, int bri, int transitiontime)
 {
    json_t* jArray {};
-   std::string result;
    std::string uuid;
 
    {
@@ -425,7 +424,6 @@ int Deconz::toggle(const char* type, uint address, bool state, int bri, int tran
 int Deconz::color(const char* type, uint address, int hue, int sat, int bri)
 {
    json_t* jArray {};
-   std::string result;
    std::string uuid;
 
    {
@@ -493,7 +491,7 @@ int Deconz::checkResult(json_t* jArray)
 // Put
 //***************************************************************************
 
-int Deconz::put(std::string type, json_t*& jResult, const char* uuid, json_t* jData)
+int Deconz::put(const std::string& type, json_t*& jResult, const char* uuid, json_t* jData)
 {
    // /api/<apikey>/lights/<id>/state
 
@@ -584,9 +582,7 @@ int Deconz::query(json_t*& jResult, const char* method, const char* key)
    }
 
    tell(eloDeconz, "DECONZ: <- '%s' [%s]", url, data.memory);
-
    free(url);
-
    jResult = jsonLoad(data.memory);
 
    if (!jResult)

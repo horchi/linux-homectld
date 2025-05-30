@@ -37,6 +37,7 @@ int atConfigItem(const char* Name, const char* Value)
    else if (!strcasecmp(Name, "dbName")) sstrcpy(dbName, Value, sizeof(dbName));
    else if (!strcasecmp(Name, "dbUser")) sstrcpy(dbUser, Value, sizeof(dbUser));
    else if (!strcasecmp(Name, "dbPass")) sstrcpy(dbPass, Value, sizeof(dbPass));
+   else return false;
 
    return success;
 }
@@ -105,9 +106,7 @@ int readConfig()
 
    free(line);
    fclose(f);
-
    tell(eloAlways, "Read %d option from %s", count , fileName);
-
    free(fileName);
 
    return success;
@@ -130,9 +129,8 @@ void showUsage(const char* bin)
 
 int main(int argc, char** argv)
 {
-   CLASS* job;
-   int nofork = no;
-   int pid;
+   CLASS* job {};
+   bool nofork {false};
    bool _stdout {false};
    bool _stdoutOnInit {false};
    Eloquence _eloquence {eloAlways};
@@ -157,7 +155,7 @@ int main(int argc, char** argv)
          case 'l': if (argv[i+1]) _eloquence = (Eloquence)atoi(argv[i+1]); break;
          case 't': _stdout = true;                          break;
          case 'T': _stdoutOnInit = true;                    break;
-         case 'n': nofork = yes;                            break;
+         case 'n': nofork = true;                           break;
          case 'c': if (argv[i+1]) confDir = argv[i+1];      break;
          case 'v': printf("Version %s\n", VERSION);         return 1;
       }
@@ -177,6 +175,8 @@ int main(int argc, char** argv)
 
    if (!nofork)
    {
+      int pid {0};
+
       if ((pid = fork()) < 0)
       {
          printf("Can't fork daemon, %s\n", strerror(errno));

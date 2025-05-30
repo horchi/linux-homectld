@@ -33,7 +33,7 @@ class Deconz
       const char* getApiKey() { return apiKey.c_str(); }
 
       int query(json_t*& jResult, const char* method, const char* apiKey);
-      int put(std::string type, json_t*& jResult, const char* uuid, json_t* jData);
+      int put(const std::string& type, json_t*& jResult, const char* uuid, json_t* jData);
       int post(json_t*& jResult, const char* method, const char* payload);
       int checkResult(json_t* jArray);
 

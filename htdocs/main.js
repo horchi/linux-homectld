@@ -194,7 +194,7 @@ function updateSocketState()
 
    if (currentPage != "vdr") {
       let now = new Date().getTime();
-      if (lastPingAt + pingTimeoutMs <= now) {
+      if (false && lastPingAt + pingTimeoutMs <= now) {
          console.log("Warning: Reconnecting web socket due to timeout, last keep alive was ", now - lastPingAt, "ms ago");
          socket.reopen();
          lastPingAt = new Date().getTime();

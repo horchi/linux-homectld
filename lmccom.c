@@ -299,6 +299,8 @@ int LmcCom::queryPlayers(RangeList* list)
       list->push_back(item);
    }
 
+   json_decref(oData);
+
    return done;
 }
 
@@ -306,14 +308,14 @@ int LmcCom::queryPlayers(RangeList* list)
 // Query Action via REST
 //***************************************************************************
 
-int LmcCom::restQuery(std::string what)
+int LmcCom::restQuery(const std::string& what)
 {
    LmcCom::Parameters parameters;
 
    return restQuery(what,  parameters);
 }
 
-int LmcCom::restQuery(std::string what, Parameters pars)
+int LmcCom::restQuery(const std::string& what, const Parameters& pars)
 {
    json_t* jRequest {json_object()};
    json_object_set_new(jRequest, "method", json_string("slim.request"));
@@ -449,7 +451,7 @@ int LmcCom::restQueryRange(std::string what, int from, int count, const char* sp
 
    if (!jList)
    {
-      json_decref(jResult);
+      json_decref(jData);
       return fail;
    }
 
@@ -499,7 +501,7 @@ int LmcCom::restQueryRange(std::string what, int from, int count, const char* sp
          list->push_back(item);
    }
 
-   json_decref(jResult);
+   json_decref(jData);
 
    return success;
 }
@@ -867,7 +869,7 @@ int LmcCom::response(char* result, int max)
       {
          p += strlen(lastCommand);
 
-         while (*p && *p == ' ')         // skip leading blanks
+         while (*p == ' ')         // skip leading blanks
             p++;
 
          if (result && max && strcmp(p,"?") != 0)
@@ -975,11 +977,12 @@ int LmcCom::checkNotify(uint64_t timeout)
    {
       checkPlayersNext = time(0) + 10;
 
-      bool myPlayerConnected {false};
       LmcCom::RangeList players;
 
       if (queryPlayers(&players) == success)
       {
+         bool myPlayerConnected {false};
+
          tell(eloDebugLmc, "[LMC] Query players succeeded (%zu)", players.size());
 
          for (const auto& player : players)
@@ -1134,7 +1137,7 @@ int LmcCom::getCoverUrl(TrackInfo* track, std::string& coverUrl)
    {
       asprintf(&url, "http://%s:%d%s", host, 9000, track->artworkUrl.c_str());
    }
-   else
+   else if (track)
    {
       // http://<server>:<port>/music/<track_id>/cover.jpg
 

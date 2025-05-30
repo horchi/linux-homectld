@@ -18,7 +18,7 @@
 
 int Daemon::mqttHaPublish(SensorData& sensor, bool forceConfig)
 {
-   if (isEmpty(mqttUrl) || mqttHaInterfaceStyle == misNone)
+   if (mqttUrl.empty() || mqttHaInterfaceStyle == misNone)
       return done;
 
    if (mqttCheckConnection() != success)
@@ -223,7 +223,7 @@ int Daemon::performMqttRequests()
    static time_t lastMqttRead {0};
    static time_t lastMqttRecover {0};
 
-   if (isEmpty(mqttUrl))
+   if (mqttUrl.empty())
       return done;
 
    if (!lastMqttRead)
@@ -327,7 +327,7 @@ int Daemon::mqttCheckConnection()
    const char* mqttPingTopic = TARGET "2mqtt/ping";
    static time_t lastMqttPing {0};
 
-   if (isEmpty(mqttUrl))
+   if (mqttUrl.empty())
       return done;
 
    if (!mqttReader)
@@ -363,31 +363,31 @@ int Daemon::mqttCheckConnection()
    {
       // #TODO - we need a connect timeout (for all mqtt->connect calls)!
 
-      if (mqttWriter->connect(mqttUrl, mqttUser, mqttPassword) != success)
+      if (mqttWriter->connect(mqttUrl.c_str(), mqttUser.c_str(), mqttPassword.c_str()) != success)
       {
-         tell(eloAlways, "Error: MQTT: Connecting publisher to '%s' failed", mqttUrl);
+         tell(eloAlways, "Error: MQTT: Connecting publisher to '%s' failed", mqttUrl.c_str());
          return fail;
       }
 
-      tell(eloMqtt, "MQTT: Connecting publisher to '%s' succeeded", mqttUrl);
+      tell(eloMqtt, "MQTT: Connecting publisher to '%s' succeeded", mqttUrl.c_str());
    }
 
    // connect writer
 
    if (!mqttReader->isConnected())
    {
-      if (mqttReader->connect(mqttUrl, mqttUser, mqttPassword) != success)
+      if (mqttReader->connect(mqttUrl.c_str(), mqttUser.c_str(), mqttPassword.c_str()) != success)
       {
-         tell(eloAlways, "Error: MQTT: Connecting subscriber to '%s' failed", mqttUrl);
+         tell(eloAlways, "Error: MQTT: Connecting subscriber to '%s' failed", mqttUrl.c_str());
          return fail;
       }
 
-      tell(eloMqtt, "MQTT: Connecting subscriber to '%s' succeeded", mqttUrl);
+      tell(eloMqtt, "MQTT: Connecting subscriber to '%s' succeeded", mqttUrl.c_str());
 
       for (const auto& t : mqttSensorTopics)
       {
          mqttReader->subscribe(t.c_str());
-         tell(eloMqtt, "MQTT: Connecting subscriber to '%s' - '%s' succeeded", mqttUrl, t.c_str());
+         tell(eloMqtt, "MQTT: Connecting subscriber to '%s' - '%s' succeeded", mqttUrl.c_str(), t.c_str());
       }
    }
 
@@ -476,7 +476,7 @@ int Daemon::jsonAddValue(json_t* obj, SensorData& sensor, bool forceConfig)
 
    std::string kType = sensor.type;
 
-   if (!isEmpty(mqttHaSendWithKeyPrefix))
+   if (!mqttHaSendWithKeyPrefix.empty())
       kType = mqttHaSendWithKeyPrefix + sensor.type;
 
    json_object_set_new(oSensor, "type", json_string(kType.c_str()));
@@ -502,7 +502,7 @@ int Daemon::jsonAddValue(json_t* obj, SensorData& sensor, bool forceConfig)
       json_object_set_new(oSensor, "image", json_string(image));
    free(key);
 
-   if (!isEmpty(mqttHaSendWithKeyPrefix))
+   if (!mqttHaSendWithKeyPrefix.empty())
    {
       obj = oSensor;
       return success;

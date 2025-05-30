@@ -526,10 +526,10 @@ int Daemon::performAlertTestMail(int id, long client)
 {
    tell(eloDetail, "Test mail for alert (%d) requested", id);
 
-   if (isEmpty(mailScript))
+   if (mailScript.empty())
       return replyResult(fail, "missing mail script", client);
 
-   if (!fileExists(mailScript))
+   if (!fileExists(mailScript.c_str()))
       return replyResult(fail, "mail script not found", client);
 
    if (!selectMaxTime->find())
@@ -947,22 +947,22 @@ int Daemon::performTestMail(json_t* oObject, long client)
 
    tell(eloDebugWebSock, "Test mail requested with: '%s/%s'", subject, body);
 
-   if (isEmpty(mailScript))
+   if (mailScript.empty())
       return replyResult(fail, "Missing mail script", client);
 
-   if (!fileExists(mailScript))
+   if (!fileExists(mailScript.c_str()))
    {
       char* buf {};
-      asprintf(&buf, "Mail script '%s' not found", mailScript);
+      asprintf(&buf, "Mail script '%s' not found", mailScript.c_str());
       replyResult(fail, buf, client);
-      delete buf;
+      free(buf);
       return fail;
    }
 
-   if (isEmpty(stateMailTo))
+   if (stateMailTo.empty())
       return replyResult(fail, "Missing receiver", client);
 
-   if (sendMail(stateMailTo, subject, body, "text/plain") != success)
+   if (sendMail(stateMailTo.c_str(), subject, body, "text/plain") != success)
    {
       const char* message = "Sending mail failed\n"
          "Check your '/etc/msmtprc' and configure your mail account.\n\n"
@@ -1180,11 +1180,10 @@ int Daemon::storeChartbookmarks(json_t* array, long client)
 
 int Daemon::performChartbookmarks(long client)
 {
-   char* bookmarks {};
+   std::string bookmarks;
    getConfigItem("chartBookmarks", bookmarks, "[]");
-   json_t* oJson = jsonLoad(bookmarks);
+   json_t* oJson = jsonLoad(bookmarks.c_str());
    pushOutMessage(oJson, "chartbookmarks", client);
-   free(bookmarks);
 
    return done;
 }
@@ -1445,7 +1444,7 @@ int Daemon::storeConfig(json_t* obj, long client)
    const char* key {};
    json_t* jValue {};
    int oldWebPort {webPort};
-   char* oldStyle {};
+   std::string oldStyle;
    int count {0};
 
    getConfigItem("style", oldStyle, "");
@@ -1461,7 +1460,7 @@ int Daemon::storeConfig(json_t* obj, long client)
 
    const char* name = getStringFromJson(obj, "style");
 
-   if (!isEmpty(name) && strcmp(name, oldStyle) != 0)
+   if (!isEmpty(name) && name != oldStyle)
    {
       tell(eloWebSock, "Info: Creating link 'stylesheet.css' to '%s'", name);
       char* link {};
@@ -1483,12 +1482,10 @@ int Daemon::storeConfig(json_t* obj, long client)
 
    if (oldWebPort != webPort)
       replyResult(success, "Konfiguration gespeichert. Web Port geändert, bitte " TARGET " neu Starten!", client);
-   else if (!isEmpty(name) && strcmp(name, oldStyle) != 0)
+   else if (!isEmpty(name) && name != oldStyle)
       replyResult(success, "Konfiguration gespeichert. Das Farbschema wurde geändert, mit STRG-Umschalt-r neu laden!", client);
    else if (count > 1)  // on drag&drop its only one parameter
       replyResult(success, "Konfiguration gespeichert", client);
-
-   free(oldStyle);
 
    return done;
 }
@@ -1829,7 +1826,6 @@ int Daemon::storeDashboards(json_t* obj, long client)
             json_object_foreach(jWidgets, id, jData)
             {
                auto tuple = split(id, ':');
-               char* opts = json_dumps(jData, JSON_REAL_PRECISION(4));
 
                tableDashboardWidgets->clear();
                tableDashboardWidgets->setValue("DASHBOARDID", dashboardId);
@@ -1838,9 +1834,13 @@ int Daemon::storeDashboards(json_t* obj, long client)
                tell(eloDebug, "Debug: Storing widget '%s' -> '%s' -> (0x%llx)", id, tuple[1].c_str(), strtoll(tuple[1].c_str(), nullptr, 0));
                tableDashboardWidgets->setValue("ADDRESS", strtoll(tuple[1].c_str(), nullptr, 0));
 
+               char* opts {json_dumps(jData, JSON_REAL_PRECISION(4))};
+
                if (isEmpty(opts))
                {
                   // seems to be a new widget
+
+                  free(opts);
 
                   tableValueFacts->clear();
                   tableValueFacts->setValue("TYPE", tuple[0].c_str());
@@ -2209,7 +2209,7 @@ int Daemon::configChoice2json(json_t* obj, const char* name)
    {
       FileList options;
       int count {0};
-      char* path ;
+      char* path {};
 
       asprintf(&path, "%s/img/schema", httpPath);
 

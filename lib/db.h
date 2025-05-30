@@ -34,7 +34,7 @@ class cDbValue : public cDbService
 {
    public:
 
-      cDbValue(cDbFieldDef* f = 0)
+      explicit cDbValue(cDbFieldDef* f = 0)
       {
          field = 0;
          strValue = 0;
@@ -456,8 +456,8 @@ class cDbStatement : public cDbService
 {
    public:
 
-      cDbStatement(cDbTable* aTable);
-      cDbStatement(cDbConnection* aConnection, const char* sText = "");
+      explicit cDbStatement(cDbTable* aTable);
+      explicit cDbStatement(cDbConnection* aConnection, const char* sText = "");
       virtual ~cDbStatement();
 
       int execute(int noResult = no);
@@ -532,8 +532,8 @@ class cDbStatements
 {
    public:
 
-      cDbStatements()  { statisticPeriod = time(0); }
-      ~cDbStatements() {};
+      cDbStatements() : statisticPeriod(time(0)) {}
+      ~cDbStatements() {}
 
       void append(cDbStatement* s)  { statements.push_back(s); }
       void remove(cDbStatement* s)  { statements.remove(s); }

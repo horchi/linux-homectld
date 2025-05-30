@@ -122,8 +122,8 @@ class LmcCom : public TcpChannel
 
       int open(const char* host = "localhost", unsigned short port = 9090);
 
-      int restQuery(std::string what);
-      int restQuery(std::string what,  Parameters pars);
+      int restQuery(const std::string& what);
+      int restQuery(const std::string& what,  const Parameters& pars);
 
       int restQueryRange(std::string what, int from, int count, const char* special,
                          RangeList* list, int& total, std::string& title, Parameters* pars = nullptr);

@@ -17,7 +17,7 @@ int Daemon::lmcInit(bool force)
 {
    static time_t lastTryAt {0};
 
-   if (isEmpty(lmcHost) || isEmpty(lmcPlayerMac))
+   if (lmcHost.empty() || lmcPlayerMac.empty())
       return done;
 
    if (!force && lastTryAt > time(0) - 10)
@@ -26,17 +26,17 @@ int Daemon::lmcInit(bool force)
    lastTryAt = time(0);
 
    if (!lmc)
-      lmc = new LmcCom(lmcPlayerMac);
+      lmc = new LmcCom(lmcPlayerMac.c_str());
 
-   tell(eloAlways, "[LMC] Try opening connection to server at '%s:%d' for player '%s'", lmcHost, lmcPort, lmcPlayerMac);
+   tell(eloAlways, "[LMC] Try opening connection to server at '%s:%d' for player '%s'", lmcHost.c_str(), lmcPort, lmcPlayerMac.c_str());
 
-   if (lmc->open(lmcHost, lmcPort) != success)
+   if (lmc->open(lmcHost.c_str(), lmcPort) != success)
    {
-      tell(eloAlways, "[LMC] Opening connection to server at '%s:%d' failed", lmcHost, lmcPort);
+      tell(eloAlways, "[LMC] Opening connection to server at '%s:%d' failed", lmcHost.c_str(), lmcPort);
       return fail;
    }
 
-   tell(eloAlways, "[LMC] Opening connection to server at '%s:%d' for player '%s' succeeded", lmcHost, lmcPort, lmcPlayerMac);
+   tell(eloAlways, "[LMC] Opening connection to server at '%s:%d' for player '%s' succeeded", lmcHost.c_str(), lmcPort, lmcPlayerMac.c_str());
 
    lmc->update();
    // lmc->startNotify();
@@ -314,7 +314,7 @@ int Daemon::performLmcAction(json_t* oObject, long client)
             filters.push_back(tmp);
             sprintf(tmp, "item_id:%s", id.c_str());
             filters.push_back(tmp);
-            lmc->restQuery(type.c_str(), filters);
+            lmc->restQuery(type, filters);
          }
          else if (type == "playlists")
          {
@@ -484,9 +484,9 @@ int Daemon::performLmcAction(json_t* oObject, long client)
             {
                char* tmp {};
                if ((*it).icon.at(0) == '/')
-                  asprintf(&tmp, "http://%s:%d%s", lmcHost, 9000, (*it).icon.c_str());
+                  asprintf(&tmp, "http://%s:%d%s", lmcHost.c_str(), 9000, (*it).icon.c_str());
                else
-                  asprintf(&tmp, "http://%s:%d/%s", lmcHost, 9000, (*it).icon.c_str());
+                  asprintf(&tmp, "http://%s:%d/%s", lmcHost.c_str(), 9000, (*it).icon.c_str());
                json_object_set_new(oItem, "icon", json_string(tmp));
                free(tmp);
             }
@@ -510,11 +510,11 @@ int Daemon::performLmcAction(json_t* oObject, long client)
    else if (action == "play" && id.length())
       lmc->restQuery("playlist", {"index", id});   // lmc->track(atoi(id.c_str()));
    else if (action == "play")
-      lmc->restQuery(action.c_str());
+      lmc->restQuery(action);
    else if (action == "pause")
-      lmc->restQuery(action.c_str());
+      lmc->restQuery(action);
    else if (action == "stop")
-      lmc->restQuery(action.c_str());
+      lmc->restQuery(action);
    else if (action == "prevTrack")
       lmc->restQuery("playlist", {"index", "+1"});
    else if (action == "nextTrack")
@@ -538,8 +538,7 @@ int Daemon::performLmcAction(json_t* oObject, long client)
       const char* mac = getStringFromJson(oObject, "mac");
       lmcExit();
       tell(eloLmc, "[LMC] Changing player to '%s'", mac);
-      free(lmcPlayerMac);
-      lmcPlayerMac = strdup(mac);
+      lmcPlayerMac = mac;
       lmcInit(true);
    }
 

@@ -771,6 +771,7 @@ void showUsage(const char* bin)
    printf("Usage: %s <command> [-l <log-level>] [-d <device>]\n", bin);
    printf("\n");
    printf("  options:\n");
+   printf("     -n               don't fork in background\n");
    printf("     -l <eloquence>   set eloquence (bitmask)\n");
    printf("     -t               log to terminal\n");
    printf("     -s               show and exit\n");
@@ -778,7 +779,7 @@ void showUsage(const char* bin)
    printf("     -i <interval>    interval seconds (default 60)\n");
    printf("     -u <url>         MQTT url\n");
    printf("     -T <topic>       MQTT topic\n");
-   printf("                        <topic>/out - produce to\n");
+   printf("                       <topic>/out - produce to\n");
    printf("                        <topic>/in  - read from\n");
    printf("     -d <device>      i2c device (defaults to /dev/i2c-0)\n");
    printf("     --ads <address>  ADS1115  address (0x48, defaults to -1/off)\n");

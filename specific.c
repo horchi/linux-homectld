@@ -392,7 +392,7 @@ int HomeCtl::applyConfigurationSpecials()
    if (sensors["DO"][pinPoolLight].outputModes != outputModes)
    {
       sensors["DO"][pinPoolLight].outputModes = outputModes;
-      sensors["DO"][pinPoolLight].mode = outputModes & ooAuto ? omAuto : omManual;
+      sensors["DO"][pinPoolLight].mode = (outputModes & ooAuto) ? omAuto : omManual;
    }
 #endif
 
@@ -439,7 +439,6 @@ int HomeCtl::process(bool force)
 #ifdef _POOL
 
    static time_t lastDay {midnightOf(time(0))};
-   static time_t pSolarSince {0};
 
    tell(eloAlways, "Process ...");
 
@@ -463,6 +462,8 @@ int HomeCtl::process(bool force)
 
    if (w1Valid)
    {
+      static time_t pSolarSince {0};
+
       setSpecialValue(spSolarWork, sensors["SP"][spSolarWork].value + (sensors["SP"][spSolarPower].value * ((time(0)-pSolarSince) / 3600.0) / 1000.0));  // in kWh
       setConfigItem("lastSolarWork", sensors["SP"][spSolarWork].value);
       setSpecialValue(spSolarDelta, tSolar - tPool);

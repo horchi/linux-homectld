@@ -171,12 +171,11 @@ int W1::check()
 
 int W1::update()
 {
-   tell(eloInfo, "Updating ...");
-
-   check();
-
    uint count {0};
-   json_t* oJson = json_array();
+   json_t* oJson {json_array()};
+
+   tell(eloInfo, "Updating ...");
+   check();
 
    for (auto it = sensors.begin(); it != sensors.end(); it++)
    {
@@ -201,7 +200,7 @@ int W1::update()
 
       while (fgets(line, 100, in))
       {
-         char* p;
+         char* p {};
          line[strlen(line)-1] = 0;
 
          if (strstr(line, " crc="))
@@ -215,8 +214,8 @@ int W1::update()
 
          else if ((p = strstr(line, " t=")))
          {
-            double value = atoi(p+3) / 1000.0;
-            myString tmp = it->first;
+            double value {atoi(p+3) / 1000.0};
+            myString tmp {it->first};
 
             // if (!tmp.starts_with("3b-") && (value == 85 || value < -55 || value > 125))
             if ((max != na && value > max) || (min != na && value < min))
@@ -277,7 +276,7 @@ int W1::update()
    if (mqttConnection() != success)
       return fail;
 
-   char* p = json_dumps(oJson, JSON_REAL_PRECISION(4));
+   char* p {json_dumps(oJson, JSON_REAL_PRECISION(4))};
    json_decref(oJson);
 
    if (count)
@@ -286,7 +285,6 @@ int W1::update()
       mqttW1Writer->write(mqttPingTopic.c_str(), "{\"ping\" : true, \"sender\" : \"" TARGET "\"}");
 
    free(p);
-
    tell(eloInfo, " ... done");
 
    return done;

@@ -3928,8 +3928,9 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
    if (type.starts_with("ADS"))
    {
+      int res = updateAnalogInput(address, type.c_str(), getDoubleFromJson(jData, "value"), newTime, unit);
       json_decref(jData);
-      return updateAnalogInput(address, type.c_str(), getDoubleFromJson(jData, "value"), newTime, unit);
+      return res;
    }
 
    sensors[type][address].text = getStringFromJson(jData, "text", "");

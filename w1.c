@@ -250,9 +250,10 @@ int W1::update()
             json_array_append_new(oJson, ojData);
             count++;
 
-            // round one wire sensors to 0.5° (TODO make it configurable?)
+            // round one wire sensors (TODO make it configurable?)
 
-            value = round(2.0 * value) / 2.0;     // to 0.50
+            value = round(10.0 * value) / 10.0;   // to 0.10
+            // value = round(2.0 * value) / 2.0;     // to 0.50
             // value = round(4.0 * value) / 4.0;  // to 0.25
 
             json_object_set_new(ojData, "name", json_string(it->first.c_str()));

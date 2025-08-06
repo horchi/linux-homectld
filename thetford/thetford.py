@@ -162,6 +162,8 @@ def writeLini(byte, value):
 	tell(0, "write {} to byte {}".format(value, byte))
 	tell(2, "lastData was {}".format(lastData))
 	lastData[byte] = value
+	if byte != 0 and isAuto(lastData[0]):
+		lastData[0] = 1
 	tell(2, "Writing {}".format(lastData))
 	try:
 		response = ulini.master_write(0x0b, USBlini.CHECKSUM_MODE_LIN2, lastData)

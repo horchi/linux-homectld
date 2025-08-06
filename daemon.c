@@ -1012,11 +1012,10 @@ int Daemon::switchCommand(json_t* oObject)
 
    const char* payload {};
 
-   if (action == "switch")
+   if (action == "switch")    // for 'choice' select (actually used at least for VICTRON)
       json_object_set_new(obj, "value", json_string(getStringFromJson(oObject, "value")));
-   else  // toggle
+   else  // TASMOTA - #TODO other formats needed!
       payload = "TOGGLE";
-   // json_object_set_new(obj, "value", json_string("TOGGLE"));
 
    // send to command topic
 
@@ -3928,7 +3927,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
    if (type.starts_with("ADS"))
    {
-      int res = updateAnalogInput(address, type.c_str(), getDoubleFromJson(jData, "value"), newTime, unit);
+      int res {updateAnalogInput(address, type.c_str(), getDoubleFromJson(jData, "value"), newTime, unit)};
       json_decref(jData);
       return res;
    }

@@ -25,10 +25,11 @@ sensor()
                valid=true \
                value=${value})
 
-   ${LOGGER} "tele_tasmota_SENSOR.sh: -> ${RESULT}"
+   ${LOGGER} "tele_tasmota_SENSOR.sh: (${MQTTURL}) -> ${RESULT}"
    mosquitto_pub --quiet -L ${MQTTURL} -m "${RESULT}"
 }
 
 sensor 1 '.data.Total_in' 'Total Consumption' 'kWh'
 sensor 2 '.data.Total_out' 'Total fed in' 'kWh'
 sensor 3 '.data.Power_curr' 'Actual Load' 'W'
+sensor 4 '.data.Curr_summ' 'Actual Current' 'A'

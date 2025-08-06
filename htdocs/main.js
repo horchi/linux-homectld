@@ -64,6 +64,7 @@ $('document').ready(function() {
    s3200State.state = -1;
 
    const urlParams = new URLSearchParams(window.location.href);
+   // #TODO korrekt ist: const urlParams = new URLSearchParams(window.location.search);
    kioskMode = urlParams.get('kiosk');
    heightFactor = urlParams.get('heightFactor');
    dashboardGroup = urlParams.get('group') != null ? urlParams.get('group') : 0;

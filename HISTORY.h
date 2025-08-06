@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.6"
-#define VERSION_DATE "23.02.2025"
+#define _VERSION     "0.1.7"
+#define VERSION_DATE "05.08.2025"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,9 @@
 
 /*
  * ------------------------------------
+
+2025-08-05: version 0.1.7
+    - added: TASMOTA interface
 
 2025-02-23: version 0.1.6
     - change: Update of README

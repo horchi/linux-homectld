@@ -141,10 +141,6 @@ HomeCtl::HomeCtl()
 
 HomeCtl::~HomeCtl()
 {
-#ifdef _POOL
-   free(w1AddrPool);
-   free(w1AddrSolar);
-#endif
 }
 
 //***************************************************************************
@@ -450,8 +446,8 @@ int HomeCtl::process(bool force)
    }
 
    time_t tPoolLast {}, tSolarLast {};
-   double tPool = valueOfW1(toW1Id(w1AddrPool), tPoolLast);
-   double tSolar = valueOfW1(toW1Id(w1AddrSolar), tSolarLast);
+   double tPool = valueOfW1(toW1Id(w1AddrPool.c_str()), tPoolLast);
+   double tSolar = valueOfW1(toW1Id(w1AddrSolar.c_str()), tSolarLast);
 
    // use W1 values only if not older than 2 cycles
 
@@ -509,7 +505,7 @@ int HomeCtl::process(bool force)
 
       if (w1Valid && sensors["DO"][pinSolarPump].mode == omAuto)
       {
-         if (!isEmpty(w1AddrPool) && !isEmpty(w1AddrSolar) && existW1(toW1Id(w1AddrPool)) && existW1(toW1Id(w1AddrSolar)))
+         if (!w1AddrPool.empty() && !w1AddrSolar.empty() && existW1(toW1Id(w1AddrPool.c_str())) && existW1(toW1Id(w1AddrSolar.c_str())))
          {
             if (tPool > tPoolMax)
             {
@@ -618,7 +614,7 @@ int HomeCtl::process(bool force)
             char* body {};
             asprintf(&body, "Filter pressure is %.2f bar and pump is running!\n Pumps switched off now!", sensors["AI"][aiFilterPressure].value);
 
-            if (sendMail(stateMailTo, "Pool pump alert", body, "text/plain") != success)
+            if (sendMail(stateMailTo.c_str(), "Pool pump alert", body, "text/plain") != success)
                tell(eloAlways, "Error: Sending alert mail failed");
             free(body);
          }
@@ -661,8 +657,8 @@ void HomeCtl::logReport()
    static time_t nextDetailLogAt {0};
    char buf[255+TB] {};
    time_t tPoolLast {0}, tSolarLast {0};
-   double tPool = valueOfW1(toW1Id(w1AddrPool), tPoolLast);
-   double tSolar = valueOfW1(toW1Id(w1AddrSolar), tSolarLast);
+   double tPool = valueOfW1(toW1Id(w1AddrPool.c_str()), tPoolLast);
+   double tSolar = valueOfW1(toW1Id(w1AddrSolar.c_str()), tSolarLast);
 
    if (time(0) > nextLogAt)
    {

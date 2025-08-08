@@ -998,7 +998,7 @@ int Daemon::callScript(int addr, const char* command)
 // Send Command via MQTT
 //***************************************************************************
 
-int Daemon::switchCommand(json_t* oObject)
+int Daemon::switchCommand(json_t* oObject, const char* topic)
 {
    int addr = getIntFromJson(oObject, "address");
    std::string type = getStringFromJson(oObject, "type", "");
@@ -1023,19 +1023,19 @@ int Daemon::switchCommand(json_t* oObject)
    {
       char* message {json_dumps(obj, JSON_REAL_PRECISION(8))};
 
-      tell(eloAlways, "Send '%s' for '%s:0x%x' to '%s' [%s]", action.c_str(), type.c_str(), addr,
-           commandTopicsMap[type + ":" + std::to_string(addr)].c_str(), message);
+      tell(eloAlways, "Send '%s' for '%s:0x%x' to '%s' [%s]",
+           action.c_str(), type.c_str(), addr, topic, message);
 
-      mqttWriter->write(commandTopicsMap[type + ":" + std::to_string(addr)].c_str(), message);
+      mqttWriter->write(topic, message);
       free(message);
    }
 
    else
    {
-      tell(eloAlways, "Send '%s' for '%s:0x%x' to '%s' [%s]", action.c_str(), type.c_str(), addr,
-           commandTopicsMap[type + ":" + std::to_string(addr)].c_str(), payload);
+      tell(eloAlways, "Send '%s' for '%s:0x%x' to '%s' [%s]",
+           action.c_str(), type.c_str(), addr, topic, payload);
 
-      mqttWriter->write(commandTopicsMap[type + ":" + std::to_string(addr)].c_str(), payload);
+      mqttWriter->write(topic, payload);
    }
 
    json_decref(obj);
@@ -3790,6 +3790,39 @@ int Daemon::dispatchRtl433(const char* message)
 }
 
 //***************************************************************************
+// Lookup Command Topic
+//***************************************************************************
+
+const char* Daemon::lookupCommandTopic(const char* type, int address)
+{
+   std::string cmdTopicKey {type};
+
+   if (address != na)
+      cmdTopicKey = std::string(type) + ":" + std::to_string(address);
+
+   if (commandTopicsMap.find(cmdTopicKey) == commandTopicsMap.end())
+   {
+      std::string topic {};
+      getConfigItem(("mqttCmdTopic" + cmdTopicKey).c_str(), topic);
+
+      if (topic.empty())
+      {
+         if (address == na)
+            return nullptr;
+
+         return lookupCommandTopic(type, na);
+      }
+
+      commandTopicsMap[cmdTopicKey] = topic;
+   }
+
+   if (commandTopicsMap.find(cmdTopicKey) != commandTopicsMap.end() && !commandTopicsMap[cmdTopicKey].empty())
+      return commandTopicsMap[cmdTopicKey].c_str();
+
+   return nullptr;
+}
+
+//***************************************************************************
 // Dispatch Other
 //   { "value": 77.0, "type": "P4VA", "address": 1, "unit": "°C", "title": "Abgas" }
 //   { "state": 1, "address": 5, "type": "SMI260", "kind": "status", "title": "I Power On", "unit": "" }
@@ -3837,7 +3870,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    time_t newTime {time(0)};
    std::string action = getStringFromJson(jData, "action", "update");
    myString type = getStringFromJson(jData, "type", "");
-   uint address = getIntFromJson(jData, "address");
+   int address = getIntFromJson(jData, "address", na);
 
    const char* unit = getStringFromJson(jData, "unit");
    const char* title = getStringFromJson(jData, "title");
@@ -3852,8 +3885,13 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    {
       if (!isEmpty(getStringFromJson(jData, "topic")))
       {
-         commandTopicsMap[type + ":" + std::to_string(address)] = getStringFromJson(jData, "topic", "");
-         setConfigItem(("mqttCmdTopic" + type + ":" + std::to_string(address)).c_str(), commandTopicsMap[type + ":" + std::to_string(address)].c_str());
+         std::string cmdTopicKey {type};
+
+         if (address != na)
+            cmdTopicKey = type + ":" + std::to_string(address);
+
+         commandTopicsMap[cmdTopicKey] = getStringFromJson(jData, "topic", "");
+         setConfigItem(("mqttCmdTopic" + cmdTopicKey).c_str(), commandTopicsMap[cmdTopicKey].c_str());
       }
 
       tableValueFacts->clear();
@@ -3959,7 +3997,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    {
       for (const auto& itType : sensors)
       {
-         myString _type = itType.first;
+         myString _type {itType.first};
 
          if (!_type.starts_with("MCPO") && _type != "DO")
             continue;
@@ -3968,7 +4006,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
          {
             myString feedbackInType = s.second.feedbackInType;
 
-            if (feedbackInType.starts_with("MCPI") && s.second.feedbackInAddress == address)
+            if (feedbackInType.starts_with("MCPI") && s.second.feedbackInAddress == (uint)address)
             {
                sensors[_type][s.first].state = sensors[type][address].invert ? !state : state;
                sensors[_type][s.first].last = time(0);
@@ -3982,7 +4020,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
    // send update to WS
    {
-      json_t* ojData = json_object();
+      json_t* ojData {json_object()};
       sensor2Json(ojData, type.c_str(), address);
 
       if (kind == "status")
@@ -4238,7 +4276,7 @@ int Daemon::toggleIo(uint addr, const char* type, int state, int bri, int transi
 
       if (sensors[type][addr].active)
       {
-         if (commandTopicsMap[std::string(type) + ":" + std::to_string(addr)].empty())
+         if (commandTopicsMap[type].empty())
          {
             tell(eloAlways, "Error: Can't toggle %s:0x%02d, missing i2c topic", type, addr);
             return done;
@@ -4261,7 +4299,7 @@ int Daemon::toggleIo(uint addr, const char* type, int state, int bri, int transi
             json_object_set_new(obj, "action", json_string("impulse"));
 
          char* message = json_dumps(obj, JSON_REAL_PRECISION(8));
-         mqttWriter->write(commandTopicsMap[std::string(type) + ":" + std::to_string(addr)].c_str(), message);
+         mqttWriter->write(commandTopicsMap[type].c_str(), message);
          free(message);
          json_decref(obj);
       }

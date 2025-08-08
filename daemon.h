@@ -374,10 +374,11 @@ class Daemon : public cWebInterface
       virtual int dispatchGrowattEvents(const char* message);
       virtual int dispatchRtl433(const char* message);
       virtual int dispatchOther(const char* topic, const char* message);
+      const char* lookupCommandTopic(const char* type, int address);
       bool checkRights(long client, Event event, json_t* oObject);
       virtual bool onCheckRights(long client, Event event, uint rights) { return false; }
       int callScript(int addr, const char* command);
-      int switchCommand(json_t* oObject);
+      int switchCommand(json_t* oObject, const char* topic);
       bool isInTimeRange(const std::vector<Range>* ranges, time_t t);
 
       int updateWeather();

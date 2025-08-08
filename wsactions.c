@@ -486,19 +486,22 @@ int Daemon::performToggleIo(json_t* oObject, long client)
    int addr = getIntFromJson(oObject, "address");
    const char* type = getStringFromJson(oObject, "type");
    std::string action = getStringFromJson(oObject, "action", "");
-   std::string cmdTopicKey = std::string(type) + ":" + std::to_string(addr);
 
-   if (commandTopicsMap.find(cmdTopicKey) == commandTopicsMap.end())
-   {
-      std::string topic {};
-      getConfigItem((std::string("mqttCmdTopic") + type + ":" + std::to_string(addr)).c_str(), topic);
+   // std::string cmdTopicKey = std::string(type) + ":" + std::to_string(addr);
+   // if (commandTopicsMap.find(cmdTopicKey) == commandTopicsMap.end())
+   // {
+   //    std::string topic {};
+   //    getConfigItem((std::string("mqttCmdTopic") + type + ":" + std::to_string(addr)).c_str(), topic);
 
-      if (!topic.empty())
-         commandTopicsMap[cmdTopicKey] = topic;
-   }
+   //    if (!topic.empty())
+   //       commandTopicsMap[cmdTopicKey] = topic;
+   // }
+   // if (commandTopicsMap.find(cmdTopicKey) != commandTopicsMap.end() && !commandTopicsMap[cmdTopicKey].empty())
 
-   if (commandTopicsMap.find(cmdTopicKey) != commandTopicsMap.end() && !commandTopicsMap[cmdTopicKey].empty())
-      return switchCommand(oObject);
+   const char* topic {lookupCommandTopic(type, addr)};
+
+   if (!isEmpty(topic))
+      return switchCommand(oObject, topic);
 
    if (action == "toggle")
       return toggleIo(addr, type);

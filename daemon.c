@@ -1001,20 +1001,20 @@ int Daemon::callScript(int addr, const char* command)
 int Daemon::switchCommand(json_t* oObject)
 {
    int addr = getIntFromJson(oObject, "address");
-   const char* type = getStringFromJson(oObject, "type");
+   std::string type = getStringFromJson(oObject, "type", "");
    std::string action = getStringFromJson(oObject, "action", "");
 
    // prepare command
 
    json_t* obj {json_object()};
-   json_object_set_new(obj, "type", json_string(type));
+   json_object_set_new(obj, "type", json_string(type.c_str()));
    json_object_set_new(obj, "address", json_integer(addr));
 
    const char* payload {};
 
    if (action == "switch")    // for 'choice' select (actually used at least for VICTRON)
       json_object_set_new(obj, "value", json_string(getStringFromJson(oObject, "value")));
-   else  // TASMOTA - #TODO other formats needed!
+   else  // if (xxxProtocol == "TASMOTA")  - #TODO other formats needed!
       payload = "TOGGLE";
 
    // send to command topic
@@ -1023,19 +1023,19 @@ int Daemon::switchCommand(json_t* oObject)
    {
       char* message {json_dumps(obj, JSON_REAL_PRECISION(8))};
 
-      tell(eloAlways, "Send '%s' for '%s:0x%x' to '%s' [%s]", action.c_str(), type, addr,
-           commandTopicsMap[type].c_str(), message);
+      tell(eloAlways, "Send '%s' for '%s:0x%x' to '%s' [%s]", action.c_str(), type.c_str(), addr,
+           commandTopicsMap[type + ":" + std::to_string(addr)].c_str(), message);
 
-      mqttWriter->write(commandTopicsMap[type].c_str(), message);
+      mqttWriter->write(commandTopicsMap[type + ":" + std::to_string(addr)].c_str(), message);
       free(message);
    }
 
    else
    {
-      tell(eloAlways, "Send '%s' for '%s:0x%x' to '%s' [%s]", action.c_str(), type, addr,
-           commandTopicsMap[type].c_str(), payload);
+      tell(eloAlways, "Send '%s' for '%s:0x%x' to '%s' [%s]", action.c_str(), type.c_str(), addr,
+           commandTopicsMap[type + ":" + std::to_string(addr)].c_str(), payload);
 
-      mqttWriter->write(commandTopicsMap[type].c_str(), payload);
+      mqttWriter->write(commandTopicsMap[type + ":" + std::to_string(addr)].c_str(), payload);
    }
 
    json_decref(obj);
@@ -3802,11 +3802,21 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    char* converter {};
    asprintf(&converter, "%s/mqtt.d/%s.sh", confDir, strReplace("/", "_", topic).c_str());
 
+   tell(eloDebug2, "Debug2: Checking for converter script for '%s [%s]", topic, converter);
+
    if (fileExists(converter))
    {
-      executeCommand("%s 'mqtt://%s/%s' '%s' %d", converter, mqttUrlPlain, TARGET "2mqtt/scripts", message, ++mqttConverters[converter]);
+      FileStat fStat;
+      fileStat(converter, fStat);
+
+      // an empty converter script means skipping the message.
+
+      if (!fStat.size)
+         return done;
+
+      executeCommand("%s 'mqtt://%s/%s' '%s' '%s' %d", converter, mqttUrlPlain, TARGET "2mqtt/scripts", topic, message, ++mqttConverters[converter]);
       if (mqttConverters[converter] == 1)
-         executeCommand("%s 'mqtt://%s/%s' '%s' %d", converter, mqttUrlPlain, TARGET "2mqtt/scripts", message, ++mqttConverters[converter]);
+         executeCommand("%s 'mqtt://%s/%s' '%s' '%s' %d", converter, mqttUrlPlain, TARGET "2mqtt/scripts", topic, message, ++mqttConverters[converter]);
       tell(eloScript, ".. '%s' done", converter);
       free(converter);
       return done;
@@ -3842,8 +3852,8 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    {
       if (!isEmpty(getStringFromJson(jData, "topic")))
       {
-         commandTopicsMap[type] = getStringFromJson(jData, "topic", "");
-         setConfigItem(("mqttCmdTopic" + type).c_str(), commandTopicsMap[type].c_str());
+         commandTopicsMap[type + ":" + std::to_string(address)] = getStringFromJson(jData, "topic", "");
+         setConfigItem(("mqttCmdTopic" + type + ":" + std::to_string(address)).c_str(), commandTopicsMap[type + ":" + std::to_string(address)].c_str());
       }
 
       tableValueFacts->clear();
@@ -4021,7 +4031,7 @@ int Daemon::getConfigItem(const char* name, std::string& value, const char* def)
    {
       value = tableConfig->getStrValue("VALUE");
    }
-   else if (def)
+   else if (!isEmpty(def))
    {
       value = def;
       setConfigItem(name, value.c_str());  // store the default
@@ -4228,7 +4238,7 @@ int Daemon::toggleIo(uint addr, const char* type, int state, int bri, int transi
 
       if (sensors[type][addr].active)
       {
-         if (commandTopicsMap[type].empty())
+         if (commandTopicsMap[std::string(type) + ":" + std::to_string(addr)].empty())
          {
             tell(eloAlways, "Error: Can't toggle %s:0x%02d, missing i2c topic", type, addr);
             return done;
@@ -4251,7 +4261,7 @@ int Daemon::toggleIo(uint addr, const char* type, int state, int bri, int transi
             json_object_set_new(obj, "action", json_string("impulse"));
 
          char* message = json_dumps(obj, JSON_REAL_PRECISION(8));
-         mqttWriter->write(commandTopicsMap[type].c_str(), message);
+         mqttWriter->write(commandTopicsMap[std::string(type) + ":" + std::to_string(addr)].c_str(), message);
          free(message);
          json_decref(obj);
       }

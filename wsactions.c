@@ -486,17 +486,18 @@ int Daemon::performToggleIo(json_t* oObject, long client)
    int addr = getIntFromJson(oObject, "address");
    const char* type = getStringFromJson(oObject, "type");
    std::string action = getStringFromJson(oObject, "action", "");
+   std::string cmdTopicKey = std::string(type) + ":" + std::to_string(addr);
 
-   if (commandTopicsMap.find(type) == commandTopicsMap.end())
+   if (commandTopicsMap.find(cmdTopicKey) == commandTopicsMap.end())
    {
       std::string topic {};
-      getConfigItem((std::string("mqttCmdTopic") + type).c_str(), topic);
+      getConfigItem((std::string("mqttCmdTopic") + type + ":" + std::to_string(addr)).c_str(), topic);
 
       if (!topic.empty())
-         commandTopicsMap[type] = topic;
+         commandTopicsMap[cmdTopicKey] = topic;
    }
 
-   if (commandTopicsMap.find(type) != commandTopicsMap.end() && !commandTopicsMap[type].empty())
+   if (commandTopicsMap.find(cmdTopicKey) != commandTopicsMap.end() && !commandTopicsMap[cmdTopicKey].empty())
       return switchCommand(oObject);
 
    if (action == "toggle")

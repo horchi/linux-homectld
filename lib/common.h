@@ -443,6 +443,17 @@ bool fileExists(const char* path);
 const char* suffixOf(const char* path);
 int createLink(const char* link, const char* dest, int force);
 int isLink(const char* path);
+
+struct FileStat
+{
+   size_t size {0};
+   time_t mtime {0};
+   time_t ctime {0};
+   mode_t mode {0};
+};
+
+int fileStat(const char* path, FileStat& fStat);
+
 int isEmpty(const char* str);
 const char* notNull(const char* str, const char* def = "<null>");
 int isZero(const char* str);

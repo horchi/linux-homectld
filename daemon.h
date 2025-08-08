@@ -406,7 +406,7 @@ class Daemon : public cWebInterface
       int loadHtmlHeader();
       int sendMail(const char* receiver, const char* subject, const char* body, const char* mimeType);
 
-      int getConfigItem(const char* name, std::string& value, const char* def = "");
+      int getConfigItem(const char* name, std::string& value, const char* def = 0);
       int setConfigItem(const char* name, const char* value);
       int getConfigItem(const char* name, int& value, int def = na);
       int getConfigItem(const char* name, long& value, long def = na);

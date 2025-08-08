@@ -17,6 +17,10 @@ https://www.ei-ot.de/2025/01/27/tasmota-2-kanal-relais-modul-konfigurieren/?srsl
 ### Relais Board serial
 https://tasmota.github.io/docs/devices/LC-Technology-WiFi-Relay/#lc-technology-wifi-relay-single-relay
 
+### DollaTek 5V ESP8266 ESP-01 2-Kanal-WiFi-Relaismodul
+Modul: https://amzn.eu/d/e7EBxtd
+Für dieses Modul funktioniert das (mit baudrate 115200)
+https://templates.blakadder.com/LC-Relay-ESP01-2R-5V.html
 
 ## MQTT Topic Name
 
@@ -65,3 +69,4 @@ As a example for a sensor with more values:
 ```
 configs/mqtt.d/tele_tasmota_SENSOR.sh
 ```
+If a converter is to be used for multiple topics, this can be mapped using symbolic links.

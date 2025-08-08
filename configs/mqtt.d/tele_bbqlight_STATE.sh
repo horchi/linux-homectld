@@ -1,7 +1,9 @@
 #! /bin/bash
 
-MQTTURL="$1"
-MSG="$2"
+MQTTURL="${1}"
+INTOPIC="${2}"
+MSG="${3}"
+CALL_COUNT=${4}
 
 LOGGER="logger -t sensormqtt -p kern.warn"
 
@@ -13,6 +15,12 @@ sensor()
    UNIT="${4}"
 
    _MSG=`echo ${MSG} | jq -r "${ELEMENT}"`
+
+   # ELEMENT found?
+
+   if [[ "${_MSG}" == "null" ]]; then
+      exit 0
+   fi
 
    value="false"
 
@@ -35,4 +43,5 @@ sensor()
    mosquitto_pub --quiet -L ${MQTTURL} -m "${RESULT}"
 }
 
-sensor 1 '.POWER' 'BBQ Light' 'zst'
+sensor 1 '.POWER1' 'BBQ Light 1' 'zst'
+sensor 2 '.POWER2' 'BBQ Light 2' 'zst'

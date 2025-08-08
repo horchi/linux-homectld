@@ -1052,6 +1052,25 @@ int isLink(const char* path)
    return false;
 }
 
+//***************************************************************************
+// Get File Status
+//***************************************************************************
+
+int fileStat(const char* path, FileStat& fStat)
+{
+   struct stat _stat;
+
+   if (lstat(path, &_stat) < 0)
+      return fail;
+
+   fStat.size = _stat.st_size;
+   fStat.mtime = _stat.st_mtim.tv_sec;
+   fStat.ctime = _stat.st_ctim.tv_sec;
+   fStat.mode = _stat.st_mode;
+
+   return success;
+}
+
 const char* suffixOf(const char* path)
 {
    const char* p;

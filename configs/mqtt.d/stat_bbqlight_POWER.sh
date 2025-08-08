@@ -1,8 +1,9 @@
 #! /bin/bash
 
-MQTTURL="$1"
-MSG="$2"
-CALL_COUNT=${3}
+MQTTURL="${1}"
+INTOPIC="${2}"
+MSG="${3}"
+CALL_COUNT=${4}
 
 LOGGER="logger -t sensormqtt -p kern.warn"
 ACTION="update"
@@ -33,7 +34,7 @@ sensor()
                   unit="${UNIT}" \
                   valid=true \
                   rights=2 \
-                  topic="cmnd/bbqlight/POWER0" \
+                  topic="cmnd/bbqlight/POWER${ADDRESS}" \
                   state=${value})
    else
       RESULT=$(jo \
@@ -48,8 +49,15 @@ sensor()
                   state=${value})
    fi
 
-   ${LOGGER} "stat_bbqlight_POWER.sh: (${MQTTURL}) -> ${RESULT}"
+   ${LOGGER} "stat_bbqlight_POWER.sh: (${MQTTURL}) -> ${RESULT} (for topic ${INTOPIC})"
    mosquitto_pub --quiet -L ${MQTTURL} -m "${RESULT}"
 }
 
-sensor 1 'BBQ Light' 'zst'
+# assume INTOPIC name is like
+#   stat/bbqlight/POWER1
+#   stat/bbqlight/POWER2
+#   ...
+
+ADDR=$(echo ${INTOPIC} | grep -Eo '[0-9]+$')
+
+sensor ${ADDR} "BBQ Light ${ADDR}" "zst"

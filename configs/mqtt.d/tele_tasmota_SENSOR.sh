@@ -1,7 +1,9 @@
 #! /bin/bash
 
-MQTTURL="$1"
-MSG="$2"
+MQTTURL="${1}"
+INTOPIC="${2}"
+MSG="${3}"
+CALL_COUNT=${4}
 
 LOGGER="logger -t sensormqtt -p kern.warn"
 

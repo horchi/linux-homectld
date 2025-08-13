@@ -1,4 +1,10 @@
 
+# Important
+
+recover Output states also for MCPO !
+  -> move ioStates from config table in a new separate table with type, address as KEY to
+     support all kind of outpouts
+
 # General
 
 - Info Anzeige im WEBIF dhsetup style dem anpassen

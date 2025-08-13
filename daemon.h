@@ -378,7 +378,8 @@ class Daemon : public cWebInterface
       bool checkRights(long client, Event event, json_t* oObject);
       virtual bool onCheckRights(long client, Event event, uint rights) { return false; }
       int callScript(int addr, const char* command);
-      int switchCommand(json_t* oObject, const char* topic);
+      int switchCommand(std::string type, int addr, std::string action, const char* topic, const char* value = nullptr);
+
       bool isInTimeRange(const std::vector<Range>* ranges, time_t t);
 
       int updateWeather();
@@ -424,7 +425,7 @@ class Daemon : public cWebInterface
       void publishVictronInit(const char* type);
       void publishI2CSensorConfig(const char* type, uint pin, json_t* jParameters);
       void publishPin(const char* type, uint pin);
-      void gpioWrite(uint pin, bool state, bool store = true);
+      void gpioWrite(uint pin, bool state, bool saveIoState = true);
       bool gpioRead(uint pin, bool check = false);
       virtual void logReport() { return ; }
 
@@ -490,7 +491,7 @@ class Daemon : public cWebInterface
       int dashboards2Json(json_t* obj);
       int groups2Json(json_t* obj);
       virtual int commands2Json(json_t* obj);
-		int syslogs2Json(json_t* obj);
+      int syslogs2Json(json_t* obj);
       int daemonState2Json(json_t* obj);
       int sensor2Json(json_t* obj, const char* type, uint address);
       int systemServices2Json(json_t* obj);
@@ -511,8 +512,9 @@ class Daemon : public cWebInterface
       int toggleIoNext(uint pin);
       int toggleOutputMode(uint pin);
 
-      virtual int storeStates();
-      virtual int loadStates();
+      virtual int loadIoState(const char* type, uint address, bool& state, OutputMode& mode);
+      virtual int loadIoStates();
+      virtual int storeIoState(const char* type, uint address);
 
       // LMC
 
@@ -554,6 +556,7 @@ class Daemon : public cWebInterface
       cDbTable* tableDashboardWidgets {};
       cDbTable* tableSchemaConf {};
       cDbTable* tableHomeMatic {};
+      cDbTable* tableIoStates {};
 
       cDbStatement* selectTableStatistic {};
       cDbStatement* selectAllGroups {};
@@ -571,6 +574,7 @@ class Daemon : public cWebInterface
       cDbStatement* selectSamplesRange360 {};           // for chart
       cDbStatement* selectSamplesRangeMonth {};         // for chart
       cDbStatement* selectSamplesRangeMonthOfDayMax {}; // for chart
+      cDbStatement* selectAllIoStates {};
       cDbStatement* selectSensorAlerts {};
       cDbStatement* selectAllSensorAlerts {};
       cDbStatement* selectSampleInRange {};        // for alert check

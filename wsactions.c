@@ -501,7 +501,7 @@ int Daemon::performToggleIo(json_t* oObject, long client)
    const char* topic {lookupCommandTopic(type, addr)};
 
    if (!isEmpty(topic))
-      return switchCommand(oObject, topic);
+      return switchCommand(type, addr, action, topic, getStringFromJson(oObject, "value"));
 
    if (action == "toggle")
       return toggleIo(addr, type);

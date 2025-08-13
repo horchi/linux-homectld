@@ -195,7 +195,7 @@ const char* getStringFromJson(json_t* obj, const char* name, const char* def)
    return s;
 }
 
-int getBoolFromJson(json_t* obj, const char* name, bool def)
+bool getBoolFromJson(json_t* obj, const char* name, bool def)
 {
    json_t* o = json_object_get(obj, name);
 

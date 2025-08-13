@@ -37,7 +37,7 @@ int jStringValid(const char* s);
 bool isElementSet(json_t* obj, const char* name);
 const char* getStringFromJson(json_t* obj, const char* name, const char* def = nullptr);
 int getIntFromJson(json_t* obj, const char* name, int def = na);
-int getBoolFromJson(json_t* obj, const char* name, bool def = false);
+bool getBoolFromJson(json_t* obj, const char* name, bool def = false);
 long getLongFromJson(json_t* obj, const char* name, long def = na);
 double getDoubleFromJson(json_t* obj, const char* name, double def = na);
 json_t* getObjectFromJson(json_t* obj, const char* name, json_t* def = nullptr);

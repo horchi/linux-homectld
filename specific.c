@@ -213,9 +213,9 @@ int HomeCtl::exitDb()
    return Daemon::exitDb();
 }
 
-int HomeCtl::loadStates()
+int HomeCtl::loadIoStates()
 {
-   Daemon::loadStates();
+   Daemon::loadIoStates();
 
 #ifdef _POOL
    // if filter pump is running assume its running at least 'minPumpTimeForPh'

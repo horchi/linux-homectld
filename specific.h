@@ -57,7 +57,7 @@ class HomeCtl : public Daemon
 
       int readConfiguration(bool initial) override;
       int applyConfigurationSpecials() override;
-      int loadStates() override;
+      int loadIoStates() override;
       int atMeanwhile() override;
 
       int process(bool force = false) override;

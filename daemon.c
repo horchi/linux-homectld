@@ -325,7 +325,7 @@ int Daemon::pushInMessage(const char* data)
 
 int Daemon::pushOutMessage(json_t* oContents, const char* event, long client)
 {
-   json_t* obj = json_object();
+   json_t* obj {json_object()};
 
    addToJson(obj, "event", event);
    json_object_set_new(obj, "object", oContents);
@@ -352,9 +352,8 @@ int Daemon::pushDataUpdate(const char* event, long client)
 
    if (client)
    {
-      auto cl = wsClients[(void*)client];
-
-      json_t* oJson = json_object();
+      auto cl {wsClients[(void*)client]};
+         json_t* oJson {json_object()};
 
       for (auto& sj : jsonSensorList)
          json_object_set(oJson, sj.first.c_str(), sj.second);
@@ -365,7 +364,7 @@ int Daemon::pushDataUpdate(const char* event, long client)
    {
       for (const auto& cl : wsClients)
       {
-         json_t* oJson = json_object();
+         json_t* oJson {json_object()};
 
          for (auto& sj : jsonSensorList)
             json_object_set(oJson, sj.first.c_str(), sj.second);
@@ -515,7 +514,7 @@ int Daemon::init()
    initArduino();
    performMqttRequests();
    initScripts();
-   loadStates();           // load states of outputs on last exit
+   loadIoStates();           // load states of outputs on last exit
    lmcInit(true);
 
    if (!isEmpty(deconz.getHttpUrl()) && !isEmpty(deconz.getApiKey()))
@@ -998,11 +997,11 @@ int Daemon::callScript(int addr, const char* command)
 // Send Command via MQTT
 //***************************************************************************
 
-int Daemon::switchCommand(json_t* oObject, const char* topic)
+int Daemon::switchCommand(std::string type, int addr, std::string action, const char* topic, const char* value)
 {
-   int addr = getIntFromJson(oObject, "address");
-   std::string type = getStringFromJson(oObject, "type", "");
-   std::string action = getStringFromJson(oObject, "action", "");
+   // int addr = getIntFromJson(oObject, "address");
+   // std::string type = getStringFromJson(oObject, "type", "");
+   // std::string action = getStringFromJson(oObject, "action", "");
 
    // prepare command
 
@@ -1013,7 +1012,7 @@ int Daemon::switchCommand(json_t* oObject, const char* topic)
    const char* payload {};
 
    if (action == "switch")    // for 'choice' select (actually used at least for VICTRON)
-      json_object_set_new(obj, "value", json_string(getStringFromJson(oObject, "value")));
+      json_object_set_new(obj, "value", json_string(value)); // json_string(getStringFromJson(oObject, "value")));
    else  // if (xxxProtocol == "TASMOTA")  - #TODO other formats needed!
       payload = "TOGGLE";
 
@@ -1023,22 +1022,19 @@ int Daemon::switchCommand(json_t* oObject, const char* topic)
    {
       char* message {json_dumps(obj, JSON_REAL_PRECISION(8))};
 
-      tell(eloAlways, "Send '%s' for '%s:0x%x' to '%s' [%s]",
-           action.c_str(), type.c_str(), addr, topic, message);
-
+      tell(eloDebug, "Debug: Send '%s' for '%s:0x%x' to '%s' [%s]", action.c_str(), type.c_str(), addr, topic, message);
       mqttWriter->write(topic, message);
       free(message);
    }
 
    else
    {
-      tell(eloAlways, "Send '%s' for '%s:0x%x' to '%s' [%s]",
-           action.c_str(), type.c_str(), addr, topic, payload);
-
+      tell(eloDebug, "Debug: Send '%s' for '%s:0x%x' to '%s' [%s]", action.c_str(), type.c_str(), addr, topic, payload);
       mqttWriter->write(topic, payload);
    }
 
    json_decref(obj);
+   // storeIoState(....); -> makes no sence until we await feedback to switch the state
 
    return done;
 }
@@ -1218,6 +1214,9 @@ int Daemon::initDb()
 
    tableHomeMatic = new cDbTable(connection, "homematic");
    if (tableHomeMatic->open() != success) return fail;
+
+   tableIoStates = new cDbTable(connection, "iostates");
+   if (tableIoStates->open() != success) return fail;
 
    // prepare statements
 
@@ -1467,6 +1466,18 @@ int Daemon::initDb()
 
    // ------------------
 
+   selectAllIoStates = new cDbStatement(tableIoStates);
+
+   selectAllIoStates->build("select ");
+   selectAllIoStates->bindAllOut();
+   selectAllIoStates->build(" from %s", tableIoStates->TableName());
+
+   status += selectAllIoStates->prepare();
+
+   // ------------------
+
+   // ------------------
+
    selectSensorAlerts = new cDbStatement(tableSensorAlert);
 
    selectSensorAlerts->build("select ");
@@ -1679,6 +1690,7 @@ int Daemon::exitDb()
    delete tableDashboardWidgets;   tableDashboardWidgets = nullptr;
    delete tableSchemaConf;         tableSchemaConf = nullptr;
    delete tableHomeMatic;          tableHomeMatic = nullptr;
+   delete tableIoStates;           tableIoStates = nullptr;
 
    delete selectTableStatistic;    selectTableStatistic = nullptr;
    delete selectAllGroups;         selectAllGroups = nullptr;
@@ -1698,6 +1710,7 @@ int Daemon::exitDb()
    delete selectSamplesRangeMonthOfDayMax; selectSamplesRangeMonthOfDayMax = nullptr;
    delete selectSampleInRange;     selectSampleInRange = nullptr;
    delete selectSensorAlerts;      selectSensorAlerts = nullptr;
+   delete selectAllIoStates;       selectAllIoStates = nullptr;
    delete selectAllSensorAlerts;   selectAllSensorAlerts = nullptr;
    delete selectDashboards;        selectDashboards = nullptr;
    delete selectDashboardById;     selectDashboardById = nullptr;
@@ -3810,6 +3823,9 @@ const char* Daemon::lookupCommandTopic(const char* type, int address)
          if (address == na)
             return nullptr;
 
+         // try lookup by key like 'VIC' (without address)
+         //  until some types (devices) use one topic for all addresses
+
          return lookupCommandTopic(type, na);
       }
 
@@ -3881,6 +3897,13 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    const char* choices = getStringFromJson(jData, "choices");
    json_t* jParameter = getObjectFromJson(jData, "parameter");
 
+   if (type.empty())
+   {
+      tell(eloAlways, "Error: Missing 'type' in '%s' (dispatchOther) [%s]", topic, message);
+      json_decref(jData);
+      return fail;
+   }
+
    if (action == "init")
    {
       if (!isEmpty(getStringFromJson(jData, "topic")))
@@ -3910,15 +3933,30 @@ int Daemon::dispatchOther(const char* topic, const char* message)
       }
 
       selectActiveValueFacts->freeResult();
+
+      // restore last state
+
+      if (sensors[type][address].kind == "status" && sensors[type][address].outputModes & ooUser)
+      {
+         bool state {false};
+         OutputMode mode {omManual};
+
+         if (loadIoState(type.c_str(), address, state, mode) == success)
+         {
+            if (sensors[type][address].outputModes & ooAuto)
+               sensors[type][address].mode = mode;
+
+            // set state
+
+            const char* topic {lookupCommandTopic(type.c_str(), address)};
+
+            if (!isEmpty(topic))
+               switchCommand(type, address, "toggle", topic);
+         }
+      }
+
       json_decref(jData);
       return done;
-   }
-
-   if (type.empty())
-   {
-      tell(eloAlways, "Error: Missing 'type' in '%s' (dispatchOther) [%s]", topic, message);
-      json_decref(jData);
-      return fail;
    }
 
    if (type != "SC")
@@ -3932,8 +3970,8 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
       if (jParameter)
       {
-         char* p = json_dumps(jParameter, 0);
-         // don't free it's only a reference onto oData! // json_decref(jParameter);
+         char* p {json_dumps(jParameter, 0)};  // don't free jParameter - only a reference onto oData!
+
          tell(eloDebug, "Sensor parameter: '%s'", p);
          sensors[type][address].parameter = p;
          free(p);
@@ -3946,10 +3984,11 @@ int Daemon::dispatchOther(const char* topic, const char* message)
       else
          addValueFact(address, type.c_str(), 1, title, unit, title, rights, nullptr, soNone, sensors[type][address].parameter.c_str());
    }
-   else  // SC - script sensor (send result async via MQTT)
+
+   if (type == "SC")    // SC - script sensor (send result async via MQTT)
    {
       newTime += 1;         // workaround due to async result of SC (if last is identical it's never stored)
-      sensors[type][address].working = false;               // reset 'working' state (needed for SC sensors)
+      sensors[type][address].working = false;  // reset 'working' state (needed for SC sensors)
    }
 
    // ignore data for not active sensors
@@ -3967,7 +4006,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
    // ignore data for impulse (outputs)
 
-   if (sensors[type][address].impulse) // ?? type.starts_with("MCPO"))
+   if (sensors[type][address].impulse)
    {
       json_decref(jData);
       return done;
@@ -3990,8 +4029,19 @@ int Daemon::dispatchOther(const char* topic, const char* message)
       sensors[type][address].changedAt = newTime;
 
    sensors[type][address].value = getDoubleFromJson(jData, "value");
-   bool state = getBoolFromJson(jData, "state");
-   sensors[type][address].state = sensors[type][address].invert ? !state : state;
+
+   bool state {getBoolFromJson(jData, "state")};
+
+   if (sensors[type][address].kind == "status")
+   {
+      sensors[type][address].state = sensors[type][address].invert ? !state : state;
+
+      if (sensors[type][address].outputModes & ooUser)
+         storeIoState(type.c_str(), address);
+   }
+
+   // handle feedback inputs
+   //   -> setu output state if we got a feedback input
 
    if (type.starts_with("MCPI"))
    {
@@ -4376,14 +4426,14 @@ int Daemon::toggleOutputMode(uint pin)
       OutputMode mode = sensors["DO"][pin].mode == omAuto ? omManual : omAuto;
       sensors["DO"][pin].mode = mode;
 
-      storeStates();
+      storeIoState("DO", pin);
       publishPin("DO", pin);
    }
 
    return success;
 }
 
-void Daemon::gpioWrite(uint pin, bool state, bool store)
+void Daemon::gpioWrite(uint pin, bool state, bool saveIoState)
 {
    sensors["DO"][pin].last = time(0);
    sensors["DO"][pin].changedAt = time(0); // #TODO set only if changed
@@ -4406,8 +4456,8 @@ void Daemon::gpioWrite(uint pin, bool state, bool store)
       digitalWrite(pin, sensors["DO"][pin].invert ? !state : state);
    }
 
-   if (store)
-      storeStates();
+   if (saveIoState)
+      storeIoState("DO", pin);
 
    performJobs();
 
@@ -4591,99 +4641,173 @@ void Daemon::publishSpecialValue(int addr)
 }
 
 //***************************************************************************
+// Store/Load Output State
+//***************************************************************************
+
+int Daemon::storeIoState(const char* type, uint address)
+{
+   tell(eloAlways, "storeIoState of '%s:0x%x'", type, address);
+
+   tableIoStates->clear();
+   tableIoStates->setValue("TYPE", type);
+   tableIoStates->setValue("ADDRESS", (int)address);
+   tableIoStates->setValue("STATE", sensors[type][address].state);
+   tableIoStates->setValue("MODE", sensors[type][address].mode);
+   tableIoStates->store();
+
+   return done;
+}
+
+//***************************************************************************
 // Store/Load IO States
 //  used to recover state and mode at restart
 //  #TODO - use only for GPIO Pins (we need a other type for P4 'DO' !!
 //***************************************************************************
 
-int Daemon::storeStates()
+// int Daemon::storeIoStates()
+// {
+//    constexpr int maxIos {50};
+//    char states[maxIos+TB] {};
+//    char modes[maxIos+TB] {};
+
+//    memset(states, '0', maxIos);
+//    memset(modes, '1', maxIos);
+//    states[maxIos] = '\0';
+//    modes[maxIos] = '\0';
+
+//    if (!ioStatesLoaded)
+//       return done;
+
+//    for (const auto& type : sensors)
+//    {
+//       for (const auto& output : type.second)
+//       {
+//          if (output.second.kind != "status" || !output.second.valid)
+//             continue;
+
+//          if (!(output.second.outputModes & ooUser))
+//             continue;
+
+//          storeIoState(type.first.c_str(), output.first);
+//       }
+//    }
+
+//    // old style
+
+//    for (const auto& output : sensors["DO"])
+//    {
+//       if (output.first >= maxIos)
+//       {
+//          tell(eloAlways, "Fatal: Can't store state of DO:%02d", output.first);
+//          break;
+//       }
+
+//       states[output.first] = output.second.state ? '1' : '0';
+//       modes[output.first] = '0' + output.second.mode;
+
+//       setConfigItem("ioStates", states);
+//       setConfigItem("ioModes", modes);
+
+//       tell(eloDebug2, "Debug2: iomode bit '%s/%d' %d [%s] stored", output.second.name.c_str(), output.first, output.second.mode, modes);
+//       tell(eloDebug2, "Debug2: iostate bit '%s/%d' %d [%s] stored", output.second.name.c_str(), output.first, output.second.state, states);
+//    }
+
+//    tell(eloDebug2, "Debug2: Stored iostates: [%s]", states);
+//    tell(eloDebug2, "Debug2: Stored iomodes: [%s]", modes);
+
+//    return done;
+// }
+
+int Daemon::loadIoState(const char* type, uint address, bool& state, OutputMode& mode)
 {
-   constexpr int maxIos {50};
-   char states[maxIos+TB] {};
-   char modes[maxIos+TB] {};
+   tableIoStates->clear();
+   tableIoStates->setValue("TYPE", type);
+   tableIoStates->setValue("ADDRESS", (int)address);
 
-   memset(states, '0', maxIos);
-   memset(modes, '1', maxIos);
-   states[maxIos] = '\0';
-   modes[maxIos] = '\0';
+   if (!tableIoStates->find())
+      return fail;
 
-   if (!ioStatesLoaded)
-      return done;
+   state = tableIoStates->getIntValue("STATE") == 1;
+   mode = (OutputMode)tableIoStates->getIntValue("MODE");
 
-   // tell(eloAlways, "storeStates()");
-
-   for (const auto& output : sensors["DO"])
-   {
-      if (output.first >= maxIos)
-      {
-         tell(eloAlways, "Fatal: Can't store state of DO:%02d", output.first);
-         break;
-      }
-
-      states[output.first] = output.second.state ? '1' : '0';
-      modes[output.first] = '0' + output.second.mode;
-
-      setConfigItem("ioStates", states);
-      setConfigItem("ioModes", modes);
-
-      tell(eloDebug2, "Debug2: iomode bit '%s/%d' %d [%s] stored", output.second.name.c_str(), output.first, output.second.mode, modes);
-      tell(eloDebug2, "Debug2: iostate bit '%s/%d' %d [%s] stored", output.second.name.c_str(), output.first, output.second.state, states);
-   }
-
-   tell(eloDebug2, "Debug2: Stored iostates: [%s]", states);
-   tell(eloDebug2, "Debug2: Stored iomodes: [%s]", modes);
-
-   return done;
+   return success;
 }
 
-int Daemon::loadStates()
+int Daemon::loadIoStates()
 {
-   constexpr int maxIos {50};
-   char defStates[maxIos+TB] {};
-   char defModes[maxIos+TB] {};
+   tableIoStates->clear();
 
-   memset(defStates, '0', maxIos);
-   memset(defModes, '1', maxIos);
-   defStates[maxIos] = '\0';
-   defModes[maxIos] = '\0';
-
-   std::string states;
-   std::string modes;
-
-   getConfigItem("ioStates", states, defStates);
-   getConfigItem("ioModes", modes, defModes);
-
-   tell(eloDetail, "Info: Loaded iostates: [%s]", states.c_str());
-   tell(eloDetail, "Info: Loaded iomodes: [%s]", modes.c_str());
-
-   for (const auto& output : sensors["DO"])
+   for (int f = selectAllIoStates->find(); f; f = selectAllIoStates->fetch())
    {
-      if (output.first == pinW1Power || output.first >= maxIos)
+      std::string type {tableIoStates->getStrValue("TYPE")};
+      uint address {(uint)tableIoStates->getIntValue("ADDRESS")};
+      bool state {(bool)tableIoStates->getIntValue("STATE")};
+
+      if (type == "DO" || address == pinW1Power || sensors[type][address].impulse || !(sensors[type][address].outputModes & ooUser))
          continue;
 
-      if (sensors["DO"][output.first].outputModes & ooUser)
-      {
-         if (sensors["DO"][output.first].impulse)
-            continue;
+      if (sensors[type][address].outputModes & ooAuto)
+         sensors[type][address].mode = (OutputMode)tableIoStates->getIntValue("MODE");
 
-         gpioWrite(output.first, states[output.first] == '1', false);
-         tell(eloDebug2, "Info: iostate '%s/%d' recovered to %d", output.second.name.c_str(), output.first, output.second.state);
+      if (type == "DO")
+      {
+         gpioWrite(address, state, false);
+         tell(eloDebug2, "Info: IO state of '%s:0x%x' recovered to %s", type.c_str(), address, state ? "true" : "false");
+      }
+      else
+      {
+         // MCPO and other IOs connected via MQTT are restored
+         // as part of the MQTT/INIT message.
       }
    }
 
-   for (const auto& output : sensors["DO"])
-   {
-      if (output.first == pinW1Power || output.first >= maxIos)
-         continue;
-
-      if (sensors["DO"][output.first].outputModes & ooAuto && sensors["DO"][output.first].outputModes & ooUser)
-      {
-         sensors["DO"][output.first].mode = (OutputMode)(modes[output.first] - '0');
-         tell(eloDebug2, "Info: iomode '%s/%d' recovered to %d", output.second.name.c_str(), output.first, sensors["DO"][output.first].mode);
-      }
-   }
-
+   selectAllIoStates->freeResult();
    ioStatesLoaded = true;
+
+   // constexpr int maxIos {50};
+   // char defStates[maxIos+TB] {};
+   // char defModes[maxIos+TB] {};
+
+   // memset(defStates, '0', maxIos);
+   // memset(defModes, '1', maxIos);
+   // defStates[maxIos] = '\0';
+   // defModes[maxIos] = '\0';
+
+   // std::string states;
+   // std::string modes;
+
+   // getConfigItem("ioStates", states, defStates);
+   // getConfigItem("ioModes", modes, defModes);
+
+   // tell(eloDetail, "Info: Loaded iostates: [%s]", states.c_str());
+   // tell(eloDetail, "Info: Loaded iomodes: [%s]", modes.c_str());
+
+   // for (const auto& output : sensors["DO"])
+   // {
+   //    if (output.first == pinW1Power || output.first >= maxIos)
+   //       continue;
+
+   //    if (sensors["DO"][output.first].outputModes & ooUser)
+   //    {
+   //       if (sensors["DO"][output.first].impulse)
+   //          continue;
+
+   //       gpioWrite(output.first, states[output.first] == '1', false);
+   //       tell(eloDebug2, "Info: iostate '%s/%d' recovered to %d", output.second.name.c_str(), output.first, output.second.state);
+   //    }
+   // }
+
+   // for (const auto& output : sensors["DO"])
+   // {
+   //    if (output.first == pinW1Power || output.first >= maxIos)
+   //       continue;
+
+   //    if (sensors["DO"][output.first].outputModes & ooAuto && sensors["DO"][output.first].outputModes & ooUser)
+   //    {
+   //       sensors["DO"][output.first].mode = (OutputMode)(modes[output.first] - '0');
+   //       tell(eloDebug2, "Info: iomode '%s/%d' recovered to %d", output.second.name.c_str(), output.first, sensors["DO"][output.first].mode);
+   //    }
+   // }
 
    return done;
 }
@@ -4735,8 +4859,11 @@ int Daemon::dispatchArduinoMsg(const char* message)
             unit = addr <= 7 ? "%" : "mV";
 
          std::string title = "Analog Input (Arduino) " + std::to_string(addr);
-         addValueFact(addr, type, 1, title.c_str(), unit.c_str());
 
+         if (sensors[type][addr].active) // don't override unit if sensor already exist
+            unit.clear();
+
+         addValueFact(addr, type, 1, title.c_str(), unit.c_str());
          updateAnalogInput(addr, type, value, stamp, unit.c_str());
       }
 

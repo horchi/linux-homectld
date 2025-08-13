@@ -241,15 +241,13 @@ Table schemaconf
 // Table states
 // ----------------------------------------------------------------
 
-Table states
+Table iostates
 {
-   ADDRESS              ""  address              UInt         4 Primary,
    TYPE                 ""  type                 Ascii        8 Primary,
+   ADDRESS              ""  address              UInt         4 Primary,
 
-   VALUE                ""  value                Float      122 Data,
    STATE                ""  state                Int         10 Data,
-   BATTERY              ""  battery              Int         10 Data,
-   REACHABLE            ""  reachable            Int         10 Data,
+   MODE                 ""  mode                 Int         10 Data,
 }
 
 // ----------------------------------------------------------------

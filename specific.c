@@ -480,7 +480,7 @@ int HomeCtl::process(bool force)
       publishSpecialValue(spSolarWork);
    }
    else
-      tell(eloAlways, "W1 values NOT valid");
+      tell(eloAlways, "W1 values NOT valid, skipping solar calculation");
 
    // -----------
    // PH

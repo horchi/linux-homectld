@@ -322,21 +322,21 @@ void Daemon::ioInterrupt()
 int HomeCtl::applyConfigurationSpecials()
 {
 #ifndef _NO_RASPBERRY_PI_
-   initOutput(pinUserOut1, ooAuto|ooUser, omManual, "Digital Output");
-   initOutput(pinUserOut2, ooAuto|ooUser, omManual, "Digital Output");
-   initOutput(pinUserOut3, ooAuto|ooUser, omManual, "Digital Output");
-   initOutput(pinUserOut4, ooAuto|ooUser, omManual, "Digital Output");
-   initOutput(pinUserOut5, ooAuto|ooUser, omManual, "Digital Output");
-   initOutput(pinUserOut6, ooAuto|ooUser, omManual, "Digital Output");
-   initOutput(pinUserOut7, ooAuto|ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut1, ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut2, ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut3, ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut4, ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut5, ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut6, ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut7, ooUser, omManual, "Digital Output");
 
    initInput(pinUserInput1, "Digital Input");
    initInput(pinUserInput2, "Digital Input");
    initInput(pinUserInput3, "Digital Input");
 
 # ifndef _POOL
-   initOutput(pinUserOut8, ooAuto|ooUser, omManual, "Digital Output");
-   initOutput(pinUserOut9, ooAuto|ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut8, ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut9, ooUser, omManual, "Digital Output");
 
    initInput(pinUserInput4, "Digital Input");
    initInput(pinUserInput5, "Digital Input");
@@ -346,9 +346,9 @@ int HomeCtl::applyConfigurationSpecials()
 
 # ifndef MODEL_ODROID_N2
    // only at Raspberry Pi !
-   initOutput(pinUserOut10, ooAuto|ooUser, omManual, "Digital Output");
-   initOutput(pinUserOut11, ooAuto|ooUser, omManual, "Digital Output");
-   initOutput(pinUserOut12, ooAuto|ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut10, ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut11, ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut12, ooUser, omManual, "Digital Output");
 # endif // // only at Raspberry Pi !
 
 #endif // _NO_RASPBERRY_PI_
@@ -722,7 +722,7 @@ void HomeCtl::logReport()
       for (int f = selectSolarAhPerDay->find(); f; f = selectSolarAhPerDay->fetch())
       {
          tell(eloAlways, "#   %s: %3.2f [Ah]",
-				  l2pTime(tableSamples->getTimeValue("TIME"), "%d.%m.%Y").c_str(),
+              l2pTime(tableSamples->getTimeValue("TIME"), "%d.%m.%Y").c_str(),
               tableSamples->getFloatValue("VALUE"));
       }
 

@@ -726,7 +726,7 @@ function prepareSetupMenu()
          addSetupMenuButton('User', 'userdetails');
          addSetupMenuButton('Alerts', 'alerts');
          addSetupMenuButton('Images', 'images');
-         addSetupMenuButton('Baugruppen', 'groups');
+         // addSetupMenuButton('Baugruppen', 'groups');
          addSetupMenuButton('Syslog', 'syslog');
          addSetupMenuButton('Database', 'system', 'database');
          addSetupMenuButton('Commands', 'commands');

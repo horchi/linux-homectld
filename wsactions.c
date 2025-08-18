@@ -381,7 +381,7 @@ int Daemon::performData(long client, const char* event)
          if (sensor->disabled)
             json_object_set_new(ojData, "disabled", json_boolean(true));
 
-         if (sensor->type == "DO")    // Digital special properties for DO
+         if (sensor->type == "DO")    // special properties for DO
          {
             pin2Json(ojData, sensor->type.c_str(), sensor->address);
             // json_object_set_new(ojData, "mode", json_string(sensor->mode == omManual ? "manual" : "auto"));
@@ -1920,8 +1920,10 @@ int Daemon::performForceRefresh(json_t* obj, long client)
    }
    else if (action == "valuefacts")
    {
-      initScripts();
-      json_t* oJson = json_object();
+      if (getBoolFromJson(obj, "forceScripts", false))
+         initScripts();
+
+      json_t* oJson {json_object()};
       valueFacts2Json(oJson, false);
       pushOutMessage(oJson, "valuefacts");
    }
@@ -2426,7 +2428,7 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
 
       // widget in valuefacts only used or list view!
 
-      json_t* jDefaults = json_object();
+      json_t* jDefaults {json_object()};
       widgetDefaults2Json(jDefaults, type.c_str(),
                           tableValueFacts->getStrValue("UNIT"),
                           tableValueFacts->getStrValue("NAME"),
@@ -2434,16 +2436,16 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
 
       json_object_set_new(oData, "widget", jDefaults);
 
-      tableGroups->clear();
-      tableGroups->setValue("ID", tableValueFacts->getIntValue("GROUPID"));
+      // tableGroups->clear();
+      // tableGroups->setValue("ID", tableValueFacts->getIntValue("GROUPID"));
 
-      if (tableGroups->find())
-      {
-         json_object_set_new(oData, "groupid", json_integer(tableGroups->getIntValue("ID")));
-         json_object_set_new(oData, "group", json_string(tableGroups->getStrValue("NAME")));
-      }
+      // if (tableGroups->find())
+      // {
+      //    json_object_set_new(oData, "groupid", json_integer(tableGroups->getIntValue("ID")));
+      //    json_object_set_new(oData, "group", json_string(tableGroups->getStrValue("NAME")));
+      // }
 
-      tableGroups->reset();
+      // tableGroups->reset();
    }
 
    selectAllValueFacts->freeResult();

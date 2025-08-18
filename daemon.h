@@ -252,7 +252,7 @@ class Daemon : public cWebInterface
          std::string parameter;
          std::string choices;
          OutputMode mode {omAuto};
-         uint outputModes {ooUser};
+         uint outputModes {ooUser};   // bitmask of available outout modes (User,Auto,...)
          std::string feedbackInType;  // feedback input for impuls out
          uint feedbackInAddress {0};  // feedback input for impuls out
       };

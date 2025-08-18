@@ -36,7 +36,15 @@ function initIoSetup()
                       .addClass('rounded-border tool-button')
                       .css('background-color', 'slategray')
                       .html('Speichern')
-                      .click(function() { storeIoSetup(); })))
+                      .click(function() { storeIoSetup(); }))
+              .append($('<button></button>')
+                      .addClass('rounded-border tool-button')
+                      .css('background-color', 'slategray')
+                      .html('Update Scripts')
+                      .click(function() {
+                         socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'valuefacts', 'forceScripts':true } });
+                         showProgressDialog();
+                      })))
       .append($('<div></div>')
               .addClass('button-group-spacing'))
       .append($('<div></div>')

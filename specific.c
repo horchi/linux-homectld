@@ -282,11 +282,13 @@ int HomeCtl::readConfiguration(bool initial)
 
 int HomeCtl::atMeanwhile()
 {
+#ifdef _POOL
    if (showerSwitch > 0)
    {
       toggleIo(pinShower, "DO");
       showerSwitch = 0;
    }
+#endif
 
    if (ioInterruptTrigger)
    {

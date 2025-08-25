@@ -212,16 +212,19 @@ class Daemon : public cWebInterface
       {
          bool record {false};
          bool active {false};
-         std::string kind {"value"};       // { value | status | text | trigger }
-                                           //   value   state    text   state
-         uint64_t lastInterruptMs {0};
-         time_t last {0};                  // last info about value/state/..
-         time_t changedAt {0};             // last change of value/state/..
+
+         std::string kind {"value"};       //    { value | status | text | trigger }
+                                           // ->   value   state    text   state
          double value {0.0};
-         bool working {false};             // actually working/moving (eg for blinds or script running)
-         Direction lastDir {dirOpen};
          bool state {false};
          std::string text;
+
+         time_t last {0};                  // last info about value/state/..
+         time_t changedAt {0};             // last change of value/state/..
+         uint64_t lastInterruptMs {0};
+
+         bool working {false};             // actually working/moving (eg for blinds or script running)
+         Direction lastDir {dirOpen};
          std::string image;
          bool disabled {false};
          bool valid {false};               // set if the value, text or state is valid

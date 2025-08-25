@@ -2294,16 +2294,16 @@ int Daemon::process(bool force)
          getConfigItem(key, sensors[type][address].value, 0);
 
       bool update {false};
-      std::string searchKey = getStringBetween(expression, "{", "}");
+      std::string searchKey {getStringBetween(expression, "{", "}")};
 
       while (searchKey.length())
       {
          std::string what = "{" + searchKey + "}";
-         auto tuple = split(searchKey, ':');
+         auto tuple {split(searchKey, ':')};
 
          if (tuple.size() >= 2 && sensors.find(tuple[0].c_str()) != sensors.end())
          {
-            uint matchAddr = strtol(tuple[1].c_str(), nullptr, 0);
+            uint matchAddr {(uint)strtol(tuple[1].c_str(), nullptr, 0)};
 
             if (sensors[tuple[0].c_str()].find(matchAddr) != sensors[tuple[0].c_str()].end())
             {

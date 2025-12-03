@@ -106,9 +106,9 @@ class Daemon : public cWebInterface
          pinUserOut4     = pinGpio09,
          pinUserOut5     = pinGpio05,
          pinUserOut6     = pinGpio06,
-         pinUserOut7     = pinGpio07,
 
 #ifndef _POOL
+         pinUserOut7     = pinGpio07,
          pinUserOut8     = pinGpio25,
          pinUserOut9     = pinGpio19,
 #endif

@@ -25,15 +25,6 @@ class HomeCtl : public Daemon
       int init() override;
 
 #ifdef _POOL
-      // enum PinMappings
-      // {
-      //    pinFilterPump   = pinGpio17,
-      //    pinSolarPump    = pinGpio18,
-      //    pinPoolLight    = pinGpio27,
-      //    pinUVC          = pinGpio22,
-      //    pinShower       = pinGpio25,
-      //    pinShowerSwitch = pinGpio19
-      // };
 
       enum AnalogInputs
       {
@@ -67,16 +58,23 @@ class HomeCtl : public Daemon
       std::list<ConfigItemDef>* getConfiguration() override { return &configuration; }
 
 #ifdef _POOL
+    public:
+
+      enum PoolPins
+      {
+         pinShowerSwitch = pinGpio19,
+         pinFilterPump   = pinGpio17,
+         pinSolarPump    = pinGpio18,
+         pinPoolLight    = pinGpio27,
+         pinUVC          = pinGpio07,
+         pinShower       = pinGpio25
+      };
+
+    protected:
+
       void phMeasurementActive();
       int calcPhMinusVolume(double ph);
       cDbStatement* selectSolarWorkPerDay {};
-
-      uint pinFilterPump {pinGpio17};
-      uint pinSolarPump {pinGpio18};
-      uint pinPoolLight {pinGpio27};
-      uint pinUVC {pinGpio07};
-      uint pinShower {pinGpio25};
-      uint pinShowerSwitch {pinGpio19};
 
       int poolLightColorToggle {no};
       std::string w1AddrPool;

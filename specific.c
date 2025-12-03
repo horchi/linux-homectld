@@ -198,7 +198,6 @@ int HomeCtl::initDb()
 #endif
 
    return status;
-
 }
 
 int HomeCtl::exitDb()
@@ -330,13 +329,13 @@ int HomeCtl::applyConfigurationSpecials()
    initOutput(pinUserOut4, ooUser, omManual, "Digital Output");
    initOutput(pinUserOut5, ooUser, omManual, "Digital Output");
    initOutput(pinUserOut6, ooUser, omManual, "Digital Output");
-   initOutput(pinUserOut7, ooUser, omManual, "Digital Output");
 
    initInput(pinUserInput1, "Digital Input");
    initInput(pinUserInput2, "Digital Input");
    initInput(pinUserInput3, "Digital Input");
 
 # ifndef _POOL
+   initOutput(pinUserOut7, ooUser, omManual, "Digital Output");
    initOutput(pinUserOut8, ooUser, omManual, "Digital Output");
    initOutput(pinUserOut9, ooUser, omManual, "Digital Output");
 
@@ -357,7 +356,7 @@ int HomeCtl::applyConfigurationSpecials()
 
 #ifdef _POOL
 
-# ifndef _NO_RASPBERRY_PI_
+//# ifndef _NO_RASPBERRY_PI_
    initOutput(pinFilterPump, ooAuto|ooUser, omAuto, "Filter Pump", urFullControl);
    initOutput(pinSolarPump, ooAuto|ooUser, omAuto, "Solar Pump", urFullControl);
    initOutput(pinPoolLight, ooUser, omManual, "Pool Light");
@@ -372,7 +371,7 @@ int HomeCtl::applyConfigurationSpecials()
    if (wiringPiISR(pinShowerSwitch, INT_EDGE_FALLING, &ioInterrupt) < 0)
       tell(eloAlways, "Error: Unable to setup ISR: %s", strerror(errno));
 
-# endif // _NO_RASPBERRY_PI_
+// # endif // _NO_RASPBERRY_PI_
 
    // special values
 

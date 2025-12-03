@@ -43,6 +43,9 @@ class Daemon : public cWebInterface
 {
    public:
 
+      // GPIO names of raspberry pi
+      //  on odroid pins are more or less identical wit other GPIO names
+
       enum Pins       // we use the 'physical' PIN numbers here!
       {
          //               1         3.3 V
@@ -134,8 +137,6 @@ class Daemon : public cWebInterface
          soDim    = 0x02,
          soColor  = 0x04
       };
-
-      // object
 
       Daemon();
       virtual ~Daemon();

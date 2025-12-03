@@ -74,7 +74,7 @@ class HomeCtl : public Daemon
       uint pinFilterPump {pinGpio17};
       uint pinSolarPump {pinGpio18};
       uint pinPoolLight {pinGpio27};
-      uint pinUVC {pinGpio22};
+      uint pinUVC {pinGpio07};
       uint pinShower {pinGpio25};
       uint pinShowerSwitch {pinGpio19};
 
@@ -99,7 +99,7 @@ class HomeCtl : public Daemon
       int phPumpDuration100 {0};
       double phReference {0.0};        // PG Referenzwert (sollwert)
 
-      int minPumpTimeForPh { 10 * tmeSecondsPerMinute }; // [s] #TODO -> add to config?
+      int minPumpTimeForPh {10 * tmeSecondsPerMinute}; // [s] #TODO -> add to config?
 
       std::vector<Range> filterPumpTimes;
       std::vector<Range> uvcLightTimes;

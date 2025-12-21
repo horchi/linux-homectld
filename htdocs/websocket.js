@@ -45,7 +45,11 @@ window.WebSocketClient = function(opt)
    }
    this.open = function () {
       client.ws = new WebSocket(client.url, client.protocol);
+      // showInfoDialog({'message' : 'XXDEB try opening socket'});
+      // showInfoDialog({'message' : client.url});
+      // showInfoDialog({'message' : client.protocol});
       client.ws.onopen = function(e){
+         // showInfoDialog({'message' : 'XXDEB client.ws.onopen'});
          if (queue) {
             var JSONobj;
             while ((JSONobj=queue.shift()))
@@ -68,6 +72,7 @@ window.WebSocketClient = function(opt)
          client.onclose && client.onclose(e);
       };
       client.ws.onerror = function (e) {
+         // showInfoDialog({'message' : 'XXDEB client.ws.onerror'});
          switch (e.code) {
          case 'ECONNREFUSED':
             client.reconnect(e);

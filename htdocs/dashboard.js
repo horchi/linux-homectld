@@ -981,8 +981,11 @@ function initMeter(key, widget, fact, neededScaleMax, value)
 
    let neededScaleMin = widget.scalemin;
 
-   if (widget.scalemin < 0)
-      neededScaleMin = neededScaleMax*-1;
+   if (neededScaleMin != 0)
+      console.log(neededScaleMin);
+
+//   if (widget.scalemin < 0)
+//      neededScaleMin = neededScaleMax*-1;
 
    let ticks = [];
    let scaleRange = neededScaleMax - neededScaleMin;
@@ -1015,8 +1018,8 @@ function initMeter(key, widget, fact, neededScaleMax, value)
    if (neededScaleMax < widget.scalemax)
       neededScaleMax += stepWidth;       // if we auto scale add one step
 
-   if (widget.scalemin < 0)
-      neededScaleMin = neededScaleMax*-1;
+//   if (widget.scalemin < 0)
+//      neededScaleMin = neededScaleMax*-1;
 
    let steps = -1;
    for (let step = neededScaleMin; step.toFixed(2) <= neededScaleMax; step += stepWidth) {

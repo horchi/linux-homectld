@@ -86,7 +86,7 @@ class Deconz
       ThreadControl threadCtl;
 
       static void* syncFct(void* user);
-      int atInMessage(const char* data);
+      int atInMessage(const char* data, size_t size = 0);
 
    public:
       static Deconz* singleton;

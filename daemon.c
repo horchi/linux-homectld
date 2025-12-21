@@ -2184,7 +2184,7 @@ int Daemon::store(time_t now, const SensorData* sensor)
 
    if (!sensor->last)
    {
-      tell(lastStore ? eloAlways : eloDetail, "Warning: Missing data stamp of '%s:0x%02x' (%s), skipping store",
+      tell(eloDebug, "Debug: Missing data stamp of '%s:0x%02x' (%s), skipping store",
            sensor->type.c_str(), sensor->address, sensor->name.c_str());
       return ignore;
    }

@@ -732,7 +732,7 @@ void* Deconz::syncFct(void* user)
    return nullptr;
 }
 
-int Deconz::atInMessage(const char* data)
+int Deconz::atInMessage(const char* data, size_t size)
 {
    // {"e":"changed","id":"3","r":"lights","state":{"alert":null,"bri":80,"on":true,"reachable":true},"t":"event","uniqueid":"00:0b:57:ff:fe:d5:39:21-01"}
    // {"e":"changed","id":"26","r":"lights","state":{"alert":null,"bri":244,"colormode":"hs","ct":500,"effect":"none","hue":64581,"on":true,"reachable":true,"sat":18,"xy":[0.3274,0.3218]},"t":"event","uniqueid":"00:12:4b:00:1e:d0:03:dd-0b"}
@@ -747,7 +747,7 @@ int Deconz::atInMessage(const char* data)
       return done;
    }
 
-   json_t* obj = jsonLoad(data);
+   json_t* obj = jsonLoad(data, size);
 
    tell(eloDeconz, "DECONZ: Debug: Got [%s]", data);
 
@@ -867,7 +867,7 @@ int Deconz::atInMessage(const char* data)
 
 int Deconz::callbackDeconzWs(lws* wsi, enum lws_callback_reasons reason, void* user, void* in, size_t len)
 {
-	switch (reason)
+   switch (reason)
    {
       case LWS_CALLBACK_CLIENT_CONNECTION_ERROR:
       {
@@ -886,7 +886,7 @@ int Deconz::callbackDeconzWs(lws* wsi, enum lws_callback_reasons reason, void* u
       case LWS_CALLBACK_CLIENT_RECEIVE:
       {
          tell(eloDebugDeconz, "DECONZ: Debug: Rx [%s]", (const char*)in);
-         singleton->atInMessage((const char*)in);
+         singleton->atInMessage((const char*)in, len);
 
          break;
       }
@@ -903,7 +903,7 @@ int Deconz::callbackDeconzWs(lws* wsi, enum lws_callback_reasons reason, void* u
       }
 
       default: break;
-	}
+   }
 
-	return lws_callback_http_dummy(wsi, reason, user, in, len);
+   return lws_callback_http_dummy(wsi, reason, user, in, len);
 }

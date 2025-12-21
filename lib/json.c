@@ -37,10 +37,15 @@ int json2Data(json_t* obj, MemoryStruct* data, const char* encoding)
 // Load JSON Object from String
 //***************************************************************************
 
-json_t* jsonLoad(const char* data)
+json_t* jsonLoad(const char* data, size_t size)
 {
+   json_t* jData {};
    json_error_t error;
-   json_t* jData = json_loads(data, 0, &error);
+
+   if (size)
+      jData = json_loadb(data, size, 0, &error);
+   else
+      jData = json_loads(data, 0, &error);
 
    if (!jData)
    {

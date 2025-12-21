@@ -69,9 +69,9 @@ class cWebSock : public cWebService
          // buffer to send the payload in chunks
 
          unsigned char* msgBuffer {};
-         int msgBufferSize {0};
-         int msgBufferPayloadSize {0};
-         int msgBufferSendOffset {0};
+         size_t msgBufferSize {0};
+         size_t msgBufferPayloadSize {0};
+         size_t msgBufferSendOffset {0};
          bool msgBufferDataPending() { return msgBufferSendOffset < msgBufferPayloadSize; }
 
          // push next message

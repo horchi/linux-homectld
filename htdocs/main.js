@@ -86,6 +86,7 @@ $('document').ready(function() {
    let protocol = myProtocol;
 
    moment.locale('de');
+
    connectWebSocket(connectUrl, protocol);
    colorStyle = getComputedStyle(document.body);
    $('#socketState').click(function() { daemonStateDlg(); });
@@ -125,7 +126,7 @@ function onSocketConnect(protocol)
 
 function connectWebSocket(useUrl, protocol)
 {
-   console.log("try socket opened " + protocol);
+   console.log("try opening socket " + protocol);
 
    socket = new WebSocketClient({
       url: useUrl,

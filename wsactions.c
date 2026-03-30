@@ -847,38 +847,38 @@ int Daemon::performDatabaseStatistic(json_t* oObject, long client)
 
 int Daemon::performSyslog(json_t* oObject, long client)
 {
-	std::string name {"/var/log/"};
+   std::string name {"/var/log/"};
 
    if (!client)
       return done;
 
    const char* log = getStringFromJson(oObject, "log");
-	const char* filter = getStringFromJson(oObject, "filter");
+   const char* filter = getStringFromJson(oObject, "filter");
    json_t* oJson = json_object();
    std::vector<std::string> lines;
    std::string result;
 
    if (!isEmpty(log))
-	{
-		name += std::string(log);
-		json_object_set_new(oJson, "name", json_string(log));
-	}
-	else
-	{
+   {
+      name += std::string(log);
+      json_object_set_new(oJson, "name", json_string(log));
+   }
+   else
+   {
       name += std::string(TARGET) + ".log";
-		json_object_set_new(oJson, "name", json_string((std::string(TARGET) + ".log").c_str()));
-	}
+      json_object_set_new(oJson, "name", json_string((std::string(TARGET) + ".log").c_str()));
+   }
 
-	size_t count {0};
+   size_t count {0};
 
-	// if (loadTailLinesFromFile(name.c_str(), 150, lines) == success)
-	if (loadLinesFromFile(name.c_str(), lines, true, 500000, filter) == success)
+   // if (loadTailLinesFromFile(name.c_str(), 150, lines) == success)
+   if (loadLinesFromFile(name.c_str(), lines, true, 500000, filter) == success)
    {
       for (auto it = lines.rbegin(); count < 150 && it != lines.rend(); ++it)
-		{
+      {
          result += *it + "\n";
-			count++;
-		}
+         count++;
+      }
    }
 
    result += "...\n...\n";
@@ -2551,19 +2551,19 @@ int Daemon::commands2Json(json_t* obj)
 
 int Daemon::syslogs2Json(json_t* obj)
 {
-	FileList syslogs;
-	int count {0};
+   FileList syslogs;
+   int count {0};
 
-	if (getFileList("/var/log/", DT_REG, "log", false, &syslogs, count) == success)
-	{
-		for (const auto& opt : syslogs)
-		{
-			json_t* jLog {json_object()};
-			json_array_append_new(obj, jLog);
-			// json_object_set_new(jLog, "file", json_string(opt.path.c_str()));
-			json_object_set_new(jLog, "name", json_string(opt.name.c_str()));
-		}
-	}
+   if (getFileList("/var/log/", DT_REG | DT_LNK, "log", false, &syslogs, count) == success)
+   {
+      for (const auto& opt : syslogs)
+      {
+         json_t* jLog {json_object()};
+         json_array_append_new(obj, jLog);
+         // json_object_set_new(jLog, "file", json_string(opt.path.c_str()));
+         json_object_set_new(jLog, "name", json_string(opt.name.c_str()));
+      }
+   }
 
    return done;
 }

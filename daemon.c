@@ -4542,7 +4542,7 @@ void Daemon::publishVictronInit(const char* type)
 
    if (commandTopicsMap.find(type) == commandTopicsMap.end() || commandTopicsMap[type].empty())
    {
-      tell(eloAlways, "Error: Can't init victron for '%s', missing topic", type);
+      tell(eloAlways, "Info: Skip init victron '%s', missing topic", type);
       return;
    }
 

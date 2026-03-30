@@ -36,6 +36,7 @@ var syslogFilter = "";
 var currentPage = "dashboard";
 var startPage = null;
 var actDashboard = -1;
+var actDashboardIndex = -1;
 var s3200State = {};
 var widgetCharts = {};
 var theChart = null;
@@ -1317,6 +1318,8 @@ function hideAllContainer()
    $('#dashboardMenu').addClass('hidden');
    $('#controlContainer').addClass('hidden');
    $('#container').addClass('hidden');
+
+   $("#container").swipe("disable");
 }
 
 // ---------------------------------

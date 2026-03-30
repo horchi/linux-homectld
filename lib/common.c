@@ -1482,7 +1482,7 @@ void sortFileList(FileList& list)
 
 int getFileList(const char* path, int type, const char* extensions, int recursion, FileList* dirs, int& count)
 {
-   DIR* dir {nullptr};
+   DIR* dir {};
 
    tell(eloDebug2, "Scanning directory '%s' with extensions '%s'", path, extensions);
 
@@ -1493,13 +1493,13 @@ int getFileList(const char* path, int type, const char* extensions, int recursio
    }
 
 #ifndef HAVE_READDIR_R
-   dirent* pEntry {nullptr};
+   dirent* pEntry {};
 
    while ((pEntry = readdir(dir)))
 #else
    dirent entry;
    dirent* pEntry = &entry;
-   dirent* res {nullptr};
+   dirent* res {};
 
    // deprecated but the only reentrant with old libc!
 
@@ -1510,7 +1510,7 @@ int getFileList(const char* path, int type, const char* extensions, int recursio
 
       if (recursion && pEntry->d_type == DT_DIR && pEntry->d_name[0] != '.')
       {
-         char* buf {nullptr};
+         char* buf {};
          asprintf(&buf, "%s/%s", path, pEntry->d_name);
          getFileList(buf, type, extensions, recursion, dirs, count);
          free(buf);
@@ -1525,7 +1525,7 @@ int getFileList(const char* path, int type, const char* extensions, int recursio
 
       if (extensions)
       {
-         const char* ext {nullptr};
+         const char* ext {};
 
          if ((ext = strrchr(pEntry->d_name, '.')))
             ext++;

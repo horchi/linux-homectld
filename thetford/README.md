@@ -25,9 +25,27 @@ For example:
 ```
 apt update
 apt install -y python3 python3-pip
+apt install -y python3.7-tk (or python3-tk, ...) # (maybe needed forUSBliniGUI.py)
+
 pip install git+https://github.com/EmbedME/pyUSBlini
 
+bash -c $'echo \'SUBSYSTEM=="usb", ATTRS{product}=="USBlini", MODE="0666"\' > /etc/udev/rules.d/50-USBlini.rules'
+udevadm control --reload-rules
+```
+
+or ..... :(
+```
+apt update
+apt install -y python3 python3-pip
+apt install -y python3-venv
 apt install python3.7-tk (or python3-tk, ...) # (maybe needed forUSBliniGUI.py)
+apt install -y python3-full # if needed
+
+python3 -m venv /root/thetford.py.env
+/root/thetford.py.env/bin/pip install git+https://github.com/EmbedME/pyUSBlini
+
+# TODO !!! adopt new path (/root/thetford.py.env/bin/python) to sevice unit 'thetford.service'
+#   or to python script () itself
 
 bash -c $'echo \'SUBSYSTEM=="usb", ATTRS{product}=="USBlini", MODE="0666"\' > /etc/udev/rules.d/50-USBlini.rules'
 udevadm control --reload-rules

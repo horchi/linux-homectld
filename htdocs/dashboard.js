@@ -13,11 +13,12 @@ var layout = 'flex';
 
 var weatherData = null;
 var weatherInterval = null;
-var moseDownOn = { 'object' : null };
+var mouseDownOn = { 'object' : null };
 var lightClickTimeout = null;
 var lightClickPosX = null;
 var lightClickPosY = null;
 var dashboardGauges = {};
+var jDashboards = [];
 
 const symbolColorDefault = '#ffffff';
 const symbolOnColorDefault = '#059eeb';
@@ -57,7 +58,8 @@ function initDashboard(update = false)
                                 );
    }
 
-   let jDashboards = [];
+   jDashboards = [];
+
    for (let did in dashboards) {
       if (!dashboardGroup || dashboards[did].group == dashboardGroup)
          jDashboards.push([dashboards[did].order, did]);
@@ -66,8 +68,10 @@ function initDashboard(update = false)
 
    for (let i = 0; i < jDashboards.length; i++) {
       let did = jDashboards[i][1];
-      if (actDashboard < 0)
+      if (actDashboard < 0) {
          actDashboard = did;
+         actDashboardIndex = i;
+      }
 
       if (kioskBackTime > 0 && actDashboard != jDashboards[0][1]) {
          setTimeout(function() {
@@ -88,13 +92,16 @@ function initDashboard(update = false)
                                  .attr('draggable', setupMode)
                                  .attr('data-droppoint', setupMode)
                                  .attr('data-dragtype', 'dashboard')
+                                 .data('index', i)
+                                 .data('did', did)
                                  .on('dragstart', function(event) {dragDashboard(event)})
                                  .on('dragover', function(event) {dragOverDashboard(event)})
                                  .on('dragleave', function(event) {dragLeaveDashboard(event)})
                                  .on('drop', function(event) {dropDashboard(event)})
                                  .html(dashboards[did].title)
-                                 .click({"id" : did}, function(event) {
-                                    actDashboard = event.data.id;
+                                 .click({'id': did, 'index': i}, function(event) {
+                                    actDashboard = $(this).data('did');
+                                    actDashboardIndex = $(this).data('index');
                                     console.log("Activate dashboard " + actDashboard);
                                     initDashboard();
                                  }));
@@ -149,6 +156,11 @@ function initDashboard(update = false)
 
    document.getElementById("container").innerHTML = '<div id="widgetContainer" class="widgetContainer"></div>';
 
+   $('#container')
+      .append($('<div></div>')
+              .attr('id', 'widgetContainer')
+              .addClass('widgetContainer'));
+
    if (layout == 'flex') {
       $('#widgetContainer').css('display', 'flex');
       $('#widgetContainer').css('flex-wrap', 'wrap');
@@ -157,6 +169,42 @@ function initDashboard(update = false)
       $('#widgetContainer').css('display', 'grid');
       $('#widgetContainer').css('gap', '0px');
    }
+
+   // swipe dashboard page
+
+   // $('#widgetContainer').
+   $('#container').swipe({
+      'threshold': 75,
+      'swipe': function(event, direction, distance, duration, fingerCount, fingerData) {
+         if (direction == "left") {
+            console.log('left swipe');
+            event.preventDefault();
+
+            if (!actDashboardIndex)
+               actDashboardIndex = jDashboards.length;
+
+            actDashboardIndex--;
+            actDashboard = jDashboards[actDashboardIndex][1];
+            console.log("Activate dashboard " + actDashboard);
+            initDashboard();
+         }
+         else if (direction == "right") {
+            console.log('right swipe');
+            event.preventDefault();
+
+            actDashboardIndex++;
+
+            if (actDashboardIndex == jDashboards.length)
+               actDashboardIndex = 0;
+
+            actDashboard = jDashboards[actDashboardIndex][1];
+            console.log("Activate dashboard " + actDashboard);
+            initDashboard();
+         }
+      }
+   });
+
+   $('#container').swipe('enable');
 
    if (dashboards[actDashboard] != null) {
       for (let key in dashboards[actDashboard].widgets) {
@@ -417,25 +465,25 @@ function initWidget(key, widget, fact)
       widget.color = 'white';
 
    $(document).on({'mouseup touchend' : function(e){
-      if (!moseDownOn.object)
+      if (!mouseDownOn.object)
          return;
       e.preventDefault();
-      let scale = parseInt((e.pageX - $(moseDownOn.div).position().left) / ($(moseDownOn.div).innerWidth() / 100));
+      let scale = parseInt((e.pageX - $(mouseDownOn.div).position().left) / ($(mouseDownOn.div).innerWidth() / 100));
       if (scale > 100) scale = 100;
       if (scale < 0) scale = 0;
       console.log("dim: " + scale + '%');
-      toggleIo(moseDownOn.fact.address, moseDownOn.fact.type, scale);
-      moseDownOn = { 'object' : null };
+      toggleIo(mouseDownOn.fact.address, mouseDownOn.fact.type, scale);
+      mouseDownOn = { 'object' : null };
    }});
 
    $(document).on({'mousemove touchmove' : function(e){
-      if (!moseDownOn.object)
+      if (!mouseDownOn.object)
          return;
       e.preventDefault();
-      let scale = parseInt((e.pageX - $(moseDownOn.div).position().left) / ($(moseDownOn.div).innerWidth() / 100));
+      let scale = parseInt((e.pageX - $(mouseDownOn.div).position().left) / ($(mouseDownOn.div).innerWidth() / 100));
       if (scale > 100) scale = 100;
       if (scale < 0) scale = 0;
-      $(moseDownOn.object).css('width', scale + '%');
+      $(mouseDownOn.object).css('width', scale + '%');
    }})
 
    switch (widget.widgettype)

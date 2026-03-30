@@ -204,7 +204,7 @@ function initDashboard(update = false)
       }
    });
 
-   $('#container').swipe('enable');
+   $('#container').swipe(setupMode ? 'disable' : 'enable');
 
    if (dashboards[actDashboard] != null) {
       for (let key in dashboards[actDashboard].widgets) {

@@ -176,25 +176,22 @@ function initDashboard(update = false)
       'swipeStatus': function(event, phase, direction, distance) {
          const $widgetContainer = $("#widgetContainer");
 
-         const threshold = 60; // Ab hier wird es schwerfälliger
+         const threshold = 50; // Ab hier wird es schwerfälliger
          const resistance = 0.3; // 30% Bewegung nach dem Schwellenwert
 
          if (phase === "move") {
-            let moveX = 0;
-
-            $widgetContainer.css("pointer-events", "none");
-            // Berechnung mit Widerstand
-            if (distance > threshold)
-               moveX = threshold + (distance - threshold) * resistance;
-            else
-               moveX = distance;
-
+            let moveX = (distance > threshold) ? threshold + (distance - threshold) * resistance : distance;
             let finalX = (direction === "left") ? -moveX : moveX;
 
-            $widgetContainer.css({
-               "transition": "none",
-               "transform": "translate3d(" + finalX + "px, 0, 0)"
-            });
+            if (direction === "left" || direction === "right") {
+               $widgetContainer.css({
+                  "transition": 'none',
+                  "transform": 'translate3d(' + finalX + 'px, 0, 0)',
+                  "pointer-events": 'none'
+               });
+            }
+            else   // horizontal -> zurück zur Mitte
+               $widgetContainer.css("transform", "translate3d(0, 0, 0)");
          }
          else if (phase === "end") {
             $widgetContainer.css("pointer-events", "auto");
@@ -216,7 +213,8 @@ function initDashboard(update = false)
       },
       'preventDefaultEvents': true,    // Blockiert native Klick-Events am PC
       'threshold': 120,                // Mindestpixel für Seitenwechsel
-      'allowPageScroll': "vertical",
+      'fingerReleaseThreshold': 30,    // Verhindert zu sensible Reaktionen
+      'allowPageScroll': 'vertical'
    });
 
    $('#container').swipe(setupMode ? 'disable' : 'enable');
@@ -256,7 +254,7 @@ function animateOut($el, targetX, pageDir)
          actDashboard = jDashboards[actDashboardIndex][1];
       }
 
-      // console.log("Activate dashboard " + actDashboard);
+      // console.log("Activate dashboard", actDashboard);
       initDashboard();
 
       const startX = (targetX === "100%") ? "-100%" : "100%";

@@ -172,36 +172,51 @@ function initDashboard(update = false)
 
    // swipe dashboard page
 
-   // $('#widgetContainer').
-   $('#container').swipe({
-      'threshold': 75,
-      'swipe': function(event, direction, distance, duration, fingerCount, fingerData) {
-         if (direction == "left") {
-            console.log('left swipe');
-            event.preventDefault();
+   $("#container").swipe({
+      'swipeStatus': function(event, phase, direction, distance) {
+         const $widgetContainer = $("#widgetContainer");
 
-            if (!actDashboardIndex)
-               actDashboardIndex = jDashboards.length;
+         const threshold = 60; // Ab hier wird es schwerfälliger
+         const resistance = 0.3; // 30% Bewegung nach dem Schwellenwert
 
-            actDashboardIndex--;
-            actDashboard = jDashboards[actDashboardIndex][1];
-            console.log("Activate dashboard " + actDashboard);
-            initDashboard();
+         if (phase === "move") {
+            let moveX = 0;
+
+            $widgetContainer.css("pointer-events", "none");
+            // Berechnung mit Widerstand
+            if (distance > threshold)
+               moveX = threshold + (distance - threshold) * resistance;
+            else
+               moveX = distance;
+
+            let finalX = (direction === "left") ? -moveX : moveX;
+
+            $widgetContainer.css({
+               "transition": "none",
+               "transform": "translate3d(" + finalX + "px, 0, 0)"
+            });
          }
-         else if (direction == "right") {
-            console.log('right swipe');
-            event.preventDefault();
-
-            actDashboardIndex++;
-
-            if (actDashboardIndex == jDashboards.length)
-               actDashboardIndex = 0;
-
-            actDashboard = jDashboards[actDashboardIndex][1];
-            console.log("Activate dashboard " + actDashboard);
-            initDashboard();
+         else if (phase === "end") {
+            $widgetContainer.css("pointer-events", "auto");
+            // Finger losgelassen UND Schwellenwert (threshold) erreicht
+            if (direction === "left")
+               animateOut($widgetContainer, "-100%", "next");
+            else if (direction === "right")
+               animateOut($widgetContainer, "100%", "prev");
          }
-      }
+
+         else if (phase === "cancel") {
+            // Nicht weit genug gewischt: Zurück zur Mitte (Snap-back)
+            $widgetContainer.css({
+               "transition": "transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+               "transform": "translate3d(0, 0, 0)",
+               "pointer-events": "auto"
+            });
+         }
+      },
+      'preventDefaultEvents': true,    // Blockiert native Klick-Events am PC
+      'threshold': 120,                // Mindestpixel für Seitenwechsel
+      'allowPageScroll': "vertical",
    });
 
    $('#container').swipe(setupMode ? 'disable' : 'enable');
@@ -217,6 +232,38 @@ function initDashboard(update = false)
 
    resizeDashboard();
    window.onresize = function() { resizeDashboard(); };
+}
+
+function animateOut($el, targetX, pageDir)
+{
+   $el.css({
+      "transition": "transform 0.3s ease-in",
+      "transform": "translate3d(" + targetX + ", 0, 0)"
+   });
+
+   // Nach der Animation: Inhalt tauschen und von der anderen Seite reinholen
+   setTimeout(() => {
+      if (pageDir == 'prev') {
+         if (!actDashboardIndex)
+            actDashboardIndex = jDashboards.length;
+         actDashboardIndex--;
+         actDashboard = jDashboards[actDashboardIndex][1];
+      }
+      else if (pageDir == 'next') {
+         actDashboardIndex++;
+         if (actDashboardIndex == jDashboards.length)
+            actDashboardIndex = 0;
+         actDashboard = jDashboards[actDashboardIndex][1];
+      }
+
+      // console.log("Activate dashboard " + actDashboard);
+      initDashboard();
+
+      const startX = (targetX === "100%") ? "-100%" : "100%";
+      $el.css({ "transition": "none", "transform": "translate3d(" + startX + ", 0, 0)" });
+      $el[0].offsetHeight; // Force Reflow
+      $el.css({ "transition": "transform 0.3s ease-out", "transform": "translate3d(0, 0, 0)" });
+   }, 300);
 }
 
 function resizeDashboard()
@@ -985,6 +1032,11 @@ function initMeter(key, widget, fact, neededScaleMax, value)
    let title = getWidgetTitle(widget, fact);
    let elem = document.getElementById('div_' + key);
 
+   if (!elem) {
+      console.log('element not found', 'div_' + key);
+      return;
+   }
+
    $(elem).empty();
 
    if (radial || !showValue)
@@ -1029,8 +1081,8 @@ function initMeter(key, widget, fact, neededScaleMax, value)
 
    let neededScaleMin = widget.scalemin;
 
-   if (neededScaleMin != 0)
-      console.log(neededScaleMin);
+//   if (neededScaleMin != 0)
+//      console.log(neededScaleMin);
 
 //   if (widget.scalemin < 0)
 //      neededScaleMin = neededScaleMax*-1;

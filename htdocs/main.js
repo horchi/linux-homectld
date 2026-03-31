@@ -1533,8 +1533,8 @@ function drawBarChartWidget(dataObject)
    for (let i = 0; i < dataObject.rows.length; i++) {
       let dataset = {};
 
-      console.log("draw bar chart row with", dataObject.rows[i].data.length, "points");
-      console.log(dataObject.rows[i].data);
+      // console.log("draw bar chart row with", dataObject.rows[i].data.length, "points");
+      // console.log(dataObject.rows[i].data);
       dataset["data"] = dataObject.rows[i].data;
       dataset["backgroundColor"] = "#3498db33";
       dataset["borderColor"] = "#3498db";        // line color

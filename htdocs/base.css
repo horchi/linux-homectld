@@ -402,7 +402,7 @@ button:focus {
 .buttonDashboardActive
 {
     border-radius: 0;
-    border-bottom-color: var(--buttonFont);
+    border-bottom-color: var(--editadd);
     border-bottom-style: solid;
     border-bottom-width: 2px;
 }
@@ -734,8 +734,8 @@ span > select
 .controlContainer
 {
     padding: var(--containerPadding);
-	 margin: 0px 0px 0px env(safe-area-inset-left);
-	 background-color: var(--menu);
+    margin: 0px 0px 0px env(safe-area-inset-left);
+    background-color: var(--menu);
     font-size: 10px;
     color: var(--light2);
     /*margin: 0px 4px 0px 0px;*/

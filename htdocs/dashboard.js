@@ -172,26 +172,40 @@ function initDashboard(update = false)
 
    // swipe dashboard page
 
+   let isScrolling = false;
+
    $("#container").swipe({
       'swipeStatus': function(event, phase, direction, distance) {
          const $widgetContainer = $("#widgetContainer");
 
+         const maxDistance = 300; // Entfernung, bei der die minimale Deckkraft erreicht ist
          const threshold = 50; // Ab hier wird es schwerfälliger
          const resistance = 0.3; // 30% Bewegung nach dem Schwellenwert
 
-         if (phase === "move") {
+         if (phase === 'start') {
+            isScrolling = false;
+         }
+         else if (phase === "move") {
             let moveX = (distance > threshold) ? threshold + (distance - threshold) * resistance : distance;
             let finalX = (direction === "left") ? -moveX : moveX;
+            let opacity = 1 - (Math.min(distance, maxDistance) / maxDistance) * 0.6;
 
             if (direction === "left" || direction === "right") {
                $widgetContainer.css({
-                  "transition": 'none',
-                  "transform": 'translate3d(' + finalX + 'px, 0, 0)',
-                  "pointer-events": 'none'
+                  'transition': 'none',
+                  'transform': 'translate3d(' + finalX + 'px, 0, 0)',
+                  'opacity': opacity
                });
             }
             else   // horizontal -> zurück zur Mitte
                $widgetContainer.css("transform", "translate3d(0, 0, 0)");
+
+            // Wir erlauben eine kleine Toleranz (10px), bevor wir "Sperren"
+            if (distance > 10) {
+               isScrolling = true;
+               // Klicks auf Unterelementen während des Swipes blockieren
+               $widgetContainer.css('pointer-events', 'none');
+            }
          }
          else if (phase === "end") {
             $widgetContainer.css("pointer-events", "auto");
@@ -205,13 +219,15 @@ function initDashboard(update = false)
          else if (phase === "cancel") {
             // Nicht weit genug gewischt: Zurück zur Mitte (Snap-back)
             $widgetContainer.css({
-               "transition": "transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
-               "transform": "translate3d(0, 0, 0)",
-               "pointer-events": "auto"
+               'transition': 'transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+               'transform': 'translate3d(0, 0, 0)',
+               'pointer-events': 'auto',
+               'opacity' : 1
             });
          }
       },
-      'preventDefaultEvents': true,    // Blockiert native Klick-Events am PC
+      'preventDefaultEvents': false,
+      'excludedElements': 'input, select, textarea, .noSwipe', // KEINE Buttons oder Links hier!
       'threshold': 120,                // Mindestpixel für Seitenwechsel
       'fingerReleaseThreshold': 30,    // Verhindert zu sensible Reaktionen
       'allowPageScroll': 'vertical'

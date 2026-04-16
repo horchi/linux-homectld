@@ -2,13 +2,10 @@
 
 COMMAND="$1"
 
-# Balken in ASCII Art und bool als yes/no
-LC_ALL=C.UTF-8
-
 nmcli dev wifi rescan
 
 if [ "${COMMAND}" == "wifi-list" ]; then
-   printf '%s' "$(nmcli -f bssid,ssid,mode,chan,rate,signal,bars,security,active,in-use -t dev wifi)" | sed s/"[\]:"/"-"/g |\
+   printf '%s' "$(LC_ALL=C.UTF-8 nmcli -f bssid,ssid,mode,chan,rate,signal,bars,security,active,in-use -t dev wifi)" | sed s/"[\]:"/"-"/g |\
       jq -sR 'split("\n") | map(split(":")) | map({"id": .[0],
                                                "network": .[1],
                                                "mode": .[2],
@@ -20,9 +17,8 @@ if [ "${COMMAND}" == "wifi-list" ]; then
                                                "active": .[8],
                                                "inuse": .[9]
                                              })' | json_pp -json_opt canonical,utf8
-   exit 0
 elif [ "${COMMAND}" == "wifi-con" ]; then
-   printf '%s' "$(nmcli -t -f name,autoconnect,autoconnect-priority,active,device,state,type connection show | grep 'wireless')" |\
+   printf '%s' "$(LC_ALL=C.UTF-8 nmcli -t -f name,autoconnect,autoconnect-priority,active,device,state,type connection show | grep 'wireless')" |\
       jq -sR 'split("\n") | map(split(":")) | map({"network": .[0],
                                                "autoconnect": .[1],
                                                "priority": .[2],
@@ -31,8 +27,8 @@ elif [ "${COMMAND}" == "wifi-con" ]; then
                                                "state": .[5],
                                                "type": .[6]
                                              })' | json_pp -json_opt canonical,utf8
-
-   exit 0
+else
+   echo "Usage: $0 { wifi-list|wifi-con }"
 fi
 
-echo "Usage: $0 { wifi-list|wifi-con }"
+exit 0

@@ -176,15 +176,15 @@ function widgetSetup(key)
                                                   .addClass('rounded-border inputSetting')
                                                   .val(widget.barcolor)))
                                   .append($('<span></span>')
-														.css('width', '-webkit-fill-available')
-														.css('width', '-moz-available')
-														.append($('<input></input>')
-																  .attr('id', 'colorConditionBar')
-																  .attr('title', 'Syntax:\nWert1=Farbe1,Wert2=Farbe2,...\n Operatoren =,<,>,>=,<=,<>,~\n ~ enthalten in\nFarbe: rgb(r g b), #xxxxxx, <color>')
-																  .attr('type', 'search')
-																  .addClass('rounded-border inputSetting')
-																  .val(widget.colorConditionBar)
-																 ))))
+                                          .css('width', '-webkit-fill-available')
+                                          .css('width', '-moz-available')
+                                          .append($('<input></input>')
+                                                  .attr('id', 'colorConditionBar')
+                                                  .attr('title', 'Syntax:\nWert1=Farbe1,Wert2=Farbe2,...\n Operatoren =,<,>,>=,<=,<>,~\n ~ enthalten in\nFarbe: rgb(r g b), #xxxxxx, <color>')
+                                                  .attr('type', 'search')
+                                                  .addClass('rounded-border inputSetting')
+                                                  .val(widget.colorConditionBar)
+                                                 ))))
 
                   .append($('<div></div>')
                           .attr('id', 'divSymbol')
@@ -246,7 +246,7 @@ function widgetSetup(key)
                           .append($('<span></span>')
                                   .css('display', 'flex')
                                   .append($('<span></span>')
-														.attr('id', 'colorSpan')
+                                          .attr('id', 'colorSpan')
                                           .append($('<input></input>')
                                                   .attr('id', 'color')
                                                   .attr('type', 'text')
@@ -254,26 +254,26 @@ function widgetSetup(key)
                                                   .val(widget.color)
                                                  ))
                                   .append($('<span></span>')
-														.css('margin-right', '5px')
+                                          .css('margin-right', '5px')
                                           .append($('<input></input>')
                                                   .attr('id', 'colorOn')
                                                   .attr('type', 'text')
                                                   .addClass('rounded-border inputSetting')
                                                   .val(widget.colorOn)
-																 ))
+                                                 ))
 
-											 .append($('<span></span>')
-														.attr('id', 'divColorCondition')
-														.css('width', '-webkit-fill-available')
-														.css('width', '-moz-available')
-														.append($('<input></input>')
-																  .attr('id', 'colorCondition')
-																  .attr('title', 'Syntax:\nWert1=Farbe1,Wert2=Farbe2,...\n Operatoren =,<,>,>=,<=,<>,~\n ~ enthalten in\nFarbe: rgb(r g b), #xxxxxx, <color>')
-																  .attr('type', 'search')
-																  .addClass('rounded-border inputSetting')
-																  .val(widget.colorCondition)
-																 ))
-											))
+                                  .append($('<span></span>')
+                                          .attr('id', 'divColorCondition')
+                                          .css('width', '-webkit-fill-available')
+                                          .css('width', '-moz-available')
+                                          .append($('<input></input>')
+                                                  .attr('id', 'colorCondition')
+                                                  .attr('title', 'Syntax:\nWert1=Farbe1,Wert2=Farbe2,...\n Operatoren =,<,>,>=,<=,<>,~\n ~ enthalten in\nFarbe: rgb(r g b), #xxxxxx, <color>')
+                                                  .attr('type', 'search')
+                                                  .addClass('rounded-border inputSetting')
+                                                  .val(widget.colorCondition)
+                                                 ))
+                                 ))
 
                   .append($('<div></div>')
                           .attr('id', 'divPeak')
@@ -372,17 +372,17 @@ function widgetSetup(key)
       $("#divLinefeed").css("display", [10].includes(wType) ? 'flex' : 'none');
       $("#divRange").css("display", [1,5,6,13].includes(wType) ? 'flex' : 'none');
 
-      if ([0].includes(wType) && $('#symbol').val() == '' && $('#symbolOn').val() == '')
+      if ([0,9,12].includes(wType) && $('#symbol').val() == '' && $('#symbolOn').val() == '')
          $("#divColor").css("display", 'none');
 
-      if (![0,9].includes(wType) || $('#symbolOn').val() == '') {
+      if (![0,9,12].includes(wType) || $('#symbolOn').val() == '') {
          $('.spColorOn').css('display', 'none');
          $('#spanColor').html("Farbe, condition");
       }
       else {
          $('.spColorOn').css('display', 'flex');
          $('#spanColor').html("Farbe aus, an, condition");
-			$('#colorSpan').css("margin-right", '5px');
+         $('#colorSpan').css("margin-right", '5px');
       }
    }
 

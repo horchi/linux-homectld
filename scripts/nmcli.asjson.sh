@@ -2,6 +2,11 @@
 
 COMMAND="$1"
 
+# Balken in ASCII Art und bool als yes/no
+LC_ALL=C.UTF-8
+
+nmcli dev wifi rescan
+
 if [ "${COMMAND}" == "wifi-list" ]; then
    printf '%s' "$(nmcli -f bssid,ssid,mode,chan,rate,signal,bars,security,active,in-use -t dev wifi)" | sed s/"[\]:"/"-"/g |\
       jq -sR 'split("\n") | map(split(":")) | map({"id": .[0],

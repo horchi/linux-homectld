@@ -57,39 +57,39 @@ int Daemon::dispatchClientRequest()
                pushOutMessage(oJson, "ready", client);
                break;
             }
-            case evLogout:          status = performLogout(oObject);                 break;
+            case evLogout:              status = performLogout(oObject);                 break;
             case evInit:
-            case evPageChange:      status = performPageChange(oObject, client);     break;
-            case evData:            status = performData(client);                    break;
-            case evGetToken:        status = performTokenRequest(oObject, client);   break;
-            case evToggleIo:        status = performToggleIo(oObject, client);       break;
-            case evToggleIoNext:    status = toggleIoNext(addr);                     break;
-            case evToggleMode:      status = toggleOutputMode(addr);                 break;
-            case evStoreConfig:     status = storeConfig(oObject, client);           break;
-            case evSetup:           status = performConfigDetails(client);           break;
-            case evSystem:          status = performSystem(oObject, client);         break;
-            case evSyslog:          status = performSyslog(oObject, client);         break;
-            case evAlerts:          status = performAlerts(oObject, client);         break;
-            case evStoreAlerts:     status = storeAlerts(oObject, client);           break;
+            case evPageChange:          status = performPageChange(oObject, client);     break;
+            case evData:                status = performData(client);                    break;
+            case evGetToken:            status = performTokenRequest(oObject, client);   break;
+            case evToggleIo:            status = performToggleIo(oObject, client);       break;
+            case evToggleIoNext:        status = toggleIoNext(addr);                     break;
+            case evToggleMode:          status = toggleOutputMode(addr);                 break;
+            case evStoreConfig:         status = storeConfig(oObject, client);           break;
+            case evSetup:               status = performConfigDetails(client);           break;
+            case evSystem:              status = performSystem(oObject, client);         break;
+            case evSyslog:              status = performSyslog(oObject, client);         break;
+            case evAlerts:              status = performAlerts(oObject, client);         break;
+            case evStoreAlerts:         status = storeAlerts(oObject, client);           break;
 
-            case evStoreIoSetup:    status = storeIoSetup(oObject, client);          break;
-            case evChartData:       status = performChartData(oObject, client);      break;
-            case evUserDetails:     status = performUserDetails(client);             break;
-            case evStoreUserConfig: status = storeUserConfig(oObject, client);       break;
-            case evChangePasswd:    status = performPasswChange(oObject, client);    break;
-            case evGroups:          status = performGroups(client);                  break;
-            case evGroupConfig:     status = storeGroups(oObject, client);           break;
-            case evStoreDashboards: status = storeDashboards(oObject, client);       break;
+            case evStoreIoSetup:        status = storeIoSetup(oObject, client);          break;
+            case evChartData:           status = performChartData(oObject, client);      break;
+            case evUserDetails:         status = performUserDetails(client);             break;
+            case evStoreUserConfig:     status = storeUserConfig(oObject, client);       break;
+            case evChangePasswd:        status = performPasswChange(oObject, client);    break;
+            case evGroups:              status = performGroups(client);                  break;
+            case evGroupConfig:         status = storeGroups(oObject, client);           break;
+            case evStoreDashboards:     status = storeDashboards(oObject, client);       break;
 
-            case evCommand:         status = performCommand(oObject, client);        break;
-            case evForceRefresh:    status = performForceRefresh(oObject, client);   break;
-            case evChartbookmarks:  status = performChartbookmarks(client);          break;
-            case evImageConfig:     status = performImageConfig(oObject, client);    break;
-            case evSchema:          status = performSchema(oObject, client);         break;
-            case evStoreSchema:     status = storeSchema(oObject, client);           break;
-            case evStoreChartbookmarks: status = storeChartbookmarks(oObject, client); break;
-            case evStoreSensorSetup:    status = storeSensorSetup(oObject, client);    break;
-            case evLmcAction:           status = performLmcAction(oObject, client);    break;
+            case evCommand:             status = performCommand(oObject, client);        break;
+            case evForceRefresh:        status = performForceRefresh(oObject, client);   break;
+            case evChartbookmarks:      status = performChartbookmarks(client);          break;
+            case evImageConfig:         status = performImageConfig(oObject, client);    break;
+            case evSchema:              status = performSchema(oObject, client);         break;
+            case evStoreSchema:         status = storeSchema(oObject, client);           break;
+            case evStoreChartbookmarks: status = storeChartbookmarks(oObject, client);   break;
+            case evStoreSensorSetup:    status = storeSensorSetup(oObject, client);      break;
+            case evLmcAction:           status = performLmcAction(oObject, client);      break;
             default:
             {
                if (dispatchSpecialRequest(event,oObject, client) == ignore)
@@ -1012,7 +1012,7 @@ int Daemon::performChartData(json_t* oObject, long client)
 
    // the id is one of {"chart" "chartwidget" "chartdialog"}
 
-   bool widget = strcmp(id, "chart") != 0;
+   bool widget {strcmp(id, "chart") != 0};
 
    // if (range > 50)
    //    range = 50;

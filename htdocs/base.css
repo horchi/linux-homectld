@@ -392,19 +392,20 @@ button:focus {
     font-size: x-large;
 }
 
-.buttonDashboard:hover
+/*.buttonDashboard:hover
 {
-/*  border-bottom-color: lightgray;
-    border-bottom-style: solid;
-    border-bottom-width: 2px; */
-}
+  border-bottom-color: gray;
+  border-radius: 4px;
+  border-bottom-style: solid;
+  border-bottom-width: 4px;
+}*/
 
 .buttonDashboardActive
 {
-    border-radius: 0;
-    border-bottom-color: var(--editadd);
+    border-radius: 4px;
+    border-bottom-color: var(--yellow);
     border-bottom-style: solid;
-    border-bottom-width: 2px;
+    border-bottom-width: 4px;
 }
 
 .buttonDashboardTool

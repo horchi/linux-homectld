@@ -170,7 +170,7 @@ function initDashboard(update = false)
       $('#widgetContainer').css('gap', '0px');
    }
 
-   // swipe dashboard page
+   // swipe/slide dashboard page
 
    let isScrolling = false;
 
@@ -227,7 +227,7 @@ function initDashboard(update = false)
          }
       },
       'preventDefaultEvents': false,
-      'excludedElements': 'input, select, textarea, .noSwipe', // KEINE Buttons oder Links hier!
+      'excludedElements': 'input, select, textarea, .noSwipe, #windywidgettable', // KEINE Buttons oder Links hier!
       'threshold': 120,                // Mindestpixel für Seitenwechsel
       'fingerReleaseThreshold': 30,    // Verhindert zu sensible Reaktionen
       'allowPageScroll': 'vertical'
@@ -591,7 +591,6 @@ function initWidget(key, widget, fact)
                   if ((e.which != 0 && e.which != 1) || $('#lightColorDiv').css('display') != 'none')
                      return;
                   if (fact.options & 0x04) {
-
                      lightClickTimeout = setTimeout(function(event) {
                         lightClickTimeout = lightClickPosX = lightClickPosY = null;
                         showLightColorDialog(key);
@@ -829,6 +828,7 @@ function initWidget(key, widget, fact)
                     .attr('type', 'button')
                     .css('color', widget.color)
                     .css('user-select', 'none')
+                    .css('border-radius', '100%')
                     .append($('<img></img>')
                             .attr('id', 'widget' + fact.type + fact.address)
                             .attr('draggable', false)
@@ -1654,8 +1654,15 @@ function updateWidget(sensor, refresh, widget)
       let image = '';
       let classes = '';
 
-      if (sensor.image != null)                                      // own image got by data
-         image = sensor.image;
+      if (sensor.image != null) {                                    // own image got by data
+         if (sensor.image.indexOf('mdi:') != 0) {
+            image = sensor.image;
+         }
+         else {
+            classes = sensor.image.replace(':', ' ');
+            $("#widget" + fact.type + fact.address).remove();
+         }
+      }
       else if (state && widget.symbolOn && widget.symbolOn != '') {  // MDI Icon ON
          classes = widget.symbolOn.replace(':', ' ');
          $("#widget" + fact.type + fact.address).remove();

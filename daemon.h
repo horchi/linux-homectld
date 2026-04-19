@@ -1,4 +1,4 @@
- //***************************************************************************
+//***************************************************************************
 // Automation Control
 // File daemon.h
 // This code is distributed under the terms and conditions of the
@@ -640,14 +640,14 @@ class Daemon : public cWebInterface
          json_t* oHaJson {};
       };
 
-      std::string mqttUrl;          // like tcp://192.168.200.101:1883
-      char* mqttUrlPlain {};     // like 192.168.200.101:1883
+      std::string mqttUrl;          // like tcp://192.168.300.101:1883
+      char* mqttUrlPlain {};        // like 192.168.300.101:1883
       std::string sensorTopics;
       std::string mqttUser;
       std::string mqttPassword;
 
       std::string mqttHaDataTopic;                       // for home automation interface
-      std::string mqttHaSendWithKeyPrefix;              // for home automation interface
+      std::string mqttHaSendWithKeyPrefix;               // for home automation interface
       bool mqttHaHaveConfigTopic {false};                // for home automation interface
       MqttInterfaceStyle mqttHaInterfaceStyle {misNone}; // for home automation interface
 

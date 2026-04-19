@@ -115,7 +115,7 @@ restart: $(TARGET) install
 
 install-systemd:
 	@echo install systemd
-	cat contrib/daemon.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | sed s:"<TARGET>":"$(TARGET)":g | sed s:"<CLASS>":"$(CLASS)":g |install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/$(TARGET).service
+	cat contrib/daemon.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | sed s:"<TARGET>":"$(TARGET)":g | sed s:"<CLASS>":"$(CLASS)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/$(TARGET).service
 	cat contrib/w1mqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/w1mqtt.service
 	cat contrib/bmsmqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/bmsmqtt.service
 	cat contrib/votromqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/votromqtt.service
@@ -180,9 +180,7 @@ install-scripts:
 	for f in ./scripts/*.sh; do \
 		cp -v "$$f" $(BINDEST)/`basename "$$f"`; \
 	done
-	if ! test -f $(BINDEST)/fwpn; then \
-	   cp  ./scripts/fwpn $(DESTDIR)/; \
-	fi
+	cp ./scripts/fwpn $(BINDEST)/
 
 iw: install-web
 

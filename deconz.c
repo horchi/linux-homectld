@@ -606,30 +606,30 @@ static lws_sorted_usec_list_t sul;
 
 static lws_retry_bo_t retry {
    .secs_since_valid_ping = 3,
-	.secs_since_valid_hangup = 10,
+   .secs_since_valid_hangup = 10,
 };
 
 void callbackConnect(lws_sorted_usec_list_t* _sul)
 {
    lws_client_connect_info ci;
-	memset(&ci, 0, sizeof(ci));
+   memset(&ci, 0, sizeof(ci));
 
-	ci.context = Deconz::context;
-	ci.port = 443;
-	ci.address = "192.168.200.101";
-	ci.path = "/";
-	ci.host = ci.address;
-	ci.origin = ci.address;
-	ci.protocol = protocollName;
+   ci.context = Deconz::context;
+   ci.port = 443;
+   ci.address = "192.168.200.101"; // #TODO IP ist hardcoded!
+   ci.path = "/";
+   ci.host = ci.address;
+   ci.origin = ci.address;
+   ci.protocol = protocollName;
    ci.alpn = "h2;http/1.1";
-	ci.pwsi = &Deconz::client_wsi;
+   ci.pwsi = &Deconz::client_wsi;
    ci.retry_and_idle_policy = &retry;
 
    // tell(eloAlways, "calling lws_client_connect_via_info with context %p", (void*)ci.context);
 
    if (!lws_client_connect_via_info(&ci))
    {
-		lws_sul_schedule(Deconz::context, 0, _sul, callbackConnect, 5 * LWS_USEC_PER_SEC);
+      lws_sul_schedule(Deconz::context, 0, _sul, callbackConnect, 5 * LWS_USEC_PER_SEC);
       return;
    }
 

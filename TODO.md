@@ -7,9 +7,6 @@ recover Output states also for MCPO !
 
 # General
 
-- Info Anzeige im WEBIF dhsetup style dem anpassen
-- improve thetford script to reconnect
-
 - add filter expression to systemd list view
 - add write of victron registers to WEBIF
 
@@ -22,7 +19,7 @@ recover Output states also for MCPO !
 
 - config option for valuefact rights (digital outputs, ..)
 - apply IO settings without restart (initInput / initOutput)
-    -> done (exept interrupt routine, resting interrupt routine crashes)
+    -> done (exept interrupt routine, resetting of interrupt routine crashes)
 
 # Pool
 

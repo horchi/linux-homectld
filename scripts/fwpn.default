@@ -1,0 +1,6 @@
+
+# Internes Netz, via /etc/default/fwpn überschreiben!!
+INTRA_SUBNET="<SUBNET>.0/24"
+
+# Internes Interface
+INTRA_IF="eth0"

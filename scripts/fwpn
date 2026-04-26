@@ -18,9 +18,7 @@ PN_FILTER="pnfilter"             # Our firewall filter chain
 #MSQ_DEV="wlan0"                 # Interface to outside DSL
 MSQ_DEV="wlan0"                  # Interface to outside DSL
 #MSQ_DEV="usb0"                  # Interface to outside DSL
-INTRA_IF="eth0"                  # Internes Interface
 
-INTRA_SUBNET="192.168.220.0/24"  # Internes Netz, via /etc/default/fwpn überschreiben!!
 ANY="0.0.0.0/0"                  # Any IP
 
 DEFAULT_POL="DROP"               # Default policy for incoming connections
@@ -109,6 +107,11 @@ case "$1" in
       $IPTABLES -A $PN_FILTER -p TCP -s $ANY --dport 22 -j ACCEPT    # ssh
       $IPTABLES -A $PN_FILTER -p TCP -s $ANY --dport 61109 -j ACCEPT # homectld
       $IPTABLES -A $PN_FILTER -p icmp -s $ANY -j ACCEPT              # ping
+
+      # DNS-Schutz (keine DNS Anfragen aus dem Internet akzeptieren)
+
+      $IPTABLES -A $PN_FILTER -i $MSQ_DEV -p udp --dport 53 -j DROP
+      $IPTABLES -A $PN_FILTER -i $MSQ_DEV -p tcp --dport 53 -j DROP
 
       # Wir akzeptieren alles was zu bestehenden, externen Verbindungen gehoert
 

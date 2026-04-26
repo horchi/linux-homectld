@@ -1,7 +1,7 @@
 [Unit]
 
 Description = MOPEKA Gas Level Sensor
-After = network.target
+After = network.target bluetooth.service
 StartLimitInterval = 200
 StartLimitBurst = 5
 

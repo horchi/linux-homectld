@@ -567,7 +567,7 @@ int Daemon::performAlertTestMail(int id, long client)
 
 int Daemon::performAlerts(json_t* oObject, long client)
 {
-   json_t* oArray = json_array();
+   json_t* oArray {json_array()};
 
    tableSensorAlert->clear();
 
@@ -607,7 +607,7 @@ int Daemon::performAlerts(json_t* oObject, long client)
 
 int Daemon::storeAlerts(json_t* oObject, long client)
 {
-   const char* action = getStringFromJson(oObject, "action", "");
+   const char* action {getStringFromJson(oObject, "action", "")};
 
    if (strcmp(action, "delete") == 0)
    {
@@ -676,7 +676,7 @@ int Daemon::storeAlerts(json_t* oObject, long client)
 
 int Daemon::performSystem(json_t* oObject, long client)
 {
-   myString action = getStringFromJson(oObject, "action", "");
+   myString action {getStringFromJson(oObject, "action", "")};
 
    if (action == "database")
       return performDatabaseStatistic(oObject, client);
@@ -733,16 +733,16 @@ int Daemon::performSystem(json_t* oObject, long client)
 
 int Daemon::performWifi(json_t* oObject, long client)
 {
-   std::string result = executeCommand("nmcli.asjson.sh wifi-con");
-   json_t* oConnections = jsonLoad(result.c_str());
+   std::string result {executeCommand("nmcli.asjson.sh wifi-con")};
+   json_t* oConnections {jsonLoad(result.c_str())};
 
    result = executeCommand("nmcli.asjson.sh wifi-list 2");
-   json_t* oWifis = jsonLoad(result.c_str());
+   json_t* oWifis {jsonLoad(result.c_str())};
 
    if (!oWifis)
       return replyResult(fail, "Error: Got invalid JSON from script 'nmcli.asjson.sh wifi-list'", client);
 
-   json_t* oWifi = json_object();
+   json_t* oWifi {json_object()};
 
    json_object_set_new(oWifi, "reachable", oWifis);
 
@@ -758,13 +758,13 @@ int Daemon::performWifi(json_t* oObject, long client)
 
 int Daemon::performWifiCommand(json_t* oObject, long client)
 {
-   std::string action = getStringFromJson(oObject, "action", "");
-   const char* ssid = getStringFromJson(oObject, "ssid");
+   std::string action {getStringFromJson(oObject, "action", "")};
+   const char* ssid {getStringFromJson(oObject, "ssid")};
 
    if (action == "wifi-disconnect")
    {
       tell(eloDetail, "Detail: Calling 'nmcli connection down '%s''", ssid);
-      std::string result = executeCommand("nmcli connection down '%s'", ssid);
+      std::string result {executeCommand("nmcli connection down '%s'", ssid)};
 
       tell(eloAlways, "Info: Disconnect result was [%s]", result.c_str());
       performWifi(oObject, client);
@@ -775,7 +775,7 @@ int Daemon::performWifiCommand(json_t* oObject, long client)
    if (action == "wifi-connect")
    {
       std::string result;
-      const char* pwd = getStringFromJson(oObject, "password");
+      const char* pwd {getStringFromJson(oObject, "password")};
 
       if (!isEmpty(pwd))
       {
@@ -804,8 +804,8 @@ int Daemon::performDatabaseStatistic(json_t* oObject, long client)
    tableTableStatistics->clear();
    tableTableStatistics->setValue("SCHEMA", connection->getName());
 
-   json_t* jObject = json_object();
-   json_t* jArray = json_array();
+   json_t* jObject {json_object()};
+   json_t* jArray {json_array()};
    json_object_set_new(jObject, "tables", jArray);
 
    for (int f = selectTableStatistic->find(); f; f = selectTableStatistic->fetch())
@@ -828,7 +828,7 @@ int Daemon::performDatabaseStatistic(json_t* oObject, long client)
 
    if (fsStat("/", &stat) == success)
    {
-      json_t* jItem = json_object();
+      json_t* jItem {json_object()};
       json_array_append_new(jArray, jItem);
 
       json_object_set_new(jItem, "name", json_string("/"));
@@ -2554,10 +2554,12 @@ int Daemon::syslogs2Json(json_t* obj)
    FileList syslogs;
    int count {0};
 
-   if (getFileList("/var/log/", DT_REG | DT_LNK, "log", false, &syslogs, count) == success)
+   if (getFileList("/var/log/", DT_REG_LNK, "log", false, &syslogs, count) == success)
    {
       for (const auto& opt : syslogs)
       {
+         tell(eloAlways, " :: '%s'", opt.name.c_str());
+
          json_t* jLog {json_object()};
          json_array_append_new(obj, jLog);
          // json_object_set_new(jLog, "file", json_string(opt.path.c_str()));

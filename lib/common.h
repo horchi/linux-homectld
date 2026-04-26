@@ -483,6 +483,8 @@ struct FileInfo
    uint type;
 };
 
+// special to get LNK and REG with one call of getFileList()
+#define DT_REG_LNK 128
 typedef std::vector<FileInfo> FileList;
 int getFileList(const char* path, int type, const char* extensions, int recursion, FileList* dirs, int& count);
 void sortFileList(FileList& list);

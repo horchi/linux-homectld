@@ -115,8 +115,8 @@ if the database is running remote, or you like to have remote access to the data
 ### install the build dependencies
 
 ```
-apt -y install build-essential libssl-dev libcurl4-openssl-dev uuid-dev libcap-dev libsystemd-dev
-apt -y install libjansson-dev libmariadb-dev liblua5.3-dev mosquitto-clients jq jo bc
+apt -y install build-essential libssl-dev libcurl4-openssl-dev uuid-dev libcap-dev libsystemd-dev cmake
+apt -y install libjansson-dev libmariadb-dev liblua5.3-dev mosquitto-clients jq jo bc aptitude util-linux-extra
 ```
 
 # If you integrate bluetooth devices
@@ -178,6 +178,17 @@ echo "w1_therm" >> /etc/modules
 echo "dtoverlay=w1-gpio,gpioin=4,pullup=on" >> /boot/config.txt
 ```
 
+### Enable One Wire Sensors at your Odroid N2+
+```
+echo "w1-gpio" >> /etc/modules-load.d/1wire.conf
+echo "w1_therm" >> /etc/modules-load.d/1wire.conf
+```
+Addd this two lines into the [generic] section of the /boot/config.ini
+```
+overlays="w1-gpio"
+overlay_param="gpiopin=476"
+```
+
 Reboot to apply this settings!
 
 The homectld checks automatically if there are 'One Wire Sensors' connected, each detected sensor will be
@@ -207,7 +218,6 @@ it should now 'enabled' and in state 'running'!
 ```
 grep -i "error" /var/log/homectld.log
 ```
-
 
 # The WEB interface:
 
@@ -242,16 +252,70 @@ For example to start in kiosk mode 2
 
 http://your-ip:61109/index.html&kiosk=2
 
+## Fist steps with the WEB interface
 
-
-### Fist steps to enable data logging:
+### To enable some sensors
 
 1. Log in to the web interface
 2. Go to Setup -> IO Setup
-3. Select the values you like to display and record and store your settings
+3. Enable the desired sensors (for example, script sensors)
+
+Some sensor categories are only available once the corresponding interface service has been activated and is running.
+You can implement this interface service yourself using C/C++, Python, a shell script, and many other languages.
+The interface between these services and homectld is MQTT, it's not yet fully documented here; for now, you can only refer to the examples and the code.
+
+Services are already provided for some common components/devices:
+- Theford refrigerators
+- Mopeka gas level sensor
+- One-Wire sensors
+- Votronic MPP charge controller
+- Victron (at least the interface to the inverter is already working with it)
+- RTL433 wireless sensors
+- BMS (the widely used version, which is also used by Liontron)
 
 ### Points to check
 - reboot the device to check if homectld is starting automatically during startup
+
+# Additional hints for a 'Stand Alone Server'
+
+Some specials for a 'Stand Alone Server' like I use in my camper.
+Since the mini PC (in my case, an Odroid N2+) is being used as a server in this scenario, the network setup is different: eth0 has a static IP address and cannot access the internet. Internet access is provided by a Wi-Fi dongle configured as wlan0. A Wi-Fi access point for the RV’s “internal” network is connected to eth0.
+
+The server also handles IP masquerading to provide all internal clients with Internet access.
+Additionally, dnsmasq runs as a DNS server/relay and DHCP service.
+Crony is used instead of systemd-timesyncd because the latter proved to be too “fussy” in this setup.
+
+To enable the install some of the provided service configurations
+enable it by setting 'WOMO = 1' in Make.user in the projects (source) root directory of the homectld.
+
+## Static/Fixed IP
+
+to get a fixed IP for your eth0 device you find a teplate in contrib/womo/netplan/
+just copy it to /etc/netplan:
+```
+cp contrib/womo/netplan/01-netcfg.yaml /etc/netplan/
+```
+and adjust the settings, such as the IP address, to your preferences.
+The route set there can be deleted, but it generally doesn't cause any problems. In my setup,
+it is used to route SatIp broadcat signals from the Minisatip service which I'm running on the Odroid.
+
+## DNS/DHCP
+
+```apt -y install dnsmasq```
+
+if you call 'make install' of the homectld AFTER the install of dnsmasq the setup (/etc/dnsmasq*) will prepared automatically,
+just adjust your inrternal internal subnet by setting ```SUBNET = SUBNET = 192.168.220``` in Make.user (to your subnet)
+
+## Time synchronization
+
+```apt -y install chrony```
+
+## IP masquerading
+
+to act as a router some settings IP table rules are necessary, this are prepared in the fwpn script.
+which is also set up as a systems service (fwpn.service). All you have to do is update your subnet in /etc/default/fwpn.
+The other options in fwpn can also be overridden via /etc/default/fwpn.
+Note that the MSQ_DEV in fwpn can be switched via the msqdevice.sh script service in the web frontend if the internet is accessed via usb0 rather than wlan0, for example
 
 
 # Backup
@@ -276,6 +340,8 @@ valuefacts-dump.sql.gz
 timeranges-dump.sql.gz
 hmsysvars-dump.sql.gz
 scripts-dump.sql.gz
+...
+...
 ```
 
 To import the backup:
@@ -389,7 +455,7 @@ mosquitto_pub --quiet -L mqtt://192.168.200.101:1883/homectld2mqtt/nodered -m '{
   for example: https://www.amazon.de/gp/product/B015MGHLNA/ref=ppx_yo_dt_b_asin_title_o05_s00?ie=UTF8&psc=1
   USB Interface for programming: https://www.amazon.de/gp/product/B07KVT6HNL/ref=ppx_yo_dt_b_asin_title_o04_s00?ie=UTF8&psc=1
 
-- House-pump to inject PH Minus
+- peristaltic pump to inject PH Minus
   for example: https://www.amazon.de/gp/product/B07YWY29XL/ref=ppx_yo_dt_b_asin_title_o07_s00?ie=UTF8&psc=1
   better but more expensive may be: https://www.amazon.de/dp/B06ZZDLTJ7/?coliid=I37J0L29HIAMDR&colid=344R3XZTD8676&psc=1&ref_=lv_ov_lig_dp_it
 

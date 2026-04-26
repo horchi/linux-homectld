@@ -1516,9 +1516,19 @@ int getFileList(const char* path, int type, const char* extensions, int recursio
          free(buf);
       }
 
-      // filter type and ignore '.', '..' and hidden files
+      // ignore '.', '..' and hidden files
 
-      if (pEntry->d_type != type || pEntry->d_name[0] == '.')
+      if (pEntry->d_name[0] == '.')
+         continue;
+
+      // filter type
+
+      if (type == DT_REG_LNK)
+      {
+         if (pEntry->d_type != DT_REG && pEntry->d_type != DT_LNK)
+            continue;
+      }
+      else if (pEntry->d_type != type)
          continue;
 
       // filter file extensions

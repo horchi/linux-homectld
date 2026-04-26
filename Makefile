@@ -181,6 +181,9 @@ install-scripts:
 		cp -v "$$f" $(BINDEST)/`basename "$$f"`; \
 	done
 	cp ./scripts/fwpn $(BINDEST)/
+	if ! test -f $(DESTDIR)/etc/default/fwpn; then \
+		cat ./scripts/fwpn.default | sed s:"<SUBNET>":"$(SUBNET)":g | install --mode=644 -C -D /dev/stdin $(DESTDIR)/etc/default/fwpn; \
+	fi
 
 iw: install-web
 

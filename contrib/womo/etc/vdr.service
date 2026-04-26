@@ -1,0 +1,23 @@
+[Unit]
+Description=Video Disk Recorder
+After = mysql.service
+Conflicts=getty@tty7.service
+
+# Conflicts=minisatip.service squeezelite.service
+
+[Service]
+Type=notify
+StandardInput=tty
+StandardOutput=tty
+TTYPath=/dev/tty7
+EnvironmentFile=/etc/default/vdr
+ExecStartPre=/usr/local/bin/vdr-reset.sh
+ExecStartPre=/bin/chvt 7
+ExecStartPre=/usr/bin/setterm -cursor off > /dev/tty7
+ExecStartPre=/usr/bin/setterm -blank 0 -powersave off > /dev/tty7
+ExecStart=/usr/bin/vdr
+Restart=on-failure
+RestartPreventExitStatus=0 2
+
+[Install]
+WantedBy=multi-user.target

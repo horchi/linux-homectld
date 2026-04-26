@@ -122,6 +122,7 @@ install-systemd:
 	cat contrib/i2cmqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/i2cmqtt.service
 	cat contrib/victronmqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/victronmqtt.service
 	install --mode=664 -D contrib/mosquitto-log.service $(SYSTEMDDEST)/
+	install --mode=664 -D contrib/fwpn.service $(SYSTEMDDEST)/
 	chmod a+r $(SYSTEMDDEST)/$(TARGET).service
 	chmod a+r $(SYSTEMDDEST)/w1mqtt.service
 	chmod a+r $(SYSTEMDDEST)/bmsmqtt.service

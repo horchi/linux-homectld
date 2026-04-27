@@ -952,7 +952,8 @@ int Daemon::callScript(int addr, const char* command)
    {
       if (commandThreads[addr].active)
       {
-         tell(eloAlways, "Info: Skipping call of script 'SC:0x%02x', already running", addr);
+         tell(eloAlways, "Info: Skipping call of script 'SC:0x%02x', already running, timing out in %ld seconds",
+              addr, commandThreads[addr].timeoutAt- time(0));
          return done;
       }
    }
@@ -5036,12 +5037,12 @@ void* Daemon::cmdThread(void* user)
    std::string result;
 
    ThreadControl* threadCtl = (ThreadControl*)user;
-   time_t timeoutAt = time(0) + threadCtl->timeout;
+   threadCtl->timeoutAt = time(0) + 60; // threadCtl->timeout;
    threadCtl->active = true;
 
    FILE* pipe = popen(threadCtl->command.c_str(), "r");
 
-   while (time(0) < timeoutAt && !threadCtl->cancel && fgets(buffer, sizeof(buffer), pipe))
+   while (time(0) < threadCtl->timeoutAt && !threadCtl->cancel && fgets(buffer, sizeof(buffer), pipe))
       result += buffer;
 
    pclose(pipe);

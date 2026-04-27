@@ -729,7 +729,7 @@ class Daemon : public cWebInterface
       struct ThreadControl
       {
          pthread_t pThread {0};
-         int timeout {60};
+         time_t  timeoutAt {0};
          bool active {false};
          bool cancel {false};
          std::string command;

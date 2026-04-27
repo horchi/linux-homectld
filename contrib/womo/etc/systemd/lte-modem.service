@@ -1,0 +1,14 @@
+[Unit]
+Description=Alfa Tube LTE Connection Manager
+After=ModemManager.service network.target
+Wants=ModemManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/lte-autoconnect.sh up
+ExecStop=/usr/local/bin/lte-autoconnect.sh down
+# Sorgt dafür, dass der Service als "aktiv" gilt, solange er nicht gestoppt wird
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

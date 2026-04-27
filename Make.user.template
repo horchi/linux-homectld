@@ -1,0 +1,9 @@
+
+WOMO = 1
+
+INIT_AFTER = mysql.service
+SUBNET = 192.168.100
+DOMAIN = womo.lan
+
+MOPEKA = 1
+THETFORD = 1

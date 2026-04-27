@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.8"
-#define VERSION_DATE "21.12.2025"
+#define _VERSION     "0.1.9"
+#define VERSION_DATE "27.04.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,9 @@
 
 /*
  * ------------------------------------
+
+2026-01-27: version 0.1.9
+    - added: Support of LTE modem (Alfa Tube-U4G LTE USB Modem)
 
 2025-12-21: version 0.1.8
     - change: Improvemets regarding http and websocket handling

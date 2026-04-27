@@ -503,7 +503,7 @@ int Daemon::performToggleIo(json_t* oObject, long client)
    if (!isEmpty(topic))
       return switchCommand(type, addr, action, topic, getStringFromJson(oObject, "value"));
 
-   if (action == "toggle")
+   if (action == "toggle" || action == "switch")
       return toggleIo(addr, type);
 
    if (action == "dim")
@@ -2558,8 +2558,6 @@ int Daemon::syslogs2Json(json_t* obj)
    {
       for (const auto& opt : syslogs)
       {
-         tell(eloAlways, " :: '%s'", opt.name.c_str());
-
          json_t* jLog {json_object()};
          json_array_append_new(obj, jLog);
          // json_object_set_new(jLog, "file", json_string(opt.path.c_str()));
@@ -2627,7 +2625,7 @@ int Daemon::daemonState2Json(json_t* obj)
    getloadavg(averages, 3);
 
    json_object_set_new(obj, "state", json_integer(success));
-	json_object_set_new(obj, "systime", json_integer(time(0)));
+   json_object_set_new(obj, "systime", json_integer(time(0)));
    json_object_set_new(obj, "version", json_string(VERSION));
    json_object_set_new(obj, "runningsince", json_string(d));
    json_object_set_new(obj, "average0", json_real(averages[0]));

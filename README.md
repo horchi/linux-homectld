@@ -317,6 +317,35 @@ which is also set up as a systems service (fwpn.service). All you have to do is 
 The other options in fwpn can also be overridden via /etc/default/fwpn.
 Note that the MSQ_DEV in fwpn can be switched via the msqdevice.sh script service in the web frontend if the internet is accessed via usb0 rather than wlan0, for example
 
+## Alfa Tube-U4G LTE USB Modem
+
+Für den Internet Zugangmittels einem Alfa Tube-U4G LTE USB Modem wird das Script `lte-autoconnect.sh` nebst zugehörigen Service `lte-modem.service`
+installiert. Damit kann die Verbindung mittels:
+```
+systemctrl start lte-modem.service
+systemctrl stop lte-modem.service
+```
+gestartet bzw. wieder beendet werden. Sofern die Verbindung nach jedem boot automatisch aktiviert werden soll kann man den Service stattdessen enabeln:
+```
+systemctrl enable lte-modem.service
+```
+
+## Check der Verbindung und Signal Qualität
+```mmcli -m $(mmcli -L | grep -oP 'Modem/\K[0-9]+') --signal-get```
+
+## Zyklischen Check der LTE Verbindung mit Auto Reconnect bei Verbindungsverlust einrichten
+
+Alle 5 Minuten mittels crontab Eintrag checken
+```(crontab -l 2>/dev/null | grep -Fv "/usr/local/bin/lte-autoconnect.sh"; echo "*/5 * * * * /usr/local/bin/lte-autoconnect.sh > /dev/null 2>&1") | crontab -```
+Wenn der Service 'lte-modem.service' absichtlich 'aus' ist führt das NICHT zu Neu-Verbindung!
+
+## Hinweis zum USB Port
+
+Das Tube-U4G kann manchmal viel Strom ziehen (besonders bei schlechtem Empfang beim Senden).
+Da am Odroid bereits viele USB-Geräte hängen achte darauf, dass der Tube-U4G an einem der USB 3.0 Ports (blau) hängt.
+Falls es Verbindungsabbrüche gibt, könnte ein aktiver USB-Hub mit eigener Stromversorgung nötig sein, aber der N2+ liefert an
+den blauen Ports normalerweise genug Saft.
+
 
 # Backup
 Backup the data of the homectl database including all recorded values:

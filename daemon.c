@@ -4291,7 +4291,7 @@ int Daemon::getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges)
 
 int Daemon::toggleColor(uint addr, const char* type, int hue, int sat, int bri)
 {
-   cDbRow* fact = valueFactRowOf(type, addr);
+   cDbRow* fact {valueFactRowOf(type, addr)};
 
    if (!fact)
       return fail;
@@ -4308,7 +4308,7 @@ int Daemon::toggleColor(uint addr, const char* type, int hue, int sat, int bri)
 
 int Daemon::toggleIo(uint addr, const char* type, int state, int bri, int transitiontime)
 {
-   cDbRow* fact = valueFactRowOf(type, addr);
+   cDbRow* fact {valueFactRowOf(type, addr)};
 
    if (!fact)
    {
@@ -4318,7 +4318,7 @@ int Daemon::toggleIo(uint addr, const char* type, int state, int bri, int transi
 
    tell(eloDebug, "Debug: toggleio() %s:0x%02x", type, addr);
 
-   bool newState = state == na ? !sensors[type][addr].state : state;
+   int newState {state == na ? !sensors[type][addr].state : state};
 
    if (strcmp(type, "DO") == 0)
       gpioWrite(addr, newState);

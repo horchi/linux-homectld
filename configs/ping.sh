@@ -12,7 +12,7 @@ IP=`echo ${JARGS} | jq -r .ip`
 if [[ -z "${IP}" ]]; then
    ${LOGGER} "ping.sh: IP argument missing, call with '{ \"ip\": \"8.8.8.8\"}'"
    STATE="false"
-elif ping -q -c 1 -W 1 ${IP} >/dev/null; then
+elif ping -q -c 1 -W 5 ${IP} >/dev/null; then
    echo -n
 else
    STATE="false"

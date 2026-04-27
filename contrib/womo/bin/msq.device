@@ -20,7 +20,7 @@ fi
 # on -s second parameter (the device) is required
 
 if [[ -z "$2" ]]; then
-   echo Missing parameter
+   echo "Missing parameter"
    exit 1;
 fi
 

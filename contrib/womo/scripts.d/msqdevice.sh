@@ -6,6 +6,8 @@ dev=`${CMD}`
 if [[ "$1" == "toggle" ]]; then
    if [[ ${dev} == "wlan0" ]]; then
       ${CMD} -s "usb0";
+   elif [[ ${dev} == "usb0" ]]; then
+      ${CMD} -s "wwan0";
    else
       ${CMD} -s "wlan0";
    fi
@@ -14,7 +16,7 @@ if [[ "$1" == "toggle" ]]; then
 fi
 
 dev=`${CMD}`
-RESULT="{ \"type\":\"SC\",\"address\":$2,\"kind\":\"text\",\"text\":\"${dev}\",\"choices\":\"wlan0,usb0\"}"
+RESULT="{ \"type\":\"SC\",\"address\":$2,\"kind\":\"text\",\"text\":\"${dev}\",\"choices\":\"wlan0,usb0,wwan0\"}"
 echo -n ${RESULT}
 
 if [ "$1" != "init" ]; then

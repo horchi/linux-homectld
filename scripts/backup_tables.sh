@@ -3,7 +3,7 @@ BACKUP_DIR="/root/backup/database"
 HOST=`hostname`
 DATE=`date +%Y%m%d`
 
-TABLES="dashboards dashboardwidgets deconzl deconzs groups homematic schemaconf sensoralert states valuetypes samples peaks users scripts valuefacts config"
+TABLES="config dashboards dashboardwidgets deconzl deconzs groups homematic iostates peaks samples schemaconf sensoralert states users valuefacts valuetypes"
 
 mkdir -p ${BACKUP_DIR}/${DATE}
 

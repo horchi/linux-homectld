@@ -14,17 +14,13 @@ IPT_MODLIST="ip_tables nf_conntrack nf_conntrack_ftp nf_conntrack_irc pt_state i
 # settings
 
 PN_FILTER="pnfilter"             # Our firewall filter chain
-
-#MSQ_DEV="wlan0"                 # Interface to outside DSL
-MSQ_DEV="wlan0"                  # Interface to outside DSL
-#MSQ_DEV="usb0"                  # Interface to outside DSL
-
 ANY="0.0.0.0/0"                  # Any IP
-
 DEFAULT_POL="DROP"               # Default policy for incoming connections
 IDENT_POL="REJECT"               # Policy auf 113: U.a. wichtig wegen smtp
 IRCCHK_POL="REJECT"              # Einige Ports, die IRC-Server untersuchen
 HTTP_POL="REJECT"                # Dito für Port 80
+
+MSQ_DEV="wlan0"                  # Interface to outside DSL
 
 # specific settings
 
@@ -116,6 +112,7 @@ case "$1" in
       # Wir akzeptieren alles was zu bestehenden, externen Verbindungen gehoert
 
       $IPTABLES -A $PN_FILTER -m state --state ESTABLISHED,RELATED -j ACCEPT
+      # better?? $IPTABLES -A $PN_FILTER -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 
       # Aus dem Intranet wird alles akzeptiert
 
@@ -136,6 +133,7 @@ case "$1" in
       # DHCP aus dem internen Netz(en) erlauben
 
       $IPTABLES -A $PN_FILTER -j ACCEPT -i $INTRA_IF -m state --state NEW,ESTABLISHED -p udp --sport 68 -d 255.255.255.255/32 --dport 67
+      # ?? $IPTABLES -A OUTPUT -o eth0 -p 17 --sport 67 --dport 68 -j ACCEPT
 
       # Alle berechtigten Pakete sind nun behandelt,
       # verbleibende nun [nach logging] verwerfen:

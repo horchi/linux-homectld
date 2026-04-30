@@ -9,11 +9,9 @@
 #include <dirent.h>
 #include <inttypes.h>
 
-#ifndef _NO_RASPBERRY_PI_
-#  include <wiringPi.h>
-#endif
-
-#include "gpio.h"
+// #ifndef _NO_RASPBERRY_PI_
+// #  include <wiringPi.h>
+// #endif
 
 #include "lib/json.h"
 #include "specific.h"
@@ -322,16 +320,16 @@ void Daemon::ioInterrupt()
 
 int HomeCtl::applyConfigurationSpecials()
 {
-#ifndef _NO_RASPBERRY_PI_
    initOutput(pinUserOut1, ooUser, omManual, "Digital Output");
    initOutput(pinUserOut2, ooUser, omManual, "Digital Output");
    initOutput(pinUserOut3, ooUser, omManual, "Digital Output");
    initOutput(pinUserOut4, ooUser, omManual, "Digital Output");
-   initOutput(pinUserOut5, ooUser, omManual, "Digital Output");
+   // initOutput(pinUserOut5, ooUser, omManual, "Digital Output");
    initOutput(pinUserOut6, ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut10, ooUser, omManual, "Digital Output");
 
-   initInput(pinUserInput1, "Digital Input");
-   initInput(pinUserInput2, "Digital Input");
+   // initInput(pinUserInput1, "Digital Input");
+   // initInput(pinUserInput2, "Digital Input");
    initInput(pinUserInput3, "Digital Input");
 
 # ifndef _POOL
@@ -339,24 +337,14 @@ int HomeCtl::applyConfigurationSpecials()
    initOutput(pinUserOut8, ooUser, omManual, "Digital Output");
    initOutput(pinUserOut9, ooUser, omManual, "Digital Output");
 
-   initInput(pinUserInput4, "Digital Input");
+   // initInput(pinUserInput4, "Digital Input");
    initInput(pinUserInput5, "Digital Input");
    initInput(pinUserInput6, "Digital Input");
    initInput(pinUserInput7, "Digital Input");
 # endif // _POOL
 
-# ifndef MODEL_ODROID_N2
-   // only at Raspberry Pi !
-   initOutput(pinUserOut10, ooUser, omManual, "Digital Output");
-   initOutput(pinUserOut11, ooUser, omManual, "Digital Output");
-   initOutput(pinUserOut12, ooUser, omManual, "Digital Output");
-# endif // // only at Raspberry Pi !
-
-#endif // _NO_RASPBERRY_PI_
-
 #ifdef _POOL
 
-//# ifndef _NO_RASPBERRY_PI_
    initOutput(pinFilterPump, ooAuto|ooUser, omAuto, "Filter Pump", urFullControl);
    initOutput(pinSolarPump, ooAuto|ooUser, omAuto, "Solar Pump", urFullControl);
    initOutput(pinPoolLight, ooUser, omManual, "Pool Light");
@@ -368,10 +356,8 @@ int HomeCtl::applyConfigurationSpecials()
    initInput(pinShowerSwitch, "Shower");
    pullUpDnControl(pinShowerSwitch, PUD_UP);
 
-   if (wiringPiISR(pinShowerSwitch, INT_EDGE_FALLING, &ioInterrupt) < 0)
+   if (gpio.wiringPiISR(pinShowerSwitch, Gpio::edgeFalling, &ioInterrupt) < 0)
       tell(eloAlways, "Error: Unable to setup ISR: %s", strerror(errno));
-
-// # endif // _NO_RASPBERRY_PI_
 
    // special values
 

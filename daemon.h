@@ -11,9 +11,9 @@
 #include <queue>
 #include <jansson.h>
 
-#ifndef _NO_RASPBERRY_PI_
-#  include <wiringPi.h>
-#endif
+// #ifndef _NO_RASPBERRY_PI_
+// #  include <wiringPi.h>
+// #endif
 
 #include "lib/common.h"
 #include "lib/db.h"
@@ -24,6 +24,7 @@
 #include "websock.h"
 #include "deconz.h"
 #include "lmccom.h"
+#include "gpio.h"
 
 #define confDirDefault "/etc/" TARGET
 
@@ -104,7 +105,7 @@ class Daemon : public cWebInterface
          pinUserOut2     = pinGpio24,
          pinUserOut3     = pinGpio11,
          pinUserOut4     = pinGpio09,
-         pinUserOut5     = pinGpio05,
+         pinUserOut5     = pinGpio05, // :(
          pinUserOut6     = pinGpio06,
 
 #ifndef _POOL
@@ -112,18 +113,20 @@ class Daemon : public cWebInterface
          pinUserOut8     = pinGpio25,
          pinUserOut9     = pinGpio19,
 #endif
-#ifndef MODEL_ODROID_N2
          pinUserOut10    = pinGpio20,
-         pinUserOut11    = pinGpio21,
-         pinUserOut12    = pinGpio26,
-#endif // MODEL_ODROID_N2
+         // diese beiden lassen wir erstmal weg
+         // sie können am Odroid nur 1,8 V können
+         // und dort als Analoge Eingänge verwendbar sind
 
-         pinUserInput1   = pinGpio12,
-         pinUserInput2   = pinGpio13,
+         // pinUserOut11    = pinGpio21,
+         // pinUserOut12    = pinGpio26,
+
+         pinUserInput1   = pinGpio12,  // :(
+         pinUserInput2   = pinGpio13,  // :(
          pinUserInput3   = pinGpio08,  // interrupt don't work! (at least on ODROID)
 
 #ifndef _POOL
-         pinUserInput4   = pinGpio17,
+         pinUserInput4   = pinGpio17,  // :(
          pinUserInput5   = pinGpio18,
          pinUserInput6   = pinGpio27,
          pinUserInput7   = pinGpio22,
@@ -202,13 +205,6 @@ class Daemon : public cWebInterface
          dirClose = 2
       };
 
-      enum Pull
-      {
-         pullNone,  // 0
-         pullUp,    // 1
-         pullDown   // 2
-      };
-
       struct SensorData        // Sensor Data
       {
          bool record {false};
@@ -247,8 +243,8 @@ class Daemon : public cWebInterface
 
          // specials
 
-         bool invert {false};
-         Pull pull {pullUp};
+         bool invert {true};
+         Gpio::PullUpDown pull {Gpio::pudOff};
          bool impulse {false};      // change output only for a short impulse
          bool interrupt {false};
          bool interruptSet {false};
@@ -723,6 +719,10 @@ class Daemon : public cWebInterface
       std::string alertMailSubject;
 
       std::map<std::string,json_t*> jsonSensorList;
+
+      // GPIO
+
+      Gpio gpio;
 
       // scripts command thread handling
 

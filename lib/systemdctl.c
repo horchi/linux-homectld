@@ -79,87 +79,73 @@ int SysCtl::unitList(Services& services, const char* filter)
    sd_bus_error error {SD_BUS_ERROR_NULL};
    sd_bus_message* message {};
 
-   int res = sd_bus_call_method(bus,
-                                "org.freedesktop.systemd1",         // service to contact
-                                "/org/freedesktop/systemd1",        // object path
-                                "org.freedesktop.systemd1.Manager", // interface name
-                                "ListUnits",                        // method name
-                                &error,                             // object to return error in
-                                &message,                           // return message on success
-                                nullptr);
+   // Step 1: Alle installierten Unit-Files ---
 
-   if (res < 0)
+   int res = sd_bus_call_method(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager", "ListUnitFiles",
+                                &error, &message, nullptr);
+   if (res >= 0)
    {
-      tell(eloAlways, "Failed to issue method call '%s'", error.message);
-      sd_bus_error_free(&error);
-      sd_bus_message_unref(message);
-      return fail;
-   }
+      const char *rawPath {}, *state {};
+      sd_bus_message_enter_container(message, 'a', "(ss)");
 
-   // parse response
-
-   res = sd_bus_message_enter_container(message, 'a', "(ssssssouso)");
-
-   if (res < 0)
-   {
-      tell(eloAlways, "Failed to issue method call 'sd_bus_message_enter_containers': '%s'", error.message);
-      sd_bus_error_free(&error);
-      sd_bus_message_unref(message);
-      return fail;
-   }
-
-   const char* primary_name {};
-   const char* human_name {};
-   const char* load_state {};
-   const char* active_state {};
-   const char* sub_state {};
-   const char* following {};
-   const char** unit_object_path {};
-   uint32_t queued_job_id {};
-   const char* job_type {};
-   const char** job_object_path {};
-
-   while ((res = sd_bus_message_read(message, "(ssssssouso)", &primary_name, &human_name, &load_state, &active_state, &sub_state, &following, &unit_object_path, &queued_job_id, &job_type, &job_object_path)) > 0)
-   {
-      // tell(eloAlways, "-> %s [%s]", human_name, primary_name);
-
-      if (strstr(primary_name, "user@") || strstr(primary_name, "modprobe@") || strcmp(sub_state, "plugged") == 0 || strcmp(sub_state, "mounted") == 0 || strcmp(sub_state, "exited") == 0)
-         continue;
-
-      if (strstr(primary_name, filter))
+      while (sd_bus_message_read(message, "(ss)", &rawPath, &state) > 0)
       {
-         std::string unitFileState;
-         std::string unitPath;
+         const char* lastSlash = strrchr(rawPath, '/');
+         const char* pureName = (lastSlash) ? lastSlash + 1 : rawPath;
 
-         if (loadUnit(primary_name, unitPath) == 0)
-            getProperty(unitPath.c_str(), "UnitFileState", unitFileState);
-
-         // skip less intresting services
-
-         if (!unitFileState.length() || unitFileState == "static" || unitFileState == "indirect" || unitFileState == "masked")
-         {
-            tell(eloDebug, "Ignoring service '%s' due to unit file state '%s'", human_name, unitFileState.c_str());
-            // continue;
-         }
-
-         // add to list
-
-         services[primary_name] = {primary_name, human_name, load_state, active_state, sub_state, unitFileState};
+         if (strstr(pureName, filter))
+            services[pureName] = {pureName, pureName, "loaded", "inactive", "dead", state};
       }
-      else
-         tell(eloDebug, "Ignoring service '%s' due to it's name '%s'", human_name, primary_name);
+      sd_bus_message_unref(message);
    }
 
-   if (res < 0)
-      tell(eloAlways, "Failed to issue method call 'sd_bus_message_read': '%s'", strerror(-res));
-   else
-      res = sd_bus_message_exit_container(message);
+   // Step 2: Laufzeit-Status drüberlegen ---
+
+   res = sd_bus_call_method(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
+                            "org.freedesktop.systemd1.Manager", "ListUnits",
+                            &error, &message, nullptr);
+   if (res >= 0)
+   {
+      const char *id {}, *desc {}, *load {}, *active {}, *sub {}, *following {}, *u_path {}, *j_type {}, *j_path {};
+      uint32_t j_id {};
+
+      sd_bus_message_enter_container(message, 'a', "(ssssssouso)");
+
+      while (sd_bus_message_read(message, "(ssssssouso)", &id, &desc, &load, &active, &sub, &following, &u_path, &j_id, &j_type, &j_path) > 0)
+      {
+         if (services.count(id))
+         {
+            auto& s = services[id];
+            s.humanName = desc;
+            s.loadState = load;
+            s.activeState = active;
+            s.subState = sub;
+         }
+      }
+      sd_bus_message_unref(message);
+   }
+
+   // Step 3: Deep-Scan für verbliebene inaktive Dienste ---
+
+   for (auto& [id, s] : services)
+   {
+      if (s.humanName == s.primaryName)
+      {
+         std::string unitDbPath, description;
+
+         if (loadUnit(id.c_str(), unitDbPath) == 0)
+         {
+            if (getProperty(unitDbPath.c_str(), "Description", description) == 0 && !description.empty())
+               s.humanName = description;
+         }
+      }
+   }
 
    sd_bus_error_free(&error);
-   sd_bus_message_unref(message);
-
    return success;
 }
+
 
 //***************************************************************************
 // Unit Action

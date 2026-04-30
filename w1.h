@@ -15,6 +15,8 @@
 #include "lib/common.h"
 #include "lib/mqtt.h"
 
+// #include "gpio.h"
+
 //***************************************************************************
 // Class W1
 //***************************************************************************
@@ -57,6 +59,7 @@ class W1
 
       int mqttConnection();
 
+      Gpio gpio;
       char* w1Path {};
       SensorList sensors;
       const char* mqttUrl {};

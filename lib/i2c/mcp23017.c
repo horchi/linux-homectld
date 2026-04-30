@@ -9,9 +9,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#ifndef _NO_RASPBERRY_PI_
-#  include <wiringPi.h>
-#endif
+// #ifndef _NO_RASPBERRY_PI_
+// #  include <wiringPi.h>
+// #endif
 
 #include "../../gpio.h"
 #include "mcp23017.h"
@@ -89,14 +89,14 @@ void Mcp23017::pinMode(uint8_t pin, uint8_t mode, bool inverted)
 
    uint8_t iodir = readRegister(iodirreg);
 
-   if (mode == INPUT || mode == INPUT_PULLUP)
+   if (mode == Gpio::dirIn || mode == Gpio::pudUp)
       bitSet(iodir, pin);
    else
       bitClear(iodir, pin);
 
    uint8_t pull = readRegister(pullupreg);
 
-   if (mode == INPUT_PULLUP)
+   if (mode == Gpio::pudUp)
       bitSet(pull, pin);
    else
       bitClear(pull, pin);
@@ -125,7 +125,7 @@ void Mcp23017::digitalWrite(uint8_t pin, uint8_t state)
 
    uint8_t gpio = readRegister(gpioreg);
 
-   if (state == HIGH)
+   if (state)
       bitSet(gpio, pin);
    else
       bitClear(gpio, pin);
@@ -145,7 +145,7 @@ uint8_t Mcp23017::digitalRead(uint8_t pin)
 
    uint8_t gpio = readRegister(gpioreg);
 
-   return bitRead(gpio, pin) ?  HIGH : LOW;
+   return bitRead(gpio, pin) ? true : false;
 }
 
 void Mcp23017::writePort(Mcp23017Port port, uint8_t value)

@@ -272,7 +272,7 @@ int I2C::scan(const char* device)
       return fail;
    }
 
-   tell(eloAlways, "start scan ..");
+   tell(eloAlways, "start scan of i2c device '%s' ..", device);
 
    for (uint addr = 1; addr < 128; ++addr)
    {

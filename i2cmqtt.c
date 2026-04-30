@@ -12,9 +12,9 @@
 #include "lib/json.h"
 #include "lib/mqtt.h"
 
-#ifndef _NO_RASPBERRY_PI_
-#  include <wiringPi.h>
-#endif
+// #ifndef _NO_RASPBERRY_PI_
+// #  include <wiringPi.h>
+// #endif
 
 #include "lib/i2c/ads1115.h"
 #include "lib/i2c/mcp23017.h"
@@ -84,6 +84,7 @@ class I2CMqtt
       int performMqttRequests();
       int dispatchMqttMessage(const char* message);
 
+      Gpio gpio;
       const char* mqttUrl {};
       Mqtt* mqttWriter {};
       Mqtt* mqttReader {};
@@ -226,12 +227,11 @@ int I2CMqtt::initMcp(const char* config)
       mcp->clearInterrupts();
    }
 
-   tell(eloAlways, "Debug: pinMode(%d, INPUT) (%d / %s)", pinMcpIrq, physPinToGpio(pinMcpIrq), physPinToGpioName(pinMcpIrq));
-   pinMode(pinMcpIrq, INPUT);
-   pullUpDnControl(pinMcpIrq, INPUT_PULLUP);
+   gpio.pinMode(pinMcpIrq, Gpio::dirIn);
+   gpio.pullUpDnControl(pinMcpIrq, Gpio::pudUp);
 
-   if (wiringPiISR(pinMcpIrq, INT_EDGE_BOTH, &ioInterrupt) < 0)
-      tell(eloAlways, "Error: Unable to setup ISR to pin %d / %s", physPinToGpio(pinMcpIrq), physPinToGpioName(pinMcpIrq));
+   if (gpio.wiringPiISR(pinMcpIrq, Gpio::edgeBoth, &ioInterrupt) < 0)
+      tell(eloAlways, "Error: Unable to setup ISR to pin '%s'", gpio.physPinToGpioName(pinMcpIrq));
 
    return done;
 }
@@ -242,9 +242,7 @@ int I2CMqtt::initMcp(const char* config)
 int I2CMqtt::init()
 {
    tell(eloAlways, "Setup wiringPi");
-   wiringPiSetupPhys();     // we use the 'physical' PIN numbers
-   // wiringPiSetup();      // to use the 'special' wiringPi PIN numbers
-   // wiringPiSetupGpio();  // to use the 'GPIO' PIN numbers
+   // wiringPiSetupPhys();     // we use the 'physical' PIN numbers
 
    mqttConnection();
 
@@ -559,7 +557,10 @@ int I2CMqtt::mqttPublish(SensorData& sensor)
 
 int I2CMqtt::mqttPublish(json_t* jObject)
 {
-   char* message = json_dumps(jObject, JSON_REAL_PRECISION(8));
+   if (!mqttWriter)
+      return done;
+
+   char* message {json_dumps(jObject, JSON_REAL_PRECISION(8))};
    mqttWriter->write(mqttTopicOut.c_str(), message);
    free(message);
    json_decref(jObject);
@@ -576,7 +577,7 @@ int I2CMqtt::performMqttRequests()
    if (isEmpty(mqttUrl))
       return done;
 
-   if (!mqttReader->isConnected())
+   if (!mqttReader || !mqttReader->isConnected())
       return done;
 
    MemoryStruct message;
@@ -600,6 +601,9 @@ int I2CMqtt::performMqttRequests()
 
 int I2CMqtt::mqttConnection()
 {
+   if (isEmpty(mqttUrl))
+      return done;
+
    if (!mqttWriter)
       mqttWriter = new Mqtt();
 
@@ -837,7 +841,7 @@ int main(int argc, char** argv)
          case 'T': if (argv[i+1]) mqttTopic = argv[i+1];      break;
          case 't': _stdout = yes;                             break;
          case 'd': if (argv[i+1]) device = argv[++i];         break;
-         case 's': showMode = true;                           break;
+         case 's': mqttUrl = nullptr;; showMode = true;       break;
          case 'S': scanMode = true;                           break;
          case 'n': nofork = true;                             break;
          case '-':
@@ -875,9 +879,9 @@ int main(int argc, char** argv)
 
    if (!nofork && !showMode)
    {
-      int pid;
+      int pid {fork()};
 
-      if ((pid = fork()) < 0)
+      if (pid < 0)
       {
          printf("Can't fork daemon, %s\n", strerror(errno));
          return 1;

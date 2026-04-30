@@ -1152,7 +1152,7 @@ int chkDir(const char* path)
 
 int loadFromFile(const char* infile, MemoryStruct* data)
 {
-   FILE* fin;
+   FILE* fin {};
    struct stat sb;
 
    data->clear();

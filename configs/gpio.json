@@ -1,0 +1,68 @@
+{
+    "boards": {
+       "odroid_n2plus": {
+          "defaultChip": "gpiochip1",
+          "mapping": [
+             {"phys": 3,  "name": "I2C_EE_SDA", "offset": 16, "global": 423},
+             {"phys": 5,  "name": "I2C_EE_SCL", "offset": 17, "global": 424},
+             {"phys": 7,  "name": "GPIOX_3",    "offset": 57, "global": 473},
+             {"phys": 8,  "name": "UART_TX",    "offset": 15, "global": 425},
+             {"phys": 10, "name": "UART_RX",    "offset": 16, "global": 426},
+             {"phys": 11, "name": "GPIOX_7",    "offset": 61, "global": 479},
+             {"phys": 12, "name": "GPIOX_4",    "offset": 58, "global": 476},
+             {"phys": 13, "name": "GPIOX_5",    "offset": 59, "global": 477},
+             {"phys": 15, "name": "GPIOX_6",    "offset": 60, "global": 478},
+             {"phys": 16, "name": "GPIOX_12",   "offset": 66, "global": 484},
+             {"phys": 18, "name": "GPIOX_13",   "offset": 67, "global": 485},
+             {"phys": 19, "name": "GPIOX_8",    "offset": 62, "global": 480},
+             {"phys": 21, "name": "GPIOX_9",    "offset": 63, "global": 481},
+             {"phys": 22, "name": "GPIOX_14",   "offset": 68, "global": 486},
+             {"phys": 23, "name": "GPIOX_15",   "offset": 69, "global": 487},
+             {"phys": 24, "name": "GPIOX_16",   "offset": 70, "global": 488},
+             {"phys": 26, "name": "GPIOX_2",    "offset": 56, "global": 472},
+             {"phys": 27, "name": "I2C_SDA_B",  "offset": 24, "global": 431},
+             {"phys": 28, "name": "I2C_SCL_B",  "offset": 25, "global": 432},
+             {"phys": 29, "name": "GPIOX_11",   "offset": 65, "global": 483},
+             {"phys": 31, "name": "GPIOX_18",   "offset": 72, "global": 490},
+             {"phys": 32, "name": "GPIOX_10",   "offset": 64, "global": 482},
+             {"phys": 33, "name": "GPIOX_19",   "offset": 73, "global": 491},
+             {"phys": 35, "name": "GPIOX_0",    "offset": 54, "global": 470},
+             {"phys": 36, "name": "GPIOX_1",    "offset": 55, "global": 471},
+             {"phys": 38, "name": "GPIOX_20",   "offset": 74, "global": 492}
+          ]
+       },
+       "raspberry_pi": {
+          "defaultChip": "gpiochip0",
+          "mapping": [
+               {"phys": 3,  "name": "GPIO2",  "offset": 2},
+               {"phys": 5,  "name": "GPIO3",  "offset": 3},
+               {"phys": 7,  "name": "GPIO4",  "offset": 4},
+               {"phys": 8,  "name": "GPIO14", "offset": 14},
+               {"phys": 10, "name": "GPIO15", "offset": 15},
+               {"phys": 11, "name": "GPIO17", "offset": 17},
+               {"phys": 12, "name": "GPIO18", "offset": 18},
+               {"phys": 13, "name": "GPIO27", "offset": 27},
+               {"phys": 15, "name": "GPIO22", "offset": 22},
+               {"phys": 16, "name": "GPIO23", "offset": 23},
+               {"phys": 18, "name": "GPIO24", "offset": 24},
+               {"phys": 19, "name": "GPIO10", "offset": 10},
+               {"phys": 21, "name": "GPIO9",  "offset": 9},
+               {"phys": 22, "name": "GPIO25", "offset": 25},
+               {"phys": 23, "name": "GPIO11", "offset": 11},
+               {"phys": 24, "name": "GPIO8",  "offset": 8},
+               {"phys": 26, "name": "GPIO7",  "offset": 7},
+               {"phys": 27, "name": "GPIO0",  "offset": 0},
+               {"phys": 28, "name": "GPIO1",  "offset": 1},
+               {"phys": 29, "name": "GPIO5",  "offset": 5},
+               {"phys": 31, "name": "GPIO6",  "offset": 6},
+               {"phys": 32, "name": "GPIO12", "offset": 12},
+               {"phys": 33, "name": "GPIO13", "offset": 13},
+               {"phys": 35, "name": "GPIO19", "offset": 19},
+               {"phys": 36, "name": "GPIO16", "offset": 16},
+               {"phys": 37, "name": "GPIO26", "offset": 26},
+               {"phys": 38, "name": "GPIO20", "offset": 20},
+               {"phys": 40, "name": "GPIO21", "offset": 21}
+            ]
+        }
+    }
+}

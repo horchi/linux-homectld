@@ -29,7 +29,7 @@ OBJS         = $(MQTTOBJS) $(LOBJS) main.o daemon.o wsactions.o hass.o websock.o
 OBJS        += growatt.o
 OBJS        += specific.o gpio.o
 
-W1OBJS       = w1.o gpio.o lib/common.o lib/thread.o $(MQTTOBJS)
+W1OBJS       = w1.o gpio.o lib/common.o lib/json.o lib/thread.o $(MQTTOBJS)
 BMSOBJS      = bms.o lib/common.o lib/thread.o lib/serial.o $(MQTTOBJS)
 VOTROOBJS    = votro.o lib/common.o lib/thread.o lib/serial.o $(MQTTOBJS)
 VICTRONOBJS  = victron.o lib/common.o lib/thread.o lib/json.o lib/serial.o lib/victron/vecom.o lib/victron/veframehandler.o $(MQTTOBJS)
@@ -151,6 +151,7 @@ install-config:
 	   cat configs/daemon.conf | sed s:"<NAME>":$(NAME):g | install --mode=644 -C -D /dev/stdin $(CONFDEST)/daemon.conf; \
 	fi
 	install --mode=644 -D ./configs/*.dat $(CONFDEST)/;
+	install --mode=644 -D ./configs/gpio.json $(CONFDEST)/;
 	mkdir -p $(DESTDIR)/etc/rsyslog.d
 	cat contrib/rsyslog.conf | sed s:"<TARGET>":$(TARGET):g | install --mode=644 -C -D /dev/stdin $(DESTDIR)/etc/rsyslog.d/10-$(TARGET).conf; \
 	mkdir -p $(DESTDIR)/etc/logrotate.d

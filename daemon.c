@@ -664,7 +664,7 @@ int Daemon::initSensorByFact(myString type, uint address)
          else if (type == "DI" || type.starts_with("MCPI"))
          {
             sensors[type][address].invert = getBoolFromJson(jCal, "invert", true);
-            sensors[type][address].pull = (Pull)getIntFromJson(jCal, "pull");
+            sensors[type][address].pull = (PullUpDown)getIntFromJson(jCal, "pull");
             sensors[type][address].interrupt = getBoolFromJson(jCal, "interrupt");
 
             cfgInput(type, address, jCal);
@@ -2971,6 +2971,7 @@ int Daemon::loadHtmlHeader()
    if (fileExists(file))
    {
       MemoryStruct data;
+
       if (loadFromFile(file, &data) == success)
       {
          data.append("\0");
@@ -4487,6 +4488,9 @@ bool Daemon::gpioRead(uint pin, bool check)
 
    // tell(eloAlways, "Pin %d %d / %d", pin, sensors["DI"][pin].state, state);
 
+   sensors["DI"][pin].last = time(0);
+   sensors["DI"][pin].valid = true;
+
    if (check && sensors["DI"][pin].state == state)
       return state;
 
@@ -4494,8 +4498,6 @@ bool Daemon::gpioRead(uint pin, bool check)
       sensors["DI"][pin].changedAt = time(0);
 
    sensors["DI"][pin].state = state;
-   sensors["DI"][pin].last = time(0);
-   sensors["DI"][pin].valid = true;
 
    // check 'linked' output(s)
 

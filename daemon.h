@@ -202,7 +202,7 @@ class Daemon : public cWebInterface
          dirClose = 2
       };
 
-      enum Pull
+      enum PullUpDown
       {
          pullNone,  // 0
          pullUp,    // 1
@@ -248,7 +248,7 @@ class Daemon : public cWebInterface
          // specials
 
          bool invert {false};
-         Pull pull {pullUp};
+         PullUpDown pull {pullNone};
          bool impulse {false};      // change output only for a short impulse
          bool interrupt {false};
          bool interruptSet {false};

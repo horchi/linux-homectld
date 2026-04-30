@@ -736,7 +736,7 @@ int Daemon::performWifi(json_t* oObject, long client)
    std::string result {executeCommand("nmcli.asjson.sh wifi-con")};
    json_t* oConnections {jsonLoad(result.c_str())};
 
-   result = executeCommand("nmcli.asjson.sh wifi-list 2");
+   result = executeCommand("nmcli.asjson.sh wifi-list");
    json_t* oWifis {jsonLoad(result.c_str())};
 
    if (!oWifis)

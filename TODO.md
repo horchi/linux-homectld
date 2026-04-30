@@ -5,17 +5,14 @@
 
 # Important
 
-recover Output states also for MCPO !
+- recover Output states also for MCPO !
   -> move ioStates from config table in a new separate table with type, address as KEY to
      support all kind of outputs
 
 # General
 
 - auto setup standard Dashbord pages at first installation
-
-- add filter expression to systemd list view
 - add write of victron registers to WEBIF
-
 - hide widgets on condition like value < x, > y oder text is 'none', ...
 - scaling for charts / chart widgets
 

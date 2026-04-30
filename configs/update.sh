@@ -40,6 +40,7 @@ elif ping -q -c 1 -W 1 8.8.8.8 >/dev/null; then
    else
       # ${LOGGER} "update.sh: NO update pending, commit id is ${LOCAL}"
       COLOR="\"green\""
+      ${LOGGER} "update.sh: No update pending"
    fi
 
    STATE="true"

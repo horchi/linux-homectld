@@ -33,6 +33,7 @@ var images = [];
 var systemServices = [];
 var syslogs = [];
 var syslogFilter = "";
+var sysSvcFilter = "";
 var currentPage = "dashboard";
 var startPage = null;
 var actDashboard = -1;
@@ -1050,11 +1051,42 @@ function showWifiList()
 {
    // console.log("WifiList: " + JSON.stringify(wifis, undefined, 2));
 
+   $('#controlContainer').removeClass('hidden');
    $('#container').removeClass('hidden');
    $('#container').html('<div id="systemContainer"></div>');
 
    prepareSetupMenu();
 
+   $("#controlContainer")
+      .empty()
+      .append($('<div></div>')
+              .addClass('labelB1')
+              .html('Minimum Signal Strength'))
+      .append($('<select></select>')
+              .attr('id', 'wifiBarsFilter')
+              .addClass('input rounded-border')
+              .css('width', '100%')
+              .append($('<option></option>').val('all').html('All'))
+              .append($('<option></option>').val('4').html('Excellent'))
+              .append($('<option></option>').val('3').html('Good'))
+              .append($('<option></option>').val('2').html('Fair'))
+              .append($('<option></option>').val('1').html('Weak'))
+              .append($('<option></option>').val('0').html('Very Weak'))
+              .on('change', function() { updateWifiList(); }));
+
+   updateWifiList();
+}
+
+function getBarCount(barString)
+{
+   // Entferne alle Unterstriche und Leerzeichen
+   //   die verbleibenden Zeichen sind die Balken
+
+   return barString.replace(/[ _]/g, '').length;
+}
+
+function updateWifiList()
+{
    let html = '<div>';
 
    html += '  <div class="rounded-border seperatorFold">Wifi Networks</div>';
@@ -1071,8 +1103,20 @@ function showWifiList()
       '    </thead>' +
       '    <tbody>';
 
+   console.log("update wifi list");
+
    for (let i = 0; i < wifis.reachable.length; i++) {
       let wifi = wifis.reachable[i];
+      let barCount = getBarCount(wifi.bars);
+      let selectedBars = $('#wifiBarsFilter').val();
+
+      console.log("Check filter:", wifi.network, 'with', barCount, "by", selectedBars, '::', wifi.bars);
+
+      if (selectedBars !== 'all' && barCount < selectedBars) {
+         console.log("Filter:", barCount, "by", selectedBars);
+         continue;
+      }
+
       let known = isWifiKnown(wifi.network);
       let rowColor = wifi.active == 'yes' ? 'green' : '';
       let signalColor = parseInt(wifi.signal) >= 50 ? 'lightgreen' : parseInt(wifi.signal) >= 20 ? 'orange' : '';
@@ -1090,9 +1134,8 @@ function showWifiList()
    }
 
    html += '    </tbody>' +
-      '  </table>';
-
-   html += '</div>';
+       '  </table>' +
+       '</div>';
 
    $('#systemContainer').html(html)
       .addClass('setupContainer');
@@ -1144,14 +1187,65 @@ function showSystemServicesList()
 {
    // console.log("SystemServices: " + JSON.stringify(systemServices, undefined, 2));
 
+   $('#controlContainer').removeClass('hidden');
    $('#container').removeClass('hidden');
    $('#container').html('<div id="systemContainer"></div>');
 
    prepareSetupMenu();
 
+   $("#controlContainer")
+      .empty()
+      .append($('<div></div>')
+              .addClass('labelB1')
+              .html('Filter'))
+      .append($('<input></input>')
+              .attr('id', 'sysSvcFilter')
+              .attr('placeholder', 'expression...')
+              .attr('type', 'search')
+              .addClass('input rounded-border clearableOD')
+              .css('width', '-webkit-fill-available')
+              .css('width', '-moz-available')
+              .css('margin-bottom', '8px')
+              .val(sysSvcFilter)
+              .on('input', function() { updateSystemServiceList(); }))
+
+      .append($('<div></div>')
+              .addClass('button-group-spacing'))
+
+      .append($('<div></div>')
+              .addClass('labelB1')
+              .html('Status'))
+      .append($('<select></select>')
+              .attr('id', 'sysSvcStatusFilter')
+              .addClass('input rounded-border') // Nutzt deine vorhandenen Klassen
+              .css('width', '100%')
+              .css('margin-bottom', '8px')
+              .append($('<option></option>').val('all').html('All'))
+              .append($('<option></option>').val('active').html('Aktiv'))
+              .append($('<option></option>').val('enabled').html('Enabled'))
+              .append($('<option></option>').val('disabled').html('Disabled'))
+              .append($('<option></option>').val('static').html('Static'))
+              .append($('<option></option>').val('masked').html('Masked (Blocked)'))
+              .append($('<option></option>').val('inactive').html('Inactive'))
+              .append($('<option></option>').val('disabled').html(''))
+              .on('change', function() { updateSystemServiceList(); }));
+
+   updateSystemServiceList();
+}
+
+var sysSvcFilterExpression = null;
+
+function updateSystemServiceList()
+{
    // systemServices.sort(function(a, b) {
    //    return b.unitFileState.localeCompare(a.unitFileState);
    // });
+
+   sysSvcFilterExpression = null;
+   sysSvcFilter = $('#sysSvcFilter').val();
+
+   if (sysSvcFilter != '')
+      sysSvcFilterExpression = new RegExp(sysSvcFilter);
 
    let html = '<div>';
 
@@ -1169,9 +1263,36 @@ function showSystemServicesList()
 
    for (let i = 0; i < systemServices.length; i++) {
       let svc = systemServices[i];
-      let rowColor = svc.status == 'active' ? 'lightgreen' : 'var(--light4)';
+
+      let statusFilter = $('#sysSvcStatusFilter').val();        // 'all', 'active', ...
+
+      const fileSates = ['enabled', 'disabled', 'generated', 'static', 'masked'];
+
+      if (fileSates.includes(statusFilter)) {
+
+         // Installations-Status
+
+         if (svc.unitFileState != statusFilter)
+            continue;
+      }
+      else if (statusFilter != 'all') {
+
+         // Laufzeit-Status
+
+         if (svc.status != statusFilter)
+            continue;
+      }
+
+      // filter name expression
+
+      if (sysSvcFilterExpression &&
+          !sysSvcFilterExpression.test(svc.service) &&
+          !sysSvcFilterExpression.test(svc.title))
+         continue;
+
+      let rowColor = svc.unitFileState == 'disabled' || svc.unitFileState == 'masked' ? 'gray' : svc.status == 'active' ? 'lightgreen' : 'var(--light4)';
       // let action = svc.status == 'active' ? 'Stop' : 'Start';
-      let btnColor = svc.status == 'active' ? 'orange' : 'lightgreen';
+      // let btnColor = svc.status == 'active' ? 'orange' : 'lightgreen';
 
       html += '<tr style="height:28px;color:' + rowColor + ';">';
       html += ' <td>' + svc.service + '</td>';
@@ -1181,10 +1302,10 @@ function showSystemServicesList()
       html += '</tr>';
    }
 
-   html += '    </tbody>' +
-      '  </table>';
-
-   html += '</div>';
+   html +=
+      '    </tbody>' +
+      '  </table>' +
+      '</div>';
 
    $('#systemContainer').html(html)
       .addClass('setupContainer');

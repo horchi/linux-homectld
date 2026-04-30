@@ -65,8 +65,18 @@ All explanations about the hardware are only indications of how it is technicall
 ## Prerequisites:
 The described installation method and dependencies fit to ubuntu 24.04, the homectld work also with other Linux distributions
 
-Language pack 'de_DE.UTF-8' is required as language package (`dpkg-reconfigure locales`)
-Set system timezone, for example Berlin `timedatectl set-timezone Europe/Berlin`
+Language pack 'de_DE.UTF-8' is required as language package:
+```
+dpkg-reconfigure locales
+dpkg-reconfigure keyboard-configuration
+reboot
+```
+Quick fix without boot `setxkbmap de`
+
+Set system timezone, for example Berlin
+```
+timedatectl set-timezone Europe/Berlin
+```
 
 # Building and installing by source
 

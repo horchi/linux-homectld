@@ -59,6 +59,27 @@ json_t* jsonLoad(const char* data, size_t size)
 
 }
 
+//***************************************************************************
+// Load JSON Object from File
+//***************************************************************************
+
+json_t* jsonLoadFile(const char* path)
+{
+   json_t* jData {};
+   json_error_t error;
+
+   jData = json_load_file(path, 0, &error);
+
+   if (!jData)
+   {
+      tell(eloAlways, "Error: Ignoring invalid json in file '%s'", path);
+      tell(eloAlways, "Error decoding json: %s (%s, line %d column %d, position %d)",
+           error.text, error.source, error.line, error.column, error.position);
+   }
+
+   return jData;
+}
+
 #ifdef USEDB
 //***************************************************************************
 // Add field to json object

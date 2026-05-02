@@ -13,10 +13,6 @@
 #include <cmath>
 #include <libgen.h>
 
-// #ifndef _NO_RASPBERRY_PI_
-// #  include <wiringPi.h>
-// #endif
-
 #include "lib/curl.h"
 #include "lib/json.h"
 #include "lib/lua.h"
@@ -467,7 +463,8 @@ int Daemon::init()
 //    tell(eloAlways, ".. done");
 // #endif
 
-   gpio.init(confDir);
+   gpio = new Gpio(myName(), confDir);
+   gpio->init();
 
    // -------------------
    // init values
@@ -690,13 +687,13 @@ int Daemon::initSensorByFact(myString type, uint address)
 
 int Daemon::initOutput(uint pin, int outputModes, OutputMode mode, const char* name, uint rights)
 {
-   if (!gpio.pinAvailable(pin))
+   if (!gpio->pinAvailable(pin))
    {
       tell(eloAlways, "Info: Pin %d not available, skipping", pin);
       return fail;
    }
 
-   std::string n {std::string(name) + " " + std::to_string(pin) + "\n" + gpio.physPinToGpioName(pin)};
+   std::string n {std::string(name) + " " + std::to_string(pin) + "\n" + gpio->physPinToGpioName(pin)};
    addValueFact(pin, "DO", 1, n.c_str(), "", "", rights);
 
    // tell(eloDetail, "Info: initOutput 'DO:0x%x' to mode (%d)", pin, mode);
@@ -704,7 +701,7 @@ int Daemon::initOutput(uint pin, int outputModes, OutputMode mode, const char* n
    sensors["DO"][pin].outputModes = outputModes;
    sensors["DO"][pin].mode = mode;
 
-   gpio.pinMode(pin, Gpio::dirOut);
+   gpio->pinMode(pin, Gpio::dirOut);
    cfgOutput("DO", pin);
 
    if (!sensors["DO"][pin].impulse)
@@ -738,16 +735,16 @@ int Daemon::cfgOutput(myString type, uint pin, json_t* jCal)
 
 int Daemon::initInput(uint pin, const char* name)
 {
-   if (!gpio.pinAvailable(pin))
+   if (!gpio->pinAvailable(pin))
    {
       tell(eloAlways, "Info: Pin %d not available, skipping", pin);
       return fail;
    }
 
-   std::string n = std::string(name) + " " + std::to_string(pin) + "\n" + gpio.physPinToGpioName(pin);
+   std::string n = std::string(name) + " " + std::to_string(pin) + "\n" + gpio->physPinToGpioName(pin);
    addValueFact(pin, "DI", 1, n.c_str());
 
-   gpio.pinMode(pin, Gpio::dirIn);
+   gpio->pinMode(pin, Gpio::dirIn);
    cfgInput("DI", pin);
    gpioRead(pin);
 
@@ -764,17 +761,17 @@ int Daemon::cfgInput(myString type, uint pin, json_t* jCal)
    else if (type == "DI")
    {
       if (sensors[type][pin].pull != Gpio::pudOff)
-         gpio.pullUpDnControl(pin, sensors[type][pin].pull);
+         gpio->pullUpDnControl(pin, sensors[type][pin].pull);
 
 #ifndef _NO_RASPBERRY_PI_
       if (sensors[type][pin].active && sensors[type][pin].interrupt)
       {
-         tell(eloDebugWiringPi, "Debug: wiringPiISR(%d) (%s)", pin, gpio.physPinToGpioName(pin));
+         tell(eloDebugWiringPi, "Debug: wiringPiISR(%d) (%s)", pin, gpio->physPinToGpioName(pin));
 
          if (!sensors[type][pin].interruptSet)
          {
-            if (gpio.wiringPiISR(pin, Gpio::edgeBoth, &ioInterrupt) < 0)
-               tell(eloAlways, "Error: Unable to setup ISR to pin %d (%s)", pin, gpio.physPinToGpioName(pin));
+            if (gpio->wiringPiISR(pin, Gpio::edgeBoth, &ioInterrupt) < 0)
+               tell(eloAlways, "Error: Unable to setup ISR to pin %d (%s)", pin, gpio->physPinToGpioName(pin));
             else
                sensors[type][pin].interruptSet = true;
          }
@@ -4457,9 +4454,9 @@ void Daemon::gpioWrite(uint pin, bool state, bool saveIoState)
    if (sensors["DO"][pin].impulse)
    {
       tell(eloDebug, "Debug: Trigger impulse for DO:0x%02x", pin);
-      gpio.digitalWrite(pin, false);
+      gpio->digitalWrite(pin, false);
       usleep(50000); // 50 ms
-      gpio.digitalWrite(pin, true);
+      gpio->digitalWrite(pin, true);
 
       sensors["DO"][pin].state = true;
    }
@@ -4468,7 +4465,7 @@ void Daemon::gpioWrite(uint pin, bool state, bool saveIoState)
       // invert the state on 'invert' - most relay board are active at 'false'
 
       sensors["DO"][pin].state = state;
-      gpio.digitalWrite(pin, sensors["DO"][pin].invert ? !state : state);
+      gpio->digitalWrite(pin, sensors["DO"][pin].invert ? !state : state);
    }
 
    if (saveIoState)
@@ -4487,7 +4484,7 @@ void Daemon::gpioWrite(uint pin, bool state, bool saveIoState)
 
 bool Daemon::gpioRead(uint pin, bool check)
 {
-   int state {gpio.digitalRead(pin)};
+   int state {gpio->digitalRead(pin)};
 
    tell(eloAlways, "gpioRead (%d) = %d (invert = %d)", pin, state, sensors["DI"][pin].invert);
    if (sensors["DI"][pin].invert)

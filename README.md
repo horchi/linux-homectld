@@ -125,8 +125,8 @@ if the database is running remote, or you like to have remote access to the data
 ### install the build dependencies
 
 ```
-apt -y install build-essential libssl-dev libcurl4-openssl-dev uuid-dev libcap-dev libsystemd-dev cmake
-apt -y install libjansson-dev libmariadb-dev liblua5.3-dev mosquitto-clients jq jo bc aptitude util-linux-extra
+apt -y install build-essential libssl-dev libcurl4-openssl-dev uuid-dev libcap-dev libsystemd-dev cmake pkg-config
+apt -y install libjansson-dev libmariadb-dev liblua5.3-dev mosquitto-clients jq jo bc aptitude util-linux-extra libgpiod2 libgpiod-dev
 ```
 
 # If you integrate bluetooth devices

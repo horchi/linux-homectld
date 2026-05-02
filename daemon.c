@@ -687,13 +687,7 @@ int Daemon::initSensorByFact(myString type, uint address)
 
 int Daemon::initOutput(uint pin, int outputModes, OutputMode mode, const char* name, uint rights)
 {
-   if (!gpio->pinAvailable(pin))
-   {
-      tell(eloAlways, "Info: Pin %d not available, skipping", pin);
-      return fail;
-   }
-
-   std::string n {std::string(name) + " " + std::to_string(pin) + "\n" + gpio->physPinToGpioName(pin)};
+   std::string n {std::string(name) + " " + std::to_string(pin) + "\n" + gpio->pinToName(pin)};
    addValueFact(pin, "DO", 1, n.c_str(), "", "", rights);
 
    // tell(eloDetail, "Info: initOutput 'DO:0x%x' to mode (%d)", pin, mode);
@@ -735,13 +729,7 @@ int Daemon::cfgOutput(myString type, uint pin, json_t* jCal)
 
 int Daemon::initInput(uint pin, const char* name)
 {
-   if (!gpio->pinAvailable(pin))
-   {
-      tell(eloAlways, "Info: Pin %d not available, skipping", pin);
-      return fail;
-   }
-
-   std::string n = std::string(name) + " " + std::to_string(pin) + "\n" + gpio->physPinToGpioName(pin);
+   std::string n = std::string(name) + " " + std::to_string(pin) + "\n" + gpio->pinToName(pin);
    addValueFact(pin, "DI", 1, n.c_str());
 
    gpio->pinMode(pin, Gpio::dirIn);
@@ -754,9 +742,7 @@ int Daemon::initInput(uint pin, const char* name)
 int Daemon::cfgInput(myString type, uint pin, json_t* jCal)
 {
    if (type.starts_with("MCPI"))
-   {
       publishI2CSensorConfig(type.c_str(), pin, jCal);
-   }
 
    else if (type == "DI")
    {
@@ -766,12 +752,12 @@ int Daemon::cfgInput(myString type, uint pin, json_t* jCal)
 #ifndef _NO_RASPBERRY_PI_
       if (sensors[type][pin].active && sensors[type][pin].interrupt)
       {
-         tell(eloDebugWiringPi, "Debug: wiringPiISR(%d) (%s)", pin, gpio->physPinToGpioName(pin));
+         tell(eloDebugWiringPi, "Debug: wiringPiISR(%d) (%s)", pin, gpio->pinToName(pin).c_str());
 
          if (!sensors[type][pin].interruptSet)
          {
-            if (gpio->wiringPiISR(pin, Gpio::edgeBoth, &ioInterrupt) < 0)
-               tell(eloAlways, "Error: Unable to setup ISR to pin %d (%s)", pin, gpio->physPinToGpioName(pin));
+            if (gpio->setIsr(pin, Gpio::edgeBoth, &ioInterrupt) != success)
+               tell(eloAlways, "Error: Unable to setup ISR to pin %d (%s)", pin, gpio->pinToName(pin).c_str());
             else
                sensors[type][pin].interruptSet = true;
          }
@@ -4408,7 +4394,7 @@ int Daemon::toggleIoNext(uint pin)
    return success;
 }
 
-void Daemon::pin2Json(json_t* ojData, const char* type, int pin)
+void Daemon::pin2Json(json_t* ojData, const char* type, uint pin)
 {
    json_object_set_new(ojData, "address", json_integer(pin));
    json_object_set_new(ojData, "type", json_string(type));

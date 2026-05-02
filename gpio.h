@@ -86,6 +86,15 @@ class Gpio
       int nameToPin(const char* pinName);
       std::string pinToName(int physPin);
 
+      int setIsr(const char* pinName, Edge edge, void (*func)(void));
+      int setIsr(int physPin, Edge edge, void (*func)(void));
+
+      bool digitalRead(int physPin);
+      int digitalWrite(int physPin, bool value);
+      int digitalToggle(int physPin);
+      int pinMode(int physPin, Direction direction);
+      int pullUpDnControl(int physPin, PullUpDown value);
+
    private:
 
       struct PinState

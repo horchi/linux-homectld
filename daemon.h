@@ -336,10 +336,10 @@ class Daemon : public cWebInterface
       virtual int applyConfigurationSpecials() { return done; }
 
       int initSensorByFact(myString type, uint address);
-      int initOutput(const char* pin, int outputModes, OutputMode mode, const char* name, uint rights = urControl);
-      int initInput(const char* pin, const char* name);
-      int cfgOutput(myString type, const char* pin, json_t* jCal = nullptr);
-      int cfgInput(myString type, const char* pin, json_t* jCal = nullptr);
+      int initOutput(uint pin, int outputModes, OutputMode mode, const char* name, uint rights = urControl);
+      int initInput(uint pin, const char* name);
+      int cfgOutput(myString type, uint pin, json_t* jCal = nullptr);
+      int cfgInput(myString type, uint pin, json_t* jCal = nullptr);
 
       int initScripts();
 
@@ -423,10 +423,10 @@ class Daemon : public cWebInterface
       bool doShutDown() { return shutdown; }
 
       void publishVictronInit(const char* type);
-      void publishI2CSensorConfig(const char* type, const char* pin, json_t* jParameters);
-      void publishPin(const char* type, const char* pin);
-      void gpioWrite(const char* pin, bool state, bool saveIoState = true);
-      bool gpioRead(const char* pin, bool check = false);
+      void publishI2CSensorConfig(const char* type, uint pin, json_t* jParameters);
+      void publishPin(const char* type, uint pin);
+      void gpioWrite(uint pin, bool state, bool saveIoState = true);
+      bool gpioRead(uint pin, bool check = false);
       virtual void logReport() { return ; }
 
       // web
@@ -496,7 +496,7 @@ class Daemon : public cWebInterface
       int sensor2Json(json_t* obj, const char* type, uint address);
       int systemServices2Json(json_t* obj);
       int images2Json(json_t* obj);
-      void pin2Json(json_t* ojData, const char* type, const char* pin);
+      void pin2Json(json_t* ojData, const char* type, uint pin);
       void publishSpecialValue(int addr);
       bool webFileExists(const char* file, const char* base = nullptr);
 
@@ -509,8 +509,8 @@ class Daemon : public cWebInterface
       const char* getImageFor(const char* type, const char* title, const char* unit, int value);
       int toggleIo(uint addr, const char* type, int state = na, int bri = na, int transitiontime = na);
       int toggleColor(uint addr, const char* type, int color, int sat, int bri);
-      int toggleIoNext(const char* pin);
-      int toggleOutputMode(const char* pin);
+      int toggleIoNext(uint pin);
+      int toggleOutputMode(uint pin);
 
       virtual int loadIoState(const char* type, uint address, bool& state, OutputMode& mode);
       virtual int loadIoStates();

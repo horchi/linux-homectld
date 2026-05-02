@@ -556,6 +556,25 @@ int Gpio::setupPin(const char* pinName, Direction dir, Edge edge, PullUpDown pud
 #endif
 }
 
+int Gpio::setIsr(const char* pinName, Edge edge, void (*func)(void))
+{
+    if (!pinName || !*pinName)
+    {
+        tell(0, "GPIO: setIsr() invalid pinName");
+        return -1;
+    }
+
+    int physPin = nameToPin(pinName);
+    if (physPin <= 0)
+    {
+        tell(0, "GPIO: setIsr('%s') unknown pin", pinName);
+        return -1;
+    }
+
+    // Wir nutzen die physische ISR-Implementierung
+    return setIsrPhys(physPin, edge, func);
+}
+
 //***************************************************************************
 // Digital Read
 //***************************************************************************
@@ -982,4 +1001,65 @@ std::string Gpio::pinToName(int physPin)
    }
 
    return "";
+}
+
+bool Gpio::digitalRead(int physPin)
+{
+    std::string name = pinToName(physPin);
+
+    if (name.empty())
+    {
+        tell(0, "GPIO: digitalRead(%d) unknown pin", physPin);
+        return false;
+    }
+
+    return digitalRead(name.c_str());
+}
+
+int Gpio::digitalWrite(int physPin, bool value)
+{
+    std::string name = pinToName(physPin);
+    if (name.empty())
+    {
+        tell(0, "GPIO: digitalWrite(%d) unknown pin", physPin);
+        return -1;
+    }
+
+    return digitalWrite(name.c_str(), value);
+}
+
+int Gpio::digitalToggle(int physPin)
+{
+    std::string name = pinToName(physPin);
+    if (name.empty())
+    {
+        tell(0, "GPIO: digitalToggle(%d) unknown pin", physPin);
+        return -1;
+    }
+
+    return digitalToggle(name.c_str());
+}
+
+int Gpio::pinMode(int physPin, Direction direction)
+{
+    std::string name = pinToName(physPin);
+    if (name.empty())
+    {
+        tell(0, "GPIO: pinMode(%d) unknown pin", physPin);
+        return -1;
+    }
+
+    return pinMode(name.c_str(), direction);
+}
+
+int Gpio::pullUpDnControl(int physPin, PullUpDown value)
+{
+    std::string name = pinToName(physPin);
+    if (name.empty())
+    {
+        tell(0, "GPIO: pullUpDnControl(%d) unknown pin", physPin);
+        return -1;
+    }
+
+    return pullUpDnControl(name.c_str(), value);
 }

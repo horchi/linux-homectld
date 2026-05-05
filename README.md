@@ -194,7 +194,7 @@ make install
 Now the home control daemon is installed in folder `/usr/local/bin`
 Check `/etc/homectld/daemon.conf` file for setting of your database login. If you have used the defaults above no change is needed.
 
-# One Wire Sensors:
+# One Wire Sensors
 
 ### Enable One Wire Sensors at your Raspberry PI
 To make the sensors available to the Raspberry PI you have to load the `w1-gpio` module by registering it in `/etc/modules`
@@ -221,6 +221,62 @@ Reboot to apply this settings!
 
 The homectld checks automatically if there are 'One Wire Sensors' connected, each detected sensor will be
 configurable via the web interface.
+
+# I2c Bus
+
+## Rasperyy Pi
+
+How to enable i2c on a Rasperyy Pi is well documented in the www
+
+## Odroid
+
+for Odroid I use Armbian (noble), you find a script to check the i2c bus in the contrib folder.
+It supports the n2+ and the m1!
+To check:
+```
+./contrib/check-i2c-header.sh
+...
+...
+=== Ergebnis: I2C auf Pins 3/5 verfügbar ===
+    Scan: i2cdetect -y 2
+```
+-> all fine. If Not try to fix the device tree by calling:
+```
+./contrib/armbian-enable-header-i2c.sh
+Board: Hardkernel ODROID-N2Plus
+
+→ N2+ erkannt: DTB-Patch
+
+DTB: /boot/dtb/amlogic/meson-g12b-odroid-n2-plus.dtb (→ /boot/dtb-6.18.8-current-meson64/amlogic/meson-g12b-odroid-n2-plus.dtb)
+i2c2_sda_x phandle: 0x82  (130)
+i2c2_sck_x phandle: 0x83  (131)
+Aktuell status:    status=okay
+Aktuell pinctrl-0:                              pinctrl-0 = <0x82 0x83>;
+Bereits korrekt — kein Patch nötig.
+```
+
+If you use the i2c2mqtt service shipped with the homectld you hav to use tbe i2c bus number provided by the
+check scipt, in case of the output above 2. Therefor use the device /dev/i2c-2.
+
+To scan the bus:
+```
+root@odroidn2 (gpiod-dev u=) ~/source/homectld> i2cmqtt -d /dev/i2c-2 -S
+start scan of i2c device '/dev/i2c-2' ..
+0x38
+.. done
+```
+And to read this sensor (In my case it's a DHT20) call:
+```
+root@odroidn2 (gpiod-dev u=) ~/source/homectld> i2cmqtt -d /dev/i2c-2 --dht 0x38 -s
+-----------------------
+DHT38
+Temperature 23.95 °C
+Humidity 51 %
+-----------------------
+```
+calling:
+```i2cmqtt --help```
+show the options and supported sensor types. You can start it as a service anbs provide the data by MQTT to the homerctld.
 
 # Time to first start of homectld
 ```

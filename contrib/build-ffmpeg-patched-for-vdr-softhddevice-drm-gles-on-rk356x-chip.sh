@@ -97,7 +97,9 @@ apply_dir "../$PATCH_BASE/libreelec"
 
 # RK356X spezifisch (laut package.mk Zeile 35)
 apply_patch "../$PATCH_BASE/v4l2-request/ffmpeg-001-v4l2-request.patch"
-apply_patch "../$PATCH_BASE/detlev/ffmpeg-0001-wip-hevc-Add-support-for-sps_st_rps-control.patch"
+# detlev-Patch erfordert v4l2_ctrl_hevc_ext_sps_st_rps — fehlt im Armbian-Kernel
+# Kernel-Patch wäre nötig, aber riskant (Header, GPIO, W1, I2C, NetworkManager etc.)
+# apply_patch "../$PATCH_BASE/detlev/ffmpeg-0001-wip-hevc-Add-support-for-sps_st_rps-control.patch"
 apply_patch "../$PATCH_BASE/v4l2-drmprime/ffmpeg-001-v4l2-drmprime.patch"
 apply_dir  "../$PATCH_BASE/vf-deinterlace-v4l2m2m"
 

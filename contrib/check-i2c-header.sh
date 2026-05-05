@@ -3,6 +3,7 @@
 # Generisch für Armbian auf beliebigen Boards
 
 RC=0
+HEADER_I2C_NODE=""
 
 echo "=== I2C Header-Check ==="
 echo ""
@@ -100,6 +101,7 @@ if command -v dtc >/dev/null 2>&1 && [[ -n "$DTB" && -f "$DTB" ]]; then
         SDA_HEX=$(echo "$dts" | grep -A5 "i2c-ao-sda {" | grep -oP 'phandle = <\K0x[0-9a-f]+' | head -1)
         SCK_HEX=$(echo "$dts" | grep -A5 "i2c-ao-sck {" | grep -oP 'phandle = <\K0x[0-9a-f]+' | head -1)
 
+        HEADER_I2C_NODE="i2c@5000"
         echo "  [N2+] i2c@5000 (Pins 3/5): $status | $pinctrl"
         if echo "$pinctrl" | grep -q "$SDA_HEX" && echo "$pinctrl" | grep -q "$SCK_HEX"; then
             echo "  [OK]  pinctrl-0 korrekt ($SDA_HEX $SCK_HEX)"
@@ -140,6 +142,7 @@ if command -v dtc >/dev/null 2>&1 && [[ -n "$DTB" && -f "$DTB" ]]; then
             RC=1
         fi
         # Live-Status des ermittelten Header-I2C-Node
+        [[ -n "$i2c_addr" ]] && HEADER_I2C_NODE="i2c@${i2c_addr}"
         if [[ -n "$i2c_addr" ]]; then
             live_status=$(echo "$live_dts" | awk "/i2c@${i2c_addr} \{/,/^\s*\};/" | grep "status" | head -1 | tr -d ' \t;')
             echo "  [M1]  i2c@${i2c_addr} (Pins 3/5): ${live_status:-nicht gefunden}"
@@ -172,6 +175,23 @@ else
     RC=1
 fi
 
+# 9. Header-Bus-Nummer aus of_node-Symlinks ermitteln
+header_bus=""
+if [[ -n "$HEADER_I2C_NODE" ]]; then
+    for link in /sys/bus/i2c/devices/i2c-*/of_node; do
+        [[ -e "$link" ]] || continue
+        if readlink "$link" 2>/dev/null | grep -q "${HEADER_I2C_NODE}"; then
+            header_bus=$(echo "$link" | grep -oP '(?<=i2c-)\d+')
+            break
+        fi
+    done
+fi
+
 echo ""
-echo "=== Ergebnis: $([ $RC -eq 0 ] && echo 'I2C auf Pins 3/5 verfügbar' || echo 'Probleme gefunden — siehe oben') ==="
+if [[ -n "$header_bus" ]]; then
+    echo "=== Ergebnis: $([ $RC -eq 0 ] && echo 'I2C auf Pins 3/5 verfügbar' || echo 'Probleme gefunden — siehe oben') ==="
+    echo "    Scan: i2cdetect -y $header_bus"
+else
+    echo "=== Ergebnis: $([ $RC -eq 0 ] && echo 'I2C auf Pins 3/5 verfügbar' || echo 'Probleme gefunden — siehe oben') ==="
+fi
 exit $RC

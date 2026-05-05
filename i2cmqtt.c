@@ -907,7 +907,10 @@ int main(int argc, char** argv)
    job->initAds(adsConfig);
 
    if (showMode)
+   {
+      logstdout = true;
       return job->show();
+   }
 
    // register SIGINT
 

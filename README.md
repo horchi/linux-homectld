@@ -131,16 +131,32 @@ apt -y install libjansson-dev libmariadb-dev liblua5.3-dev mosquitto-clients jq 
 
 # If you integrate bluetooth devices
 
-```apt -y install libbluetooth-dev```
+```
+apt -y install libbluetooth-dev
+```
 
 # If you NOT use a global mosquitto borker somewhere in your local network
-```apt -y install mosquitto```
+```
+apt -y install mosquitto
+```
 
 #### Raspberry Pi
+
+Mit libgpiod (besser) - zwingend Version 2 !
+```
+apt -y install libgpiod-dev
+```
+zur Not fallback auf wiringpi
 ```
 apt -y install wiringpi
 ```
-#### Odroid with Ubuntu
+#### Odroid
+
+Mit libgpiod (besser) - zwingend Version 2 !
+```
+apt -y install libgpiod-dev
+```
+zur Not fallback auf wiringpi
 ```
 apt -y install libwiringpi-dev libwiringpi2 odroid-wiringpi
 ```
@@ -150,7 +166,9 @@ We need to install it manually in case the version shipped with the distribution
 (we need at least version v4.3.0)
 
 if the version shipped with the distribution is okay simple
-```apt -y install libwebsockets-dev```
+```
+apt -y install libwebsockets-dev
+```
 
 else get it from git
 ```

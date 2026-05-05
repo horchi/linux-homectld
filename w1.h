@@ -59,7 +59,7 @@ class W1
 
       int mqttConnection();
 
-      Gpio gpio;
+      Gpio* gpio {};
       char* w1Path {};
       SensorList sensors;
       const char* mqttUrl {};

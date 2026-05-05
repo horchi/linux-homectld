@@ -59,6 +59,16 @@ typedef short sword;
 typedef unsigned int dword;
 
 //***************************************************************************
+// Bit handling
+//***************************************************************************
+
+#define bitSet(value, bit)   (value |= (1UL << bit))
+#define bitClear(value, bit) (value &= ~(1UL << bit))
+#define bitRead(value, bit)  ((value >> bit) & 0x01)
+#define lowByte(word)        ((uint8_t)(word & 0xff))
+#define highByte(word)       ((uint8_t)(word >> 8))
+
+//***************************************************************************
 //
 //***************************************************************************
 

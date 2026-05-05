@@ -7,10 +7,6 @@
 
 #pragma once
 
-//***************************************************************************
-// Include
-//***************************************************************************
-
 #include <jansson.h>
 
 #ifdef USEDB
@@ -24,7 +20,7 @@
 //***************************************************************************
 
 int json2Data(json_t* obj, MemoryStruct* data, const char* encoding = 0);
-json_t* jsonLoad(const char* data, size_t size = 0);
+json_t* jsonLoad(const char* data, size_t size = 0, bool silent = false);
 json_t* jsonLoadFile(const char* path);
 
 #ifdef USEDB

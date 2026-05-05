@@ -64,8 +64,8 @@ int W1::loop()
    const int updateCycle {10};   // seconds
 
    // wiringPiSetupPhys();                  // we use the 'physical' PIN numbers
-   gpio.pinMode(w1PowerPin, Gpio::dirOut);
-   gpio.digitalWrite(w1PowerPin, false);    // false -> on
+   gpio->pinMode(w1PowerPin, Gpio::dirOut);
+   gpio->digitalWrite(w1PowerPin, false);    // false -> on
 
    while (!doShutDown())
    {
@@ -155,9 +155,9 @@ int W1::check()
       tell(eloAlways, "Warning: %d W1 sensors present, expecting %d, "
            "reseting power line to force a re-initialization, standby for 10 seconds",
            count, w1Count);
-      gpio.digitalWrite(w1PowerPin, true);     // true -> off
+      gpio->digitalWrite(w1PowerPin, true);     // true -> off
       sleep(2);
-      gpio.digitalWrite(w1PowerPin, false);    // false -> on
+      gpio->digitalWrite(w1PowerPin, false);    // false -> on
 
       tell(eloAlways, "Warning: W1 power line at pin (%d) reseted, standby for 20 seconds", w1PowerPin);
       sleep(20);

@@ -37,6 +37,9 @@ I2COBJS      = i2cmqtt.o gpio.o lib/common.o lib/json.o lib/thread.o lib/i2c/i2c
 
 CFLAGS      += $(shell $(SQLCFG) --include)
 
+GPIOTSTOBJS   = gpio-test.o gpio.o lib/common.o lib/json.o
+GPIOTSTTARGET = gpiotst
+
 # main taget
 
 all: $(TARGET) $(W1TARGET) $(BMSTARGET) $(VOTROTARGET) $(VICTRONTARGET) $(I2CTARGET) $(ARDUINO_IF_CMD)
@@ -61,6 +64,9 @@ endif
 
 $(TARGET) : $(OBJS)
 	$(doLink) $(OBJS) $(LIBS) -o $@
+
+$(GPIOTSTTARGET): $(GPIOTSTOBJS)
+	$(doLink) $(GPIOTSTOBJS) $(LIBS) -o $@
 
 $(W1TARGET): $(W1OBJS)
 	$(doLink) $(W1OBJS) $(LIBS) -o $@

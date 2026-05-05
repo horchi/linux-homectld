@@ -37,7 +37,7 @@ int json2Data(json_t* obj, MemoryStruct* data, const char* encoding)
 // Load JSON Object from String
 //***************************************************************************
 
-json_t* jsonLoad(const char* data, size_t size)
+json_t* jsonLoad(const char* data, size_t size, bool silent)
 {
    json_t* jData {};
    json_error_t error;
@@ -47,16 +47,14 @@ json_t* jsonLoad(const char* data, size_t size)
    else
       jData = json_loads(data, 0, &error);
 
-   if (!jData)
+   if (!jData && !silent)
    {
       tell(eloAlways, "Error: Ignoring invalid json in '%s' [%s]", data, getBacktrace(5).c_str());
       tell(eloAlways, "Error decoding json: %s (%s, line %d column %d, position %d)",
            error.text, error.source, error.line, error.column, error.position);
-      return nullptr;
    }
 
    return jData;
-
 }
 
 //***************************************************************************

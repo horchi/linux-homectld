@@ -84,7 +84,7 @@ class I2CMqtt
       int performMqttRequests();
       int dispatchMqttMessage(const char* message);
 
-      Gpio gpio;
+      Gpio* gpio {};
       const char* mqttUrl {};
       Mqtt* mqttWriter {};
       Mqtt* mqttReader {};
@@ -227,11 +227,11 @@ int I2CMqtt::initMcp(const char* config)
       mcp->clearInterrupts();
    }
 
-   gpio.pinMode(pinMcpIrq, Gpio::dirIn);
-   gpio.pullUpDnControl(pinMcpIrq, Gpio::pudUp);
+   gpio->pinMode(pinMcpIrq, Gpio::dirIn);
+   gpio->pullUpDnControl(pinMcpIrq, Gpio::pudUp);
 
-   if (gpio.wiringPiISR(pinMcpIrq, Gpio::edgeBoth, &ioInterrupt) < 0)
-      tell(eloAlways, "Error: Unable to setup ISR to pin '%s'", gpio.physPinToGpioName(pinMcpIrq));
+   if (gpio->setIsr(pinMcpIrq, Gpio::edgeBoth, &ioInterrupt) < 0)
+      tell(eloAlways, "Error: Unable to setup ISR to pin '%s'", gpio->pinToName(pinMcpIrq).c_str());
 
    return done;
 }

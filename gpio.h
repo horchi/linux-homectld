@@ -8,11 +8,8 @@
 
 #pragma once
 
-#pragma once
-
 #include <string>
 #include <map>
-#include <vector>
 #include <functional>
 #include <thread>
 
@@ -28,12 +25,10 @@
 
 struct PinInfo
 {
-   int phys;
-   std::string direction;
-   std::string pull;
+   std::string name;
+   bool gpio;
+   bool pull;
    bool interrupt;
-   bool oneWire;
-   bool safeForOutput;
    std::string voltage;
    std::string description;
    bool blocked;
@@ -44,77 +39,53 @@ class Gpio
 {
    public:
 
-      enum Direction
-      {
-         dirIn,
-         dirOut
-      };
-
-      enum PullUpDown
-      {
-         pudOff  = 0,
-         pudUp   = 1,
-         pudDown = 2
-      };
-
-      enum Edge
-      {
-         edgeNone,
-         edgeRising,
-         edgeFalling,
-         edgeBoth
-      };
+      enum Direction  { dirIn, dirOut };
+      enum PullUpDown { pudOff = 0, pudUp = 1, pudDown = 2 };
+      enum Edge       { edgeNone, edgeRising, edgeFalling, edgeBoth };
 
       Gpio(const char* consumerName, const char* confPath);
       ~Gpio();
 
-      int init();
+      int  init();
 
-      int setupPin(const char* pinName, Direction dir, Edge edge, PullUpDown pud);
-      bool pinAvailable(const char* pinName) { return true; } // #TODO to be implemented
-      bool digitalRead(const char* pinName);
-      int  digitalWrite(const char* pinName, bool value);
-      int  digitalToggle(const char* pinName);
-
-      int pinMode(const char* pinName, Direction direction);
-      int pullUpDnControl(const char* pinName, PullUpDown value);
-
-      int enableInterrupt(const char* pinName, std::function<void(const char* pinName, bool value)> cb);
-      int disableInterrupt(const char* pinName);
-
-      int getPinList(std::map<std::string, PinInfo>& out);
-      int nameToPin(const char* pinName);
-      std::string pinToName(int physPin);
-
-      int setIsr(const char* pinName, Edge edge, void (*func)(void));
-      int setIsr(int physPin, Edge edge, void (*func)(void));
-
+      int  setupPin(int physPin, Direction dir, Edge edge, PullUpDown pud);
+      bool pinAvailable(int physPin);
       bool digitalRead(int physPin);
-      int digitalWrite(int physPin, bool value);
-      int digitalToggle(int physPin);
-      int pinMode(int physPin, Direction direction);
-      int pullUpDnControl(int physPin, PullUpDown value);
+      int  digitalWrite(int physPin, bool value);
+      int  digitalToggle(int physPin);
+      int  pinMode(int physPin, Direction direction);
+      int  pullUpDnControl(int physPin, PullUpDown value);
+      int  enableInterrupt(int physPin, std::function<void(int physPin, bool value)> cb);
+      int  disableInterrupt(int physPin);
+      int  setIsr(int physPin, Edge edge, void (*func)(void));
+      int         getPinList(std::map<int, PinInfo>& out);
+      std::string pinToName(int physPin);
 
    private:
 
       struct PinState
       {
 #if defined(GPIOD)
-         gpiod_chip* chip{};
+         gpiod_chip*         chip{};
          gpiod_line_request* request{};
-         unsigned int offset{};
+         unsigned int        offset{};
 #endif
-         bool initialized{};
-         Direction direction{};
-         PullUpDown pud{};
-         Edge edge{};
+         bool        initialized{};
+         Direction   direction{};
+         PullUpDown  pud{};
+         Edge        edge{};
          std::thread* thread{};
-         bool threadRunning{};
-         bool lastValue{};
-         std::function<void(const char* pinName, bool value)> callback{};
+         bool        threadRunning{};
+         bool        lastValue{};
+         std::function<void(int physPin, bool value)> callback{};
       };
 
-      std::string normalize(const char* pinName);
+#if defined(GPIOD)
+      struct PhysEntry { std::string chipPath; unsigned int offset; };
+      int buildPhysMap();
+      static gpiod_chip* findChipForLine(const char* lineName, unsigned int* offsetOut);
+      std::map<int, PhysEntry> physToChip;
+#endif
 
       int loadMapping();
       int loadJsonForModel(json_t* root, const std::string& model);
@@ -125,6 +96,6 @@ class Gpio
       std::string modelName;
 
       bool mappingLoaded{};
-      std::map<std::string, PinInfo> pinMapping;
-      std::map<std::string, PinState> pins;
+      std::map<int, PinInfo>  pinMapping;
+      std::map<int, PinState> pins;
 };

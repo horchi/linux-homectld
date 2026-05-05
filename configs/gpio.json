@@ -3,193 +3,136 @@
       {
          "models": ["Raspberry Pi 4", "Raspberry Pi 5"],
          "pins": {
-            "3V3_1":  { "phys": 1,  "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "3.3V", "description": "3.3V Power" },
-            "5V_2":   { "phys": 2,  "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "5V",   "description": "5V Power" },
-
-            "GPIO2":  { "phys": 3,  "direction": "inout", "pull": "off", "interrupt": true,  "oneWire": false, "safeForOutput": false, "voltage": "3.3V", "description": "I2C SDA1" },
-            "5V_4":   { "phys": 4,  "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "5V",   "description": "5V Power" },
-
-            "GPIO3":  { "phys": 5,  "direction": "inout", "pull": "off", "interrupt": true,  "oneWire": false, "safeForOutput": false, "voltage": "3.3V", "description": "I2C SCL1" },
-            "GND_6":  { "phys": 6,  "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-
-            "GPIO4":  { "phys": 7,  "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": true, "safeForOutput": true, "voltage": "3.3V", "description": "GPIO4 (1-Wire)" },
-            "GPIO14": { "phys": 8,  "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "UART TXD0" },
-
-            "GND_9":  { "phys": 9,  "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-            "GPIO15": { "phys": 10, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "UART RXD0" },
-
-            "GPIO17": { "phys": 11, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIO17" },
-            "GPIO18": { "phys": 12, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIO18 (PWM)" },
-
-            "GPIO27": { "phys": 13, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIO27" },
-            "GND_14": { "phys": 14, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-
-            "GPIO22": { "phys": 15, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIO22" },
-            "GPIO23": { "phys": 16, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIO23" },
-
-            "3V3_17": { "phys": 17, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "3.3V", "description": "3.3V Power" },
-            "GPIO24": { "phys": 18, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIO24" },
-
-            "GPIO10": { "phys": 19, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "SPI MOSI" },
-            "GND_20": { "phys": 20, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-
-            "GPIO9":  { "phys": 21, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "SPI MISO" },
-            "GPIO25": { "phys": 22, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIO25" },
-
-            "GPIO11": { "phys": 23, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "SPI CLK" },
-            "GPIO8":  { "phys": 24, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "SPI CE0" },
-
-            "GND_25": { "phys": 25, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-            "GPIO7":  { "phys": 26, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "SPI CE1" },
-
-            "ID_SD":  { "phys": 27, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "3.3V", "description": "ID EEPROM SDA (do not use)" },
-            "ID_SC":  { "phys": 28, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "3.3V", "description": "ID EEPROM SCL (do not use)" },
-
-            "GPIO5":  { "phys": 29, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIO5" },
-            "GND_30": { "phys": 30, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-
-            "GPIO6":  { "phys": 31, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIO6" },
-            "GPIO12": { "phys": 32, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIO12 (PWM)" },
-
-            "GPIO13": { "phys": 33, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIO13 (PWM)" },
-            "GND_34": { "phys": 34, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-
-            "GPIO19": { "phys": 35, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIO19 (PWM)" },
-            "GPIO16": { "phys": 36, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIO16" },
-
-            "GPIO26": { "phys": 37, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIO26" },
-            "GPIO20": { "phys": 38, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIO20" },
-
-            "GND_39": { "phys": 39, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-            "GPIO21": { "phys": 40, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIO21" }
+            "1":  { "name": "3V3",    "gpio": false, "pull": false, "interrupt": false, "voltage": "3.3V", "description": "3.3V Power" },
+            "2":  { "name": "5V",     "gpio": false, "pull": false, "interrupt": false, "voltage": "5V",   "description": "5V Power" },
+            "3":  { "name": "GPIO2",  "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "I2C SDA1" },
+            "4":  { "name": "5V",     "gpio": false, "pull": false, "interrupt": false, "voltage": "5V",   "description": "5V Power" },
+            "5":  { "name": "GPIO3",  "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "I2C SCL1" },
+            "6":  { "name": "GND",    "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "7":  { "name": "GPIO4",  "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "GPIO4 (W1)" },
+            "8":  { "name": "GPIO14", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "UART TXD0" },
+            "9":  { "name": "GND",    "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "10": { "name": "GPIO15", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "UART RXD0" },
+            "11": { "name": "GPIO17", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "GPIO17" },
+            "12": { "name": "GPIO18", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "GPIO18 (PWM)" },
+            "13": { "name": "GPIO27", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "GPIO27" },
+            "14": { "name": "GND",    "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "15": { "name": "GPIO22", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "GPIO22" },
+            "16": { "name": "GPIO23", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "GPIO23" },
+            "17": { "name": "3V3",    "gpio": false, "pull": false, "interrupt": false, "voltage": "3.3V", "description": "3.3V Power" },
+            "18": { "name": "GPIO24", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "GPIO24" },
+            "19": { "name": "GPIO10", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "SPI MOSI" },
+            "20": { "name": "GND",    "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "21": { "name": "GPIO9",  "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "SPI MISO" },
+            "22": { "name": "GPIO25", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "GPIO25" },
+            "23": { "name": "GPIO11", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "SPI CLK" },
+            "24": { "name": "GPIO8",  "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "SPI CE0" },
+            "25": { "name": "GND",    "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "26": { "name": "GPIO7",  "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "SPI CE1" },
+            "27": { "name": "ID_SD",  "gpio": false, "pull": false, "interrupt": false, "voltage": "3.3V", "description": "ID EEPROM SDA (do not use)" },
+            "28": { "name": "ID_SC",  "gpio": false, "pull": false, "interrupt": false, "voltage": "3.3V", "description": "ID EEPROM SCL (do not use)" },
+            "29": { "name": "GPIO5",  "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "GPIO5" },
+            "30": { "name": "GND",    "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "31": { "name": "GPIO6",  "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "GPIO6" },
+            "32": { "name": "GPIO12", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "GPIO12 (PWM)" },
+            "33": { "name": "GPIO13", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "GPIO13 (PWM)" },
+            "34": { "name": "GND",    "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "35": { "name": "GPIO19", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "GPIO19 (PWM)" },
+            "36": { "name": "GPIO16", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "GPIO16" },
+            "37": { "name": "GPIO26", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "GPIO26" },
+            "38": { "name": "GPIO20", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "GPIO20" },
+            "39": { "name": "GND",    "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "40": { "name": "GPIO21", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "GPIO21" }
          }
       },
       {
          "models": ["ODROID-N2", "ODROID-N2+"],
          "pins": {
-            "3V3_1":  { "phys": 1,  "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "3.3V", "description": "3.3V Power" },
-            "5V_2":   { "phys": 2,  "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "5V",   "description": "5V Power" },
-
-            "I2C_SDA": { "phys": 3, "direction": "inout", "pull": "off", "interrupt": true, "oneWire": false, "safeForOutput": false, "voltage": "3.3V", "description": "I2C SDA" },
-            "5V_4":    { "phys": 4, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "5V",   "description": "5V Power" },
-
-            "I2C_SCL": { "phys": 5, "direction": "inout", "pull": "off", "interrupt": true, "oneWire": false, "safeForOutput": false, "voltage": "3.3V", "description": "I2C SCL" },
-            "GND_6":   { "phys": 6, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-
-            "GPIOX3":  { "phys": 7, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOX3" },
-            "UART_TX": { "phys": 8, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "UART TX" },
-
-            "GND_9":   { "phys": 9, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-            "UART_RX": { "phys": 10, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "UART RX" },
-
-            "GPIOX19": { "phys": 11, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOX19" },
-            "GPIOX18": { "phys": 12, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOX18" },
-
-            "GPIOX21": { "phys": 13, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOX21" },
-            "GND_14":  { "phys": 14, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-
-            "GPIOX23": { "phys": 15, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOX23" },
-            "GPIOX22": { "phys": 16, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOX22" },
-
-            "3V3_17":  { "phys": 17, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "3.3V", "description": "3.3V Power" },
-            "GPIOX0":  { "phys": 18, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOX0" },
-
-            "GPIOA0":  { "phys": 19, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "SPI MOSI (GPIOA0)" },
-            "GND_20":  { "phys": 20, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-
-            "GPIOA1":  { "phys": 21, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "SPI MISO (GPIOA1)" },
-            "GPIOX1":  { "phys": 22, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOX1" },
-
-            "GPIOA2":  { "phys": 23, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "SPI CLK (GPIOA2)" },
-            "GPIOA3":  { "phys": 24, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "SPI CS0 (GPIOA3)" },
-
-            "GND_25":  { "phys": 25, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-            "GPIOA4":  { "phys": 26, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "SPI CS1 (GPIOA4)" },
-
-            "GPIOX16": { "phys": 27, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOX16" },
-            "GPIOX17": { "phys": 28, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOX17" },
-
-            "GPIOX8":  { "phys": 29, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOX8" },
-            "GND_30":  { "phys": 30, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-
-            "GPIOX9":  { "phys": 31, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOX9" },
-            "GPIOX10": { "phys": 32, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOX10" },
-
-            "GPIOX11": { "phys": 33, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOX11" },
-            "GND_34":  { "phys": 34, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-
-            "GPIOX12": { "phys": 35, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOX12" },
-            "GPIOX13": { "phys": 36, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOX13" },
-
-            "GPIOX14": { "phys": 37, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOX14" },
-            "GPIOX15": { "phys": 38, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOX15" },
-
-            "GND_39":  { "phys": 39, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-            "GPIOX7":  { "phys": 40, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOX7" }
+            "1":  { "name": "3V3",      "gpio": false, "pull": false, "interrupt": false, "voltage": "3.3V", "description": "3.3V Power" },
+            "2":  { "name": "5V",       "gpio": false, "pull": false, "interrupt": false, "voltage": "5V",   "description": "5V Power" },
+            "3":  { "name": "I2C_SDA",  "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "I2C SDA" },
+            "4":  { "name": "5V",       "gpio": false, "pull": false, "interrupt": false, "voltage": "5V",   "description": "5V Power" },
+            "5":  { "name": "I2C_SCL",  "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "I2C SCL" },
+            "6":  { "name": "GND",      "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "7":  { "name": "GPIOX_3",  "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "8":  { "name": "UART_TX",  "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "UART TX" },
+            "9":  { "name": "GND",      "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "10": { "name": "UART_RX",  "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "UART RX" },
+            "11": { "name": "GPIOX_19", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "12": { "name": "GPIOX_18", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "13": { "name": "GPIOX_21", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "14": { "name": "GND",      "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "15": { "name": "GPIOX_23", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "16": { "name": "GPIOX_22", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "17": { "name": "3V3",      "gpio": false, "pull": false, "interrupt": false, "voltage": "3.3V", "description": "3.3V Power" },
+            "18": { "name": "GPIOX_0",  "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "19": { "name": "GPIOA_0",  "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "SPI MOSI" },
+            "20": { "name": "GND",      "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "21": { "name": "GPIOA_1",  "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "SPI MISO" },
+            "22": { "name": "GPIOX_1",  "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "23": { "name": "GPIOA_2",  "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "SPI CLK" },
+            "24": { "name": "GPIOA_3",  "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "SPI CS0" },
+            "25": { "name": "GND",      "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "26": { "name": "GPIOA_4",  "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "SPI CS1" },
+            "27": { "name": "GPIOX_16", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "28": { "name": "GPIOX_17", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "29": { "name": "GPIOX_8",  "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "30": { "name": "GND",      "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "31": { "name": "GPIOX_9",  "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "32": { "name": "GPIOX_10", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "33": { "name": "GPIOX_11", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "34": { "name": "GND",      "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "35": { "name": "GPIOX_12", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "36": { "name": "GPIOX_13", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "37": { "name": "ADC.AIN3", "gpio": false, "pull": false, "interrupt": false, "voltage": "1.8V", "description": "analog input" },
+            "38": { "name": "VDDIO_AO", "gpio": false, "pull": false, "interrupt": false, "voltage": "1.8V", "description": "1.8V Power" },
+            "39": { "name": "GND",      "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "40": { "name": "ADC.AIN2", "gpio": false, "pull": false, "interrupt": false, "voltage": "1.8V", "description": "analog input" }
          }
       },
       {
          "models": ["ODROID-M1"],
          "pins": {
-            "3V3_1":  { "phys": 1,  "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "3.3V", "description": "3.3V Power" },
-            "5V_2":   { "phys": 2,  "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "5V",   "description": "5V Power" },
-
-            "I2C0_SDA": { "phys": 3, "direction": "inout", "pull": "off", "interrupt": true, "oneWire": false, "safeForOutput": false, "voltage": "3.3V", "description": "I2C0 SDA" },
-            "5V_4":     { "phys": 4, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "5V",   "description": "5V Power" },
-
-            "I2C0_SCL": { "phys": 5, "direction": "inout", "pull": "off", "interrupt": true, "oneWire": false, "safeForOutput": false, "voltage": "3.3V", "description": "I2C0 SCL" },
-            "GND_6":    { "phys": 6, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-
-            "GPIOA0":   { "phys": 7, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOA0" },
-            "UART2_TX": { "phys": 8, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "UART2 TX" },
-
-            "GND_9":    { "phys": 9, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-            "UART2_RX": { "phys": 10, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "UART2 RX" },
-
-            "GPIOA1":   { "phys": 11, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOA1" },
-            "GPIOA2":   { "phys": 12, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOA2" },
-
-            "GPIOA3":   { "phys": 13, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOA3" },
-            "GND_14":   { "phys": 14, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-
-            "GPIOA4":   { "phys": 15, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOA4" },
-            "GPIOA5":   { "phys": 16, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOA5" },
-
-            "3V3_17":   { "phys": 17, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "3.3V", "description": "3.3V Power" },
-            "GPIOA6":   { "phys": 18, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOA6" },
-
-            "SPI1_MOSI": { "phys": 19, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "SPI1 MOSI (GPIOB3)" },
-            "GND_20":    { "phys": 20, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-
-            "SPI1_MISO": { "phys": 21, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "SPI1 MISO (GPIOB2)" },
-            "GPIOA7":    { "phys": 22, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOA7" },
-
-            "SPI1_CLK":  { "phys": 23, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "SPI1 CLK (GPIOB1)" },
-            "SPI1_CS0":  { "phys": 24, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "SPI1 CS0 (GPIOB0)" },
-
-            "GND_25":    { "phys": 25, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-            "SPI1_CS1":  { "phys": 26, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "SPI1 CS1 (GPIOB4)" },
-
-            "GPIOC0":    { "phys": 27, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOC0" },
-            "GPIOC1":    { "phys": 28, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOC1" },
-
-            "GPIOC2":    { "phys": 29, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOC2" },
-            "GND_30":    { "phys": 30, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-
-            "GPIOC3":    { "phys": 31, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOC3" },
-            "GPIOC4":    { "phys": 32, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOC4" },
-
-            "GPIOC5":    { "phys": 33, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOC5" },
-            "GND_34":    { "phys": 34, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-
-            "GPIOC6":    { "phys": 35, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOC6" },
-            "GPIOC7":    { "phys": 36, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOC7" },
-
-            "ADC0":      { "phys": 37, "direction": "in", "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "1.8V", "description": "ADC0 (analog input)" },
-            "ADC1":      { "phys": 38, "direction": "in", "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "1.8V", "description": "ADC1 (analog input)" },
-
-            "GND_39":    { "phys": 39, "direction": "none",  "pull": "off", "interrupt": false, "oneWire": false, "safeForOutput": false, "voltage": "GND",  "description": "Ground" },
-            "GPIOC8":    { "phys": 40, "direction": "inout", "pull": "updown", "interrupt": true, "oneWire": false, "safeForOutput": true, "voltage": "3.3V", "description": "GPIOC8" }
+            "1":  { "name": "3V3",      "gpio": false, "pull": false, "interrupt": false, "voltage": "3.3V", "description": "3.3V Power" },
+            "2":  { "name": "5V",       "gpio": false, "pull": false, "interrupt": false, "voltage": "5V",   "description": "5V Power" },
+            "3":  { "name": "I2C0_SDA", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "I2C0 SDA" },
+            "4":  { "name": "5V",       "gpio": false, "pull": false, "interrupt": false, "voltage": "5V",   "description": "5V Power" },
+            "5":  { "name": "I2C0_SCL", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "I2C0 SCL" },
+            "6":  { "name": "GND",      "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "7":  { "name": "GPIOA0",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "8":  { "name": "UART2_TX", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "UART2 TX" },
+            "9":  { "name": "GND",      "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "10": { "name": "UART2_RX", "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "UART2 RX" },
+            "11": { "name": "GPIOA1",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "12": { "name": "GPIOA2",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "13": { "name": "GPIOA3",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "14": { "name": "GND",      "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "15": { "name": "GPIOA4",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "16": { "name": "GPIOA5",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "17": { "name": "3V3",      "gpio": false, "pull": false, "interrupt": false, "voltage": "3.3V", "description": "3.3V Power" },
+            "18": { "name": "GPIOA6",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "19": { "name": "GPIOB3",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "SPI1 MOSI" },
+            "20": { "name": "GND",      "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "21": { "name": "GPIOB2",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "SPI1 MISO" },
+            "22": { "name": "GPIOA7",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "23": { "name": "GPIOB1",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "SPI1 CLK" },
+            "24": { "name": "GPIOB0",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "SPI1 CS0" },
+            "25": { "name": "GND",      "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "26": { "name": "GPIOB4",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "SPI1 CS1" },
+            "27": { "name": "GPIOC0",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "28": { "name": "GPIOC1",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "29": { "name": "GPIOC2",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "30": { "name": "GND",      "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "31": { "name": "GPIOC3",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "32": { "name": "GPIOC4",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "33": { "name": "GPIOC5",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "34": { "name": "GND",      "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "35": { "name": "GPIOC6",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "36": { "name": "GPIOC7",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" },
+            "37": { "name": "ADC0",     "gpio": false, "pull": false, "interrupt": false, "voltage": "1.8V", "description": "analog input" },
+            "38": { "name": "ADC1",     "gpio": false, "pull": false, "interrupt": false, "voltage": "1.8V", "description": "analog input" },
+            "39": { "name": "GND",      "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
+            "40": { "name": "GPIOC8",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "" }
          }
       }
    ]

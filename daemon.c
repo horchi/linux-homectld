@@ -132,6 +132,7 @@ Daemon::DefaultWidgetProperty Daemon::defaultWidgetProperties[] =
    { "AI",       na,   "*",      wtMeter,        0,        45,      10, false },
    { "SD",       na,   "*",      wtChart,        0,      2000,       0, true },
    { "SC",       na,    "",       wtText,        0,         0,       0, false },
+   { "SC",       na, "txt",       wtText,        0,         0,       0, false },
    { "SC",       na, "zst",     wtSymbol,        0,         0,       0, false },
    { "SC",       na,   "*",      wtMeter,        0,        40,      10, true },
    { "SP",       na,    "",       wtText,        0,         0,       0, false },
@@ -186,7 +187,7 @@ Daemon::DefaultWidgetProperty* Daemon::getDefalutProperty(const char* type, cons
 int Daemon::widgetDefaults2Json(json_t* jDefaults, const char* type, const char* unit, const char* name, int address)
 {
    std::string result;
-   DefaultWidgetProperty* defProperty = getDefalutProperty(type, unit, address);
+   DefaultWidgetProperty* defProperty {getDefalutProperty(type, unit, address)};
 
    const char* color {"rgb(255, 255, 255)"};
    const char* colorOn {"rgb(235, 197, 5)"};
@@ -219,7 +220,24 @@ int Daemon::widgetDefaults2Json(json_t* jDefaults, const char* type, const char*
       colorOn = "rgb(235, 197, 5)";
    }
 
-   json_object_set_new(jDefaults, "widgettype", json_integer(defProperty->widgetType));
+   WidgetType widgetType {defProperty->widgetType};
+   std::string sUnit {unit};
+
+   if (defProperty->widgetType == wtUnknown)
+   {
+      if (sUnit == "°C")
+         widgetType = wtMeterLevel;
+      else if (sUnit == "V" || sUnit == "A")
+         widgetType = wtMeter;
+      else if (sUnit == "txt" || sUnit == "")
+         widgetType = wtText;
+      else if (sUnit == "stxt")
+         widgetType = wtSymbolText;
+      else if (sUnit == "sym")
+         widgetType = wtSymbol;
+   }
+
+   json_object_set_new(jDefaults, "widgettype", json_integer(widgetType));
    json_object_set_new(jDefaults, "unit", json_string(unit));
    json_object_set_new(jDefaults, "scalemax", json_integer(defProperty->maxScale));
    json_object_set_new(jDefaults, "scalemin", json_integer(defProperty->minScale));
@@ -863,7 +881,7 @@ int Daemon::initScripts()
       tell(eloScript, "Script: Calling %s %s %d 'mqtt://%s/%s' '%s'", scriptPath, "init", addr, mqttUrlPlain, TARGET "2mqtt/scripts", arguments);
       result = executeCommand("%s %s %d 'mqtt://%s/%s' '%s'", scriptPath, "init", addr, mqttUrlPlain, TARGET "2mqtt/scripts", arguments);
 
-      json_t* oData = jsonLoad(result.c_str());
+      json_t* oData = jsonLoad(result.c_str(), 0, true);
 
       if (!oData)
       {

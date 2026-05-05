@@ -7,37 +7,131 @@
 //***************************************************************************
 
 #include <algorithm>
-#include <cctype>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <sstream>
 #include <chrono>
-#include <dirent.h>
 
 #include "lib/json.h"
 #include "gpio.h"
 
+#if defined(GPIOD)
+
 //***************************************************************************
-// Constructor
+// Find Chip For Line
+// Scan all /dev/gpiochipN for a line with the given name.
+// Returns the chip (caller must close it) and sets *offsetOut, nullptr on failure.
 //***************************************************************************
 
-Gpio::Gpio(const char* consumerName, const char* confPath)
-   : programName{consumerName},
-     configPath{confPath ? confPath : ""}
+gpiod_chip* Gpio::findChipForLine(const char* lineName, unsigned int* offsetOut)
 {
+   for (int i = 0; i < 16; ++i)
+   {
+      char path[32];
+      snprintf(path, sizeof(path), "/dev/gpiochip%d", i);
+
+      gpiod_chip* chip {gpiod_chip_open(path)};
+
+      if (!chip)
+         continue;
+
+      int off {gpiod_chip_get_line_offset_from_name(chip, lineName)};
+
+      if (off >= 0)
+      {
+         *offsetOut = static_cast<unsigned int>(off);
+         return chip;
+      }
+
+      gpiod_chip_close(chip);
+   }
+
+   return nullptr;
 }
 
 //***************************************************************************
-// Destructor
+// Build Phys Map
+// Scan all gpiochips for PIN_<N> named lines and build phys -> chip+offset map.
 //***************************************************************************
+
+int Gpio::buildPhysMap()
+{
+   physToChip.clear();
+
+   for (int i = 0; i < 16; ++i)
+   {
+      char path[32];
+      snprintf(path, sizeof(path), "/dev/gpiochip%d", i);
+
+      gpiod_chip* chip {gpiod_chip_open(path)};
+
+      if (!chip)
+         continue;
+
+      gpiod_chip_info* cinfo {gpiod_chip_get_info(chip)};
+      unsigned int nlines = cinfo ? gpiod_chip_info_get_num_lines(cinfo) : 0;
+
+      for (unsigned int j = 0; j < nlines; ++j)
+      {
+         gpiod_line_info* linfo {gpiod_chip_get_line_info(chip, j)};
+
+         if (!linfo)
+            continue;
+
+         const char* name {gpiod_line_info_get_name(linfo)};
+
+         if (name && strncmp(name, "PIN_", 4) == 0)
+         {
+            int phys {atoi(name + 4)};
+
+            if (phys > 0)
+            {
+               physToChip[phys] = {std::string(path), j};
+
+               auto it = pinMapping.find(phys);
+
+               if (it != pinMapping.end())
+               {
+                  PinInfo& info {it->second};
+
+                  // Blocked: line already claimed by another consumer
+                  info.blocked = gpiod_line_info_is_used(linfo);
+                  info.usable  = info.gpio && !info.blocked;
+               }
+            }
+         }
+
+         gpiod_line_info_free(linfo);
+      }
+
+      if (cinfo)
+         gpiod_chip_info_free(cinfo);
+
+      gpiod_chip_close(chip);
+   }
+
+   tell(eloDebug, "GPIO: physToChip map built with %zu entries", physToChip.size());
+
+   return success;
+}
+
+#endif
+
+//***************************************************************************
+// Constructor / Destructor
+//***************************************************************************
+
+Gpio::Gpio(const char* consumerName, const char* confPath)
+   : programName {consumerName},
+     configPath {confPath ? confPath : ""}
+{
+}
 
 Gpio::~Gpio()
 {
-   for (auto& it : pins)
+   for (auto& [physPin, p] : pins)
    {
-      PinState& p = it.second;
-
       if (p.threadRunning)
          p.threadRunning = false;
 
@@ -48,7 +142,7 @@ Gpio::~Gpio()
          p.thread = nullptr;
       }
 
-#if defined (GPIOD)
+#if defined(GPIOD)
       if (p.request)
       {
          gpiod_line_request_release(p.request);
@@ -65,32 +159,7 @@ Gpio::~Gpio()
 }
 
 //***************************************************************************
-// Normalize Pin Name
-//***************************************************************************
-
-std::string Gpio::normalize(const char* pinName)
-{
-   std::string s{pinName ? pinName : ""};
-
-   while (!s.empty() && std::isspace(static_cast<unsigned char>(s.front())))
-      s.erase(s.begin());
-
-   while (!s.empty() && std::isspace(static_cast<unsigned char>(s.back())))
-      s.pop_back();
-
-   std::transform
-   (
-      s.begin(),
-      s.end(),
-      s.begin(),
-      [](unsigned char c) { return static_cast<char>(std::toupper(c)); }
-   );
-
-   return s;
-}
-
-//***************************************************************************
-// Init Backend
+// Init
 //***************************************************************************
 
 int Gpio::init()
@@ -99,31 +168,30 @@ int Gpio::init()
    {
       if (loadMapping() != 0)
       {
-         tell(0, "GPIO: Failed to load mapping");
+         tell(eloAlways, "GPIO: Failed to load mapping");
          return fail;
       }
    }
 
-#if defined (WIRINGPI)
+#if defined(GPIOD)
+
+   buildPhysMap();
+   return success;
+
+#elif defined(WIRINGPI)
 
    static bool initialized {false};
 
    if (!initialized)
    {
-      int ret{wiringPiSetupPhys()};
-
-      if (ret < 0)
+      if (wiringPiSetupPhys() < 0)
       {
-         tell(0, "Error: wiringPiSetupPhys() failed");
+         tell(eloAlways, "Error: wiringPiSetupPhys() failed");
          return fail;
       }
 
       initialized = true;
    }
-
-   return success;
-
-#elif defined (GPIOD)
 
    return success;
 
@@ -135,7 +203,7 @@ int Gpio::init()
 }
 
 //***************************************************************************
-// Load Mapping (JSON)
+// Load Mapping
 //***************************************************************************
 
 int Gpio::loadMapping()
@@ -154,13 +222,11 @@ int Gpio::loadMapping()
 
    if (!root)
    {
-      tell(0, "GPIO: Could not load JSON mapping file '%s'", file.c_str());
+      tell(eloAlways, "GPIO: Could not load JSON mapping file '%s'", file.c_str());
       return fail;
    }
 
-   // Model aus /proc/device-tree/model lesen
-
-   char buf[256] {};
+   char buf[256]{};
    FILE* f {std::fopen("/proc/device-tree/model", "r")};
 
    if (f)
@@ -181,7 +247,7 @@ int Gpio::loadMapping()
 
    if (rc != success)
    {
-      tell(0, "GPIO: No matching board model found in JSON");
+      tell(eloAlways, "GPIO: No matching board model found in JSON");
       return fail;
    }
 
@@ -204,7 +270,7 @@ int Gpio::loadJsonForModel(json_t* root, const std::string& model)
 
    if (!boards || !json_is_array(boards))
    {
-      tell(0, "GPIO: 'boards' is missing or not an array");
+      tell(eloAlways, "GPIO: 'boards' is missing or not an array");
       return fail;
    }
 
@@ -216,14 +282,13 @@ int Gpio::loadJsonForModel(json_t* root, const std::string& model)
       if (!json_is_object(board))
          continue;
 
-      json_t* models{getObjectFromJson(board, "models", nullptr)};
+      json_t* models {getObjectFromJson(board, "models", nullptr)};
 
       if (!models || !json_is_array(models))
          continue;
 
       bool match {false};
-
-      size_t mi {0};
+      size_t mi {};
       json_t* m {};
 
       json_array_foreach(models, mi, m)
@@ -256,25 +321,22 @@ int Gpio::loadJsonForModel(json_t* root, const std::string& model)
          if (!key || !json_is_object(val))
             continue;
 
-         PinInfo info{};
+         int phys {atoi(key)};
 
-         info.phys          = getIntFromJson(val,    "phys", na);
-         info.direction     = getStringFromJson(val, "direction", "inout");
-         info.pull          = getStringFromJson(val, "pull", "off");
+         if (phys <= 0)
+            continue;
+
+         PinInfo info {};
+         info.name          = getStringFromJson(val, "name", key);
+         info.gpio          = getBoolFromJson(val,   "gpio", false);
+         info.pull          = getBoolFromJson(val,   "pull", false);
          info.interrupt     = getBoolFromJson(val,   "interrupt", false);
-         info.oneWire       = getBoolFromJson(val,   "oneWire", false);
-         info.safeForOutput = getBoolFromJson(val,   "safeForOutput", false);
          info.voltage       = getStringFromJson(val, "voltage", "3.3V");
          info.description   = getStringFromJson(val, "description", "");
          info.blocked       = false;
-         info.usable        = false; // wird später gesetzt
+         info.usable        = false;
 
-         std::string name{normalize(key)};
-
-         if (info.phys > 0)
-         {
-            pinMapping[name] = info;
-         }
+         pinMapping[phys] = info;
       }
 
       return success;
@@ -284,28 +346,22 @@ int Gpio::loadJsonForModel(json_t* root, const std::string& model)
 }
 
 //***************************************************************************
-// Detect Blocked Pins (System)
+// Detect Blocked Pins
 //***************************************************************************
 
 int Gpio::detectBlockedPins()
 {
-#if defined (GPIOD)
+   for (auto& [phys, info] : pinMapping)
+      info.blocked = false;
 
-   // Default: alles unblocked
-
-   for (auto& it : pinMapping)
-      it.second.blocked = false;
-
-   // Versuche /sys/kernel/debug/gpio zu lesen
+#if defined(GPIOD)
 
    std::ifstream in("/sys/kernel/debug/gpio");
 
    if (!in.is_open())
    {
-      // Fallback: usable = safeForOutput
-
-      for (auto& it : pinMapping)
-         it.second.usable = it.second.safeForOutput;
+      for (auto& [phys, info] : pinMapping)
+         info.usable = info.gpio;
 
       return success;
    }
@@ -314,91 +370,57 @@ int Gpio::detectBlockedPins()
 
    while (std::getline(in, line))
    {
-      // grobe Heuristik: Zeilen mit "gpio-" enthalten Nummer und evtl. "used" oder "alt"
-      // Beispiel:
-      // gpio-2  (SDA1) in  hi IRQ
-      // gpio-14 (TXD1) alt5 hi
-
       if (line.find("gpio-") == std::string::npos)
          continue;
 
       std::istringstream iss(line);
       std::string gpioToken;
-
       iss >> gpioToken;
 
       if (gpioToken.rfind("gpio-", 0) != 0)
          continue;
 
-      int num {-1};
-
-      try
-      {
-         num = std::stoi(gpioToken.substr(5));
-      }
-      catch (...)
-      {
-         continue;
-      }
-
-      bool isAlt {line.find("alt") != std::string::npos};
+      bool isAlt {line.find("alt")  != std::string::npos};
       bool isUsed {line.find("used") != std::string::npos};
 
       if (!isAlt && !isUsed)
          continue;
-
-      // Wir haben eine belegte GPIO-Nummer, müssen aber physische Pins matchen.
-      // Das ist board-spezifisch und in JSON nicht direkt abgebildet.
-      // Hier lassen wir es bewusst generisch und setzen blocked nur über JSON,
-      // falls du später eine Zuordnung gpio-Nummer -> phys ergänzt.
    }
-
-   // usable ableiten
-
-   for (auto& it : pinMapping)
-      it.second.usable = it.second.safeForOutput && !it.second.blocked;
-
-   return success;
-
-#else
-
-   for (auto& it : pinMapping)
-   {
-      it.second.blocked = false;
-      it.second.usable  = it.second.safeForOutput;
-   }
-
-   return success;
 
 #endif
+
+   for (auto& [phys, info] : pinMapping)
+      info.usable = info.gpio && !info.blocked;
+
+   return success;
 }
 
 //***************************************************************************
 // Setup Pin
 //***************************************************************************
 
-int Gpio::setupPin(const char* pinName, Direction dir, Edge edge, PullUpDown pud)
+int Gpio::setupPin(int physPin, Direction dir, Edge edge, PullUpDown pud)
 {
-   std::string key {normalize(pinName)};
-   PinState& p {pins[key]};
-
-   auto itInfo = pinMapping.find(key);
+   auto itInfo = pinMapping.find(physPin);
 
    if (itInfo == pinMapping.end())
    {
-      tell(0, "GPIO: setupPin('%s') unknown pin", key.c_str());
+      tell(eloAlways, "GPIO: setupPin(%d) unknown pin", physPin);
       return fail;
    }
 
-   const PinInfo& info = itInfo->second;
+   const PinInfo& info {itInfo->second};
 
    if (!info.usable)
    {
-      tell(0, "GPIO: setupPin('%s') not usable", key.c_str());
+      tell(eloAlways, "GPIO: setupPin(%d '%s') not usable (%s)", physPin, info.name.c_str(),
+           !info.gpio ? "not a GPIO pin" : "blocked by kernel driver");
       return fail;
    }
 
-#if defined (GPIOD)
+   PinState& p {pins[physPin]};
+
+#if defined(GPIOD)
 
    if (p.threadRunning)
       p.threadRunning = false;
@@ -422,22 +444,31 @@ int Gpio::setupPin(const char* pinName, Direction dir, Edge edge, PullUpDown pud
       p.chip = nullptr;
    }
 
-   // Wir nutzen physische Pins nicht direkt bei gpiod, sondern Line-Namen.
-   // Hier gehen wir davon aus, dass pinName dem Line-Namen entspricht.
+   // PIN_<N> convention (e.g. ODROID N2+ Hardkernel kernel)
+   auto itPhys = physToChip.find(physPin);
 
-   p.chip = gpiod_chip_open_lookup(key.c_str(), &p.offset);
+   if (itPhys != physToChip.end())
+   {
+      p.chip   = gpiod_chip_open(itPhys->second.chipPath.c_str());
+      p.offset = itPhys->second.offset;
+   }
+   else
+   {
+      // Fallback: use name field as kernel line name (e.g. RPi: GPIO17)
+      p.chip = findChipForLine(info.name.c_str(), &p.offset);
+   }
 
    if (!p.chip)
    {
-      tell(0, "GPIO: Could not find gpiochip for pin '%s'", key.c_str());
+      tell(eloAlways, "GPIO: Could not find gpiochip for pin %d ('%s')", physPin, info.name.c_str());
       return fail;
    }
 
-   gpiod_line_settings* settings{gpiod_line_settings_new()};
+   gpiod_line_settings* settings {gpiod_line_settings_new()};
 
    if (!settings)
    {
-      tell(0, "GPIO: Could not allocate line settings");
+      tell(eloAlways, "GPIO: Could not allocate line settings");
       gpiod_chip_close(p.chip);
       p.chip = nullptr;
       return fail;
@@ -464,26 +495,31 @@ int Gpio::setupPin(const char* pinName, Direction dir, Edge edge, PullUpDown pud
       default:          gpiod_line_settings_set_edge_detection(settings, GPIOD_LINE_EDGE_NONE);    break;
    }
 
-   gpiod_line_config* lcfg{gpiod_line_config_new()};
+   gpiod_line_config* lcfg {gpiod_line_config_new()};
 
    if (!lcfg)
    {
-      tell(0, "GPIO: Could not allocate line config");
+      tell(eloAlways, "GPIO: Could not allocate line config");
+      gpiod_line_settings_free(settings);
       gpiod_chip_close(p.chip);
       p.chip = nullptr;
       return fail;
    }
 
    gpiod_line_config_add_line_settings(lcfg, &p.offset, 1, settings);
+   gpiod_line_settings_free(settings);
 
-   gpiod_request_config* rcfg{gpiod_request_config_new()};
+   gpiod_request_config* rcfg {gpiod_request_config_new()};
    gpiod_request_config_set_consumer(rcfg, programName.c_str());
 
    p.request = gpiod_chip_request_lines(p.chip, rcfg, lcfg);
 
+   gpiod_line_config_free(lcfg);
+   gpiod_request_config_free(rcfg);
+
    if (!p.request)
    {
-      tell(0, "GPIO: Could not request gpio line");
+      tell(eloAlways, "GPIO: Could not request gpio line for pin %d", physPin);
       gpiod_chip_close(p.chip);
       p.chip = nullptr;
       return fail;
@@ -494,24 +530,16 @@ int Gpio::setupPin(const char* pinName, Direction dir, Edge edge, PullUpDown pud
    p.pud         = pud;
    p.edge        = edge;
 
-   int v{0};
+   gpiod_line_value v {GPIOD_LINE_VALUE_INACTIVE};
 
    if (dir == dirIn)
       v = gpiod_line_request_get_value(p.request, p.offset);
 
-   p.lastValue = (v == 1);
+   p.lastValue = (v == GPIOD_LINE_VALUE_ACTIVE);
 
    return success;
 
-#elif defined (WIRINGPI)
-
-   int physPin {nameToPin(key)};
-
-   if (physPin <= 0)
-   {
-      tell(0, "GPIO: setupPin('%s') unknown phys pin", key.c_str());
-      return fail;
-   }
+#elif defined(WIRINGPI)
 
    ::pinMode(physPin, dir == dirIn ? INPUT : OUTPUT);
 
@@ -526,24 +554,11 @@ int Gpio::setupPin(const char* pinName, Direction dir, Edge edge, PullUpDown pud
    p.direction   = dir;
    p.pud         = pud;
    p.edge        = edge;
-
-   int v{0};
-
-   if (dir == dirIn)
-   {
-      v = ::digitalRead(physPin);
-   }
-
-   p.lastValue = (v != 0);
+   p.lastValue   = (dir == dirIn) ? (::digitalRead(physPin) != 0) : false;
 
    return success;
 
 #else
-
-   // Stub: nichts tun, aber Fehler melden, wenn Pin nicht usable
-
-   if (!info.usable)
-      return fail;
 
    p.initialized = true;
    p.direction   = dir;
@@ -556,61 +571,39 @@ int Gpio::setupPin(const char* pinName, Direction dir, Edge edge, PullUpDown pud
 #endif
 }
 
-int Gpio::setIsr(const char* pinName, Edge edge, void (*func)(void))
+//***************************************************************************
+// Pin Available
+//***************************************************************************
+
+bool Gpio::pinAvailable(int physPin)
 {
-    if (!pinName || !*pinName)
-    {
-        tell(0, "GPIO: setIsr() invalid pinName");
-        return -1;
-    }
-
-    int physPin = nameToPin(pinName);
-    if (physPin <= 0)
-    {
-        tell(0, "GPIO: setIsr('%s') unknown pin", pinName);
-        return -1;
-    }
-
-    // Wir nutzen die physische ISR-Implementierung
-    return setIsrPhys(physPin, edge, func);
+   auto it = pinMapping.find(physPin);
+   return it != pinMapping.end() && it->second.usable;
 }
 
 //***************************************************************************
 // Digital Read
 //***************************************************************************
 
-bool Gpio::digitalRead(const char* pinName)
+bool Gpio::digitalRead(int physPin)
 {
-   std::string key{normalize(pinName)};
-   auto it = pins.find(key);
+   auto it = pins.find(physPin);
 
    if (it == pins.end() || !it->second.initialized)
    {
-      tell(0, "GPIO: digitalRead('%s') pin not initialized", key.c_str());
+      tell(eloAlways, "GPIO: digitalRead(%d) pin not initialized", physPin);
       return false;
    }
 
-   PinState& p = it->second;
+   PinState& p {it->second};
 
-#if defined (GPIOD)
+#if defined(GPIOD)
 
-   int value {gpiod_line_request_get_value(p.request, p.offset)};
+   return gpiod_line_request_get_value(p.request, p.offset) == GPIOD_LINE_VALUE_ACTIVE;
 
-   return value == 1;
+#elif defined(WIRINGPI)
 
-#elif defined (WIRINGPI)
-
-   int physPin {nameToPin(key)};
-
-   if (physPin <= 0)
-   {
-      tell(0, "GPIO: digitalRead('%s') unknown phys pin", key.c_str());
-      return false;
-   }
-
-   int value{::digitalRead(physPin)};
-
-   return value != 0;
+   return ::digitalRead(physPin) != 0;
 
 #else
 
@@ -623,30 +616,29 @@ bool Gpio::digitalRead(const char* pinName)
 // Digital Write
 //***************************************************************************
 
-int Gpio::digitalWrite(const char* pinName, bool value)
+int Gpio::digitalWrite(int physPin, bool value)
 {
-   std::string key{normalize(pinName)};
-   auto it = pins.find(key);
+   auto it = pins.find(physPin);
 
    if (it == pins.end() || !it->second.initialized)
    {
-      tell(0, "GPIO: digitalWrite('%s') pin not initialized", key.c_str());
+      tell(eloAlways, "GPIO: digitalWrite(%d) pin not initialized", physPin);
       return fail;
    }
 
-   PinState& p = it->second;
+   PinState& p {it->second};
 
    if (p.direction != dirOut)
    {
-      tell(0, "GPIO: digitalWrite('%s') not output", key.c_str());
+      tell(eloAlways, "GPIO: digitalWrite(%d) not output", physPin);
       return fail;
    }
 
-#if defined (GPIOD)
+#if defined(GPIOD)
 
-   int ret {gpiod_line_request_set_value(p.request, p.offset, value ? 1 : 0)};
+   int ret {gpiod_line_request_set_value(p.request, p.offset, value ? GPIOD_LINE_VALUE_ACTIVE : GPIOD_LINE_VALUE_INACTIVE)};
 
-   if (!ret)
+   if (ret == 0)
    {
       p.lastValue = value;
       return success;
@@ -654,19 +646,10 @@ int Gpio::digitalWrite(const char* pinName, bool value)
 
    return fail;
 
-#elif defined (WIRINGPI)
-
-   int physPin {nameToPin(key)};
-
-   if (physPin <= 0)
-   {
-      tell(0, "GPIO: digitalWrite('%s') unknown phys pin", key.c_str());
-      return fail;
-   }
+#elif defined(WIRINGPI)
 
    ::digitalWrite(physPin, value ? HIGH : LOW);
    p.lastValue = value;
-
    return success;
 
 #else
@@ -681,31 +664,31 @@ int Gpio::digitalWrite(const char* pinName, bool value)
 // Digital Toggle
 //***************************************************************************
 
-int Gpio::digitalToggle(const char* pinName)
+int Gpio::digitalToggle(int physPin)
 {
-   std::string key {normalize(pinName)};
-   auto it = pins.find(key);
+   auto it = pins.find(physPin);
 
    if (it == pins.end() || !it->second.initialized)
    {
-      tell(0, "GPIO: digitalToggle('%s') pin not initialized", key.c_str());
+      tell(eloAlways, "GPIO: digitalToggle(%d) pin not initialized", physPin);
       return fail;
    }
 
-   PinState& p = it->second;
+   PinState& p {it->second};
 
    if (p.direction != dirOut)
    {
-      tell(0, "GPIO: digitalToggle('%s') not output", key.c_str());
+      tell(eloAlways, "GPIO: digitalToggle(%d) not output", physPin);
       return fail;
    }
 
-#if defined (GPIOD)
+#if defined(GPIOD)
 
-   int current {gpiod_line_request_get_value(p.request, p.offset)};
-   int ret {gpiod_line_request_set_value(p.request, p.offset, current ? 0 : 1)};
+   gpiod_line_value current {gpiod_line_request_get_value(p.request, p.offset)};
+   gpiod_line_value next {current == GPIOD_LINE_VALUE_ACTIVE ? GPIOD_LINE_VALUE_INACTIVE : GPIOD_LINE_VALUE_ACTIVE};
+   int ret {gpiod_line_request_set_value(p.request, p.offset, next)};
 
-   if (!ret)
+   if (ret == 0)
    {
       p.lastValue = !p.lastValue;
       return success;
@@ -713,21 +696,10 @@ int Gpio::digitalToggle(const char* pinName)
 
    return fail;
 
-#elif defined (WIRINGPI)
+#elif defined(WIRINGPI)
 
-   int physPin {nameToPin(key)};
-
-   if (physPin <= 0)
-   {
-      tell(0, "GPIO: digitalToggle('%s') unknown phys pin", key.c_str());
-      return fail;
-   }
-
-   int current {::digitalRead(physPin)};
-
-   ::digitalWrite(physPin, current ? LOW : HIGH);
+   ::digitalWrite(physPin, ::digitalRead(physPin) ? LOW : HIGH);
    p.lastValue = !p.lastValue;
-
    return success;
 
 #else
@@ -742,12 +714,10 @@ int Gpio::digitalToggle(const char* pinName)
 // Pin Mode
 //***************************************************************************
 
-int Gpio::pinMode(const char* pinName, Direction direction)
+int Gpio::pinMode(int physPin, Direction direction)
 {
-   std::string key {normalize(pinName)};
-   auto it = pins.find(key);
-
-   Edge edge {edgeNone};
+   auto it = pins.find(physPin);
+   Edge       edge {edgeNone};
    PullUpDown pud {pudOff};
 
    if (it != pins.end() && it->second.initialized)
@@ -756,19 +726,17 @@ int Gpio::pinMode(const char* pinName, Direction direction)
       pud  = it->second.pud;
    }
 
-   return setupPin(pinName, direction, edge, pud);
+   return setupPin(physPin, direction, edge, pud);
 }
 
 //***************************************************************************
-// Pull Up / Down Control
+// Pull Up/Down Control
 //***************************************************************************
 
-int Gpio::pullUpDnControl(const char* pinName, PullUpDown value)
+int Gpio::pullUpDnControl(int physPin, PullUpDown value)
 {
-   std::string key {normalize(pinName)};
-   auto it = pins.find(key);
-
-   Edge edge {edgeNone};
+   auto it = pins.find(physPin);
+   Edge      edge {edgeNone};
    Direction dir {dirIn};
 
    if (it != pins.end() && it->second.initialized)
@@ -777,58 +745,82 @@ int Gpio::pullUpDnControl(const char* pinName, PullUpDown value)
       dir  = it->second.direction;
    }
 
-   return setupPin(pinName, dir, edge, value);
+   return setupPin(physPin, dir, edge, value);
 }
 
 //***************************************************************************
 // Enable Interrupt
 //***************************************************************************
 
-int Gpio::enableInterrupt(const char* pinName, std::function<void(const char*, bool)> cb)
+int Gpio::enableInterrupt(int physPin, std::function<void(int, bool)> cb)
 {
-   std::string key {normalize(pinName)};
-   auto it = pins.find(key);
+   auto it = pins.find(physPin);
 
    if (it == pins.end() || !it->second.initialized)
    {
-      tell(0, "GPIO: enableInterrupt('%s') pin not initialized", key.c_str());
+      tell(eloAlways, "GPIO: enableInterrupt(%d) pin not initialized", physPin);
       return fail;
    }
 
-   PinState& p = it->second;
+   PinState& p {it->second};
 
    if (p.direction != dirIn)
    {
-      tell(0, "GPIO: enableInterrupt('%s') not input", key.c_str());
+      tell(eloAlways, "GPIO: enableInterrupt(%d) not input", physPin);
       return fail;
    }
 
    if (p.edge == edgeNone)
    {
-      tell(0, "GPIO: enableInterrupt('%s') no edge configured", key.c_str());
+      tell(eloAlways, "GPIO: enableInterrupt(%d) no edge configured", physPin);
       return fail;
    }
 
    if (p.threadRunning)
       return success;
 
-   p.callback = cb;
+   p.callback      = cb;
    p.threadRunning = true;
 
    p.thread = new std::thread
    (
-      [this, key]()
+      [this, physPin]()
       {
-         PinState& ps {pins[key]};
+         PinState& ps {pins[physPin]};
+
+#if defined(GPIOD)
 
          while (ps.threadRunning)
          {
-            bool v{digitalRead(key.c_str())};
+            int ret {gpiod_line_request_wait_edge_events(ps.request, 100000000LL)};
 
-            bool rising{(!ps.lastValue && v)};
-            bool falling{(ps.lastValue && !v)};
+            if (ret < 0)
+               break;
 
-            bool fire{false};
+            if (ret == 0)
+               continue;
+
+            gpiod_edge_event_buffer* evbuf {gpiod_edge_event_buffer_new(8)};
+            gpiod_line_request_read_edge_events(ps.request, evbuf, 8);
+            gpiod_edge_event_buffer_free(evbuf);
+
+            gpiod_line_value val {gpiod_line_request_get_value(ps.request, ps.offset)};
+            bool bval {val == GPIOD_LINE_VALUE_ACTIVE};
+
+            if (ps.callback)
+               ps.callback(physPin, bval);
+
+            ps.lastValue = bval;
+         }
+
+#else
+
+         while (ps.threadRunning)
+         {
+            bool v {digitalRead(physPin)};
+            bool rising {!ps.lastValue && v};
+            bool falling {ps.lastValue && !v};
+            bool fire {false};
 
             switch (ps.edge)
             {
@@ -839,14 +831,14 @@ int Gpio::enableInterrupt(const char* pinName, std::function<void(const char*, b
             }
 
             if (fire && ps.callback)
-            {
-               ps.callback(key.c_str(), v);
-            }
+               ps.callback(physPin, v);
 
             ps.lastValue = v;
 
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
          }
+
+#endif
       }
    );
 
@@ -857,15 +849,14 @@ int Gpio::enableInterrupt(const char* pinName, std::function<void(const char*, b
 // Disable Interrupt
 //***************************************************************************
 
-int Gpio::disableInterrupt(const char* pinName)
+int Gpio::disableInterrupt(int physPin)
 {
-   std::string key{normalize(pinName)};
-   auto it = pins.find(key);
+   auto it = pins.find(physPin);
 
    if (it == pins.end())
       return success;
 
-   PinState& p = it->second;
+   PinState& p {it->second};
 
    if (!p.threadRunning)
       return success;
@@ -883,109 +874,21 @@ int Gpio::disableInterrupt(const char* pinName)
 }
 
 //***************************************************************************
-// Get Pin List
+// Set ISR
 //***************************************************************************
 
-int Gpio::getPinList(std::map<std::string, PinInfo>& out)
+int Gpio::setIsr(int physPin, Edge edge, void (*func)(void))
 {
-   out.clear();
+   PullUpDown pud {pudOff};
+   auto it = pins.find(physPin);
 
-#if !defined (GPIOD) && !defined (WIRINGPI)
-   return success;
-#endif
+   if (it != pins.end() && it->second.initialized)
+      pud = it->second.pud;
 
-   if (!mappingLoaded)
-   {
-      if (loadMapping() != 0)
-         return fail;
-   }
+   if (setupPin(physPin, dirIn, edge, pud) != success)
+      return fail;
 
-#if defined (GPIOD)
-
-   // System-Pins ermitteln
-
-   std::map<std::string, bool> systemPins;
-   DIR* d {opendir("/dev")};
-
-   if (d)
-   {
-      struct dirent* ent{};
-
-      while ((ent = readdir(d)) != nullptr)
-      {
-         if (std::strncmp(ent->d_name, "gpiochip", 8) == 0)
-         {
-            std::string path{"/dev/"};
-            path += ent->d_name;
-
-            gpiod_chip* c{gpiod_chip_open(path.c_str())};
-
-            if (!c)
-            {
-               continue;
-            }
-
-            unsigned int numLines{gpiod_chip_num_lines(c)};
-
-            for (unsigned int i = 0; i < numLines; i++)
-            {
-               const char* name{gpiod_chip_get_line_name(c, i)};
-
-               if (name && name[0] != '\0')
-               {
-                  std::string n{name};
-                  std::transform
-                  (
-                     n.begin(),
-                     n.end(),
-                     n.begin(),
-                     [](unsigned char ch) { return static_cast<char>(std::toupper(ch)); }
-                  );
-
-                  systemPins[n] = true;
-               }
-            }
-
-            gpiod_chip_close(c);
-         }
-      }
-
-      closedir(d);
-   }
-
-   // Schnittmenge JSON <-> System
-
-   for (const auto& it : pinMapping)
-   {
-      if (systemPins.find(it.first) != systemPins.end())
-         out[it.first] = it.second;
-   }
-
-   return success;
-
-#elif defined (WIRINGPI)
-
-   out = pinMapping;      // wiringPi kennt keine Line-Namen -> alle JSON-Pins
-
-   return success;
-
-#endif
-}
-
-//***************************************************************************
-// Name To Pin
-//***************************************************************************
-
-int Gpio::nameToPin(const char* pinName)
-{
-   std::string key {normalize(pinName)};
-
-   auto it = pinMapping.find(key);
-
-   if (it == pinMapping.end())
-      return na;
-
-   return it->second.phys;
+   return enableInterrupt(physPin, [func](int, bool) { func(); });
 }
 
 //***************************************************************************
@@ -994,72 +897,28 @@ int Gpio::nameToPin(const char* pinName)
 
 std::string Gpio::pinToName(int physPin)
 {
-   for (const auto& it : pinMapping)
+   auto it = pinMapping.find(physPin);
+
+   if (it != pinMapping.end())
+      return it->second.name;
+
+   return {};
+}
+
+//***************************************************************************
+// Get Pin List
+//***************************************************************************
+
+int Gpio::getPinList(std::map<int, PinInfo>& out)
+{
+   out.clear();
+
+   if (!mappingLoaded)
    {
-      if (it.second.phys == physPin)
-         return it.first;
+      if (loadMapping() != 0)
+         return fail;
    }
 
-   return "";
-}
-
-bool Gpio::digitalRead(int physPin)
-{
-    std::string name = pinToName(physPin);
-
-    if (name.empty())
-    {
-        tell(0, "GPIO: digitalRead(%d) unknown pin", physPin);
-        return false;
-    }
-
-    return digitalRead(name.c_str());
-}
-
-int Gpio::digitalWrite(int physPin, bool value)
-{
-    std::string name = pinToName(physPin);
-    if (name.empty())
-    {
-        tell(0, "GPIO: digitalWrite(%d) unknown pin", physPin);
-        return -1;
-    }
-
-    return digitalWrite(name.c_str(), value);
-}
-
-int Gpio::digitalToggle(int physPin)
-{
-    std::string name = pinToName(physPin);
-    if (name.empty())
-    {
-        tell(0, "GPIO: digitalToggle(%d) unknown pin", physPin);
-        return -1;
-    }
-
-    return digitalToggle(name.c_str());
-}
-
-int Gpio::pinMode(int physPin, Direction direction)
-{
-    std::string name = pinToName(physPin);
-    if (name.empty())
-    {
-        tell(0, "GPIO: pinMode(%d) unknown pin", physPin);
-        return -1;
-    }
-
-    return pinMode(name.c_str(), direction);
-}
-
-int Gpio::pullUpDnControl(int physPin, PullUpDown value)
-{
-    std::string name = pinToName(physPin);
-    if (name.empty())
-    {
-        tell(0, "GPIO: pullUpDnControl(%d) unknown pin", physPin);
-        return -1;
-    }
-
-    return pullUpDnControl(name.c_str(), value);
+   out = pinMapping;
+   return success;
 }

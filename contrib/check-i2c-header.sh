@@ -94,19 +94,22 @@ echo "--- Board-spezifische Prüfung ---"
 if command -v dtc >/dev/null 2>&1 && [[ -n "$DTB" && -f "$DTB" ]]; then
     dts=$(dtc -I dtb -O dts "$DTB" 2>/dev/null)
 
-    # ODROID N2/N2+: i2c_AO (i2c@5000) auf Pins 3/5
+    # ODROID N2/N2+: i2c@1d000 (GPIOX_17=SDA, GPIOX_18=SCL) auf Pins 3/5
+    # DTB: /boot/dtb/amlogic/meson-g12b-odroid-n2-plus.dtb
     if echo "$board" | grep -qiE "N2"; then
-        pinctrl=$(echo "$dts" | awk '/i2c@5000 \{/,/^\s*\};/' | grep "pinctrl-0" | head -1 | tr -d ' \t;')
-        status=$(echo "$dts" | awk '/i2c@5000 \{/,/^\s*\};/' | grep "status" | head -1 | tr -d ' \t;')
-        SDA_HEX=$(echo "$dts" | grep -A5 "i2c-ao-sda {" | grep -oP 'phandle = <\K0x[0-9a-f]+' | head -1)
-        SCK_HEX=$(echo "$dts" | grep -A5 "i2c-ao-sck {" | grep -oP 'phandle = <\K0x[0-9a-f]+' | head -1)
+        n2_dtb="/boot/dtb/amlogic/meson-g12b-odroid-n2-plus.dtb"
+        [[ -f "$n2_dtb" ]] && dts=$(dtc -I dtb -O dts "$n2_dtb" 2>/dev/null)
+        status=$(echo "$dts" | awk '/i2c@1d000 \{/,/^\s*\};/' | grep "status" | head -1 | tr -d ' \t;')
+        pinctrl=$(echo "$dts" | awk '/i2c@1d000 \{/,/^\s*\};/' | grep "pinctrl-0" | head -1 | tr -d ' \t;')
+        SDA_HEX=$(echo "$dts" | grep -B3 'groups = "i2c2_sda_x"' | grep -oP 'phandle = <\K0x[0-9a-f]+' || true)
+        SCK_HEX=$(echo "$dts" | grep -B3 'groups = "i2c2_sck_x"' | grep -oP 'phandle = <\K0x[0-9a-f]+' || true)
 
-        HEADER_I2C_NODE="i2c@5000"
-        echo "  [N2+] i2c@5000 (Pins 3/5): $status | $pinctrl"
-        if echo "$pinctrl" | grep -q "$SDA_HEX" && echo "$pinctrl" | grep -q "$SCK_HEX"; then
+        HEADER_I2C_NODE="i2c@1d000"
+        echo "  [N2+] i2c@1d000 (GPIOX_17/18, Pins 3/5): $status"
+        if [[ -n "$SDA_HEX" && -n "$SCK_HEX" ]] && echo "$pinctrl" | grep -q "$SDA_HEX" && echo "$pinctrl" | grep -q "$SCK_HEX"; then
             echo "  [OK]  pinctrl-0 korrekt ($SDA_HEX $SCK_HEX)"
         else
-            echo "  [FEHLER] pinctrl-0 falsch! Erwartet: <$SDA_HEX $SCK_HEX>"
+            echo "  [FEHLER] i2c@1d000 nicht aktiviert oder falsches pinctrl"
             echo "           Fix: sudo bash contrib/armbian-enable-header-i2c.sh"
             RC=1
         fi

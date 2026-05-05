@@ -1,11 +1,11 @@
 #!/bin/bash
 # Enable I2C on 40-pin header pins 3 (SDA) / 5 (SCL)
 # Unterstützte Boards:
-#   ODROID N2+  — DTB-Patch (falscher pinctrl-0 Phandle in i2c_AO)
+#   ODROID N2+  — DTB-Patch: i2c@1d000 (GPIOX_17/18) aktivieren
 #   ODROID M1   — Armbian-Overlay aktivieren (i2c0 in armbianEnv.txt)
 #
 # Benötigt: device-tree-compiler (apt install device-tree-compiler)
-# Ausführen: sudo bash armbian-enable-n2plus-i2c.sh
+# Ausführen: sudo bash armbian-enable-header-i2c.sh
 
 set -euo pipefail
 
@@ -16,36 +16,42 @@ echo "Board: $board"
 echo ""
 
 # ── ODROID N2+ ──────────────────────────────────────────────────────────────
+# Header-Pins 3/5 = GPIOX_17/18, I2C-Controller i2c@1d000 (i2c2-Funktion)
+# DTB: /boot/dtb/amlogic/meson-g12b-odroid-n2-plus.dtb (via /boot/dtb Symlink)
 fix_n2plus() {
+    local NODE="/soc/bus@ffd00000/i2c@1d000"
     local DTB="/boot/dtb/amlogic/meson-g12b-odroid-n2-plus.dtb"
-    local NODE="/soc/bus@ff800000/i2c@5000"
 
-    [[ -f "$DTB" ]] || { echo "FEHLER: $DTB nicht gefunden"; exit 1; }
+    [[ -f "$DTB" ]] || { echo "FEHLER: DTB nicht gefunden: $DTB"; exit 1; }
+    echo "DTB: $DTB (→ $(readlink -f "$DTB"))"
 
     for cmd in dtc fdtput; do
         command -v "$cmd" >/dev/null 2>&1 || { echo "FEHLER: '$cmd' fehlt — apt install device-tree-compiler"; exit 1; }
     done
 
-    local dts SDA_HEX SCK_HEX SDA_DEC SCK_DEC CURRENT BAK
+    local dts SDA_HEX SCK_HEX SDA_DEC SCK_DEC BAK
     dts=$(dtc -I dtb -O dts "$DTB" 2>/dev/null)
 
-    SDA_HEX=$(echo "$dts" | grep -A5 "i2c-ao-sda {" | grep -oP 'phandle = <\K0x[0-9a-f]+' | head -1)
-    SCK_HEX=$(echo "$dts" | grep -A5 "i2c-ao-sck {" | grep -oP 'phandle = <\K0x[0-9a-f]+' | head -1)
+    SDA_HEX=$(echo "$dts" | grep -B3 'groups = "i2c2_sda_x"' | grep -oP 'phandle = <\K0x[0-9a-f]+' || true)
+    SCK_HEX=$(echo "$dts" | grep -B3 'groups = "i2c2_sck_x"' | grep -oP 'phandle = <\K0x[0-9a-f]+' || true)
 
-    [[ -n "$SDA_HEX" ]] || { echo "FEHLER: phandle für i2c-ao-sda nicht gefunden"; exit 1; }
-    [[ -n "$SCK_HEX" ]] || { echo "FEHLER: phandle für i2c-ao-sck nicht gefunden"; exit 1; }
+    [[ -n "$SDA_HEX" ]] || { echo "FEHLER: phandle für i2c2_sda_x nicht gefunden"; exit 1; }
+    [[ -n "$SCK_HEX" ]] || { echo "FEHLER: phandle für i2c2_sck_x nicht gefunden"; exit 1; }
 
     SDA_DEC=$(( SDA_HEX ))
     SCK_DEC=$(( SCK_HEX ))
 
-    echo "i2c_ao_sda phandle: $SDA_HEX  ($SDA_DEC)"
-    echo "i2c_ao_sck phandle: $SCK_HEX  ($SCK_DEC)"
+    echo "i2c2_sda_x phandle: $SDA_HEX  ($SDA_DEC)"
+    echo "i2c2_sck_x phandle: $SCK_HEX  ($SCK_DEC)"
 
-    CURRENT=$(echo "$dts" | awk '/i2c@5000 \{/,/^\s*\};/' | grep "pinctrl-0" | head -1 || true)
-    echo "Aktuell:  $CURRENT"
-    echo "Soll:     pinctrl-0 = <$SDA_HEX $SCK_HEX>;"
+    local cur_status cur_pinctrl
+    cur_status=$(echo "$dts" | awk '/i2c@1d000 \{/,/^\s*\};/' | grep "status" | head -1 | tr -d ' \t;"' || true)
+    cur_pinctrl=$(echo "$dts" | awk '/i2c@1d000 \{/,/^\s*\};/' | grep "pinctrl-0" | head -1 || true)
 
-    if echo "$CURRENT" | grep -q "$SDA_HEX" && echo "$CURRENT" | grep -q "$SCK_HEX"; then
+    echo "Aktuell status:    ${cur_status:-nicht gesetzt}"
+    echo "Aktuell pinctrl-0: ${cur_pinctrl:-nicht gesetzt}"
+
+    if echo "$cur_status" | grep -q "okay" && echo "$cur_pinctrl" | grep -q "$SDA_HEX"; then
         echo "Bereits korrekt — kein Patch nötig."
         exit 0
     fi
@@ -58,12 +64,14 @@ fix_n2plus() {
         echo "Backup existiert bereits: $BAK"
     fi
 
+    fdtput -t s "$DTB" "$NODE" status "okay"
+    fdtput -t s "$DTB" "$NODE" pinctrl-names "default"
     fdtput -t u "$DTB" "$NODE" pinctrl-0 $SDA_DEC $SCK_DEC
     echo "DTB gepacht."
 
     echo ""
     echo "Verifizierung:"
-    dtc -I dtb -O dts "$DTB" 2>/dev/null | grep -A10 "i2c@5000 {" | head -12
+    dtc -I dtb -O dts "$DTB" 2>/dev/null | awk '/i2c@1d000 \{/,/^\s*\};/' | head -10
 }
 
 # ── ODROID M1 ────────────────────────────────────────────────────────────────
@@ -105,7 +113,7 @@ else
 fi
 
 echo ""
-echo "Nach dem Reboot: i2cdetect -y 0  (DHT20 bei 0x38 erwartet)"
+echo "Nach dem Reboot: i2cdetect -l  (Busnummer ermitteln), dann i2cdetect -y <N>  (DHT20 bei 0x38 erwartet)"
 echo ""
 read -rp "Jetzt rebooten? [j/N] " ans
 [[ "$ans" =~ ^[jJyY]$ ]] && reboot || echo "Bitte manuell rebooten."

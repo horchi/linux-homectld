@@ -4,7 +4,7 @@ temp=`/usr/local/bin/hhact temp dht_inside`
 temp=`echo ${temp} | sed s/","/"."/g`
 
 if [[ -z "${temp}" ]]; then
-   exit 0
+   temp=0
 fi
 
 RESULT="{ \"type\":\"SC\",\"address\":$2,\"kind\":\"value\",\"valid\":true,\"value\":${temp},\"unit\":\"°C\" }"

@@ -125,7 +125,7 @@ if the database is running remote, or you like to have remote access to the data
 ### install the build dependencies
 
 ```
-apt -y install build-essential libssl-dev libcurl4-openssl-dev uuid-dev libcap-dev libsystemd-dev cmake pkg-config
+apt -y install build-essential libssl-dev libcurl4-openssl-dev uuid-dev libcap-dev libsystemd-dev cmake pkg-config net-tools
 apt -y install libjansson-dev libmariadb-dev liblua5.3-dev mosquitto-clients jq jo bc aptitude util-linux-extra libgpiod2 libgpiod-dev
 ```
 
@@ -385,7 +385,7 @@ it is used to route SatIp broadcat signals from the Minisatip service which I'm 
 
 ## DNS/DHCP
 
-```apt -y install dnsmasq```
+```apt -y install dnsmasq dnsmasq-utils```
 
 if you call 'make install' of the homectld AFTER the install of dnsmasq the setup (/etc/dnsmasq*) will prepared automatically,
 just adjust your inrternal internal subnet by setting ```SUBNET = SUBNET = 192.168.220``` in Make.user (to your subnet)
@@ -419,7 +419,9 @@ systemctrl enable lte-modem.service
 ```
 
 ## Check der Verbindung und Signal Qualität
-```mmcli -m $(mmcli -L | grep -oP 'Modem/\K[0-9]+') --signal-get```
+```
+mmcli -m $(mmcli -L | grep -oP 'Modem/\K[0-9]+') --signal-get
+```
 
 ## Zyklischen Check der LTE Verbindung mit Auto Reconnect bei Verbindungsverlust einrichten
 

@@ -877,7 +877,7 @@ int Daemon::initScripts()
 
       if (!oData)
       {
-         tell(eloAlways, "Script: Error, got invalid JSON from script '%s'", scriptPath);
+         tell(eloAlways, "Script: Error, got invalid JSON from script '%s' [%s]", scriptPath, result.c_str());
          free(scriptPath);
          continue;
       }

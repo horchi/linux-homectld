@@ -86,6 +86,9 @@ $(I2CTARGET): $(I2COBJS)
 linstall: $(TARGET) $(W1TARGET) $(BMSTARGET) $(VOTROTARGET) $(VICTRONTARGET) $(I2CTARGET)
 	make install-daemon
 	make install-web
+
+install:  linstall
+	make install-systemd
    ifdef MOPEKA
 	   (cd mopeka; $(MAKE) install)
    endif
@@ -95,9 +98,6 @@ linstall: $(TARGET) $(W1TARGET) $(BMSTARGET) $(VOTROTARGET) $(VICTRONTARGET) $(I
    ifdef WOMO
 	   (cd contrib/womo; $(MAKE) install)
    endif
-
-install:  linstall
-	make install-systemd
 
 install-daemon: install-config install-scripts
 	@echo install $(TARGET)

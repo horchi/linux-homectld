@@ -2,6 +2,7 @@
 WOMO = 1
 
 INIT_AFTER = mysql.service
+STATIC_IP = 192.168.100.10
 SUBNET = 192.168.100
 DOMAIN = womo.lan
 

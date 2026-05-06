@@ -12,15 +12,13 @@
 #include "lib/json.h"
 #include "lib/mqtt.h"
 
-// #ifndef _NO_RASPBERRY_PI_
-// #  include <wiringPi.h>
-// #endif
-
 #include "lib/i2c/ads1115.h"
 #include "lib/i2c/mcp23017.h"
 #include "lib/i2c/dht20.h"
 
 #include "gpio.h"
+
+#define confDir "/etc/" TARGET
 
 //***************************************************************************
 // Class I2CMqtt
@@ -59,6 +57,7 @@ class I2CMqtt
       I2CMqtt(const char* aDevice, const char* aMqttUrl, const char* aMqttTopic, int aInterval = 60);
       virtual ~I2CMqtt();
 
+      const char* myName() { return "i2c-MQTT"; }
       static void downF(int aSignal) { shutdown = true; }
 
       int init();
@@ -83,6 +82,7 @@ class I2CMqtt
       int mqttPublish(SensorData& sensor);
       int performMqttRequests();
       int dispatchMqttMessage(const char* message);
+      void onGpioChange(int physPin, bool value);
 
       Gpio* gpio {};
       const char* mqttUrl {};
@@ -97,7 +97,6 @@ class I2CMqtt
       std::vector<Mcp23017> mcpChips;
       std::vector<Ads1115> adsChips;
 
-      static void ioInterrupt();
       static bool shutdown;
 };
 
@@ -105,11 +104,10 @@ class I2CMqtt
 // Interrupt
 //***************************************************************************
 
-volatile bool ioInterruptTrigger {false};
-
-void I2CMqtt::ioInterrupt()
+void I2CMqtt::onGpioChange(int physPin, bool value)
 {
-   ioInterruptTrigger = true;
+   tell(eloDebug, "Debug: Update on interrupt");
+   updateMcp();
 }
 
 //***************************************************************************
@@ -230,7 +228,7 @@ int I2CMqtt::initMcp(const char* config)
    gpio->pinMode(pinMcpIrq, Gpio::dirIn);
    gpio->pullUpDnControl(pinMcpIrq, Gpio::pudUp);
 
-   if (gpio->setIsr(pinMcpIrq, Gpio::edgeBoth, &ioInterrupt) < 0)
+   if (gpio->setIsr(pinMcpIrq, Gpio::edgeBoth, std::bind(&I2CMqtt::onGpioChange, this, std::placeholders::_1, std::placeholders::_2)) != success)
       tell(eloAlways, "Error: Unable to setup ISR to pin '%s'", gpio->pinToName(pinMcpIrq).c_str());
 
    return done;
@@ -241,8 +239,10 @@ int I2CMqtt::initMcp(const char* config)
 
 int I2CMqtt::init()
 {
-   tell(eloAlways, "Setup wiringPi");
-   // wiringPiSetupPhys();     // we use the 'physical' PIN numbers
+   tell(eloAlways, "Setup GPIO");
+
+   gpio = new Gpio(myName(), confDir);
+   gpio->init();
 
    mqttConnection();
 
@@ -276,14 +276,6 @@ int I2CMqtt::loop()
       while (!doShutDown() && time(0) < nextAt)
       {
          usleep(100000);
-
-         if (ioInterruptTrigger)
-         {
-            ioInterruptTrigger = false;
-            tell(eloDebug, "Debug: Update on interrupt");
-            updateMcp();
-         }
-
          performMqttRequests();
       }
    }

@@ -9,15 +9,10 @@
 #include <dirent.h>
 #include <inttypes.h>
 
-// #ifndef _NO_RASPBERRY_PI_
-// #  include <wiringPi.h>
-// #endif
-
 #include "lib/json.h"
 #include "specific.h"
 
 volatile int showerSwitch {0};
-volatile bool ioInterruptTrigger {false};
 
 //***************************************************************************
 // Configuration Items
@@ -287,20 +282,13 @@ int HomeCtl::atMeanwhile()
    }
 #endif
 
-   if (ioInterruptTrigger)
-   {
-      ioInterruptTrigger = false;
-      tell(eloDebug, "Debug: Detected IO interrupt trigger");
-
-      gpioRead(pinUserInput1);
-   }
-
    return done;
 }
 
-void Daemon::ioInterrupt()
+void Daemon::onGpioChange(int physPin, bool value)
 {
-   ioInterruptTrigger = true;
+   tell(eloDebug, "Debug: Interrupt trigger for pin %d (%s)", physPin, value ? "ON" : "OFF");
+   gpioRead(physPin);
 
 #ifdef _POOL
    static uint64_t lastShowerSwitch {cTimeMs::Now()};     // detect only once a second to prevent bouncing
@@ -356,7 +344,7 @@ int HomeCtl::applyConfigurationSpecials()
    initInput(pinShowerSwitch, "Shower");
    pullUpDnControl(pinShowerSwitch, PUD_UP);
 
-   if (gpio.wiringPiISR(pinShowerSwitch, Gpio::edgeFalling, &ioInterrupt) < 0)
+   if (gpio->setIsr(pinShowerSwitch, Gpio::edgeBoth, std::bind(&Daemon::onGpioChange, this, std::placeholders::_1, std::placeholders::_2)) != success)
       tell(eloAlways, "Error: Unable to setup ISR: %s", strerror(errno));
 
    // special values
@@ -366,7 +354,6 @@ int HomeCtl::applyConfigurationSpecials()
    addValueFact(spSolarPower, "SP", 1, "Solar Leistung", "W");
    addValueFact(spSolarWork, "SP", 1, "Solar Energie (heute)", "kWh");
 
-#ifndef _NO_RASPBERRY_PI_
    uint outputModes {ooUser};
 
    if (poolLightTimes.size() > 0)
@@ -377,7 +364,6 @@ int HomeCtl::applyConfigurationSpecials()
       sensors["DO"][pinPoolLight].outputModes = outputModes;
       sensors["DO"][pinPoolLight].mode = (outputModes & ooAuto) ? omAuto : omManual;
    }
-#endif
 
 #endif  // _POOL
 

@@ -12,10 +12,10 @@ var activeSection = '';
 var ioSections = {};
 
 // ----------------------------------------------------------------
-// IO Setup
+// Sensor Setup
 // ----------------------------------------------------------------
 
-function initIoSetup()
+function initSensorSetup()
 {
    // console.log(JSON.stringify(valueFacts, undefined, 4));
 
@@ -36,7 +36,7 @@ function initIoSetup()
                       .addClass('rounded-border tool-button')
                       .css('background-color', 'slategray')
                       .html('Speichern')
-                      .click(function() { storeIoSetup(); }))
+                      .click(function() { storeSensorSetup(); }))
               .append($('<button></button>')
                       .addClass('rounded-border tool-button')
                       .css('background-color', 'slategray')
@@ -45,6 +45,12 @@ function initIoSetup()
                          socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'valuefacts', 'forceScripts':true } });
                          showProgressDialog();
                       })))
+      .append($('<button></button>')
+              .addClass('rounded-border tool-button')
+              .css('background-color', 'slategray')
+              .html('GPIO')
+              .click(function() { showGpio(); }))
+
       .append($('<div></div>')
               .addClass('button-group-spacing'))
       .append($('<div></div>')
@@ -61,16 +67,33 @@ function initIoSetup()
               .on('input', function() { showTable(activeSection); }))
       .append($('<div></div>')
               .append($('<button></button>')
-                      .attr('id', 'filterIoSetup')
+                      .attr('id', 'filterSensorSetup')
                       .addClass('rounded-border tool-button')
                       .html('[alle]')
-                      .click(function() { filterIoSetup(); })))
+                      .click(function() { filterSensorSetup(); })))
       .append($('<div></div>')
               .addClass('button-group-spacing'))
       .append($('<div></div>')
               .addClass('button-group-spacing'));
 
-   $('#container').html('<div id="ioSetupContainer" class="setupContainer"></div>');
+   let padding = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--containerPadding'));
+   var w = $('#container').innerWidth() - padding * 2 - 20;
+   var h = $('#container').innerHeight() - padding * 2 - 20;
+
+   let gpioImage = "img/hw/" + environment.boardType + ".png";
+   console.log("gpioImage", environment.boardType);
+
+   $('#container')
+      .empty()
+      .append($('<div></div>')
+              .attr('id', 'ioSetupContainer')
+              .addClass('setupContainer'))
+      .append($('<div></div>')
+              .attr('id', 'gpioState')
+              .css('padding', 'var(--containerPadding)')
+              .css('background-color', 'slategray')
+              .html('<img src="' + gpioImage + '" style="width:' + w + 'px;height:' + h + 'px;object-fit:contain">')
+              .addClass('hidden'));
 
    for (var i = 0; i < valueTypes.length; i++) {
       var section = 'io' + valueTypes[i].title.replace(' ', '');
@@ -100,17 +123,20 @@ function initIoSetup()
 
 var filterActive = false;
 
-function filterIoSetup()
+function filterSensorSetup()
 {
    filterActive = !filterActive;
-   console.log("filterIoSetup: " + filterActive);
+   console.log("filterSensorSetup: " + filterActive);
 
-   $("#filterIoSetup").html(filterActive ? "[aktive]" : "[alle]");
+   $("#filterSensorSetup").html(filterActive ? "[aktive]" : "[alle]");
    showTable(activeSection);
 }
 
 function showTable(section)
 {
+   $('#gpioState').addClass('hidden');
+   $('#ioSetupContainer').removeClass('hidden');
+
    activeSection = section;
 
    $('button[id^="btn_io"]').each(function () {
@@ -151,10 +177,10 @@ function showTable(section)
 
    $('#ioSetupContainer').html(html);
 
-   let filterIoExpression = null;
+   let filterSensorExpression = null;
 
    if ($("#incSearchName").val() != "")
-      filterIoExpression = new RegExp($("#incSearchName").val());
+      filterSensorExpression = new RegExp($("#incSearchName").val());
 
    let valueFactsSorted = Object.keys(valueFacts).sort(function(a, b) {
       return valueFacts[a].name.localeCompare(valueFacts[b].name);
@@ -168,7 +194,7 @@ function showTable(section)
       if (!item.state && filterActive)
          continue;
 
-      if (filterIoExpression && !filterIoExpression.test(item.title) && !filterIoExpression.test(usrtitle))
+      if (filterSensorExpression && !filterSensorExpression.test(item.title) && !filterSensorExpression.test(usrtitle))
          continue;
 
       // console.log("item.type: " + item.type);
@@ -225,7 +251,7 @@ function showTable(section)
 var calSensorType = '';
 var calSensorAddress = -1;
 
-function updateIoSetupValue()
+function updateSensorSetupValue()
 {
    var key = toKey(calSensorType, calSensorAddress);
 
@@ -766,13 +792,13 @@ function sensorCvAdd()
    }});
 }
 
-function storeIoSetup()
+function storeSensorSetup()
 {
    var jsonArray = [];
    var rootSetup = document.getElementById("ioSetupContainer");
    var elements = rootSetup.querySelectorAll("[id^='row_']");
 
-   console.log("storeIoSetup");
+   console.log("storeSensorSetup");
 
    for (var i = 0; i < elements.length; i++) {
       var jsonObj = {};
@@ -791,4 +817,10 @@ function storeIoSetup()
    }
 
    socket.send({ "event" : "storeiosetup", "object" : jsonArray });
+}
+
+function showGpio()
+{
+   $('#gpioState').removeClass('hidden');
+   $('#ioSetupContainer').addClass('hidden');
 }

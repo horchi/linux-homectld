@@ -15,7 +15,7 @@
 #include "lib/common.h"
 #include "lib/mqtt.h"
 
-// #include "gpio.h"
+#define confDir "/etc/" TARGET
 
 //***************************************************************************
 // Class W1
@@ -37,6 +37,7 @@ class W1
       W1(const char* aUrl, const char* topic);
       ~W1();
 
+      const char* myName() { return "w1-MQTT1"; }
       static void downF(int aSignal) { shutdown = true; }
 
       int init() { return success; }

@@ -14,12 +14,6 @@
 
 #include "gpio.h"
 
-// #ifndef _NO_RASPBERRY_PI_
-// #  include <wiringPi.h>
-// #else
-// #  include "gpio.h"
-// #endif
-
 #include "HISTORY.h"
 #include "w1.h"
 #include "lib/json.h"
@@ -63,7 +57,8 @@ int W1::loop()
 {
    const int updateCycle {10};   // seconds
 
-   // wiringPiSetupPhys();                  // we use the 'physical' PIN numbers
+   gpio = new Gpio(myName(), confDir);
+   gpio->init();
    gpio->pinMode(w1PowerPin, Gpio::dirOut);
    gpio->digitalWrite(w1PowerPin, false);    // false -> on
 

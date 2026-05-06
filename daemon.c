@@ -475,12 +475,6 @@ int Daemon::init()
    // ---------------------------------
    // setup GPIO
 
-// #ifndef _NO_RASPBERRY_PI_
-//    tell(eloAlways, "Setup wiringPi ..");
-//    wiringPiSetupPhys();     // we use the 'physical' PIN numbers
-//    tell(eloAlways, ".. done");
-// #endif
-
    gpio = new Gpio(myName(), confDir);
    gpio->init();
 
@@ -767,20 +761,18 @@ int Daemon::cfgInput(myString type, uint pin, json_t* jCal)
       if (sensors[type][pin].pull != Gpio::pudOff)
          gpio->pullUpDnControl(pin, sensors[type][pin].pull);
 
-#ifndef _NO_RASPBERRY_PI_
       if (sensors[type][pin].active && sensors[type][pin].interrupt)
       {
          tell(eloDebugWiringPi, "Debug: wiringPiISR(%d) (%s)", pin, gpio->pinToName(pin).c_str());
 
          if (!sensors[type][pin].interruptSet)
          {
-            if (gpio->setIsr(pin, Gpio::edgeBoth, &ioInterrupt) != success)
+            if (gpio->setIsr(pin, Gpio::edgeBoth, std::bind(&Daemon::onGpioChange, this, std::placeholders::_1, std::placeholders::_2)) != success)
                tell(eloAlways, "Error: Unable to setup ISR to pin %d (%s)", pin, gpio->pinToName(pin).c_str());
             else
                sensors[type][pin].interruptSet = true;
          }
       }
-#endif
    }
 
    return done;
@@ -4491,6 +4483,7 @@ bool Daemon::gpioRead(uint pin, bool check)
    int state {gpio->digitalRead(pin)};
 
    tell(eloAlways, "gpioRead (%d) = %d (invert = %d)", pin, state, sensors["DI"][pin].invert);
+
    if (sensors["DI"][pin].invert)
       state = !state;
 

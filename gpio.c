@@ -736,7 +736,7 @@ int Gpio::pinMode(int physPin, Direction direction)
 int Gpio::pullUpDnControl(int physPin, PullUpDown value)
 {
    auto it = pins.find(physPin);
-   Edge      edge {edgeNone};
+   Edge edge {edgeNone};
    Direction dir {dirIn};
 
    if (it != pins.end() && it->second.initialized)
@@ -877,7 +877,7 @@ int Gpio::disableInterrupt(int physPin)
 // Set ISR
 //***************************************************************************
 
-int Gpio::setIsr(int physPin, Edge edge, void (*func)(void))
+int Gpio::setIsr(int physPin, Edge edge, std::function<void(int physPin, bool value)> cb)
 {
    PullUpDown pud {pudOff};
    auto it = pins.find(physPin);
@@ -888,7 +888,7 @@ int Gpio::setIsr(int physPin, Edge edge, void (*func)(void))
    if (setupPin(physPin, dirIn, edge, pud) != success)
       return fail;
 
-   return enableInterrupt(physPin, [func](int, bool) { func(); });
+   return enableInterrupt(physPin, [cb](int pin, bool value) { cb(pin, value); });
 }
 
 //***************************************************************************

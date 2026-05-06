@@ -48,17 +48,18 @@ class Gpio
 
       int  init();
 
-      int  setupPin(int physPin, Direction dir, Edge edge, PullUpDown pud);
+      std::string getBoardType() {return modelName; }
+      int setupPin(int physPin, Direction dir, Edge edge, PullUpDown pud);
       bool pinAvailable(int physPin);
       bool digitalRead(int physPin);
-      int  digitalWrite(int physPin, bool value);
-      int  digitalToggle(int physPin);
-      int  pinMode(int physPin, Direction direction);
-      int  pullUpDnControl(int physPin, PullUpDown value);
-      int  enableInterrupt(int physPin, std::function<void(int physPin, bool value)> cb);
-      int  disableInterrupt(int physPin);
-      int  setIsr(int physPin, Edge edge, void (*func)(void));
-      int         getPinList(std::map<int, PinInfo>& out);
+      int digitalWrite(int physPin, bool value);
+      int digitalToggle(int physPin);
+      int pinMode(int physPin, Direction direction);
+      int pullUpDnControl(int physPin, PullUpDown value);
+      int enableInterrupt(int physPin, std::function<void(int physPin, bool value)> cb);
+      int disableInterrupt(int physPin);
+      int setIsr(int physPin, Edge edge, std::function<void(int physPin, bool value)> cb);
+      int getPinList(std::map<int, PinInfo>& out);
       std::string pinToName(int physPin);
 
    private:
@@ -66,17 +67,17 @@ class Gpio
       struct PinState
       {
 #if defined(GPIOD)
-         gpiod_chip*         chip{};
-         gpiod_line_request* request{};
-         unsigned int        offset{};
+         gpiod_chip* chip {};
+         gpiod_line_request* request {};
+         unsigned int offset {};
 #endif
-         bool        initialized{};
-         Direction   direction{};
-         PullUpDown  pud{};
-         Edge        edge{};
-         std::thread* thread{};
-         bool        threadRunning{};
-         bool        lastValue{};
+         bool initialized {};
+         Direction direction {};
+         PullUpDown pud {};
+         Edge edge {};
+         std::thread* thread {};
+         bool threadRunning {};
+         bool lastValue {};
          std::function<void(int physPin, bool value)> callback{};
       };
 
@@ -95,7 +96,7 @@ class Gpio
       std::string configPath;
       std::string modelName;
 
-      bool mappingLoaded{};
+      bool mappingLoaded {};
       std::map<int, PinInfo>  pinMapping;
       std::map<int, PinState> pins;
 };

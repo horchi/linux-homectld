@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
 
+import os, sys
+
+venv = os.path.expanduser("~/.venvs/homectld")
+
+if os.path.isdir(venv) and not sys.prefix.startswith(venv):
+	python = os.path.join(venv, "bin", "python3")
+	if os.path.isfile(python):
+		os.execv(python, [python] + sys.argv)
+
 from mopeka_pro_check.service import MopekaService, MopekaSensor, GetServiceInstance
 from time import sleep
 import argparse
-import sys
 import syslog
 import time
 import json

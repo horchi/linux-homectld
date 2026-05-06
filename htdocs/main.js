@@ -20,6 +20,7 @@ var isActive = null;
 var socket = null;
 var lastPingAt = 0;
 var config = {};
+var environment = {};
 var commands = {};
 var daemonState = {};
 
@@ -473,8 +474,8 @@ function dispatchMessage(message)
          updateSchema();
       else if (currentPage == 'list')
          updateList();
-      else if (currentPage == 'iosetup')
-         updateIoSetupValue();
+      else if (currentPage == 'sensorsetup')
+         updateSensorSetupValue();
    }
    else if (event == "schema") {
       initSchema(jMessage.object);
@@ -487,6 +488,9 @@ function dispatchMessage(message)
    else if (event == "commands") {
       commands = jMessage.object;
       // console.log("commands " + JSON.stringify(commands, undefined, 4));
+   }
+   else if (event == "environment") {
+      environment = jMessage.object;
    }
    else if (event == "config") {
       config = jMessage.object;
@@ -561,8 +565,8 @@ function dispatchMessage(message)
       valueFacts = jMessage.object;
       // console.log("valueFacts " + JSON.stringify(valueFacts, undefined, 4));
 
-      if (currentPage == "iosetup")
-         initIoSetup();
+      if (currentPage == "sensorsetup")
+         initSensorSetup();
    }
    else if (event == "images") {
       images = jMessage.object;
@@ -717,7 +721,7 @@ function prepareSetupMenu()
    $('#confirmDiv').remove();
    $('#setupMenu').remove();
 
-   if (['setup', 'iosetup', 'userdetails', 'groups', 'alerts', 'syslog', 'system', 'images', 'commands'].includes(currentPage)) {
+   if (['setup', 'sensorsetup', 'userdetails', 'groups', 'alerts', 'syslog', 'system', 'images', 'commands'].includes(currentPage)) {
       if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10) {
 
          $("#navMenu").append($('<div></div>')
@@ -725,7 +729,7 @@ function prepareSetupMenu()
                               .addClass('setupMenu'));
 
          addSetupMenuButton('Konfiguration', 'setup');
-         addSetupMenuButton('IO Setup', 'iosetup');
+         addSetupMenuButton('Sensor Setup', 'sensorsetup');
          addSetupMenuButton('User', 'userdetails');
          addSetupMenuButton('Alerts', 'alerts');
          addSetupMenuButton('Images', 'images');
@@ -830,7 +834,7 @@ function mainMenuSel(what, action = null)
 
    if (currentPage == "setup")
       event = "setup";
-   else if (currentPage == "iosetup") {
+   else if (currentPage == "sensorsetup") {
       showProgressDialog();
       socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'valuefacts' } });
    }
@@ -889,7 +893,7 @@ function mainMenuSel(what, action = null)
    //    event = "pellets";
    // }
 
-   if (currentPage != 'vdr' && currentPage != 'iosetup') {
+   if (currentPage != 'vdr' && currentPage != 'sensorsetup') {
       if (!isObjectEmpty(jsonRequest) && event != null)
          socket.send({ 'event' : event, 'object' : jsonRequest });
       else if (event != null && action != null)

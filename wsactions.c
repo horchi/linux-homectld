@@ -277,6 +277,10 @@ int Daemon::performLogin(json_t* oObject)
    pushOutMessage(oJson, "config", client);
 
    oJson = json_object();
+   environment2Json(oJson);
+   pushOutMessage(oJson, "environment", client);
+
+   oJson = json_object();
    widgetTypes2Json(oJson);
    pushOutMessage(oJson, "widgettypes", client);
 
@@ -2135,6 +2139,17 @@ int Daemon::config2Json(json_t* obj)
 
       tableConfig->reset();
    }
+
+   return done;
+}
+
+//***************************************************************************
+// Environment 2 Json
+//***************************************************************************
+
+int Daemon::environment2Json(json_t* obj)
+{
+   json_object_set_new(obj, "boardType", json_string(gpio->getBoardType().c_str()));
 
    return done;
 }

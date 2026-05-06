@@ -11,10 +11,6 @@
 #include <queue>
 #include <jansson.h>
 
-// #ifndef _NO_RASPBERRY_PI_
-// #  include <wiringPi.h>
-// #endif
-
 #include "lib/common.h"
 #include "lib/db.h"
 #include "lib/mqtt.h"
@@ -482,6 +478,7 @@ class Daemon : public cWebInterface
 
       int widgetTypes2Json(json_t* obj);
       int config2Json(json_t* obj);
+      int environment2Json(json_t* obj);
       int configDetails2Json(json_t* obj);
       int userDetails2Json(json_t* obj);
       virtual int configChoice2json(json_t* obj, const char* name);
@@ -742,7 +739,7 @@ class Daemon : public cWebInterface
       // statics
 
       static void* cmdThread(void* user);
-      static void ioInterrupt();
+      virtual void onGpioChange(int physPin, bool value);
 
       static bool shutdown;
 };

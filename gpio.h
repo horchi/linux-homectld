@@ -33,6 +33,8 @@ struct PinInfo
    std::string description;
    bool blocked;
    bool usable;
+   std::string chipLabel;  // hardware label of gpiochip (e.g. "gpio0" on RK3568)
+   int offset {-1};        // line offset within chip (hardware-fixed)
 };
 
 class Gpio
@@ -84,8 +86,10 @@ class Gpio
 #if defined(GPIOD)
       struct PhysEntry { std::string chipPath; unsigned int offset; };
       int buildPhysMap();
+      int buildChipLabelMap();
       static gpiod_chip* findChipForLine(const char* lineName, unsigned int* offsetOut);
-      std::map<int, PhysEntry> physToChip;
+      std::map<int, PhysEntry>        physToChip;
+      std::map<std::string, std::string> chipLabelToPath;
 #endif
 
       int loadMapping();

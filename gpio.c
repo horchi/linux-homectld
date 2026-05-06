@@ -55,6 +55,41 @@ gpiod_chip* Gpio::findChipForLine(const char* lineName, unsigned int* offsetOut)
 // Scan all gpiochips for PIN_<N> named lines and build phys -> chip+offset map.
 //***************************************************************************
 
+int Gpio::buildChipLabelMap()
+{
+   chipLabelToPath.clear();
+
+   for (int i = 0; i < 16; ++i)
+   {
+      char path[32];
+      snprintf(path, sizeof(path), "/dev/gpiochip%d", i);
+
+      gpiod_chip* chip {gpiod_chip_open(path)};
+
+      if (!chip)
+         continue;
+
+      gpiod_chip_info* cinfo {gpiod_chip_get_info(chip)};
+
+      if (cinfo)
+      {
+         const char* label {gpiod_chip_info_get_label(cinfo)};
+
+         if (label && *label)
+         {
+            chipLabelToPath[label] = path;
+            tell(eloDebug, "GPIO: chip label '%s' -> %s", label, path);
+         }
+
+         gpiod_chip_info_free(cinfo);
+      }
+
+      gpiod_chip_close(chip);
+   }
+
+   return success;
+}
+
 int Gpio::buildPhysMap()
 {
    physToChip.clear();
@@ -175,6 +210,7 @@ int Gpio::init()
 
 #if defined(GPIOD)
 
+   buildChipLabelMap();
    buildPhysMap();
    return success;
 
@@ -333,6 +369,8 @@ int Gpio::loadJsonForModel(json_t* root, const std::string& model)
          info.interrupt     = getBoolFromJson(val,   "interrupt", false);
          info.voltage       = getStringFromJson(val, "voltage", "3.3V");
          info.description   = getStringFromJson(val, "description", "");
+         info.chipLabel     = getStringFromJson(val, "chipLabel", "");
+         info.offset        = getIntFromJson(val,    "offset", -1);
          info.blocked       = false;
          info.usable        = false;
 
@@ -451,6 +489,17 @@ int Gpio::setupPin(int physPin, Direction dir, Edge edge, PullUpDown pud)
    {
       p.chip   = gpiod_chip_open(itPhys->second.chipPath.c_str());
       p.offset = itPhys->second.offset;
+   }
+   else if (!info.chipLabel.empty() && info.offset >= 0)
+   {
+      // Chip label + offset from gpio.json (hardware-fixed, kernel-independent)
+      auto itLabel = chipLabelToPath.find(info.chipLabel);
+
+      if (itLabel != chipLabelToPath.end())
+      {
+         p.chip   = gpiod_chip_open(itLabel->second.c_str());
+         p.offset = static_cast<unsigned int>(info.offset);
+      }
    }
    else
    {

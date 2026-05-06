@@ -13,6 +13,7 @@ from mopeka_pro_check.service import MopekaService, MopekaSensor, GetServiceInst
 from time import sleep
 import argparse
 import syslog
+import signal
 import time
 import json
 import paho.mqtt.client as paho
@@ -31,6 +32,11 @@ parameters.append('{"parameter": {"cloneable": false, "widgettype": 14, "scalema
 parameters.append('{"parameter": {"cloneable": false, "widgettype": 0, "symbol": "mdi:mdi-bluetooth", "symbolOn": "mdi:mdi-bluetooth", "colorCondition": "1=red,2=orange,3=rgb(40 172 45)"}}')
 
 # functions
+
+def shutdown(sig, frame):
+	if args.m.strip() != '':
+		mqtt.disconnect()
+	sys.exit(0)
 
 def tell(level, msg):
 	if args.v >= level:
@@ -98,7 +104,11 @@ def show(adv):
 if args.D:
 	print("Discover ...")
 	service.DoSensorDiscovery()
-	service.Start()
+	try:
+		service.Start()
+	except OSError as e:
+		print(f"Bluetooth not available: {e}", file=sys.stderr)
+		sys.exit(1)
 	sleep(5)
 	service.Stop()
 
@@ -117,7 +127,11 @@ if args.M.strip() == "":
 service.AddSensorToMonitor(MopekaSensor(args.M.strip()))
 
 if args.s:
-	service.Start()
+	try:
+		service.Start()
+	except OSError as e:
+		print(f"Bluetooth not available: {e}", file=sys.stderr)
+		sys.exit(1)
 	sleep(5)
 	service.Stop()
 	for s in service.SensorMonitoredList.values():
@@ -127,8 +141,16 @@ if args.s:
 			tell(0, 'Sensor "{}" not found'.format(args.M.strip()))
 	sys.exit()
 
+signal.signal(signal.SIGTERM, shutdown)
+signal.signal(signal.SIGINT, shutdown)
+
 while True:
-	service.Start()
+	try:
+		service.Start()
+	except OSError as e:
+		tell(0, f"Bluetooth not available: {e}")
+		time.sleep(15)
+		continue
 	sleep(5)
 	service.Stop()
 
@@ -184,8 +206,5 @@ while True:
 		  'unit'    : '',
 		  'title'   : 'Signal Quality' })
 	tell(0, "... done")
-	time.sleep(args.l)
+	time.sleep(args.i)
 	initial = False
-
-if args.m.strip() != '':
-	mqtt.disconnect()

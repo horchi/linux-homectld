@@ -90,6 +90,38 @@ int Gpio::buildChipLabelMap()
    return success;
 }
 
+int Gpio::updateBlockedFromChipLabels()
+{
+   for (auto& [phys, info] : pinMapping)
+   {
+      if (info.chipLabel.empty() || info.offset < 0)
+         continue;
+
+      auto it = chipLabelToPath.find(info.chipLabel);
+
+      if (it == chipLabelToPath.end())
+         continue;
+
+      gpiod_chip* chip {gpiod_chip_open(it->second.c_str())};
+
+      if (!chip)
+         continue;
+
+      gpiod_line_info* linfo {gpiod_chip_get_line_info(chip, static_cast<unsigned int>(info.offset))};
+
+      if (linfo)
+      {
+         info.blocked = gpiod_line_info_is_used(linfo);
+         info.usable  = info.gpio && !info.blocked;
+         gpiod_line_info_free(linfo);
+      }
+
+      gpiod_chip_close(chip);
+   }
+
+   return success;
+}
+
 int Gpio::buildPhysMap()
 {
    physToChip.clear();
@@ -212,6 +244,7 @@ int Gpio::init()
 
    buildChipLabelMap();
    buildPhysMap();
+   updateBlockedFromChipLabels();
    return success;
 
 #elif defined(WIRINGPI)

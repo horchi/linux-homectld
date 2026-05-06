@@ -11,6 +11,6 @@ install:
 		echo "!! Adjust settings in $(DESTDIR)/etc/default/mopeka2mqtt !!"; \
 	fi
    ifeq ($(DESTDIR),)
-	   systemctl daemon-reload
 	   systemctl enable mopeka.service
+	   systemctl daemon-reload
    endif

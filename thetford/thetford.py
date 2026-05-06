@@ -2,7 +2,15 @@
 
 # Retrieve status from thetford N4000/T2000 series refrigerator
 
-import sys
+import os, sys
+
+venv = os.path.expanduser("~/.venvs/homectld")
+
+if os.path.isdir(venv) and not sys.prefix.startswith(venv):
+	python = os.path.join(venv, "bin", "python3")
+	if os.path.isfile(python):
+		os.execv(python, [python] + sys.argv)
+
 import syslog
 import time
 import argparse

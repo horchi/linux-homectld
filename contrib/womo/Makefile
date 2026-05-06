@@ -3,6 +3,7 @@ include ../../Make.user
 include ../../Make.config
 
 ETH_IFACE := $(shell ip -o link show | awk '$$2 != "lo:" && /ether/ {gsub(/:/, "", $$2); print $$2; exit}')
+BOARD     := $(shell cat /proc/device-tree/model 2>/dev/null | tr -d '\0')
 
 install:
 	@echo install womo stuff
@@ -39,6 +40,12 @@ install:
 	if ! test -f $(DESTDIR)/etc/NetworkManager/conf.d/disabl-dns.conf; then \
 		install --mode=644 -D etc/disabl-dns.conf $(DESTDIR)/etc/NetworkManager/conf.d/disabl-dns.conf; \
 		systemctl reload NetworkManager; \
+	fi
+	if echo "$(BOARD)" | grep -qiE "N2|M1"; then \
+		if ! test -f $(DESTDIR)/etc/cron.d/rtc-sync; then \
+			echo "@reboot root hwclock --hctosys" > $(DESTDIR)/etc/cron.d/rtc-sync; \
+			echo "RTC sync cron installed for $(BOARD)"; \
+		fi; \
 	fi
 	install --mode=755 -D etc/logrotate.d/* $(DESTDIR)/etc/logrotate.d/
 	install --mode=664 -D etc/systemd/* $(SYSTEMDDEST)/

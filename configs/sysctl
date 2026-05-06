@@ -24,14 +24,26 @@ if [[ -f /storage/bin/systemctl.sh ]]; then
    SYSTEMCTL=/storage/bin/systemctl.sh
 fi
 
+SYMBOL="mdi:mdi-toggle-switch-off-outline"
+SYMBOLON="mdi:mdi-toggle-switch"
+
 COMMAND="$1"
 ADDRESS="$2"
 MQTTURL="$3"
 SERVICE="$4"
 
+if [ "$#" -ge 5 ]; then
+   SYMBOL="$5"
+   SYMBOLON="$5"
+fi
+
+if [ "$#" -ge 6 ]; then
+   SYMBOLON="$6"
+fi
+
 export HOME=/var/lib/homectld
 
-case "$COMMAND" in
+case "${COMMAND}" in
     start)
         ${SYSTEMCTL} start --quiet ${SERVICE}
         ;;
@@ -78,6 +90,8 @@ if [ "${COMMAND}" != "init" ]; then
    mosquitto_pub --quiet -L ${MQTTURL} -m "{ \"type\":\"SC\",\"address\":${ADDRESS},\"kind\":\"status\",\"state\":${STATE} }"
 fi
 
-echo -n "{ \"type\":\"SC\",\"address\":${ADDRESS},\"kind\":\"status\",\"value\":${STATE} }"
+PARAMETER="{\"cloneable\": false, \"symbol\": \"${SYMBOL}\", \"symbolOn\": \"${SYMBOLON}\"}"
+RESULT="{ \"type\":\"SC\",\"address\":${ADDRESS},\"kind\":\"status\",\"value\":${STATE},\"parameter\": ${PARAMETER} }"
+echo -n ${RESULT}
 
 exit ${RETVAL}

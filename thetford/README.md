@@ -21,35 +21,36 @@ If you like the project and want to support it
 Install the hardware and software (python) as described at the usblini homepage:
 https://www.fischl.de/usblini/usblini_python_raspberrypi/
 
-For example:
+# Installation
+
+## dependencies
+
+###  python >= 3.3
+
 ```
-apt update
-apt install -y python3 python3-pip
-apt install -y python3.7-tk (or python3-tk, ...) # (maybe needed forUSBliniGUI.py)
+export PY_ENV=/root/.venvs/homectld
+export PY_ENV_BIN=${PY_ENV}/bin
+
+apt -y install python3 python3-pip python3-venv python3-paho-mqtt
+apt -y install python3-tk   # (maybe needed forUSBliniGUI.py)
+## apt install -y python3-full
+
+if [[ ! -d ${PY_ENV} ]]; then
+    python3 -m venv --system-site-packages ${PY_ENV}
+fi
+
+${PY_ENV_BIN}/pip install git+https://github.com/EmbedME/pyUSBlini
+```
+
+### Older python
+```
+apt -y install python3 python3-pip python3-paho-mqtt
+apt -y install python3-tk  # (maybe needed forUSBliniGUI.py)
 
 pip install git+https://github.com/EmbedME/pyUSBlini
-
-bash -c $'echo \'SUBSYSTEM=="usb", ATTRS{product}=="USBlini", MODE="0666"\' > /etc/udev/rules.d/50-USBlini.rules'
-udevadm control --reload-rules
 ```
 
-or ..... :(
-```
-apt update
-apt install -y python3 python3-pip
-apt install -y python3-venv
-apt install python3.7-tk (or python3-tk, ...) # (maybe needed forUSBliniGUI.py)
-apt install -y python3-full # if needed
-
-python3 -m venv /root/thetford.py.env
-/root/thetford.py.env/bin/pip install git+https://github.com/EmbedME/pyUSBlini
-
-# TODO !!! adopt new path (/root/thetford.py.env/bin/python) to sevice unit 'thetford.service'
-#   or to python script () itself
-
-bash -c $'echo \'SUBSYSTEM=="usb", ATTRS{product}=="USBlini", MODE="0666"\' > /etc/udev/rules.d/50-USBlini.rules'
-udevadm control --reload-rules
-```
+# Information
 
 I use this adapter as master, not yet tried as a slave.
 For the Thetford N4000 series refrigerators a ready-made example for integration into the homectld can be found here thetford/README.md
@@ -58,13 +59,6 @@ For the Thetford N4000 series refrigerators a ready-made example for integration
 
 Here you can find the suitable adapter https://www.fischl.de/usblini/
 
-# Install thetford python script
-```
-apt install -y python3-paho-mqtt
-cd thetford
-make install
-systemctl start thetford.service
-```
 ## IMPORTANT
 Adjust configuration in `/etc/default/thetford2mqtt`
 
@@ -72,7 +66,7 @@ Adjust configuration in `/etc/default/thetford2mqtt`
 
 The Device alwas have the ID 04d8:e870
 ```
-lsusb |grep -i Microc
+lsusb | grep -i Microc
 Bus 001 Device 011: ID 04d8:e870 Microchip Technology, Inc.
 lsusb -d 04d8:e870
 Bus 001 Device 011: ID 04d8:e870 Microchip Technology, Inc.
@@ -97,16 +91,7 @@ Example:
 ```
 /usr/bin/python3 /usr/local/bin/thetford.py -m localhost -v 0 -l
 ```
-If you install it like the service file '`thetford.service` and enable/start it like
-```
-sudo apt install mosquitto mosquitto-clients
-sudo cp thetford.py /usr/local/bin/
-sudo cp thetford.service /etc/systemd/system/
-sudo cp thetford2mqtt /etc/default/
-sudo systemctl enable thetford
-sudo systemctl start thetford
-```
-It runs in the background and writing the specified MQTT topic.
+
 Don't forget to adjust the MQTT settings in /etc/default/thetford2mqtt.
 
 ## MQTT message examples

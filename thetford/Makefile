@@ -10,7 +10,12 @@ install:
 		cp thetford2mqtt $(DESTDIR)/etc/default/thetford2mqtt; \
 		echo "!! Adjust settings in $(DESTDIR)/etc/default/thetford2mqtt !!"; \
 	fi
+	if ! test -f $(DESTDIR)/etc/udev/rules.d/50-USBlini.rules; then \
+		echo 'SUBSYSTEM=="usb", ATTRS{product}=="USBlini", MODE="0666"' > $(DESTDIR)/etc/udev/rules.d/50-USBlini.rules; \
+		udevadm control --reload-rules; \
+	fi
    ifeq ($(DESTDIR),)
-	   systemctl daemon-reload
 	   systemctl enable thetford.service
+	   systemctl daemon-reload
+	   systemctl start thetford.service
    endif

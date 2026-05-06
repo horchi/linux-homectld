@@ -239,7 +239,7 @@ class Daemon : public cWebInterface
 
          // specials
 
-         bool invert {true};
+         bool invert {false};
          Gpio::PullUpDown pull {Gpio::pudOff};
          bool impulse {false};      // change output only for a short impulse
          bool interrupt {false};

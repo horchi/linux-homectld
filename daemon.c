@@ -4043,6 +4043,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
       bool oldState {sensors[type][address].state};
 
       sensors[type][address].state = sensors[type][address].invert ? !state : state;
+      // tell(eloAlways, "State of '%s:%d' is %d; invert %d", type.c_str(), address, sensors[type][address].state, sensors[type][address].invert);
 
       if (oldState != sensors[type][address].state && sensors[type][address].outputModes & ooUser)
          storeIoState(type.c_str(), address);

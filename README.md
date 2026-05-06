@@ -403,6 +403,10 @@ Note that the MSQ_DEV in fwpn can be switched via the msqdevice.sh script servic
 
 ## Alfa Tube-U4G LTE USB Modem
 
+```
+apt install modemmanager usb-modeswitch libqmi-utils network-manager
+```
+
 Für den Internet Zugangmittels einem Alfa Tube-U4G LTE USB Modem wird das Script `lte-autoconnect.sh` nebst zugehörigen Service `lte-modem.service`
 installiert. Damit kann die Verbindung mittels:
 ```

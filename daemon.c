@@ -99,7 +99,7 @@ Daemon::ValueTypes Daemon::defaultValueTypes[] =
    { "^VIC",      "Victron" },
    { "^VOTRO",    "Votronic" },
    { "^MOPEKA.*", "Mopeka" },
-   { "^VAR$",     "Variables" },
+//    { "^VAR$",     "Variables" },
 
    { "",        "" }
 };
@@ -620,16 +620,14 @@ int Daemon::applyConfigurationSpecials()
       initGpioLine(phys, pinInfo);
    }
 
-   for (int i = 0; i < 10; i++)
-   {
-      std::string name {"Variable " + std::to_string(i)};
-      addValueFact(i, "VAR", 1, name.c_str());
-      sensors["VAR"][i].valid = true;
-      sensors["VAR"][i].state = false;
-   }
+   // for (int i = 0; i < 10; i++)
+   // {
+   //    std::string name {"Variable " + std::to_string(i)};
+   //    addValueFact(i, "VAR", 1, name.c_str());
+   //    sensors["VAR"][i].valid = true;
+   //    sensors["VAR"][i].state = false;
+   // }
 
-   // #TODO DEMO - remove
-   addValueFact(1, "AI", 1, "Test AI 1", "mA");
    return done;
 }
 
@@ -675,7 +673,10 @@ int Daemon::initSensorByFact(myString type, uint address)
 
    if (type != "CV" && !fact->getValue("SETTINGS")->isEmpty())
    {
-      json_t* jCal {jsonLoad(fact->getStrValue("SETTINGS"))};
+      json_t* jCal {jsonLoad(fact->getStrValue("SETTINGS"), 0, true)};
+
+      if (!jCal)
+         tell(eloAlways, "Ignoring invalid JSON in settings config of '%s:0x%x'", type.c_str(), address);
 
       if (jCal)
       {
@@ -2359,7 +2360,11 @@ int Daemon::process(bool force, bool signal)
       {
          if (!tableValueFacts->getValue("SETTINGS")->isEmpty())
          {
-            json_t* o {jsonLoad(tableValueFacts->getStrValue("SETTINGS"))};
+            json_t* o {jsonLoad(tableValueFacts->getStrValue("SETTINGS"), 0, true)};
+
+            if (!o)
+               continue;
+
             expression = getStringFromJson(o, "lua", "");
             json_decref(o);
          }
@@ -2386,7 +2391,7 @@ int Daemon::process(bool force, bool signal)
       {
          for (const auto& [address, sensor] : sensorOfType)
          {
-//            if (sensor.changedAt > sensor.last)
+            // if (sensor.changedAt > sensor.last)
             {
                update = true;
                std::string varValue {"sensor" + type + std::to_string(address)};
@@ -2399,7 +2404,7 @@ int Daemon::process(bool force, bool signal)
 
                lua.pushGlobal(varLast.c_str(), sensor.last);
 
-               tell(eloAlways, "pushGlobal(%s, %s), last '%ld'", varValue.c_str(), varLast.c_str(), sensor.last);
+               tell(eloLua, "LUA: pushGlobal(%s, %s), last '%ld'", varValue.c_str(), varLast.c_str(), sensor.last);
             }
          }
       }
@@ -4004,9 +4009,18 @@ int Daemon::dispatchOther(const char* topic, const char* message)
          {
             if (!tableValueFacts->getValue("SETTINGS")->isEmpty())
             {
-               json_t* jCal {jsonLoad(tableValueFacts->getStrValue("SETTINGS"))};
-               publishI2CSensorConfig(tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"), jCal);
-               json_decref(jCal);
+               json_t* jCal {jsonLoad(tableValueFacts->getStrValue("SETTINGS"), 0, true)};
+
+               if (jCal)
+               {
+                  publishI2CSensorConfig(tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"), jCal);
+                  json_decref(jCal);
+               }
+               else
+               {
+                  tell(eloAlways, "Ignoring invalid JSON in settings config of '%s:0x%lx'",
+                       tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"));
+               }
             }
          }
       }

@@ -2422,8 +2422,11 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
       {
          if (!tableValueFacts->getValue("SETTINGS")->isEmpty())
          {
-            json_t* o {jsonLoad(tableValueFacts->getStrValue("SETTINGS"))};
-            json_object_set_new(oData, "settings", o);
+            json_t* o {jsonLoad(tableValueFacts->getStrValue("SETTINGS"), 0, true)};
+            if (o)
+               json_object_set_new(oData, "settings", o);
+            else
+               tell(eloAlways, "Ignoring invalid JSON in settings config of '%s:0x%lx'", type.c_str(), address);
          }
       }
 

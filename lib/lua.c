@@ -39,15 +39,28 @@ int Lua::exit()
 }
 
 //**************************************************************************
+// Load Script (defines functions for later executeFunction calls)
+//**************************************************************************
+
+int Lua::load(const char* script)
+{
+   if (luaL_dostring(handle, script) != LUA_OK)
+   {
+      tell(eloAlways, "Error: Lua load: '%s'", lua_tostring(handle, -1));
+      lua_pop(handle, 1);
+      return fail;
+   }
+
+   return success;
+}
+
+//**************************************************************************
 // Execute Script
 //**************************************************************************
 
 int Lua::executeFunction(const char* function, const std::vector<std::string>& arguments, Result& res)
 {
    res = {};
-
-   if (lua_pcall(handle, 0, 1, 0) == LUA_OK)
-      lua_pop(handle, lua_gettop(handle));         //  executed successfuly, remove code from stack
 
    lua_getglobal(handle, function);
 
@@ -126,8 +139,12 @@ int Lua::executeExpression(const char* expression, const std::vector<std::string
    {
       free(code);
 
-      if (lua_pcall(handle, 0, 1, 0) == LUA_OK)
-         lua_pop(handle, lua_gettop(handle));         //  executed successfuly, remove code from stack
+      if (lua_pcall(handle, 0, 0, 0) != LUA_OK)
+      {
+         tell(eloAlways, "Error: Lua load execute: '%s'", lua_tostring(handle, -1));
+         lua_pop(handle, lua_gettop(handle));
+         return fail;
+      }
 
       lua_getglobal(handle, "execute");
 
@@ -138,7 +155,10 @@ int Lua::executeExpression(const char* expression, const std::vector<std::string
          return fail;
       }
 
-      if (lua_pcall(handle, 0, 1, 0) == LUA_OK)
+      for (const auto& arg : arguments)
+         lua_pushstring(handle, arg.c_str());
+
+      if (lua_pcall(handle, arguments.size(), 1, 0) == LUA_OK)
       {
          if (lua_isboolean(handle, -1))
          {

@@ -48,6 +48,7 @@ class Lua
          bool isNil {false};
       };
 
+      int load(const char* script);
       int executeFunction(const char* function, const std::vector<std::string>& arguments, Result& res);
       int executeExpression(const char* expression, const std::vector<std::string>& arguments, Result& res);
 

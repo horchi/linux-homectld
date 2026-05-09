@@ -2443,7 +2443,7 @@ int Daemon::process(bool force, bool signal)
                update = true;
                std::string var {"sensor" + type + "_" + std::to_string(address)};
 
-               if (type == "DI" || type == "DO")
+               if (sensor.kind == "status")
                   lua.pushGlobal(var.c_str(), sensor.state);
                else
                   lua.pushGlobal(var.c_str(), sensor.value);

@@ -621,6 +621,9 @@ int Gpio::setupPin(int physPin, Direction dir, Edge edge, PullUpDown pud)
 
    p.lastValue = (v == GPIOD_LINE_VALUE_ACTIVE);
 
+   if (p.callback && edge != edgeNone)
+      enableInterrupt(physPin, p.callback);
+
    return success;
 
 #elif defined (WIRINGPI)

@@ -1,8 +1,10 @@
 #!/bin/bash
 # Enable I2C on 40-pin header pins 3 (SDA) / 5 (SCL)
+# Enable GPIO pull-ups via Device Tree Overlay (ODROID M1)
 # Unterstützte Boards:
 #   ODROID N2+  — DTB-Patch: i2c@1d000 (GPIOX_17/18) aktivieren
 #   ODROID M1   — Armbian-Overlay aktivieren (i2c0 in armbianEnv.txt)
+#               — GPIO Pull-Up Overlay kompilieren und installieren
 #
 # Benötigt: device-tree-compiler (apt install device-tree-compiler)
 # Ausführen: sudo bash armbian-enable-header-i2c.sh
@@ -97,6 +99,76 @@ fix_m1() {
     grep "overlays=" "$ENV"
 }
 
+# ── ODROID M1: GPIO Pull-Up Overlay ─────────────────────────────────────────
+fix_m1_gpio_pullups() {
+    local ENV="/boot/armbianEnv.txt"
+    local OVERLAY="gpio-pullups"
+
+    command -v dtc >/dev/null 2>&1 || { echo "FEHLER: 'dtc' fehlt — apt install device-tree-compiler"; exit 1; }
+
+    [[ -f "$ENV" ]] || { echo "FEHLER: $ENV nicht gefunden"; exit 1; }
+
+    local PREFIX
+    PREFIX=$(grep "^overlay_prefix=" "$ENV" | cut -d= -f2 | tr -d '[:space:]')
+    [[ -n "$PREFIX" ]] || { echo "FEHLER: overlay_prefix nicht in $ENV gefunden"; exit 1; }
+
+    local OVERLAY_DIR
+    OVERLAY_DIR=$(find /boot -type d -name "overlay" -path "*/rockchip/*" 2>/dev/null | head -1)
+    [[ -n "$OVERLAY_DIR" ]] || { echo "FEHLER: Overlay-Verzeichnis nicht gefunden"; exit 1; }
+
+    local DTBO="${OVERLAY_DIR}/${PREFIX}-${OVERLAY}.dtbo"
+    local TMP_DTS
+    TMP_DTS=$(mktemp /tmp/gpio-pullups.XXXXXX.dts)
+
+    cat > "$TMP_DTS" << 'EOF'
+/dts-v1/;
+/plugin/;
+
+/ {
+   compatible = "rockchip,rk3568";
+
+   fragment@0 {
+      target = <&pinctrl>;
+      __overlay__ {
+         homectld_pins {
+            gpio3d0_pullup: gpio3d0-pullup {
+               rockchip,pins = <3 24 0 &pcfg_pull_up>;
+            };
+         };
+      };
+   };
+
+   fragment@1 {
+      target = <&gpio3>;
+      __overlay__ {
+         pinctrl-names = "default";
+         pinctrl-0 = <&gpio3d0_pullup>;
+      };
+   };
+};
+EOF
+
+    echo "Overlay-Dir: $OVERLAY_DIR"
+    echo "DTBO:        $DTBO"
+
+    dtc -@ -I dts -O dtb -o "$DTBO" "$TMP_DTS" 2>/dev/null
+    rm -f "$TMP_DTS"
+    echo "Overlay kompiliert und installiert: $DTBO"
+
+    if grep -qE "(^|\s)${OVERLAY}(\s|$)" "$ENV"; then
+        echo "Overlay '${OVERLAY}' bereits in $ENV — kein Patch nötig."
+    else
+        if grep -q "^overlays=" "$ENV"; then
+            sed -i "s/^overlays=.*/& ${OVERLAY}/" "$ENV"
+        else
+            echo "overlays=${OVERLAY}" >> "$ENV"
+        fi
+        echo "Overlay '${OVERLAY}' zu $ENV hinzugefügt."
+        echo ""
+        grep "overlays=" "$ENV"
+    fi
+}
+
 # ── Board-Erkennung ──────────────────────────────────────────────────────────
 if echo "$board" | grep -qiE "N2"; then
     echo "→ N2+ erkannt: DTB-Patch"
@@ -106,6 +178,9 @@ elif echo "$board" | grep -qiE "M1"; then
     echo "→ M1 erkannt: Armbian-Overlay aktivieren"
     echo ""
     fix_m1
+    echo ""
+    echo "── GPIO Pull-Up Overlay ─────────────────────────────────────────────────"
+    fix_m1_gpio_pullups
 else
     echo "FEHLER: Board nicht unterstützt ('$board')"
     echo "Unterstützt: ODROID N2+, ODROID M1"
@@ -114,6 +189,7 @@ fi
 
 echo ""
 echo "Nach dem Reboot: i2cdetect -l  (Busnummer ermitteln), dann i2cdetect -y <N>  (DHT20 bei 0x38 erwartet)"
+echo "                 gpioget -c gpiochip3 --bias=pull-up 24  (Pin 12 offen → sollte '1' liefern)"
 echo ""
 read -rp "Jetzt rebooten? [j/N] " ans
 [[ "$ans" =~ ^[jJyY]$ ]] && reboot || echo "Bitte manuell rebooten."

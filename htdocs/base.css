@@ -53,6 +53,8 @@ button:focus {
 .navMenu
 {
     /*padding: var(--containerPadding);*/
+    min-width: 0;
+    overflow: hidden;
 }
 
 .menu
@@ -304,6 +306,13 @@ button:focus {
     text-decoration: none;
 }
 
+.buttonOptions:disabled
+{
+    color: var(--light2);
+    background-color: #292525;
+    cursor: default;
+}
+
 .buttonOptions:hover
 {
     background-color: #335656a1;
@@ -322,6 +331,13 @@ button:focus {
     vertical-align: middle;
     transition: 0.3s;
     margin-bottom: 4px;
+}
+
+.tool-button:disabled
+{
+    color: var(--light1);
+    background-color: #4d4c4c;
+    cursor: default;
 }
 
 .tool-button-svg
@@ -742,6 +758,49 @@ span > select
     /*margin: 0px 4px 0px 0px;*/
     min-width: 180px;
     overflow-y: auto;
+    transition: min-width 0.2s ease, width 0.2s ease, padding 0.2s ease;
+}
+
+.controlContainer.ctrl-collapsed
+{
+    min-width: 0 !important;
+    width: 0 !important;
+    padding: 0 !important;
+    overflow: hidden;
+}
+
+.controlToggle
+{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    min-width: 14px;
+    background-color: var(--neutral1);
+    cursor: pointer;
+    flex-shrink: 0;
+    user-select: none;
+    color: white;
+    font-size: 10px;
+}
+
+.controlToggle:hover
+{
+    background-color: var(--neutral2);
+}
+
+.controlToggle::after
+{
+    content: '‹';
+    font-size: 16px;
+    font-family: sans-serif;
+}
+
+.controlContainer.ctrl-collapsed + .controlToggle::after
+{
+    content: '›';
+    font-size: 16px;
+    font-family: sans-serif;
 }
 
 .container
@@ -1303,14 +1362,15 @@ table.tableMultiCol td
 .setupMenu
 {
     margin-top: 4px;
-/*    display: inline-flex;
+    display: inline-flex;
     overflow-x: auto;
-	 width: 94%; */
+    width: 99%;
 }
 
 .setupMenu > button
 {
-    text-wrap: nowrap;
+    flex-shrink: 0;
+    white-space: nowrap;
     margin: 1px;
 }
 
@@ -2292,6 +2352,7 @@ dialog::backdrop, #backdrop
     .widget-weather > br       { display: none; }
     .widget-main               { font-size: 13vh;}
     .weatherForecast           { left: 2%; width: 95%; }
+    .setupMenu > button        { height: 35px; }
 }
 
 @media only screen and (max-width:500px)
@@ -2355,3 +2416,80 @@ dialog::backdrop, #backdrop
     .symbol-value              { font-size: large;}
     .weatherForecast           { left: 5%; width: 90%; }
 }
+
+/***  GPIO 40-pin header  ***/
+
+.gpio-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    gap: 14px;
+    color: var(--fontColor);
+}
+
+.gpio-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 20px;
+    font-size: 0.85em;
+}
+
+.gpio-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.gpio-table {
+    border-collapse: separate;
+    border-spacing: 3px 2px;
+}
+
+.gpio-table td { vertical-align: middle; }
+
+.gpio-pin-label {
+    font-size: 0.8em;
+    white-space: nowrap;
+    padding: 0 8px;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gpio-pin-left  { text-align: right; }
+.gpio-pin-right { text-align: left;  }
+
+.gpio-dot-cell { text-align: center; }
+
+.gpio-dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    font-size: 0.7em;
+    font-weight: bold;
+    cursor: default;
+    color: #fff;
+    border: 2px solid rgba(255,255,255,0.15);
+}
+
+/* pin colors */
+.gpio-pwr5    { background: #c0392b; }
+.gpio-pwr33   { background: #e67e22; }
+.gpio-gnd     { background: #2c2c2c; border-color: #555; }
+.gpio-usable  { background: #27ae60; }
+.gpio-blocked { background: #d35400; }
+.gpio-special { background: #2980b9; }
+.gpio-unknown { background: #555; }
+
+/* label text colors */
+.gpio-pwr5-text    { color: #e74c3c; }
+.gpio-pwr33-text   { color: #e67e22; }
+.gpio-gnd-text     { color: #888; }
+.gpio-usable-text  { color: #2ecc71; }
+.gpio-blocked-text { color: #e67e22; }
+.gpio-special-text { color: #5dade2; }
+.gpio-unknown-text { color: #aaa; }

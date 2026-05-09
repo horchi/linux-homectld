@@ -63,7 +63,7 @@ fi
 if [[ "${COMMAND}" == "init" ]]; then
 
    PARAMETER='{"cloneable": false, "symbol": "mdi:mdi-cellphone-arrow-down", "symbolOn": "mdi:mdi-signal-cellular-3"}'
-   RESULT="{ \"type\":\"SC\",\"address\":${ADDRESS},\"kind\":\"status\",\"text\":\"${PROVIDER}\",\"valid\":true,\"state\":${STATE},\"parameter\": ${PARAMETER} }"
+   RESULT="{ \"type\":\"SC\",\"address\":${ADDRESS},\"kind\":\"status\",\"text\":\"${PROVIDER}\",\"valid\":true,\"state\":${STATE},\"unit\":\"stxt\",\"parameter\": ${PARAMETER} }"
    echo -n ${RESULT}
 
 elif [[ "${COMMAND}" == "toggle" || "${COMMAND}" == "status" ]]; then

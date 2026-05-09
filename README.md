@@ -392,7 +392,18 @@ just adjust your inrternal internal subnet by setting ```SUBNET = SUBNET = 192.1
 
 ## Time synchronization
 
-```apt -y install chrony```
+Falls es Aufgrund der Art der Netzwerk/Internet Anbindung mit dem systemd-timesyncd
+zu Probmelmen kommt auf chroony umstellen
+```
+apt -y install chrony
+systemctl disable --now systemd-timesyncd
+systemctl enable --now chrony
+```
+### Check
+```
+chronyc tracking
+timedatectl
+```
 
 ## IP masquerading
 

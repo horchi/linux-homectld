@@ -1,10 +1,19 @@
 
 include ../Make.config
 
-linstall:
+check:
+	for f in *.js; do \
+		err=$$(node --check "$$f" 2>&1); \
+		if [ $$? -ne 0 ]; then \
+			echo "$$err" | awk '/^[^[:space:]].*:[0-9]+$$/{loc=$$0; next} /SyntaxError/{print loc ": " $$0}'; \
+			exit 1; \
+		fi; \
+	done
+
+linstall: check
 	make install
 
-install:
+install: check
 	if ! test -L $(WEBDEST); then \
 		if ! test -d $(WEBDEST); then \
 			mkdir -p "$(WEBDEST)"; \

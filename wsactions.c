@@ -90,6 +90,7 @@ int Daemon::dispatchClientRequest()
             case evStoreChartbookmarks: status = storeChartbookmarks(oObject, client);   break;
             case evStoreSensorSetup:    status = storeSensorSetup(oObject, client);      break;
             case evLmcAction:           status = performLmcAction(oObject, client);      break;
+            case evGpioData:            status = performGpioData(oObject, client);       break;
             default:
             {
                if (dispatchSpecialRequest(event,oObject, client) == ignore)
@@ -157,6 +158,7 @@ bool Daemon::checkRights(long client, Event event, json_t* oObject)
       case evStoreSensorSetup:    return rights & urSettings;
       case evStoreSchema:         return rights & urSettings;
       case evLmcAction:           return rights & urControl;
+      case evGpioData:            return rights & urView;
 
       default: break;
    }
@@ -1501,28 +1503,32 @@ int Daemon::storeConfig(json_t* obj, long client)
 }
 
 //***************************************************************************
-// Store User Settings
+// Store Sensor Settings
 //***************************************************************************
 
 int Daemon::storeSensorSetup(json_t* obj, long client)
 {
    int status {success};
-   myString type = getStringFromJson(obj, "type", "");
-   std::string action = getStringFromJson(obj, "action", "");
-   long address = getLongFromJson(obj, "address", na);
+   myString type {getStringFromJson(obj, "type", "")};
+   std::string action {getStringFromJson(obj, "action", "")};
 
    if (type == "AI" || type.starts_with("ADS"))
       status = storeAiSettings(obj, client);
    else if (type == "CV")
-      status = storeCvSettings(obj, client);
+      status = storeIoSettings(obj, client);
    else if (type == "DO" || type.starts_with("MCPO"))
       status = storeIoSettings(obj, client);
    else if (type == "DI" || type.starts_with("MCPI"))
       status = storeIoSettings(obj, client);
+   else if (type == "GPIO")
+      status = storeIoSettings(obj, client);
    else if (type == "SC")
       status = storeIoSettings(obj, client);
    else if (action == "delete")
+   {
+      long address {getLongFromJson(obj, "address", na)};
       status = deleteValueFact(type.c_str(), address);
+   }
    else
       return replyResult(fail, "Ignoring config request, only supported for 'AI', 'DO', 'W1', 'SC' and 'CV' sensors", client);
 
@@ -1551,55 +1557,27 @@ int Daemon::deleteValueFact(const char* type, long address)
    return success;
 }
 
-//***************************************************************************
-// Store CV User Settings
-//***************************************************************************
-
-int Daemon::storeCvSettings(json_t* obj, long client)
+int Daemon::storeIoSettings(json_t* obj, long client)
 {
-   std::string action = getStringFromJson(obj, "action", "");
-   const char* type = getStringFromJson(obj, "type");
-   long address = getIntFromJson(obj, "address", na);
-   std::string luaScript = getStringFromJson(obj, "luaScript", "");
+   std::string action {getStringFromJson(obj, "action", "")};
+   const char* type {getStringFromJson(obj, "type")};
+   int address {getIntFromJson(obj, "address", na)};
 
    if (action == "add")
    {
       uint address {1};
 
-      for (const auto& sensor : sensors["CV"])
+      for (const auto& sensor : sensors[type])
          if (sensor.second.address >= address)
-            address = sensor.second.address+1;
+            address = sensor.second.address + 1;
 
-      tell(eloAlways, "Add CV sensor %d", address);
-      std::string name = "Calc Sensor " + std::to_string(address);
-      addValueFact(address, "CV", 1, name.c_str(), "", "");
-   }
-   else
-   {
-      // store to valuefacts
-
-      tableValueFacts->clear();
-      tableValueFacts->setValue("TYPE", type);
-      tableValueFacts->setValue("ADDRESS", address);
-
-      if (tableValueFacts->find())
-      {
-         tableValueFacts->setValue("SETTINGS", luaScript.c_str());
-         tableValueFacts->store();
-      }
+      const char* name {getStringFromJson(obj, "name", "<unnamed>")};
+      tell(eloAlways, "Add sensor '%s' - '%s:0x%x'", name, type, address);
+      std::string sensorName {std::string(name) + "" + std::to_string(address)};
+      addValueFact(address, type, 1, sensorName.c_str(), "", "");
    }
 
-   return success;
-}
-
-int Daemon::storeIoSettings(json_t* obj, long client)
-{
-   std::string action = getStringFromJson(obj, "action", "");
-   const char* type = getStringFromJson(obj, "type");
-   uint address = getIntFromJson(obj, "address", na);
-   std::string settings = getStringFromJson(obj, "settings", "");
-
-   if (action == "clone" && strcmp(type, "SC") == 0)
+   else if (action == "clone" && strcmp(type, "SC") == 0)
    {
       tell(eloAlways, "Clone sensor '%s/0x%02x", type, sensors[type][address].address);
       tableValueFacts->clear();
@@ -1608,15 +1586,24 @@ int Daemon::storeIoSettings(json_t* obj, long client)
       if (!selectMaxValueFactsByType->find() && tableValueFacts->getValue("ADDRESS")->isNull())
          return replyResult(fail, "Cloning sensor failed", client);
 
-      uint newAddress = tableValueFacts->getIntValue("ADDRESS") + 1;
+      int newAddress {(int)tableValueFacts->getIntValue("ADDRESS") + 1};
       tell(eloAlways, "Cloning sensor '%s:0x%02x' '%s' with address %d", type, address, sensors[type][address].name.c_str(), newAddress);
-      auto tuple = split(sensors[type][address].name, '.');
-      addValueFact(newAddress, type, 1, sensors[type][address].name.c_str(), sensors[type][address].unit.c_str(), tuple[0].c_str(),
+      auto tuple {split(sensors[type][address].name, '.')};
+      addValueFact(newAddress, type, 1, sensors[type][address].name.c_str(),
+                   sensors[type][address].unit.c_str(), tuple[0].c_str(),
                    urControl, "", soNone, sensors[type][address].parameter.c_str());
    }
    else
    {
       // store to valuefacts
+
+      json_t* settings {getObjectFromJson(obj, "settings")};
+
+      if (!settings)
+      {
+         tell(eloAlways, "Error: Storing of config for %s:0x%x failed, missing 'settings'", type, address);
+         return replyResult(fail, "Storing of config failed, missing 'settings'", client);
+      }
 
       tableValueFacts->clear();
       tableValueFacts->setValue("TYPE", type);
@@ -1624,8 +1611,14 @@ int Daemon::storeIoSettings(json_t* obj, long client)
 
       if (tableValueFacts->find())
       {
-         tableValueFacts->setValue("SETTINGS", settings.c_str());
-         tableValueFacts->store();
+         char* p {json_dumps(settings, JSON_REAL_PRECISION(4))};
+
+         if (p)
+         {
+            tableValueFacts->setValue("SETTINGS", p);
+            tableValueFacts->store();
+            free(p);
+         }
       }
 
       initSensorByFact(type, address);
@@ -1636,33 +1629,26 @@ int Daemon::storeIoSettings(json_t* obj, long client)
 
 int Daemon::storeAiSettings(json_t* obj, long client)
 {
-   std::string type = getStringFromJson(obj, "type", "");
-   long address = getIntFromJson(obj, "address", na);
-   std::string calPointSelect = getStringFromJson(obj, "calPointSelect", "");
-   double calPoint = getDoubleFromJson(obj, "calPoint");
-   double calPointValue = getDoubleFromJson(obj, "calPointValue");
-   double calRound = getDoubleFromJson(obj, "calRound");
-   double calCutBelow = getDoubleFromJson(obj, "calCutBelow");
+   std::string type {getStringFromJson(obj, "type", "")};
+   long address {getIntFromJson(obj, "address", na)};
+   json_t* settings {getObjectFromJson(obj, "settings")};
 
-   if (calPointSelect == "" || address == na || type.empty())
-      return replyResult(fail, "Ignoring invalid calibration setting request", client);
-
-   tell(eloAlways, "Storing calibration settings of AI:0x%lx for '%s' (%f/%f)", address, calPointSelect.c_str(),
-        calPoint, calPointValue);
-
-   aiSensorConfig[type][address].round = calRound;
-   aiSensorConfig[type][address].calCutBelow = calCutBelow;
-
-   if (calPointSelect == "pointA")
+   if (!settings)
    {
-      aiSensorConfig[type][address].calPointA = calPoint;
-      aiSensorConfig[type][address].calPointValueA = calPointValue;
+      tell(eloAlways, "Error: Storing of config for %s:0x%lx failed, missing 'settings'", type.c_str(), address);
+      return replyResult(fail, "Storing of config failed, missing 'settings'", client);
    }
-   else
-   {
-      aiSensorConfig[type][address].calPointB = calPoint;
-      aiSensorConfig[type][address].calPointValueB = calPointValue;
-   }
+
+   tell(eloAlways, "Storing calibration settings of %s:0x%lx", type.c_str(), address);
+
+   // take changes to current sensor config
+
+   aiSensorConfig[type][address].round = getDoubleFromJson(settings, "round");
+   aiSensorConfig[type][address].cutBelow = getDoubleFromJson(settings, "cutBelow");
+   aiSensorConfig[type][address].calPointA = getDoubleFromJson(settings, "pointA");
+   aiSensorConfig[type][address].calPointValueA = getDoubleFromJson(settings, "valueA");
+   aiSensorConfig[type][address].calPointB = getDoubleFromJson(settings, "pointB");
+   aiSensorConfig[type][address].calPointValueB = getDoubleFromJson(settings, "valueB");
 
    // store to valuefacts
 
@@ -1670,21 +1656,9 @@ int Daemon::storeAiSettings(json_t* obj, long client)
    tableValueFacts->setValue("TYPE", type.c_str());
    tableValueFacts->setValue("ADDRESS", address);
 
-   // #TODO warum nicht obj speichern ?!?!?!
-
    if (tableValueFacts->find())
    {
-      json_t* jCal = json_object();
-
-      json_object_set_new(jCal, "pointA", json_real(aiSensorConfig[type][address].calPointA));
-      json_object_set_new(jCal, "pointB", json_real(aiSensorConfig[type][address].calPointB));
-      json_object_set_new(jCal, "valueA", json_real(aiSensorConfig[type][address].calPointValueA));
-      json_object_set_new(jCal, "valueB", json_real(aiSensorConfig[type][address].calPointValueB));
-      json_object_set_new(jCal, "round", json_real(aiSensorConfig[type][address].round));
-      json_object_set_new(jCal, "calCutBelow", json_real(aiSensorConfig[type][address].calCutBelow));
-
-      char* p = json_dumps(jCal, JSON_REAL_PRECISION(4));
-      json_decref(jCal);
+      char* p {json_dumps(settings, JSON_REAL_PRECISION(4))};
 
       if (p)
       {
@@ -1970,6 +1944,9 @@ int Daemon::storeIoSetup(json_t* array, long client)
          tableValueFacts->setValue("UNIT", getStringFromJson(jObj, "unit"));
       if (isElementSet(jObj, "groupid"))
          tableValueFacts->setValue("GROUPID", getIntFromJson(jObj, "groupid"));
+
+      if (isElementSet(jObj, "settings"))
+         tableValueFacts->setValue("SETTINGS", getStringFromJson(jObj, "settings"));
 
       if (tableValueFacts->getChanges())
       {
@@ -2386,10 +2363,10 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
          continue;
 
       char* key {};
-      myString type = tableValueFacts->getStrValue("TYPE");
-      ulong address = tableValueFacts->getIntValue("ADDRESS");
+      myString type {tableValueFacts->getStrValue("TYPE")};
+      long address {tableValueFacts->getIntValue("ADDRESS")};
       asprintf(&key, "%s:0x%02lx", type.c_str(), tableValueFacts->getIntValue("ADDRESS"));
-      json_t* oData = json_object();
+      json_t* oData {json_object()};
       json_object_set_new(obj, key, oData);
       free(key);
 
@@ -2422,18 +2399,14 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
          json_object_set_new(oData, "calPointB", json_real(aiSensorConfig[type][address].calPointB));
          json_object_set_new(oData, "calPointValueA", json_real(aiSensorConfig[type][address].calPointValueA));
          json_object_set_new(oData, "calPointValueB", json_real(aiSensorConfig[type][address].calPointValueB));
-         json_object_set_new(oData, "calRound", json_real(aiSensorConfig[type][address].round));
-         json_object_set_new(oData, "calCutBelow", json_real(aiSensorConfig[type][address].calCutBelow));
+         json_object_set_new(oData, "round", json_real(aiSensorConfig[type][address].round));
+         json_object_set_new(oData, "cutBelow", json_real(aiSensorConfig[type][address].cutBelow));
       }
-      else if (type == "CV")
-      {
-         json_object_set_new(oData, "luaScript", json_string(tableValueFacts->getStrValue("SETTINGS")));
-      }
-      else // if (type == "DO" || type == "SC" || type == "DI" || type.starts_with("MCP"))
+      else
       {
          if (!tableValueFacts->getValue("SETTINGS")->isEmpty())
          {
-            json_t* o = jsonLoad(tableValueFacts->getStrValue("SETTINGS"));
+            json_t* o {jsonLoad(tableValueFacts->getStrValue("SETTINGS"))};
             json_object_set_new(oData, "settings", o);
          }
       }
@@ -2444,12 +2417,12 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
       // widget in valuefacts only used or list view!
 
       json_t* jDefaults {json_object()};
+      json_object_set_new(oData, "widget", jDefaults);
+
       widgetDefaults2Json(jDefaults, type.c_str(),
                           tableValueFacts->getStrValue("UNIT"),
                           tableValueFacts->getStrValue("NAME"),
                           tableValueFacts->getIntValue("ADDRESS"));
-
-      json_object_set_new(oData, "widget", jDefaults);
 
       // tableGroups->clear();
       // tableGroups->setValue("ID", tableValueFacts->getIntValue("GROUPID"));
@@ -2755,6 +2728,41 @@ int Daemon::images2Json(json_t* obj)
 
    free(path);
 
+   return done;
+}
+
+//***************************************************************************
+// Perform GPIO Data
+//***************************************************************************
+
+int Daemon::performGpioData(json_t* /*oObject*/, long client)
+{
+   if (!gpio)
+      return replyResult(fail, "GPIO not available", client);
+
+   std::map<int,PinInfo> pinList;
+   gpio->getPinList(pinList);
+
+   json_t* oArray {json_array()};
+
+   for (const auto& [phys, info] : pinList)
+   {
+      json_t* oPin {json_object()};
+      json_object_set_new(oPin, "pin",         json_integer(phys));
+      json_object_set_new(oPin, "name",        json_string(info.name.c_str()));
+      json_object_set_new(oPin, "gpio",        json_boolean(info.gpio));
+      json_object_set_new(oPin, "pull",        json_boolean(info.pull));
+      json_object_set_new(oPin, "interrupt",   json_boolean(info.interrupt));
+      json_object_set_new(oPin, "voltage",     json_string(info.voltage.c_str()));
+      json_object_set_new(oPin, "description", json_string(info.description.c_str()));
+      json_object_set_new(oPin, "blocked",     json_boolean(info.blocked));
+      json_object_set_new(oPin, "usable",      json_boolean(info.usable));
+      json_object_set_new(oPin, "chipLabel",   json_string(info.chipLabel.c_str()));
+      json_object_set_new(oPin, "offset",      json_integer(info.offset));
+      json_array_append_new(oArray, oPin);
+   }
+
+   pushOutMessage(oArray, "gpio-data", client);
    return done;
 }
 

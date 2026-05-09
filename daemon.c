@@ -133,6 +133,7 @@ Daemon::DefaultWidgetProperty Daemon::defaultWidgetProperties[] =
    { "SD",       na,   "*",      wtChart,        0,      2000,       0, true },
    { "SC",       na,    "",       wtText,        0,         0,       0, false },
    { "SC",       na, "txt",       wtText,        0,         0,       0, false },
+   { "SC",       na, "stxt",wtSymbolText,        0,         0,       0, false },
    { "SC",       na, "zst",     wtSymbol,        0,         0,       0, false },
    { "SC",       na,   "*",      wtMeter,        0,        40,      10, true },
    { "SP",       na,    "",       wtText,        0,         0,       0, false },
@@ -184,71 +185,52 @@ Daemon::DefaultWidgetProperty* Daemon::getDefalutProperty(const char* type, cons
 // Widget Defaults 2 Json
 //***************************************************************************
 
-int Daemon::widgetDefaults2Json(json_t* jDefaults, const char* type, const char* unit, const char* name, int address)
+int Daemon::widgetDefaults2Json(json_t* jDefaults, std::string type, std::string unit, const char* name, int address)
 {
-   std::string result;
-   DefaultWidgetProperty* defProperty {getDefalutProperty(type, unit, address)};
+   DefaultWidgetProperty* defProperty {getDefalutProperty(type.c_str(), unit.c_str(), address)};
 
-   const char* color {"rgb(255, 255, 255)"};
-   const char* colorOn {"rgb(235, 197, 5)"};
-   const char* symbol {""};
-   const char* symbolOn {""};
+   // #TODO move color to getDefalutProperty() ?!!
 
-   if (defProperty->unit == "mov")
-   {
-      symbol = "mdi:mdi-walk";
-   }
-   else if (strcmp(type, "HMB") == 0)
-   {
-      symbol = "mdi:mdi-blinds";
-      symbolOn = "mdi:mdi-blinds-open";
-      color = "rgb(0, 99, 162)";
-      colorOn = "rgb(255, 255, 255)";
-   }
-   else if (strcmp(type, "DZL") == 0)
-   {
-      symbol = "mdi:mdi-lightbulb-variant-outline";
-      symbolOn = "mdi:mdi-lightbulb-variant";
-      color = "rgb(255, 255, 255)";
-      colorOn = "rgb(235, 197, 5)";
-   }
-   else if (strcmp(type, "DZLG") == 0)
-   {
-      symbol = "mdi:mdi-lightbulb-group-outline";
-      symbolOn = "mdi:mdi-lightbulb-group";
-      color = "rgb(255, 255, 255)";
-      colorOn = "rgb(235, 197, 5)";
-   }
+   const char* color {type != "HMB" ? "rgb(255, 255, 255)" : "rgb(0, 99, 162)"};
+   const char* colorOn {type != "HMB" ? "rgb(235, 197, 5)" : "rgb(255, 255, 255)"};
 
    WidgetType widgetType {defProperty->widgetType};
-   std::string sUnit {unit};
 
    if (defProperty->widgetType == wtUnknown)
    {
-      if (sUnit == "°C")
+      if (unit == "°C")
          widgetType = wtMeterLevel;
-      else if (sUnit == "V" || sUnit == "A")
+      else if (unit == "V" || unit == "A")
          widgetType = wtMeter;
-      else if (sUnit == "txt" || sUnit == "")
+      else if (unit == "txt" || unit == "")
          widgetType = wtText;
-      else if (sUnit == "stxt")
+      else if (unit == "stxt")
          widgetType = wtSymbolText;
-      else if (sUnit == "sym")
+      else if (unit == "sym")
          widgetType = wtSymbol;
    }
 
    json_object_set_new(jDefaults, "widgettype", json_integer(widgetType));
-   json_object_set_new(jDefaults, "unit", json_string(unit));
+   json_object_set_new(jDefaults, "unit", json_string(unit.c_str()));
    json_object_set_new(jDefaults, "scalemax", json_integer(defProperty->maxScale));
    json_object_set_new(jDefaults, "scalemin", json_integer(defProperty->minScale));
    json_object_set_new(jDefaults, "scalestep", json_integer(defProperty->scaleStep));
    json_object_set_new(jDefaults, "showpeak", json_boolean(defProperty->showPeak));
-   json_object_set_new(jDefaults, "imgon", json_string(getImageFor(type, name, unit, true)));
-   json_object_set_new(jDefaults, "imgoff", json_string(getImageFor(type, name, unit, false)));
-   json_object_set_new(jDefaults, "symbol", json_string(symbol));
-   json_object_set_new(jDefaults, "symbolOn", json_string(symbolOn));
    json_object_set_new(jDefaults, "color", json_string(color));
    json_object_set_new(jDefaults, "colorOn", json_string(colorOn));
+
+   const char* on {getImageFor(type, name, unit, true)};
+   const char* off {getImageFor(type, name, unit, false)};
+
+   if (strstr(off, "mdi:") == off)
+      json_object_set_new(jDefaults, "symbol", json_string(off));
+   else
+      json_object_set_new(jDefaults, "imgoff", json_string(off));
+
+   if (strstr(on, "mdi:") == on)
+         json_object_set_new(jDefaults, "symbolOn", json_string(on));
+   else
+      json_object_set_new(jDefaults, "imgon", json_string(on));
 
    return done;
 }
@@ -257,12 +239,14 @@ int Daemon::widgetDefaults2Json(json_t* jDefaults, const char* type, const char*
 // Get Image For
 //***************************************************************************
 
-const char* Daemon::getImageFor(const char* type, const char* title, const char* unit, int value)
+const char* Daemon::getImageFor(std::string type, const char* title, std::string unit, int value)
 {
-   const char* imagePath = "img/icon/unknown.png";
+   // #TODO move symbol/image to getDefalutProperty() ?!!
 
-   if (strcmp(type, "DZL") == 0 || strcasestr(title, "Licht") || strcasestr(title, "Light"))
-      imagePath = value ? "img/icon/light-on.png" : "img/icon/light-off.png";
+   const char* imagePath {};
+
+   if (type == "DZL" || strcasestr(title, "Licht") || strcasestr(title, "Bulb") || strcasestr(title, "Light"))
+      imagePath = value ? "mdi:mdi-lightbulb" : "mdi:mdi-lightbulb";
    else if (strcasestr(title, "Pump"))
       imagePath = value ? "img/icon/pump-on.gif" : "img/icon/pump-off.png";
    else if (strcasestr(title, "Steckdose") || strcasestr(title, "Plug") )
@@ -283,6 +267,15 @@ const char* Daemon::getImageFor(const char* type, const char* title, const char*
       imagePath = value ? "img/icon/fan-on.png" : "img/icon/fan-off.png";
    else if (strcasestr(title, "Desktop"))
       imagePath = value ? "img/icon/desktop-on.png" : "img/icon/desktop-off.png";
+   else if (unit == "mov")
+      imagePath = "mdi:mdi-walk";
+   else if (type == "HMB")
+      imagePath = value ? "mdi:mdi-blinds-open" : "mdi:mdi-blinds";
+   else if (type == "DZL")
+      imagePath = value ? "mdi:mdi-lightbulb-variant" : "mdi:mdi-lightbulb-variant-outline";
+   else if (type == "DZLG")
+      imagePath = value ? "mdi:mdi-lightbulb-group" : "mdi:mdi-lightbulb-group-outline";
+
    else
       imagePath = value ? "img/icon/boolean-on.png" : "img/icon/boolean-off.png";
 
@@ -499,7 +492,7 @@ int Daemon::init()
    {
       if (mqttCheckConnection() == success && !mqttUrl.empty())
       {
-         const char* request = "{ \"method\" : \"listDevices\" }";
+         const char* request {"{ \"method\" : \"listDevices\" }"};
          mqttWriter->write(TARGET "2mqtt/homematic/rpccall", request);
          tell(eloHomeMatic, "-> (home-matic) '%s' to '%s'", TARGET "2mqtt/homematic/rpccall", request);
       }
@@ -608,9 +601,31 @@ int Daemon::exit()
 // Init Sensor
 //***************************************************************************
 
+int Daemon::applyConfigurationSpecials()
+{
+   std::map<int,PinInfo> pinList;
+   gpio->getPinList(pinList);
+
+   for (const auto& [phys, pinInfo] : pinList)
+   {
+      if (!pinInfo.usable)  // is GPIO pin and not blocked by other process
+         continue;
+
+      initGpioLine(phys, pinInfo);
+   }
+
+   // #TODO DEMO - remove
+   addValueFact(1, "AI", 1, "Test AI 1", "mA");
+   return done;
+}
+
+//***************************************************************************
+// Init Sensor
+//***************************************************************************
+
 int Daemon::initSensorByFact(myString type, uint address)
 {
-   cDbRow* fact = valueFactRowOf(type.c_str(), address);
+   cDbRow* fact {valueFactRowOf(type.c_str(), address)};
 
    if (!fact)
    {
@@ -646,7 +661,7 @@ int Daemon::initSensorByFact(myString type, uint address)
 
    if (type != "CV" && !fact->getValue("SETTINGS")->isEmpty())
    {
-      json_t* jCal = jsonLoad(fact->getStrValue("SETTINGS"));
+      json_t* jCal {jsonLoad(fact->getStrValue("SETTINGS"))};
 
       if (jCal)
       {
@@ -657,7 +672,7 @@ int Daemon::initSensorByFact(myString type, uint address)
             aiSensorConfig[type][address].calPointValueA = getDoubleFromJson(jCal, "valueA");
             aiSensorConfig[type][address].calPointValueB = getDoubleFromJson(jCal, "valueB");
             aiSensorConfig[type][address].round = getDoubleFromJson(jCal, "round");
-            aiSensorConfig[type][address].calCutBelow = getDoubleFromJson(jCal, "calCutBelow", -10000.0);
+            aiSensorConfig[type][address].cutBelow = getDoubleFromJson(jCal, "cutBelow", -10000.0);
          }
          else if (type == "DO" || type.starts_with("MCPO"))
          {
@@ -679,7 +694,6 @@ int Daemon::initSensorByFact(myString type, uint address)
          }
          else if (type == "SC")
          {
-            // tell(eloScript, "Script: settings [%s]", fact->getStrValue("SETTINGS"));
             sensors[type][address].script = fact->getStrValue("SETTINGS");
          }
 
@@ -691,6 +705,28 @@ int Daemon::initSensorByFact(myString type, uint address)
         sensors[type][address].title.c_str(), sensors[type][address].active ? "active" : "not active");
 
    return success;
+}
+
+//***************************************************************************
+// Init GPIO Line
+//***************************************************************************
+
+int Daemon::initGpioLine(uint physPin, const PinInfo& pinInfo)
+{
+   std::string name {std::to_string(physPin) + " - " + pinInfo.name + "\n" + pinInfo.description};
+   addValueFact(physPin, "GPIO", 1, name.c_str(), "", "", urControl);
+
+   // erst aktivieren wenn wir von DO/DI auf GPIO umschalten
+   // sensors["GPIO"][physPin].outputModes = ooUser;
+   // sensors["GPIO"][physPin].mode = omManual;
+
+   // pinInfo.pull
+   // pinInfo.interrupt
+   // pinInfo.voltage.c_str()
+   // pinInfo.chipLabel.c_str()
+   // pinInfo.offset
+
+   return done;
 }
 
 //***************************************************************************
@@ -893,10 +929,13 @@ int Daemon::initScripts()
       bool valid = getBoolFromJson(oData, "valid", true);
       json_t* jParameter = getObjectFromJson(oData, "parameter");
 
-      if (kind == "text")
-         unit = "";
-      else if (kind == "status")
-         unit = "zst";
+      if (isEmpty(unit))
+      {
+         if (kind == "text")
+            unit = "";
+         else if (kind == "status")
+            unit = "zst";
+      }
 
       sensors["SC"][addr].kind = kind;
       sensors["SC"][addr].last = time(0);
@@ -2276,8 +2315,15 @@ int Daemon::process(bool force)
       std::string expression;
 
       if (tableValueFacts->hasValue("TYPE", "CV"))
-         expression = tableValueFacts->getStrValue("SETTINGS");
-      else
+      {
+         if (!tableValueFacts->getValue("SETTINGS")->isEmpty())
+         {
+            json_t* o {jsonLoad(tableValueFacts->getStrValue("SETTINGS"))};
+            expression = getStringFromJson(o, "lua", "");
+            json_decref(o);
+         }
+      }
+      else if (tableValueFacts->hasValue("TYPE", "DO"))
          expression = sensors[type][address].script;
 
       if (expression.empty())
@@ -3931,7 +3977,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
          {
             if (!tableValueFacts->getValue("SETTINGS")->isEmpty())
             {
-               json_t* jCal = jsonLoad(tableValueFacts->getStrValue("SETTINGS"));
+               json_t* jCal {jsonLoad(tableValueFacts->getStrValue("SETTINGS"))};
                publishI2CSensorConfig(tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"), jCal);
                json_decref(jCal);
             }
@@ -4854,7 +4900,7 @@ int Daemon::updateAnalogInput(uint addr, const char* type, double value, time_t 
       tell(eloDebug, "Rounded %.2f to %.2f", oValue, dValue);
    }
 
-   if (dValue < aiSensorConfig[type][addr].calCutBelow)
+   if (dValue < aiSensorConfig[type][addr].cutBelow)
       dValue = 0.0;
 
    if (sensors[type][addr].value != dValue)

@@ -10,6 +10,7 @@
 
 var activeSection = '';
 var ioSections = {};
+var changes = false;
 
 // ----------------------------------------------------------------
 // Sensor Setup
@@ -19,9 +20,11 @@ function initSensorSetup()
 {
    // console.log(JSON.stringify(valueFacts, undefined, 4));
 
+   changes = false;
    hideProgressDialog();
 
    $('#controlContainer').removeClass('hidden');
+   $('#controlToggle').removeClass('hidden');
    $('#container').removeClass('hidden');
 
    prepareSetupMenu();
@@ -33,13 +36,13 @@ function initSensorSetup()
       .empty()
       .append($('<div></div>')
               .append($('<button></button>')
+                      .attr('id', 'btnStoreIoSetup')
+                      .attr('disabled', true)
                       .addClass('rounded-border tool-button')
-                      .css('background-color', 'slategray')
                       .html('Speichern')
                       .click(function() { storeSensorSetup(); }))
               .append($('<button></button>')
                       .addClass('rounded-border tool-button')
-                      .css('background-color', 'slategray')
                       .html('Update Scripts')
                       .click(function() {
                          socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'valuefacts', 'forceScripts':true } });
@@ -47,8 +50,7 @@ function initSensorSetup()
                       })))
       .append($('<button></button>')
               .addClass('rounded-border tool-button')
-              .css('background-color', 'slategray')
-              .html('GPIO')
+              .html('GPIO Pinout')
               .click(function() { showGpio(); }))
 
       .append($('<div></div>')
@@ -64,7 +66,7 @@ function initSensorSetup()
               .css('width', '-webkit-fill-available')
               .css('width', '-moz-available')
               .css('margin-bottom', '8px')
-              .on('input', function() { showTable(activeSection); }))
+              .on('input', function() { switchTable(activeSection); }))
       .append($('<div></div>')
               .append($('<button></button>')
                       .attr('id', 'filterSensorSetup')
@@ -80,9 +82,6 @@ function initSensorSetup()
    var w = $('#container').innerWidth() - padding * 2 - 20;
    var h = $('#container').innerHeight() - padding * 2 - 20;
 
-   let gpioImage = "img/hw/" + environment.boardType + ".png";
-   console.log("gpioImage", environment.boardType);
-
    $('#container')
       .empty()
       .append($('<div></div>')
@@ -90,10 +89,9 @@ function initSensorSetup()
               .addClass('setupContainer'))
       .append($('<div></div>')
               .attr('id', 'gpioState')
-              .css('padding', 'var(--containerPadding)')
-              .css('background-color', 'slategray')
-              .html('<img src="' + gpioImage + '" style="width:' + w + 'px;height:' + h + 'px;object-fit:contain">')
-              .addClass('hidden'));
+              .css('margin', 'var(--containerPadding)')
+              .css('background-color', 'var(--widgetBackground)')
+              .addClass('hidden rounded-border'));
 
    for (var i = 0; i < valueTypes.length; i++) {
       var section = 'io' + valueTypes[i].title.replace(' ', '');
@@ -103,7 +101,7 @@ function initSensorSetup()
                                        .append($('<button></button>')
                                                .attr('id', 'btn_' + section)
                                                .addClass('rounded-border tool-button')
-                                               .click({ "section" : section }, function(event) { showTable(event.data.section); })
+                                               .click({ "section" : section }, function(event) { switchTable(event.data.section); })
                                                .html(valueTypes[i].title)));
 
          ioSections[section] = {};
@@ -125,15 +123,35 @@ var filterActive = false;
 
 function filterSensorSetup()
 {
-   filterActive = !filterActive;
-   console.log("filterSensorSetup: " + filterActive);
+   function doProceed() {
+      filterActive = !filterActive;
+      console.log("filterSensorSetup: " + filterActive);
+      $("#filterSensorSetup").html(filterActive ? "[aktive]" : "[alle]");
+      showTable(activeSection);
+   }
 
-   $("#filterSensorSetup").html(filterActive ? "[aktive]" : "[alle]");
-   showTable(activeSection);
+   if (changes)
+      confirmDialog(doProceed, 'Changes pending, proceed and forget changes or abort?', 'Proceed', 'Abort');
+   else
+      doProceed();
+}
+
+function switchTable(section)
+{
+   function doProceed() {
+      showTable(section)
+   }
+
+   if (changes)
+      confirmDialog(doProceed, 'Changes pending, proceed and forget changes or abort?', 'Proceed', 'Abort');
+   else
+      showTable(section);
 }
 
 function showTable(section)
 {
+   changes = false;
+   $('#btnStoreIoSetup').attr('disabled', true)
    $('#gpioState').addClass('hidden');
    $('#ioSetupContainer').removeClass('hidden');
 
@@ -145,45 +163,67 @@ function showTable(section)
 
    $('#btn_' + activeSection).css('background-color', 'slategray');
 
-   let html =
-       '  <table class="tableMultiCol">' +
-       '    <thead>' +
-       '      <tr>' +
-       '        <td style="width:22%;">Name</td>' +
-       '        <td style="min-width:25vw;">Titel</td>' +
-       '        <td style="width:7%;min-width:70px;">Einheit</td>' +
-       '        <td style="width:5%;">Aktiv</td>' +
-       '        <td style="width:5%;">Aufz.</td>' +
-       '        <td style="width:12%;">ID</td>' +
-       '        <td style="width:6%;"></td>' +
-       // '        <td style="width:10%;">Gruppe</td>' +
-       '      </tr>' +
-       '    </thead>' +
-       '    <tbody id="' + section + '">' +
-       '    </tbody>';
+   let headRow = $('<tr>')
+      .append($('<td>').css('width', '22%').text('Name'))
+      .append($('<td>').css('min-width', '25vw').text('Titel'))
+      .append($('<td>').css({width: '7%', 'min-width': '70px'}).text('Einheit'))
+      .append($('<td>').css('width', '5%').text('Aktiv'))
+      .append($('<td>').css('width', '5%').text('Aufz.'))
+      .append($('<td>').css('width', '12%').text('ID'));
+
+   if (activeSection == 'ioGPIO')
+      headRow.append($('<td>').css('width', '10%').text('Funktion'));
+
+   headRow.append($('<td>').css('width', '6%'));
+
+   let tbody = $('<tbody>').attr('id', section);
+
+   let table = $('<table>')
+       .addClass('tableMultiCol')
+       .append($('<thead>')
+               .append(headRow))
+       .append(tbody);
+
+   // Add (+) button for CV
 
    if (ioSections[section].type == 'CV') {
-      html +=
-         '    <tfoot>' +
-         '      <tr>' +
-         '        <td colspan="8" style="background-color:#333333;">' +
-         '          <button class="buttonOptions rounded-border" onclick="sensorCvAdd()">+</button>' +
-         '        </td>' +
-         '      </tr>' +
-         '    </tfoot>';
+      table
+         .append($('<tfoot>')
+                 .append($('<tr>')
+                         .append($('<td>').attr('colspan', '8').css('background-color', '#333333')
+                                 .append($('<button>')
+                                         .addClass('buttonOptions rounded-border')
+                                         .text('+')
+                                         .on('click', function() {
+                                            socket.send({ "event" : "storesensorsetup", "object" : {
+                                               'type' : 'CV',
+                                               'action' : 'add'
+                                            }});
+                                         })
+                                        ))));
    }
 
-   html += '  </table>';
-
-   $('#ioSetupContainer').html(html);
+   $('#ioSetupContainer').empty()
+      .append(table)
+      .on('change input', 'input, select', function() {
+         $(this).closest('tr').data('changed', true);
+         $('#btnStoreIoSetup').attr('disabled', false);
+         changes = true;
+      });
 
    let filterSensorExpression = null;
 
    if ($("#incSearchName").val() != "")
       filterSensorExpression = new RegExp($("#incSearchName").val());
 
+   // sort value facts
+
    let valueFactsSorted = Object.keys(valueFacts).sort(function(a, b) {
-      return valueFacts[a].name.localeCompare(valueFacts[b].name);
+      if (valueFacts[a].type != valueFacts[b].type)
+         return valueFacts[a].type.localeCompare(valueFacts[b].type);
+      if (isNaN(valueFacts[a].name[0]))
+         return valueFacts[a].name.localeCompare(valueFacts[b].name);
+      return parseInt(valueFacts[a].name) - parseInt(valueFacts[b].name);
    });
 
    for (let k = 0; k < valueFactsSorted.length; ++k) {
@@ -197,8 +237,6 @@ function showTable(section)
       if (filterSensorExpression && !filterSensorExpression.test(item.title) && !filterSensorExpression.test(usrtitle))
          continue;
 
-      // console.log("item.type: " + item.type);
-
       let sectionId = '';
 
       for (var i = 0; i < valueTypes.length; i++) {
@@ -206,45 +244,107 @@ function showTable(section)
             sectionId = 'io' + valueTypes[i].title.replace(' ', '');
       }
 
-      let title = item.title.split("\n");
+      let root = $('#' + sectionId);
 
-      let html = '<td id="row_' + item.type + item.address + '" data-address="' + item.address + '" data-type="' + item.type + '" >'
-          + '<div>' + title[0] + '</div>'
-          + '<div style="font-size:smaller;color:darkgray;">' + (title.length > 1 ? title[1] : '') + '</div>'
-          + '</td>';
+      if (!root.length)
+         continue;
 
-      html += '<td class="tableMultiColCell"><input id="usrtitle_' + item.type + item.address + '" class="inputSetting rounded-border" type="search" value="' + usrtitle + '"/></td>';
-      html += '<td class="tableMultiColCell"><input id="unit_' + item.type + item.address + '" class="inputSetting rounded-border" type="search" value="' + item.unit + '"/></td>';
-      html += '<td><input id="state_' + item.type + item.address + '" class="rounded-border input" type="checkbox" ' + (item.state ? 'checked' : '') + ' /><label for="state_' + item.type + item.address + '"></label></td>';
-      html += '<td><input id="record_' + item.type + item.address + '" class="rounded-border input" type="checkbox" ' + (item.record ? 'checked' : '') + ' /><label for="record_' + item.type + item.address + '"></label></td>';
-      html += '<td>' + key + '</td>';
+      let titleParts = item.title.split("\n");
+      let id = item.type + item.address;
+
+      let tr = $('<tr>')
+          .append($('<td>')
+                  .attr('id', 'row_' + id)
+                  .data('address', item.address)
+                  .data('type', item.type)
+                  .append($('<div>')
+                          .text(titleParts[0]))
+                  .append($('<div>')
+                          .css({fontSize: 'smaller', color: 'darkgray'})
+                          .text(titleParts.length > 1 ? titleParts[1] : '')))
+          .append($('<td>').addClass('tableMultiColCell')
+                  .append($('<input>')
+                          .attr({id: 'usrtitle_' + id, type: 'search', value: usrtitle})
+                          .addClass('inputSetting rounded-border')
+                         ))
+          .append($('<td>').addClass('tableMultiColCell')
+                  .append($('<input>')
+                          .attr({id: 'unit_' + id, type: 'search', value: item.unit})
+                          .addClass('inputSetting rounded-border')
+                         ))
+          .append($('<td>')
+                  .append($('<input>')
+                          .attr({id: 'state_' + id, type: 'checkbox'})
+                          .prop('checked', !!item.state)
+                          .addClass('rounded-border input'))
+                  .append($('<label>')
+                          .attr('for', 'state_' + id)))
+          .append($('<td>')
+                  .append($('<input>').attr({id: 'record_' + id, type: 'checkbox'})
+                          .prop('checked', !!item.record)
+                          .addClass('rounded-border input'))
+                  .append($('<label>').attr('for', 'record_' + id)))
+          .append($('<td>').text(key));
+
+      let gpioFct = "deactivated";
+
+      if (item.type == 'GPIO') {
+         gpioFct = (item.settings && item.settings.fct && item.settings.fct != '') ? item.settings.fct : "deactivated";
+         tr.append(
+            $('<td>').addClass('tableMultiColCell').append(
+               $('<select>').attr('id', 'function_' + id).addClass('inputSetting rounded-border')
+                  .append($('<option>').val('deactivated').text('Off'))
+                  .append($('<option>').val('in').text('In'))
+                  .append($('<option>').val('out').text('Out'))
+                  .val(gpioFct))
+         );
+      }
 
       if (item.type == 'AI' || item.type.startsWith('ADS'))
-         html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorAiSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
+         tr.append($('<td>').append($('<button>')
+                                    .addClass('buttonOptions rounded-border')
+                                    .text('Setup')
+                                    .on('click', () => sensorSetupDialog(item.type, item.address))));
       else if (item.type == 'CV')
-         html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorCvSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
+         tr.append($('<td>').append($('<button>').addClass('buttonOptions rounded-border').text('Setup')
+                                    .on('click', () => sensorSetupDialog(item.type, item.address))));
+      else if (item.type == 'GPIO')
+         tr.append($('<td>').append($('<button>')
+                                    .attr('id', 'btnSensorSetup_' + id)
+                                    .attr('disabled', gpioFct == 'deactivated')
+                                    .addClass('buttonOptions rounded-border')
+                                    .text('Setup')
+                                    .on('click', () => sensorSetupDialog(item.type, item.address))));
       else if (item.type == 'DO' || item.type.startsWith('MCPO'))
-         html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorDoSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
+         tr.append($('<td>').append($('<button>')
+                                    .addClass('buttonOptions rounded-border')
+                                    .text('Setup')
+                                    .on('click', () => sensorSetupDialog(item.type, item.address))));
       else if (item.type == 'DI' || item.type.startsWith('MCPI'))
-         html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorDiSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
+         tr.append($('<td>').append($('<button>')
+                                    .addClass('buttonOptions rounded-border')
+                                    .text('Setup')
+                                    .on('click', () => sensorSetupDialog(item.type, item.address))));
       else if (item.type == 'SC') {
-         html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorScSetup(\'' + item.type + '\', \'' + item.address + '\')">Setup</button>' + '</td>';
-         if (item.parameter != null && item.parameter.cloneable) {
-            html += '<td>' + '<button class="buttonOptions rounded-border" onclick="sensorScClone(\'' + item.type + '\', \'' + item.address + '\')">Clone</button>' + '</td>';
-         }
+         tr.append($('<td>').append($('<button>')
+                                    .addClass('buttonOptions rounded-border')
+                                    .text('Setup')
+                                    .on('click', () => sensorSetupDialog(item.type, item.address))));
+         if (item.parameter && item.parameter.cloneable)
+            tr.append($('<td>').append($('<button>')
+                                       .addClass('buttonOptions rounded-border')
+                                       .text('Clone')
+                                       .on('click', () => sensorScClone(item.type, item.address))));
       }
       else if (item.type == 'W1' || item.type == 'RTL433')
-         html += '<td>' + '<button class="buttonOptions rounded-border" onclick="deleteValueFact(\'' + item.type + '\', \'' + item.address + '\')">Löschen</button>' + '</td>';
+         tr.append($('<td>').append($('<button>')
+                                    .addClass('buttonOptions rounded-border')
+                                    .text('Löschen')
+                                    .on('click', () => deleteValueFact(item.type, item.address))));
       else
-         html += '<td></td>';
+         tr.append($('<td>'));
 
-      var root = document.getElementById(sectionId);
-
-      if (root) {
-         let elem = document.createElement("tr");
-         elem.innerHTML = html;
-         root.appendChild(elem);
-      }
+      root.append(tr);
    }
 }
 
@@ -260,6 +360,31 @@ function updateSensorSetupValue()
    }
 }
 
+function sensorSetupDialog(type, address)
+{
+   function doProceed() {
+      showTable(activeSection);
+
+      if (type == 'GPIO')
+         sensorGpioSetup(type, address);
+      else if (type == 'AI')
+         sensorAiSetup(type, address);
+      else if (type == 'CV')
+         sensorCvSetup(type, address);
+      else if (type == 'DO')
+         sensorDoSetup(type, address);
+      else if (type == 'DI')
+         sensorDiSetup(type, address);
+      else if (type == 'SC')
+         sensorScSetup(type, address);
+   }
+
+   if (changes)
+      confirmDialog(doProceed, 'Changes pending, proceed and forget changes or abort?', 'Proceed', 'Abort');
+   else
+      doProceed();
+}
+
 function sensorAiSetup(type, address)
 {
    console.log("sensorSetup ", type, address);
@@ -268,6 +393,7 @@ function sensorAiSetup(type, address)
    calSensorAddress = parseInt(address);
 
    var key = toKey(calSensorType, calSensorAddress);
+   var currentPoint = 'pointA';
    var form = document.createElement("div");
 
    if (valueFacts[key] == null) {
@@ -285,13 +411,20 @@ function sensorAiSetup(type, address)
                                           .attr('id', 'calPointSelect')
                                           .addClass('rounded-border inputSetting')
                                           .change(function() {
-                                             if ($(this).val() == 'pointA') {
-                                                $('#calPoint').val(valueFacts[key].calPointA);
-                                                $('#calPointValue').val(valueFacts[key].calPointValueA)
+                                             if (currentPoint == 'pointA') {
+                                                valueFacts[key].calPointA = parseFloat($('#calPoint').val());
+                                                valueFacts[key].calPointValueA = parseFloat($('#calPointValue').val());
+                                             } else {
+                                                valueFacts[key].calPointB = parseFloat($('#calPoint').val());
+                                                valueFacts[key].calPointValueB = parseFloat($('#calPointValue').val());
                                              }
-                                             else {
+                                             currentPoint = $(this).val();
+                                             if (currentPoint == 'pointA') {
+                                                $('#calPoint').val(valueFacts[key].calPointA);
+                                                $('#calPointValue').val(valueFacts[key].calPointValueA);
+                                             } else {
                                                 $('#calPoint').val(valueFacts[key].calPointB);
-                                                $('#calPointValue').val(valueFacts[key].calPointValueB)
+                                                $('#calPointValue').val(valueFacts[key].calPointValueB);
                                              }
                                           }))
                                  ))
@@ -342,11 +475,11 @@ function sensorAiSetup(type, address)
                                   .html('Runden'))
                           .append($('<span></span>')
                                   .append($('<input></input>')
-                                          .attr('id', 'calRound')
+                                          .attr('id', 'round')
                                           .attr('type', 'number')
                                           .attr('step', 0.1)
                                           .addClass('rounded-border inputSetting')
-                                          .val(valueFacts[key].calRound)
+                                          .val(valueFacts[key].round)
                                          )))
                   .append($('<div></div>')
                           .append($('<span></span>')
@@ -354,11 +487,11 @@ function sensorAiSetup(type, address)
                                  )
                           .append($('<span></span>')
                                   .append($('<input></input>')
-                                          .attr('id', 'calCutBelow')
+                                          .attr('id', 'cutBelow')
                                           .attr('type', 'number')
                                           .attr('step', 0.1)
                                           .addClass('rounded-border inputSetting')
-                                          .val(valueFacts[key].calCutBelow)
+                                          .val(valueFacts[key].cutBelow)
                                          )))
                  );
 
@@ -375,12 +508,8 @@ function sensorAiSetup(type, address)
          calSensorType = type;
          calSensorAddress = parseInt(address);
 
-         $('#calPointSelect').append($('<option></option>')
-                                     .val('pointA')
-                                     .html('Punkt 1'));
-         $('#calPointSelect').append($('<option></option>')
-                                     .val('pointB')
-                                     .html('Punkt 2'));
+         $('#calPointSelect').append($('<option></option>').val('pointA').html('Punkt 1'));
+         $('#calPointSelect').append($('<option></option>').val('pointB').html('Punkt 2'));
 
          if (allSensors[key] != null)
             $('#actuaCalValue').val(allSensors[key].value + ' ' + valueFacts[key].unit + ' (' + (allSensors[key].plain != null ? allSensors[key].plain : '-') + ')');
@@ -390,16 +519,30 @@ function sensorAiSetup(type, address)
             $(this).dialog('close');
          },
          'Speichern': function () {
-            console.log("store sensor settings", $('#calPoint').val(), '/', $('#calPointValue').val(), 'for', $('#calPointSelect').val());
+            valueFacts[key].cutBelow = parseFloat($('#cutBelow').val());
+            valueFacts[key].round = parseInt($('#round').val());
+
+            if (currentPoint == 'pointA') {
+               valueFacts[key].calPointA = parseFloat($('#calPoint').val());
+               valueFacts[key].calPointValueA = parseFloat($('#calPointValue').val());
+            } else {
+               valueFacts[key].calPointB = parseFloat($('#calPoint').val());
+               valueFacts[key].calPointValueB = parseFloat($('#calPointValue').val());
+            }
+
+            console.log("store AI sensor settings", valueFacts[key].calPointA, '/', valueFacts[key].calPointValueA, '|', valueFacts[key].calPointB, '/', valueFacts[key].calPointValueB);
 
             socket.send({ "event" : "storesensorsetup", "object" : {
-               'type' : calSensorType,
-               'address' : calSensorAddress,
-               'calPoint' : parseFloat($('#calPoint').val()),
-               'calPointValue' : parseFloat($('#calPointValue').val()),
-               'calRound' : parseInt($('#calRound').val()),
-               'calCutBelow' : parseFloat($('#calCutBelow').val()),
-               'calPointSelect' : $('#calPointSelect').val()
+               'type':     calSensorType,
+               'address':  calSensorAddress,
+               'settings': {
+                  'round':    valueFacts[key].round,
+                  'cutBelow': valueFacts[key].cutBelow,
+                  'pointA':   valueFacts[key].calPointA,
+                  'valueA':   valueFacts[key].calPointValueA,
+                  'pointB':   valueFacts[key].calPointB,
+                  'valueB':   valueFacts[key].calPointValueB
+               }
             }});
 
             $(this).dialog('close');
@@ -425,6 +568,22 @@ function deleteValueFact(type, address)
    }});
 }
 
+function sensorGpioSetup(type, address)
+{
+   let key = toKey(type, parseInt(address));
+
+   if (!valueFacts[key].settings)
+      valueFacts[key].settings = {};
+
+   if (!valueFacts[key].settings.fct || valueFacts[key].settings.fct == '')
+      valueFacts[key].settings.fct = 'deactivated';
+
+   if (valueFacts[key].settings.fct == 'in')
+      sensorDiSetup(type, address);
+   else if (valueFacts[key].settings.fct == 'out')
+      sensorDoSetup(type, address);
+}
+
 function sensorDoSetup(type, address)
 {
    console.log("sensorSetup ", type, address);
@@ -432,8 +591,8 @@ function sensorDoSetup(type, address)
    calSensorType = type;
    calSensorAddress = address;
 
-   var key = toKey(calSensorType, parseInt(calSensorAddress));
-   var form = document.createElement("div");
+   let key = toKey(calSensorType, parseInt(calSensorAddress));
+   let form = document.createElement("div");
 
    if (valueFacts[key] == null) {
       console.log("Sensor ", key, "undefined");
@@ -512,89 +671,16 @@ function sensorDoSetup(type, address)
             let type = $('#feedbackIo').val().split(":")[0];
 
             socket.send({ "event" : "storesensorsetup", "object" : {
-               'type' : calSensorType,
-               'address' : parseInt(calSensorAddress),
-               'settings' : JSON.stringify({
-                  'invert' : $('#invertDo').is(':checked'),
-                  'impulse' : $('#impulseDo').is(':checked'),
-                  'script' : $('#scriptDo').val(),
-                  'feedbackInType' : type,
-                  'feedbackInAddress' : addr
-               })
-            }});
-
-            $(this).dialog('close');
-         }
-      },
-      close: function() {
-         calSensorType = '';
-         calSensorAddress = -1;
-         $(this).dialog('destroy').remove();
-      }
-   });
-}
-
-function sensorScClone(type, address)
-{
-   socket.send({ "event" : "storesensorsetup", "object" : {
-      'type' : type,
-      'address' : parseInt(address),
-      'action' : 'clone'
-   }});
-}
-
-function sensorScSetup(type, address)
-{
-   calSensorType = type;
-   calSensorAddress = parseInt(address);
-
-   var key = toKey(calSensorType, calSensorAddress);
-   var form = document.createElement("div");
-
-   if (valueFacts[key] == null) {
-      console.log("Sensor ", key, "undefined");
-      return;
-   }
-
-   $(form).append($('<div></div>')
-                  .addClass('settingsDialogContent')
-                  .append($('<div></div>')
-                          .append($('<span></span>')
-                                  .css('width', 'auto')
-                                  .html('Argumente (JSON)'))
-                          .append($('<span></span>')
-                                  .append($('<textarea></textarea>')
-                                          .attr('id', 'arguments')
-                                          .addClass('rounded-border inputSetting inputSettingScript')
-                                          .css('height', '100px')
-                                          .val(JSON.stringify(valueFacts[key].settings, undefined, 3))
-                                         )))
-                 );
-
-   var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
-
-   $(form).dialog({
-      modal: true,
-      resizable: false,
-      closeOnEscape: true,
-      hide: "fade",
-      width: "80%",
-      title: "Skript Argumente für '" + title + "'",
-      open: function() {
-         calSensorType = type;
-         calSensorAddress = parseInt(address);
-      },
-      buttons: {
-         'Abbrechen': function () {
-            $(this).dialog('close');
-         },
-         'Speichern': function () {
-            console.log("store script arguments", $('#arguments').val());
-
-            socket.send({ "event" : "storesensorsetup", "object" : {
-               'type' : calSensorType,
-               'address' : calSensorAddress,
-               'settings' : $('#arguments').val().replace(/\s\s+/g, ' ')
+               'type': calSensorType,
+               'address': parseInt(calSensorAddress),
+               'settings': {
+                  'invert': $('#invertDo').is(':checked'),
+                  'impulse': $('#impulseDo').is(':checked'),
+                  'script': $('#scriptDo').val(),
+                  'feedbackInType': type,
+                  'feedbackInAddress': addr,
+                  'fct' : valueFacts[key].settings.fct
+               }
             }});
 
             $(this).dialog('close');
@@ -615,8 +701,8 @@ function sensorDiSetup(type, address)
    calSensorType = type;
    calSensorAddress = address;
 
-   var key = toKey(calSensorType, parseInt(calSensorAddress));
-   var form = document.createElement("div");
+   let key = toKey(calSensorType, parseInt(calSensorAddress));
+   let form = document.createElement("div");
 
    if (valueFacts[key] == null) {
       console.log("Sensor ", key, "undefined");
@@ -683,11 +769,12 @@ function sensorDiSetup(type, address)
             socket.send({ "event" : "storesensorsetup", "object" : {
                'type' : calSensorType,
                'address' : parseInt(calSensorAddress),
-               'settings' : JSON.stringify({
+               'settings' : {
                   'invert' : $('#invertDi').is(':checked'),
                   'interrupt' : $('#interruptDi').is(':checked'),
-                  'pull' : parseInt($('#pullDi').val())
-               })
+                  'pull' : parseInt($('#pullDi').val()),
+                  'fct' : valueFacts[key].settings.fct
+               }
             }});
 
             $(this).dialog('close');
@@ -717,10 +804,80 @@ function sensorDiSetup(type, address)
    });
 }
 
+function sensorScClone(type, address)
+{
+   socket.send({ "event" : "storesensorsetup", "object" : {
+      'type' : type,
+      'address' : parseInt(address),
+      'action' : 'clone'
+   }});
+}
+
+function sensorScSetup(type, address)
+{
+   calSensorType = type;
+   calSensorAddress = parseInt(address);
+
+   var key = toKey(calSensorType, calSensorAddress);
+   var form = document.createElement("div");
+
+   if (valueFacts[key] == null) {
+      console.log("Sensor ", key, "undefined");
+      return;
+   }
+
+   $(form).append($('<div></div>')
+                  .addClass('settingsDialogContent')
+                  .append($('<div></div>')
+                          .append($('<span></span>')
+                                  .css('width', 'auto')
+                                  .html('Argumente (JSON)'))
+                          .append($('<span></span>')
+                                  .append($('<textarea></textarea>')
+                                          .attr('id', 'settings')
+                                          .addClass('rounded-border inputSetting inputSettingScript')
+                                          .css('height', '100px')
+                                          .val(JSON.stringify(valueFacts[key].settings, undefined, 3))
+                                         )))
+                 );
+
+   var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
+
+   $(form).dialog({
+      modal: true,
+      resizable: false,
+      closeOnEscape: true,
+      hide: "fade",
+      width: "80%",
+      title: "Skript Argumente für '" + title + "'",
+      open: function() {
+         calSensorType = type;
+         calSensorAddress = parseInt(address);
+      },
+      buttons: {
+         'Abbrechen': function () {
+            $(this).dialog('close');
+         },
+         'Speichern': function () {
+            socket.send({ "event" : "storesensorsetup", "object" : {
+               'type':     calSensorType,
+               'address':  calSensorAddress,
+               'settings': $('#settings').val().replace(/\s\s+/g, ' ')
+            }});
+
+            $(this).dialog('close');
+         }
+      },
+      close: function() {
+         calSensorType = '';
+         calSensorAddress = -1;
+         $(this).dialog('destroy').remove();
+      }
+   });
+}
+
 function sensorCvSetup(type, address)
 {
-   console.log("sensorSetup ", type, address);
-
    calSensorType = type;
    calSensorAddress = parseInt(address);
 
@@ -740,10 +897,10 @@ function sensorCvSetup(type, address)
                                   .html('Skript'))
                           .append($('<span></span>')
                                   .append($('<textarea></textarea>')
-                                          .attr('id', 'luaScript')
+                                          .attr('id', 'settings')
                                           .addClass('rounded-border inputSetting inputSettingScript')
                                           .css('height', '100px')
-                                          .val(valueFacts[key].luaScript)
+                                          .val((valueFacts[key].settings && valueFacts[key].settings.lua) ? valueFacts[key].settings.lua : '')
                                          )))
                  );
 
@@ -765,12 +922,12 @@ function sensorCvSetup(type, address)
             $(this).dialog('close');
          },
          'Speichern': function () {
-            console.log("store lua script", $('#luaScript').val());
-
             socket.send({ "event" : "storesensorsetup", "object" : {
-               'type' : calSensorType,
-               'address' : calSensorAddress,
-               'luaScript' : $('#luaScript').val()
+               'type':    calSensorType,
+               'address': calSensorAddress,
+               'settings': {
+                  'lua': $('#settings').val()
+               }
             }});
 
             $(this).dialog('close');
@@ -784,26 +941,29 @@ function sensorCvSetup(type, address)
    });
 }
 
-function sensorCvAdd()
-{
-   socket.send({ "event" : "storesensorsetup", "object" : {
-      'type' : 'CV',
-      'action' : 'add'
-   }});
-}
-
 function storeSensorSetup()
 {
-   var jsonArray = [];
-   var rootSetup = document.getElementById("ioSetupContainer");
-   var elements = rootSetup.querySelectorAll("[id^='row_']");
+   let jsonArray = [];
+   let rootSetup = document.getElementById("ioSetupContainer");
+   let elements = rootSetup.querySelectorAll("[id^='row_']");
 
-   console.log("storeSensorSetup");
+   for (var i = 0, n = 0; i < elements.length; i++) {
+      let tr = $(elements[i]).closest('tr');
 
-   for (var i = 0; i < elements.length; i++) {
+      if (!$(tr).data('changed')) {
+         console.log('row not changed, skipping');
+         continue;
+      }
+
       var jsonObj = {};
       var type = $(elements[i]).data("type");
       var address = $(elements[i]).data("address");
+      let key = toKey(type, address);
+
+      if (!valueFacts[key].settings)
+         valueFacts[key].settings = {};
+
+      valueFacts[key].settings.fct = $("#function_" + type + address).val();
 
       jsonObj["type"] = type;
       jsonObj["address"] = address;
@@ -811,16 +971,123 @@ function storeSensorSetup()
       jsonObj["unit"] = $("#unit_" + type + address).val();
       jsonObj["state"] = $("#state_" + type + address).is(":checked");
       jsonObj["record"] = $("#record_" + type + address).is(":checked");
-      jsonObj["groupid"] = parseInt($("#group_" + type + address).val());
+      jsonObj["settings"] = JSON.stringify(valueFacts[key].settings);
+      // jsonObj["groupid"] = parseInt($("#group_" + type + address).val());
 
-      jsonArray[i] = jsonObj;
+      jsonArray[n++] = jsonObj;
    }
 
+   // console.log("storeSensorSetup:", JSON.stringify(jsonArray, undefined, 4));
    socket.send({ "event" : "storeiosetup", "object" : jsonArray });
 }
 
+//***************************************************************************
+// GPIO 40-pin header visualization
+//***************************************************************************
+
 function showGpio()
+{
+   socket.send({ 'event' : "gpiodata", 'object' : { } });
+}
+
+function initGpioHeader(pins)
 {
    $('#gpioState').removeClass('hidden');
    $('#ioSetupContainer').addClass('hidden');
+
+   console.log("initGpioHeader");
+
+   let container = $('#gpioState');
+   container.empty();
+
+   let pinMap = {};
+   for (let p of pins)
+      pinMap[p.pin] = p;
+
+   let wrap = $('<div>').addClass('gpio-wrap');
+   let legend = $('<div>').addClass('gpio-legend')
+      .append(gpioLegendItem('gpio-pwr5',     '5V'))
+      .append(gpioLegendItem('gpio-pwr33',    '3.3V'))
+      .append(gpioLegendItem('gpio-gnd',      'GND'))
+      .append(gpioLegendItem('gpio-usable',   'GPIO free'))
+      .append(gpioLegendItem('gpio-blocked',  'GPIO used'))
+      .append(gpioLegendItem('gpio-special',  'Special Functions'));
+
+   let table = $('<table>').addClass('gpio-table');
+
+   for (let row = 0; row < 20; row++) {
+      let oddPin  = row * 2 + 1;
+      let evenPin = row * 2 + 2;
+      let odd  = pinMap[oddPin];
+      let even = pinMap[evenPin];
+
+      let tr = $('<tr>');
+
+      // left side: label | dot
+      tr.append(makePinLabel(odd,  'left'));
+      tr.append(makePinDot(odd,  oddPin));
+      tr.append(makePinDot(even, evenPin));
+      tr.append(makePinLabel(even, 'right'));
+
+      table.append(tr);
+   }
+
+   wrap.append(legend).append(table);
+   container.append(wrap);
+}
+
+function gpioLegendItem(cssClass, label)
+{
+   return $('<div>').addClass('gpio-legend-item')
+      .append($('<span>').addClass('gpio-dot ' + cssClass))
+      .append($('<span>').text(label));
+}
+
+function pinCssClass(pin)
+{
+   if (!pin) return 'gpio-unknown';
+   if (pin.name == 'GND' || pin.voltage == 'GND') return 'gpio-gnd';
+   if (pin.voltage == '5V')   return 'gpio-pwr5';
+   if (!pin.gpio) return pin.voltage == '3.3V' ? 'gpio-pwr33' : 'gpio-special';
+   if (pin.usable)  return 'gpio-usable';
+   if (pin.blocked) return 'gpio-blocked';
+   return 'gpio-special';
+}
+
+function pinTooltip(pin)
+{
+   if (!pin) return '';
+   let parts = ['Pin ' + pin.pin, pin.name];
+   if (pin.description) parts.push(pin.description);
+   if (pin.gpio) {
+      parts.push(pin.usable ? 'frei' : (pin.blocked ? 'belegt (Kernel)' : 'nicht nutzbar'));
+      if (pin.chipLabel) parts.push(pin.chipLabel + ' offset ' + pin.offset);
+      if (pin.pull) parts.push('Pull up/down');
+      if (pin.interrupt) parts.push('Interrupt');
+   }
+   parts.push(pin.voltage);
+   return parts.join(' | ');
+}
+
+function makePinDot(pin, num)
+{
+   let cls = pinCssClass(pin);
+   let tip = pinTooltip(pin);
+   return $('<td>').addClass('gpio-dot-cell')
+      .append($('<span>')
+         .addClass('gpio-dot ' + cls)
+         .attr('title', tip)
+         .text(num));
+}
+
+function makePinLabel(pin, side)
+{
+   if (!pin) return $('<td>');
+   let cls = pinCssClass(pin);
+   let tip = pinTooltip(pin);
+   let label = pin.description ? pin.name + ' – ' + pin.description : pin.name;
+   return $('<td>')
+      .addClass('gpio-pin-label gpio-pin-' + side + ' ' + cls + '-text')
+      .attr('title', tip)
+      .text(label);
 }

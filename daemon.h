@@ -241,11 +241,12 @@ class Daemon : public cWebInterface
 
          bool invert {false};
          Gpio::PullUpDown pull {Gpio::pudOff};
-         bool impulse {false};      // change output only for a short impulse
+         bool impulse {false};        // change output only for a short impulse
          bool interrupt {false};
          bool interruptSet {false};
-         std::string script;
-         std::string parameter;
+         std::string script;          // CV,DO  - LUA script
+                                      // SC     - parameter for script (JSON object)
+         std::string parameter;       // parameter for widged look
          std::string choices;
          OutputMode mode {omAuto};
          uint outputModes {ooUser};   // bitmask of available outout modes (User,Auto,...)
@@ -313,7 +314,7 @@ class Daemon : public cWebInterface
 
       static DefaultWidgetProperty defaultWidgetProperties[];
       static DefaultWidgetProperty* getDefalutProperty(const char* type, const char* unit, int address = 0);
-      int widgetDefaults2Json(json_t* jDefaults, const char* type, const char* unit, const char* name, int address = 0);
+      int widgetDefaults2Json(json_t* jDefaults, std::string type, std::string unit, const char* name, int address = 0);
 
       struct ValueTypes
       {
@@ -329,9 +330,10 @@ class Daemon : public cWebInterface
       virtual int initDb();
       virtual int exitDb();
       virtual int readConfiguration(bool initial);
-      virtual int applyConfigurationSpecials() { return done; }
+      virtual int applyConfigurationSpecials();
 
       int initSensorByFact(myString type, uint address);
+      int initGpioLine(uint physPin, const PinInfo& pinInfo);
       int initOutput(uint pin, int outputModes, OutputMode mode, const char* name, uint rights = urControl);
       int initInput(uint pin, const char* name);
       int cfgOutput(myString type, uint pin, json_t* jCal = nullptr);
@@ -441,6 +443,7 @@ class Daemon : public cWebInterface
       int performPageChange(json_t* oObject, long client);
       int performToggleIo(json_t* oObject, long client);
       int performSystem(json_t* oObject, long client);
+      int performGpioData(json_t* oObject, long client);
       int performDatabaseStatistic(json_t* oObject, long client);
       int performWifi(json_t* oObject, long client);
       int performWifiCommand(json_t* oObject, long client);
@@ -503,7 +506,7 @@ class Daemon : public cWebInterface
       int lmcPlaylist2Json(json_t* obj);
       int lmcMainMenu2Json(json_t* obj);
 
-      const char* getImageFor(const char* type, const char* title, const char* unit, int value);
+      const char* getImageFor(std::string type, const char* title, std::string unit, int value);
       int toggleIo(uint addr, const char* type, int state = na, int bri = na, int transitiontime = na);
       int toggleColor(uint addr, const char* type, int color, int sat, int bri);
       int toggleIoNext(uint pin);
@@ -703,7 +706,7 @@ class Daemon : public cWebInterface
          double calPointB {10.0};
          double calPointValueA {0.0};
          double calPointValueB {10.0};
-         double calCutBelow {-10000.0};
+         double cutBelow {-10000.0};
          double round {20.0};                // e.g. 50.0 -> 0.02; 20.0 -> 0.05; 10.0 -> 0.1;
       };
 

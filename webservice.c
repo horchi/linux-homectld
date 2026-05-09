@@ -52,6 +52,7 @@ const char* cWebService::events[] =
    "storeschema",
    "storesensorsetup",
    "lmcaction",
+   "gpiodata",
 
    0
 };

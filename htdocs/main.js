@@ -526,6 +526,9 @@ function dispatchMessage(message)
    else if (event == "syslog") {
       showSyslog(jMessage.object);
    }
+   else if (event == "gpio-data") {
+      initGpioHeader(jMessage.object);
+   }
    else if (event == "database") {
       showDatabaseStatistic(jMessage.object);
       hideProgressDialog();
@@ -936,6 +939,7 @@ function initLogin()
 function showSyslog(log)
 {
    $('#controlContainer').removeClass('hidden');
+   $('#controlToggle').removeClass('hidden');
    $('#container').removeClass('hidden');
 
    prepareSetupMenu();
@@ -1056,6 +1060,7 @@ function showWifiList()
    // console.log("WifiList: " + JSON.stringify(wifis, undefined, 2));
 
    $('#controlContainer').removeClass('hidden');
+   $('#controlToggle').removeClass('hidden');
    $('#container').removeClass('hidden');
    $('#container').html('<div id="systemContainer"></div>');
 
@@ -1192,6 +1197,7 @@ function showSystemServicesList()
    // console.log("SystemServices: " + JSON.stringify(systemServices, undefined, 2));
 
    $('#controlContainer').removeClass('hidden');
+   $('#controlToggle').removeClass('hidden');
    $('#container').removeClass('hidden');
    $('#container').html('<div id="systemContainer"></div>');
 
@@ -1441,10 +1447,16 @@ function doLogout()
 function hideAllContainer()
 {
    $('#dashboardMenu').addClass('hidden');
-   $('#controlContainer').addClass('hidden');
+   $('#controlContainer').addClass('hidden').removeClass('ctrl-collapsed');
+   $('#controlToggle').addClass('hidden');
    $('#container').addClass('hidden');
 
    $("#container").swipe("disable");
+}
+
+function toggleControlPanel()
+{
+   $('#controlContainer').toggleClass('ctrl-collapsed');
 }
 
 // ---------------------------------
@@ -1950,4 +1962,43 @@ function alterColor(rgb, type, percent)
    }
 
    return 'rgb(' + red + ', ' + green + ', ' + blue + ')';
+}
+
+function confirmDialog(onConfirm, message, okBtn = 'Continue', cancelBtn = 'Cancel', input = null)
+{
+   var form = '<div>' +
+       '<div class="dialog-titlebar">CONFIRM</div>';
+
+   if (!input) {
+      form += '  <div class="dialog-content">' + message + '</div>';
+   }
+   else {
+      form += '  <div class="dialog-content">' +
+         '  <div>' + message + '<br/><br/>' +
+         '  <div class="labelB1">' + input + '</div>' +
+         '  <input id="confirmInputValue" class="rounded-border input"></input>' +
+         '</div>'
+   }
+
+   form += '</div>';
+
+   $(form).dialog({
+      hide: "fade",
+      width : "auto",
+      modal: true,
+      buttons: {
+         [okBtn]: function() {
+            let value = $('#confirmInputValue').val();
+            $(this).dialog('close');
+            if (onConfirm) {
+               if (!input)
+                  onConfirm();
+               else
+                  onConfirm(value);
+            }
+         },
+         [cancelBtn]: function() { $(this).dialog('close'); }
+      },
+      close: function() { $(this).dialog('destroy').remove(); }
+   });
 }

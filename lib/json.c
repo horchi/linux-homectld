@@ -206,12 +206,15 @@ bool isElementSet(json_t* obj, const char* name)
 
 const char* getStringFromJson(json_t* obj, const char* name, const char* def)
 {
-   json_t* o = json_object_get(obj, name);
+   if (!obj)
+      return def;
+
+   json_t* o {json_object_get(obj, name)};
 
    if (!o)
       return def;
 
-   const char* s = json_string_value(o);
+   const char* s {json_string_value(o)};
 
    if (!s)
       return def;

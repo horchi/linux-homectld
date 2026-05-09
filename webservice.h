@@ -54,6 +54,7 @@ class cWebService
          evStoreSchema,
          evStoreSensorSetup,
          evLmcAction,
+         evGpioData,
 
          evCount
       };

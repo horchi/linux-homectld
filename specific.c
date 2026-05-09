@@ -308,6 +308,8 @@ void Daemon::onGpioChange(int physPin, bool value)
 
 int HomeCtl::applyConfigurationSpecials()
 {
+   Daemon::applyConfigurationSpecials();
+
    initOutput(pinUserOut1, ooUser, omManual, "Digital Output");
    initOutput(pinUserOut2, ooUser, omManual, "Digital Output");
    initOutput(pinUserOut3, ooUser, omManual, "Digital Output");

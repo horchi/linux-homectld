@@ -41,9 +41,26 @@ class Gpio
 {
    public:
 
-      enum Direction  { dirIn, dirOut };
-      enum PullUpDown { pudOff = 0, pudUp = 1, pudDown = 2 };
-      enum Edge       { edgeNone, edgeRising, edgeFalling, edgeBoth };
+      enum Direction
+      {
+         dirIn,
+         dirOut
+      };
+
+      enum PullUpDown
+      {
+         pudOff  = 0,
+         pudUp   = 1,
+         pudDown = 2
+      };
+
+      enum Edge
+      {
+         edgeNone,
+         edgeRising,
+         edgeFalling,
+         edgeBoth
+      };
 
       Gpio(const char* consumerName, const char* confPath);
       ~Gpio();

@@ -25,7 +25,7 @@ Table valuefacts
    INSSP                ""                        inssp                Int         10 Meta,
    UPDSP                ""                        updsp                Int         10 Meta,
 
-   GROUPID              ""                        roupid              Int         10 Data,
+   GROUPID              ""                        groupid              Int         10 Data,
    STATE                ""                        state                Ascii        1 Data,
    RECORD               ""                        record               Ascii        1 Data,
    UNIT                 ""                        unit                 Ascii        5 Data,

@@ -244,6 +244,7 @@ class Daemon : public cWebInterface
          bool impulse {false};        // change output only for a short impulse
          bool interrupt {false};
          bool interruptSet {false};
+         std::string fct;             // GPIO pin functionm: 'off', 'in', 'out', ...
          std::string script;          // CV,DO  - LUA script
                                       // SC     - parameter for script (JSON object)
          std::string parameter;       // parameter for widged look

@@ -74,7 +74,7 @@ Daemon::ValueTypes Daemon::defaultValueTypes[] =
 {
    // expression, title
 
-   { "^VA",       "Messwerte" },
+   { "^VA$",      "Messwerte" },
    { "^SD",       "Status Laufzeiten" },
    { "^DO",       "Digitale Ausgänge" },
    { "^MCPO",     "Digitale Ausgänge" },
@@ -99,6 +99,7 @@ Daemon::ValueTypes Daemon::defaultValueTypes[] =
    { "^VIC",      "Victron" },
    { "^VOTRO",    "Votronic" },
    { "^MOPEKA.*", "Mopeka" },
+   { "^VAR$",     "Variables" },
 
    { "",        "" }
 };
@@ -614,6 +615,12 @@ int Daemon::applyConfigurationSpecials()
       initGpioLine(phys, pinInfo);
    }
 
+   for (int i = 0; i < 10; i++)
+   {
+      std::string name {"Variable " + std::to_string(i)};
+      addValueFact(i, "VAR", 1, name.c_str());
+   }
+
    // #TODO DEMO - remove
    addValueFact(1, "AI", 1, "Test AI 1", "mA");
    return done;
@@ -696,6 +703,12 @@ int Daemon::initSensorByFact(myString type, uint address)
          {
             sensors[type][address].script = fact->getStrValue("SETTINGS");
          }
+         else if (type == "GPIO")
+         {
+            sensors[type][address].fct = getStringFromJson(jCal, "fct", "off");
+
+            // #TODO
+         }
 
          json_decref(jCal);
       }
@@ -716,9 +729,26 @@ int Daemon::initGpioLine(uint physPin, const PinInfo& pinInfo)
    std::string name {std::to_string(physPin) + " - " + pinInfo.name + "\n" + pinInfo.description};
    addValueFact(physPin, "GPIO", 1, name.c_str(), "", "", urControl);
 
-   // erst aktivieren wenn wir von DO/DI auf GPIO umschalten
-   // sensors["GPIO"][physPin].outputModes = ooUser;
-   // sensors["GPIO"][physPin].mode = omManual;
+   if (sensors["GPIO"][physPin].active)
+   {
+      sensors["GPIO"][physPin].outputModes = ooUser;
+      sensors["GPIO"][physPin].mode = omManual;
+
+      if (sensors["GPIO"][physPin].fct == "out")
+      {
+         gpio->pinMode(physPin, Gpio::dirOut);
+         cfgOutput("GPIO", physPin);
+
+         if (!sensors["GPIO"][physPin].impulse)
+            gpioWrite(physPin, false, false);
+      }
+      else if (sensors["GPIO"][physPin].fct == "in")
+      {
+         gpio->pinMode(physPin, Gpio::dirIn);
+         cfgInput("GPIO", physPin);
+         gpioRead(physPin);
+      }
+   }
 
    // pinInfo.pull
    // pinInfo.interrupt
@@ -799,7 +829,7 @@ int Daemon::cfgInput(myString type, uint pin, json_t* jCal)
 
       if (sensors[type][pin].active && sensors[type][pin].interrupt)
       {
-         tell(eloDebugWiringPi, "Debug: wiringPiISR(%d) (%s)", pin, gpio->pinToName(pin).c_str());
+         tell(eloDebugGpio, "Debug: GPIO: ISR(%d) (%s)", pin, gpio->pinToName(pin).c_str());
 
          if (!sensors[type][pin].interruptSet)
          {
@@ -2148,7 +2178,7 @@ int Daemon::updateInputs(bool check)
       if (s.second.active)
       {
          bool state {gpioRead(s.first, check)};
-         tell(eloDebugWiringPi, "Debug: WiringPi: updateInputs(%d) DI 0x%x (%d)", check, s.first, state);
+         tell(eloDebugGpio, "Debug: GPIO: updateInputs(%d) DI 0x%x (%d)", check, s.first, state);
       }
    }
 
@@ -2165,7 +2195,7 @@ int Daemon::storeSamples()
    int skipped {0};
 
    lastSampleTime = time(0);
-   tell(eloInfo, "Store samples ..");
+   tell(eloDebug, "Debug: Store samples ..");
    connection->startTransaction();
 
    if (mqttHaInterfaceStyle == misSingleTopic)
@@ -4508,7 +4538,9 @@ void Daemon::gpioWrite(uint pin, bool state, bool saveIoState)
       // invert the state on 'invert' - most relay board are active at 'false'
 
       sensors["DO"][pin].state = state;
+      tell(eloDebugGpio, "Debug: GPIO: calling digitalWrite(%d), invert was %s", pin, sensors["DO"][pin].invert ? "true" : "false");
       gpio->digitalWrite(pin, sensors["DO"][pin].invert ? !state : state);
+
    }
 
    if (saveIoState)
@@ -4529,7 +4561,8 @@ bool Daemon::gpioRead(uint pin, bool check)
 {
    int state {gpio->digitalRead(pin)};
 
-   tell(eloAlways, "gpioRead (%d) = %d (invert = %d)", pin, state, sensors["DI"][pin].invert);
+   tell(eloDebugGpio, "Debug: GPIO: gpioRead(%d) got '%s' (invert %s)",
+        pin, state ? "true" : "false", sensors["DI"][pin].invert ? "true" : "false");
 
    if (sensors["DI"][pin].invert)
       state = !state;
@@ -4704,7 +4737,7 @@ void Daemon::publishSpecialValue(int addr)
 
 int Daemon::storeIoState(const char* type, uint address)
 {
-   tell(eloDetail, "Info: Store IO state of '%s:0x%x'", type, address);
+   tell(eloDebug, "Debug: Store IO state of '%s:0x%x'", type, address);
 
    tableIoStates->clear();
    tableIoStates->setValue("TYPE", type);

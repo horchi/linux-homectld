@@ -83,9 +83,18 @@ $(VICTRONTARGET): $(VICTRONOBJS)
 $(I2CTARGET): $(I2COBJS)
 	$(doLink) $(I2COBJS) $(LIBS) -o $@
 
+# light install
+
 linstall: $(TARGET) $(W1TARGET) $(BMSTARGET) $(VOTROTARGET) $(VICTRONTARGET) $(I2CTARGET)
 	make install-daemon
 	make install-web
+
+# super light install - only the daemon itself
+
+slinstall: $(TARGET)
+	make install-daemon
+
+# install all
 
 install:  linstall
 	make install-systemd
@@ -117,6 +126,12 @@ install-daemon: install-config install-scripts
 #	install --mode=644 -D arduino/build-nano-atmega328/ioctrl.hex $(DESTDIR)$(PREFIX)/share/$(TARGET)/nano-atmega328-ioctrl.hex
 
 restart: $(TARGET) linstall
+	systemctl restart $(TARGET)
+	@echo restarted $(TARGET)
+
+# light restart - onlx buld the deamon
+
+lrestart: $(TARGET) slinstall
 	systemctl restart $(TARGET)
 	@echo restarted $(TARGET)
 

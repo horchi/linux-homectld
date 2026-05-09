@@ -70,7 +70,7 @@ const char* Elo::eloquences[] =
    "Lmc",
    "DebugLmc",
 
-   "DebugWiringPi",
+   "DebugGpio",
    "Script",
 
    "LoopTimings",

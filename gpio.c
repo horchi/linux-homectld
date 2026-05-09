@@ -16,7 +16,7 @@
 #include "lib/json.h"
 #include "gpio.h"
 
-#if defined(GPIOD)
+#if defined (GPIOD)
 
 //***************************************************************************
 // Find Chip For Line
@@ -78,7 +78,7 @@ int Gpio::buildChipLabelMap()
          if (label && *label)
          {
             chipLabelToPath[label] = path;
-            tell(eloDebug, "GPIO: chip label '%s' -> %s", label, path);
+            tell(eloDebugGpio, "Debug: GPIO: chip label '%s' -> %s", label, path);
          }
 
          gpiod_chip_info_free(cinfo);
@@ -178,7 +178,7 @@ int Gpio::buildPhysMap()
       gpiod_chip_close(chip);
    }
 
-   tell(eloDebug, "GPIO: physToChip map built with %zu entries", physToChip.size());
+   tell(eloDebugGpio, "Debug: GPIO: physToChip map built with %zu entries", physToChip.size());
 
    return success;
 }
@@ -209,7 +209,7 @@ Gpio::~Gpio()
          p.thread = nullptr;
       }
 
-#if defined(GPIOD)
+#if defined (GPIOD)
       if (p.request)
       {
          gpiod_line_request_release(p.request);
@@ -240,14 +240,14 @@ int Gpio::init()
       }
    }
 
-#if defined(GPIOD)
+#if defined (GPIOD)
 
    buildChipLabelMap();
    buildPhysMap();
    updateBlockedFromChipLabels();
    return success;
 
-#elif defined(WIRINGPI)
+#elif defined (WIRINGPI)
 
    static bool initialized {false};
 
@@ -425,7 +425,7 @@ int Gpio::detectBlockedPins()
    for (auto& [phys, info] : pinMapping)
       info.blocked = false;
 
-#if defined(GPIOD)
+#if defined (GPIOD)
 
    std::ifstream in("/sys/kernel/debug/gpio");
 
@@ -472,11 +472,11 @@ int Gpio::detectBlockedPins()
 
 int Gpio::setupPin(int physPin, Direction dir, Edge edge, PullUpDown pud)
 {
-   auto itInfo = pinMapping.find(physPin);
+   auto itInfo {pinMapping.find(physPin)};
 
    if (itInfo == pinMapping.end())
    {
-      tell(eloAlways, "GPIO: setupPin(%d) unknown pin", physPin);
+      tell(eloAlways, "Error: GPIO: setupPin(%d) unknown pin", physPin);
       return fail;
    }
 
@@ -484,14 +484,16 @@ int Gpio::setupPin(int physPin, Direction dir, Edge edge, PullUpDown pud)
 
    if (!info.usable)
    {
-      tell(eloAlways, "GPIO: setupPin(%d '%s') not usable (%s)", physPin, info.name.c_str(),
+      tell(eloAlways, "Error: GPIO: setupPin(%d '%s') not usable (%s)", physPin, info.name.c_str(),
            !info.gpio ? "not a GPIO pin" : "blocked by kernel driver");
       return fail;
    }
 
+   tell(eloDebugGpio, "Debug: GPIO: setupPin(%d, dir %d, edge %d, pull %d)", physPin, dir, edge, pud);
+
    PinState& p {pins[physPin]};
 
-#if defined(GPIOD)
+#if defined (GPIOD)
 
    if (p.threadRunning)
       p.threadRunning = false;
@@ -516,7 +518,7 @@ int Gpio::setupPin(int physPin, Direction dir, Edge edge, PullUpDown pud)
    }
 
    // PIN_<N> convention (e.g. ODROID N2+ Hardkernel kernel)
-   auto itPhys = physToChip.find(physPin);
+   auto itPhys {physToChip.find(physPin)};
 
    if (itPhys != physToChip.end())
    {
@@ -526,7 +528,7 @@ int Gpio::setupPin(int physPin, Direction dir, Edge edge, PullUpDown pud)
    else if (!info.chipLabel.empty() && info.offset >= 0)
    {
       // Chip label + offset from gpio.json (hardware-fixed, kernel-independent)
-      auto itLabel = chipLabelToPath.find(info.chipLabel);
+      auto itLabel {chipLabelToPath.find(info.chipLabel)};
 
       if (itLabel != chipLabelToPath.end())
       {
@@ -542,7 +544,7 @@ int Gpio::setupPin(int physPin, Direction dir, Edge edge, PullUpDown pud)
 
    if (!p.chip)
    {
-      tell(eloAlways, "GPIO: Could not find gpiochip for pin %d ('%s')", physPin, info.name.c_str());
+      tell(eloAlways, "Error: GPIO: Could not find gpiochip for pin %d ('%s')", physPin, info.name.c_str());
       return fail;
    }
 
@@ -550,7 +552,7 @@ int Gpio::setupPin(int physPin, Direction dir, Edge edge, PullUpDown pud)
 
    if (!settings)
    {
-      tell(eloAlways, "GPIO: Could not allocate line settings");
+      tell(eloAlways, "Error: GPIO: Could not allocate line settings");
       gpiod_chip_close(p.chip);
       p.chip = nullptr;
       return fail;
@@ -621,7 +623,7 @@ int Gpio::setupPin(int physPin, Direction dir, Edge edge, PullUpDown pud)
 
    return success;
 
-#elif defined(WIRINGPI)
+#elif defined (WIRINGPI)
 
    ::pinMode(physPin, dir == dirIn ? INPUT : OUTPUT);
 
@@ -669,7 +671,7 @@ bool Gpio::pinAvailable(int physPin)
 
 bool Gpio::digitalRead(int physPin)
 {
-   auto it = pins.find(physPin);
+   auto it {pins.find(physPin)};
 
    if (it == pins.end() || !it->second.initialized)
    {
@@ -679,19 +681,23 @@ bool Gpio::digitalRead(int physPin)
 
    PinState& p {it->second};
 
-#if defined(GPIOD)
+#if defined (GPIOD)
 
-   return gpiod_line_request_get_value(p.request, p.offset) == GPIOD_LINE_VALUE_ACTIVE;
+   p.lastValue = gpiod_line_request_get_value(p.request, p.offset) == GPIOD_LINE_VALUE_ACTIVE;
 
-#elif defined(WIRINGPI)
+#elif defined (WIRINGPI)
 
-   return ::digitalRead(physPin) != 0;
+   p.lastValue = ::digitalRead(physPin) != 0;
 
 #else
 
-   return p.lastValue;
+   p.lastValue = 0;
 
 #endif
+
+   tell(eloDebugGpio, "Debug: GPIO: digitalRead(%d) to '%s'", physPin, p.lastValue ? "true" : "false");
+
+   return p.lastValue;
 }
 
 //***************************************************************************
@@ -700,7 +706,7 @@ bool Gpio::digitalRead(int physPin)
 
 int Gpio::digitalWrite(int physPin, bool value)
 {
-   auto it = pins.find(physPin);
+   auto it {pins.find(physPin)};
 
    if (it == pins.end() || !it->second.initialized)
    {
@@ -716,30 +722,29 @@ int Gpio::digitalWrite(int physPin, bool value)
       return fail;
    }
 
-#if defined(GPIOD)
+#if defined (GPIOD)
 
    int ret {gpiod_line_request_set_value(p.request, p.offset, value ? GPIOD_LINE_VALUE_ACTIVE : GPIOD_LINE_VALUE_INACTIVE)};
 
-   if (ret == 0)
-   {
-      p.lastValue = value;
-      return success;
-   }
+   if (ret != 0)
+      return fail;
 
-   return fail;
+   p.lastValue = value;
 
-#elif defined(WIRINGPI)
+#elif defined (WIRINGPI)
 
    ::digitalWrite(physPin, value ? HIGH : LOW);
    p.lastValue = value;
-   return success;
 
 #else
 
    p.lastValue = value;
-   return success;
 
 #endif
+
+   tell(eloDebugGpio, "Debug: GPIO: digitalWrite(%d, %s)", physPin, value ? "true" : "false");
+
+   return success;
 }
 
 //***************************************************************************
@@ -748,7 +753,7 @@ int Gpio::digitalWrite(int physPin, bool value)
 
 int Gpio::digitalToggle(int physPin)
 {
-   auto it = pins.find(physPin);
+   auto it {pins.find(physPin)};
 
    if (it == pins.end() || !it->second.initialized)
    {
@@ -764,32 +769,29 @@ int Gpio::digitalToggle(int physPin)
       return fail;
    }
 
-#if defined(GPIOD)
+#if defined (GPIOD)
 
    gpiod_line_value current {gpiod_line_request_get_value(p.request, p.offset)};
    gpiod_line_value next {current == GPIOD_LINE_VALUE_ACTIVE ? GPIOD_LINE_VALUE_INACTIVE : GPIOD_LINE_VALUE_ACTIVE};
    int ret {gpiod_line_request_set_value(p.request, p.offset, next)};
 
-   if (ret == 0)
-   {
-      p.lastValue = !p.lastValue;
-      return success;
-   }
+   if (ret != 0)
+      return fail;
 
-   return fail;
+   p.lastValue = !p.lastValue;
 
-#elif defined(WIRINGPI)
+#elif defined (WIRINGPI)
 
    ::digitalWrite(physPin, ::digitalRead(physPin) ? LOW : HIGH);
    p.lastValue = !p.lastValue;
-   return success;
 
 #else
-
    p.lastValue = !p.lastValue;
-   return success;
-
 #endif
+
+   tell(eloDebugGpio, "Debug: GPIO: digitalToggle(%d) to '%s'", physPin, p.lastValue ? "true" : "false");
+
+   return success;
 }
 
 //***************************************************************************
@@ -799,7 +801,7 @@ int Gpio::digitalToggle(int physPin)
 int Gpio::pinMode(int physPin, Direction direction)
 {
    auto it = pins.find(physPin);
-   Edge       edge {edgeNone};
+   Edge edge {edgeNone};
    PullUpDown pud {pudOff};
 
    if (it != pins.end() && it->second.initialized)
@@ -807,6 +809,8 @@ int Gpio::pinMode(int physPin, Direction direction)
       edge = it->second.edge;
       pud  = it->second.pud;
    }
+
+   tell(eloDebugGpio, "Debug: GPIO: pinMode(%d, %d)", physPin, direction);
 
    return setupPin(physPin, direction, edge, pud);
 }
@@ -827,6 +831,8 @@ int Gpio::pullUpDnControl(int physPin, PullUpDown value)
       dir  = it->second.direction;
    }
 
+   tell(eloDebugGpio, "Debug: GPIO: pullUpDnControl(%d, %d)", physPin, value);
+
    return setupPin(physPin, dir, edge, value);
 }
 
@@ -836,11 +842,11 @@ int Gpio::pullUpDnControl(int physPin, PullUpDown value)
 
 int Gpio::enableInterrupt(int physPin, std::function<void(int, bool)> cb)
 {
-   auto it = pins.find(physPin);
+   auto it {pins.find(physPin)};
 
    if (it == pins.end() || !it->second.initialized)
    {
-      tell(eloAlways, "GPIO: enableInterrupt(%d) pin not initialized", physPin);
+      tell(eloAlways, "Error: GPIO: enableInterrupt(%d) pin not initialized", physPin);
       return fail;
    }
 
@@ -848,18 +854,21 @@ int Gpio::enableInterrupt(int physPin, std::function<void(int, bool)> cb)
 
    if (p.direction != dirIn)
    {
-      tell(eloAlways, "GPIO: enableInterrupt(%d) not input", physPin);
+      tell(eloAlways, "Error: GPIO: enableInterrupt(%d) not input", physPin);
       return fail;
    }
 
    if (p.edge == edgeNone)
    {
-      tell(eloAlways, "GPIO: enableInterrupt(%d) no edge configured", physPin);
+      tell(eloAlways, "Error: GPIO: enableInterrupt(%d) no edge configured", physPin);
       return fail;
    }
 
    if (p.threadRunning)
+   {
+      tell(eloAlways, "GPIO: Skipping enableInterrupt(%d) thread already running", physPin);
       return success;
+   }
 
    p.callback      = cb;
    p.threadRunning = true;
@@ -870,7 +879,7 @@ int Gpio::enableInterrupt(int physPin, std::function<void(int, bool)> cb)
       {
          PinState& ps {pins[physPin]};
 
-#if defined(GPIOD)
+#if defined (GPIOD)
 
          while (ps.threadRunning)
          {
@@ -966,6 +975,8 @@ int Gpio::setIsr(int physPin, Edge edge, std::function<void(int physPin, bool va
 
    if (it != pins.end() && it->second.initialized)
       pud = it->second.pud;
+
+   tell(eloDebugGpio, "Debug: GPIO: setIsr(%d, %d)", physPin, edge);
 
    if (setupPin(physPin, dirIn, edge, pud) != success)
       return fail;

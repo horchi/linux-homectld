@@ -287,7 +287,7 @@ int HomeCtl::atMeanwhile()
 
 void Daemon::onGpioChange(int physPin, bool value)
 {
-   tell(eloDebug, "Debug: Interrupt trigger for pin %d (%s)", physPin, value ? "ON" : "OFF");
+   tell(eloDebugGpio, "Debug: GPIO: Interrupt trigger for pin %d (%s)", physPin, value ? "ON" : "OFF");
    gpioRead(physPin);
 
 #ifdef _POOL

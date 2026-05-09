@@ -244,6 +244,8 @@ function showTable(section)
             sectionId = 'io' + valueTypes[i].title.replace(' ', '');
       }
 
+      console.log("sensor", key, sectionId);
+
       let root = $('#' + sectionId);
 
       if (!root.length)
@@ -679,7 +681,7 @@ function sensorDoSetup(type, address)
                   'script': $('#scriptDo').val(),
                   'feedbackInType': type,
                   'feedbackInAddress': addr,
-                  'fct' : valueFacts[key].settings.fct
+                  'fct' : valueFacts[key].settings ? valueFacts[key].settings.fct : ''
                }
             }});
 
@@ -773,7 +775,7 @@ function sensorDiSetup(type, address)
                   'invert' : $('#invertDi').is(':checked'),
                   'interrupt' : $('#interruptDi').is(':checked'),
                   'pull' : parseInt($('#pullDi').val()),
-                  'fct' : valueFacts[key].settings.fct
+                  'fct' : valueFacts[key].settings ? valueFacts[key].settings.fct : ''
                }
             }});
 

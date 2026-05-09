@@ -2,6 +2,7 @@
 /var/log/iptables.log
 /var/log/sensormqtt.log
 {
+   su root syslog
    rotate 2
    size 10M
    missingok

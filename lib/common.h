@@ -131,7 +131,7 @@ enum Eloquence
    eloLmc            = 0x020000,
    eloDebugLmc       = 0x040000,
 
-   eloDebugWiringPi  = 0x080000,
+   eloDebugGpio      = 0x080000,
    eloScript         = 0x100000,
    eloLoopTimings    = 0x200000,
 

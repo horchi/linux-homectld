@@ -190,7 +190,7 @@ fix_m1_onewire() {
     local TMP_DTS
     TMP_DTS=$(mktemp /tmp/onewire.XXXXXX.dts)
 
-    # phys pin 15 = GPIO3_B6: bank=3, port B (1) bit 6 → offset=14
+    # phys pin 15 = GPIO3_B2: bank=3, port B (1) bit 2 → offset=10
     cat > "$TMP_DTS" << 'EOF'
 /dts-v1/;
 /plugin/;
@@ -203,7 +203,7 @@ fix_m1_onewire() {
       __overlay__ {
          onewire {
             compatible = "w1-gpio";
-            gpios = <&gpio3 14 0>;
+            gpios = <&gpio3 10 0>;
             pinctrl-names = "default";
             pinctrl-0 = <&w1_gpio_pin>;
             status = "okay";
@@ -216,7 +216,7 @@ fix_m1_onewire() {
       __overlay__ {
          onewire {
             w1_gpio_pin: w1-gpio-pin {
-               rockchip,pins = <3 14 0 &pcfg_pull_up>;
+               rockchip,pins = <3 10 0 &pcfg_pull_up>;
             };
          };
       };

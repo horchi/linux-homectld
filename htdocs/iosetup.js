@@ -592,6 +592,7 @@ function sensorVarSetup(type, address)
                                   .attr('id', 'scriptVar')
                                   .addClass('rounded-border inputSetting inputSettingScript')
                                   .css('height', '100px')
+                                  .css('resize', 'none')
                                   .val(valueFacts[key].settings ? valueFacts[key].settings.script : '')
                                  )));
    var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
@@ -692,6 +693,7 @@ function sensorDoSetup(type, address)
                                           .attr('id', 'scriptDo')
                                           .addClass('rounded-border inputSetting inputSettingScript')
                                           .css('height', '100px')
+                                          .css('resize', 'none')
                                           .val(valueFacts[key].settings ? valueFacts[key].settings.script : '')
                                          )))
                          );
@@ -700,7 +702,7 @@ function sensorDoSetup(type, address)
 
    $(form).dialog({
       modal: true,
-      resizable: false,
+      resizable: true,
       closeOnEscape: true,
       width: "500px",
       hide: "fade",
@@ -708,6 +710,9 @@ function sensorDoSetup(type, address)
       open: function() {
          calSensorType = type;
          calSensorAddress = address;
+      },
+      resize: function() {
+         $('#scriptDo').css('height', ($(this).height() - 160) + 'px');
       },
       buttons: {
          'Abbrechen': function () {
@@ -885,6 +890,7 @@ function sensorScSetup(type, address)
                                           .attr('id', 'settings')
                                           .addClass('rounded-border inputSetting inputSettingScript')
                                           .css('height', '100px')
+                                          .css('resize', 'none')
                                           .val(JSON.stringify(valueFacts[key].settings, undefined, 3))
                                          )))
                  );
@@ -893,7 +899,7 @@ function sensorScSetup(type, address)
 
    $(form).dialog({
       modal: true,
-      resizable: false,
+      resizable: true,
       closeOnEscape: true,
       hide: "fade",
       width: "80%",
@@ -901,6 +907,9 @@ function sensorScSetup(type, address)
       open: function() {
          calSensorType = type;
          calSensorAddress = parseInt(address);
+      },
+      resize: function() {
+         $('#settings').css('height', ($(this).height() - 80) + 'px');
       },
       buttons: {
          'Abbrechen': function () {
@@ -948,6 +957,7 @@ function sensorCvSetup(type, address)
                                           .attr('id', 'settings')
                                           .addClass('rounded-border inputSetting inputSettingScript')
                                           .css('height', '100px')
+                                          .css('resize', 'none')
                                           .val((valueFacts[key].settings && valueFacts[key].settings.lua) ? valueFacts[key].settings.lua : '')
                                          )))
                  );
@@ -956,7 +966,7 @@ function sensorCvSetup(type, address)
 
    $(form).dialog({
       modal: true,
-      resizable: false,
+      resizable: true,
       closeOnEscape: true,
       hide: "fade",
       width: "80%",
@@ -964,6 +974,9 @@ function sensorCvSetup(type, address)
       open: function() {
          calSensorType = type;
          calSensorAddress = parseInt(address);
+      },
+      resize: function() {
+         $('#settings').css('height', ($(this).height() - 80) + 'px');
       },
       buttons: {
          'Abbrechen': function () {

@@ -2366,7 +2366,6 @@ int Daemon::process(bool force, bool signal)
       else // if (tableValueFacts->hasValue("TYPE", "DO"))
          expression = sensors[type][address].script;
 
-      tell(eloAlways, "LUA [%s] for '%s'", expression.c_str(), type.c_str());
       if (expression.empty())
          continue;
 
@@ -2380,57 +2379,73 @@ int Daemon::process(bool force, bool signal)
       if (!sensors[type][address].last)
          getConfigItem(key, sensors[type][address].value, 0);
 
+      // bool update {false};
+      // std::string searchKey {getStringBetween(expression, "{", "}")};
+
+      // while (searchKey.length())
+      // {
+      //    std::string what = "{" + searchKey + "}";
+      //    auto tuple {split(searchKey, ':')};
+
+      //    if (tuple.size() >= 2 && sensors.find(tuple[0].c_str()) != sensors.end())
+      //    {
+      //       uint matchAddr {(uint)strtol(tuple[1].c_str(), nullptr, 0)};
+
+      //       if (sensors[tuple[0].c_str()].find(matchAddr) != sensors[tuple[0].c_str()].end())
+      //       {
+      //          if (tuple.size() == 3 && tuple[2] == "last")
+      //          {
+      //             expression = strReplace(what, sensors[tuple[0].c_str()][matchAddr].last, expression);
+      //             tell(eloDebug, "Debug: LUA: Replace %s:0x%x with '%ld'", tuple[0].c_str(), matchAddr, sensors[tuple[0].c_str()][matchAddr].last);
+      //          }
+      //          else
+      //          {
+      //             if (sensors[tuple[0].c_str()][matchAddr].kind == "status")
+      //                expression = strReplace(what, sensors[tuple[0].c_str()][matchAddr].state ? "true" :  "false", expression);
+      //             else if (sensors[tuple[0].c_str()][matchAddr].kind == "text")
+      //                expression = strReplace(what, sensors[tuple[0].c_str()][matchAddr].text, expression);
+      //             else
+      //                expression = strReplace(what, sensors[tuple[0].c_str()][matchAddr].value, expression, ".");
+
+      //             tell(eloDebug, "Debug: LUA: Replace %s:0x%x with '%f'", tuple[0].c_str(), matchAddr, sensors[tuple[0].c_str()][matchAddr].value);
+      //          }
+
+      //          if (sensors[tuple[0].c_str()][matchAddr].changedAt > sensors[type][address].last ||
+      //              sensors[tuple[0].c_str()][matchAddr].changedAt > sensors[tuple[0].c_str()][matchAddr].last)
+      //          {
+      //             tell(eloLua, "LUA:'%s' updated", key);
+      //             update = true;
+      //          }
+      //       }
+      //       else
+      //       {
+      //          tell(eloAlways, "Warning: LUA: (%s) Sensor '%s:0x%x' not found, ignoring", key, searchKey.c_str(), matchAddr);
+      //          break;
+      //       }
+      //    }
+      //    else
+      //    {
+      //       tell(eloAlways, "Warning: LUA: (%s) Sensor type '%s' not found, ignoring", key, searchKey.c_str());
+      //       break;
+      //    }
+
+      //    searchKey = getStringBetween(expression, "{", "}");
+      // }
+
       bool update {false};
-      std::string searchKey {getStringBetween(expression, "{", "}")};
 
-      while (searchKey.length())
+      for (const auto& [type, sensorOfType] : sensors)
       {
-         std::string what = "{" + searchKey + "}";
-         auto tuple {split(searchKey, ':')};
-
-         if (tuple.size() >= 2 && sensors.find(tuple[0].c_str()) != sensors.end())
+         for (const auto& [address, sensor] : sensorOfType)
          {
-            uint matchAddr {(uint)strtol(tuple[1].c_str(), nullptr, 0)};
-
-            if (sensors[tuple[0].c_str()].find(matchAddr) != sensors[tuple[0].c_str()].end())
+            if (sensor.changedAt > sensor.last)
             {
-               if (tuple.size() == 3 && tuple[2] == "last")
-               {
-                  expression = strReplace(what, sensors[tuple[0].c_str()][matchAddr].last, expression);
-                  tell(eloDebug, "Debug: LUA: Replace %s:0x%x with '%ld'", tuple[0].c_str(), matchAddr, sensors[tuple[0].c_str()][matchAddr].last);
-               }
-               else
-               {
-                  if (sensors[tuple[0].c_str()][matchAddr].kind == "status")
-                     expression = strReplace(what, sensors[tuple[0].c_str()][matchAddr].state ? "true" :  "false", expression);
-                  else if (sensors[tuple[0].c_str()][matchAddr].kind == "text")
-                     expression = strReplace(what, sensors[tuple[0].c_str()][matchAddr].text, expression);
-                  else
-                     expression = strReplace(what, sensors[tuple[0].c_str()][matchAddr].value, expression, ".");
-
-                  tell(eloDebug, "Debug: LUA: Replace %s:0x%x with '%f'", tuple[0].c_str(), matchAddr, sensors[tuple[0].c_str()][matchAddr].value);
-               }
-
-               if (sensors[tuple[0].c_str()][matchAddr].changedAt > sensors[type][address].last ||
-                   sensors[tuple[0].c_str()][matchAddr].changedAt > sensors[tuple[0].c_str()][matchAddr].last)
-               {
-                  tell(eloLua, "LUA:'%s' updated", key);
-                  update = true;
-               }
-            }
-            else
-            {
-               tell(eloAlways, "Warning: LUA: (%s) Sensor '%s:0x%x' not found, ignoring", key, searchKey.c_str(), matchAddr);
-               break;
+               update = true;
+               std::string var {"sensor" + type + "_" + std::to_string(address)};
+               lua.pushGlobal(var.c_str(), sensor.value);
+               tell(eloAlways, "pushGlobal(%s)", var.c_str());
             }
          }
-         else
-         {
-            tell(eloAlways, "Warning: LUA: (%s) Sensor type '%s' not found, ignoring", key, searchKey.c_str());
-            break;
-         }
-
-         searchKey = getStringBetween(expression, "{", "}");
       }
 
       if (!update && !force)
@@ -2456,18 +2471,23 @@ int Daemon::process(bool force, bool signal)
 
       if (res.type == Lua::tDouble)
       {
-         tell(eloLua, "LUA '%s' result was %f [%s]", key, res.dValue, expression.c_str());
+         tell(eloLua, "LUA '%s' result was double (%f)", key, res.dValue);
          sensors[type][address].value = res.dValue;
       }
       else if (res.type == Lua::tInteger)
       {
-         tell(eloLua, "LUA '%s' result was %d [%s]", key, res.iValue, expression.c_str());
+         tell(eloLua, "LUA '%s' result was integer (%d)", key, res.iValue);
          sensors[type][address].value = res.iValue;
       }
       else if (res.type == Lua::tBoolean)
       {
-         tell(eloLua, "LUA '%s' result was %s [%s]", key, res.bValue ? "true" : "false", expression.c_str());
+         tell(eloLua, "LUA '%s' result was bool (%s)", key, res.bValue ? "true" : "false");
          sensors[type][address].state = res.bValue;
+      }
+      else if (res.type == Lua::tString)
+      {
+         tell(eloLua, "LUA '%s' result was text '%s'", key, res.sValue.c_str());
+         sensors[type][address].text = res.sValue;
       }
       else
          tell(eloAlways, "LUA: '%s' got unexpected type (%d)", key, res.type);

@@ -49,6 +49,7 @@ class Lua
       };
 
       int pushGlobal(const char* name, const char* value);
+      int pushGlobal(const char* name, double value);
       int pushGlobal(const char* name, int value);
       int pushGlobal(const char* name, bool value);
 

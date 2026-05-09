@@ -405,7 +405,7 @@ int HomeCtl::performJobs()
 
 int HomeCtl::process(bool force, bool signal)
 {
-   Daemon::process(force);
+   Daemon::process(force, signal);
 
 #ifdef _POOL
 

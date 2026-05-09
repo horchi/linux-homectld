@@ -49,9 +49,16 @@ int Lua::pushGlobal(const char* name, const char* value)
    return done;
 }
 
-int Lua::pushGlobal(const char* name, int value)
+int Lua::pushGlobal(const char* name, double value)
 {
    lua_pushnumber(handle, value);
+   lua_setglobal(handle, name);
+   return done;
+}
+
+int Lua::pushGlobal(const char* name, int value)
+{
+   lua_pushinteger(handle, value);
    lua_setglobal(handle, name);
    return done;
 }
@@ -158,7 +165,7 @@ int Lua::executeExpression(const char* expression, const std::vector<std::string
             "  %s\n"                             \
             "end", expression);
 
-   tell(eloLua, "LUA: Calling '%s'", code);
+   tell(eloLua, "LUA: Calling '%.20s ..'", code);
 
    if (luaL_loadstring(handle, code) == LUA_OK)
    {

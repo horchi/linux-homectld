@@ -38,7 +38,7 @@ Table valuefacts
    CHOICES              ""                        choices              Ascii      250 Data,
    RIGHTS               "control rights"          rights               Int          0 Data,
    PARAMETER            "widget settings (look)"  parameter            Text      1000 Data,
-   SETTINGS             "sensor settings"         calibration          Text      1000 Data,
+   SETTINGS             "sensor settings"         calibration          Text      5000 Data,
 }
 
 // ----------------------------------------------------------------

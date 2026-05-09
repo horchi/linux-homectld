@@ -598,7 +598,7 @@ function sensorVarSetup(type, address)
 
    $(form).dialog({
       modal: true,
-      resizable: false,
+      resizable: true,
       closeOnEscape: true,
       width: "500px",
       hide: "fade",
@@ -606,6 +606,9 @@ function sensorVarSetup(type, address)
       open: function() {
          calSensorType = type;
          calSensorAddress = address;
+      },
+      resize: function() {
+         $('#scriptVar').css('height', ($(this).height() - 80) + 'px');
       },
       buttons: {
          'Abbrechen': function () {

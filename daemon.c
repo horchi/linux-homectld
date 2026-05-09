@@ -2442,7 +2442,12 @@ int Daemon::process(bool force, bool signal)
             {
                update = true;
                std::string var {"sensor" + type + "_" + std::to_string(address)};
-               lua.pushGlobal(var.c_str(), sensor.value);
+
+               if (type == "DI" || type == "DO")
+                  lua.pushGlobal(var.c_str(), sensor.state);
+               else
+                  lua.pushGlobal(var.c_str(), sensor.value);
+
                tell(eloAlways, "pushGlobal(%s)", var.c_str());
             }
          }
@@ -2512,10 +2517,15 @@ int Daemon::process(bool force, bool signal)
             json_t* ojData {json_object()};
             sensor2Json(ojData, type.c_str(), address);
 
-            if (res.type == Lua::tBoolean)
-               json_object_set_new(ojData, "value", json_real(sensors[type][address].state));
+            if (sensors[type][address].kind == "status")
+               json_object_set_new(ojData, "value", json_integer(sensors[type][address].state));
             else
                json_object_set_new(ojData, "value", json_real(sensors[type][address].value));
+
+            json_object_set_new(ojData, "text", json_string(sensors[type][address].text.c_str()));
+
+            // if (sensors[type][address].image.length())
+            //    json_object_set_new(ojData, "image", json_string(sensors[type][address].image.c_str()));
 
             jsonSensorList[key] = ojData;
             pushDataUpdate("update", 0L);

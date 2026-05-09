@@ -184,14 +184,15 @@ int Lua::executeExpression(const char* expression, const std::vector<std::string
          {
             res.type = tNil;
             res.isNil = true;
+            tell(eloAlways, "Warning: Lua expression returned no value: '%s'", expression);
          }
 
          lua_pop(handle, 1);                      // pop return value from stack
-         lua_pop(handle, lua_gettop(handle));     // pop unction from stack
+         lua_pop(handle, lua_gettop(handle));     // pop function from stack
       }
       else
       {
-         tell(eloAlways, "Error: '%s'", lua_tostring(handle, lua_gettop(handle)));
+         tell(eloAlways, "Error: Lua execute '%s': %s", expression, lua_tostring(handle, -1));
          lua_pop(handle, lua_gettop(handle));
          return fail;
       }

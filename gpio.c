@@ -564,11 +564,23 @@ int Gpio::setupPin(int physPin, Direction dir, Edge edge, PullUpDown pud)
       dir == dirIn ? GPIOD_LINE_DIRECTION_INPUT : GPIOD_LINE_DIRECTION_OUTPUT
    );
 
-   switch (pud)
+   if (pud != pudOff)
    {
-      case pudUp:   gpiod_line_settings_set_bias(settings, GPIOD_LINE_BIAS_PULL_UP);   break;
-      case pudDown: gpiod_line_settings_set_bias(settings, GPIOD_LINE_BIAS_PULL_DOWN); break;
-      default:      gpiod_line_settings_set_bias(settings, GPIOD_LINE_BIAS_DISABLED);  break;
+      int biasRet {-1};
+
+      switch (pud)
+      {
+         case pudUp:   biasRet = gpiod_line_settings_set_bias(settings, GPIOD_LINE_BIAS_PULL_UP);   break;
+         case pudDown: biasRet = gpiod_line_settings_set_bias(settings, GPIOD_LINE_BIAS_PULL_DOWN); break;
+         default:      biasRet = gpiod_line_settings_set_bias(settings, GPIOD_LINE_BIAS_DISABLED);  break;
+      }
+
+      if (biasRet != 0)
+         tell(eloAlways, "Warning: GPIO: pin %d: setting bias %d not supported by kernel driver", physPin, pud);
+   }
+   else
+   {
+      gpiod_line_settings_set_bias(settings, GPIOD_LINE_BIAS_DISABLED);
    }
 
    switch (edge)

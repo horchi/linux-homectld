@@ -85,7 +85,7 @@ fix_m1() {
 
     if grep -qE "(^|\s)${OVERLAY}(\s|$)" "$ENV"; then
         echo "Overlay '${OVERLAY}' bereits in $ENV — kein Patch nötig."
-        exit 0
+        return 0
     fi
 
     if grep -q "^overlays=" "$ENV"; then

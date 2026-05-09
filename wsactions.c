@@ -1524,6 +1524,8 @@ int Daemon::storeSensorSetup(json_t* obj, long client)
       status = storeIoSettings(obj, client);
    else if (type == "SC")
       status = storeIoSettings(obj, client);
+   else if (type == "VAR")
+      status = storeIoSettings(obj, client);
    else if (action == "delete")
    {
       long address {getLongFromJson(obj, "address", na)};

@@ -51,7 +51,7 @@ class HomeCtl : public Daemon
       int loadIoStates() override;
       int atMeanwhile() override;
 
-      int process(bool force = false) override;
+      int process(bool force = false, bool signal = false) override;
       int performJobs() override;
       void logReport() override;
 

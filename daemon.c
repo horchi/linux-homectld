@@ -15,7 +15,6 @@
 
 #include "lib/curl.h"
 #include "lib/json.h"
-#include "lib/lua.h"
 
 #include "daemon.h"
 #include "growatt.h"
@@ -162,6 +161,9 @@ Daemon::DefaultWidgetProperty Daemon::defaultWidgetProperties[] =
    { "WEA",      na,   "*",  wtPlainText,        0,         0,       0, true },
    { "N4000",    na,   "*",      wtValue,        0,         0,       0, false },
    { "T2090",    na,   "*",      wtValue,        0,         0,       0, true },
+   { "VAR",      na, "txt",       wtText,        0,         0,       0, true },
+   { "VAR",      na,  "°C",  wtMeterLevel,       0,         0,       0, true },
+   { "VAR",      na,   "*",      wtSymbol,       0,         0,       0, true },
    { "" }
 };
 
@@ -248,6 +250,8 @@ const char* Daemon::getImageFor(std::string type, const char* title, std::string
 
    if (type == "DZL" || strcasestr(title, "Licht") || strcasestr(title, "Bulb") || strcasestr(title, "Light"))
       imagePath = value ? "mdi:mdi-lightbulb" : "mdi:mdi-lightbulb";
+   else if (type == "DI" || type == "DO" || type == "GPIO")
+      imagePath = value ? "mdi:mdi-toggle-switch-outline" : "mdi:mdi-toggle-switch-off-outline";
    else if (strcasestr(title, "Pump"))
       imagePath = value ? "img/icon/pump-on.gif" : "img/icon/pump-off.png";
    else if (strcasestr(title, "Steckdose") || strcasestr(title, "Plug") )
@@ -278,7 +282,7 @@ const char* Daemon::getImageFor(std::string type, const char* title, std::string
       imagePath = value ? "mdi:mdi-lightbulb-group" : "mdi:mdi-lightbulb-group-outline";
 
    else
-      imagePath = value ? "img/icon/boolean-on.png" : "img/icon/boolean-off.png";
+      imagePath = value ? "mdi:mdi-toggle-switch-outline" : "mdi:mdi-toggle-switch-off-outline";
 
    return imagePath;
 }
@@ -619,6 +623,8 @@ int Daemon::applyConfigurationSpecials()
    {
       std::string name {"Variable " + std::to_string(i)};
       addValueFact(i, "VAR", 1, name.c_str());
+      sensors["VAR"][i].valid = true;
+      sensors["VAR"][i].state = false;
    }
 
    // #TODO DEMO - remove
@@ -708,6 +714,10 @@ int Daemon::initSensorByFact(myString type, uint address)
             sensors[type][address].fct = getStringFromJson(jCal, "fct", "off");
 
             // #TODO
+         }
+         else if (type == "VAR")
+         {
+            sensors[type][address].script = getStringFromJson(jCal, "script", "");
          }
 
          json_decref(jCal);
@@ -1050,7 +1060,7 @@ int Daemon::callScript(int addr, const char* command)
    {
       sensors["SC"][addr].working = true;
 
-      json_t* ojData = json_object();
+      json_t* ojData {json_object()};
       sensor2Json(ojData, "SC", addr);
 
       char* tuple {};
@@ -2175,7 +2185,7 @@ int Daemon::updateInputs(bool check)
 
    for (const auto& s : sensors["DI"])
    {
-      if (s.second.active)
+      if (s.second.active) //  && !s.second.interrupt) -> würde genügen nur ohne Update wird er invalid
       {
          bool state {gpioRead(s.first, check)};
          tell(eloDebugGpio, "Debug: GPIO: updateInputs(%d) DI 0x%x (%d)", check, s.first, state);
@@ -2327,24 +2337,24 @@ int Daemon::store(time_t now, const SensorData* sensor)
 // Process
 //***************************************************************************
 
-int Daemon::process(bool force)
+int Daemon::process(bool force, bool signal)
 {
-   // calculate CV sensors by LUA
+   // calculate CV and DI/DO sensors by LUA
 
    for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
-      if (!tableValueFacts->hasValue("TYPE", "CV") && !tableValueFacts->hasValue("TYPE", "DO"))
+      std::string type {tableValueFacts->getStrValue("TYPE")};
+      long address {tableValueFacts->getIntValue("ADDRESS")};
+
+      if (type != "CV" && type != "VAR" && type != "DO")
          continue;
 
-      const char* type = tableValueFacts->getStrValue("TYPE");
-      uint address = tableValueFacts->getIntValue("ADDRESS");
-
-      if (sensors[type][address].mode != omAuto)
+      if (type == "DO" && sensors[type][address].mode != omAuto)
          continue;
 
       std::string expression;
 
-      if (tableValueFacts->hasValue("TYPE", "CV"))
+      if (type == "CV")
       {
          if (!tableValueFacts->getValue("SETTINGS")->isEmpty())
          {
@@ -2353,14 +2363,15 @@ int Daemon::process(bool force)
             json_decref(o);
          }
       }
-      else if (tableValueFacts->hasValue("TYPE", "DO"))
+      else // if (tableValueFacts->hasValue("TYPE", "DO"))
          expression = sensors[type][address].script;
 
+      tell(eloAlways, "LUA [%s] for '%s'", expression.c_str(), type.c_str());
       if (expression.empty())
          continue;
 
       char* key {};
-      asprintf(&key, "%s:0x%02x", type, address);
+      asprintf(&key, "%s:0x%02lx", type.c_str(), address);
 
       tell(eloLua, "LUA: Processing '%s'", key);
 
@@ -2400,9 +2411,10 @@ int Daemon::process(bool force)
                   tell(eloDebug, "Debug: LUA: Replace %s:0x%x with '%f'", tuple[0].c_str(), matchAddr, sensors[tuple[0].c_str()][matchAddr].value);
                }
 
-               if (sensors[tuple[0].c_str()][matchAddr].changedAt > sensors[type][address].last)
+               if (sensors[tuple[0].c_str()][matchAddr].changedAt > sensors[type][address].last ||
+                   sensors[tuple[0].c_str()][matchAddr].changedAt > sensors[tuple[0].c_str()][matchAddr].last)
                {
-                  tell(eloLua, "LUA: %s (%ld) newer than %s (%ld)", searchKey.c_str(), sensors[tuple[0].c_str()][matchAddr].changedAt, key, sensors[type][address].last);
+                  tell(eloLua, "LUA:'%s' updated", key);
                   update = true;
                }
             }
@@ -2432,7 +2444,8 @@ int Daemon::process(bool force)
 
       std::vector<std::string> arguments;
       Lua::Result res;
-      Lua lua;
+
+      lua.pushGlobal("signal", signal);
 
       if (lua.executeExpression(expression.c_str(), arguments, res) != success)
       {
@@ -2468,18 +2481,21 @@ int Daemon::process(bool force)
 
       if (tableValueFacts->hasValue("TYPE", "DO"))
       {
-         tell(eloDebug, "Debug: Calling toggleio() to %d for '%s:0x%02x'", sensors[type][address].state, type, address);
-         toggleIo(address, type, sensors[type][address].state);
+         tell(eloDebug, "Debug: Calling toggleio() to %d for '%s:0x%02lx'", sensors[type][address].state, type.c_str(), address);
+         toggleIo(address, type.c_str(), sensors[type][address].state);
       }
       else // if (sensors[type][address].value != oldValue)
       {
          {
             // tell(eloLua, "LUA '%s' update WS to %f", key, sensors[type][address].value);
 
-            json_t* ojData = json_object();
+            json_t* ojData {json_object()};
+            sensor2Json(ojData, type.c_str(), address);
 
-            sensor2Json(ojData, type, address);
-            json_object_set_new(ojData, "value", json_real(sensors[type][address].value));
+            if (res.type == Lua::tBoolean)
+               json_object_set_new(ojData, "value", json_real(sensors[type][address].state));
+            else
+               json_object_set_new(ojData, "value", json_real(sensors[type][address].value));
 
             jsonSensorList[key] = ojData;
             pushDataUpdate("update", 0L);
@@ -4560,6 +4576,7 @@ void Daemon::gpioWrite(uint pin, bool state, bool saveIoState)
 bool Daemon::gpioRead(uint pin, bool check)
 {
    int state {gpio->digitalRead(pin)};
+   bool changed {false};
 
    tell(eloDebugGpio, "Debug: GPIO: gpioRead(%d) got '%s' (invert %s)",
         pin, state ? "true" : "false", sensors["DI"][pin].invert ? "true" : "false");
@@ -4576,7 +4593,11 @@ bool Daemon::gpioRead(uint pin, bool check)
       return state;
 
    if (sensors["DI"][pin].state != state)
+   {
+      sensors["DI"][pin].last = time(0) -1;
       sensors["DI"][pin].changedAt = time(0);
+      changed = true;
+   }
 
    sensors["DI"][pin].state = state;
 
@@ -4594,7 +4615,7 @@ bool Daemon::gpioRead(uint pin, bool check)
          if (s.second.feedbackInType == "DI" && s.second.feedbackInAddress == pin)
          {
             sensors[type][s.first].state = state;
-            sensors[type][s.first].last = time(0);
+            sensors[type][s.first].last = time(0) -1;
             sensors[type][s.first].changedAt = time(0); // #TODO set only if changed
             sensors[type][s.first].valid = true;
             publishPin(type.c_str(), s.first);
@@ -4605,6 +4626,9 @@ bool Daemon::gpioRead(uint pin, bool check)
    publishPin("DI", pin);
    mqttHaPublish(sensors["DI"][pin]);
    mqttNodeRedPublishSensor(sensors["DI"][pin]);
+
+   if (changed)
+      process(false, true);
 
    return sensors["DI"][pin].state;
 }

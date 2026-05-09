@@ -48,6 +48,10 @@ class Lua
          bool isNil {false};
       };
 
+      int pushGlobal(const char* name, const char* value);
+      int pushGlobal(const char* name, int value);
+      int pushGlobal(const char* name, bool value);
+
       int load(const char* script);
       int executeFunction(const char* function, const std::vector<std::string>& arguments, Result& res);
       int executeExpression(const char* expression, const std::vector<std::string>& arguments, Result& res);

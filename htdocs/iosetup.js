@@ -302,37 +302,18 @@ function showTable(section)
          );
       }
 
-      if (item.type == 'AI' || item.type.startsWith('ADS'))
-         tr.append($('<td>').append($('<button>')
-                                    .addClass('buttonOptions rounded-border')
-                                    .text('Setup')
-                                    .on('click', () => sensorSetupDialog(item.type, item.address))));
-      else if (item.type == 'CV')
-         tr.append($('<td>').append($('<button>').addClass('buttonOptions rounded-border').text('Setup')
-                                    .on('click', () => sensorSetupDialog(item.type, item.address))));
-      else if (item.type == 'GPIO')
+      if (item.type == 'DO' || item.type.startsWith('MCPO') ||
+          item.type == 'DI' || item.type.startsWith('MCPI') ||
+          item.type == 'SC' || item.type == 'VAR' ||
+          item.type == 'GPIO' || item.type == 'CV' ||
+          item.type == 'AI' || item.type.startsWith('ADS')) {
          tr.append($('<td>').append($('<button>')
                                     .attr('id', 'btnSensorSetup_' + id)
-                                    .attr('disabled', gpioFct == 'deactivated')
+                                    .attr('disabled', item.type == 'GPIO' ? gpioFct == 'deactivated' : false)
                                     .addClass('buttonOptions rounded-border')
                                     .text('Setup')
                                     .on('click', () => sensorSetupDialog(item.type, item.address))));
-      else if (item.type == 'DO' || item.type.startsWith('MCPO'))
-         tr.append($('<td>').append($('<button>')
-                                    .addClass('buttonOptions rounded-border')
-                                    .text('Setup')
-                                    .on('click', () => sensorSetupDialog(item.type, item.address))));
-      else if (item.type == 'DI' || item.type.startsWith('MCPI'))
-         tr.append($('<td>').append($('<button>')
-                                    .addClass('buttonOptions rounded-border')
-                                    .text('Setup')
-                                    .on('click', () => sensorSetupDialog(item.type, item.address))));
-      else if (item.type == 'SC') {
-         tr.append($('<td>').append($('<button>')
-                                    .addClass('buttonOptions rounded-border')
-                                    .text('Setup')
-                                    .on('click', () => sensorSetupDialog(item.type, item.address))));
-         if (item.parameter && item.parameter.cloneable)
+         if (item.type == 'SC' && item.parameter && item.parameter.cloneable)
             tr.append($('<td>').append($('<button>')
                                        .addClass('buttonOptions rounded-border')
                                        .text('Clone')
@@ -379,6 +360,8 @@ function sensorSetupDialog(type, address)
          sensorDiSetup(type, address);
       else if (type == 'SC')
          sensorScSetup(type, address);
+      else if (type == 'VAR')
+         sensorVarSetup(type, address);
    }
 
    if (changes)
@@ -586,10 +569,70 @@ function sensorGpioSetup(type, address)
       sensorDoSetup(type, address);
 }
 
+function sensorVarSetup(type, address)
+{
+   calSensorType = type;
+   calSensorAddress = address;
+
+   let key = toKey(calSensorType, parseInt(calSensorAddress));
+   let form = document.createElement("div");
+
+   if (valueFacts[key] == null) {
+      console.log("Sensor ", key, "undefined");
+      return;
+   }
+
+   $(form).append($('<div></div>')
+                  .addClass('settingsDialogContent')
+                  .append($('<span></span>')
+                          .css('width', 'auto')
+                          .html('Skript'))
+                  .append($('<span></span>')
+                          .append($('<textarea></textarea>')
+                                  .attr('id', 'scriptVar')
+                                  .addClass('rounded-border inputSetting inputSettingScript')
+                                  .css('height', '100px')
+                                  .val(valueFacts[key].settings ? valueFacts[key].settings.script : '')
+                                 )));
+   var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
+
+   $(form).dialog({
+      modal: true,
+      resizable: false,
+      closeOnEscape: true,
+      width: "500px",
+      hide: "fade",
+      title: "DO settings '" + title + '"',
+      open: function() {
+         calSensorType = type;
+         calSensorAddress = address;
+      },
+      buttons: {
+         'Abbrechen': function () {
+            $(this).dialog('close');
+         },
+         'Speichern': function () {
+            socket.send({ "event" : "storesensorsetup", "object" : {
+               'type': calSensorType,
+               'address': parseInt(calSensorAddress),
+               'settings': {
+                  'script': $('#scriptVar').val()
+               }
+            }});
+
+            $(this).dialog('close');
+         }
+      },
+      close: function() {
+         calSensorType = '';
+         calSensorAddress = -1;
+         $(this).dialog('destroy').remove();
+      }
+   });
+}
+
 function sensorDoSetup(type, address)
 {
-   console.log("sensorSetup ", type, address);
-
    calSensorType = type;
    calSensorAddress = address;
 
@@ -711,43 +754,43 @@ function sensorDiSetup(type, address)
       return;
    }
 
-   dlgContent = ($('<div></div>'));
+   let dlgContent = $('<div></div>')
+       .addClass('settingsDialogContent')
+       .append($('<div></div>')
+               .append($('<span></span>')
+                       .html('Invertieren'))
+               .append($('<span></span>')
+                       .append($('<input></input>')
+                               .attr('id', 'invertDi')
+                               .attr('type', 'checkbox')
+                               .addClass('rounded-border inputSetting')
+                               .prop('checked', valueFacts[key].settings ? valueFacts[key].settings.invert : true))
+                       .append($('<label></label>')
+                               .prop('for', 'invertDi'))))
+       .append($('<div></div>')
+               .append($('<span></span>')
+                       .html('Pull Up/Down'))
+               .append($('<span></span>')
+                       .append($('<select></select>')
+                               .attr('id', 'pullDi')
+                               .addClass('rounded-border inputSetting'))));
 
-   $(form).append(dlgContent)
-      .addClass('settingsDialogContent')
-      .append($('<div></div>')
-              .append($('<span></span>')
-                      .html('Invertieren'))
-              .append($('<span></span>')
-                      .append($('<input></input>')
-                              .attr('id', 'invertDi')
-                              .attr('type', 'checkbox')
-                              .addClass('rounded-border inputSetting')
-                              .prop('checked', valueFacts[key].settings ? valueFacts[key].settings.invert : true))
-                      .append($('<label></label>')
-                              .prop('for', 'invertDi'))))
-      .append($('<div></div>')
-              .append($('<span></span>')
-                      .html('Pull Up/Down'))
-              .append($('<span></span>')
-                      .append($('<select></select>')
-                              .attr('id', 'pullDi')
-                              .addClass('rounded-border inputSetting'))));
-
+   $(form).append(dlgContent);
 
    if (type == 'DI') {
       $(dlgContent)
-         .append($('<span></span>')
-                 .html('Interrupt'))
-         .append($('<span></span>')
-                 .append($('<input></input>')
-                         .attr('id', 'interruptDi')
-                         .attr('type', 'checkbox')
-                         .addClass('rounded-border inputSetting')
-                         .prop('checked', valueFacts[key].settings ? valueFacts[key].settings.interrupt : false))
-                 .append($('<label></label>')
-                         .attr('title', 'Neustart zum aktivieren')
-                         .prop('for', 'interruptDi')));
+         .append($('<div></div>')
+                 .append($('<span></span>')
+                         .html('Interrupt'))
+                 .append($('<span></span>')
+                         .append($('<input></input>')
+                                 .attr('id', 'interruptDi')
+                                 .attr('type', 'checkbox')
+                                 .addClass('rounded-border inputSetting')
+                                 .prop('checked', valueFacts[key].settings ? valueFacts[key].settings.interrupt : false))
+                         .append($('<label></label>')
+                                 .attr('title', 'Neustart zum aktivieren')
+                                 .prop('for', 'interruptDi'))));
    }
 
    var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;

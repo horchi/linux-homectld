@@ -14,6 +14,7 @@
 #include "lib/common.h"
 #include "lib/db.h"
 #include "lib/mqtt.h"
+#include "lib/lua.h"
 
 #include "HISTORY.h"
 
@@ -360,7 +361,7 @@ class Daemon : public cWebInterface
       int add2AlertMail(cDbRow* alertRow, const char* title, double value, const char* unit);
       int sendAlertMail(const char* to);
 
-      virtual int process(bool force = false);
+      virtual int process(bool force = false, bool signal = false);
       virtual int performJobs() { return done; }           // called every loop (1 second)
       int dispatchClientRequest();
       virtual int dispatchSpecialRequest(Event event, json_t* oObject, long client) { return ignore; }
@@ -720,6 +721,8 @@ class Daemon : public cWebInterface
       std::string alertMailSubject;
 
       std::map<std::string,json_t*> jsonSensorList;
+
+      Lua lua;
 
       // GPIO
 

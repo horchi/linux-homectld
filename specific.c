@@ -316,7 +316,7 @@ int HomeCtl::applyConfigurationSpecials()
    initOutput(pinUserOut4, ooUser, omManual, "Digital Output");
    // initOutput(pinUserOut5, ooUser, omManual, "Digital Output");
    initOutput(pinUserOut6, ooUser, omManual, "Digital Output");
-   initOutput(pinUserOut10, ooUser, omManual, "Digital Output");
+   // initOutput(pinUserOut10, ooUser, omManual, "Digital Output");
 
    // initInput(pinUserInput1, "Digital Input");
    // initInput(pinUserInput2, "Digital Input");
@@ -403,7 +403,7 @@ int HomeCtl::performJobs()
 // Process
 //***************************************************************************
 
-int HomeCtl::process(bool force)
+int HomeCtl::process(bool force, bool signal)
 {
    Daemon::process(force);
 

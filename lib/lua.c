@@ -39,6 +39,31 @@ int Lua::exit()
 }
 
 //**************************************************************************
+//
+//**************************************************************************
+
+int Lua::pushGlobal(const char* name, const char* value)
+{
+   lua_pushstring(handle, value);
+   lua_setglobal(handle, name);
+   return done;
+}
+
+int Lua::pushGlobal(const char* name, int value)
+{
+   lua_pushnumber(handle, value);
+   lua_setglobal(handle, name);
+   return done;
+}
+
+int Lua::pushGlobal(const char* name, bool value)
+{
+   lua_pushboolean(handle, value);
+   lua_setglobal(handle, name);
+   return done;
+}
+
+//**************************************************************************
 // Load Script (defines functions for later executeFunction calls)
 //**************************************************************************
 

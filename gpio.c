@@ -489,7 +489,7 @@ int Gpio::setupPin(int physPin, Direction dir, Edge edge, PullUpDown pud)
       return fail;
    }
 
-   tell(eloDebugGpio, "Debug: GPIO: setupPin(%d, dir %d, edge %d, pull %d)", physPin, dir, edge, pud);
+   tell(eloDebugGpio, "Debug: GPIO: setupPin(%d, dir '%s', edge '%s', pull '%s')", physPin, toName(dir), toName(edge), toName(pud));
 
    PinState& p {pins[physPin]};
 
@@ -825,7 +825,7 @@ int Gpio::pinMode(int physPin, Direction direction)
       pud  = it->second.pud;
    }
 
-   tell(eloDebugGpio, "Debug: GPIO: pinMode(%d, %d)", physPin, direction);
+   tell(eloDebugGpio, "Debug: GPIO: pinMode(%d, %s)", physPin, toName(direction));
 
    return setupPin(physPin, direction, edge, pud);
 }
@@ -846,7 +846,7 @@ int Gpio::pullUpDnControl(int physPin, PullUpDown value)
       dir  = it->second.direction;
    }
 
-   tell(eloDebugGpio, "Debug: GPIO: pullUpDnControl(%d, %d)", physPin, value);
+   tell(eloDebugGpio, "Debug: GPIO: pullUpDnControl(%d, %s)", physPin, toName(value));
 
    return setupPin(physPin, dir, edge, value);
 }
@@ -991,7 +991,7 @@ int Gpio::setIsr(int physPin, Edge edge, std::function<void(int physPin, bool va
    if (it != pins.end() && it->second.initialized)
       pud = it->second.pud;
 
-   tell(eloDebugGpio, "Debug: GPIO: setIsr(%d, %d)", physPin, edge);
+   tell(eloDebugGpio, "Debug: GPIO: setIsr(%d, %s)", physPin, toName(edge));
 
    if (setupPin(physPin, dirIn, edge, pud) != success)
       return fail;

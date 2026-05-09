@@ -62,6 +62,19 @@ class Gpio
          edgeBoth
       };
 
+      static const char* toName(Direction d)   { return d == dirIn ? "in" : "out"; }
+      static const char* toName(PullUpDown p)  { return p == pudUp ? "up" : p == pudDown ? "down" : "off"; }
+      static const char* toName(Edge e)
+      {
+         switch (e)
+         {
+            case edgeRising:  return "rising";
+            case edgeFalling: return "falling";
+            case edgeBoth:    return "both";
+            default:          return "none";
+         }
+      }
+
       Gpio(const char* consumerName, const char* confPath);
       ~Gpio();
 

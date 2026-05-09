@@ -169,6 +169,88 @@ EOF
     fi
 }
 
+# ── ODROID M1: 1-Wire Overlay (phys pin 15 = GPIO3_B6) ──────────────────────
+fix_m1_onewire() {
+    local ENV="/boot/armbianEnv.txt"
+    local OVERLAY="onewire"
+
+    command -v dtc >/dev/null 2>&1 || { echo "FEHLER: 'dtc' fehlt — apt install device-tree-compiler"; exit 1; }
+
+    [[ -f "$ENV" ]] || { echo "FEHLER: $ENV nicht gefunden"; exit 1; }
+
+    local PREFIX
+    PREFIX=$(grep "^overlay_prefix=" "$ENV" | cut -d= -f2 | tr -d '[:space:]')
+    [[ -n "$PREFIX" ]] || { echo "FEHLER: overlay_prefix nicht in $ENV gefunden"; exit 1; }
+
+    local OVERLAY_DIR
+    OVERLAY_DIR=$(find /boot -type d -name "overlay" -path "*/rockchip/*" 2>/dev/null | head -1)
+    [[ -n "$OVERLAY_DIR" ]] || { echo "FEHLER: Overlay-Verzeichnis nicht gefunden"; exit 1; }
+
+    local DTBO="${OVERLAY_DIR}/${PREFIX}-${OVERLAY}.dtbo"
+    local TMP_DTS
+    TMP_DTS=$(mktemp /tmp/onewire.XXXXXX.dts)
+
+    # phys pin 15 = GPIO3_B6: bank=3, port B (1) bit 6 → offset=14
+    cat > "$TMP_DTS" << 'EOF'
+/dts-v1/;
+/plugin/;
+
+/ {
+   compatible = "rockchip,rk3568";
+
+   fragment@0 {
+      target-path = "/";
+      __overlay__ {
+         onewire {
+            compatible = "w1-gpio";
+            gpios = <&gpio3 14 0>;
+            pinctrl-names = "default";
+            pinctrl-0 = <&w1_gpio_pin>;
+            status = "okay";
+         };
+      };
+   };
+
+   fragment@1 {
+      target = <&pinctrl>;
+      __overlay__ {
+         onewire {
+            w1_gpio_pin: w1-gpio-pin {
+               rockchip,pins = <3 14 0 &pcfg_pull_up>;
+            };
+         };
+      };
+   };
+};
+EOF
+
+    echo "Overlay-Dir: $OVERLAY_DIR"
+    echo "DTBO:        $DTBO"
+
+    dtc -@ -I dts -O dtb -o "$DTBO" "$TMP_DTS" 2>/dev/null
+    rm -f "$TMP_DTS"
+    echo "Overlay kompiliert und installiert: $DTBO"
+
+    if grep -qE "(^|\s)${OVERLAY}(\s|$)" "$ENV"; then
+        echo "Overlay '${OVERLAY}' bereits in $ENV — kein Patch nötig."
+    else
+        if grep -q "^overlays=" "$ENV"; then
+            sed -i "s/^overlays=.*/& ${OVERLAY}/" "$ENV"
+        else
+            echo "overlays=${OVERLAY}" >> "$ENV"
+        fi
+        echo "Overlay '${OVERLAY}' zu $ENV hinzugefügt."
+        echo ""
+        grep "overlays=" "$ENV"
+    fi
+
+    # w1-gpio via DT geladen — manuelle Moduleinträge entfernen
+    if grep -qE "^w1[-_]gpio|^w1[-_]therm" /etc/modules 2>/dev/null; then
+        sed -i '/^w1[-_]gpio/d;/^w1[-_]therm/d' /etc/modules
+        echo "/etc/modules: w1-gpio / w1-therm Einträge entfernt (werden per DT geladen)"
+    fi
+}
+
 # ── Board-Erkennung ──────────────────────────────────────────────────────────
 if echo "$board" | grep -qiE "N2"; then
     echo "→ N2+ erkannt: DTB-Patch"
@@ -181,6 +263,9 @@ elif echo "$board" | grep -qiE "M1"; then
     echo ""
     echo "── GPIO Pull-Up Overlay ─────────────────────────────────────────────────"
     fix_m1_gpio_pullups
+    echo ""
+    echo "── 1-Wire Overlay (phys pin 15) ─────────────────────────────────────────"
+    fix_m1_onewire
 else
     echo "FEHLER: Board nicht unterstützt ('$board')"
     echo "Unterstützt: ODROID N2+, ODROID M1"
@@ -190,6 +275,7 @@ fi
 echo ""
 echo "Nach dem Reboot: i2cdetect -l  (Busnummer ermitteln), dann i2cdetect -y <N>  (DHT20 bei 0x38 erwartet)"
 echo "                 gpioget -c gpiochip3 --bias=pull-up 24  (Pin 12 offen → sollte '1' liefern)"
+echo "                 ls /sys/bus/w1/devices/  (1-Wire Sensoren erwartet)"
 echo ""
 read -rp "Jetzt rebooten? [j/N] " ans
 [[ "$ans" =~ ^[jJyY]$ ]] && reboot || echo "Bitte manuell rebooten."

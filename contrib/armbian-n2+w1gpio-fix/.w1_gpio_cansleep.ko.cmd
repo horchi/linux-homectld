@@ -1,0 +1,1 @@
+savedcmd_w1_gpio_cansleep.ko := ld -r -EL  -maarch64elf -z noexecstack --no-warn-rwx-segments --build-id=sha1  -T /usr/src/linux-headers-6.18.10-current-meson64/scripts/module.lds -o w1_gpio_cansleep.ko w1_gpio_cansleep.o w1_gpio_cansleep.mod.o .module-common.o

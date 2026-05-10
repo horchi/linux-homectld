@@ -55,6 +55,7 @@ class cWebService
          evStoreSensorSetup,
          evLmcAction,
          evGpioData,
+         evCheckLuaScript,
 
          evCount
       };

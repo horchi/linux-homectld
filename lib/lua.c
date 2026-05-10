@@ -94,6 +94,29 @@ int Lua::load(const char* script)
 }
 
 //**************************************************************************
+// Syntax Check (compile only, do not execute)
+//**************************************************************************
+
+int Lua::syntaxCheck(const char* script, std::string& error)
+{
+   char* code {};
+   asprintf(&code, "function execute()\n%s\nend", script);
+
+   int rc = luaL_loadstring(handle, code);
+   free(code);
+
+   if (rc != LUA_OK)
+   {
+      error = lua_tostring(handle, -1);
+      lua_pop(handle, 1);
+      return fail;
+   }
+
+   lua_pop(handle, 1);   // pop the compiled chunk
+   return success;
+}
+
+//**************************************************************************
 // Execute Script
 //**************************************************************************
 

@@ -474,6 +474,7 @@ class Daemon : public cWebInterface
       int storeSchema(json_t* oObject, long client);
       int deleteValueFact(const char* type, long address);
       int storeSensorSetup(json_t* oObject, long client);
+      int checkLuaScript(json_t* obj, long client);
       int storeCvSettings(json_t* oObject, long client);
       int storeAiSettings(json_t* oObject, long client);
       int storeIoSettings(json_t* oObject, long client);

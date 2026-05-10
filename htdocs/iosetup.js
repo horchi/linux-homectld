@@ -969,6 +969,9 @@ function sensorCvSetup(type, address)
                                           .css('resize', 'none')
                                           .val((valueFacts[key].settings && valueFacts[key].settings.lua) ? valueFacts[key].settings.lua : '')
                                          )))
+                  .append($('<div></div>')
+                          .attr('id', 'luaCheckResult')
+                          .addClass('luaCheckResult'))
                  );
 
    var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
@@ -994,6 +997,12 @@ function sensorCvSetup(type, address)
          'Abbrechen': function () {
             $(this).dialog('close');
          },
+         'Syntax prüfen': function () {
+            $('#luaCheckResult').text('...').css('color', '');
+            socket.send({ "event" : "checkluascript", "object" : {
+               'lua': $('#settings').val()
+            }});
+         },
          'Speichern': function () {
             socket.send({ "event" : "storesensorsetup", "object" : {
                'type':    calSensorType,
@@ -1012,6 +1021,24 @@ function sensorCvSetup(type, address)
          $(this).dialog('destroy').remove();
       }
    });
+}
+
+function showLuaCheckResult(obj)
+{
+   let div = $('#luaCheckResult');
+   if (!div.length) return;
+
+   if (obj.status === 0) {
+      div.text('OK').css('color', 'green');
+   } else {
+      let msg = obj.message || 'Fehler';
+      let m = msg.match(/:(\d+): (.+)/);
+      if (m) {
+         let line = parseInt(m[1]) - 1;
+         msg = 'Zeile ' + line + ': ' + m[2];
+      }
+      div.text(msg).css('color', 'red');
+   }
 }
 
 function storeSensorSetup()

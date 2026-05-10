@@ -91,6 +91,7 @@ int Daemon::dispatchClientRequest()
             case evStoreSensorSetup:    status = storeSensorSetup(oObject, client);      break;
             case evLmcAction:           status = performLmcAction(oObject, client);      break;
             case evGpioData:            status = performGpioData(oObject, client);       break;
+            case evCheckLuaScript:      status = checkLuaScript(oObject, client);        break;
             default:
             {
                if (dispatchSpecialRequest(event,oObject, client) == ignore)
@@ -159,6 +160,7 @@ bool Daemon::checkRights(long client, Event event, json_t* oObject)
       case evStoreSchema:         return rights & urSettings;
       case evLmcAction:           return rights & urControl;
       case evGpioData:            return rights & urView;
+      case evCheckLuaScript:      return rights & urSettings;
 
       default: break;
    }
@@ -1514,6 +1516,26 @@ int Daemon::storeConfig(json_t* obj, long client)
       replyResult(success, "Konfiguration gespeichert", client);
 
    return done;
+}
+
+//***************************************************************************
+// Check Lua Script Syntax
+//***************************************************************************
+
+int Daemon::checkLuaScript(json_t* obj, long client)
+{
+   const char* script = getStringFromJson(obj, "lua", "");
+
+   std::string error;
+   Lua lua;
+   int status = lua.syntaxCheck(script, error);
+
+   json_t* oJson = json_object();
+   json_object_set_new(oJson, "status", json_integer(status == success ? 0 : 1));
+   json_object_set_new(oJson, "message", json_string(status == success ? "OK" : error.c_str()));
+   pushOutMessage(oJson, "luacheckresult", client);
+
+   return success;
 }
 
 //***************************************************************************

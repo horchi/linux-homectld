@@ -640,6 +640,9 @@ function dispatchMessage(message)
          startPage = null;
       }
    }
+   else if (event == "luacheckresult") {
+      showLuaCheckResult(jMessage.object);
+   }
 
    // console.log("event: " + event + " dispatched");
 }

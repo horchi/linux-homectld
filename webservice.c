@@ -53,6 +53,7 @@ const char* cWebService::events[] =
    "storesensorsetup",
    "lmcaction",
    "gpiodata",
+   "checkluascript",
 
    0
 };

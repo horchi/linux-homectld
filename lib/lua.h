@@ -55,6 +55,7 @@ class Lua
       int pushGlobal(const char* name, bool value);
 
       int load(const char* script);
+      int syntaxCheck(const char* script, std::string& error);
       int executeFunction(const char* function, const std::vector<std::string>& arguments, Result& res);
       int executeExpression(const char* expression, const std::vector<std::string>& arguments, Result& res);
 

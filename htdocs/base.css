@@ -1547,6 +1547,16 @@ table.tableMultiCol td
     width: 100%;
 }
 
+.luaCheckResult
+{
+    min-height: 1.2em;
+    font-size: 0.85em;
+    font-family: monospace;
+    padding: 2px 4px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
 /* ----------------------- */
 /* Heating Menu */
 

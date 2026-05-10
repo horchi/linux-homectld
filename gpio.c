@@ -618,6 +618,7 @@ int Gpio::setupPin(int physPin, Direction dir, Edge edge, PullUpDown pud)
       tell(eloAlways, "GPIO: Could not request gpio line for pin %d", physPin);
       gpiod_chip_close(p.chip);
       p.chip = nullptr;
+      p.initialized = false;
       return fail;
    }
 
@@ -896,27 +897,60 @@ int Gpio::enableInterrupt(int physPin, std::function<void(int, bool)> cb)
 
 #if defined (GPIOD)
 
+         // Try one wait to detect whether kernel supports edge events on this pin
+         int probeRet {gpiod_line_request_wait_edge_events(ps.request, 1LL)};
+         bool useEdgeEvents {probeRet >= 0};
+
+         if (!useEdgeEvents)
+            tell(eloAlways, "GPIO: pin %d: kernel does not support edge events, using poll", physPin);
+
          while (ps.threadRunning)
          {
-            int ret {gpiod_line_request_wait_edge_events(ps.request, 100000000LL)};
+            if (useEdgeEvents)
+            {
+               int ret {gpiod_line_request_wait_edge_events(ps.request, 100000000LL)};
 
-            if (ret < 0)
-               break;
+               if (ret < 0)
+                  break;
 
-            if (ret == 0)
-               continue;
+               if (ret == 0)
+                  continue;
 
-            gpiod_edge_event_buffer* evbuf {gpiod_edge_event_buffer_new(8)};
-            gpiod_line_request_read_edge_events(ps.request, evbuf, 8);
-            gpiod_edge_event_buffer_free(evbuf);
+               gpiod_edge_event_buffer* evbuf {gpiod_edge_event_buffer_new(8)};
+               gpiod_line_request_read_edge_events(ps.request, evbuf, 8);
+               gpiod_edge_event_buffer_free(evbuf);
 
-            gpiod_line_value val {gpiod_line_request_get_value(ps.request, ps.offset)};
-            bool bval {val == GPIOD_LINE_VALUE_ACTIVE};
+               gpiod_line_value val {gpiod_line_request_get_value(ps.request, ps.offset)};
+               bool bval {val == GPIOD_LINE_VALUE_ACTIVE};
 
-            if (ps.callback)
-               ps.callback(physPin, bval);
+               if (ps.callback)
+                  ps.callback(physPin, bval);
 
-            ps.lastValue = bval;
+               ps.lastValue = bval;
+            }
+            else
+            {
+               // Polling fallback for GPIO drivers without edge-event support
+               gpiod_line_value val {gpiod_line_request_get_value(ps.request, ps.offset)};
+               bool bval {val == GPIOD_LINE_VALUE_ACTIVE};
+               bool rising  {!ps.lastValue && bval};
+               bool falling {ps.lastValue  && !bval};
+               bool fire    {false};
+
+               switch (ps.edge)
+               {
+                  case edgeRising:  fire = rising;            break;
+                  case edgeFalling: fire = falling;           break;
+                  case edgeBoth:    fire = rising || falling; break;
+                  default:          fire = false;             break;
+               }
+
+               if (fire && ps.callback)
+                  ps.callback(physPin, bval);
+
+               ps.lastValue = bval;
+               std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            }
          }
 
 #else
@@ -994,7 +1028,13 @@ int Gpio::setIsr(int physPin, Edge edge, std::function<void(int physPin, bool va
    tell(eloDebugGpio, "Debug: GPIO: setIsr(%d, %s)", physPin, toName(edge));
 
    if (setupPin(physPin, dirIn, edge, pud) != success)
-      return fail;
+   {
+      // Edge detection not supported by kernel driver — fall back to polling
+      tell(eloAlways, "GPIO: setIsr(%d): edge request failed, falling back to poll mode", physPin);
+      if (setupPin(physPin, dirIn, edgeNone, pud) != success)
+         return fail;
+      pins[physPin].edge = edge;  // restore for poll-based enableInterrupt
+   }
 
    return enableInterrupt(physPin, [cb](int pin, bool value) { cb(pin, value); });
 }

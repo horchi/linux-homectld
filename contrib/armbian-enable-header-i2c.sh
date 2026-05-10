@@ -251,11 +251,69 @@ EOF
     fi
 }
 
+# ── ODROID N2+: 1-Wire (phys pin 15 = PIN_15 = gpiochip0 offset 72) ─────────
+fix_n2plus_onewire() {
+    local DTB="/boot/dtb/amlogic/meson-g12b-odroid-n2-plus.dtb"
+    local ENV="/boot/armbianEnv.txt"
+    local PIN15_OFFSET=72
+
+    [[ -f "$DTB" ]] || { echo "FEHLER: DTB nicht gefunden: $DTB"; exit 1; }
+
+    # meson-w1-gpio overlay is broken on N2+ (no 'gpio' symbol in DTB, wrong offset)
+    # → remove it from armbianEnv.txt and patch the DTB directly instead
+    if grep -qE "(^|\s)w1-gpio(\s|$)" "$ENV" 2>/dev/null; then
+        sed -i 's/\bw1-gpio\b//' "$ENV"
+        sed -i '/^overlays=/s/  \+/ /g; /^overlays=/s/= /=/; /^overlays=/s/ $//' "$ENV"
+        echo "Overlay 'w1-gpio' aus $ENV entfernt (direkter DTB-Patch stattdessen)"
+    fi
+
+    if dtc -I dtb -O dts "$DTB" 2>/dev/null | grep -q "w1-gpio"; then
+        echo "1-Wire bereits im DTB — kein Patch nötig."
+        return 0
+    fi
+
+    # Find GPIO controller phandle (node containing PIN_32 in gpio-line-names)
+    local GPIO_PHANDLE_HEX GPIO_PHANDLE_DEC
+    GPIO_PHANDLE_HEX=$(dtc -I dtb -O dts "$DTB" 2>/dev/null | awk '
+        /gpio-line-names.*PIN_32/ { f=1; d=1 }
+        f && /\{/ { d++ }
+        f && /\}/ { d--; if (d <= 0) f=0 }
+        f && /phandle = </ {
+            match($0, /phandle = <(0x[0-9a-f]+)>/, a)
+            print a[1]; exit
+        }')
+
+    [[ -n "$GPIO_PHANDLE_HEX" ]] || { echo "FEHLER: GPIO-Controller phandle nicht gefunden"; exit 1; }
+    GPIO_PHANDLE_DEC=$(( GPIO_PHANDLE_HEX ))
+    echo "GPIO-Controller phandle: $GPIO_PHANDLE_HEX ($GPIO_PHANDLE_DEC), Pin-15-Offset: $PIN15_OFFSET"
+
+    local BAK="${DTB}.orig"
+    if [[ ! -f "$BAK" ]]; then
+        cp "$DTB" "$BAK"
+        echo "Backup angelegt: $BAK"
+    else
+        echo "Backup existiert bereits: $BAK"
+    fi
+
+    fdtput -cp "$DTB" /onewire
+    fdtput -t s  "$DTB" /onewire compatible "w1-gpio"
+    fdtput -t s  "$DTB" /onewire status    "okay"
+    fdtput -t u  "$DTB" /onewire gpios     $GPIO_PHANDLE_DEC $PIN15_OFFSET 0
+
+    echo "1-Wire (phys pin 15, gpiochip0 offset $PIN15_OFFSET) in DTB eingetragen."
+    echo ""
+    echo "Verifizierung:"
+    dtc -I dtb -O dts "$DTB" 2>/dev/null | awk '/onewire/{f=1} f{print; if(/\}/) exit}'
+}
+
 # ── Board-Erkennung ──────────────────────────────────────────────────────────
 if echo "$board" | grep -qiE "N2"; then
     echo "→ N2+ erkannt: DTB-Patch"
     echo ""
     fix_n2plus
+    echo ""
+    echo "── 1-Wire (phys pin 15) ─────────────────────────────────────────────────"
+    fix_n2plus_onewire
 elif echo "$board" | grep -qiE "M1"; then
     echo "→ M1 erkannt: Armbian-Overlay aktivieren"
     echo ""

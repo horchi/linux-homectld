@@ -1,0 +1,16 @@
+[Unit]
+
+Description = Mini SAT IP Server
+After = network.target
+Conflicts = vdr.service
+
+[Service]
+
+#Type = forking
+EnvironmentFile=-/etc/default/minisatip
+ExecStart=/usr/local/bin/minisatip "$MINISAT_OPTS" "$MINISAT_DEVICES"
+Restart=on-failure
+
+[Install]
+
+WantedBy = multi-user.target

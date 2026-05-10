@@ -161,8 +161,8 @@ def openLini():
 			ulini.set_baudrate(19200)
 			print("Open usblini succeeded")
 			break;     # open succeeded
-		except:
-			print("Open failed, USBlini device with id '04d8:e870' not found, aborting, check connection and cable")
+		except Exception as e:
+			print(f"Open failed ({e}), USBlini device with id '04d8:e870' not found or busy, check connection and cable")
 			print("Retrying in 5 seconds ..")
 			time.sleep(5.0)
 
@@ -228,7 +228,11 @@ def frame_listener(frame):
 	received += 1
 	lastData = frame.data
 
-	for byte in range(8):
+	if len(frame.data) < 6:
+		tell(0, f'Warning: frame 0x{frame.frameid:02x} too short ({len(frame.data)} bytes), skipping')
+		return
+
+	for byte in range(len(frame.data)):
 		tell(1, 'Byte {0:}: 0b{1:08b} 0x{1:02x} ({1:})'.format(byte, byte2uint(frame.data[byte])))
 
 		# build JSON for topic n4000:

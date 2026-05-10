@@ -304,7 +304,7 @@ function showTable(section)
       if (item.type == 'DO' || item.type.startsWith('MCPO') ||
           item.type == 'DI' || item.type.startsWith('MCPI') ||
           item.type == 'SC' || item.type == 'VAR' ||
-          item.type == 'GPIO' || item.type == 'CV' ||
+          item.type == 'CV' || item.type == 'GPIO' ||
           item.type == 'AI' || item.type.startsWith('ADS')) {
          tr.append($('<td>').append($('<button>')
                                     .attr('id', 'btnSensorSetup_' + id)
@@ -349,13 +349,13 @@ function sensorSetupDialog(type, address)
 
       if (type == 'GPIO')
          sensorGpioSetup(type, address);
-      else if (type == 'AI')
+      else if (type == 'AI' || type.startsWith('ADS'))
          sensorAiSetup(type, address);
       else if (type == 'CV')
          sensorCvSetup(type, address);
-      else if (type == 'DO')
+      else if (type == 'DO' || item.type.startsWith('MCPO'))
          sensorDoSetup(type, address);
-      else if (type == 'DI')
+      else if (type == 'DI' || item.type.startsWith('MCPI'))
          sensorDiSetup(type, address);
       else if (type == 'SC')
          sensorScSetup(type, address);
@@ -1029,9 +1029,11 @@ function storeSensorSetup()
       jsonObj["address"] = address;
       jsonObj["usrtitle"] = $("#usrtitle_" + type + address).val();
       jsonObj["unit"] = $("#unit_" + type + address).val();
+      console.log("unit", jsonObj["unit"]);
       jsonObj["state"] = $("#state_" + type + address).is(":checked");
       jsonObj["record"] = $("#record_" + type + address).is(":checked");
-      jsonObj["settings"] = JSON.stringify(valueFacts[key].settings);
+      // console.log("key", key, "settings:", JSON.stringify(valueFacts[key].settings));
+      // jsonObj["settings"] = JSON.stringify(valueFacts[key].settings);
       // jsonObj["groupid"] = parseInt($("#group_" + type + address).val());
 
       jsonArray[n++] = jsonObj;

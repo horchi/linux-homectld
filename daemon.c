@@ -2425,7 +2425,7 @@ int Daemon::process(bool force, bool signal)
 
       if (lua.executeExpression(expression.c_str(), arguments, res) != success)
       {
-         tell(eloAlways, "Error: Calling LUA expression '%s' with (%zu) arguments failed", expression.c_str(), arguments.size());
+         tell(eloAlways, "Error: Calling LUA '%s:0x%ld failed", type.c_str(), address);
          free(key);
          continue;
       }
@@ -3149,6 +3149,9 @@ int Daemon::addValueFact(int addr, const char* type, int factor, const char* nam
       initSensorByFact(type, addr);
       return 1;                               // 1 for 'added'
    }
+
+   if (strcmp(type, "SC") != 0)
+      return done;                 // #TODO - update lösen wir über eienn delete button in Sensor Setup!
 
    // already exist, update ...
 

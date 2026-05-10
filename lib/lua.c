@@ -149,7 +149,7 @@ int Lua::executeFunction(const char* function, const std::vector<std::string>& a
    }
    else
    {
-      tell(eloAlways, "Error: '%s'\n", lua_tostring(handle, lua_gettop(handle)));
+      tell(eloAlways, "Error: '%s' #1\n", lua_tostring(handle, lua_gettop(handle)));
       lua_pop(handle, lua_gettop(handle));
       return fail;
    }
@@ -189,7 +189,7 @@ int Lua::executeExpression(const char* expression, const std::vector<std::string
 
       if (!lua_isfunction(handle, -1))
       {
-         tell(eloAlways, "Error: '%s'", lua_tostring(handle, lua_gettop(handle)));
+         tell(eloAlways, "Error: in '%s'", lua_tostring(handle, lua_gettop(handle)));
          lua_pop(handle, lua_gettop(handle));
          return fail;
       }

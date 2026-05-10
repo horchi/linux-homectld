@@ -353,9 +353,9 @@ function sensorSetupDialog(type, address)
          sensorAiSetup(type, address);
       else if (type == 'CV')
          sensorCvSetup(type, address);
-      else if (type == 'DO' || item.type.startsWith('MCPO'))
+      else if (type == 'DO' || type.startsWith('MCPO'))
          sensorDoSetup(type, address);
-      else if (type == 'DI' || item.type.startsWith('MCPI'))
+      else if (type == 'DI' || type.startsWith('MCPI'))
          sensorDiSetup(type, address);
       else if (type == 'SC')
          sensorScSetup(type, address);
@@ -1069,12 +1069,14 @@ function storeSensorSetup()
       jsonObj["address"] = address;
       jsonObj["usrtitle"] = $("#usrtitle_" + type + address).val();
       jsonObj["unit"] = $("#unit_" + type + address).val();
-      console.log("unit", jsonObj["unit"]);
       jsonObj["state"] = $("#state_" + type + address).is(":checked");
       jsonObj["record"] = $("#record_" + type + address).is(":checked");
+
+      // #TODO settings needed for GPOI sensors but delete settings og all other types
+      //       until valueFacts[key].settings for them are nozt set yet!
       // console.log("key", key, "settings:", JSON.stringify(valueFacts[key].settings));
+
       // jsonObj["settings"] = JSON.stringify(valueFacts[key].settings);
-      // jsonObj["groupid"] = parseInt($("#group_" + type + address).val());
 
       jsonArray[n++] = jsonObj;
    }

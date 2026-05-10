@@ -218,8 +218,8 @@ while True:
 		percent    = round(adv.TankLevelInMM / (args.F / 100)) if args.F else -1
 		kg         = percent * (args.K / 100) if (args.K and percent >= 0) else -1
 
-		publishMqtt({'type': sensorType, 'address': 0, 'value': percent,
-		             'kind': 'value', 'unit': '%', 'battery': round(adv.BatteryPercent), 'title': 'Battery'})
+		publishMqtt({'type': sensorType, 'address': 0, 'value': round(adv.BatteryPercent),
+		             'kind': 'value', 'unit': '%', 'title': 'Battery'})
 		publishMqtt({'type': sensorType, 'address': 1, 'value': adv.TankLevelInMM,
 		             'kind': 'value', 'unit': 'mm', 'title': 'Tank Level'})
 		publishMqtt({'type': sensorType, 'address': 2, 'value': adv.TemperatureInCelsius,

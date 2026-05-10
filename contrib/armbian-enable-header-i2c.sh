@@ -55,7 +55,7 @@ fix_n2plus() {
 
     if echo "$cur_status" | grep -q "okay" && echo "$cur_pinctrl" | grep -q "$SDA_HEX"; then
         echo "Bereits korrekt — kein Patch nötig."
-        exit 0
+        return 0
     fi
 
     BAK="${DTB}.orig"

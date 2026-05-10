@@ -1528,6 +1528,25 @@ table.tableMultiCol td
     text-align: left;
 }
 
+.settingsDialogContent > div.textarea-row
+{
+    flex-direction: column;
+}
+
+.settingsDialogContent > div.textarea-row > span:nth-child(1)
+{
+    width: auto;
+    text-align: left;
+    align-self: flex-start;
+    margin-right: 0;
+    margin-bottom: 4px;
+}
+
+.settingsDialogContent > div.textarea-row > span:nth-child(2)
+{
+    width: 100%;
+}
+
 /* ----------------------- */
 /* Heating Menu */
 

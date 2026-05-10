@@ -583,17 +583,18 @@ function sensorVarSetup(type, address)
 
    $(form).append($('<div></div>')
                   .addClass('settingsDialogContent')
-                  .append($('<span></span>')
-                          .css('width', 'auto')
-                          .html('Skript'))
-                  .append($('<span></span>')
-                          .append($('<textarea></textarea>')
-                                  .attr('id', 'scriptVar')
-                                  .addClass('rounded-border inputSetting inputSettingScript')
-                                  .css('height', '100px')
-                                  .css('resize', 'none')
-                                  .val(valueFacts[key].settings ? valueFacts[key].settings.script : '')
-                                 )));
+                  .append($('<div></div>')
+                          .addClass('textarea-row')
+                          .append($('<span></span>')
+                                  .html('Skript'))
+                          .append($('<span></span>')
+                                  .append($('<textarea></textarea>')
+                                          .attr('id', 'scriptVar')
+                                          .addClass('rounded-border inputSetting inputSettingScript')
+                                          .css('height', '100px')
+                                          .css('resize', 'none')
+                                          .val(valueFacts[key].settings ? valueFacts[key].settings.script : '')
+                                         ))));
    var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
 
    $(form).dialog({
@@ -608,7 +609,10 @@ function sensorVarSetup(type, address)
          calSensorAddress = address;
       },
       resize: function() {
-         $('#scriptVar').css('height', ($(this).height() - 80) + 'px');
+         let other = 0;
+         $(this).find('.settingsDialogContent > div:not(.textarea-row)').each(function() { other += $(this).outerHeight(true); });
+         let labelH = $(this).find('.textarea-row > span:first').outerHeight(true) || 0;
+         $('#scriptVar').css('height', Math.max(60, $(this).height() - other - labelH - 10) + 'px');
       },
       buttons: {
          'Abbrechen': function () {
@@ -684,8 +688,8 @@ function sensorDoSetup(type, address)
                                                + ':0x'
                                                + valueFacts[key].settings.feedbackInAddress.toString(16) : ''))))
                   .append($('<div></div>')
+                          .addClass('textarea-row')
                           .append($('<span></span>')
-                                  .css('width', 'auto')
                                   .html('Skript'))
                           .append($('<span></span>')
                                   .append($('<textarea></textarea>')
@@ -711,7 +715,10 @@ function sensorDoSetup(type, address)
          calSensorAddress = address;
       },
       resize: function() {
-         $('#scriptDo').css('height', ($(this).height() - 160) + 'px');
+         let other = 0;
+         $(this).find('.settingsDialogContent > div:not(.textarea-row)').each(function() { other += $(this).outerHeight(true); });
+         let labelH = $(this).find('.textarea-row > span:first').outerHeight(true) || 0;
+         $('#scriptDo').css('height', Math.max(60, $(this).height() - other - labelH - 10) + 'px');
       },
       buttons: {
          'Abbrechen': function () {
@@ -881,8 +888,8 @@ function sensorScSetup(type, address)
    $(form).append($('<div></div>')
                   .addClass('settingsDialogContent')
                   .append($('<div></div>')
+                          .addClass('textarea-row')
                           .append($('<span></span>')
-                                  .css('width', 'auto')
                                   .html('Argumente (JSON)'))
                           .append($('<span></span>')
                                   .append($('<textarea></textarea>')
@@ -908,7 +915,10 @@ function sensorScSetup(type, address)
          calSensorAddress = parseInt(address);
       },
       resize: function() {
-         $('#settings').css('height', ($(this).height() - 80) + 'px');
+         let other = 0;
+         $(this).find('.settingsDialogContent > div:not(.textarea-row)').each(function() { other += $(this).outerHeight(true); });
+         let labelH = $(this).find('.textarea-row > span:first').outerHeight(true) || 0;
+         $('#settings').css('height', Math.max(60, $(this).height() - other - labelH - 10) + 'px');
       },
       buttons: {
          'Abbrechen': function () {
@@ -948,8 +958,8 @@ function sensorCvSetup(type, address)
    $(form).append($('<div></div>')
                   .addClass('settingsDialogContent')
                   .append($('<div></div>')
+                          .addClass('textarea-row')
                           .append($('<span></span>')
-                                  .css('width', 'auto')
                                   .html('Skript'))
                           .append($('<span></span>')
                                   .append($('<textarea></textarea>')
@@ -975,7 +985,10 @@ function sensorCvSetup(type, address)
          calSensorAddress = parseInt(address);
       },
       resize: function() {
-         $('#settings').css('height', ($(this).height() - 80) + 'px');
+         let other = 0;
+         $(this).find('.settingsDialogContent > div:not(.textarea-row)').each(function() { other += $(this).outerHeight(true); });
+         let labelH = $(this).find('.textarea-row > span:first').outerHeight(true) || 0;
+         $('#settings').css('height', Math.max(60, $(this).height() - other - labelH - 10) + 'px');
       },
       buttons: {
          'Abbrechen': function () {

@@ -63,6 +63,13 @@ int Lua::pushGlobal(const char* name, int value)
    return done;
 }
 
+int Lua::pushGlobal(const char* name, long value)
+{
+   lua_pushinteger(handle, value);
+   lua_setglobal(handle, name);
+   return done;
+}
+
 int Lua::pushGlobal(const char* name, bool value)
 {
    lua_pushboolean(handle, value);

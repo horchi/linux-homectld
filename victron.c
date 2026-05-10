@@ -109,7 +109,11 @@ int Victron::init()
    // read some data just to do it
 
    // SemLock lock(&sem);
-   serial.sendPing();
+
+   int res {serial.sendPing()};
+
+   if (serial.sendPing() != success)
+      tell(eloAlways, "Error: Ping failed with (%d)", res);
 
    return success;
 }

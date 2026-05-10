@@ -30,7 +30,7 @@ function initSensorSetup()
    prepareSetupMenu();
 
    if (activeSection == '')
-      activeSection = 'io' + valueTypes[0].title.replace(' ', '');
+      activeSection = 'io' + valueTypes[0].title.replace(/\s+/g, '');
 
    $("#controlContainer")
       .empty()
@@ -94,7 +94,7 @@ function initSensorSetup()
               .addClass('hidden rounded-border'));
 
    for (var i = 0; i < valueTypes.length; i++) {
-      var section = 'io' + valueTypes[i].title.replace(' ', '');
+      var section = 'io' + valueTypes[i].title.replace(/\s+/g, '');
 
       if (!$("#"+'btn_' + section).length) {
          $("#controlContainer").append($('<div></div>')
@@ -240,11 +240,10 @@ function showTable(section)
       let sectionId = '';
 
       for (var i = 0; i < valueTypes.length; i++) {
-         if (valueTypes[i].type == item.type)
-            sectionId = 'io' + valueTypes[i].title.replace(' ', '');
+         if (valueTypes[i].type == item.type) {
+            sectionId = 'io' + valueTypes[i].title.replace(/\s+/g, '');
+         }
       }
-
-      console.log("sensor", key, sectionId);
 
       let root = $('#' + sectionId);
 

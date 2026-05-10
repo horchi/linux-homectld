@@ -2,17 +2,19 @@
 
 LC_ALL=C.UTF-8
 
-BACKUP_DIR="/root/backup/database"
 HOST=`hostname`
 DATE=`date +%Y%m%d`
 
-TABLES="config dashboards dashboardwidgets deconzl deconzs groups homematic iostates peaks samples schemaconf sensoralert users valuefacts valuetypes"
+BACKUP_DIR="/root/backup/${DATE}"
+DUMP_DIR="${BACKUP_DIR}/dumps"
 
-mkdir -p ${BACKUP_DIR}/${DATE}
+mkdir -p ${DUMP_DIR}
+
+TABLES="config dashboards dashboardwidgets deconzl deconzs groups homematic iostates peaks samples schemaconf sensoralert users valuefacts valuetypes"
 
 for table in ${TABLES}; do
    echo "backup table ${table}"
-   MYSQL_PWD=homectl mysqldump --opt -u homectl homectl ${table} | gzip > "${BACKUP_DIR}/${DATE}/${table}-dump.sql.gz"
+   MYSQL_PWD=homectl mysqldump --opt -u homectl homectl ${table} | gzip > "${DUMP_DIR}/${table}-dump.sql.gz"
 done
 
 FILES="/etc/default/bmsmqtt \
@@ -39,10 +41,13 @@ for f in ${FILES}; do
 done
 
 echo "backup config files ${EXISTING_FILES} .."
-tar -czf "${BACKUP_DIR}/${DATE}/config.tgz" ${EXISTING_FILES} 2> >(grep -v "Removing leading" >&2)
+tar -czf "${BACKUP_DIR}/config.tgz" ${EXISTING_FILES} 2> >(grep -v "Removing leading" >&2)
 
 echo "backup user images .."
-tar -czf "${BACKUP_DIR}/${DATE}/user-images.tgz" "/var/lib/homectld/img/user/" 2> >(grep -v "Removing leading" >&2)
+tar -czf "${BACKUP_DIR}/user-images.tgz" "/var/lib/homectld/img/user/" 2> >(grep -v "Removing leading" >&2)
+
+echo "backup etc .."
+tar -czf "${BACKUP_DIR}/etc.tgz" "/etc" 2> >(grep -v "Removing leading" >&2)
 
 echo "backup package list .."
-dpkg --get-selections | grep install > "${BACKUP_DIR}/${DATE}/packages.txt"
+dpkg --get-selections | grep install > "${BACKUP_DIR}/packages.txt"

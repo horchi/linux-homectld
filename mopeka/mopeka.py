@@ -1,28 +1,22 @@
 #!/usr/bin/env python3
 
-import os, sys
-
-venv = os.path.expanduser("~/.venvs/homectld")
-
-if os.path.isdir(venv) and not sys.prefix.startswith(venv):
-	python = os.path.join(venv, "bin", "python3")
-	if os.path.isfile(python):
-		os.execv(python, [python] + sys.argv)
-
-from mopeka_pro_check.service import MopekaService, MopekaSensor, GetServiceInstance
-from time import sleep
+import sys
+import asyncio
 import argparse
 import syslog
 import signal
 import time
 import json
 import paho.mqtt.client as paho
+from bleak import BleakScanner
 
-syslog.openlog(ident="mopekamqtt",logoption=syslog.LOG_PID)
+syslog.openlog(ident="mopekamqtt", logoption=syslog.LOG_PID)
+
+MOPEKA_MANUFACTURER_ID  = 0x0059
+MOPEKA_HARDWARE_PROPANE = 0x03
+MOPEKA_TANK_LEVEL_COEFF = (0.573045, -0.002822, -0.00000535)
 
 initial = True
-
-# default widget settings
 
 parameters = []
 parameters.append('{"parameter": {"cloneable": false, "widgettype": 9, "symbol": "mdi:mdi-battery-high", "symbolOn": "mdi:mdi-battery-high", "colorCondition": "20>red,50>orange,51<rgb(40 172 45)"}}')
@@ -31,33 +25,85 @@ parameters.append('{"parameter": {"cloneable": false, "widgettype": 6}}')
 parameters.append('{"parameter": {"cloneable": false, "widgettype": 14, "scalemax": 11, "color": "rgb(40, 172, 45)", "colorOn": "rgb(235, 197, 5)", "barwidth": 120, "showvalue": true }}')
 parameters.append('{"parameter": {"cloneable": false, "widgettype": 0, "symbol": "mdi:mdi-bluetooth", "symbolOn": "mdi:mdi-bluetooth", "colorCondition": "1=red,2=orange,3=rgb(40 172 45)"}}')
 
-# functions
 
-def shutdown(sig, frame):
-	if args.m.strip() != '':
-		mqtt.disconnect()
-	sys.exit(0)
+class MopekaReading:
+	def __init__(self, mfg: bytes, rssi: int):
+		self.rssi = rssi
+		if mfg[0] != MOPEKA_HARDWARE_PROPANE:
+			raise ValueError(f"Unsupported hardware ID: 0x{mfg[0]:02X}")
+		self._raw_battery        = mfg[1] & 0x7F
+		self.SyncButtonPressed   = bool(mfg[2] & 0x80)
+		self._raw_temp           = mfg[2] & 0x7F
+		self._raw_level          = ((int(mfg[4]) << 8) + mfg[3]) & 0x3FFF
+		self.ReadingQualityStars = mfg[4] >> 6
 
-def tell(level, msg):
-	if args.v >= level:
-		if args.l:
-			syslog.syslog(syslog.LOG_INFO, msg)
-		else:
-			print(msg)
+	@property
+	def BatteryVoltage(self):
+		return self._raw_battery / 32.0
 
-def publishMqtt(sensor):
-	if initial and parameters[sensor['address']] != '':
-		tell(0, "appending {}".format(parameters[sensor['address']]))
-		p = json.loads(parameters[sensor['address']]);
-		sensor.update(p)
-	if args.m.strip() != '':
-		msg = json.dumps(sensor)
-		tell(2, '{}'.format(msg))
-		ret = mqtt.publish(args.T.strip(), msg)
-		mqtt.loop(0.1)
-		# print(ret)
+	@property
+	def BatteryPercent(self):
+		pct = ((self.BatteryVoltage - 2.2) / 0.65) * 100
+		return round(max(0.0, min(100.0, pct)), 1)
 
-# arguments
+	@property
+	def TemperatureInCelsius(self):
+		return self._raw_temp - 40
+
+	@property
+	def TankLevelInMM(self):
+		c = MOPEKA_TANK_LEVEL_COEFF
+		return int(self._raw_level * (c[0] + c[1] * self._raw_temp + c[2] * self._raw_temp * self._raw_temp))
+
+	def __str__(self):
+		return (f"RSSI: {self.rssi}dBm  "
+		        f"Battery: {self.BatteryVoltage:.2f}V {self.BatteryPercent}%  "
+		        f"Button: {self.SyncButtonPressed}  "
+		        f"Temp: {self.TemperatureInCelsius}°C  "
+		        f"Quality: {self.ReadingQualityStars}★  "
+		        f"Level: {self.TankLevelInMM}mm")
+
+
+def _parse(mfg: bytes, rssi: int):
+	try:
+		return MopekaReading(mfg, rssi)
+	except (ValueError, IndexError):
+		return None
+
+
+async def scan_one(mac: str, timeout: float = 10.0):
+	mac_upper = mac.upper()
+	result    = None
+
+	def cb(device, adv):
+		nonlocal result
+		if device.address.upper() != mac_upper:
+			return
+		mfg = adv.manufacturer_data.get(MOPEKA_MANUFACTURER_ID)
+		if mfg:
+			result = _parse(mfg, getattr(adv, 'rssi', None) or 0)
+
+	async with BleakScanner(cb):
+		await asyncio.sleep(timeout)
+	return result
+
+
+async def scan_discover(timeout: float = 10.0):
+	found = {}
+
+	def cb(device, adv):
+		mfg = adv.manufacturer_data.get(MOPEKA_MANUFACTURER_ID)
+		if mfg:
+			r = _parse(mfg, adv.rssi or 0)
+			if r:
+				found[device.address] = r
+
+	async with BleakScanner(cb):
+		await asyncio.sleep(timeout)
+	return found
+
+
+# ── arguments ────────────────────────────────────────────────────────────────
 
 parser = argparse.ArgumentParser('mopekamqtt')
 parser.add_argument('-i', type=int, nargs='?', help='interval [seconds] (default 5)', default=5)
@@ -74,137 +120,115 @@ parser.add_argument('-K', type=int, nargs='?', help='Tank amount [kg]', default=
 
 args = parser.parse_args()
 
-# service
+# ── helpers ───────────────────────────────────────────────────────────────────
 
-service = GetServiceInstance()
-service.SetHostControllerIndex(0)
+def tell(level, msg):
+	if args.v >= level:
+		if args.l:
+			syslog.syslog(syslog.LOG_INFO, msg)
+		else:
+			print(msg)
+
+def mqttConnect():
+	try:
+		mqtt.reconnect()
+	except Exception:
+		try:
+			mqtt.connect(args.m.strip(), args.p)
+		except Exception as e:
+			tell(0, f"MQTT connect failed: {e}")
+
+def publishMqtt(sensor):
+	global initial
+	if initial and parameters[sensor['address']] != '':
+		tell(0, "appending {}".format(parameters[sensor['address']]))
+		p = json.loads(parameters[sensor['address']])
+		sensor.update(p)
+	if args.m.strip() != '':
+		msg = json.dumps(sensor)
+		tell(2, '{}'.format(msg))
+		rc = mqtt.publish(args.T.strip(), msg)
+		if rc.rc != 0:
+			tell(0, f"MQTT publish failed (rc={rc.rc}), reconnecting")
+			mqttConnect()
+			mqtt.publish(args.T.strip(), msg)
+		mqtt.loop(0.1)
+
+def shutdown(sig, frame):
+	if args.m.strip() != '':
+		mqtt.disconnect()
+	sys.exit(0)
+
+signal.signal(signal.SIGTERM, shutdown)
+signal.signal(signal.SIGINT, shutdown)
 
 if args.m.strip() != '':
 	tell(0, 'Connecting to "{}:{}", topic "{}"'.format(args.m.strip(), args.p, args.T.strip()))
 	mqtt = paho.Client("mopeka")
 	mqtt.connect(args.m.strip(), args.p)
 
-def show(adv):
-	print("RSSI %s dBm" % adv.rssi)
-	print("Button Pressed %s" % adv.SyncButtonPressed)
-	print("Battery %s V" % adv.BatteryVoltage)
-	print("Battery %s %%" % round(adv.BatteryPercent))
-	print("ReadingQualityStars %s " % round(adv.ReadingQualityStars))
-	print("Temperature %s °C" % adv.TemperatureInCelsius)
-	print("TankLevel %s mm" % adv.TankLevelInMM)
-	# print("TankLevelRaw %s" % adv.TankLevelRaw)
-	if args.F != 0:
-		percent = round(adv.TankLevelInMM / (args.F / 100))
-		print("TankLevel %s %%" % percent)
-		if args.K != 0:
-			kg = percent * (args.K / 100)
-			print("TankAmount %s kg" % kg)
-	adv.Dump()
+# ── discover ──────────────────────────────────────────────────────────────────
 
 if args.D:
 	print("Discover ...")
-	service.DoSensorDiscovery()
-	try:
-		service.Start()
-	except OSError as e:
-		print(f"Bluetooth not available: {e}", file=sys.stderr)
-		sys.exit(1)
-	sleep(5)
-	service.Stop()
-
-	print(f"\nFinished Discovery. Found {len(service.SensorDiscoveredList)} sensors")
-	print("Stats %s" % str(service.ServiceStats))
-
-	for s in service.SensorDiscoveredList.values():
-		s.Dump()
-
+	found = asyncio.run(scan_discover(10))
+	print(f"\nFinished Discovery. Found {len(found)} sensors")
+	for addr, r in found.items():
+		print(f"  {addr}: {r}")
 	sys.exit()
+
+# ── monitor / show ────────────────────────────────────────────────────────────
 
 if args.M.strip() == "":
 	print("Missing MAC add -M option")
 	sys.exit()
 
-service.AddSensorToMonitor(MopekaSensor(args.M.strip()))
-
 if args.s:
-	try:
-		service.Start()
-	except OSError as e:
-		print(f"Bluetooth not available: {e}", file=sys.stderr)
-		sys.exit(1)
-	sleep(5)
-	service.Stop()
-	for s in service.SensorMonitoredList.values():
-		if s._last_packet is not None:
-			show(s._last_packet)
-		else:
-			tell(0, 'Sensor "{}" not found'.format(args.M.strip()))
-	sys.exit()
-
-signal.signal(signal.SIGTERM, shutdown)
-signal.signal(signal.SIGINT, shutdown)
-
-while True:
-	try:
-		service.Start()
-	except OSError as e:
-		tell(0, f"Bluetooth not available: {e}")
-		time.sleep(15)
-		continue
-	sleep(5)
-	service.Stop()
-
-	tell(0, "Update ...")
-
-	for s in service.SensorMonitoredList.values():
-		sensorType = "MOPEKA0"  # the number (0) shoud be set dynamicly on the position of the MAC in the list once we allow mor than one Sensor/MAC
-		adv = s._last_packet
-		percent = -1
-
-		if adv is None:
-			tell(0, 'Sensor "{}" not found'.format(args.M.strip()))
-			continue
-
+	adv = asyncio.run(scan_one(args.M.strip(), 10))
+	if adv is None:
+		tell(0, 'Sensor "{}" not found'.format(args.M.strip()))
+	else:
+		print(f"RSSI {adv.rssi} dBm")
+		print(f"Button Pressed {adv.SyncButtonPressed}")
+		print(f"Battery {adv.BatteryVoltage:.2f} V")
+		print(f"Battery {round(adv.BatteryPercent)} %")
+		print(f"ReadingQualityStars {adv.ReadingQualityStars}")
+		print(f"Temperature {adv.TemperatureInCelsius} °C")
+		print(f"TankLevel {adv.TankLevelInMM} mm")
 		if args.F != 0:
 			percent = round(adv.TankLevelInMM / (args.F / 100))
-		if args.K != 0:
-			kg = percent * (args.K / 100)
-		publishMqtt({
-		  'type'    : sensorType,
-		  'address' : 0,
-		  'value'   : percent,
-		  'kind'    : 'value',
-		  'unit'    : '%',
-		  'battery' : round(adv.BatteryPercent),
-		  'title'   : 'Battery' })
-		publishMqtt({
-		  'type'    : sensorType,
-		  'address' : 1,
-		  'value'   : adv.TankLevelInMM,
-		  'kind'    : 'value',
-		  'unit'    : 'mm',
-		  'title'   : 'Tank Level' })
-		publishMqtt({
-		  'type'    : sensorType,
-		  'address' : 2,
-		  'value'   : adv.TemperatureInCelsius,
-		  'kind'    : 'value',
-		  'unit'    : 'C',
-		  'title'   : 'Tank Temperature' })
-		publishMqtt({
-		  'type'    : sensorType,
-		  'address' : 3,
-		  'value'   : kg,
-		  'kind'    : 'value',
-		  'unit'    : 'kg',
-		  'title'   : 'Tank Amount' })
-		publishMqtt({
-		  'type'    : sensorType,
-		  'address' : 4,
-		  'value'   : round(adv.ReadingQualityStars),
-		  'kind'    : 'value',
-		  'unit'    : '',
-		  'title'   : 'Signal Quality' })
+			print(f"TankLevel {percent} %")
+			if args.K != 0:
+				print(f"TankAmount {percent * (args.K / 100):.1f} kg")
+	sys.exit()
+
+while True:
+	adv = asyncio.run(scan_one(args.M.strip(), 20))
+	if args.m.strip() != '':
+		mqtt.loop(0.1)
+	tell(0, "Update ...")
+
+	if adv is None:
+		tell(0, 'Sensor "{}" not found'.format(args.M.strip()))
+	else:
+		tell(0, 'Sensor found: {}mm {}% {}°C Q{}'.format(
+		    adv.TankLevelInMM, round(adv.BatteryPercent),
+		    adv.TemperatureInCelsius, adv.ReadingQualityStars))
+		sensorType = "MOPEKA0"
+		percent    = round(adv.TankLevelInMM / (args.F / 100)) if args.F else -1
+		kg         = percent * (args.K / 100) if (args.K and percent >= 0) else -1
+
+		publishMqtt({'type': sensorType, 'address': 0, 'value': percent,
+		             'kind': 'value', 'unit': '%', 'battery': round(adv.BatteryPercent), 'title': 'Battery'})
+		publishMqtt({'type': sensorType, 'address': 1, 'value': adv.TankLevelInMM,
+		             'kind': 'value', 'unit': 'mm', 'title': 'Tank Level'})
+		publishMqtt({'type': sensorType, 'address': 2, 'value': adv.TemperatureInCelsius,
+		             'kind': 'value', 'unit': 'C', 'title': 'Tank Temperature'})
+		publishMqtt({'type': sensorType, 'address': 3, 'value': kg,
+		             'kind': 'value', 'unit': 'kg', 'title': 'Tank Amount'})
+		publishMqtt({'type': sensorType, 'address': 4, 'value': adv.ReadingQualityStars,
+		             'kind': 'value', 'unit': '', 'title': 'Signal Quality'})
+
 	tell(0, "... done")
 	time.sleep(args.i)
 	initial = False

@@ -769,10 +769,18 @@ int Daemon::performWifiCommand(json_t* oObject, long client)
 
    if (action == "wifi-disconnect")
    {
-      tell(eloDetail, "Detail: Calling 'nmcli connection down '%s''", ssid);
-      std::string result {executeCommand("nmcli connection down '%s'", ssid)};
+      // std::string result {executeCommand("nmcli connection down '%s'", ssid)};
+      // tell(eloAlways, "Info: Disconnect result was [%s]", result.c_str());
 
-      tell(eloAlways, "Info: Disconnect result was [%s]", result.c_str());
+      tell(eloDetail, "Detail: Calling 'nmcli connection down '%s''", ssid);
+
+      std::string result;
+
+      if (disconnectWifi(ssid, result) != success)
+         tell(eloAlways, "Info: Wifi disconnect failed with '%s'", result.c_str());
+      else
+         tell(eloAlways, "Info: Wifi disconnect succeeded with '%s'", result.c_str());
+
       performWifi(oObject, client);
 
       return replyResult(done, result.c_str(), client);
@@ -783,19 +791,25 @@ int Daemon::performWifiCommand(json_t* oObject, long client)
       std::string result;
       const char* pwd {getStringFromJson(oObject, "password")};
 
-      if (!isEmpty(pwd))
-      {
-         result = executeCommand("nmcli device wifi connect '%s' password '%s'", ssid, pwd);
-         tell(eloAlways, "Info: Connect result was [%s]", result.c_str());
-      }
+      if (connectWifi(ssid, result, pwd) != success)
+         tell(eloAlways, "Info: Wifi connect failed with '%s'", result.c_str());
       else
-      {
-         result = executeCommand("nmcli connection up '%s'", ssid);
-         tell(eloAlways, "Info: Connect result was [%s]", result.c_str());
-      }
+         tell(eloAlways, "Info: Wifi connect succeeded with '%s'", result.c_str());
 
       performWifi(oObject, client);
+
       return replyResult(done, result.c_str(), client);
+
+      // if (!isEmpty(pwd))
+      // {
+      //    result = executeCommand("nmcli device wifi connect '%s' password '%s'", ssid, pwd);
+      //    tell(eloAlways, "Info: Connect result was [%s]", result.c_str());
+      // }
+      // else
+      // {
+      //    result = executeCommand("nmcli connection up '%s'", ssid);
+      //    tell(eloAlways, "Info: Connect result was [%s]", result.c_str());
+      // }
    }
 
    return done;

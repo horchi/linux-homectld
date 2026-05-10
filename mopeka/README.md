@@ -3,26 +3,8 @@
 
 ## dependencies
 
-###  python >= 3.3
 ```
-export PY_ENV=/root/.venvs/homectld
-export PY_ENV_BIN=${PY_ENV}/bin
-
-apt -y install python3 python3-pip python3-venv python3-paho-mqtt
-
-if [[ ! -d ${PY_ENV} ]]; then
-    python3 -m venv --system-site-packages ${PY_ENV}
-fi
-
-${PY_ENV_BIN}/pip install --upgrade mopeka_pro_check
-```
-if you change the PY_ENV path you have to patch the Makefile too!
-
-
-### Older python
-```
-apt -y install python3 python3-pip python3-paho-mqtt
-pip install --upgrade mopeka_pro_check
+apt install python3-bleak python3-paho-mqtt
 ```
 
 ## install

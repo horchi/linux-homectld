@@ -6,6 +6,7 @@
 // Date 2010 - 2024  Jörg Wendel
 //***************************************************************************
 
+#include <sys/wait.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <dirent.h>
@@ -2385,17 +2386,20 @@ int Daemon::process(bool force, bool signal)
       {
          for (const auto& [address, sensor] : sensorOfType)
          {
-            if (sensor.changedAt > sensor.last)
+//            if (sensor.changedAt > sensor.last)
             {
                update = true;
-               std::string var {"sensor" + type + "_" + std::to_string(address)};
+               std::string varValue {"sensor" + type + std::to_string(address)};
+               std::string varLast {"sensor" + type + std::to_string(address) + "last"};
 
                if (sensor.kind == "status")
-                  lua.pushGlobal(var.c_str(), sensor.state);
+                  lua.pushGlobal(varValue.c_str(), sensor.state);
                else
-                  lua.pushGlobal(var.c_str(), sensor.value);
+                  lua.pushGlobal(varValue.c_str(), sensor.value);
 
-               tell(eloAlways, "pushGlobal(%s)", var.c_str());
+               lua.pushGlobal(varLast.c_str(), sensor.last);
+
+               tell(eloAlways, "pushGlobal(%s, %s), last '%ld'", varValue.c_str(), varLast.c_str(), sensor.last);
             }
          }
       }
@@ -4875,6 +4879,8 @@ int Daemon::dispatchArduinoMsg(const char* message)
 
 int Daemon::initArduino()
 {
+   tell(eloAlways, "initArduino(%s); connected %d", mqttUrl.c_str(), mqttReader->isConnected());
+
    mqttCheckConnection();
 
    if (mqttUrl.empty() || !mqttReader->isConnected())
@@ -4898,7 +4904,7 @@ int Daemon::initArduino()
    {
       std::string topic = std::string(arduinoTopic) + "/in";
       mqttReader->write(topic.c_str(), p);
-      tell(eloDebug, "Debug: [ARDUINO] PushMessage to arduino [%s]", p);
+      tell(eloAlways, "Debug: [ARDUINO] PushMessage to arduino topic '%s' [%s]", topic.c_str(), p);
    }
 
    free(p);
@@ -5143,6 +5149,114 @@ int Daemon::executeCommandAsync(uint address, const char* cmd)
    if (pthread_create(&commandThreads[address].pThread, NULL, cmdThread, &commandThreads[address]))
    {
       tell(eloAlways, "Error: Failed to start command thread");
+      return fail;
+   }
+
+   return success;
+}
+
+//***************************************************************************
+// Wifi Commands
+//***************************************************************************
+
+int Daemon::connectWifi(const char* ssid, std::string& result, const char* pwd)
+{
+   std::vector<std::string> args = {"nmcli", "device", "wifi", "connect", ssid};
+
+   if (!isEmpty(pwd))
+   {
+      args.push_back("password");
+      args.push_back(pwd);
+   }
+
+   return executeNmcli(args, result);
+}
+
+int Daemon::disconnectWifi(const char* ssid, std::string& result)
+{
+   std::vector<std::string> args = {"nmcli", "connection", "down", ssid};
+
+   // or dsconnect total without aut reconnect:
+   // std::vector<std::string> args = {"nmcli", "device", "disconnect", "<wlan0>"};
+
+   return executeNmcli(args, result);
+}
+
+int Daemon::executeNmcli(const std::vector<std::string>& cmdArgs, std::string& result)
+{
+   result.clear();
+   int pipe_fd[2] {};
+
+   if (pipe(pipe_fd) == -1)
+   {
+      tell(eloAlways, "Error: Creating pipe faiuled");
+      return fail;
+   }
+
+   pid_t pid {fork()};
+
+   if (pid < 0)
+   {
+      close(pipe_fd[0]);
+      close(pipe_fd[1]);
+      tell(eloAlways, "Error: fork(I) failed");
+      return fail;
+   }
+
+   if (pid == 0)
+   {
+      // Child
+
+      close(pipe_fd[0]);
+      dup2(pipe_fd[1], STDOUT_FILENO);
+      dup2(pipe_fd[1], STDERR_FILENO);
+      close(pipe_fd[1]);
+
+      // Vektor von std::string in das von execvp erwartete char* Array konvertieren
+
+      std::vector<char*> cArgs;
+      cArgs.reserve(cmdArgs.size() + 1);
+
+      for (const auto& arg : cmdArgs)
+         cArgs.push_back(const_cast<char*>(arg.c_str()));
+
+      cArgs.push_back(nullptr);
+
+      execvp("nmcli", cArgs.data());
+
+      tell(eloAlways, "Error: Calling nmcli failed");
+      _exit(127);     // Exit-Code for 'command not found'
+   }
+   else
+   {
+      close(pipe_fd[1]);
+
+      // read error text from pipe (is any)
+
+      ssize_t bytes_read {0};
+      char buffer[256];
+
+      while ((bytes_read = read(pipe_fd[0], buffer, sizeof(buffer))) > 0)
+         result.append(buffer, bytes_read);
+
+      close(pipe_fd[0]);
+
+      int status {0};
+
+      if (waitpid(pid, &status, 0) == -1)
+      {
+         tell(eloAlways, "Error: Failed waiting for child");
+         return fail;
+      }
+
+      // remove linfeed and trailing whitspaces
+
+      while (!result.empty() && (result.back() == '\n' || result.back() == '\r' || result.back() == ' '))
+         result.pop_back();
+
+      if (WIFEXITED(status))
+         return WEXITSTATUS(status);     // 0 on success
+
       return fail;
    }
 

@@ -139,6 +139,14 @@ apt -y install libbluetooth-dev
 ```
 apt -y install mosquitto
 ```
+## to make the broker accessible via network
+
+Put this lines into your /etc/mosquitto/mosquitto.conf:
+```
+listener 1883
+allow_anonymous true
+```
+and restart mosquitto ```systemctl restart mosquitto```
 
 #### Raspberry Pi
 
@@ -371,6 +379,10 @@ Crony is used instead of systemd-timesyncd because the latter proved to be too â
 
 To enable the install some of the provided service configurations
 enable it by setting 'WOMO = 1' in Make.user in the projects (source) root directory of the homectld.
+
+# if you use this 'server' for IP masquerading and/or as firewall or like to use openvpn
+
+```apt -y install iptables openvpn```
 
 ## Static/Fixed IP
 

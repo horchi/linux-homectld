@@ -740,6 +740,10 @@ class Daemon : public cWebInterface
          std::string result;
       };
 
+      int connectWifi(const char* ssid, std::string& result, const char* pwd = nullptr);
+      int disconnectWifi(const char* ssid, std::string& result);
+      int executeNmcli(const std::vector<std::string>& cmdArgs, std::string& result);
+
       int executeCommandAsync(uint address, const char* cmd);
       std::map<uint,ThreadControl> commandThreads;
 

@@ -1,1 +1,0 @@
-savedcmd_Module.symvers :=  /usr/src/linux-headers-6.18.10-current-meson64/scripts/mod/modpost -M          -o Module.symvers -T modules.order -i /usr/src/linux-headers-6.18.10-current-meson64/Module.symvers -e 

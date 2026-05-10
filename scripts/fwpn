@@ -64,9 +64,9 @@ case "$1" in
 
       echo "1" > /proc/sys/net/ipv4/ip_forward
 
-      # kernel module laden:
+      # kernel module laden (optional, nicht verfügbar mit iptables-nft / kernel 6.18+):
 
-      $INSMOD $IPT_MODLIST
+      for mod in $IPT_MODLIST; do $INSMOD $mod 2>/dev/null || true; done
 
       # MSS Clamping aktivieren
 

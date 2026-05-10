@@ -267,9 +267,18 @@ fix_n2plus_onewire() {
         echo "Overlay 'w1-gpio' aus $ENV entfernt (direkter DTB-Patch stattdessen)"
     fi
 
-    if dtc -I dtb -O dts "$DTB" 2>/dev/null | grep -q "w1-gpio"; then
-        echo "1-Wire bereits im DTB — kein Patch nötig."
+    local dts
+    dts=$(dtc -I dtb -O dts "$DTB" 2>/dev/null || true)
+
+    if echo "$dts" | grep -q "linux,open-drain" && echo "$dts" | grep -q "w1-gpio"; then
+        echo "1-Wire bereits korrekt im DTB — kein Patch nötig."
         return 0
+    fi
+
+    # Node exists but without linux,open-drain → remove and re-patch
+    if echo "$dts" | grep -q "w1-gpio"; then
+        echo "1-Wire Node ohne linux,open-drain gefunden — wird korrigiert."
+        fdtput -r "$DTB" /onewire 2>/dev/null || true
     fi
 
     # Find GPIO controller phandle (node containing PIN_32 in gpio-line-names)
@@ -279,9 +288,9 @@ fix_n2plus_onewire() {
         f && /\{/ { d++ }
         f && /\}/ { d--; if (d <= 0) f=0 }
         f && /phandle = </ {
-            match($0, /phandle = <(0x[0-9a-f]+)>/, a)
-            print a[1]; exit
-        }')
+            val = $0; sub(/.*phandle = </, "", val); sub(/>.*/, "", val)
+            print val; exit
+        }' || true)
 
     [[ -n "$GPIO_PHANDLE_HEX" ]] || { echo "FEHLER: GPIO-Controller phandle nicht gefunden"; exit 1; }
     GPIO_PHANDLE_DEC=$(( GPIO_PHANDLE_HEX ))
@@ -296,9 +305,10 @@ fix_n2plus_onewire() {
     fi
 
     fdtput -cp "$DTB" /onewire
-    fdtput -t s  "$DTB" /onewire compatible "w1-gpio"
-    fdtput -t s  "$DTB" /onewire status    "okay"
-    fdtput -t u  "$DTB" /onewire gpios     $GPIO_PHANDLE_DEC $PIN15_OFFSET 0
+    fdtput -t s  "$DTB" /onewire compatible    "w1-gpio"
+    fdtput -t s  "$DTB" /onewire status        "okay"
+    fdtput -t u  "$DTB" /onewire gpios         $GPIO_PHANDLE_DEC $PIN15_OFFSET 6
+    fdtput       "$DTB" /onewire linux,open-drain
 
     echo "1-Wire (phys pin 15, gpiochip0 offset $PIN15_OFFSET) in DTB eingetragen."
     echo ""

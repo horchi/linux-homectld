@@ -216,6 +216,8 @@ def onMessage(client, userdata, msg):
 
 def frame_listener(frame):
 
+	tell(2, f'frame id=0x{frame.frameid:02x} len={len(frame.data)} data={frame.data.hex() if frame.data else ""}')
+
 	if frame.frameid != 0x0c:
 		return
 

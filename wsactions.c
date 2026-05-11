@@ -1548,7 +1548,12 @@ int Daemon::storeSensorSetup(json_t* obj, long client)
    myString type {getStringFromJson(obj, "type", "")};
    std::string action {getStringFromJson(obj, "action", "")};
 
-   if (type == "AI" || type.starts_with("ADS"))
+   if (action == "delete")
+   {
+      long address {getLongFromJson(obj, "address", na)};
+      status = deleteValueFact(type.c_str(), address);
+   }
+   else if (type == "AI" || type.starts_with("ADS"))
       status = storeAiSettings(obj, client);
    else if (type == "CV")
       status = storeIoSettings(obj, client);
@@ -1560,13 +1565,6 @@ int Daemon::storeSensorSetup(json_t* obj, long client)
       status = storeIoSettings(obj, client);
    else if (type == "SC")
       status = storeIoSettings(obj, client);
-   else if (type == "VAR")
-      status = storeIoSettings(obj, client);
-   else if (action == "delete")
-   {
-      long address {getLongFromJson(obj, "address", na)};
-      status = deleteValueFact(type.c_str(), address);
-   }
    else
       return replyResult(fail, "Ignoring config request, only supported for 'AI', 'DO', 'W1', 'SC' and 'CV' sensors", client);
 
@@ -1609,9 +1607,9 @@ int Daemon::storeIoSettings(json_t* obj, long client)
          if (sensor.second.address >= address)
             address = sensor.second.address + 1;
 
-      const char* name {getStringFromJson(obj, "name", "<unnamed>")};
+      const char* name {getStringFromJson(obj, "name", "UNNAMED")};
       tell(eloAlways, "Add sensor '%s' - '%s:0x%x'", name, type, address);
-      std::string sensorName {std::string(name) + "" + std::to_string(address)};
+      std::string sensorName {std::string(name) + " " + std::to_string(address)};
       addValueFact(address, type, 1, sensorName.c_str(), "", "");
    }
 

@@ -197,6 +197,7 @@ function showTable(section)
                                          .on('click', function() {
                                             socket.send({ "event" : "storesensorsetup", "object" : {
                                                'type' : 'CV',
+                                               'name' : 'Calc Sensor',
                                                'action' : 'add'
                                             }});
                                          })
@@ -303,29 +304,29 @@ function showTable(section)
 
       if (item.type == 'DO' || item.type.startsWith('MCPO') ||
           item.type == 'DI' || item.type.startsWith('MCPI') ||
-          item.type == 'SC' || item.type == 'VAR' ||
-          item.type == 'CV' || item.type == 'GPIO' ||
-          item.type == 'AI' || item.type.startsWith('ADS')) {
+          item.type == 'SC' || item.type == 'GPIO' ||
+          item.type == 'CV' || item.type == 'AI' ||
+          item.type.startsWith('ADS')) {
          tr.append($('<td>').append($('<button>')
                                     .attr('id', 'btnSensorSetup_' + id)
                                     .attr('disabled', item.type == 'GPIO' ? gpioFct == 'deactivated' : false)
                                     .addClass('buttonOptions rounded-border')
                                     .text('Setup')
                                     .on('click', () => sensorSetupDialog(item.type, item.address))));
-         if (item.type == 'SC' && item.parameter && item.parameter.cloneable)
-            tr.append($('<td>').append($('<button>')
-                                       .addClass('buttonOptions rounded-border')
-                                       .text('Clone')
-                                       .on('click', () => sensorScClone(item.type, item.address))));
       }
-      else if (item.type == 'W1' || item.type == 'RTL433')
+
+      if (item.type == 'SC' && item.parameter && item.parameter.cloneable)
+         tr.append($('<td>').append($('<button>')
+                                    .addClass('buttonOptions rounded-border')
+                                    .text('Clone')
+                                    .on('click', () => sensorScClone(item.type, item.address))));
+
+      if (item.type != 'WEA' && item.type != 'BMS' && item.type != 'MOPEKA' && item.type != 'SP'
+          && item.type != 'VIC' && !item.type.startsWith('VOTRO') )
          tr.append($('<td>').append($('<button>')
                                     .addClass('buttonOptions rounded-border')
                                     .text('Löschen')
                                     .on('click', () => deleteValueFact(item.type, item.address))));
-      else
-         tr.append($('<td>'));
-
       root.append(tr);
    }
 }
@@ -359,8 +360,6 @@ function sensorSetupDialog(type, address)
          sensorDiSetup(type, address);
       else if (type == 'SC')
          sensorScSetup(type, address);
-      else if (type == 'VAR')
-         sensorVarSetup(type, address);
    }
 
    if (changes)
@@ -538,7 +537,6 @@ function sensorAiSetup(type, address)
          $(this).dialog('destroy').remove();
       }
    });
-
 }
 
 function deleteValueFact(type, address)

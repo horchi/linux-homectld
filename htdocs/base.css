@@ -166,6 +166,13 @@ button:focus {
     padding-top: 3px;
 }
 
+.ui-dialog .ui-button-primary {
+    font-weight: bold;
+    background: #4a90d9 !important;;
+    color: white;
+    /* border-color: #357abd !important; */
+}
+
 .rounded-border
 {
     border-radius: var(--borderRadius);

@@ -99,7 +99,6 @@ Daemon::ValueTypes Daemon::defaultValueTypes[] =
    { "^VIC",      "Victron" },
    { "^VOTRO",    "Votronic" },
    { "^MOPEKA.*", "Mopeka" },
-//    { "^VAR$",     "Variables" },
 
    { "",        "" }
 };
@@ -162,9 +161,9 @@ Daemon::DefaultWidgetProperty Daemon::defaultWidgetProperties[] =
    { "WEA",      na,   "*",  wtPlainText,        0,         0,       0, true },
    { "N4000",    na,   "*",      wtValue,        0,         0,       0, false },
    { "T2090",    na,   "*",      wtValue,        0,         0,       0, true },
-   { "VAR",      na, "txt",       wtText,        0,         0,       0, true },
-   { "VAR",      na,  "°C",  wtMeterLevel,       0,         0,       0, true },
-   { "VAR",      na,   "*",      wtSymbol,       0,         0,       0, true },
+   { "CV",       na, "txt",       wtText,        0,         0,       0, true },
+   { "CV",       na,  "°C",  wtMeterLevel,       0,         0,       0, true },
+   { "CV",       na,   "*",      wtSymbol,       0,         0,       0, true },
    { "" }
 };
 
@@ -620,14 +619,6 @@ int Daemon::applyConfigurationSpecials()
       initGpioLine(phys, pinInfo);
    }
 
-   // for (int i = 0; i < 10; i++)
-   // {
-   //    std::string name {"Variable " + std::to_string(i)};
-   //    addValueFact(i, "VAR", 1, name.c_str());
-   //    sensors["VAR"][i].valid = true;
-   //    sensors["VAR"][i].state = false;
-   // }
-
    return done;
 }
 
@@ -716,10 +707,6 @@ int Daemon::initSensorByFact(myString type, uint address)
             sensors[type][address].fct = getStringFromJson(jCal, "fct", "off");
 
             // #TODO
-         }
-         else if (type == "VAR")
-         {
-            sensors[type][address].script = getStringFromJson(jCal, "script", "");
          }
 
          json_decref(jCal);
@@ -980,7 +967,7 @@ int Daemon::initScripts()
       }
 
       sensors["SC"][addr].kind = kind;
-      sensors["SC"][addr].last = time(0);
+      sensors["SC"][addr].last = time(0) -1;
       sensors["SC"][addr].valid = valid;
 
       if (jParameter)
@@ -1169,7 +1156,7 @@ void Daemon::setSpecialValue(uint addr, double value, const std::string& text)
    if (sensors["SP"][addr].value != value)
       sensors["SP"][addr].changedAt = time(0);
 
-   sensors["SP"][addr].last = time(0);
+   sensors["SP"][addr].last = time(0) -1;
    sensors["SP"][addr].value = value;
    sensors["SP"][addr].text = text;
    sensors["SP"][addr].kind = text == "" ? "value" : "text";
@@ -2348,7 +2335,7 @@ int Daemon::process(bool force, bool signal)
       std::string type {tableValueFacts->getStrValue("TYPE")};
       long address {tableValueFacts->getIntValue("ADDRESS")};
 
-      if (type != "CV" && type != "VAR" && type != "DO")
+      if (type != "CV" && type != "DO")
          continue;
 
       if (type == "DO" && sensors[type][address].mode != omAuto)
@@ -2387,25 +2374,35 @@ int Daemon::process(bool force, bool signal)
 
       bool update {false};
 
-      for (const auto& [type, sensorOfType] : sensors)
+      for (const auto& [_type, sensorOfType] : sensors)
       {
-         for (const auto& [address, sensor] : sensorOfType)
+         for (const auto& [_address, sensor] : sensorOfType)
          {
-            // if (sensor.changedAt > sensor.last)
-            {
-               update = true;
-               std::string varValue {"sensor" + type + std::to_string(address)};
-               std::string varLast {"sensor" + type + std::to_string(address) + "last"};
+            std::string varValue {"sensor" + _type + std::to_string(_address)};
+            std::string varLast {"sensor" + _type + std::to_string(_address) + "last"};
 
-               if (sensor.kind == "status")
-                  lua.pushGlobal(varValue.c_str(), sensor.state);
-               else
-                  lua.pushGlobal(varValue.c_str(), sensor.value);
+            if (sensor.kind == "status")
+               lua.pushGlobal(varValue.c_str(), sensor.state);
+            else
+               lua.pushGlobal(varValue.c_str(), sensor.value);
 
-               lua.pushGlobal(varLast.c_str(), sensor.last);
+            lua.pushGlobal(varLast.c_str(), sensor.last);
 
-               tell(eloLua, "LUA: pushGlobal(%s, %s), last '%ld'", varValue.c_str(), varLast.c_str(), sensor.last);
-            }
+            tell(eloLua, "LUA: pushGlobal(%s, %s), last '%ld'", varValue.c_str(), varLast.c_str(), sensor.last);
+
+            if (sensor.changedAt <= sensors[type][address].changedAt)
+               continue;
+
+            // check only about varValue until varLast has the same sting inside
+
+            if (expression.find(varValue) == std::string::npos)   // if (!expression.contains(varValue)) // --> C++23
+               continue;
+
+            tell(eloLua, "LUA: '%s:0x%x' (%s) changed later than '%s:0x%lx' (%s)",
+                 _type.c_str(), _address, l2pTime(sensor.changedAt).c_str(),
+                 type.c_str(), address, l2pTime(sensors[type][address].changedAt).c_str());
+
+            update = true;
          }
       }
 
@@ -2453,7 +2450,7 @@ int Daemon::process(bool force, bool signal)
       else
          tell(eloAlways, "LUA: '%s' got unexpected type (%d)", key, res.type);
 
-      sensors[type][address].last = time(0);
+      sensors[type][address].last = time(0) -1;
       sensors[type][address].changedAt = time(0); // #TODO set only if changed
       sensors[type][address].valid = true;
       setConfigItem(key, sensors[type][address].value);
@@ -3353,7 +3350,7 @@ int Daemon::updateWeather()
 
    addValueFact(1, "WEA", 1, "weather", "txt", "Wetter");
    sensors["WEA"][1].kind = "text";
-   sensors["WEA"][1].last = time(0);
+   sensors["WEA"][1].last = time(0) -1;
    sensors["WEA"][1].changedAt = time(0); // #TODO set only if changed
    sensors["WEA"][1].valid = true;
 
@@ -3464,7 +3461,7 @@ int Daemon::dispatchDeconz()
       if (getObjectFromJson(oData, "sat"))
          sensor->sat = sat;
 
-      sensor->last = time(0);
+      sensor->last = time(0) -1;
       sensor->changedAt = time(0); // #TODO set only if changed
       sensor->valid = true;
       sensor->battery = getIntFromJson(oData, "battery", na);
@@ -3577,7 +3574,7 @@ int Daemon::dispatchHomematicRpcResult(const char* message)
       addValueFact(address, "HMB", 1, uuid, "%", "", urControl);
       sensors["HMB"][address].lastDir = getIntFromJson(jItem, "DIRECTION") == 2 ? dirClose : dirOpen;
       sensors["HMB"][address].value = 100;   // #TODO: request the actual value/postiton !
-      sensors["HMB"][address].last = time(0);
+      sensors["HMB"][address].last = time(0) -1;
       sensors["HMB"][address].changedAt = time(0); // #TODO set only if changed
       sensors["HMB"][address].valid = true;
    }
@@ -3628,7 +3625,7 @@ int Daemon::dispatchHomematicEvents(const char* message)
    tell(eloDebug, "Debug: Got (home-matic) '%s' last value is %d", datapoint.c_str(), (int)sensors[type][address].value);
    selectHomeMaticByUuid->freeResult();
 
-   sensors[type][address].last = time(0);
+   sensors[type][address].last = time(0) -1;
    sensors[type][address].changedAt = time(0); // #TODO set only if changed
    sensors[type][address].valid = true;
 
@@ -3768,7 +3765,7 @@ int Daemon::dispatchGrowattEvents(const char* message)
 
          sensors[type][address].kind = "value";
          sensors[type][address].value = value;
-         sensors[type][address].last = time(0);
+         sensors[type][address].last = time(0) -1;
          sensors[type][address].valid = true;
 
          if (address == 51)                     // Laufzeit in Sekunden
@@ -3857,7 +3854,7 @@ int Daemon::dispatchRtl433(const char* message)
    sensors[type][address].valid = true;
    sensors[type][address].kind = kind;
    sensors[type][address].value = value;
-   sensors[type][address].last = time(0);
+   sensors[type][address].last = time(0) -1;
 
    // send update to WS
    {
@@ -4096,7 +4093,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    }
 
    sensors[type][address].battery = getIntFromJson(jData, "battery", na);
-   sensors[type][address].last = newTime;
+   sensors[type][address].last = newTime -1;
    sensors[type][address].valid = true;
    sensors[type][address].kind = getStringFromJson(jData, "kind", "value");
 
@@ -4158,7 +4155,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
             if (feedbackInType.starts_with("MCPI") && s.second.feedbackInAddress == (uint)address)
             {
                sensors[_type][s.first].state = sensors[type][address].invert ? !state : state;
-               sensors[_type][s.first].last = time(0);
+               sensors[_type][s.first].last = time(0) -1;
                sensors[_type][s.first].changedAt = time(0); // #TODO set only if changed
                sensors[_type][s.first].valid = true;
                publishPin(_type.c_str(), s.first);
@@ -4534,7 +4531,7 @@ int Daemon::toggleOutputMode(uint pin)
 
 void Daemon::gpioWrite(uint pin, bool state, bool saveIoState)
 {
-   sensors["DO"][pin].last = time(0);
+   sensors["DO"][pin].last = time(0) -1;
    sensors["DO"][pin].changedAt = time(0); // #TODO set only if changed
    sensors["DO"][pin].valid = true;
 
@@ -4584,7 +4581,7 @@ bool Daemon::gpioRead(uint pin, bool check)
 
    // tell(eloAlways, "Pin %d %d / %d", pin, sensors["DI"][pin].state, state);
 
-   sensors["DI"][pin].last = time(0);
+   sensors["DI"][pin].last = time(0) -1;
    sensors["DI"][pin].valid = true;
 
    if (check && sensors["DI"][pin].state == state)
@@ -4967,7 +4964,7 @@ int Daemon::updateAnalogInput(uint addr, const char* type, double value, time_t 
    }
 
    sensors[type][addr].value = dValue;
-   sensors[type][addr].last = stamp;
+   sensors[type][addr].last = stamp -1;
    sensors[type][addr].valid = true;
 
    tell(eloDebug, "Debug: Input A%d (%s:0x%02x): %.3f%s [%.2f] from '%s'", addr,
@@ -5055,7 +5052,7 @@ void Daemon::updateW1(const char* id, double value, time_t stamp)
 
    sensors["W1"][address].value = value;
    sensors["W1"][address].valid = true;
-   sensors["W1"][address].last = stamp;
+   sensors["W1"][address].last = stamp -1;
 
    if (changed)
       sensors["W1"][address].changedAt = stamp;

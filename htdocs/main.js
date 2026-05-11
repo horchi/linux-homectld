@@ -90,6 +90,20 @@ $('document').ready(function() {
 
    moment.locale('de');
 
+   // dialog default ENTER action always on the last button
+   //   and focus ist at open
+
+   $(document).on('keydown', '.ui-dialog-content', function(e) {
+      if (e.key === 'Enter' && !$(e.target).is('textarea, button, select'))
+         $(this).closest('.ui-dialog').find('.ui-button-primary').trigger('click');
+   });
+
+   $.ui.dialog.prototype._focusTabbable = function() {
+      this.uiDialog.find('.ui-dialog-buttonset button:last')
+         .addClass('ui-button-primary')
+         .focus();
+   };
+
    connectWebSocket(connectUrl, protocol);
    colorStyle = getComputedStyle(document.body);
    $('#socketState').click(function() { daemonStateDlg(); });

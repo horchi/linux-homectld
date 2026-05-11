@@ -534,7 +534,7 @@ function widgetSetup(key)
             widget.color = $("#color").spectrum('get').toRgbString();
             widget.colorOn = $("#colorOn").spectrum('get').toRgbString();
             widget.colorCondition = $("#colorCondition").val();
-				widget.colorConditionBar = $("#colorConditionBar").val();
+            widget.colorConditionBar = $("#colorConditionBar").val();
             widget.showpeak = $("#peak").is(':checked');
             widget.showvalue = $("#showvalue").is(':checked');
             widget.linefeed = $("#linefeed").is(':checked');
@@ -565,7 +565,7 @@ function widgetSetup(key)
             widget.color = $("#color").spectrum("get").toRgbString();
             widget.colorOn = $("#colorOn").spectrum("get").toRgbString();
             widget.colorCondition = $("#colorCondition").val();
-				widget.colorConditionBar = $("#colorConditionBar").val();
+            widget.colorConditionBar = $("#colorConditionBar").val();
             widget.showpeak = $("#peak").is(':checked');
             widget.showvalue = $("#showvalue").is(':checked');
             widget.linefeed = $("#linefeed").is(':checked');
@@ -726,7 +726,7 @@ function dashboardSetup(did)
             dashboards[dashboardId].options.heightfactor = 1;
          if (!dashboards[dashboardId].options.heightfactorKiosk)
             dashboards[dashboardId].options.heightfactorKiosk = 1;
-			if (!dashboards[dashboardId].options.widthfactorKiosk)
+         if (!dashboards[dashboardId].options.widthfactorKiosk)
             dashboards[dashboardId].options.widthfactorKiosk = 1;
 
 //         for (let w = 0.5; w <= 2.0; w += 0.5) {

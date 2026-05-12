@@ -1,0 +1,312 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use File::Basename;
+use File::Spec::Functions qw(abs2rel);
+use File::Temp qw(tempfile);
+use Getopt::Long qw(:config pass_through);
+use Pod::Simple::Text;
+use Term::ANSIColor;
+
+my $PROGNAME = 'vdrctl';
+my $VERSION  = '1.0.0';
+
+my $argsdir = `pkg-config --variable argsdir vdr`;
+chomp($argsdir);
+$argsdir = '/etc/vdr/conf.d' unless $argsdir;
+
+my $availdir = "$argsdir/../conf.avail";
+
+my $editor = $ENV{EDITOR};
+$editor = 'vi' unless $editor;
+
+my $default_priority = 50;
+
+my $force;
+my $force_prio;
+GetOptions(
+  "argsdir=s"  => \$argsdir,
+  "availdir=s" => \$availdir,
+  "force"      => \$force,
+  "priority=i" => \$force_prio,
+  "help"       => \&help,
+  "version"    => \&version
+) or die("Error in command line arguments\n");
+
+{
+  my %configfiles;
+  foreach my $file (<"$availdir/*.conf">) {
+
+    # Try 50-name.conf
+    my ($priority, $name) = basename($file) =~ /^([0-9]*?)-(.*?).conf$/;
+
+    # Try name.conf
+    ($name) = basename($file) =~ /^(.*?).conf$/ unless $name;
+    $priority = $default_priority unless $priority;
+
+    $configfiles{$name}{available} = $file;
+    $configfiles{$name}{priority} = $priority;
+  }
+
+  foreach my $file (<"$argsdir/*.conf">) {
+
+    # Try 50-name.conf
+    my ($priority, $name) = basename($file) =~ /^([0-9]*?)-(.*?).conf$/;
+
+    # Try name.conf
+    ($name) = basename($file) =~ /^(.*?).conf$/ unless $name;
+    $priority = $default_priority unless $priority;
+
+    $configfiles{$name}{enabled} = $file;
+    $configfiles{$name}{priority} = $priority;
+  }
+
+  if ($ARGV[1]) {
+    if ($ARGV[0] eq 'disable') { shift(@ARGV); disable(\%configfiles, @ARGV); }
+    elsif ($ARGV[0] eq 'edit') { edit(\%configfiles, $ARGV[1]); }
+    elsif ($ARGV[0] eq 'enable') { shift(@ARGV); enable(\%configfiles, @ARGV); }
+    elsif ($ARGV[0] eq 'list') {
+      if ($ARGV[1] eq '--enabled') { list_enabled(\%configfiles); }
+      elsif ($ARGV[1] eq '--disabled') {
+        list_disabled(\%configfiles);
+      }
+      else { die("Unknown parameter $ARGV[1]\n") }
+    }
+    else { die("Unknown command $ARGV[0]\n") }
+  }
+  elsif ($ARGV[0]) {
+    if    ($ARGV[0] eq 'list')   { list(\%configfiles); }
+    elsif ($ARGV[0] eq 'status') { status(\%configfiles); }
+    else                         { die("Unknown command $ARGV[0]\n") }
+  }
+  else { status(\%configfiles); }
+
+}
+
+sub status {
+  my $configfiles_ref = shift;
+  print sprintf('%-22s%-10s%s', 'PLUGIN', 'STATE', 'PRIORITY'), "\n";
+
+  foreach my $plugin (sort(keys(%$configfiles_ref))) {
+    print sprintf('%-22s', $plugin);
+
+    if (!$configfiles_ref->{$plugin}->{enabled}) {
+      # Not in $argsdir --> disabled
+      print colored['bright_red bold'], sprintf('%-10s', 'disabled');
+    }
+    elsif (!$configfiles_ref->{$plugin}->{available}) {
+      # Not in $availdir --> static
+      print sprintf('%-10s', 'static');
+    }
+    else {
+      # In both directories --> enabled
+      print colored['bright_green bold'], sprintf('%-10s', 'enabled');
+    }
+
+    print $configfiles_ref->{$plugin}->{priority};
+
+    print "\n";
+  }
+}
+
+sub list {
+  my $configfiles_ref = shift;
+  foreach my $file (sort(keys %$configfiles_ref)) {
+    print "$file\n";
+  }
+}
+
+sub list_enabled {
+  my $configfiles_ref = shift;
+  foreach my $file (sort(keys %$configfiles_ref)) {
+    print "$file\n"
+      if $configfiles_ref->{$file}->{enabled}
+      && $configfiles_ref->{$file}->{available};
+  }
+}
+
+sub list_disabled {
+  my $configfiles_ref = shift;
+  foreach my $file (sort(keys %$configfiles_ref)) {
+    print "$file\n" unless $configfiles_ref->{$file}->{enabled};
+  }
+}
+
+sub enable {
+  my $configfiles_ref = shift;
+  foreach my $plugin (@_) {
+    die("$plugin is unknown\n") unless $configfiles_ref->{$plugin}->{available};
+    my $filename = basename($configfiles_ref->{$plugin}->{available});
+    my $priority = basename($configfiles_ref->{$plugin}->{priority});
+    if ($force_prio) {
+      $priority = $force_prio;
+    }
+
+    # $file may be not the exact filename.
+    unless ($configfiles_ref->{$plugin}->{enabled} && !$force_prio) {
+      symlink(abs2rel("$availdir/$filename", $argsdir), "$argsdir/$priority-$plugin.conf")
+        or die "Cannot create symlink to $argsdir/$priority-$plugin.conf\n";
+    }
+    else {
+      die("$availdir/$filename is already linked to $argsdir");
+    }
+  }
+}
+
+sub disable {
+  my $configfiles_ref = shift;
+  foreach my $plugin (@_) {
+    die("$plugin is unknown or already disabled\n") unless $configfiles_ref->{$plugin}->{enabled};
+    my $filename = basename($configfiles_ref->{$plugin}->{enabled});
+
+    # Unlink only if it is a symlink or --force is set.
+    if (-l "$argsdir/$filename" or $force) {
+      unlink("$argsdir/$filename") or die("Cannot delete $filename\n");
+    }
+    else {
+      die("$filename is not a symlink. Use --force to disable it anyways\n");
+    }
+  }
+}
+
+sub edit {
+  my $configfiles_ref = shift;
+  my $plugin          = shift;
+
+  my $filepath;
+  $filepath = $configfiles_ref->{$plugin}->{available}
+    or $filepath = $configfiles_ref->{$plugin}->{enabled}
+    or die("$plugin is unknown\n");
+
+  # Open new tempfile writable, enable autodelete before program exit
+  my ($tmp_write, $tmpfile) = tempfile("/tmp/$plugin-XXXX", UNLINK => 1);
+
+  # Open config file (readable)
+  open(my $conf_read, '<', $filepath) or die "Couldn't open $filepath, $!\n";
+  while (<$conf_read>) {
+    unless ($_ =~ /^\n$/) {
+      print $tmp_write $_;
+    }
+  }
+  close($conf_read);        # Close config file
+  print $tmp_write "\n";    # One newline to separate config from info
+
+  # Open STDOUT of vdr
+  open(my $vdr, '-|', 'vdr', '-P', $plugin, '-h');
+  my $reachedPlugin;
+  while (<$vdr>) {
+    $reachedPlugin = 1 if $_ =~ /^$plugin/;
+    print $tmp_write "#$PROGNAME $_" if $reachedPlugin or $plugin eq 'vdr';
+  }
+  close($vdr);              # Close STDOUT of vdr
+
+  system($editor, $tmpfile);    # Open tempfile in $editor
+
+  # Open tempfile (readable)
+  open(my $tmp_read, '<', $tmpfile);
+
+  # Open config file (writable)
+  open(my $conf_write, '>', $filepath) or die "Couldn't open $filepath, $!\n";
+  while (<$tmp_read>) {
+    unless ($_ =~ /^#$PROGNAME/ or $_ =~ /^\n$/)
+    {                           # Skip our own lines and empty lines
+      print $conf_write $_;
+    }
+  }
+  close($conf_read);            # Close config file
+}
+
+sub help {
+  Pod::Simple::Text->filter($0);
+  exit;
+}
+
+sub version {
+  print "$PROGNAME $VERSION\n";
+  exit;
+}
+
+__END__
+
+=head1 NAME
+
+vdrctl - Control vdr config-files
+
+=head1 DESCRIPTION
+
+B<vdrctl> adds/removes symlinks or list the available or active config-files of vdr.
+
+In the following ARGSDIR is the configured conf.d path or read by pkg-config
+
+ARGSDIR is /etc/vdr/conf.d
+
+AVAILDIR is /etc/vdr/conf.d/../conf.avail
+
+=head2 Global options
+
+=over 5
+
+=item B<--force>
+
+force deleting static files in ARGSDIR
+
+=item B<--priority>=<n>
+
+use <n> as priority instead of the one coded in the filename
+
+=item B<--argsdir>=<directory>
+
+read config-files from <directory> instead of ARGSDIR
+
+=item B<--availdir>=<directory>
+
+read config-files from <directory> instead of AVAILDIR
+
+=item B<--help>
+
+Display this help and exit
+
+=item B<--version>
+
+Output version information and exit
+
+=back
+
+=head2 Commands
+
+=over 5
+
+=item B<list>
+
+Show all available config-files
+
+=over 5
+
+=item B<--enabled>
+
+Show all enabled config-files
+
+=item B<--disabled>
+
+Show all disabled config-files
+
+=back
+
+=item B<enable> <filename> ...
+
+Enable the config-files by creating symlinks at the ARGSDIR
+
+=item B<disable> <filename> ...
+
+Disable the config-files by removing the symlinks from ARGSDIR
+
+=item B<status>
+
+Show all available config-files and their current status (enabled, disabled, static)
+
+=item B<edit> <filename>
+
+Start an editor to allow modifications to the selected config-file
+
+=back

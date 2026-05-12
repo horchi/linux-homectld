@@ -1,0 +1,41 @@
+_vdrctl()
+{
+	local cur prev opts args
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+	#
+	# The basic options we'll complete.
+	#
+	opts="list enable disable edit --argsdir --availdir --help --version"
+	args="--enabled --disabled"
+
+	#
+	# Complete the arguments to some of the basic commands.
+	#
+	case "${prev}" in
+	list)
+		COMPREPLY=( $(compgen -W "${args}" -- ${cur}) )
+		return 0
+		;;
+	edit)
+		COMPREPLY=( $(compgen -W "$(vdrctl list)" -- ${cur}) )
+		return 0
+		;;
+	enable)
+		COMPREPLY=( $(compgen -W "$(vdrctl list --disabled)" -- ${cur}) )
+		return 0
+		;;
+	disable)
+		COMPREPLY=( $(compgen -W "$(vdrctl list --enabled)" -- ${cur}) )
+		return 0
+		;;
+	*)
+		;;
+	esac
+
+	COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
+	return 0
+}
+complete -F _vdrctl vdrctl

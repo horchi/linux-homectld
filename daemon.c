@@ -2367,8 +2367,6 @@ int Daemon::process(bool force, bool signal)
 
       tell(eloLua, "LUA: Processing '%s'", key);
 
-      // double oldValue = sensors[type][address].value;
-
       if (!sensors[type][address].last)
          getConfigItem(key, sensors[type][address].value, 0);
 
@@ -2393,7 +2391,7 @@ int Daemon::process(bool force, bool signal)
             if (sensor.changedAt <= sensors[type][address].changedAt)
                continue;
 
-            // check only about varValue until varLast has the same sting inside
+            // check only about 'varValue' until 'varLast' has the same sting inside
 
             if (expression.find(varValue) == std::string::npos)   // if (!expression.contains(varValue)) // --> C++23
                continue;

@@ -49,3 +49,12 @@ install:
 	fi
 	install --mode=755 -D etc/logrotate.d/* $(DESTDIR)/etc/logrotate.d/
 	install --mode=664 -D etc/systemd/* $(SYSTEMDDEST)/
+   ifdef VDR
+	   $(MAKE) install-vdr
+   endif
+
+install-vdr:
+	@echo install vdr specials
+	install --mode=755 -D contrib/vdrctl $(BINDEST)/
+		install --mode=644 -D contrib/vdrctl.completion $(DESTDIR)/etc/bash_completion.d/vdrctl
+	install --mode=644 -D contrib/dvb-demod-m88ds3103.fw $(DESTDIR)/lib/firmware/

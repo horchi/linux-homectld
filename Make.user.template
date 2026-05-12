@@ -2,6 +2,7 @@
 WOMO = 1
 #MOPEKA = 1
 #THETFORD = 1
+#VDR = 1
 
 INIT_AFTER = mysql.service
 ETH_IFACE = eth0

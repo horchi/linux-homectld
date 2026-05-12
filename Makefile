@@ -60,7 +60,9 @@ $(DEPFILE): Makefile
 		$(MAKEDEP) $(CFLAGS) $$file >> $(DEPFILE) 2>/dev/null || true; \
 	done
 
+ifeq ($(filter clean dist build,$(MAKECMDGOALS)),)
 -include $(DEPFILE)
+endif
 
 # git revision
 

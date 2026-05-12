@@ -2438,13 +2438,13 @@ int Daemon::process(bool force, bool signal)
       // call LUA script
 
       std::vector<std::string> arguments;
+      char luaRef[64]; snprintf(luaRef, sizeof(luaRef), "%s:0x%02lx", type.c_str(), address);
       Lua::Result res;
 
       lua.push([&](sol::state& s) { s["signal"] = signal; });
 
-      if (lua.executeExpression(expression.c_str(), arguments, res) != success)
+      if (lua.executeExpression(expression.c_str(), arguments, res, luaRef) != success)
       {
-         tell(eloAlways, "Error: Calling LUA '%s:0x%ld failed", type.c_str(), address);
          free(key);
          continue;
       }

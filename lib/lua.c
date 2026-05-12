@@ -185,7 +185,7 @@ int Lua::executeFunction(const char* function, const std::vector<std::string>& a
 // Execute LUA String
 //**************************************************************************
 
-int Lua::executeExpression(const char* expression, const std::vector<std::string>& arguments, Result& res)
+int Lua::executeExpression(const char* expression, const std::vector<std::string>& arguments, Result& res, const char* reference)
 {
    res = {};
 
@@ -203,7 +203,8 @@ int Lua::executeExpression(const char* expression, const std::vector<std::string
 
       if (lua_pcall(handle, 0, 0, 0) != LUA_OK)
       {
-         tell(eloAlways, "Error: Lua load execute: '%s'", lua_tostring(handle, -1));
+         res.sValue = lua_tostring(handle, -1);
+         tell(eloAlways, "Error: Lua load execute [%s]: '%s'", reference ? reference : "?", res.sValue.c_str());
          lua_pop(handle, lua_gettop(handle));
          return fail;
       }
@@ -254,7 +255,8 @@ int Lua::executeExpression(const char* expression, const std::vector<std::string
       }
       else
       {
-         tell(eloAlways, "Error: Lua execute '%s': %s", expression, lua_tostring(handle, -1));
+         res.sValue = lua_tostring(handle, -1);
+         tell(eloAlways, "Error: Lua execute [%s]: %s", reference ? reference : "?", res.sValue.c_str());
          lua_pop(handle, lua_gettop(handle));
          return fail;
       }
@@ -263,7 +265,8 @@ int Lua::executeExpression(const char* expression, const std::vector<std::string
    {
       free(code);
 
-      tell(eloAlways, "Error: '%s'", lua_tostring(handle, lua_gettop(handle)));
+      res.sValue = lua_tostring(handle, lua_gettop(handle));
+      tell(eloAlways, "Error: Lua parse [%s]: '%s'", reference ? reference : "?", res.sValue.c_str());
       lua_pop(handle, lua_gettop(handle));
       return fail;
    }
@@ -418,7 +421,7 @@ int LuaSol::executeFunction(const char* function, const std::vector<std::string>
 // LuaSol – Execute Expression
 //**************************************************************************
 
-int LuaSol::executeExpression(const char* expression, const std::vector<std::string>& arguments, Result& res)
+int LuaSol::executeExpression(const char* expression, const std::vector<std::string>& arguments, Result& res, const char* reference)
 {
    res = {};
 
@@ -433,7 +436,8 @@ int LuaSol::executeExpression(const char* expression, const std::vector<std::str
    if (!loadResult.valid())
    {
       sol::error err = loadResult;
-      tell(eloAlways, "Error: Lua load execute: '%s'", err.what());
+      res.sValue = err.what();
+      tell(eloAlways, "Error: Lua load execute [%s]: '%s'", reference ? reference : "?", res.sValue.c_str());
       return fail;
    }
 
@@ -441,7 +445,8 @@ int LuaSol::executeExpression(const char* expression, const std::vector<std::str
 
    if (!fn.valid())
    {
-      tell(eloAlways, "Error: 'execute' function not defined");
+      res.sValue = "'execute' function not defined";
+      tell(eloAlways, "Error: %s", res.sValue.c_str());
       return fail;
    }
 
@@ -450,7 +455,8 @@ int LuaSol::executeExpression(const char* expression, const std::vector<std::str
    if (!pfr.valid())
    {
       sol::error err = pfr;
-      tell(eloAlways, "Error: Lua execute '%s': %s", expression, err.what());
+      res.sValue = err.what();
+      tell(eloAlways, "Error: Lua execute [%s]: %s", reference ? reference : "?", res.sValue.c_str());
       return fail;
    }
 

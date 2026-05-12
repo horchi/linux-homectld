@@ -11,6 +11,30 @@
 var activeSection = '';
 var ioSections = {};
 var changes = false;
+var cvEditor = null;
+
+CodeMirror.defineSimpleMode('lua', {
+   start: [
+      {regex: /--\[\[/,                                          token: 'comment',  next: 'comment_ml'},
+      {regex: /--.*$/,                                           token: 'comment'},
+      {regex: /"(?:[^\\"]|\\.)*"?/,                             token: 'string'},
+      {regex: /'(?:[^\\']|\\.)*'?/,                             token: 'string'},
+      {regex: /\[\[/,                                            token: 'string',   next: 'string_ml'},
+      {regex: /(?:and|break|do|else|elseif|end|false|for|function|goto|if|in|local|nil|not|or|repeat|return|then|true|until|while)\b/, token: 'keyword'},
+      {regex: /[+\-*\/\^%#<>=&|~:,;.(){}\[\]]/,                token: 'operator'},
+      {regex: /0x[0-9a-fA-F]+|[0-9]+\.?[0-9]*(?:[eE][+\-]?[0-9]+)?/, token: 'number'},
+      {regex: /[a-zA-Z_][a-zA-Z0-9_]*/,                        token: 'variable'},
+   ],
+   comment_ml: [
+      {regex: /.*?\]\]/,  token: 'comment', next: 'start'},
+      {regex: /.*/,       token: 'comment'},
+   ],
+   string_ml: [
+      {regex: /.*?\]\]/,  token: 'string',  next: 'start'},
+      {regex: /.*/,       token: 'string'},
+   ],
+   meta: { lineComment: '--' }
+});
 
 // ----------------------------------------------------------------
 // Sensor Setup
@@ -823,7 +847,6 @@ function sensorScSetup(type, address)
                                   .append($('<textarea></textarea>')
                                           .attr('id', 'settings')
                                           .addClass('rounded-border inputSetting inputSettingScript')
-                                          .css('height', '100px')
                                           .css('resize', 'none')
                                           .val(JSON.stringify(valueFacts[key].settings, undefined, 3))
                                          )))
@@ -836,17 +859,12 @@ function sensorScSetup(type, address)
       resizable: true,
       closeOnEscape: true,
       hide: "fade",
-      width: "80%",
+      width: Math.round($(window).width() * 0.8),
+      height: Math.round($(window).height() * 0.5),
       title: "Skript Argumente für '" + title + "'",
       open: function() {
          calSensorType = type;
          calSensorAddress = parseInt(address);
-      },
-      resize: function() {
-         let other = 0;
-         $(this).find('.settingsDialogContent > div:not(.textarea-row)').each(function() { other += $(this).outerHeight(true); });
-         let labelH = $(this).find('.textarea-row > span:first').outerHeight(true) || 0;
-         $('#settings').css('height', Math.max(60, $(this).height() - other - labelH - 10) + 'px');
       },
       buttons: {
          'Abbrechen': function () {
@@ -883,6 +901,8 @@ function sensorCvSetup(type, address)
       return;
    }
 
+   var luaCode = (valueFacts[key].settings && valueFacts[key].settings.lua) ? valueFacts[key].settings.lua : '';
+
    $(form).append($('<div></div>')
                   .addClass('settingsDialogContent')
                   .append($('<div></div>')
@@ -890,15 +910,11 @@ function sensorCvSetup(type, address)
                           .append($('<span></span>')
                                   .html('Skript'))
                           .append($('<span></span>')
-                                  .append($('<textarea></textarea>')
-                                          .attr('id', 'settings')
-                                          .addClass('rounded-border inputSetting inputSettingScript')
-                                          .css('height', '100px')
-                                          .css('resize', 'none')
-                                          .val((valueFacts[key].settings && valueFacts[key].settings.lua) ? valueFacts[key].settings.lua : '')
-                                         )))
+                                  .append($('<div></div>')
+                                          .attr('id', 'lua-editor'))))
                   .append($('<div></div>')
                           .attr('id', 'luaCheckResult')
+                          .css('font-size', 'large')
                           .addClass('luaCheckResult'))
                  );
 
@@ -909,17 +925,24 @@ function sensorCvSetup(type, address)
       resizable: true,
       closeOnEscape: true,
       hide: "fade",
-      width: "80%",
+      width: Math.round($(window).width() * 0.8),
+      height: Math.round($(window).height() * 0.5),
       title: "LUA Skript für '" + title + "'",
       open: function() {
          calSensorType = type;
          calSensorAddress = parseInt(address);
-      },
-      resize: function() {
-         let other = 0;
-         $(this).find('.settingsDialogContent > div:not(.textarea-row)').each(function() { other += $(this).outerHeight(true); });
-         let labelH = $(this).find('.textarea-row > span:first').outerHeight(true) || 0;
-         $('#settings').css('height', Math.max(60, $(this).height() - other - labelH - 10) + 'px');
+         cvEditor = CodeMirror(document.getElementById('lua-editor'), {
+            value:         luaCode,
+            mode:          'lua',
+            lineNumbers:   true,
+            indentUnit:    3,
+            tabSize:       3,
+            indentWithTabs: false,
+            lineWrapping:  false,
+            autofocus:     true,
+         });
+         cvEditor.setSize('100%', '100%');
+         setTimeout(() => cvEditor.refresh(), 50);
       },
       buttons: {
          'Abbrechen': function () {
@@ -928,7 +951,7 @@ function sensorCvSetup(type, address)
          'Syntax prüfen': function () {
             $('#luaCheckResult').text('...').css('color', '');
             socket.send({ "event" : "checkluascript", "object" : {
-               'lua': $('#settings').val()
+               'lua': cvEditor.getValue()
             }});
          },
          'Speichern': function () {
@@ -936,14 +959,14 @@ function sensorCvSetup(type, address)
                'type':    calSensorType,
                'address': calSensorAddress,
                'settings': {
-                  'lua': $('#settings').val()
+                  'lua': cvEditor.getValue()
                }
             }});
-
             $(this).dialog('close');
          }
       },
       close: function() {
+         if (cvEditor) { cvEditor.toTextArea(); cvEditor = null; }
          calSensorType = '';
          calSensorAddress = -1;
          $(this).dialog('destroy').remove();
@@ -956,16 +979,20 @@ function showLuaCheckResult(obj)
    let div = $('#luaCheckResult');
    if (!div.length) return;
 
+   if (cvEditor)
+      cvEditor.eachLine(line => cvEditor.removeLineClass(line, 'background', 'lua-error-line'));
+
    if (obj.status === 0) {
-      div.text('OK').css('color', 'green');
+      div.text('OK').css('color', 'lightgreen');
    } else {
       let msg = obj.message || 'Fehler';
       let m = msg.match(/:(\d+): (.+)/);
       if (m) {
          let line = parseInt(m[1]) - 1;
          msg = 'Zeile ' + line + ': ' + m[2];
+         if (cvEditor) cvEditor.addLineClass(line, 'background', 'lua-error-line');
       }
-      div.text(msg).css('color', 'red');
+      div.text(msg).css('color', '#ff6b6b');
    }
 }
 

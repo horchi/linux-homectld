@@ -58,7 +58,7 @@ class Lua
       int load(const char* script);
       int syntaxCheck(const char* script, std::string& error);
       int executeFunction(const char* function, const std::vector<std::string>& arguments, Result& res);
-      int executeExpression(const char* expression, const std::vector<std::string>& arguments, Result& res);
+      int executeExpression(const char* expression, const std::vector<std::string>& arguments, Result& res, const char* reference = nullptr);
 
    protected:
 
@@ -106,7 +106,7 @@ class LuaSol
       int load(const char* script);
       int syntaxCheck(const char* script, std::string& error);
       int executeFunction(const char* function, const std::vector<std::string>& arguments, Result& res);
-      int executeExpression(const char* expression, const std::vector<std::string>& arguments, Result& res);
+      int executeExpression(const char* expression, const std::vector<std::string>& arguments, Result& res, const char* reference = nullptr);
 
    protected:
 

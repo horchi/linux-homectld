@@ -12,6 +12,7 @@ var activeSection = '';
 var ioSections = {};
 var changes = false;
 var cvEditor = null;
+var doEditor = null;
 
 CodeMirror.defineSimpleMode('lua', {
    start: [
@@ -644,42 +645,45 @@ function sensorDoSetup(type, address)
                           .append($('<span></span>')
                                   .html('Skript'))
                           .append($('<span></span>')
-                                  .append($('<textarea></textarea>')
-                                          .attr('id', 'scriptDo')
-                                          .addClass('rounded-border inputSetting inputSettingScript')
-                                          .css('height', '100px')
-                                          .css('resize', 'none')
-                                          .val(valueFacts[key].settings ? valueFacts[key].settings.script : '')
-                                         )))
+                                  .append($('<div></div>')
+                                          .addClass('lua-cm-editor'))))
                          );
 
+   var doScript = valueFacts[key].settings ? valueFacts[key].settings.script : '';
    var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
 
    $(form).dialog({
       modal: true,
       resizable: true,
       closeOnEscape: true,
-      width: "500px",
       hide: "fade",
+      width: Math.round($(window).width() * 0.8),
+      height: Math.round($(window).height() * 0.5),
       title: "DO settings '" + title + '"',
       open: function() {
          calSensorType = type;
          calSensorAddress = address;
-      },
-      resize: function() {
-         let other = 0;
-         $(this).find('.settingsDialogContent > div:not(.textarea-row)').each(function() { other += $(this).outerHeight(true); });
-         let labelH = $(this).find('.textarea-row > span:first').outerHeight(true) || 0;
-         $('#scriptDo').css('height', Math.max(60, $(this).height() - other - labelH - 10) + 'px');
+         doEditor = CodeMirror($(form).find('.lua-cm-editor')[0], {
+            value:          doScript,
+            mode:           'lua',
+            lineNumbers:    true,
+            indentUnit:     3,
+            tabSize:        3,
+            indentWithTabs: false,
+            lineWrapping:   false,
+            autofocus:      true,
+            extraKeys:      { 'Esc': () => $(form).dialog('close') },
+         });
+         doEditor.setSize('100%', '100%');
+         setTimeout(() => doEditor.refresh(), 50);
       },
       buttons: {
          'Abbrechen': function () {
             $(this).dialog('close');
          },
          'Speichern': function () {
-
             let addr = parseInt($('#feedbackIo').val().split(":")[1]);
-            let type = $('#feedbackIo').val().split(":")[0];
+            let fbType = $('#feedbackIo').val().split(":")[0];
 
             socket.send({ "event" : "storesensorsetup", "object" : {
                'type': calSensorType,
@@ -687,17 +691,17 @@ function sensorDoSetup(type, address)
                'settings': {
                   'invert': $('#invertDo').is(':checked'),
                   'impulse': $('#impulseDo').is(':checked'),
-                  'script': $('#scriptDo').val(),
-                  'feedbackInType': type,
+                  'script': doEditor.getValue(),
+                  'feedbackInType': fbType,
                   'feedbackInAddress': addr,
                   'fct' : valueFacts[key].settings ? valueFacts[key].settings.fct : ''
                }
             }});
-
             $(this).dialog('close');
          }
       },
       close: function() {
+         doEditor = null;
          calSensorType = '';
          calSensorAddress = -1;
          $(this).dialog('destroy').remove();
@@ -911,7 +915,7 @@ function sensorCvSetup(type, address)
                                   .html('Skript'))
                           .append($('<span></span>')
                                   .append($('<div></div>')
-                                          .attr('id', 'lua-editor'))))
+                                          .addClass('lua-cm-editor'))))
                   .append($('<div></div>')
                           .attr('id', 'luaCheckResult')
                           .css('font-size', 'large')
@@ -931,7 +935,7 @@ function sensorCvSetup(type, address)
       open: function() {
          calSensorType = type;
          calSensorAddress = parseInt(address);
-         cvEditor = CodeMirror(document.getElementById('lua-editor'), {
+         cvEditor = CodeMirror($(form).find('.lua-cm-editor')[0], {
             value:         luaCode,
             mode:          'lua',
             lineNumbers:   true,
@@ -940,6 +944,7 @@ function sensorCvSetup(type, address)
             indentWithTabs: false,
             lineWrapping:  false,
             autofocus:     true,
+            extraKeys:     { 'Esc': () => $(form).dialog('close') },
          });
          cvEditor.setSize('100%', '100%');
          setTimeout(() => cvEditor.refresh(), 50);
@@ -966,7 +971,7 @@ function sensorCvSetup(type, address)
          }
       },
       close: function() {
-         if (cvEditor) { cvEditor.toTextArea(); cvEditor = null; }
+         cvEditor = null;
          calSensorType = '';
          calSensorAddress = -1;
          $(this).dialog('destroy').remove();

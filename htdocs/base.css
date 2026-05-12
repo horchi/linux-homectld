@@ -1361,6 +1361,7 @@ table.tableMultiCol td
 {
     background: linear-gradient(to bottom right, #00000096, black);
     padding: var(--containerPadding);
+    /*width: max-content;*/
     /*width: fit-content;*/
     /*width: -webkit-fill-available;
     width: -moz-available;*/
@@ -1573,7 +1574,7 @@ table.tableMultiCol td
     height: auto !important;
 }
 
-#lua-editor
+.lua-cm-editor
 {
     flex: 1;
     min-height: 0;
@@ -1581,7 +1582,7 @@ table.tableMultiCol td
     flex-direction: column;
 }
 
-#lua-editor .CodeMirror
+.lua-cm-editor .CodeMirror
 {
     flex: 1;
     height: 100%;
@@ -1593,10 +1594,10 @@ table.tableMultiCol td
     border-radius: var(--borderRadius);
 }
 
-#lua-editor .CodeMirror-gutters  { background: #252526; border-right: 1px solid #3e3e42; }
-#lua-editor .CodeMirror-linenumber { color: #858585; }
-#lua-editor .CodeMirror-cursor   { border-left: 2px solid #aeafad; }
-#lua-editor .CodeMirror-selected { background: #264f78; }
+.lua-cm-editor .CodeMirror-gutters   { background: #252526; border-right: 1px solid #3e3e42; }
+.lua-cm-editor .CodeMirror-linenumber { color: #858585; }
+.lua-cm-editor .CodeMirror-cursor    { border-left: 2px solid #aeafad; }
+.lua-cm-editor .CodeMirror-selected  { background: #264f78; }
 
 .cm-keyword  { color: #569cd6; font-weight: bold; }
 .cm-comment  { color: #6a9955; font-style: italic; }

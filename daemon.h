@@ -9,6 +9,7 @@
 #pragma once
 
 #include <queue>
+#include <set>
 #include <jansson.h>
 
 #include "lib/common.h"
@@ -723,7 +724,9 @@ class Daemon : public cWebInterface
 
       std::map<std::string,json_t*> jsonSensorList;
 
-      Lua lua;
+      LuaSol lua;
+      std::map<std::string, std::set<std::pair<std::string,int>>> luaDeps;
+      std::string luaCurrentKey;
 
       // GPIO
 

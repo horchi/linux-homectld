@@ -566,76 +566,6 @@ function sensorGpioSetup(type, address)
       sensorDoSetup(type, address);
 }
 
-function sensorVarSetup(type, address)
-{
-   calSensorType = type;
-   calSensorAddress = address;
-
-   let key = toKey(calSensorType, parseInt(calSensorAddress));
-   let form = document.createElement("div");
-
-   if (valueFacts[key] == null) {
-      console.log("Sensor ", key, "undefined");
-      return;
-   }
-
-   $(form).append($('<div></div>')
-                  .addClass('settingsDialogContent')
-                  .append($('<div></div>')
-                          .addClass('textarea-row')
-                          .append($('<span></span>')
-                                  .html('Skript'))
-                          .append($('<span></span>')
-                                  .append($('<textarea></textarea>')
-                                          .attr('id', 'scriptVar')
-                                          .addClass('rounded-border inputSetting inputSettingScript')
-                                          .css('height', '100px')
-                                          .css('resize', 'none')
-                                          .val(valueFacts[key].settings ? valueFacts[key].settings.script : '')
-                                         ))));
-   var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
-
-   $(form).dialog({
-      modal: true,
-      resizable: true,
-      closeOnEscape: true,
-      width: "500px",
-      hide: "fade",
-      title: "DO settings '" + title + '"',
-      open: function() {
-         calSensorType = type;
-         calSensorAddress = address;
-      },
-      resize: function() {
-         let other = 0;
-         $(this).find('.settingsDialogContent > div:not(.textarea-row)').each(function() { other += $(this).outerHeight(true); });
-         let labelH = $(this).find('.textarea-row > span:first').outerHeight(true) || 0;
-         $('#scriptVar').css('height', Math.max(60, $(this).height() - other - labelH - 10) + 'px');
-      },
-      buttons: {
-         'Abbrechen': function () {
-            $(this).dialog('close');
-         },
-         'Speichern': function () {
-            socket.send({ "event" : "storesensorsetup", "object" : {
-               'type': calSensorType,
-               'address': parseInt(calSensorAddress),
-               'settings': {
-                  'script': $('#scriptVar').val()
-               }
-            }});
-
-            $(this).dialog('close');
-         }
-      },
-      close: function() {
-         calSensorType = '';
-         calSensorAddress = -1;
-         $(this).dialog('destroy').remove();
-      }
-   });
-}
-
 function sensorDoSetup(type, address)
 {
    calSensorType = type;
@@ -926,7 +856,7 @@ function sensorScSetup(type, address)
             socket.send({ "event" : "storesensorsetup", "object" : {
                'type':     calSensorType,
                'address':  calSensorAddress,
-               'settings': $('#settings').val().replace(/\s\s+/g, ' ')
+               'settings': JSON.parse($('#settings').val().replace(/\s\s+/g, ' '))
             }});
 
             $(this).dialog('close');

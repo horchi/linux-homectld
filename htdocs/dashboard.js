@@ -23,6 +23,19 @@ var jDashboards = [];
 const symbolColorDefault = '#ffffff';
 const symbolOnColorDefault = '#059eeb';
 
+function applyMarquee(el) {
+   if (!el) return;
+   el.classList.remove('marquee-active');
+   const span = el.querySelector('span.marquee-text');
+   const text = span ? span.textContent : el.textContent;
+   el.textContent = text;
+   if (el.scrollWidth > el.clientWidth) {
+      el.style.setProperty('--mq', (el.scrollWidth - el.clientWidth) + 'px');
+      el.innerHTML = '<span class="marquee-text">' + text + '</span>';
+      el.classList.add('marquee-active');
+   }
+}
+
 function initDashboard(update = false)
 {
    // console.log("initDashboard " + JSON.stringify(allSensors, undefined, 4));
@@ -1708,10 +1721,14 @@ function updateWidget(sensor, refresh, widget)
 
       $("#button" + fact.type + fact.address).css('color', color);
 
-      if (widget.widgettype == 9)
+      if (widget.widgettype == 9) {
          $("#value" + fact.type + fact.address).text(sensor.value.toFixed(widget.unit == '%' || widget.unit == '' ? 0 : 2) + (widget.unit != '' ? ' ' : '') + widget.unit);
-      else if (widget.widgettype == 12 && sensor.text != null)
+         applyMarquee(document.getElementById('value' + fact.type + fact.address));
+      }
+      else if (widget.widgettype == 12 && sensor.text != null) {
          $("#value" + fact.type + fact.address).text(sensor.text.replace(/(?:\r\n|\r|\n)/g, '<br>'));
+         applyMarquee(document.getElementById('value' + fact.type + fact.address));
+      }
 
 //      let prs = $('#progressBar' + fact.type + fact.address);
 //      $('#progress' + fact.type + fact.address).css('display', fact.options & 0x02 && sensor.value ? 'block' : 'none');

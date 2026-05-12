@@ -45,12 +45,20 @@ GPIOTSTTARGET = gpiotst
 all: $(TARGET) $(W1TARGET) $(BMSTARGET) $(VOTROTARGET) $(VICTRONTARGET) $(I2CTARGET) $(ARDUINO_IF_CMD)
 
 # auto dependencies
-
-MAKEDEP = $(CXX) -MM -MG
+MAKEDEP = g++ -std=c++2a -x c++ -MM -MG
 DEPFILE = .dependencies
 
+#$(DEPFILE): Makefile
+#	@echo Making dependencies "$(*F)" ...
+#	$(MAKEDEP) $(CFLAGS) $(OBJS:%.o=%.c) $(VICTRONOBJS:%.o=%.c) > $@
+
+
 $(DEPFILE): Makefile
-	@$(MAKEDEP) $(CFLAGS) $(OBJS:%.o=%.c) $(VICTRONOBJS:%.o=%.c) > $@
+	@echo Making dependencies ...
+	@rm -f $(DEPFILE)
+	@for file in $(OBJS:%.o=%.c) $(VICTRONOBJS:%.o=%.c); do \
+		$(MAKEDEP) $(CFLAGS) $$file >> $(DEPFILE) 2>/dev/null || true; \
+	done
 
 -include $(DEPFILE)
 

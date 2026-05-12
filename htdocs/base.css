@@ -1805,6 +1805,25 @@ table.tableMultiCol td
     font-weight: bold;
     align-self: center;
     justify-self: center;
+    overflow: hidden;
+    white-space: nowrap;
+    max-width: 100%;
+}
+
+.symbol-value.marquee-active .marquee-text
+{
+    display: inline-block;
+    animation: mq-scroll 6s ease-in-out infinite;
+}
+
+@keyframes mq-scroll
+{
+    0%   { transform: translateX(0); }
+    20%  { transform: translateX(0); }
+    45%  { transform: translateX(calc(-1 * var(--mq, 0px))); }
+    55%  { transform: translateX(calc(-1 * var(--mq, 0px))); }
+    80%  { transform: translateX(0); }
+    100% { transform: translateX(0); }
 }
 
 .chart-value

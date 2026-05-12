@@ -551,6 +551,37 @@ int Daemon::init()
    addValueFact(2, "WEA", 1, "Windy App", "", "");
    addValueFact(3, "WEA", 1, "Windy App Map", "", "");
 
+   lua.configure([this](sol::state& s) {
+      s.new_usertype<SensorData>("SensorData",
+         "value",     sol::readonly(&SensorData::value),
+         "state",     sol::readonly(&SensorData::state),
+         "text",      sol::readonly(&SensorData::text),
+         "last",      sol::readonly(&SensorData::last),
+         "changedAt", sol::readonly(&SensorData::changedAt),
+         "kind",      sol::readonly(&SensorData::kind),
+         "name",      sol::readonly(&SensorData::name),
+         "title",     sol::readonly(&SensorData::title),
+         "unit",      sol::readonly(&SensorData::unit),
+         "valid",     sol::readonly(&SensorData::valid));
+
+      s.set_function("watch", [this](const std::string& wType, int wAddr) {
+         luaDeps[luaCurrentKey].insert({wType, wAddr});
+      });
+
+      s.set_function("tell", [](int level, const std::string& msg) {
+         tell(static_cast<Eloquence>(level), "%s", msg.c_str());
+      });
+
+      s["eloAlways"] = (int)eloAlways;
+      s["eloInfo"]   = (int)eloInfo;
+      s["eloDebug"]  = (int)eloDebug;
+      s["eloLua"]    = (int)eloLua;
+   });
+
+   lua.push([&](sol::state& s) {
+      s["sensors"] = &sensors;
+   });
+
    initialized = true;
 
    return success;
@@ -2370,37 +2401,30 @@ int Daemon::process(bool force, bool signal)
       if (!sensors[type][address].last)
          getConfigItem(key, sensors[type][address].value, 0);
 
-      bool update {false};
+      luaCurrentKey = key;
 
-      for (const auto& [_type, sensorOfType] : sensors)
+      // at first run (luaDeps empty) execute to collect watch() deps
+
+      bool update {luaDeps[luaCurrentKey].empty()};
+
+      // if deps is set check it
+
+      if (!update)
       {
-         for (const auto& [_address, sensor] : sensorOfType)
+         for (const auto& [wType, wAddr] : luaDeps[luaCurrentKey])
          {
-            std::string varValue {"sensor" + _type + std::to_string(_address)};
-            std::string varLast {"sensor" + _type + std::to_string(_address) + "last"};
-
-            if (sensor.kind == "status")
-               lua.pushGlobal(varValue.c_str(), sensor.state);
-            else
-               lua.pushGlobal(varValue.c_str(), sensor.value);
-
-            lua.pushGlobal(varLast.c_str(), sensor.last);
-
-            tell(eloLua, "LUA: pushGlobal(%s, %s), last '%ld'", varValue.c_str(), varLast.c_str(), sensor.last);
-
-            if (sensor.changedAt <= sensors[type][address].changedAt)
+            if (!sensors.count(wType) || !sensors.at(wType).count(wAddr))
                continue;
 
-            // check only about 'varValue' until 'varLast' has the same sting inside
-
-            if (expression.find(varValue) == std::string::npos)   // if (!expression.contains(varValue)) // --> C++23
+            if (sensors.at(wType).at(wAddr).changedAt <= sensors[type][address].changedAt)
                continue;
 
-            tell(eloLua, "LUA: '%s:0x%x' (%s) changed later than '%s:0x%lx' (%s)",
-                 _type.c_str(), _address, l2pTime(sensor.changedAt).c_str(),
+            tell(eloLua, "LUA: '%s:0x%02x' (%s) changed later than '%s:0x%02lx' (%s)",
+                 wType.c_str(), wAddr, l2pTime(sensors.at(wType).at(wAddr).changedAt).c_str(),
                  type.c_str(), address, l2pTime(sensors[type][address].changedAt).c_str());
 
             update = true;
+            break;
          }
       }
 
@@ -2416,7 +2440,7 @@ int Daemon::process(bool force, bool signal)
       std::vector<std::string> arguments;
       Lua::Result res;
 
-      lua.pushGlobal("signal", signal);
+      lua.push([&](sol::state& s) { s["signal"] = signal; });
 
       if (lua.executeExpression(expression.c_str(), arguments, res) != success)
       {

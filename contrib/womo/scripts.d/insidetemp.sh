@@ -1,13 +1,19 @@
 #!/bin/bash
 
-temp=`/usr/local/bin/hhact temp dht_inside`
+# ping and wait up to 1 second to avtivate the sensor
+ping -q -c 1 -W 1 dht >/dev/null
+
+temp=`/usr/local/bin/hhact temp dht`
 temp=`echo ${temp} | sed s/","/"."/g`
+
+VALID="true"
 
 if [[ -z "${temp}" ]]; then
    temp=0
+   VALID="false"
 fi
 
-RESULT="{ \"type\":\"SC\",\"address\":$2,\"kind\":\"value\",\"valid\":true,\"value\":${temp},\"unit\":\"°C\" }"
+RESULT="{ \"type\":\"SC\",\"address\":$2,\"kind\":\"value\",\"valid\":${VALID},\"value\":${temp},\"unit\":\"°C\" }"
 echo -n ${RESULT}
 
 if [ "$1" != "init" ]; then

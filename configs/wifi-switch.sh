@@ -7,6 +7,7 @@ ADDRESS="$2"
 MQTTURL="$3"
 
 LOGGER="logger -t sensormqtt -p kern.warn"
+MSQ_SCRIPT="/usr/local/bin/msq.device"
 
 # ── state ──────────────────────────────────────────────────────────────────────
 
@@ -37,9 +38,18 @@ elif [[ "${COMMAND}" == "toggle" ]]; then
    else
       nmcli radio wifi on
       $LOGGER "wifi-switch.sh: WiFi enabled"
+      MSQ_DEVICE="wlan0"
    fi
+
+   if [ -f "${MSQ_SCRIPT}" ]; then
+      ${MSQ_SCRIPT} -s "${MSQ_DEVICE}"
+      echo "Firewall auf ${MSQ_DEVICE} umgestellt" | tee -a $LOGFILE
+      fi
+
    sleep 2
    exec "$0" status "$ADDRESS" "$MQTTURL"
+   mosquitto_pub --quiet -L ${MQTTURL} -m '{ "action": "trigger", "script": "wifi.sh" }'
+   mosquitto_pub --quiet -L ${MQTTURL} -m '{ "action": "trigger", "msqdevice": "lte.sh" }'
 
 elif [[ "${COMMAND}" == "status" ]]; then
 

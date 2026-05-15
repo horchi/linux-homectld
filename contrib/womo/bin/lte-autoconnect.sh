@@ -1,8 +1,19 @@
 #!/bin/bash
 
 LOGFILE="/var/log/lte.log"
-APN="internet.eplus.de"
-FW_SCRIPT="/usr/local/bin/msq.device"
+MSQ_SCRIPT="/usr/local/bin/msq.device"
+COMMAND="${1}"
+
+# specific settings
+
+ENV_FILE="/etc/default/lte-autoconnect"
+[ -f "${ENV_FILE}" ] && source "${ENV_FILE}"
+
+if [[ -z "${APN}" ]]; then
+   APN="internet.eplus.de"
+fi
+
+echo "LTE: Using APN ${APN}" | tee -a $LOGFILE
 
 # Modem-Index finden
 
@@ -15,7 +26,7 @@ get_modem_idx() {
 do_up() {
    MODEM_IDX=$(get_modem_idx)
    if [ -z "$MODEM_IDX" ]; then
-      echo "FEHLER: Kein Modem gefunden." | tee -a $LOGFILE
+      echo "FEHLER: Kein Modem gefunden" | tee -a $LOGFILE
       exit 1
    fi
 
@@ -43,8 +54,8 @@ do_up() {
 
       # Firewall Masquerading auf LTE setzen
 
-      if [ -f "$FW_SCRIPT" ]; then
-         $FW_SCRIPT -s wwan0
+      if [ -f "${MSQ_SCRIPT}" ]; then
+         ${MSQ_SCRIPT} -s wwan0
          echo "Firewall auf wwan0 umgestellt" | tee -a $LOGFILE
       fi
 
@@ -64,8 +75,8 @@ do_down() {
 
    # Firewall Masquerading zurück auf WLAN setzen ---
 
-   if [ -f "$FW_SCRIPT" ]; then
-      $FW_SCRIPT -s wlan0
+   if [ -f "${MSQ_SCRIPT}" ]; then
+      ${MSQ_SCRIPT} -s wlan0
       echo "Firewall auf wlan0 zurückgestellt" | tee -a $LOGFILE
    fi
 
@@ -129,7 +140,7 @@ do_status() {
 
 # Main
 
-case "$1" in
+case "${COMMAND}" in
    up)
       do_up
       ;;

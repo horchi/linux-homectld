@@ -19,9 +19,32 @@ else
 fi
 
 if [[ "${COMMAND}" == "init" ]]; then
-   PARAMETER='{"cloneable": true, "symbol": "mdi:mdi-router-wireless-off", "symbolOn": "mdi:mdi-router-wireless"}'
-   RESULT="{ \"type\":\"SC\",\"address\":$2,\"kind\":\"status\",\"valid\":true,\"value\":${STATE}, \"parameter\": ${PARAMETER} }"
+
+   PARAMETER=$(jq -n '{
+      cloneable: true,
+      symbol: "mdi:mdi-router-wireless-off",
+      symbolOn: "mdi:mdi-router-wireless",
+      options: {
+         list: ["ip"],
+         example: { ip: "8.8.8.8"}
+         }
+   }')
+
+   RESULT=$(jq -n \
+      --argjson address "$2" \
+      --argjson value "${STATE}" \
+      --argjson param "${PARAMETER}" \
+      '{
+         type: "SC",
+         address: $address,
+         kind: "status",
+         valid: true,
+         value: $value,
+         parameter: $param
+      }')
+
    echo -n ${RESULT}
+
 elif [[ "${COMMAND}" == "toggle" ]]; then
    ${LOGGER} "ping.sh: called with IP: ${IP}"
    mosquitto_pub --quiet -L ${MQTTURL} -m "{ \"type\":\"SC\",\"address\":${ADDRESS},\"kind\":\"status\",\"state\":${STATE} }"

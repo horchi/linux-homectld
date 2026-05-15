@@ -426,8 +426,8 @@ function pwdDialog(onConfirm, message, okBtn = 'Continue', cancelBtn = 'Cancel')
       hide: "fade",
       title: 'Wifi key',
       buttons: {
+         [cancelBtn]: function() { $(this).dialog('close'); },
          [okBtn]:     function() { $(this).dialog('close'); onConfirm($('#pwdDlgValue').val()); },
-         [cancelBtn]: function() { $(this).dialog('close'); }
       },
       close: function() { $(this).dialog('destroy').remove(); }
    });
@@ -1254,7 +1254,6 @@ function showSystemServicesList()
               .append($('<option></option>').val('static').html('Static'))
               .append($('<option></option>').val('masked').html('Masked (Blocked)'))
               .append($('<option></option>').val('inactive').html('Inactive'))
-              .append($('<option></option>').val('disabled').html(''))
               .on('change', function() { updateSystemServiceList(); }));
 
    updateSystemServiceList();

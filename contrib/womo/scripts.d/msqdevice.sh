@@ -11,8 +11,6 @@ if [[ "$1" == "toggle" ]]; then
    else
       ${CMD} -s "wlan0";
    fi
-
-   /bin/systemctl restart fwpn
 fi
 
 dev=`${CMD}`

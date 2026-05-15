@@ -1,0 +1,2 @@
+SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", KERNEL=="end*", NAME="eth0"
+SUBSYSTEM=="net", ACTION=="add", ENV{DEVTYPE}=="wlan", NAME="wlan0"

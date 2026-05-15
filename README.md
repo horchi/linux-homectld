@@ -400,7 +400,7 @@ All known sensors are available as a nested table:
 sensors["TYPE"][address]
 ```
 
-`TYPE` is the sensor type string (e.g. `"AI"`, `"DI"`, `"DO"`, `"CV"`, `"OW"`, `"WEA"`, …).  
+`TYPE` is the sensor type string (e.g. `"AI"`, `"DI"`, `"DO"`, `"CV"`, `"OW"`, `"WEA"`, …).
 `address` is the numeric address of the sensor — you can write it as a **decimal** integer or as a **hex** literal:
 
 ```lua
@@ -591,12 +591,13 @@ apt install modemmanager usb-modeswitch libqmi-utils network-manager
 Für den Internet Zugangmittels einem Alfa Tube-U4G LTE USB Modem wird das Script `lte-autoconnect.sh` nebst zugehörigen Service `lte-modem.service`
 installiert. Damit kann die Verbindung mittels:
 ```
-systemctrl start lte-modem.service
-systemctrl stop lte-modem.service
+systemctl start lte-modem.service
+systemctl stop lte-modem.service
 ```
-gestartet bzw. wieder beendet werden. Sofern die Verbindung nach jedem boot automatisch aktiviert werden soll kann man den Service stattdessen enabeln:
+gestartet bzw. wieder beendet werden. Das ist auch ins Dashboard der GUI integriert.
+Sofern die Verbindung nach jedem boot automatisch aktiviert werden soll kann man den Service stattdessen enabeln:
 ```
-systemctrl enable lte-modem.service
+systemctl enable lte-modem.service
 ```
 
 ## Check der Verbindung und Signal Qualität

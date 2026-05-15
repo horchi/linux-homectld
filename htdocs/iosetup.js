@@ -566,13 +566,18 @@ function sensorAiSetup(type, address)
 
 function deleteValueFact(type, address)
 {
-   console.log("sensor delete ", type, address);
+   function doDelete()
+   {
+      console.log("sensor delete ", type, address);
 
-   socket.send({ "event" : "storesensorsetup", "object" : {
-      'type' : type,
-      'address' : parseInt(address),
-      'action' : 'delete'
-   }});
+      socket.send({ "event" : "storesensorsetup", "object" : {
+         'type' : type,
+         'address' : parseInt(address),
+         'action' : 'delete'
+      }});
+   }
+
+   confirmDialog(doDelete, 'Delete Sensor', 'Delete', 'Cancel');
 }
 
 function sensorGpioSetup(type, address)
@@ -841,6 +846,13 @@ function sensorScSetup(type, address)
       return;
    }
 
+   if ((!valueFacts[key].settings || valueFacts[key].settings == '') && valueFacts[key].parameter && valueFacts[key].parameter.options) {
+      settings = valueFacts[key].parameter.options.example;
+      console.log('example:', valueFacts[key].parameter.options.example);
+   }
+   else
+      settings = valueFacts[key].settings;
+
    $(form).append($('<div></div>')
                   .addClass('settingsDialogContent')
                   .append($('<div></div>')
@@ -852,7 +864,7 @@ function sensorScSetup(type, address)
                                           .attr('id', 'settings')
                                           .addClass('rounded-border inputSetting inputSettingScript')
                                           .css('resize', 'none')
-                                          .val(JSON.stringify(valueFacts[key].settings, undefined, 3))
+                                          .val(JSON.stringify(settings, undefined, 3))
                                          )))
                  );
 

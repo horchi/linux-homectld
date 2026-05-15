@@ -77,6 +77,8 @@ case "${COMMAND}" in
 
 esac
 
+# check state
+
 ${SYSTEMCTL} is-active --quiet ${SERVICE}
 RETVAL="$?"
 

@@ -28,5 +28,6 @@ cat $FWPN | sed s/"\(^MSQ_DEV=\"\)\([^\"]*\)\(.*\)"/"\1$2\3"/ > /tmp/fwpn
 cp /tmp/fwpn $FWPN
 
 grep "^MSQ_DEV=.$2" $FWPN >/dev/null 2>&1
+systemctl restart fwpn
 
 exit $?

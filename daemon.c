@@ -2070,7 +2070,7 @@ int Daemon::meanwhile()
    performMqttRequests();
    performJobs();
    performLmcUpdates();
-   updateInputs();
+   // updateInputs();
 
    if (triggerProcess && nextProcessMs <= cTimeMs::Now())
    {
@@ -2134,10 +2134,10 @@ int Daemon::loop()
 
          // main work in 'interval'
 
-         {
-            LogDuration ld("updateInputs", eloLoopTimings);
-            updateInputs(false);
-         }
+         // {
+         //    LogDuration ld("updateInputs", eloLoopTimings);
+         //    updateInputs(false);
+         // }
 
          {
             LogDuration ld("updateWeather", eloLoopTimings);
@@ -3946,12 +3946,50 @@ const char* Daemon::lookupCommandTopic(const char* type, int address)
 
 //***************************************************************************
 // Dispatch Other
+//
+// Data/State:
 //   { "value": 77.0, "type": "P4VA", "address": 1, "unit": "°C", "title": "Abgas" }
 //   { "state": 1, "address": 5, "type": "SMI260", "kind": "status", "title": "I Power On", "unit": "" }
+//
+// Script Trigger:
+//   { "action": "trigger", "script": "lte.sh" }
 //***************************************************************************
 
 int Daemon::dispatchOther(const char* topic, const char* message)
 {
+   json_t* jData {jsonLoad(message)};
+
+   if (!jData)
+   {
+      tell(eloAlways, "Error: (%s) Can't parse json in '%s'", topic, message);
+      return fail;
+   }
+
+   std::string action {getStringFromJson(jData, "action", "update")};
+
+   if (action == "trigger")
+   {
+      std::string script {getStringFromJson(jData, "script", "")};
+
+      if (script.empty())
+         return ignore;
+
+      tell(eloScript, "Scripts: Got trigger for script '%s'", script.c_str());
+
+      for (const auto& [address, sensor] : sensors["SC"])
+      {
+         if (sensor.name == script)
+         {
+            tell(eloAlways, "Script '%s' (%d) was triggered by MQTT", sensor.name.c_str(), address);
+            callScript(address, "status");
+
+            return done;
+         }
+      }
+
+      return ignore;
+   }
+
    // check if we have a converter script
 
    char* converter {};
@@ -3979,21 +4017,13 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
    free(converter);
 
-   json_t* jData {jsonLoad(message)};
-
-   if (!jData)
-   {
-      tell(eloAlways, "Error: (%s) Can't parse json in '%s'", topic, message);
-      return fail;
-   }
-
    // tell(eloAlways, "dispatch (%s) '%s'", topic, message);
 
    time_t newTime {time(0)};
-   std::string action = getStringFromJson(jData, "action", "update");
    myString type = getStringFromJson(jData, "type", "");
    int address = getIntFromJson(jData, "address", na);
 
+   bool valid {getBoolFromJson(jData, "valid", true)};
    const char* unit = getStringFromJson(jData, "unit");
    const char* title = getStringFromJson(jData, "title");
    const char* color = getStringFromJson(jData, "color", "");
@@ -4102,7 +4132,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
    if (type == "SC")    // SC - script sensor (send result async via MQTT)
    {
-      newTime += 1;         // workaround due to async result of SC (if last is identical it's never stored)
+      newTime += 2;         // workaround due to async result of SC (if last is identical it's never stored)
       sensors[type][address].working = false;  // reset 'working' state (needed for SC sensors)
    }
 
@@ -4114,9 +4144,15 @@ int Daemon::dispatchOther(const char* topic, const char* message)
       return done;
    }
 
-   sensors[type][address].battery = getIntFromJson(jData, "battery", na);
    sensors[type][address].last = newTime -1;
-   sensors[type][address].valid = true;
+   sensors[type][address].valid = valid;
+
+   // ignore invalid data - don't publish
+
+   if (!valid)
+      return done;
+
+   sensors[type][address].battery = getIntFromJson(jData, "battery", na);
    sensors[type][address].kind = getStringFromJson(jData, "kind", "value");
 
    // ignore data for impulse (outputs)
@@ -4159,7 +4195,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    }
 
    // handle feedback inputs
-   //   -> setu output state if we got a feedback input
+   //   -> setup output state if we got a feedback input
 
    if (type.starts_with("MCPI"))
    {

@@ -914,6 +914,10 @@ int Daemon::initScripts()
    FileList scripts;
    char* path {};
 
+   // #TODO #A
+   //  hier sind zwei schleifen nötig, die erste über die fileleist um valuefacts zu füllen
+   //  die zweite für den init Aufruf über valuefacts um alle aufzurufn, auch die geclonten
+
    asprintf(&path, "%s/scripts.d", confDir);
    int status = getFileList(path, DT_REG, "sh", false, &scripts, count);
 
@@ -929,6 +933,9 @@ int Daemon::initScripts()
    {
       std::string result;
 
+      // #TODO #B
+      //  oder hier alle zu 'NAME' suchen und ittereieren
+
       tableValueFacts->clear();
       tableValueFacts->setValue("TYPE", "SC");
       tableValueFacts->setValue("NAME", script.name.c_str());
@@ -936,13 +943,6 @@ int Daemon::initScripts()
       bool found {selectValueFactsByTypeAndName->find()};
       char* scriptPath {};
       asprintf(&scriptPath, "%s/%s", path, script.name.c_str());
-
-      // if (found && !tableValueFacts->hasValue("STATE", "A"))
-      // {
-      //    tell(eloDebug, "Script: Skipping deactivated script '%s'", scriptPath);
-      //    free(scriptPath);
-      //    continue;
-      // }
 
       uint addr {0};
 
@@ -2542,7 +2542,7 @@ void Daemon::updateScriptSensors()
    {
       ++it_next;
 
-      if (it->second.active)
+      if (!it->second.active)
       {
          tell(eloInfo, "removing thread for '%s'", it->second.command.c_str());
          commandThreads.erase(it);

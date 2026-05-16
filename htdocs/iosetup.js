@@ -842,11 +842,11 @@ function sensorScSetup(type, address)
    var form = document.createElement("div");
 
    if (valueFacts[key] == null) {
-      console.log("Sensor ", key, "undefined");
+      console.log("Sensor ", key, "undefined, seems not activated");
       return;
    }
 
-   if ((!valueFacts[key].settings || valueFacts[key].settings == '') && valueFacts[key].parameter && valueFacts[key].parameter.options) {
+   if (isEmpty(valueFacts[key].settings) && valueFacts[key].parameter && valueFacts[key].parameter.options) {
       settings = valueFacts[key].parameter.options.example;
       console.log('example:', valueFacts[key].parameter.options.example);
    }
@@ -931,6 +931,7 @@ function sensorCvSetup(type, address)
                   .append($('<div></div>')
                           .attr('id', 'luaCheckResult')
                           .css('font-size', 'large')
+                          .css('margin-top', '8px')
                           .addClass('luaCheckResult'))
                  );
 
@@ -1000,7 +1001,7 @@ function showLuaCheckResult(obj)
       cvEditor.eachLine(line => cvEditor.removeLineClass(line, 'background', 'lua-error-line'));
 
    if (obj.status === 0) {
-      div.text('OK').css('color', 'lightgreen');
+      div.text('OK').css('color', 'green');
    } else {
       let msg = obj.message || 'Fehler';
       let m = msg.match(/:(\d+): (.+)/);

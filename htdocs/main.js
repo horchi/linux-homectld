@@ -2018,3 +2018,8 @@ function confirmDialog(onConfirm, message, okBtn = 'Continue', cancelBtn = 'Canc
       close: function() { $(this).dialog('destroy').remove(); }
    });
 }
+
+function isEmpty(s)
+{
+   return !s || s == '';
+}

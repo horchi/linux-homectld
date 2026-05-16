@@ -8,11 +8,16 @@ STATE="true"
 
 LOGGER="logger -t sensormqtt -p kern.warn"
 IP=`echo ${JARGS} | jq -r .ip`
+TIMEOUT=`echo ${JARGS} | jq -r .timeout`
+
+if [[ -z "${TIMEOUT}" || "${TIMEOUT}" == "null" ]]; then
+   TIMEOUT=3
+fi
 
 if [[ -z "${IP}" ]]; then
    ${LOGGER} "ping.sh: IP argument missing, call with '{ \"ip\": \"8.8.8.8\"}'"
    STATE="false"
-elif ping -q -c 1 -W 5 ${IP} >/dev/null; then
+elif ping -q -c 1 -W ${TIMEOUT} ${IP} >/dev/null; then
    echo -n
 else
    STATE="false"
@@ -26,7 +31,7 @@ if [[ "${COMMAND}" == "init" ]]; then
       symbolOn: "mdi:mdi-router-wireless",
       options: {
          list: ["ip"],
-         example: { ip: "8.8.8.8"}
+         example: { ip: "8.8.8.8", timeout: 3}
          }
    }')
 

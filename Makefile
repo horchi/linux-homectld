@@ -174,8 +174,7 @@ install-config:
 	   mkdir -p $(CONFDEST)/scripts.d; \
 	   chmod a+rx $(CONFDEST); \
 	fi
-	install --mode=755 -D ./configs/sysctl $(CONFDEST)/scripts.d
-	install --mode=755 -D ./configs/*.sh $(CONFDEST)/scripts.d
+	install --mode=755 -D ./scripts.d/* $(CONFDEST)/scripts.d
 	if ! test -f $(DESTDIR)/etc/msmtprc; then \
 	   install --mode=644 -D ./configs/msmtprc $(DESTDIR)/etc/; \
 	fi

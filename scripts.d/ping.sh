@@ -30,8 +30,8 @@ if [[ "${COMMAND}" == "init" ]]; then
       symbol: "mdi:mdi-router-wireless-off",
       symbolOn: "mdi:mdi-router-wireless",
       options: {
-         list: ["ip"],
-         example: { ip: "8.8.8.8", timeout: 3}
+         note: "ip - the ip; timeout - ping timeout",
+         example: { ip: "8.8.8.8", timeout: 3 }
          }
    }')
 

@@ -20,25 +20,25 @@ function initConfig(configdetails = null)
    if (configdetails)
       theConfigdetails = configdetails;
 
+   $('#controlContainer').removeClass('hidden');
+   $('#controlToggle').removeClass('hidden');
    $('#container').removeClass('hidden');
    $('#container').empty();
 
    prepareSetupMenu();
 
-   dlgTabs = ($('<div></div>')
-              .addClass('setupTabs')
-              .attr('id', 'setupTabs'));
-
-   $('#container').append(dlgTabs);
-
-   $(dlgTabs).append($('<span></span>')
-                     .append($('<button></button>')
-                             .addClass('rounded-border buttonOptions')
-                             .html('Speichern')
-                             .click(function() { storeConfig(); })));
-
-   $(dlgTabs).append($('<span></span>')
-                     .attr('id', 'btnTabs'));
+   $("#controlContainer")
+      .empty()
+      .append($('<div></div>')
+              .append($('<button></button>')
+                      .attr('id', 'btnStoreIoSetup')
+                      // .attr('disabled', true)
+                      .addClass('rounded-border tool-button')
+                      .html('Speichern')
+                      .click(function() { storeConfig(); }))
+              .append($('<div></div>')
+                      .addClass('button-group-spacing'))
+             );
 
    dlgContent = ($('<div></div>')
                  .attr('id', 'setupContainer')
@@ -53,18 +53,18 @@ function initConfig(configdetails = null)
       let choiceSel = null;
 
       if (lastCat != item.category) {
-
          if (setupCategory == '')
             setupCategory = item.category;
 
-         $('#btnTabs').append($('<button></button>')
-                           .html(item.category)
-                           .addClass(setupCategory == item.category ? 'active' : '')
-                           .click(function() {
-                              setupCategory = $(this).html();
-                              initConfig(theConfigdetails);
-                           }));
-
+         $("#controlContainer").append($('<div></div>')
+                                       .append($('<button></button>')
+                                               .addClass('rounded-border tool-button')
+                                               .css('background-color', setupCategory == item.category ? 'slategray' : '')
+                                               .click(function(event) {
+                                                  setupCategory = $(this).html();
+                                                  initConfig(theConfigdetails);
+                                               })
+                                               .html(item.category)));
          lastCat = item.category;
       }
 

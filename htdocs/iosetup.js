@@ -846,15 +846,25 @@ function sensorScSetup(type, address)
       return;
    }
 
-   if (isEmpty(valueFacts[key].settings) && valueFacts[key].parameter && valueFacts[key].parameter.options) {
+   let settings = '';
+   let note = '';
+
+   if (isEmpty(valueFacts[key].settings) && valueFacts[key].parameter && valueFacts[key].parameter.options)
       settings = valueFacts[key].parameter.options.example;
-      console.log('example:', valueFacts[key].parameter.options.example);
-   }
    else
       settings = valueFacts[key].settings;
 
+   if (valueFacts[key].parameter && valueFacts[key].parameter.options)
+      note = valueFacts[key].parameter.options.note;
+
    $(form).append($('<div></div>')
                   .addClass('settingsDialogContent')
+                  .append($('<span></sOptionspan>')
+                          .html('Help'))
+                  .append($('<span></span>')
+                          .css('padding', '8px')
+                          .css('white-space', 'pre-wrap')
+                          .text(note))
                   .append($('<div></div>')
                           .addClass('textarea-row')
                           .append($('<span></span>')

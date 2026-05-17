@@ -1,0 +1,21 @@
+# Usage:
+#  alpicoolmqtt [-h] [-i [I]] [-m [M]] [-p [P]] [-v [V]] [-l] [-T [T]] [-t [T]] [-s] [-M [M]] [-D]
+#
+# optional arguments:
+#   -h, --help  show this help message and exit
+#   -i [I]      interval [seconds] (default 30)
+#   -m [M]      MQTT host
+#   -p [P]      MQTT port
+#   -v [V]      Verbosity Level (0-3) (default 0)
+#   -l          Log to Syslog (default console)
+#   -T [T]      MQTT topic
+#   -t [T]      Sensor type string
+#   -s          Show current status and exit
+#   -M [M]      Device MAC address
+#   -D          Discover Alpicool/FFE0 devices
+
+ALPICOOL_MQTT="-m localhost"
+ALPICOOL_TOPIC="-T homectld2mqtt/alpicool"
+ALPICOOL_OPTS="-l"
+ALPICOOL_LOG_LEVEL="-v 0"
+ALPICOOL_MAC="-M AA:BB:CC:DD:EE:FF"

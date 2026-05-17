@@ -913,11 +913,6 @@ int Daemon::initScripts()
 
    FileList scripts;
    char* path {};
-
-   // #TODO #A
-   //  hier sind zwei schleifen nötig, die erste über die fileleist um valuefacts zu füllen
-   //  die zweite für den init Aufruf über valuefacts um alle aufzurufn, auch die geclonten
-
    asprintf(&path, "%s/scripts.d", confDir);
    int status = getFileList(path, DT_REG, "sh", false, &scripts, count);
 
@@ -931,43 +926,45 @@ int Daemon::initScripts()
 
    for (const auto& script : scripts)
    {
-      std::string result;
-
-      // #TODO #B
-      //  oder hier alle zu 'NAME' suchen und ittereieren
+      long addr {0};
 
       tableValueFacts->clear();
       tableValueFacts->setValue("TYPE", "SC");
       tableValueFacts->setValue("NAME", script.name.c_str());
 
-      bool found {selectValueFactsByTypeAndName->find()};
+      if (selectValueFactsByTypeAndName->find())
+         continue;
+
+      if (selectMaxValueFactsByType->find() && !tableValueFacts->getValue("ADDRESS")->isNull())
+         addr = tableValueFacts->getIntValue("ADDRESS") + 1;
+
+      tableValueFacts->clear();
+      tableValueFacts->setValue("TYPE", "SC");
+      tableValueFacts->setValue("ADDRESS", addr);
+      tableValueFacts->setValue("NAME", script.name.c_str());
+      tell(eloScript, "Script: Added new script sensor '%s' with address %ld", script.name.c_str(), addr);
+      tableValueFacts->store();
+   }
+
+   tableValueFacts->clear();
+   tableValueFacts->setValue("TYPE", "SC");
+
+   for (int f = selectValueFactsByType->find(); f; f = selectValueFactsByType->fetch())
+   {
+      std::string result;
       char* scriptPath {};
-      asprintf(&scriptPath, "%s/%s", path, script.name.c_str());
-
-      uint addr {0};
-
-      if (found)
-         addr = tableValueFacts->getIntValue("ADDRESS");
-      else
-      {
-         tableValueFacts->clear();
-         tableValueFacts->setValue("TYPE", "SC");
-
-         if (selectMaxValueFactsByType->find() && !tableValueFacts->getValue("ADDRESS")->isNull())
-            addr = tableValueFacts->getIntValue("ADDRESS") + 1;
-
-         tell(eloScript, "Script: Adding new script sensor '%s' with address %d", script.name.c_str(), addr);
-      }
+      asprintf(&scriptPath, "%s/%s", path, tableValueFacts->getStrValue("NAME"));
+      long addr {tableValueFacts->getIntValue("ADDRESS")};
+      std::string name {tableValueFacts->getStrValue("NAME")};
 
       // execute script
 
-      if (found)
-         sensors["SC"][addr].script = tableValueFacts->getStrValue("SETTINGS");
+      sensors["SC"][addr].script = tableValueFacts->getStrValue("SETTINGS");
 
-      const char* arguments = sensors["SC"][addr].script.c_str();
+      const char* arguments {sensors["SC"][addr].script.c_str()};
 
-      tell(eloScript, "Script: Calling %s %s %d 'mqtt://%s/%s' '%s'", scriptPath, "init", addr, mqttUrlPlain, TARGET "2mqtt/scripts", arguments);
-      result = executeCommand("%s %s %d 'mqtt://%s/%s' '%s'", scriptPath, "init", addr, mqttUrlPlain, TARGET "2mqtt/scripts", arguments);
+      tell(eloScript, "Script: Calling %s %s %ld 'mqtt://%s/%s' '%s'", scriptPath, "init", addr, mqttUrlPlain, TARGET "2mqtt/scripts", arguments);
+      result = executeCommand("%s %s %ld 'mqtt://%s/%s' '%s'", scriptPath, "init", addr, mqttUrlPlain, TARGET "2mqtt/scripts", arguments);
 
       json_t* oData = jsonLoad(result.c_str(), 0, true);
 
@@ -1024,10 +1021,10 @@ int Daemon::initScripts()
       else if (kind == "value")
          sensors["SC"][addr].value = value;
 
-      auto tuple = split(script.name, '.');
-      addValueFact(addr, "SC", 1, !isEmpty(title) ? title : script.name.c_str(), unit, tuple[0].c_str(), urControl, choices, soNone, sensors["SC"][addr].parameter.c_str());
+      auto tuple = split(name, '.');
+      addValueFact(addr, "SC", 1, !isEmpty(title) ? title : name.c_str(), unit, tuple[0].c_str(), urControl, choices, soNone, sensors["SC"][addr].parameter.c_str());
 
-      tell(eloScript, "Script: Found script '%s' addr (%d), unit '%s'; result was [%s]", scriptPath, addr, unit, result.c_str());
+      tell(eloScript, "Script: Found script '%s' addr (%ld), unit '%s'; result was [%s]", scriptPath, addr, unit, result.c_str());
       free(scriptPath);
       json_decref(oData);
    }

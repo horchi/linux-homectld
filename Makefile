@@ -176,13 +176,13 @@ install-config:
 	fi
 	install --mode=755 -D ./scripts.d/* $(CONFDEST)/scripts.d
 	if ! test -f $(DESTDIR)/etc/msmtprc; then \
-	   install --mode=644 -D ./configs/msmtprc $(DESTDIR)/etc/; \
+	   install --mode=644 -D ./etc/msmtprc $(DESTDIR)/etc/; \
 	fi
 	if ! test -f $(CONFDEST)/daemon.conf; then \
-	   cat configs/daemon.conf | sed s:"<NAME>":$(NAME):g | install --mode=644 -C -D /dev/stdin $(CONFDEST)/daemon.conf; \
+	   cat ./etc/configs/daemon.conf | sed s:"<NAME>":$(NAME):g | install --mode=644 -C -D /dev/stdin $(CONFDEST)/daemon.conf; \
 	fi
-	install --mode=644 -D ./configs/*.dat $(CONFDEST)/;
-	install --mode=644 -D ./configs/gpio.json $(CONFDEST)/;
+	install --mode=644 -D ./etc/configs/*.dat $(CONFDEST)/;
+	install --mode=644 -D ./etc/configs/gpio.json $(CONFDEST)/;
 	mkdir -p $(DESTDIR)/etc/rsyslog.d
 	cat contrib/rsyslog.conf | sed s:"<TARGET>":$(TARGET):g | install --mode=644 -C -D /dev/stdin $(DESTDIR)/etc/rsyslog.d/10-$(TARGET).conf; \
 	mkdir -p $(DESTDIR)/etc/logrotate.d

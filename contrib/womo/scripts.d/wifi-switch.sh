@@ -41,12 +41,13 @@ elif [[ "${COMMAND}" == "toggle" ]]; then
       MSQ_DEVICE="wlan0"
    fi
 
+   sleep 2
+
    if [ -f "${MSQ_SCRIPT}" ]; then
       ${MSQ_SCRIPT} -s "${MSQ_DEVICE}"
       echo "Firewall auf ${MSQ_DEVICE} umgestellt" | tee -a $LOGFILE
       fi
 
-   sleep 2
    exec "$0" status "$ADDRESS" "$MQTTURL"
    mosquitto_pub --quiet -L ${MQTTURL} -m '{ "action": "trigger", "script": "wifi.sh" }'
    mosquitto_pub --quiet -L ${MQTTURL} -m '{ "action": "trigger", "msqdevice": "lte.sh" }'

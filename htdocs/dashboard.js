@@ -863,13 +863,14 @@ function initWidget(key, widget, fact)
                         .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
                         .addClass(titleClass)
                         .click(function(event) {titleClick(event.ctrlKey, key);})
-                        .html(setupMode ? ' spacer' : ''));
-         if (!setupMode)
-            $(elem).css('background-color', widget.color);
+                        .html(setupMode ? ' spacer' : title));
+         //if (!setupMode)
+         //   $(elem).css('background-color', widget.color);
+
          if (widget.linefeed) {
             $(elem)
                .css('flex-basis', '100%')
-               .css('height', setupMode ? '40px' : '0px')
+               .css('height', setupMode || (!isEmpty(title) && title != ' ') ? '40px' : '0px')
                .css('padding', '0px')
                .css('margin', '0px');
          }

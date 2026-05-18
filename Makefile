@@ -189,19 +189,19 @@ install-config:
 	cat contrib/logrotate | sed s:"<TARGET>":$(TARGET):g | install --mode=644 -C -D /dev/stdin $(DESTDIR)/etc/logrotate.d/$(TARGET); \
 	mkdir -p $(DESTDIR)/etc/default
 	if ! test -f $(DESTDIR)/etc/default/w1mqtt; then \
-	   cp contrib/w1mqtt $(DESTDIR)/etc/default/w1mqtt; \
+	   cp etc/default/w1mqtt $(DESTDIR)/etc/default/w1mqtt; \
 	fi
 	if ! test -f $(DESTDIR)/etc/default/bmsmqtt; then \
-	   cp contrib/bmsmqtt $(DESTDIR)/etc/default/bmsmqtt; \
+	   cp etc/default/bmsmqtt $(DESTDIR)/etc/default/bmsmqtt; \
 	fi
 	if ! test -f $(DESTDIR)/etc/default/votromqtt; then \
-	   cp contrib/votromqtt $(DESTDIR)/etc/default/votromqtt; \
+	   cp etc/default/votromqtt $(DESTDIR)/etc/default/votromqtt; \
 	fi
 	if ! test -f $(DESTDIR)/etc/default/victronmqtt; then \
-	   cp contrib/victronmqtt $(DESTDIR)/etc/default/victronmqtt; \
+	   cp etc/default/victronmqtt $(DESTDIR)/etc/default/victronmqtt; \
 	fi
 	if ! test -f $(DESTDIR)/etc/default/i2cmqtt; then \
-	   cp contrib/i2cmqtt $(DESTDIR)/etc/default/i2cmqtt; \
+	   cp etc/default/i2cmqtt $(DESTDIR)/etc/default/i2cmqtt; \
 	fi
 
 install-scripts:
@@ -215,7 +215,7 @@ install-scripts:
 	done
 	cp ./scripts/fwpn $(BINDEST)/
 	if ! test -f $(DESTDIR)/etc/default/fwpn; then \
-		cat ./scripts/fwpn.default | sed s:"<SUBNET>":"$(SUBNET)":g | install --mode=644 -C -D /dev/stdin $(DESTDIR)/etc/default/fwpn; \
+		cat etc/default/fwpn | sed s:"<SUBNET>":"$(SUBNET)":g | install --mode=644 -C -D /dev/stdin $(DESTDIR)/etc/default/fwpn; \
 	fi
 
 iw: install-web

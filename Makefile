@@ -188,21 +188,12 @@ install-config:
 	mkdir -p $(DESTDIR)/etc/logrotate.d
 	cat contrib/logrotate | sed s:"<TARGET>":$(TARGET):g | install --mode=644 -C -D /dev/stdin $(DESTDIR)/etc/logrotate.d/$(TARGET); \
 	mkdir -p $(DESTDIR)/etc/default
-	if ! test -f $(DESTDIR)/etc/default/w1mqtt; then \
-	   cp etc/default/w1mqtt $(DESTDIR)/etc/default/w1mqtt; \
-	fi
-	if ! test -f $(DESTDIR)/etc/default/bmsmqtt; then \
-	   cp etc/default/bmsmqtt $(DESTDIR)/etc/default/bmsmqtt; \
-	fi
-	if ! test -f $(DESTDIR)/etc/default/votromqtt; then \
-	   cp etc/default/votromqtt $(DESTDIR)/etc/default/votromqtt; \
-	fi
-	if ! test -f $(DESTDIR)/etc/default/victronmqtt; then \
-	   cp etc/default/victronmqtt $(DESTDIR)/etc/default/victronmqtt; \
-	fi
-	if ! test -f $(DESTDIR)/etc/default/i2cmqtt; then \
-	   cp etc/default/i2cmqtt $(DESTDIR)/etc/default/i2cmqtt; \
-	fi
+	for f in etc/default/*; do \
+		bn=$$(basename $$f); \
+		if ! test -f $(DESTDIR)/etc/default/$$bn; then \
+			cat $$f | sed s:"<SUBNET>":"$(SUBNET)":g | install --mode=644 -C -D /dev/stdin $(DESTDIR)/etc/default/$$bn; \
+		fi; \
+	done
 
 install-scripts:
 	@echo install scripts
@@ -210,13 +201,9 @@ install-scripts:
 		mkdir -p "$(BINDEST)"; \
 	   chmod a+rx $(BINDEST); \
 	fi
-	for f in ./scripts/*.sh; do \
+	for f in ./scripts/*; do \
 		cp -v "$$f" $(BINDEST)/`basename "$$f"`; \
 	done
-	cp ./scripts/fwpn $(BINDEST)/
-	if ! test -f $(DESTDIR)/etc/default/fwpn; then \
-		cat etc/default/fwpn | sed s:"<SUBNET>":"$(SUBNET)":g | install --mode=644 -C -D /dev/stdin $(DESTDIR)/etc/default/fwpn; \
-	fi
 
 iw: install-web
 

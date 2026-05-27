@@ -2043,7 +2043,7 @@ table.tableMultiCol td
 .widget-choice
 {
     grid-area: main;
-    display: inline-grid;
+    /*display: inline-grid;*/
     text-align: center;
     font-size: xx-large;
     font-weight: bold;

@@ -80,6 +80,7 @@ Daemon::ValueTypes Daemon::defaultValueTypes[] =
    { "^MCPO",     "Digitale Ausgänge" },
    { "^DI",       "Digitale Eingänge" },
    { "^MCPI",     "Digitale Eingänge" },
+   { "^GPIO",     "Digitale Ein/Ausgänge" },
    { "^W1",       "One Wire Sensoren" },
    { "^SC",       "Skripte" },
    { "^AO",       "Analog Ausgänge" },
@@ -128,6 +129,7 @@ Daemon::DefaultWidgetProperty Daemon::defaultWidgetProperties[] =
    { "TIME",     na, "txt",  wtPlainText,        0,         0,       0, true },
    { "DO",       na,   "*",     wtSymbol,        0,         0,       0, false },
    { "DI",       na,   "*",     wtSymbol,        0,         0,       0, false },
+   { "GOIO",     na,   "*",     wtSymbol,        0,         0,       0, false },
    { "AO",       na,   "*",      wtMeter,        0,        45,      10, false },
    { "AI",       na,   "*",      wtMeter,        0,        45,      10, false },
    { "SD",       na,   "*",      wtChart,        0,      2000,       0, true },
@@ -619,10 +621,14 @@ int Daemon::exit()
 {
    for (auto it = sensors["DO"].begin(); it != sensors["DO"].end(); ++it)
    {
-      if (sensors["DO"][it->first].impulse)
-         ;
-      else
+      if (!sensors["DO"][it->first].impulse)
          gpioWrite(it->first, false, false);
+   }
+
+   for (auto& sensor : sensors["GPIO"])
+   {
+      if (sensor.second.fct == "out" && !sensor.second.impulse)
+         gpioWrite(sensor.first, false, false);
    }
 
    lmcExit();
@@ -680,7 +686,7 @@ int Daemon::initSensorByFact(myString type, uint address)
    if (!fact->getValue("PARAMETER")->isEmpty())
       sensors[type][address].parameter = fact->getStrValue("PARAMETER");
 
-   if (type == "DO" || type == "DI" || type == "DZL" || type == "DZLG")
+   if (type == "GPIO" || type == "DO" || type == "DI" || type == "DZL" || type == "DZLG")
       sensors[type][address].kind = "status";
 
    if (sensors[type][address].unit == "txt")
@@ -702,6 +708,9 @@ int Daemon::initSensorByFact(myString type, uint address)
 
       if (jCal)
       {
+         if (type == "GPIO")
+            sensors[type][address].fct = getStringFromJson(jCal, "fct", "off");
+
          if (type == "AI" || type.starts_with("ADS"))
          {
             aiSensorConfig[type][address].calPointA = getDoubleFromJson(jCal, "pointA");
@@ -711,7 +720,7 @@ int Daemon::initSensorByFact(myString type, uint address)
             aiSensorConfig[type][address].round = getDoubleFromJson(jCal, "round");
             aiSensorConfig[type][address].cutBelow = getDoubleFromJson(jCal, "cutBelow", -10000.0);
          }
-         else if (type == "DO" || type.starts_with("MCPO"))
+         else if (type == "DO" || type.starts_with("MCPO") || (type == "GPIO" && sensors[type][address].fct == "out"))
          {
             sensors[type][address].invert = getBoolFromJson(jCal, "invert", true);
             sensors[type][address].impulse = getBoolFromJson(jCal, "impulse");
@@ -721,7 +730,7 @@ int Daemon::initSensorByFact(myString type, uint address)
 
             cfgOutput(type, address, jCal);
          }
-         else if (type == "DI" || type.starts_with("MCPI"))
+         else if (type == "DI" || type.starts_with("MCPI") || (type == "GPIO" && sensors[type][address].fct == "in"))
          {
             sensors[type][address].invert = getBoolFromJson(jCal, "invert", true);
             sensors[type][address].pull = (Gpio::PullUpDown)getIntFromJson(jCal, "pull", 0);
@@ -732,12 +741,6 @@ int Daemon::initSensorByFact(myString type, uint address)
          else if (type == "SC")
          {
             sensors[type][address].script = fact->getStrValue("SETTINGS");
-         }
-         else if (type == "GPIO")
-         {
-            sensors[type][address].fct = getStringFromJson(jCal, "fct", "off");
-
-            // #TODO
          }
 
          json_decref(jCal);
@@ -780,12 +783,6 @@ int Daemon::initGpioLine(uint physPin, const PinInfo& pinInfo)
       }
    }
 
-   // pinInfo.pull
-   // pinInfo.interrupt
-   // pinInfo.voltage.c_str()
-   // pinInfo.chipLabel.c_str()
-   // pinInfo.offset
-
    return done;
 }
 
@@ -819,12 +816,12 @@ int Daemon::cfgOutput(myString type, uint pin, json_t* jCal)
       publishI2CSensorConfig(type.c_str(), pin, jCal);
    }
 
-   else if (type == "DO")
+   else if (type == "DO" || type == "GPIO")
    {
       if (sensors[type][pin].impulse)
       {
          sensors[type][pin].valid = true;
-         sensors[type][pin].state = sensors["DO"][pin].invert ? true : false;
+         sensors[type][pin].state = sensors[type][pin].invert ? true : false;
       }
    }
 
@@ -852,12 +849,12 @@ int Daemon::cfgInput(myString type, uint pin, json_t* jCal)
    if (type.starts_with("MCPI"))
       publishI2CSensorConfig(type.c_str(), pin, jCal);
 
-   else if (type == "DI")
+   else if (type == "DI" || (type == "GPIO" && sensors[type][pin].fct == "in"))
    {
       if (sensors[type][pin].pull != Gpio::pudOff)
          gpio->pullUpDnControl(pin, sensors[type][pin].pull);
 
-      if (sensors[type][pin].active && sensors[type][pin].interrupt)
+      if (sensors[type][pin].active) //  && sensors[type][pin].interrupt)
       {
          tell(eloDebugGpio, "Debug: GPIO: ISR(%d) (%s)", pin, gpio->pinToName(pin).c_str());
 
@@ -1021,10 +1018,10 @@ int Daemon::initScripts()
       else if (kind == "value")
          sensors["SC"][addr].value = value;
 
-      auto tuple = split(name, '.');
+      auto tuple {split(name, '.')};
       addValueFact(addr, "SC", 1, !isEmpty(title) ? title : name.c_str(), unit, tuple[0].c_str(), urControl, choices, soNone, sensors["SC"][addr].parameter.c_str());
 
-      tell(eloScript, "Script: Found script '%s' addr (%ld), unit '%s'; result was [%s]", scriptPath, addr, unit, result.c_str());
+      tell(eloScript, "Script: Found script '%s' addr (%ld), unit '%s'; title '%s', name '%s' result was [%s]", scriptPath, addr, unit, title, name.c_str(), result.c_str());
       free(scriptPath);
       json_decref(oData);
    }
@@ -1097,10 +1094,6 @@ int Daemon::callScript(int addr, const char* command)
 
 int Daemon::switchCommand(std::string type, int addr, std::string action, const char* topic, const char* value)
 {
-   // int addr = getIntFromJson(oObject, "address");
-   // std::string type = getStringFromJson(oObject, "type", "");
-   // std::string action = getStringFromJson(oObject, "action", "");
-
    // prepare command
 
    json_t* obj {json_object()};
@@ -1110,9 +1103,11 @@ int Daemon::switchCommand(std::string type, int addr, std::string action, const 
    const char* payload {};
 
    if (action == "switch")    // for 'choice' select (actually used at least for VICTRON)
-      json_object_set_new(obj, "value", json_string(value)); // json_string(getStringFromJson(oObject, "value")));
-   else  // if (xxxProtocol == "TASMOTA")  - #TODO other formats needed!
+      json_object_set_new(obj, "value", json_string(value));
+   else if (type == "TASMOTA")
       payload = "TOGGLE";
+   else
+      json_object_set_new(obj, "value", json_integer(atoi(value)));
 
    // send to command topic
 
@@ -2165,7 +2160,7 @@ int Daemon::loop()
 
          {
             LogDuration ld("updateInputs", eloLoopTimings);
-            storeSamples();
+            updateInputs();
          }
 
          {
@@ -2202,10 +2197,19 @@ int Daemon::updateInputs(bool check)
 
    for (const auto& s : sensors["DI"])
    {
-      if (s.second.active) //  && !s.second.interrupt) -> würde genügen nur ohne Update wird er invalid
+      if (s.second.active)
       {
          bool state {gpioRead(s.first, check)};
          tell(eloDebugGpio, "Debug: GPIO: updateInputs(%d) DI 0x%x (%d)", check, s.first, state);
+      }
+   }
+
+   for (const auto& s : sensors["GPIO"])
+   {
+      if (s.second.fct == "in" && s.second.active)
+      {
+         bool state {gpioRead(s.first, check)};
+         tell(eloDebugGpio, "Debug: GPIO: updateInputs(%d) GPIO 0x%x (%d)", check, s.first, state);
       }
    }
 
@@ -2357,6 +2361,7 @@ int Daemon::store(time_t now, const SensorData* sensor)
 int Daemon::process(bool force, bool signal)
 {
    // calculate CV and DI/DO sensors by LUA
+   // #TODO -> also for GPOO fct 'out'
 
    for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
@@ -2541,7 +2546,7 @@ void Daemon::updateScriptSensors()
 
       if (!it->second.active)
       {
-         tell(eloInfo, "removing thread for '%s'", it->second.command.c_str());
+         tell(eloDebug, "Debug: Cleanup thread for '%s'", it->second.command.c_str());
          commandThreads.erase(it);
       }
    }
@@ -3122,7 +3127,7 @@ int Daemon::addValueFact(int addr, const char* type, int factor, const char* nam
                          const char* aTitle, int rights, const char* choices, SensorOptions options, const char* parameter)
 
 {
-   const char* title = !isEmpty(aTitle) ? aTitle : name;
+   const char* title {!isEmpty(aTitle) ? aTitle : name};
 
    // check / add to valueTypes
 
@@ -3135,13 +3140,16 @@ int Daemon::addValueFact(int addr, const char* type, int factor, const char* nam
       tableValueTypes->store();
    }
 
+   // check / add to valueFacts
+
    tableValueFacts->clear();
    tableValueFacts->setValue("TYPE", type);
    tableValueFacts->setValue("ADDRESS", addr);
 
-   //
+   bool exist {(bool)tableValueFacts->find()};
+   // tell(eloAlways, "addValueFact(%d, %s, %d, %s, %s, %s, ...) [%s/%d]", addr, type, factor, name, unit, title, aTitle, exist);
 
-   if (!tableValueFacts->find())
+   if (!exist)
    {
       tell(eloAlways, "Add ValueFact '%u' '%s'", addr, type);
 
@@ -3166,8 +3174,27 @@ int Daemon::addValueFact(int addr, const char* type, int factor, const char* nam
       return 1;                               // 1 for 'added'
    }
 
+   tableValueFacts->clearChanged();
+
+   // choices can change dynamic (by script response)
+
+   if (!isEmpty(choices))
+      tableValueFacts->setValue("CHOICES", choices);
+
    if (strcmp(type, "SC") != 0)
-      return done;                 // #TODO - update lösen wir über eienn delete button in Sensor Setup!
+   {
+      if (tableValueFacts->getChanges())
+      {
+         tableValueFacts->store();
+         return 2;                               // 2 for 'modified'
+      }
+
+      return done;
+   }
+
+   // für SC Sensoren wird der valuefact in initScripts erst 'roh' angelegt
+   // um dann in der daruf folgenden Schleife aktualisiert zu werden, daher ist hier
+   // ein update nötig!
 
    // already exist, update ...
 
@@ -3176,6 +3203,8 @@ int Daemon::addValueFact(int addr, const char* type, int factor, const char* nam
    tableValueFacts->setValue("NAME", name);
    tableValueFacts->setValue("TITLE", title);
    tableValueFacts->setValue("FACTOR", factor);
+   // tell(eloAlways, "Update right of '%s0x%x' to (%d)", type, addr, rights);
+
    tableValueFacts->setValue("RIGHTS", rights);
    tableValueFacts->setValue("OPTIONS", options);
 
@@ -3184,9 +3213,6 @@ int Daemon::addValueFact(int addr, const char* type, int factor, const char* nam
 
    if (!isEmpty(parameter))
       tableValueFacts->setValue("PARAMETER", parameter);
-
-   if (!isEmpty(choices))
-      tableValueFacts->setValue("CHOICES", choices);
 
    if (tableValueFacts->getChanges())
    {
@@ -3213,6 +3239,7 @@ int Daemon::dispatchMqttHaCommandRequest(json_t* jData, const char* topic)
       if (isEmpty(state))
          return fail;
 
+      // #TODO GPIO?
       for (auto itOutput = sensors["DO"].begin(); itOutput != sensors["DO"].end(); ++itOutput)
       {
          bool bState = strcmp(state, "ON") == 0;
@@ -3950,10 +3977,15 @@ const char* Daemon::lookupCommandTopic(const char* type, int address)
 //
 // Script Trigger:
 //   { "action": "trigger", "script": "lte.sh" }
+//
+// Registration of a topic to send "commands to the sensor:
+//   { "action": "init", "type": "ALPICOOL", "topic": "homectld2mqtt/alpicool/in"}
 //***************************************************************************
 
 int Daemon::dispatchOther(const char* topic, const char* message)
 {
+   // tell(eloAlways, "Debug: Dispatch '%s'", message);
+
    json_t* jData {jsonLoad(message)};
 
    if (!jData)
@@ -4027,7 +4059,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    std::string kind = getStringFromJson(jData, "kind", "");
    uint rights = getIntFromJson(jData, "rights", 0);
    const char* image = getStringFromJson(jData, "image", "");
-   const char* choices = getStringFromJson(jData, "choices");
+   const char* choices = getStringFromJson(jData, "choices", nullptr);
    json_t* jParameter = getObjectFromJson(jData, "parameter");
 
    if (type.empty())
@@ -4046,30 +4078,32 @@ int Daemon::dispatchOther(const char* topic, const char* message)
          if (address != na)
             cmdTopicKey = type + ":" + std::to_string(address);
 
-         commandTopicsMap[cmdTopicKey] = getStringFromJson(jData, "topic", "");
+         commandTopicsMap[cmdTopicKey] = getStringFromJson(jData, "topic");
          setConfigItem(("mqttCmdTopic" + cmdTopicKey).c_str(), commandTopicsMap[cmdTopicKey].c_str());
       }
 
       tableValueFacts->clear();
 
+      // publish IO config of MCP sensors to i2c process via mqtt
+
       for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
       {
-         if (myString(tableValueFacts->getStrValue("TYPE")).starts_with("MCP"))
-         {
-            if (!tableValueFacts->getValue("SETTINGS")->isEmpty())
-            {
-               json_t* jCal {jsonLoad(tableValueFacts->getStrValue("SETTINGS"), 0, true)};
+         if (!myString(tableValueFacts->getStrValue("TYPE")).starts_with("MCP"))
+            continue;
 
-               if (jCal)
-               {
-                  publishI2CSensorConfig(tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"), jCal);
-                  json_decref(jCal);
-               }
-               else
-               {
-                  tell(eloAlways, "Ignoring invalid JSON in settings config of '%s:0x%lx'",
-                       tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"));
-               }
+         if (!tableValueFacts->getValue("SETTINGS")->isEmpty())
+         {
+            json_t* jCal {jsonLoad(tableValueFacts->getStrValue("SETTINGS"), 0, true)};
+
+            if (jCal)
+            {
+               publishI2CSensorConfig(tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"), jCal);
+               json_decref(jCal);
+            }
+            else
+            {
+               tell(eloAlways, "Ignoring invalid JSON in settings config of '%s:0x%lx'",
+                    tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"));
             }
          }
       }
@@ -4119,12 +4153,13 @@ int Daemon::dispatchOther(const char* topic, const char* message)
          free(p);
       }
 
-      if (type.starts_with("MCPO"))
-         addValueFact(address, type.c_str(), 1, title, unit, title, urControl, nullptr, soNone, sensors[type][address].parameter.c_str());  // if output set rights
-      else if (!isEmpty(choices))
-         addValueFact(address, type.c_str(), 1, title, unit, title, urControl, choices, soNone, sensors[type][address].parameter.c_str());
-      else
-         addValueFact(address, type.c_str(), 1, title, unit, title, rights, nullptr, soNone, sensors[type][address].parameter.c_str());
+      if (type.starts_with("MCPO"))  // #TODO i2cmqtt sollte rights mit liefern!
+         rights = urControl;
+
+      if (!isEmpty(choices))          // #TODO alle mit steuerbaren choices (THEATFORD, VICTRON) sollten rights mit liefern!
+         rights = urControl;
+
+      addValueFact(address, type.c_str(), 1, title, unit, title, rights, choices, soNone, sensors[type][address].parameter.c_str());
    }
 
    if (type == "SC")    // SC - script sensor (send result async via MQTT)
@@ -4193,6 +4228,8 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
    // handle feedback inputs
    //   -> setup output state if we got a feedback input
+
+   // #TODO for GPIO ...
 
    if (type.starts_with("MCPI"))
    {
@@ -4464,47 +4501,12 @@ int Daemon::toggleIo(uint addr, const char* type, int state, int bri, int transi
 
    int newState {state == na ? !sensors[type][addr].state : state};
 
-   if (strcmp(type, "DO") == 0)
+   if (strcmp(type, "DO") == 0 || strcmp(type, "GPIO") == 0)
       gpioWrite(addr, newState);
    else if (strcmp(type, "SC") == 0)
       callScript(addr, "toggle");
    else if (strcmp(type, "DZL") == 0 || strcmp(type, "DZLG") == 0)
       deconz.toggle(type, addr, newState, bri, transitiontime);
-
-   else if (myString(type).starts_with("MCPO"))
-   {
-      // {"type": "MCPO27", "address": 0, "state": false}'
-
-      if (sensors[type][addr].active)
-      {
-         if (commandTopicsMap[type].empty())
-         {
-            tell(eloAlways, "Error: Can't toggle %s:0x%02d, missing i2c topic", type, addr);
-            return done;
-         }
-
-         // tell(eloAlways, "Toggle %s:0x%02d to %d", type, addr, state);
-
-         bool state = !sensors[type][addr].state;
-         json_t* obj = json_object();
-         json_object_set_new(obj, "type", json_string(type));
-         json_object_set_new(obj, "address", json_integer(addr));
-
-         if (!sensors[type][addr].impulse)
-         {
-            state = sensors["type"][addr].invert ? !state : state;
-            json_object_set_new(obj, "action", json_string(state ? "set" : "clear"));
-            // json_object_set_new(obj, "state", json_boolean(sensors["type"][addr].invert ? !state : state));
-         }
-         else
-            json_object_set_new(obj, "action", json_string("impulse"));
-
-         char* message = json_dumps(obj, JSON_REAL_PRECISION(8));
-         mqttWriter->write(commandTopicsMap[type].c_str(), message);
-         free(message);
-         json_decref(obj);
-      }
-   }
    else if (strcmp(type, "HMB") == 0)
    {
       double value = sensors[type][addr].value;
@@ -4527,6 +4529,42 @@ int Daemon::toggleIo(uint addr, const char* type, int state, int bri, int transi
       mqttWriter->write(TARGET "2mqtt/homematic/rpccall", request);
       tell(eloHomeMatic, "-> (home-matic) '%s' to '%s'", TARGET "2mqtt/homematic/rpccall", request);
       free(request);*/
+   }
+   else if (!commandTopicsMap[type].empty())  //  if (myString(type).starts_with("MCPO"))
+   {
+      // {"type": "MCPO27", "address": 0, "state": false}'
+
+      if (sensors[type][addr].active)
+      {
+         // if (commandTopicsMap[type].empty())
+         // {
+         //    tell(eloAlways, "Error: Can't toggle %s:0x%02d, missing i2c topic", type, addr);
+         //    return done;
+         // }
+
+         tell(eloAlways, "Toggle %s:0x%02d to %d", type, addr, state);
+
+         bool state {!sensors[type][addr].state};
+         json_t* obj {json_object()};
+
+         json_object_set_new(obj, "type", json_string(type));
+         json_object_set_new(obj, "address", json_integer(addr));
+
+         if (!sensors[type][addr].impulse)
+         {
+            state = sensors["type"][addr].invert ? !state : state;
+            json_object_set_new(obj, "value", json_integer(sensors["type"][addr].invert ? !state : state));
+
+            json_object_set_new(obj, "action", json_string(state ? "set" : "clear"));  // MCP special
+         }
+         else
+            json_object_set_new(obj, "action", json_string("impulse"));
+
+         char* message {json_dumps(obj, JSON_REAL_PRECISION(8))};
+         json_decref(obj);
+         mqttWriter->write(commandTopicsMap[type].c_str(), message);
+         free(message);
+      }
    }
 
    return success;
@@ -4571,7 +4609,7 @@ void Daemon::pin2Json(json_t* ojData, const char* type, uint pin)
 int Daemon::toggleOutputMode(uint pin)
 {
    // allow mode toggle only if more than one option is given
-
+   // #TODO fpr GPIO 'out' -> we need mode anf rights in config
    if (sensors["DO"][pin].outputModes & ooAuto && sensors["DO"][pin].outputModes & ooUser)
    {
       OutputMode mode = sensors["DO"][pin].mode == omAuto ? omManual : omAuto;
@@ -4586,37 +4624,51 @@ int Daemon::toggleOutputMode(uint pin)
 
 void Daemon::gpioWrite(uint pin, bool state, bool saveIoState)
 {
-   sensors["DO"][pin].last = time(0) -1;
-   sensors["DO"][pin].changedAt = time(0); // #TODO set only if changed
-   sensors["DO"][pin].valid = true;
+   // #TODO for GPIO
+   // workaround!
+   // -->
+   std::string type {"DO"};
 
-   if (sensors["DO"][pin].impulse)
+   if (auto it = sensors.find("GPIO"); it != sensors.end())
    {
-      tell(eloDebug, "Debug: Trigger impulse for DO:0x%02x", pin);
+      auto itSensors = it->second.find(pin);
+
+      if (itSensors != it->second.end() && itSensors->second.active && itSensors->second.fct == "out")
+         type = "GPIO";
+   }
+
+   // <--
+
+   sensors[type][pin].last = time(0) -1;
+   sensors[type][pin].changedAt = time(0); // #TODO set only if changed
+   sensors[type][pin].valid = true;
+
+   if (sensors[type][pin].impulse)
+   {
+      tell(eloDebug, "Debug: Trigger impulse for %s:0x%02x", type.c_str(), pin);
       gpio->digitalWrite(pin, false);
       usleep(50000); // 50 ms
       gpio->digitalWrite(pin, true);
 
-      sensors["DO"][pin].state = true;
+      sensors[type][pin].state = true;
    }
    else
    {
       // invert the state on 'invert' - most relay board are active at 'false'
 
-      sensors["DO"][pin].state = state;
-      tell(eloDebugGpio, "Debug: GPIO: calling digitalWrite(%d), invert was %s", pin, sensors["DO"][pin].invert ? "true" : "false");
-      gpio->digitalWrite(pin, sensors["DO"][pin].invert ? !state : state);
-
+      sensors[type][pin].state = state;
+      tell(eloDebugGpio, "Debug: GPIO: calling digitalWrite(%d), invert was %s", pin, sensors[type][pin].invert ? "true" : "false");
+      gpio->digitalWrite(pin, sensors[type][pin].invert ? !state : state);
    }
 
    if (saveIoState)
-      storeIoState("DO", pin);
+      storeIoState(type.c_str(), pin);
 
    performJobs();
 
-   publishPin("DO", pin); // send update to WS
-   mqttHaPublish(sensors["DO"][pin]);
-   mqttNodeRedPublishSensor(sensors["DO"][pin]);
+   publishPin(type.c_str(), pin); // send update to WS
+   mqttHaPublish(sensors[type][pin]);
+   mqttNodeRedPublishSensor(sensors[type][pin]);
 }
 
 //***************************************************************************
@@ -4628,59 +4680,77 @@ bool Daemon::gpioRead(uint pin, bool check)
    int state {gpio->digitalRead(pin)};
    bool changed {false};
 
-   tell(eloDebugGpio, "Debug: GPIO: gpioRead(%d) got '%s' (invert %s)",
-        pin, state ? "true" : "false", sensors["DI"][pin].invert ? "true" : "false");
+   // #TODO for GPIO
+   // workaround!
+   // -->
+   std::string type {"DI"};
 
-   if (sensors["DI"][pin].invert)
+   if (auto it = sensors.find("GPIO"); it != sensors.end())
+   {
+      auto itSensors = it->second.find(pin);
+
+      if (itSensors != it->second.end() && itSensors->second.active && itSensors->second.fct == "in")
+         type = "GPIO";
+   }
+
+   // <--
+
+
+   tell(eloDebugGpio, "Debug: GPIO: gpioRead(%s:0x%x) got '%s' (%sinverted)",
+        type.c_str(), pin, state ? "true" : "false", sensors[type][pin].invert ? "" : "not ");
+
+   if (sensors[type][pin].invert)
       state = !state;
 
-   // tell(eloAlways, "Pin %d %d / %d", pin, sensors["DI"][pin].state, state);
+   // tell(eloAlways, "Pin %d %d / %d", pin, sensors[type][pin].state, state);
 
-   sensors["DI"][pin].last = time(0) -1;
-   sensors["DI"][pin].valid = true;
+   sensors[type][pin].last = time(0) -1;
+   sensors[type][pin].valid = true;
 
-   if (check && sensors["DI"][pin].state == state)
+   if (check && sensors[type][pin].state == state)
       return state;
 
-   if (sensors["DI"][pin].state != state)
+   if (sensors[type][pin].state != state)
    {
-      sensors["DI"][pin].last = time(0) -1;
-      sensors["DI"][pin].changedAt = time(0);
+      sensors[type][pin].last = time(0) -1;
+      sensors[type][pin].changedAt = time(0);
       changed = true;
    }
 
-   sensors["DI"][pin].state = state;
+   sensors[type][pin].state = state;
 
    // check 'linked' output(s)
 
    for (const auto& itType : sensors)
    {
-      myString type = itType.first;
+      myString _type {itType.first};
 
-      if (!type.starts_with("MCPO") && type != "DO")
+      // #TODO for GPIO
+
+      if (!_type.starts_with("MCPO") && _type != "DO")
           continue;
 
-      for (const auto& s : sensors[type])
+      for (const auto& s : sensors[_type])
       {
-         if (s.second.feedbackInType == "DI" && s.second.feedbackInAddress == pin)
+         if (s.second.feedbackInType == type && s.second.feedbackInAddress == pin)
          {
-            sensors[type][s.first].state = state;
-            sensors[type][s.first].last = time(0) -1;
-            sensors[type][s.first].changedAt = time(0); // #TODO set only if changed
-            sensors[type][s.first].valid = true;
-            publishPin(type.c_str(), s.first);
+            sensors[_type][s.first].state = state;
+            sensors[_type][s.first].last = time(0) -1;
+            sensors[_type][s.first].changedAt = time(0); // #TODO set only if changed
+            sensors[_type][s.first].valid = true;
+            publishPin(_type.c_str(), s.first);
          }
       }
    }
 
-   publishPin("DI", pin);
-   mqttHaPublish(sensors["DI"][pin]);
-   mqttNodeRedPublishSensor(sensors["DI"][pin]);
+   publishPin(type.c_str(), pin);
+   mqttHaPublish(sensors[type][pin]);
+   mqttNodeRedPublishSensor(sensors[type][pin]);
 
    if (changed)
       process(false, true);
 
-   return sensors["DI"][pin].state;
+   return sensors[type][pin].state;
 }
 
 //***************************************************************************
@@ -4857,7 +4927,7 @@ int Daemon::loadIoStates()
       if (sensors[type][address].outputModes & ooAuto)
          sensors[type][address].mode = (OutputMode)tableIoStates->getIntValue("MODE");
 
-      if (type == "DO")
+      if (type == "DO" || (type == "GPIO" && sensors[type][address].fct == "out"))
       {
          gpioWrite(address, state, false);
          tell(eloDetail, "Info: IO state of '%s:0x%x' recovered to '%s'", type.c_str(), address, state ? "true" : "false");

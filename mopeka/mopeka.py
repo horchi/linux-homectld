@@ -9,6 +9,8 @@ import time
 import json
 import paho.mqtt.client as paho
 from bleak import BleakScanner
+import random
+from bleak.exc import BleakDBusError
 
 syslog.openlog(ident="mopekamqtt", logoption=syslog.LOG_PID)
 
@@ -71,7 +73,7 @@ def _parse(mfg: bytes, rssi: int):
 		return None
 
 
-async def scan_one(mac: str, timeout: float = 10.0):
+async def _OLD_scan_one(mac: str, timeout: float = 10.0):
 	mac_upper = mac.upper()
 	result    = None
 
@@ -86,6 +88,34 @@ async def scan_one(mac: str, timeout: float = 10.0):
 	async with BleakScanner(cb):
 		await asyncio.sleep(timeout)
 	return result
+
+async def scan_one(mac: str, timeout: float = 10.0):
+    mac_upper = mac.upper()
+    result    = None
+
+    def cb(device, adv):
+        nonlocal result
+        if device.address.upper() != mac_upper:
+            return
+        mfg = adv.manufacturer_data.get(MOPEKA_MANUFACTURER_ID)
+        if mfg:
+            result = _parse(mfg, getattr(adv, 'rssi', None) or 0)
+
+    # Schleife, falls der Adapter gerade vom Kühlschrank-Script belegt ist
+    for attempt in range(5):
+        try:
+            async with BleakScanner(cb):
+                await asyncio.sleep(timeout)
+            return result
+        except BleakDBusError as e:
+            if "InProgress" in str(e):
+                # Warte kurz und versuche es erneut
+                await asyncio.sleep(1.0 + random.uniform(0.5, 2.0))
+                continue
+            raise
+
+    tell(0, "Scanner konnte nach mehreren Versuchen nicht gestartet werden.")
+    return None
 
 
 async def scan_discover(timeout: float = 10.0):

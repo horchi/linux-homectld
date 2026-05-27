@@ -27,7 +27,7 @@ struct PinInfo
 {
    std::string name;
    bool gpio;
-   bool pull;
+   bool pull;              // support pull up/doen
    bool interrupt;
    std::string voltage;
    std::string description;

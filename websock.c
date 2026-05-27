@@ -140,8 +140,8 @@ int cWebSock::init(int aPort, int aTimeout, const char* confDir, bool ssl)
    {
       free(certFile);
       free(certKeyFile);
-      asprintf(&certFile, "%s/" TARGET ".cert", confDir);
-      asprintf(&certKeyFile, "%s/" TARGET ".key", confDir);
+      asprintf(&certFile, "%s/cert.pem", confDir);
+      asprintf(&certKeyFile, "%s/cert.key", confDir);
       tell(eloAlways, "Starting SSL mode with '%s' / '%s'", certFile, certKeyFile);
 
       info.ssl_cert_filepath = certFile;
@@ -185,6 +185,9 @@ int cWebSock::init(int aPort, int aTimeout, const char* confDir, bool ssl)
 
 void cWebSock::writeLog(int level, const char* line)
 {
+   if (level == LLL_ERR && strstr(line, "lws_set_timeout") && strstr(line, "immortal"))
+      return;
+
    std::string message = strReplace("\n", "", line);
    tell(eloAlways, "WS: (%d) %s", level, message.c_str());
 }
@@ -455,6 +458,7 @@ int cWebSock::callbackHttp(lws* wsi, lws_callback_reasons reason, void* user, vo
       case LWS_CALLBACK_HTTP_DROP_PROTOCOL:       // 50
       case LWS_CALLBACK_EVENT_WAIT_CANCELLED:
       case LWS_CALLBACK_HTTP_BODY_COMPLETION:
+      case LWS_CALLBACK_VHOST_CERT_AGING:
          break;
 
       case LWS_CALLBACK_OPENSSL_LOAD_EXTRA_CLIENT_VERIFY_CERTS: // 21,
@@ -603,9 +607,6 @@ int cWebSock::callbackWs(lws* wsi, lws_callback_reasons reason, void* user, void
                        res, chunkSize, (void*)wsi, (int)chunkSize, p);
                   return -1;
                }
-
-               if ((size_t)res > chunkSize)
-                  tell(eloAlways, "NOTE: lws_write chunk wrote %d instead of %zu bytes", res, chunkSize);
 
                clients[wsi].msgBufferSendOffset += chunkSize;
 

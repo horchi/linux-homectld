@@ -872,6 +872,7 @@ function initWidget(key, widget, fact)
                .css('flex-basis', '100%')
                .css('height', setupMode || (!isEmpty(title) && title != ' ') ? '40px' : '0px')
                .css('padding', '0px')
+               .css('align-content', 'center')
                .css('margin', '0px');
          }
          break;

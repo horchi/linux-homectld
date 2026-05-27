@@ -321,6 +321,7 @@ function showTable(section)
             $('<td>').addClass('tableMultiColCell').append(
                $('<select>').attr('id', 'function_' + id).addClass('inputSetting rounded-border')
                   .append($('<option>').val('deactivated').text('Off'))
+                  .append($('<option>').val('occupied').text('Occupied'))
                   .append($('<option>').val('in').text('In'))
                   .append($('<option>').val('out').text('Out'))
                   .val(gpioFct))
@@ -334,7 +335,7 @@ function showTable(section)
           item.type.startsWith('ADS')) {
          tr.append($('<td>').append($('<button>')
                                     .attr('id', 'btnSensorSetup_' + id)
-                                    .attr('disabled', item.type == 'GPIO' ? gpioFct == 'deactivated' : false)
+                                    .attr('disabled', item.type == 'GPIO' ? gpioFct == 'deactivated' || gpioFct == 'occupied' : false)
                                     .addClass('buttonOptions rounded-border')
                                     .text('Setup')
                                     .on('click', () => sensorSetupDialog(item.type, item.address))));
@@ -654,7 +655,7 @@ function sensorDoSetup(type, address)
                                           .addClass('lua-cm-editor'))))
                          );
 
-   var doScript = valueFacts[key].settings ? valueFacts[key].settings.script : '';
+   var doScript = valueFacts[key].settings &&  valueFacts[key].settings.script ? valueFacts[key].settings.script : '';
    var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
 
    $(form).dialog({
@@ -1055,11 +1056,11 @@ function storeSensorSetup()
       jsonObj["state"] = $("#state_" + type + address).is(":checked");
       jsonObj["record"] = $("#record_" + type + address).is(":checked");
 
-      // #TODO settings needed for GPOI sensors but delete settings og all other types
-      //       until valueFacts[key].settings for them are nozt set yet!
-      // console.log("key", key, "settings:", JSON.stringify(valueFacts[key].settings));
-
-      // jsonObj["settings"] = JSON.stringify(valueFacts[key].settings);
+      // #TODO settings needed for GPOI sensors but delete settings of all other types
+      //       until valueFacts[key].settings for them are not set yet!
+      //console.log("key", key, "settings:", JSON.stringify(valueFacts[key].settings));
+      if (type == 'GPIO')
+         jsonObj["settings"] = JSON.stringify(valueFacts[key].settings);
 
       jsonArray[n++] = jsonObj;
    }

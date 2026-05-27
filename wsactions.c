@@ -36,10 +36,10 @@ int Daemon::dispatchClientRequest()
 
       // get the request
 
-      Event event = cWebService::toEvent(getStringFromJson(oData, "event", "<null>"));
-      long client = getLongFromJson(oData, "client");
+      Event event {cWebService::toEvent(getStringFromJson(oData, "event", "<null>"))};
+      long client {getLongFromJson(oData, "client")};
       oObject = json_object_get(oData, "object");
-      int addr = getIntFromJson(oObject, "address");
+      int addr {getIntFromJson(oObject, "address")};
 
       // rights ...
 
@@ -118,8 +118,8 @@ int Daemon::dispatchClientRequest()
 
 bool Daemon::checkRights(long client, Event event, json_t* oObject)
 {
-   uint rights = urNone;
-   auto it = wsClients.find((void*)client);
+   uint rights {urNone};
+   auto it {wsClients.find((void*)client)};
 
    if (it != wsClients.end())
       rights = wsClients[(void*)client].rights;
@@ -170,8 +170,10 @@ bool Daemon::checkRights(long client, Event event, json_t* oObject)
 
    if (event == evToggleIo && rights & urControl)
    {
-      int addr = getIntFromJson(oObject, "address");
-      const char* type = getStringFromJson(oObject, "type");
+      const char* type {getStringFromJson(oObject, "type")};
+      int addr {getIntFromJson(oObject, "address")};
+
+      tell(eloAlways, "Check evToggleIo rights for '%s:0x%x'", type, addr);
 
       tableValueFacts->clear();
       tableValueFacts->setValue("ADDRESS", addr);
@@ -389,7 +391,7 @@ int Daemon::performData(long client, const char* event)
          if (sensor->disabled)
             json_object_set_new(ojData, "disabled", json_boolean(true));
 
-         if (sensor->type == "DO")    // special properties for DO
+         if (sensor->type == "DO" || (sensor->type ==  "GPIO" && sensor->fct == "out"))    // special properties for DO
          {
             pin2Json(ojData, sensor->type.c_str(), sensor->address);
             // json_object_set_new(ojData, "mode", json_string(sensor->mode == omManual ? "manual" : "auto"));
@@ -491,40 +493,35 @@ int Daemon::performTokenRequest(json_t* oObject, long client)
 
 int Daemon::performToggleIo(json_t* oObject, long client)
 {
-   int addr = getIntFromJson(oObject, "address");
-   const char* type = getStringFromJson(oObject, "type");
-   std::string action = getStringFromJson(oObject, "action", "");
-
-   // std::string cmdTopicKey = std::string(type) + ":" + std::to_string(addr);
-   // if (commandTopicsMap.find(cmdTopicKey) == commandTopicsMap.end())
-   // {
-   //    std::string topic {};
-   //    getConfigItem((std::string("mqttCmdTopic") + type + ":" + std::to_string(addr)).c_str(), topic);
-
-   //    if (!topic.empty())
-   //       commandTopicsMap[cmdTopicKey] = topic;
-   // }
-   // if (commandTopicsMap.find(cmdTopicKey) != commandTopicsMap.end() && !commandTopicsMap[cmdTopicKey].empty())
+   int addr {getIntFromJson(oObject, "address")};
+   const char* type {getStringFromJson(oObject, "type")};
+   std::string action {getStringFromJson(oObject, "action", "")};
 
    const char* topic {lookupCommandTopic(type, addr)};
 
    if (!isEmpty(topic))
-      return switchCommand(type, addr, action, topic, getStringFromJson(oObject, "value"));
+   {
+      if (getStringFromJson(oObject, "value"))
+         return switchCommand(type, addr, action, topic, getStringFromJson(oObject, "value"));
+
+      bool state {!sensors[type][addr].state};
+      return switchCommand(type, addr, action, topic, state ? "1" : "0");
+   }
 
    if (action == "toggle" || action == "switch")
       return toggleIo(addr, type);
 
    if (action == "dim")
    {
-      int value = getIntFromJson(oObject, "value");
+      int value {getIntFromJson(oObject, "value")};
       return toggleIo(addr, type, true, value);
    }
 
    if (action == "color")
    {
-      int hue = getIntFromJson(oObject, "hue");
-      int sat = getIntFromJson(oObject, "saturation");
-      int bri = getIntFromJson(oObject, "bri");
+      int hue {getIntFromJson(oObject, "hue")};
+      int sat {getIntFromJson(oObject, "saturation")};
+      int bri {getIntFromJson(oObject, "bri")};
       tell(eloAlways, "Changing color of %s:0x%02x to %d", type, addr, hue);
       return toggleColor(addr, type, hue, sat, bri);
    }
@@ -1566,7 +1563,7 @@ int Daemon::storeSensorSetup(json_t* obj, long client)
    else if (type == "SC")
       status = storeIoSettings(obj, client);
    else
-      return replyResult(fail, "Ignoring config request, only supported for 'AI', 'DO', 'W1', 'SC' and 'CV' sensors", client);
+      return replyResult(fail, "Ignoring config request, only supported for 'AI', 'DO', 'GPIO', 'W1', 'SC' and 'CV' sensors", client);
 
    if (status == success)
    {
@@ -2692,7 +2689,7 @@ int Daemon::sensor2Json(json_t* obj, const char* type, uint address)
 
    // at least one update / 2 minutes ?? -> move to configuration ??
 
-   if (strcmp(type, "DO") == 0)
+   if (strcmp(type, "DO") == 0 || (strcmp(type, "GPIO") == 0 && sensors[type][address].fct == "out"))
       ;
    else if (strcmp(type, "WEA") == 0)
       sensors[type][address].valid = sensors[type][address].last >= time(0) - 60*tmeSecondsPerMinute;

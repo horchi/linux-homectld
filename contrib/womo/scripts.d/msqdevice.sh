@@ -1,7 +1,6 @@
 #!/bin/bash
 
 CMD="/usr/local/bin/msq.device"
-dev=`${CMD}`
 
 if [[ "$1" == "toggle" ]]; then
    if [[ ${dev} == "wlan0" ]]; then
@@ -13,8 +12,9 @@ if [[ "$1" == "toggle" ]]; then
    fi
 fi
 
-dev=`${CMD}`
-RESULT="{ \"type\":\"SC\",\"address\":$2,\"kind\":\"text\",\"text\":\"${dev}\",\"choices\":\"wlan0,usb0,wwan0\"}"
+CHOICES=$(ip -o link show | awk -F': ' '{print $2}' | grep -v -E '^(lo|eth|en)' | paste -sd, -)
+DEVICE=`${CMD}`
+RESULT="{ \"type\":\"SC\",\"address\":$2,\"kind\":\"text\",\"text\":\"${DEVICE}\",\"choices\":\"${CHOICES}\"}"
 echo -n ${RESULT}
 
 if [ "$1" != "init" ]; then

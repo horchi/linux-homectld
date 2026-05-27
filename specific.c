@@ -311,7 +311,7 @@ int HomeCtl::applyConfigurationSpecials()
    Daemon::applyConfigurationSpecials();
 
    initOutput(pinUserOut1, ooUser, omManual, "Digital Output");
-   initOutput(pinUserOut2, ooUser, omManual, "Digital Output");
+   // initOutput(pinUserOut2, ooUser, omManual, "Digital Output");
    initOutput(pinUserOut3, ooUser, omManual, "Digital Output");
    initOutput(pinUserOut4, ooUser, omManual, "Digital Output");
    // initOutput(pinUserOut5, ooUser, omManual, "Digital Output");
@@ -322,19 +322,16 @@ int HomeCtl::applyConfigurationSpecials()
    // initInput(pinUserInput2, "Digital Input");
    initInput(pinUserInput3, "Digital Input");
 
-# ifndef _POOL
+#ifndef _POOL
    initOutput(pinUserOut7, ooUser, omManual, "Digital Output");
-   initOutput(pinUserOut8, ooUser, omManual, "Digital Output");
+   initOutput(pinUserOut8, ooAuto, omAuto, "Digital Output");
    initOutput(pinUserOut9, ooUser, omManual, "Digital Output");
 
    // initInput(pinUserInput4, "Digital Input");
-   initInput(pinUserInput5, "Digital Input");
+   // initInput(pinUserInput5, "Digital Input");
    initInput(pinUserInput6, "Digital Input");
-   initInput(pinUserInput7, "Digital Input");
-# endif // _POOL
-
-#ifdef _POOL
-
+   // initInput(pinUserInput7, "Digital Input");
+#else
    initOutput(pinFilterPump, ooAuto|ooUser, omAuto, "Filter Pump", urFullControl);
    initOutput(pinSolarPump, ooAuto|ooUser, omAuto, "Solar Pump", urFullControl);
    initOutput(pinPoolLight, ooUser, omManual, "Pool Light");

@@ -4,6 +4,7 @@ include ../Make.config
 install:
 	@echo alpicool service
 	install --mode=755 -D alpicool.py $(BINDEST)/
+	install --mode=755 -D alpicool.sh $(CONFDEST)/scripts.d/
 	cat alpicool.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/alpicool.service
 	chmod a+r $(SYSTEMDDEST)/alpicool.service
 	if ! test -f $(DESTDIR)/etc/default/alpicool2mqtt; then \

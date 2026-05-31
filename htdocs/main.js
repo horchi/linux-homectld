@@ -591,6 +591,9 @@ function dispatchMessage(message)
          initImages();
       // console.log("images " + JSON.stringify(images, undefined, 4));
    }
+   else if (event == "initLiveGps") {
+      processLiveGpsMessage(jMessage.object);
+   }
    else if (event == "chartdata") {
       hideProgressDialog();
       let id = jMessage.object.id;
@@ -703,6 +706,7 @@ function prepareMenu()
    addMainMenuButton('Dash', 'dashboard', true);
    addMainMenuButton('List', 'list', config.showList == '1');
    addMainMenuButton('Charts', 'chart');
+   addMainMenuButton('Map', 'gpslive');
    addMainMenuButton('Schema', 'schema', config.schema);
    addMainMenuButton('Music', 'lmc', config.lmcHost != '');
    addMainMenuButton('VDR', 'vdr', config.vdr != '');
@@ -741,7 +745,7 @@ function prepareSetupMenu()
    $('#confirmDiv').remove();
    $('#setupMenu').remove();
 
-   if (['setup', 'sensorsetup', 'userdetails', 'groups', 'alerts', 'syslog', 'system', 'images', 'commands'].includes(currentPage)) {
+   if (['setup', 'sensorsetup', 'userdetails', 'groups', 'alerts', 'syslog', 'system', 'images', 'commands', 'readme'].includes(currentPage)) {
       if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10) {
 
          $("#navMenu").append($('<div></div>')
@@ -759,6 +763,7 @@ function prepareSetupMenu()
          addSetupMenuButton('Commands', 'commands');
          addSetupMenuButton('Wifi', 'system', 'wifis');
          addSetupMenuButton('System Services', 'system', 'system-services');
+         addSetupMenuButton('README', 'readme');
       }
    }
 }
@@ -884,6 +889,8 @@ function mainMenuSel(what, action = null)
       initVdr();
    else if (currentPage == "lmc")
       initLmc();
+   else if (currentPage == "readme")
+      return initReadme();
    else if (currentPage == "chart") {
       event = "chartdata";
       // console.log("config.chartSensors: " + config.chartSensors);

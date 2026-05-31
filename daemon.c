@@ -550,8 +550,9 @@ int Daemon::init()
    }
 
    addValueFact(1, "CV", 1, "Calc Sensor 1", "", "");
-   addValueFact(2, "WEA", 1, "Windy App", "", "");
+   addValueFact(2, "WEA", 1, "Windy App by Spot ID", "", "");
    addValueFact(3, "WEA", 1, "Windy App Map", "", "");
+   addValueFact(4, "WEA", 1, "Windy App by GPS", "", "");
 
    lua.configure([this](sol::state& s) {
       s.new_usertype<SensorData>("SensorData",
@@ -734,7 +735,6 @@ int Daemon::initSensorByFact(myString type, uint address)
          {
             sensors[type][address].invert = getBoolFromJson(jCal, "invert", true);
             sensors[type][address].pull = (Gpio::PullUpDown)getIntFromJson(jCal, "pull", 0);
-            sensors[type][address].interrupt = getBoolFromJson(jCal, "interrupt");
 
             cfgInput(type, address, jCal);
          }
@@ -854,7 +854,7 @@ int Daemon::cfgInput(myString type, uint pin, json_t* jCal)
       if (sensors[type][pin].pull != Gpio::pudOff)
          gpio->pullUpDnControl(pin, sensors[type][pin].pull);
 
-      if (sensors[type][pin].active) //  && sensors[type][pin].interrupt)
+      if (sensors[type][pin].active) //
       {
          tell(eloDebugGpio, "Debug: GPIO: ISR(%d) (%s)", pin, gpio->pinToName(pin).c_str());
 
@@ -1847,6 +1847,7 @@ int Daemon::readConfiguration(bool initial)
    getConfigItem("webSsl", webSsl);
    getConfigItem("iconSet", iconSet, "light");
    getConfigItem("windyAppSpotID", windyAppSpotID, "5247411");
+   getConfigItem("windyAppID", windyAppID, "");
 
    std::string tmp;
    getConfigItem("schema", tmp);
@@ -2124,13 +2125,6 @@ int Daemon::loop()
             aggregate();
          }
 
-         // main work in 'interval'
-
-         // {
-         //    LogDuration ld("updateInputs", eloLoopTimings);
-         //    updateInputs(false);
-         // }
-
          {
             LogDuration ld("updateWeather", eloLoopTimings);
             updateWeather();
@@ -2405,28 +2399,26 @@ int Daemon::process(bool force, bool signal)
 
       luaCurrentKey = key;
 
-      // at first run (luaDeps empty) execute to collect watch() deps
-
-      bool update {luaDeps[luaCurrentKey].empty()};
+      bool update {false};
 
       // if deps is set check it
 
-      if (!update)
+      if (!luaDeps[luaCurrentKey].empty())
       {
          for (const auto& [wType, wAddr] : luaDeps[luaCurrentKey])
          {
             if (!sensors.count(wType) || !sensors.at(wType).count(wAddr))
                continue;
 
-            if (sensors.at(wType).at(wAddr).changedAt <= sensors[type][address].changedAt)
-               continue;
+            if (sensors.at(wType).at(wAddr).changedAt > sensors[type][address].changedAt)
+            {
+               tell(eloLua, "LUA: '%s:0x%02x' (%s) changed later than '%s:0x%02lx' (%s)",
+                    wType.c_str(), wAddr, l2pTime(sensors.at(wType).at(wAddr).changedAt).c_str(),
+                    type.c_str(), address, l2pTime(sensors[type][address].changedAt).c_str());
 
-            tell(eloLua, "LUA: '%s:0x%02x' (%s) changed later than '%s:0x%02lx' (%s)",
-                 wType.c_str(), wAddr, l2pTime(sensors.at(wType).at(wAddr).changedAt).c_str(),
-                 type.c_str(), address, l2pTime(sensors[type][address].changedAt).c_str());
-
-            update = true;
-            break;
+               update = true;
+               break;
+            }
          }
       }
 
@@ -3861,7 +3853,7 @@ int Daemon::dispatchGrowattEvents(const char* message)
    }
 
    json_decref(jData);
-   triggerProcess = true;
+   triggerProcess = true;  // growatt
 
    return done;
 }
@@ -4197,34 +4189,58 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
    if (type.starts_with("ADS"))
    {
-      int res {updateAnalogInput(address, type.c_str(), getDoubleFromJson(jData, "value"), newTime, unit)};
+      bool changed {updateAnalogInput(address, type.c_str(), getDoubleFromJson(jData, "value"), newTime, unit)};
       json_decref(jData);
-      return res;
+      triggerProcess = changed;  // ADS Sensor
+      return success;
    }
 
    sensors[type][address].text = getStringFromJson(jData, "text", "");
    sensors[type][address].image = image;
    sensors[type][address].color = color;
 
-   if (sensors[type][address].kind == "value" && sensors[type][address].value != getDoubleFromJson(jData, "value"))
-      sensors[type][address].changedAt = newTime;
-   else if (sensors[type][address].kind != "value")
-      sensors[type][address].changedAt = newTime;
+   bool changed {false};
 
-   sensors[type][address].value = getDoubleFromJson(jData, "value");
-
-   bool state {getBoolFromJson(jData, "state")};
-
-   if (sensors[type][address].kind == "status")
+   if (sensors[type][address].kind == "value")
    {
+      if (sensors[type][address].value != getDoubleFromJson(jData, "value"))
+      {
+         // tell(eloAlways, "DEBUG: Change double from '%f' to '%f'", sensors[type][address].value, getDoubleFromJson(jData, "value"));
+         sensors[type][address].value = getDoubleFromJson(jData, "value");
+         sensors[type][address].changedAt = newTime;
+         changed = true;
+      }
+   }
+   else if (sensors[type][address].kind == "status")
+   {
+      bool state {getBoolFromJson(jData, "state")};
       bool oldState {sensors[type][address].state};
 
       sensors[type][address].state = sensors[type][address].invert ? !state : state;
       // tell(eloAlways, "State of '%s:%d' is %d; invert %d", type.c_str(), address, sensors[type][address].state, sensors[type][address].invert);
 
       if (oldState != sensors[type][address].state && sensors[type][address].outputModes & ooUser)
+      {
          storeIoState(type.c_str(), address);
+         sensors[type][address].changedAt = newTime;
+         changed = true;
+      }
    }
+   else if (sensors[type][address].kind == "text")
+   {
+      if (sensors[type][address].text != getStringFromJson(jData, "text", "-"))
+      {
+         sensors[type][address].changedAt = newTime;
+         changed = true;
+      }
+   }
+   else // ??
+   {
+      sensors[type][address].changedAt = newTime;
+      changed = true;
+   }
+
+   sensors[type][address].value = getDoubleFromJson(jData, "value"); // needed rere, retundant??
 
    // handle feedback inputs
    //   -> setup output state if we got a feedback input
@@ -4246,7 +4262,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
             if (feedbackInType.starts_with("MCPI") && s.second.feedbackInAddress == (uint)address)
             {
-               sensors[_type][s.first].state = sensors[type][address].invert ? !state : state;
+               sensors[_type][s.first].state = sensors[type][address].state;
                sensors[_type][s.first].last = time(0) -1;
                sensors[_type][s.first].changedAt = time(0); // #TODO set only if changed
                sensors[_type][s.first].valid = true;
@@ -4254,6 +4270,13 @@ int Daemon::dispatchOther(const char* topic, const char* message)
             }
          }
       }
+   }
+
+   if (changed)
+   {
+      // tell(eloAlways, "triggerProcess on '%s:0x%x' change to '%f' [%s]",
+      //      type.c_str(), address, sensors[type][address].value, sensors[type][address].kind.c_str());
+      triggerProcess = true; // dispatchOther
    }
 
    // send update to WS
@@ -4285,8 +4308,6 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    mqttHaPublish(sensors[type][address]);
    mqttNodeRedPublishSensor(sensors[type][address]);
    json_decref(jData);
-
-   triggerProcess = true;
 
    return done;
 }
@@ -4497,9 +4518,8 @@ int Daemon::toggleIo(uint addr, const char* type, int state, int bri, int transi
       return fail;
    }
 
-   tell(eloDebug, "Debug: toggleio() %s:0x%02x", type, addr);
-
    int newState {state == na ? !sensors[type][addr].state : state};
+   tell(eloDebugGpio, "Debug: GPIO: toggleio() '%s:0x%02x' to '%s'", type, addr, newState ? "true" : "false");
 
    if (strcmp(type, "DO") == 0 || strcmp(type, "GPIO") == 0)
       gpioWrite(addr, newState);
@@ -4510,7 +4530,8 @@ int Daemon::toggleIo(uint addr, const char* type, int state, int bri, int transi
    else if (strcmp(type, "HMB") == 0)
    {
       double value = sensors[type][addr].value;
-      tell(eloDebug, "Debug: toggleIo - last direction = '%s', level was %d", sensors[type][addr].lastDir == dirOpen ? "open" : "close", (int)sensors[type][addr].value);
+      tell(eloDebug, "Debug: toggleIo - last direction = '%s', level was %d",
+           sensors[type][addr].lastDir == dirOpen ? "open" : "close", (int)sensors[type][addr].value);
 
       if (bri == na && (sensors[type][addr].lastDir == dirOpen || sensors[type][addr].value == 100))
          value = 0;
@@ -4657,8 +4678,12 @@ void Daemon::gpioWrite(uint pin, bool state, bool saveIoState)
       // invert the state on 'invert' - most relay board are active at 'false'
 
       sensors[type][pin].state = state;
-      tell(eloDebugGpio, "Debug: GPIO: calling digitalWrite(%d), invert was %s", pin, sensors[type][pin].invert ? "true" : "false");
-      gpio->digitalWrite(pin, sensors[type][pin].invert ? !state : state);
+      bool invState {sensors[type][pin].invert ? !state : state};
+
+      tell(eloDebugGpio, "Debug: GPIO: calling digitalWrite(%s:0x%x, %d), invert was %s",
+           type.c_str(), pin, invState, sensors[type][pin].invert ? "true" : "false");
+
+      gpio->digitalWrite(pin, invState);
    }
 
    if (saveIoState)
@@ -4963,6 +4988,7 @@ int Daemon::dispatchArduinoMsg(const char* message)
 
    if (strcmp(event, "update") == 0)
    {
+      bool changed {false};
       json_t* jArray = getObjectFromJson(jObject, "analog");
       size_t index {0};
       json_t* jValue {};
@@ -4991,16 +5017,20 @@ int Daemon::dispatchArduinoMsg(const char* message)
          if (unit == "")
             unit = addr <= 7 ? "%" : "mV";
 
-         std::string title = "Analog Input (Arduino) " + std::to_string(addr);
+         std::string title {"Analog Input (Arduino) " + std::to_string(addr)};
 
          if (sensors[type][addr].active) // don't override unit if sensor already exist
             unit.clear();
 
          addValueFact(addr, type, 1, title.c_str(), unit.c_str());
-         updateAnalogInput(addr, type, value, stamp, unit.c_str());
+         changed |= updateAnalogInput(addr, type, value, stamp, unit.c_str());
       }
 
-      triggerProcess = true;
+      if (changed)
+      {
+         tell(eloAlways, "triggerProcess on AI change");
+         triggerProcess = true;  // arduino message
+      }
    }
    else if (strcmp(event, "init") == 0)
       initArduino();
@@ -5055,13 +5085,13 @@ int Daemon::initArduino()
 // Update Analog Input
 //***************************************************************************
 
-int Daemon::updateAnalogInput(uint addr, const char* type, double value, time_t stamp, const char* unit)
+bool Daemon::updateAnalogInput(uint addr, const char* type, double value, time_t stamp, const char* unit)
 {
    // the Ardoino read the analog inputs with a resolution of 12 bits (3.3V => 4095)
    // the MCP read the analog inputs with of ...
 
    if (!sensors[type][addr].active)
-      return done;
+      return false;
 
    double dValue {value};
 
@@ -5082,10 +5112,13 @@ int Daemon::updateAnalogInput(uint addr, const char* type, double value, time_t 
    if (dValue < aiSensorConfig[type][addr].cutBelow)
       dValue = 0.0;
 
+   bool changed {false};
+
    if (sensors[type][addr].value != dValue)
    {
       tell(eloDebug, "Debug: %s:0x%02x canged from %f to %f", type, addr, sensors[type][addr].value, dValue);
       sensors[type][addr].changedAt = stamp;
+      changed = true;
    }
 
    sensors[type][addr].value = dValue;
@@ -5113,7 +5146,7 @@ int Daemon::updateAnalogInput(uint addr, const char* type, double value, time_t 
 
    pushDataUpdate("update", 0L);
 
-   return success;
+   return changed;
 }
 
 //***************************************************************************
@@ -5130,26 +5163,32 @@ int Daemon::dispatchW1Msg(const char* message)
       return fail;
    }
 
+   bool changed {false};
    size_t index {0};
    json_t* jValue {};
 
    json_array_foreach(jArray, index, jValue)
    {
-      const char* name = getStringFromJson(jValue, "name");
-      double value = getDoubleFromJson(jValue, "value");
-      time_t stamp = getIntFromJson(jValue, "time");
+      const char* name {getStringFromJson(jValue, "name")};
+      double value {getDoubleFromJson(jValue, "value")};
+      time_t stamp {getIntFromJson(jValue, "time")};
 
-      updateW1(name, value, stamp);
+      changed |= updateW1(name, value, stamp);
    }
 
    json_decref(jArray);
    cleanupW1();
-   triggerProcess = true;
+
+   if (changed)
+   {
+      tell(eloAlways, "triggerProcess on W1 changed");
+      triggerProcess = true;   // w1
+   }
 
    return success;
 }
 
-void Daemon::updateW1(const char* id, double value, time_t stamp)
+bool Daemon::updateW1(const char* id, double value, time_t stamp)
 {
    uint address = toW1Id(id);
 
@@ -5165,15 +5204,15 @@ void Daemon::updateW1(const char* id, double value, time_t stamp)
    tableValueFacts->setValue("TYPE", "W1");
 
    if (!tableValueFacts->find() || !tableValueFacts->hasValue("STATE", "A"))
-      return ;
+      return false;
 
    if (stamp < time(0)-300)
    {
       tell(eloInfo, "Skipping old (%ld seconds) value of 'W1:%d'", time(0)-stamp, address);
-      return ;
+      return false;
    }
 
-   bool changed = sensors["W1"][address].value != value;
+   bool changed {sensors["W1"][address].value != value};
 
    sensors["W1"][address].value = value;
    sensors["W1"][address].valid = true;
@@ -5182,7 +5221,7 @@ void Daemon::updateW1(const char* id, double value, time_t stamp)
    if (changed)
       sensors["W1"][address].changedAt = stamp;
 
-   json_t* ojData = json_object();
+   json_t* ojData {json_object()};
 
    sensor2Json(ojData, "W1", address);
    json_object_set_new(ojData, "value", json_real(value));
@@ -5201,6 +5240,8 @@ void Daemon::updateW1(const char* id, double value, time_t stamp)
    }
 
    tableValueFacts->reset();
+
+   return changed;
 }
 
 void Daemon::cleanupW1()

@@ -777,7 +777,7 @@ function initWidget(key, widget, fact)
                            .html(title));
 
          if (fact.type == 'WEA' && fact.address != 1) {
-            if (fact.address == 2)
+            if (fact.address == 2 || fact.address == 4)
                initWindy(key, widget, fact);
             else if (fact.address == 3)
                initWindyMap(key, widget, fact);
@@ -1000,22 +1000,54 @@ function initWindy(key, widget, fact)
    //   clouds, precipitation, waves-direction, waves-height,
    //   waves-period, tides, moon-phase
 
-   let html = '<div ' +
-       '     data-windywidget="forecast"' +
-       '     data-customcss="windy-dark.css"' +
-       '     data-thememode="dark"' +            // white|dark
-       '     data-tempunit="C"' +                // C|F
-       '     data-windunit="bft"' +              // knots|bft|m/s|mph|km/h
-       '     data-heightunit="m"' +              // m|ft
-       '     data-spotid="' + config.windyAppSpotID + '"' +
-       // '     data-lat="54.0951002"' +         //
-       // '     data-lng="8.9516540"' +          //
-       '     data-fields="wind-speed,wind-gust,wind-direction,air-temp,clouds,precipitation"' +
-       '     data-appid="widgets_7e484018b8"' +
-       ' >' +
-       '</div>' +
-       '<script async="true" data-cfasync="false" type="text/javascript"' +
-       '        src="windy_forecast_async.js?v1.4.6"></script>';
+   let html = '';
+
+   // by spot id
+
+   if (fact.address == 2) {
+      html = '<div ' +
+         '   data-windywidget="forecast"' +
+         '   data-customcss="windy-dark.css"' +
+         '   data-thememode="dark"' +            // white|dark
+         '   data-tempunit="C"' +                // C|F
+         '   data-windunit="bft"' +              // knots|bft|m/s|mph|km/h
+         '   data-heightunit="m"' +              // m|ft
+         '   data-spotid="' + config.windyAppSpotID + '"' +
+         '   data-fields="wind-speed,wind-gust,wind-direction,air-temp,clouds,precipitation"' +
+         '   data-appid="widgets_' + config.windyAppID + '"' +
+         ' >' +
+         '</div>' +
+         '<script async="true" data-cfasync="false" type="text/javascript"' +
+         '        src="windy_forecast_async.js?v1.4.6"></script>';
+   }
+
+   // by gps
+
+   if (fact.address == 4) {
+      keyLat = toKey("GPS", 0x01);
+      keyLong = toKey("GPS", 0x2);
+
+      if (allSensors[keyLat] && allSensors[keyLong]) {
+         html = '<div ' +
+            '   data-windywidget="forecast"' +
+            '   data-customcss="windy-dark.css"' +
+            '   data-thememode="dark"' +            // white|dark
+            '   data-tempunit="C"' +                // C|F
+            '   data-windunit="bft"' +              // knots|bft|m/s|mph|km/h
+            '   data-heightunit="m"' +              // m|ft
+            '   data-lat="' + allSensors[keyLat].value + '"' +
+            '   data-lng="' + allSensors[keyLong].value + '"' +
+            '   data-fields="wind-speed,wind-gust,wind-direction,air-temp,clouds,precipitation"' +
+            '   data-appid="widgets_' + config.windyAppID + '"' +
+            ' >' +
+            '</div>' +
+            '<script async="true" data-cfasync="false" type="text/javascript"' +
+            '        src="windy_forecast_async.js?v1.4.6"></script>';
+      }
+      else {
+         html = '<div style="padding:20px;color:red;">No GPS Data available</div> ';
+      }
+   }
 
    let elem = document.getElementById('div_' + key);
 
@@ -1033,12 +1065,12 @@ function initWindyMap(key, widget, fact)
    return;
 
    let html = '<div ' +
-      '    data-windywidget="map"' +
-      '    data-thememode="white"' +
-      '    data-spotid="' + config.windyAppSpotID + '"' +
-      '    data-appid="widgets_8bdd3cb645">' +
-      '</div>' +
-      '<script async="true" data-cfasync="false" type="text/javascript" src="//windy.app/widget3/windy_map_async.js?v289"></script>';
+       '  data-windywidget="map"' +
+       '  data-thememode="white"' +
+       '  data-spotid="' + config.windyAppSpotID + '"' +
+       '  data-appid="widgets_' + config.windyAppID + '"' +
+       '</div>' +
+       '<script async="true" data-cfasync="false" type="text/javascript" src="//windy.app/widget3/windy_map_async.js?v289"></script>';
 
    let elem = document.getElementById('div_' + key);
 
@@ -1656,7 +1688,7 @@ function updateWidget(sensor, refresh, widget)
       sensor.valid = true;
    }
 
-   if (sensor.type == 'WEA' && (sensor.address == 2 || sensor.address == 3)) // Windy App
+   if (sensor.type == 'WEA' && (sensor.address == 2 || sensor.address == 3 || sensor.address == 4)) // Windy App
       sensor.valid = true;
 
    widgetDiv.css('opacity', sensor.valid ? '100%' : '45%');

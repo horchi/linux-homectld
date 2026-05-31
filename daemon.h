@@ -91,8 +91,6 @@ class Daemon : public cWebInterface
          // aliases
 
          pinW1           = pinGpio04,
-         pinSerialTx     = pinGpio14,
-         pinSerialRx     = pinGpio15,
          pinW1Power      = pinGpio10,
 
          pinMcpIrq       = pinGpio16,  // reserved for i2cmqtt !
@@ -121,7 +119,7 @@ class Daemon : public cWebInterface
 
          pinUserInput1   = pinGpio12,  // :(
          pinUserInput2   = pinGpio13,  // :(
-         pinUserInput3   = pinGpio08,  // interrupt don't work! (at least on ODROID)
+         pinUserInput3   = pinGpio08,
 
 #ifndef _POOL
          pinUserInput4   = pinGpio17,  // :(
@@ -244,7 +242,6 @@ class Daemon : public cWebInterface
          bool invert {false};
          Gpio::PullUpDown pull {Gpio::pudOff};
          bool impulse {false};        // change output only for a short impulse
-         bool interrupt {false};
          bool interruptSet {false};
          std::string fct;             // GPIO pin functionm: 'off', 'in', 'out', ...
          std::string script;          // CV,DO  - LUA script
@@ -531,7 +528,7 @@ class Daemon : public cWebInterface
 
       int dispatchArduinoMsg(const char* message);
       int initArduino();
-      int updateAnalogInput(uint addr, const char* type, double value, time_t stamp, const char* unit);
+      bool updateAnalogInput(uint addr, const char* type, double value, time_t stamp, const char* unit);
 
       // W1
 
@@ -539,7 +536,7 @@ class Daemon : public cWebInterface
       int dispatchW1Msg(const char* message);
       double valueOfW1(uint address, time_t& last);
       uint toW1Id(const char* name);
-      void updateW1(const char* id, double value, time_t stamp);
+      bool updateW1(const char* id, double value, time_t stamp);
       void cleanupW1();
 
       // data
@@ -672,6 +669,7 @@ class Daemon : public cWebInterface
       double longitude {8.79};
       std::string openWeatherApiKey;
       std::string windyAppSpotID;
+      std::string windyAppID;
       int weatherInterval {15};           // minutes
       time_t lastStore {0};
       int arduinoInterval {10};

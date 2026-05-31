@@ -78,7 +78,8 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "chartRange",                ctNum,     "1.5",          true,  "WEB Interface", "Chart Range", "" },
    { "chartSensors",              ctNum,     "VA:0x0",       true,  "WEB Interface", "Chart Sensors", "" },
    { "showList",                  ctBool,    "0",            false, "WEB Interface", "Liste anzeigen", "" },
-   { "windyAppSpotID",            ctString,  "5247411",      false, "WEB Interface", "Windy App Spot ID", "" },
+   { "windyAppSpotID",            ctString,  "5247411",      false, "WEB Interface", "Windy App Spot ID", "Anleitung zum ermitteln der Spot-ID, siehe README" },
+   { "windyAppID",                ctString,  "",             false, "WEB Interface", "Windy App ID", "App-ID einrichten, siehe README" },
 
    // MQTT interface
 

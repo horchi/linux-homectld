@@ -2769,6 +2769,7 @@ int Daemon::images2Json(json_t* obj)
 
 //***************************************************************************
 // Perform GPIO Data
+//  just the GPIO pin description (no runtime data)
 //***************************************************************************
 
 int Daemon::performGpioData(json_t* /*oObject*/, long client)

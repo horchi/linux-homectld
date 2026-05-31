@@ -103,7 +103,7 @@
             "8":  { "name": "UART1_TX",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "UART1 TX",   "chipLabel": "gpio3", "offset": 30 },
             "9":  { "name": "GND",        "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },
             "10": { "name": "UART1_RX",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "UART1 RX",   "chipLabel": "gpio3", "offset": 31 },
-            "11": { "name": "UART0_RX",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "UART0 RX",   "chipLabel": "gpio0", "offset": 16 },
+            "11": { "name": "UART0_RX",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "UART0 RX",   "chipLabel": "gpio0", "offset": 14 },
             "12": { "name": "GPIO3D_0",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "",           "chipLabel": "gpio3", "offset": 24 },
             "13": { "name": "UART0_TX",   "gpio": true,  "pull": true,  "interrupt": true,  "voltage": "3.3V", "description": "UART0 TX",   "chipLabel": "gpio0", "offset": 17 },
             "14": { "name": "GND",        "gpio": false, "pull": false, "interrupt": false, "voltage": "GND",  "description": "Ground" },

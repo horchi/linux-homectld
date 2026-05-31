@@ -75,6 +75,7 @@ function initConfig(configdetails = null)
 
       let itemsDiv = null;
       $(dlgContent).append(itemsDiv = $('<div></div>')
+                           .attr('id', 'div_' + item.name)
                            .attr('title', item.description)
                            .append($('<span></span>')
                                    .addClass('labelB1')

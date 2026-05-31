@@ -1,0 +1,19 @@
+
+[Unit]
+
+Description=homectld GPS MQTT Daemon
+After=<AFTER> udev.service mosquitto.service
+Requires=udev.service
+
+[Service]
+
+Type=simple
+EnvironmentFile=/etc/default/gps2mqtt
+ExecStart=<BINDEST>/gpsmqtt.py $GPS_MQTT $GPS_TOPIC $GPS_OPTS $GPS_LOG_LEVEL $GPS_INTERVAL
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+
+WantedBy=multi-user.target

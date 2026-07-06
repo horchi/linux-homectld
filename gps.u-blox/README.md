@@ -76,6 +76,7 @@ Published on `topic` (Sequential single-value JSON bursts per sensor):
 | 5       | altitude   | value  |  m    |
 | 6       | time_utc   | text   |       |
 | 7       | date_utc   | text   |       |
+| 8       | town       | text   |       |
 
 Each sensor element is sequentially serialized into an individual payload string:
 

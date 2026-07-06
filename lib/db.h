@@ -1157,6 +1157,7 @@ class cDbTable : public cDbService
 
       const char* getStrValue(cDbFieldDef* f)       const             { return row->getStrValue(f); }
       long getIntValue(cDbFieldDef* f)              const             { return row->getIntValue(f); }
+      int getIntValueAsInt(cDbFieldDef* f)          const             { return (int)row->getIntValue(f); }
       int64_t getBigintValue(cDbFieldDef* f)        const             { return row->getBigintValue(f); }
       float getFloatValue(cDbFieldDef* f)           const             { return row->getFloatValue(f); }
       time_t getTimeValue(cDbFieldDef* f)           const             { return row->getTimeValue(f); }
@@ -1164,6 +1165,7 @@ class cDbTable : public cDbService
 
       const char* getStrValue(const char* n)        const             { return row->getStrValue(n); }
       long getIntValue(const char* n)               const             { return row->getIntValue(n); }
+      int getIntValueAsInt(const char* n)           const             { return (int)row->getIntValue(n); }
       int64_t getBigintValue(const char* n)         const             { return row->getBigintValue(n); }
       float getFloatValue(const char* n)            const             { return row->getFloatValue(n); }
       time_t getTimeValue(const char* n)            const             { return row->getTimeValue(n); }

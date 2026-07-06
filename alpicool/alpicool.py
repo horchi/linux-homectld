@@ -105,6 +105,7 @@ class FridgeUnitData:
 class FridgeData:
     controls_locked:            bool
     powered_on:                 bool
+    compressor_running:         bool
     run_mode:                   FridgeRunMode
     battery_saver:              FridgeBatterySaver
     max_selectable_temperature: int
@@ -113,7 +114,6 @@ class FridgeData:
     temperature_unit:           FridgeTemperatureUnit
     battery_charge_percent:     int
     battery_voltage:            float
-    running_status:             Optional[int]
     error_code:                 int
     unit1:                      FridgeUnitData
     unit2:                      Optional[FridgeUnitData]
@@ -160,18 +160,26 @@ def decode_unit2_data(data: Union[bytes, bytearray]) -> Optional[FridgeUnitData]
 def decode_fridge_data(data: Union[bytes, bytearray]) -> FridgeData:
     if len(data) < 18:
         raise ValueError('Packet too short')
+
     controls_locked, powered_on, run_mode, battery_saver, \
+    target_temperature, \
     max_selectable_temperature, min_selectable_temperature, \
+    byte8, \
     start_delay, temperature_unit, \
+    byte11, byte12, byte13, byte14, byte15, \
     battery_charge_percent, battery_voltage_int, battery_voltage_frac = \
-        struct.unpack_from('>??BBxbbxBBxxxxxBBB', data, 0)
+        struct.unpack_from('>??BBBbbBBBBBBBBBBB', data, 0)
+
+    print(f"{byte8} | {byte11} | {byte12} | {byte13} | {byte14} | {byte15}")
+
+    error_code = 0
+    compressor_running = False
+
+    # optional für bestimte modelle
     running_status = None
     if len(data) >= 28:
         running_status = struct.unpack_from('B', data, 28)
-    error_code = 0
-    if len(data) >= 31: # Erhöht auf 31 wegen des 2-Byte-Headers am Anfang
-        # Komma nach 'error_code' entpackt das Tuple direkt in einen Integer
-        error_code, = struct.unpack_from('B', data, 30)
+
     return FridgeData(
         controls_locked            = controls_locked,
         powered_on                 = powered_on,
@@ -184,7 +192,7 @@ def decode_fridge_data(data: Union[bytes, bytearray]) -> FridgeData:
         battery_charge_percent     = battery_charge_percent,
         battery_voltage            = battery_voltage_int + battery_voltage_frac / 10,
         error_code                 = error_code,
-        running_status             = running_status,
+        compressor_running         = compressor_running,
         unit1                      = decode_unit1_data(data),
         unit2                      = decode_unit2_data(data)
     )
@@ -594,7 +602,7 @@ async def ble_discover(timeout: float = 10.0) -> dict:
 # ── homectld widget parameters ────────────────────────────────────────────────
 # address → parameter JSON appended on initial publish
 
-parameters = [None] * 6
+parameters = [None] * 7
 # 0: Power (on/off status)
 parameters[0] = '{"parameter": {"cloneable": false, "widgettype": 0, "symbol": "mdi:mdi-power", "symbolOn": "mdi:mdi-snowflake", "color": "gray", "colorOn": "rgb(3 169 244)"}}'
 # 1: Target temperature (settable)
@@ -607,6 +615,8 @@ parameters[3] = '{"parameter": {"cloneable": false, "widgettype": 3}}'
 parameters[4] = '{"parameter": {"cloneable": false, "widgettype": 8}}'
 # 5: Status/Error
 parameters[5] = '{"parameter": {"cloneable": false, "widgettype": 2, "colorCondition": "0=green,>0=red"}}'
+# 6: Compressor running?
+parameters[6] = '{"parameter": {"cloneable": false, "widgettype": 0, "symbol": "mdi:mdi-engine-outline", "symbolOn": "mdi:mdi-engine-outline", "color": "gray", "colorOn": "rgb(3 169 244)"}}'
 
 initial   = True
 cmd_queue = queue.Queue()
@@ -747,6 +757,7 @@ if args.s:
         print(f'Device "{args.M.strip()}" not found or not responding')
     else:
         print(f"Power:       {'On' if status.powered_on else 'Off'}")
+        print(f"Compressor: {'On' if status.compressor_running else 'Off'}  ")
         print(f"Target temp: {status.unit1.target_temperature} °C")
         print(f"Actual temp: {status.unit1.current_temperature} °C")
         print(f"Status:      {status.error_code}  '{get_error_text(status.error_code)}' ")
@@ -811,6 +822,7 @@ async def main_application():
                 tell(0, f'Device "{args.M.strip()}" not found or not responding')
             else:
                 tell(0, f"Power: {'On' if status.powered_on else 'Off'}  "
+                     f"Compressor: {'On' if status.compressor_running else 'Off'}  "
                      f"Target: {status.unit1.target_temperature}°C  "
                      f"Actual: {status.unit1.current_temperature}°C  "
                      f"Battery: {status.battery_voltage:.1f}V  "
@@ -831,6 +843,8 @@ async def main_application():
                              'kind': 'text', 'title': 'Mode', 'choices': 'Max,Eco', 'rights': 2})
                 publishMqtt({'type': stype, 'address': 5, 'value': int(status.error_code), 'text': get_error_text(status.error_code),
                              'kind': 'text', 'title': 'Status'})
+                publishMqtt({'type': stype, 'address': 6, 'state': status.compressor_running,
+                             'kind': 'status', 'title': 'Compressor'})
 
             tell(0, "... done")
             initial = False
@@ -847,9 +861,7 @@ if __name__ == "__main__":
         # Startet den persistenten Loop
         asyncio.run(main_application())
     except KeyboardInterrupt:
-        tell(0, "Räume Ressourcen auf...")
-
-        # Sichern des saubere Trennen der Bluetooth-Verbindung im Kernel
+        # trennen der Bluetooth-Verbindung im Kernel
         if global_fridge and global_fridge.client:
             try:
                 asyncio.run(global_fridge.disconnect())

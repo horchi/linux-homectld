@@ -29,19 +29,37 @@ elif ping -q -c 1 -W 1 8.8.8.8 >/dev/null; then
 
    cd "${GIT_ROOT}"
    export HOME="/root"
-   LOCAL=`git rev-parse HEAD`
-   REMOTE=`git ls-remote origin -h refs/heads/master`
-   REMOTE=`echo $REMOTE | sed s/" .*"/""/`
 
-   if [[ "${LOCAL}" != "${REMOTE}" ]]; then
-      ${LOGGER} "update.sh: Update to ${REMOTE} pending"
-      COLOR="\"blue\""
-      UPD_PENDING=1
+   # 1. Aktuellen Branch-Namen ermitteln
+   BRANCH=$(git branch --show-current)
+
+   # 2. Remote Commit-ID direkt vom Server abfragen (ohne Fetch)
+   REMOTE=$(git ls-remote origin refs/heads/"$BRANCH" | cut -f1)
+
+   # 3. Prüfen, ob die Remote-ID bereits in unserer lokalen Historie existiert
+   if git merge-base --is-ancestor "$REMOTE" HEAD 2>/dev/null; then
+      # Die Server-ID ist bereits Teil unserer Historie (wir sind gleichauf oder voraus)
+      UPD_PENDING=0
+      COLOR="\"lightgreen\""
    else
-      # ${LOGGER} "update.sh: NO update pending, commit id is ${LOCAL}"
-      COLOR="\"green\""
-      ${LOGGER} "update.sh: No update pending"
+      # Die Server-ID ist uns unbekannt -> Es gibt neue Commits zum Pullen
+      UPD_PENDING=1
+      COLOR="\"blue\""
    fi
+
+   #LOCAL=`git rev-parse HEAD`
+   #REMOTE=`git ls-remote origin -h refs/heads/master`
+   #REMOTE=`echo $REMOTE | sed s/" .*"/""/`
+   #
+   #if [[ "${LOCAL}" != "${REMOTE}" ]]; then
+   #   ${LOGGER} "update.sh: Update to ${REMOTE} pending"
+   #   COLOR="\"blue\""
+   #   UPD_PENDING=1
+   #else
+   #   # ${LOGGER} "update.sh: NO update pending, commit id is ${LOCAL}"
+   #   COLOR="\"green\""
+   #   ${LOGGER} "update.sh: No update pending"
+   #fi
 
    STATE="true"
    echo -n

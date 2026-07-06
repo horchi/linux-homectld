@@ -92,6 +92,7 @@ int Daemon::dispatchClientRequest()
             case evLmcAction:           status = performLmcAction(oObject, client);      break;
             case evGpioData:            status = performGpioData(oObject, client);       break;
             case evCheckLuaScript:      status = checkLuaScript(oObject, client);        break;
+            case evGpsLive:             status = gpsLive(oObject, client);               break;
             default:
             {
                if (dispatchSpecialRequest(event,oObject, client) == ignore)
@@ -161,6 +162,7 @@ bool Daemon::checkRights(long client, Event event, json_t* oObject)
       case evLmcAction:           return rights & urControl;
       case evGpioData:            return rights & urView;
       case evCheckLuaScript:      return rights & urSettings;
+      case evGpsLive:             return rights & urView;
 
       default: break;
    }
@@ -768,9 +770,6 @@ int Daemon::performWifiCommand(json_t* oObject, long client)
 
    if (action == "wifi-disconnect")
    {
-      // std::string result {executeCommand("nmcli connection down '%s'", ssid)};
-      // tell(eloAlways, "Info: Disconnect result was [%s]", result.c_str());
-
       tell(eloDetail, "Detail: Calling 'nmcli connection down '%s''", ssid);
 
       std::string result;
@@ -871,9 +870,9 @@ int Daemon::performSyslog(json_t* oObject, long client)
    if (!client)
       return done;
 
-   const char* log = getStringFromJson(oObject, "log");
-   const char* filter = getStringFromJson(oObject, "filter");
-   json_t* oJson = json_object();
+   const char* log {getStringFromJson(oObject, "log")};
+   const char* filter {getStringFromJson(oObject, "filter")};
+   json_t* oJson {json_object()};
    std::vector<std::string> lines;
    std::string result;
 
@@ -949,7 +948,7 @@ int Daemon::performGroups(long client)
    if (!client)
       return done;
 
-   json_t* oJson = json_array();
+   json_t* oJson {json_array()};
    groups2Json(oJson);
    pushOutMessage(oJson, "groups", client);
 
@@ -967,8 +966,8 @@ int Daemon::performTestMail(json_t* oObject, long client)
    if (alertid != na)
       return performAlertTestMail(alertid, client);
 
-   const char* subject = "Test Mail";
-   const char* body = "Test";
+   const char* subject {"Test Mail"};
+   const char* body {"Test"};
 
    tell(eloDebugWebSock, "Test mail requested with: '%s/%s'", subject, body);
 
@@ -1521,7 +1520,7 @@ int Daemon::storeConfig(json_t* obj, long client)
 
 int Daemon::checkLuaScript(json_t* obj, long client)
 {
-   const char* script = getStringFromJson(obj, "lua", "");
+   const char* script {getStringFromJson(obj, "lua", "")};
 
    std::string error;
    Lua lua;
@@ -1533,6 +1532,31 @@ int Daemon::checkLuaScript(json_t* obj, long client)
    pushOutMessage(oJson, "luacheckresult", client);
 
    return success;
+}
+
+//***************************************************************************
+// GPS Live
+//***************************************************************************
+
+int Daemon::gpsLive(json_t* obj, long client)
+{
+   tell(eloAlways, "GPS: %f / %f", gpsCoordinate.latitude, gpsCoordinate.longitude);
+
+   if (!gpsCoordinate.latitude || !gpsCoordinate.longitude)
+      return done;
+
+   char lat_buf[32];
+   char lng_buf[32];
+   char* oldLocale {setlocale(LC_NUMERIC, nullptr)};
+   std::string savedLocale {oldLocale ? oldLocale : "C"};
+
+   setlocale(LC_NUMERIC, "C");
+   snprintf(lat_buf, sizeof(lat_buf), "%.8f", gpsCoordinate.latitude);
+   snprintf(lng_buf, sizeof(lng_buf), "%.8f", gpsCoordinate.longitude);
+   json_t* oArray {json_pack("[s, s]", lat_buf, lng_buf)};
+   setlocale(LC_NUMERIC, savedLocale.c_str());
+
+   return pushOutMessage(oArray, "gpslive", 0);
 }
 
 //***************************************************************************

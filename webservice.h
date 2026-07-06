@@ -56,6 +56,7 @@ class cWebService
          evLmcAction,
          evGpioData,
          evCheckLuaScript,
+         evGpsLive,
 
          evCount
       };

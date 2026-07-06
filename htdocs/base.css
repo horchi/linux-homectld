@@ -2450,6 +2450,62 @@ dialog::backdrop, #backdrop
 }
 
 /* -------------- */
+/* GPS Map        */
+
+#map {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background-color: darkgray;
+}
+
+.leaflet-container {
+    outline: 0;
+}
+
+/* Custom CSS für den Live-Tracking Button */
+
+.live-tracking-control {
+    background: white;
+    padding: 6px 10px;
+    border: 2px solid rgba(0,0,0,0.2);
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 12px;
+    color: #333;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+}
+
+.live-tracking-control:hover {
+    background: #f4f4f4;
+}
+
+.live-tracking-active {
+    color: #d32f2f; /* Rote Schrift, wenn aktiv */
+    border-color: #d32f2f;
+}
+
+/* Custom pulsing animation layer binding to the active Leaflet marker class */
+.map-point.current-location {
+    animation: gpsPulseMarker 2s infinite ease-out;
+    transform-origin: center;
+}
+
+/* Generates a smooth, expanding glow ring around your actual live coordinates */
+@keyframes gpsPulseMarker {
+    0% {
+        box-shadow: 0 0 0 0 rgba(0, 82, 204, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 15px rgba(0, 82, 204, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(0, 82, 204, 0);
+    }
+}
+
+/* -------------- */
 /* Media specials */
 
 @media only screen and (max-width: 320px)

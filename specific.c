@@ -289,7 +289,8 @@ int HomeCtl::atMeanwhile()
 void Daemon::onGpioChange(int physPin, bool value)
 {
    tell(eloDebugGpio, "Debug: GPIO: Interrupt trigger for pin %d (%s)", physPin, value ? "ON" : "OFF");
-   gpioRead(physPin);
+   triggerGpioPins.push(physPin);
+   // gpioRead(physPin);  -> DB access from thread!!
 
 #ifdef _POOL
    static uint64_t lastShowerSwitch {cTimeMs::Now()};     // detect only once a second to prevent bouncing

@@ -336,15 +336,17 @@ int Daemon::pushInMessage(const char* data)
 // Push Out Message (from daemon to WS)
 //***************************************************************************
 
-int Daemon::pushOutMessage(json_t* oContents, const char* event, long client)
+int Daemon::pushOutMessage(json_t* oContents, const char* event, long client, bool keepJson)
 {
    json_t* obj {json_object()};
 
    addToJson(obj, "event", event);
    json_object_set_new(obj, "object", oContents);
 
-   char* p = json_dumps(obj, JSON_REAL_PRECISION(4));
-   json_decref(obj);
+   char* p {json_dumps(obj, JSON_REAL_PRECISION(4))};
+
+   if (!keepJson)
+      json_decref(obj);
 
    if (!p)
    {
@@ -2058,6 +2060,12 @@ int Daemon::meanwhile()
 
    atMeanwhile();
 
+   while (!triggerGpioPins.empty())
+   {
+      gpioRead(triggerGpioPins.front());
+      triggerGpioPins.pop();
+   }
+
    dispatchClientRequest();
    dispatchDeconz();
    performMqttRequests();
@@ -2470,6 +2478,7 @@ int Daemon::process(bool force, bool signal)
       sensors[type][address].changedAt = time(0); // #TODO set only if changed
       sensors[type][address].valid = true;
       setConfigItem(key, sensors[type][address].value);
+      // tell(eloAlways, "Set value of %s:0x%lx to %f; last is %ld", type.c_str(), address, sensors[type][address].value, sensors[type][address].last);
 
       // tell(eloLua, "LUA '%s' changed from %f to %f", key, oldValue, sensors[type][address].value);
 
@@ -3454,7 +3463,7 @@ int Daemon::dispatchDeconz()
    {
       tell(eloDeconz, "<- (DECONZ) '%s'", Deconz::messagesIn.front().c_str());
 
-      const char* msg = Deconz::messagesIn.front().c_str();
+      const char* msg{Deconz::messagesIn.front().c_str()};
 
       if (strcmp(msg, "WS CONNECTED") == 0)
       {
@@ -3463,10 +3472,10 @@ int Daemon::dispatchDeconz()
          return deconz.initDevices();
       }
 
-      json_t* oData = jsonLoad(msg);
-      const char* type = getStringFromJson(oData, "type");
-      uint address = getIntFromJson(oData, "address");
-      SensorData* sensor = getSensor(type, address);
+      json_t* oData {jsonLoad(msg)};
+      const char* type {getStringFromJson(oData, "type")};
+      int address {getIntFromJson(oData, "address")};
+      SensorData* sensor {getSensor(type, address)};
 
       if (!sensor)
       {
@@ -3475,11 +3484,11 @@ int Daemon::dispatchDeconz()
          return done;
       }
 
-      bool state = getBoolFromJson(oData, "state");
-      double value = getDoubleFromJson(oData, "value");
-      int bri = getIntFromJson(oData, "bri", na);
-      int hue = getIntFromJson(oData, "hue", 0);
-      int sat = getIntFromJson(oData, "sat", 0);
+      bool state {getBoolFromJson(oData, "state")};
+      double value {getDoubleFromJson(oData, "value")};
+      int bri {getIntFromJson(oData, "bri", na)};
+      int hue {getIntFromJson(oData, "hue", 0)};
+      int sat {getIntFromJson(oData, "sat", 0)};
 
       if (getObjectFromJson(oData, "state"))
          sensor->state = state;
@@ -3506,7 +3515,7 @@ int Daemon::dispatchDeconz()
 
       // send update to WS
       {
-         json_t* ojData = json_object();
+         json_t* ojData {json_object()};
          sensor2Json(ojData, type, address);
 
          if (getObjectFromJson(oData, "state"))
@@ -3549,7 +3558,7 @@ int Daemon::dispatchDeconz()
 
 int Daemon::dispatchHomematicRpcResult(const char* message)
 {
-   json_t* jData = jsonLoad(message);
+   json_t* jData {jsonLoad(message)};
 
    if (!jData)
    {
@@ -3598,7 +3607,7 @@ int Daemon::dispatchHomematicRpcResult(const char* message)
          selectHomeMaticByUuid->find();
       }
 
-      int address = tableHomeMatic->getIntValue("ADDRESS");
+      int address {tableHomeMatic->getIntValueAsInt("ADDRESS")};
 
       tableHomeMatic->setValue("KIND", hmType.c_str());
       tableHomeMatic->setValue("NAME", uuid);
@@ -3656,8 +3665,8 @@ int Daemon::dispatchHomematicEvents(const char* message)
       return done;
    }
 
-   const char* type = tableHomeMatic->getStrValue("TYPE");
-   long address = tableHomeMatic->getIntValue("ADDRESS");
+   const char* type {tableHomeMatic->getStrValue("TYPE")};
+   long address {tableHomeMatic->getIntValue("ADDRESS")};
    double value {sensors[type][address].value};
 
    tell(eloDebug, "Debug: Got (home-matic) '%s' last value is %d", datapoint.c_str(), (int)sensors[type][address].value);
@@ -4195,7 +4204,6 @@ int Daemon::dispatchOther(const char* topic, const char* message)
       return success;
    }
 
-   sensors[type][address].text = getStringFromJson(jData, "text", "");
    sensors[type][address].image = image;
    sensors[type][address].color = color;
 
@@ -4230,6 +4238,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    {
       if (sensors[type][address].text != getStringFromJson(jData, "text", "-"))
       {
+         sensors[type][address].text = getStringFromJson(jData, "text", "");
          sensors[type][address].changedAt = newTime;
          changed = true;
       }
@@ -4276,7 +4285,25 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    {
       // tell(eloAlways, "triggerProcess on '%s:0x%x' change to '%f' [%s]",
       //      type.c_str(), address, sensors[type][address].value, sensors[type][address].kind.c_str());
+
       triggerProcess = true; // dispatchOther
+
+      if (type == "GPS" && address == 0x0a)
+      {
+         std::replace(sensors[type][address].text.begin(), sensors[type][address].text.end(), '.', ',');
+         std::vector<std::string> tuples;
+         split(sensors[type][address].text, '/', &tuples);
+
+         // tell(eloAlways, "got GPS: %zu [%s]", tuples.size(), sensors[type][address].text.c_str());
+
+         if (tuples.size() == 2)
+         {
+            gpsCoordinate.latitude = strtod(tuples[0].c_str(), nullptr);
+            gpsCoordinate.longitude = strtod(tuples[1].c_str(), nullptr);
+
+            gpsLive(nullptr, 0);
+         }
+      }
    }
 
    // send update to WS
@@ -5028,7 +5055,7 @@ int Daemon::dispatchArduinoMsg(const char* message)
 
       if (changed)
       {
-         tell(eloAlways, "triggerProcess on AI change");
+         // tell(eloAlways, "triggerProcess on AI change");
          triggerProcess = true;  // arduino message
       }
    }
@@ -5181,7 +5208,7 @@ int Daemon::dispatchW1Msg(const char* message)
 
    if (changed)
    {
-      tell(eloAlways, "triggerProcess on W1 changed");
+      // tell(eloAlways, "triggerProcess on W1 changed");
       triggerProcess = true;   // w1
    }
 

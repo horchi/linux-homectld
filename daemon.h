@@ -429,7 +429,7 @@ class Daemon : public cWebInterface
 
       // web
 
-      int pushOutMessage(json_t* obj, const char* event, long client = 0);
+      int pushOutMessage(json_t* obj, const char* event, long client = 0, bool keepJson = false);
       int pushDataUpdate(const char* event, long client);
 
       int pushInMessage(const char* data) override;
@@ -473,6 +473,7 @@ class Daemon : public cWebInterface
       int deleteValueFact(const char* type, long address);
       int storeSensorSetup(json_t* oObject, long client);
       int checkLuaScript(json_t* obj, long client);
+      int gpsLive(json_t* obj, long client);
       int storeCvSettings(json_t* oObject, long client);
       int storeAiSettings(json_t* oObject, long client);
       int storeIoSettings(json_t* oObject, long client);
@@ -692,6 +693,7 @@ class Daemon : public cWebInterface
       std::string htmlHeader;
 
       bool triggerProcess {false};
+      std::queue<int> triggerGpioPins;
       LmcCom* lmc {};
 
       Deconz deconz;
@@ -714,6 +716,14 @@ class Daemon : public cWebInterface
 
       std::map<std::string,std::map<int,AiSensorConfig>> aiSensorConfig;
       std::map<std::string,std::map<int,SensorData>> sensors;
+
+      struct GpsCoordinate
+      {
+         double latitude {};
+         double longitude {};
+      };
+
+      GpsCoordinate gpsCoordinate;
 
       virtual std::list<ConfigItemDef>* getConfiguration() = 0;
 

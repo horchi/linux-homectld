@@ -27,7 +27,7 @@ class W1
 
       struct SensorData
       {
-         double value;
+         double value {0.0};
          std::vector<double> values;
          bool active {false};
       };

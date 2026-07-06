@@ -591,7 +591,7 @@ function dispatchMessage(message)
          initImages();
       // console.log("images " + JSON.stringify(images, undefined, 4));
    }
-   else if (event == "initLiveGps") {
+   else if (event == "gpslive") {
       processLiveGpsMessage(jMessage.object);
    }
    else if (event == "chartdata") {
@@ -891,6 +891,8 @@ function mainMenuSel(what, action = null)
       initLmc();
    else if (currentPage == "readme")
       return initReadme();
+   if (currentPage == "gpslive")
+      event = "gpslive";
    else if (currentPage == "chart") {
       event = "chartdata";
       // console.log("config.chartSensors: " + config.chartSensors);
@@ -1473,8 +1475,10 @@ function hideAllContainer()
    $('#controlContainer').addClass('hidden').removeClass('ctrl-collapsed');
    $('#controlToggle').addClass('hidden');
    $('#container').addClass('hidden');
+   $('#mapcontainer').addClass('hidden');
 
    $("#container").swipe("disable");
+   $("#mapcontainer").swipe("disable");
 }
 
 function toggleControlPanel()

@@ -412,6 +412,9 @@ int main(int argc, char** argv)
    ::signal(SIGINT, W1::downF);
    ::signal(SIGTERM, W1::downF);
 
+   if (W1::max != na)
+      tell(eloAlways, "Ignoring values above %d", W1::max);
+
    // do work ...
 
    job->loop();

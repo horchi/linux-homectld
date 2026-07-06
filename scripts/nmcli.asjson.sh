@@ -3,7 +3,13 @@
 COMMAND="$1"
 MIN_STRENGTH="${2:-0}"   # Default = 0
 
-nmcli dev wifi rescan
+# check ob bereits ein 'nmcli' rescan aktiv ist
+#  wenn nicht neuen anstoßen
+
+if ! pgrep -f "nmcli.*wifi.*rescan" > /dev/null; then
+   # im hintergrund komplett vom aufrufenden c++ prozess entkoppelt
+   nohup nmcli dev wifi rescan >/dev/null 2>&1 < /dev/null &
+fi
 
 if [ "${COMMAND}" == "wifi-list" ]; then
    LC_ALL=C.UTF-8 nmcli -f bssid,ssid,mode,chan,rate,signal,bars,security,active,in-use -t dev wifi \

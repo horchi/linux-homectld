@@ -1,11 +1,28 @@
 
+# specials
+
 WOMO = 1
+
+# services to build/use
+
 #MOPEKA = 1
 #THETFORD = 1
 #VDR = 1
+
+# personalization
 
 INIT_AFTER = mysql.service
 ETH_IFACE = eth0
 SUBNET = 192.168.100
 STATIC_IP = 192.168.100.10
+MQTT_HOST = 192.168.100.10
 DOMAIN = womo.lan
+
+# used at least for Arduinos and ESPs
+
+#WIFI_SSID = xxxx
+#WIFI_PWD = yyyy
+
+# parameter for alpicool ESP32
+
+ALPI_MAC = FC:E4:97:72:E9:83

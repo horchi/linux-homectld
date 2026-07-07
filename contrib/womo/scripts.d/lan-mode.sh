@@ -7,7 +7,7 @@ if [ -r ${STATE_FILE} ]; then
    mode=`cat ${STATE_FILE}`
 fi
 
-RESULT="{ \"type\":\"SC\",\"address\":$2,\"kind\":\"value\",\"valid\":true,\"text\":\"${mode}\",\"unit\":\"\" }"
+RESULT="{ \"type\":\"SC\",\"address\":$2,\"kind\":\"text\",\"valid\":true,\"text\":\"${mode}\",\"unit\":\"\" }"
 echo -n ${RESULT}
 
 if [ "$1" != "init" ]; then

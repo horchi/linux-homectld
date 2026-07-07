@@ -16,12 +16,8 @@ constexpr const char* TopicLog {"homectld2mqtt/alpicool/log"};
 // --- homectld Payload Configuration ---
 
 constexpr const char* SensorType {"ALPICOOL"};
-constexpr const char* TempChoices {"-1,0,1,2,3,4,5,6,7,8,9,10,11"};
+constexpr const char* TempChoices {"-3,-2,-1,0,1,2,3,4,5,6,7,8,9,10"};
 
-// --- BLE Hardware Target ---
-
-constexpr const char* BleMacStr {"FC:E4:97:72:E9:83"};
-
-// --- Hardware Pins ---
+constexpr const char* BleMacStr {<ALPI_MAC>};
 
 constexpr int StatusLedPin {2};

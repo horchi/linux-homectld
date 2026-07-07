@@ -65,7 +65,7 @@ public:
       });
 
       ConnectToMqtt();
-      tell(1, "System erfolgreich gebootet. WLAN, MQTT und BLE-Subsystem sind bereit!");
+      tell(0, "System erfolgreich gebootet. WLAN, MQTT und BLE-Subsystem sind bereit!");
    }
 
    void InitBluetooth()
@@ -82,7 +82,7 @@ public:
       NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
 
       IsBleInitialised = true;
-      tell(1, "Bluetooth erfolgreich initialisiert. Suche Kühlbox...");
+      tell(0, "Bluetooth erfolgreich initialisiert. Suche Kühlbox...");
    }
 
    void Loop()
@@ -255,19 +255,19 @@ private:
 
       if (pRxCharacteristic->canNotify())
       {
-         tell(1, "DIAGNOSE: Rx-Charakteristik unterstuetzt Notifications. Registriere Handler...");
+         tell(4, "Debug: Rx-Charakteristik unterstuetzt Notifications. Registriere Handler...");
 
          auto notifyHandler = [](NimBLERemoteCharacteristic* pChar, uint8_t* pData, size_t len, bool isNotify) {
             if (bridgeInstance != nullptr)
             {
-               bridgeInstance->tell(0, "DIAGNOSE: BLE-Daten empfangen! Laenge: %d Bytes", len);
+               bridgeInstance->tell(4, "Debug: BLE-Daten empfangen! Laenge: %d Bytes", len);
                bridgeInstance->ParseNotification(pData, len);
             }
          };
 
          if (!pRxCharacteristic->subscribe(true, notifyHandler))
          {
-            tell(3, "DIAGNOSE: Subscription-Aufruf fehlgeschlagen.");
+            tell(4, "Debug: Subscription-Aufruf fehlgeschlagen.");
             pBleClient->disconnect();
             return false;
          }
@@ -277,16 +277,16 @@ private:
          {
             uint8_t val[] {0x01, 0x00};
             pCccdDesc->writeValue(val, 2, true);
-            tell(1, "DIAGNOSE: CCCD Descriptor (0x2902) auf Kühlbox erfolgreich scharfgeschaltet!");
+            tell(4, "Debug: CCCD Descriptor (0x2902) auf Kühlbox erfolgreich scharfgeschaltet!");
          }
       }
 
-      tell(1, "Erfolgreich mit Kuehlbox via BLE verbunden und gekoppelt!");
+      tell(0, "Erfolgreich mit Kuehlbox via BLE verbunden und gekoppelt");
       return true;
    }
 
    void onConnect(NimBLEClient* pClient) override { IsBleConnected = true; }
-   void onDisconnect(NimBLEClient* pClient, int reason) override { IsBleConnected = false; tell(2, "BLE Verbindung verloren."); }
+   void onDisconnect(NimBLEClient* pClient, int reason) override { IsBleConnected = false; tell(0, "BLE Verbindung verloren"); }
 
    void SendBleCommand(uint8_t command, uint8_t p1, uint8_t p2, uint8_t p3)
    {

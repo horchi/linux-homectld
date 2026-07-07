@@ -29,3 +29,6 @@ htdocs/stylesheet.css.save
 victronmqtt
 lib/sdclient
 gpiotst
+alpicool/config.h
+alpicool/build
+

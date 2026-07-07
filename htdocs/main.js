@@ -62,6 +62,11 @@ var kioskMode = null;    // 0 - with menu,    normal dash symbols, normal-widget
 var heightFactor = null;
 var sab = 0;             // env(safe-area-inset-bottom)
 
+var controlContainerCollapsed = false;
+var lastSetupPage = null;
+var lastSetupAction = null;
+var setupPages = ['setup', 'sensorsetup', 'userdetails', 'alerts', 'images', 'groups', 'syslog', 'system', 'commands', 'readme'];
+
 $('document').ready(function() {
    daemonState.state = -1;
    s3200State.state = -1;
@@ -670,8 +675,11 @@ function addSetupMenuButton(title, page, action = null)
       .append($('<button></button>')
               .addClass('rounded-border button2')
               .html(title)
-              .click(function() { mainMenuSel(page, action); }));
-
+              .click(function() {
+                 lastSetupPage = page;
+                 lastSetupAction = action;
+                 mainMenuSel(page, action);
+              }));
 }
 
 function addMainMenuButton(title, page, condition = true)
@@ -745,7 +753,7 @@ function prepareSetupMenu()
    $('#confirmDiv').remove();
    $('#setupMenu').remove();
 
-   if (['setup', 'sensorsetup', 'userdetails', 'groups', 'alerts', 'syslog', 'system', 'images', 'commands', 'readme'].includes(currentPage)) {
+   if (setupPages.includes(currentPage)) {
       if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10) {
 
          $("#navMenu").append($('<div></div>')
@@ -765,6 +773,13 @@ function prepareSetupMenu()
          addSetupMenuButton('System Services', 'system', 'system-services');
          addSetupMenuButton('README', 'readme');
       }
+   }
+
+   if (!$("#controlContainer").hasClass("hidden")) {
+      if (controlContainerCollapsed)
+         $("#controlContainer").addClass('ctrl-collapsed');
+      else
+         $("#controlContainer").removeClass('ctrl-collapsed');
    }
 }
 
@@ -853,6 +868,13 @@ function mainMenuSel(what, action = null)
 
    if (currentPage != "vdr")
       socket.send({ "event" : "pagechange", "object" : { "page"  : currentPage }});
+
+   if (lastSetupPage && setupPages.indexOf(currentPage) > -1) {
+      currentPage = lastSetupPage;
+      action = lastSetupAction;
+   }
+
+   // dispatch
 
    let event = null;
    let jsonRequest = {};
@@ -1081,6 +1103,8 @@ function showDatabaseStatistic(statistic)
       .addClass('setupContainer');
 }
 
+var lastWifiStrengthFilter = null;
+
 function showWifiList()
 {
    // console.log("WifiList: " + JSON.stringify(wifis, undefined, 2));
@@ -1107,7 +1131,16 @@ function showWifiList()
               .append($('<option></option>').val('2').html('Fair'))
               .append($('<option></option>').val('1').html('Weak'))
               .append($('<option></option>').val('0').html('Very Weak'))
-              .on('change', function() { updateWifiList(); }));
+              .on('change', function() { updateWifiList(); }))
+      .append($('<div></div>')
+              .addClass('button-group-spacing'))
+      .append($('<button></button>')
+              .addClass('rounded-border tool-button')
+              .html('Refresh')
+              .click(function() { mainMenuSel('system', 'wifis'); }));
+
+   if (lastWifiStrengthFilter)
+      $('#wifiBarsFilter').val(lastWifiStrengthFilter);
 
    updateWifiList();
 }
@@ -1143,12 +1176,13 @@ function updateWifiList()
    for (let i = 0; i < wifis.reachable.length; i++) {
       let wifi = wifis.reachable[i];
       let barCount = getBarCount(wifi.bars);
-      let selectedBars = $('#wifiBarsFilter').val();
+      // let selectedBars = $('#wifiBarsFilter').val();
+      lastWifiStrengthFilter = $('#wifiBarsFilter').val();
 
-      console.log("Check filter:", wifi.network, 'with', barCount, "by", selectedBars, '::', wifi.bars);
+      console.log("Check filter:", wifi.network, 'with', barCount, "by", lastWifiStrengthFilter, '::', wifi.bars);
 
-      if (selectedBars !== 'all' && barCount < selectedBars) {
-         console.log("Filter:", barCount, "by", selectedBars);
+      if (lastWifiStrengthFilter !== 'all' && barCount < lastWifiStrengthFilter) {
+         console.log("Filter:", barCount, "by", lastWifiStrengthFilter);
          continue;
       }
 
@@ -1484,6 +1518,7 @@ function hideAllContainer()
 function toggleControlPanel()
 {
    $('#controlContainer').toggleClass('ctrl-collapsed');
+   controlContainerCollapsed = $("#controlContainer").hasClass("ctrl-collapsed");
 }
 
 // ---------------------------------

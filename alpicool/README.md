@@ -1,84 +1,123 @@
 
-# Alpicool / MANTUM BLE Fridge
+# ESP32 Alpicool BLE to MQTT Bridge
 
-MQTT integration for Alpicool-platform compressor fridges (MANTUM IceCube,
-BrassMonkey, Vevor, Iceco and other rebrands sharing the same OEM hardware).
+Dieses Projekt implementiert eine stabile, performante Brücke auf Basis eines ESP32 zwischen einer Alpicool/Maentum-Kühlbox (via Bluetooth Low Energy)
+und dem Haussteuerungssystem `homectld` (via MQTT). Durch die Portierung auf den ESP32 gehören die bekannten Stabilitätsprobleme
+des Linux-Bluetooth-Stacks (BlueZ) der Vergangenheit an.
 
-Communication via BLE service `FFE0` / characteristic `FFE1`.
+Die Files
+  - alpicool.py
+  - README-python.md
+  - alpicool.service
+  - alpicool2mqtt
 
-## Dependencies
+Sind mit dem neuen Ansatz obsolete, es hat funktioniert nur war die BT Verbindung mit dem Linux-Bluetooth-Stacks exterm instabil.
 
-```
-apt install python3-bleak python3-paho-mqtt
-```
+## Features
+* **Nativer BLE-Stack:** Nutzt `NimBLE-Arduino` für ressourcenschonende und dauerhaft stabile Bluetooth-Verbindungen.
+* **homectld Integration:** Überträgt Zustände als JSON-Payloads und nimmt Steuerbefehle im passenden Adress-Schema entgegen.
+* **Zentrales MQTT-Logging:** Status- und Fehlermeldungen werden strukturiert per JSON an das Log-Topic gesendet.
+* **Visuelles Status-Feedback:** Die Onboard-LED zeigt jederzeit den aktuellen Verbindungsstatus an.
 
-## Installation
+---
 
-```
-make install
-```
+## Abhängigkeiten & Vorbereitung
 
-Adjust MAC and settings in `/etc/default/alpicool2mqtt`.
+Das Projekt wird auf Linux-Ebene über ein automatisiertes `Makefile` mittels der `arduino-cli` verwaltet.
 
-## Find the device MAC
-
-```
-alpicool.py -D
-```
-
-Scans for BLE devices advertising the FFE0 service. Put the fridge in
-pairing/discoverable mode first (usually hold the power button 3 s).
-
-## Verify protocol on first run
-
-The Alpicool BLE protocol is reverse-engineered. On first use, check the
-raw response frame to confirm byte offsets match your firmware version:
-
-```
-alpicool.py -M AA:BB:CC:DD:EE:FF -s -v 3
+### 1. Systemvoraussetzungen (einmalig)
+Stelle sicher, dass `arduino-cli` auf deinem System installiert ist. Falls nicht, installiere es via:
+```bash
+curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
 ```
 
-Expected output includes `Raw frame: fefe06 ...` — compare against the
-layout documented in `alpicool.py` (class `AlpicoolStatus`).
+### 2. Automatische Einrichtung der Toolchain
+Das integrierte Makefile lädt alle benötigten Cores und externen Bibliotheken (`NimBLE-Arduino`, `PubSubClient`, `ArduinoJson`) automatisch herunter. Führe dazu einfach folgenden Befehl im Projektverzeichnis aus:
 
-## Usage
-
-```
-alpicool.py [-h] [-i [I]] [-m [M]] [-p [P]] [-v [V]] [-l]
-            [-T [T]] [-t [T]] [-M [M]] [-s] [-D]
-
-  -i [I]   interval [seconds] (default 30)
-  -m [M]   MQTT host
-  -p [P]   MQTT port (default 1883)
-  -v [V]   verbosity level 0-3 (default 0)
-  -l       log to syslog (default: console)
-  -T [T]   MQTT topic (default: homectld2mqtt/alpicool)
-  -t [T]   sensor type string (default: ALPICOOL)
-  -M [M]   device MAC address
-  -s       show current status and exit
-  -D       discover Alpicool/FFE0 devices
+```bash
+make install-deps
 ```
 
-## MQTT
+---
 
-Published on `topic` (JSON per value):
+## Konfiguration
 
-| address | title       | kind   | writable | unit |
-|---------|-------------|--------|----------|------|
-| 0       | Power       | status | yes      |      |
-| 1       | Target Temp | value  | yes      | °C   |
-| 2       | Actual Temp | value  | no       | °C   |
-| 3       | Battery     | value  | no       | V    |
-| 4       | Mode        | text   | yes      | Max/Eco |
+Vor dem compilieren müssen im übergeordneten Ordner in Make.user
+die Einstellungen für WLAN, MQTT Broker IP und die MAC der Kühlbox eingestellt werden.
 
-Control commands are received on `topic/in`:
+Beispiel:
+```
+WIFI_SSID = foo
+WIFI_PWD = foobar
+MQTT_HOST = 192.168.220.10
+ALPI_MAC = FC:E4:97:72:E9:83
+```
 
+---
+
+## Makefile Bedienung
+
+* **Code kompilieren:**
+  ```bash
+  make
+  # oder
+  make compile
+  ```
+  *Kompiliert den Quellcode und legt das fertige Binärfile nach erfolgreichem Build unter `../bin/alpicool_bridge.bin` ab.*
+
+* **Firmware flashen:**
+  ```bash
+  make upload
+  ```
+  *Überträgt die Firmware über den im Makefile definierten Port (Standard: `/dev/ttyUSB0`) auf den ESP32.*
+
+* **Build-Verzeichnis bereinigen:**
+  ```bash
+  make clean
+  ```
+
+---
+
+## LED Status-Blinkcodes
+
+Die eingebaute blaue LED des ESP32 (`GPIO 2`) signalisiert den Zustand der Brücke ohne aktiven seriellen Monitor:
+
+| LED-Verhalten | Bedeutung |
+| :--- | :--- |
+| **Langsames Blinken (1s)** | Der ESP32 versucht die WLAN-Verbindung aufzubauen. |
+| **Medium Blinken (500ms)** | WLAN steht erfolgreich, aber die Verbindung zum MQTT-Broker wird gesucht. |
+| **Blinken im ~10-Sekunden-Takt** | Netzwerk und MQTT laufen perfekt. Die BLE-Kühlbox ist **ausgeschaltet** oder außer Reichweite. Der ESP32 blinkt einige Sekunden schnell, friert dann für 4s (Hardware-Timeout) starr ein, während er versucht die Box zu erreichen, und startet den Zyklus nach kurzem Blinken nach etwa 10 Sekunden neu. |
+| **Dauerhaft AN** | Perfekter Betriebszustand. WLAN, MQTT und BLE-Kühlbox sind erfolgreich verbunden. Daten werden im 10s-Takt zyklisch übertragen. |
+
+---
+
+## MQTT Payload-Strukturen
+
+### Daten & Zustände (`homectld/alpicool/state`)
+Die Datenpakete der Kühlbox werden zerlegt und im `homectld`-Format publiziert:
 ```json
-{"address": 1, "value": -5}
-{"address": 0, "value": 1}
-{"address": 4, "value": "Eco"}
+{"device":"alpicool","address":4,"type":"CURRENT_TEMP","value":5}
 ```
+* **Adresse 0:** POWER (0 = Aus, 1 = An)
+* **Adresse 1:** MODE (0 = Eco, 1 = Max)
+* **Adresse 2:** BATTERY_LEVEL (0 = Low, 1 = Medium, 2 = High)
+* **Adresse 3:** TARGET_TEMP (Soll-Temperatur in °C)
+* **Adresse 4:** CURRENT_TEMP (Ist-Temperatur der Zone in °C)
+* **Adresse 5:** VOLTAGE (Aktuelle Betriebsspannung in Volt, z.B. `12.4`)
+* **Adresse 6:** LOCK (Tastensperre der Box: 0 = Off, 1 = On)
 
-## References
-
-- Protocol: <https://github.com/klightspeed/BrassMonkeyFridgeMonitor>
+### System-Logs (`homectld/alpicool/log`)
+Sämtliche Statusmeldungen der Brücke werden über ein eigenes Topic ausgegeben:
+```json
+{
+  "device": "alpicool",
+  "type": "LOG",
+  "level": 1,
+  "message": "Erfolgreich mit Kühlbox via BLE verbunden.",
+  "timestamp": 12845
+}
+```
+* **Level 0:** Debug / Verbose (z.B. gesendete BLE Hex-Befehle)
+* **Level 1:** Info (z.B. erfolgreiche Verbindungsaufbauten)
+* **Level 2:** Warning (z.B. Verbindungsabbrüche, fehlerhaftes Inbound-JSON)
+* **Level 3:** Error (z.B. BLE-Charakteristiken oder Services nicht gefunden)

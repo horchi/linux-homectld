@@ -31,12 +31,11 @@ private:
    int8_t CurrentTargetTemp {7};      // Fallback: 7 Grad
 
    unsigned long LastQueryTime {0};
-   const unsigned long QueryInterval {10000};
    unsigned long LastBleConnectAttempt {0};
 
    unsigned long LastLedToggleTime {0};
    bool LedState {false};
-   bool InitialRun {true};
+   bool initialRun {true};
 
 public:
 
@@ -61,7 +60,7 @@ public:
 
       MqttClient.setServer(MqttServer, MqttPort);
       MqttClient.setCallback([this](char* topic, byte* payload, unsigned int length) {
-         this->MqttCallback(topic, payload, length);
+         this->mqttCallback(topic, payload, length);
       });
 
       ConnectToMqtt();
@@ -116,6 +115,7 @@ public:
       else
       {
          unsigned long currentMillis {millis()};
+
          if (currentMillis - LastQueryTime >= QueryInterval)
          {
             LastQueryTime = currentMillis;
@@ -154,9 +154,11 @@ private:
       unsigned long currentMillis {millis()};
       unsigned long interval {1000};
 
+      // Wenn alles verbunden ist -> LED leuchtet dauerhaft gedimmt
+
       if (WiFi.status() == WL_CONNECTED && MqttClient.connected() && IsBleConnected)
       {
-         digitalWrite(StatusLedPin, HIGH);
+         analogWrite(StatusLedPin, LedBrightness);
          return;
       }
       else if (WiFi.status() == WL_CONNECTED && MqttClient.connected())
@@ -172,7 +174,8 @@ private:
       {
          LastLedToggleTime = currentMillis;
          LedState = !LedState;
-         digitalWrite(StatusLedPin, LedState ? HIGH : LOW);
+
+         analogWrite(StatusLedPin, LedState ? LedBrightness : 0);
       }
    }
 
@@ -243,7 +246,6 @@ private:
          return false;
       }
 
-      // KORREKTUR: Wieder saubere Trennung zwischen TX (1235) und RX (1236)
       pTxCharacteristic = pRemoteService->getCharacteristic(TxUuid);
       NimBLERemoteCharacteristic* pRxCharacteristic = pRemoteService->getCharacteristic(RxUuid);
 
@@ -328,7 +330,7 @@ private:
       doc["type"] = SensorType; doc["address"] = address; doc["state"] = state;
       doc["kind"] = "status"; doc["title"] = title;
 
-      if (InitialRun)
+      if (initialRun)
       {
          if (rights > 0) doc["rights"] = rights;
          JsonObject param {doc.createNestedObject("parameter")};
@@ -357,7 +359,7 @@ private:
       doc["kind"] = "value"; doc["title"] = title;
       if (unit != nullptr) doc["unit"] = unit;
 
-      if (InitialRun)
+      if (initialRun)
       {
          if (rights > 0) doc["rights"] = rights;
          if (choices != nullptr) doc["choices"] = choices;
@@ -377,7 +379,7 @@ private:
       doc["type"] = SensorType; doc["address"] = address; doc["text"] = text;
       doc["kind"] = "text"; doc["title"] = title;
 
-      if (InitialRun)
+      if (initialRun)
       {
          if (rights > 0) doc["rights"] = rights;
          if (choices != nullptr) doc["choices"] = choices;
@@ -406,77 +408,75 @@ public:
 
    void ParseNotification(uint8_t* pData, size_t length)
    {
-      static uint8_t reassemblyBuffer[64];
+      static uint8_t reassemblyBuffer[128]; // Fester, großer Sammel-Puffer
       static size_t bufferIndex {0};
 
       // Schutz vor Pufferüberlauf
 
       if (bufferIndex + length > sizeof(reassemblyBuffer))
+      {
          bufferIndex = 0;
+         tell(3, "DIAGNOSE PARSER: Pufferueberlauf verhindert. Setze zurueck.");
+         return;
+      }
 
-      // Neue Fragmente hinten an den Sammel-Puffer anfügen
+      // Neue Fragmente einfach hinten anfügen
 
       memcpy(&reassemblyBuffer[bufferIndex], pData, length);
       bufferIndex += length;
 
-      // Ein gültiges Alpicool-Paket muss zwingend mit FE FE starten
+      // Solange wie genug Daten für eine Auswertung im Puffer liegen, loopen wir
 
-      if (bufferIndex >= 2 && (reassemblyBuffer[0] != 0xFE || reassemblyBuffer[1] != 0xFE))
+      while (bufferIndex >= 3)
       {
-         bufferIndex = 0; // Verwerfen, falls der Header korrupt ist
-         return;
-      }
+         // Suche nach dem Start-Header FE FE im Puffer
 
-      // Wenn wir das Längenbyte haben, berechnen wir die erwartete Gesamtlänge
-      if (bufferIndex >= 3)
-      {
-         uint8_t payloadLen = reassemblyBuffer[2];
-         size_t expectedTotalLength = 3 + payloadLen; // 3 Bytes Header + Payload (inkl. 2 Bytes Checksumme)
+         if (reassemblyBuffer[0] != 0xFE || reassemblyBuffer[1] != 0xFE)
+         {
+            // Wenn der Anfang kein FE FE ist, schieben wir den Puffer um 1 Byte nach vorne
 
-         // Warten, bis alle Fragmente (MTU-Splitting) vollständig gesammelt wurden
+            memmove(&reassemblyBuffer[0], &reassemblyBuffer[1], --bufferIndex);
+            continue;
+         }
+
+         uint8_t payloadLen {reassemblyBuffer[2]};
+         size_t expectedTotalLength {3 + payloadLen};
+
+         // Wenn das Paket noch nicht vollständig im Puffer liegt: Abbrechen und auf das nächste Fragment warten
 
          if (bufferIndex < expectedTotalLength)
             return;
 
-         // 16-Bit Checksumme validieren (Exakt wie Python: sum(int(v) for v in pkt))
-         // Wir addieren alle Bytes auf, außer den letzten zwei (die Checksumme selbst)
-
-         uint16_t calculatedChecksum {0};
+         uint32_t calculatedChecksum {0};
 
          for (size_t i {0}; i < expectedTotalLength - 2; i++)
-            calculatedChecksum += reassemblyBuffer[i];
-
-         // Checksumme aus dem Paket auslesen (Big Endian >H)
+            calculatedChecksum += (uint32_t)reassemblyBuffer[i];
 
          uint16_t packetChecksum = (reassemblyBuffer[expectedTotalLength - 2] << 8) | reassemblyBuffer[expectedTotalLength - 1];
 
-         if (calculatedChecksum != packetChecksum)
+         if ((calculatedChecksum & 0xFFFF) != packetChecksum)
          {
-            bufferIndex = 0; // Bei Fehler Puffer löschen und abbrechen
-            return;
+            tell(2, "DIAGNOSE PARSER ABBRUCH: Checksummenfehler. Erwartet: 0x%04X, Berechnet: 0x%04X. Schiebe Puffer.",
+                 packetChecksum, (calculatedChecksum & 0xFFFF));
+
+            memmove(&reassemblyBuffer[0], &reassemblyBuffer[2], bufferIndex -= 2);
+            continue;
          }
 
-         uint8_t msgType = reassemblyBuffer[3];
-         uint8_t* msgData = &reassemblyBuffer[4];
+         uint8_t msgType {reassemblyBuffer[3]};
+         uint8_t* msgData {&reassemblyBuffer[4]};
 
          if (msgType == 1 && payloadLen >= 15)
          {
-            bool controls_locked        = (msgData[0] == 0x01);
-            bool powered_on             = (msgData[1] == 0x01);
-            uint8_t run_mode            = msgData[2];
-            uint8_t battery_saver       = msgData[3];
-            int8_t unit1_target         = (int8_t)msgData[4];
-            int8_t unit1_current        = (int8_t)msgData[14];
-
-            CurrentPowerState = powered_on;
-            CurrentRunMode    = run_mode;
-            CurrentTargetTemp = unit1_target;
-
-            // Spannung liegt exakt an Offset 16 (Int) und Offset 17 (Frac)
-
-            uint8_t battery_voltage_int  = msgData[16];
+            bool controls_locked = (msgData[0] == 0x01);
+            bool powered_on = (msgData[1] == 0x01);
+            uint8_t run_mode = msgData[2];
+            uint8_t battery_saver = msgData[3];
+            int8_t unit1_target = (int8_t)msgData[4];
+            int8_t unit1_current = (int8_t)msgData[14];
+            uint8_t battery_voltage_int = msgData[16];
             uint8_t battery_voltage_frac = msgData[17];
-            float battery_voltage        = (float)battery_voltage_int + ((float)battery_voltage_frac / 10.0f);
+            float battery_voltage = (float)battery_voltage_int + ((float)battery_voltage_frac / 10.0f);
 
             PublishStatus(0, "Power", powered_on, 2);
             PublishValue(1, "Target Temp", unit1_target, "°C", 2, TempChoices);
@@ -484,34 +484,38 @@ public:
             PublishValue(3, "Battery", battery_voltage, "V");
             PublishText(4, "Mode", (run_mode == 1) ? "Eco" : "Max", 2, "Max,Eco");
             PublishText(5, "Status", GetErrorText(0));
-            // PublishStatus(6, "Lock", controls_locked, 2);
+            PublishStatus(6, "Lock", controls_locked, 2);
 
-            InitialRun = false;
+            initialRun = false;
          }
 
-         bufferIndex = 0;
+         size_t remainingBytes {bufferIndex - expectedTotalLength};
+
+         if (remainingBytes > 0)
+            memmove(&reassemblyBuffer[0], &reassemblyBuffer[expectedTotalLength], remainingBytes);
+
+         bufferIndex = remainingBytes;
       }
    }
 
 private:
 
-   void MqttCallback(char* topic, byte* payload, unsigned int length)
+   void mqttCallback(char* topic, byte* payload, unsigned int length)
    {
-      char* jsonStr = new char[length + 1]();
-      memcpy(jsonStr, payload, length);
-
       StaticJsonDocument<256> doc;
 
-      if (deserializeJson(doc, jsonStr))
-      {
-         delete[] jsonStr;
-         return;
-      }
+      char* jsonStr {new char[length + 1]()};
+      memcpy(jsonStr, payload, length);
+
+      ArduinoJson::V743PB22::DeserializationError res {deserializeJson(doc, jsonStr)};
       delete[] jsonStr;
+
+      if (res)
+         return;
 
       int address {doc["address"] | -1};
       JsonVariant valueVariant {doc["value"]};
-      int value {0};
+      int value {1};
 
       if (valueVariant.is<int>() || valueVariant.is<bool>())
       {
@@ -521,8 +525,9 @@ private:
       {
          String valStr {valueVariant.as<const char*>()};
          valStr.toLowerCase();
-         if (valStr == "eco" || valStr == "true") value = 1;
-         else value = atoi(valStr.c_str());
+
+         if (valStr != "eco" && valStr != "true")
+            value = atoi(valStr.c_str());
       }
 
       // Adresse 0: Power schalten (An / Aus)

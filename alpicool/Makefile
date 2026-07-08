@@ -38,6 +38,7 @@ upload:
 
 clean:
 	@echo "Bereinige Build-Verzeichnis .."
+	rm -f *.o *~
 	rm -rf $(BUILD_DIR) config.h
 
 install-deps:

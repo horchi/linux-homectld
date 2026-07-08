@@ -811,6 +811,7 @@ function initWidget(key, widget, fact)
                     .css('z-index', '99999') // Z-Index auf einen extrem hohen Wert gesetzt
                     .css('transform', 'translateZ(1px)') // Erzwingt eine eigene Compositing-Schicht mit einem minimalen Z-Offset
                     .css('will-change', 'transform') // Signalisiert dem Browser zukünftige Transformationen für Optimierung
+                    .css('background-color', 'var(--widgetBackground)') // Sicherstellen, dass der Titel einen undurchsichtigen Hintergrund hat
                     .click(function(event) {titleClick(event.ctrlKey, key);})
                     .html(title))
             .append($('<div></div>')

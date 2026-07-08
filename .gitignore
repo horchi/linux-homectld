@@ -32,3 +32,4 @@ gpiotst
 alpicool/config.h
 alpicool/build
 
+.aider*

@@ -172,8 +172,7 @@ function initDashboard(update = false)
    $('#container')
       .append($('<div></div>')
               .attr('id', 'widgetContainer')
-              .addClass('widgetContainer')
-              .css('transform', 'translateZ(0)')); // Erzwingt neuen Stacking Context für den Widget-Container
+              .addClass('widgetContainer'));
 
    if (layout == 'flex') {
       $('#widgetContainer').css('display', 'flex');
@@ -799,30 +798,20 @@ function initWidget(key, widget, fact)
       case 8: {     // 8 (Choice)
          console.log("choices:", fact.choices);
          $(elem)
-            .css('position', 'relative')
-            .css('z-index', '1')
             .addClass("widget widgetDropZone")
             .append($('<div></div>')
                     .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
                     .addClass(titleClass)
                     .css('user-select', 'none')
                     .css('position', 'relative')
-                    .css('z-index', '99999')
-                    .css('z-index', '99999') // Z-Index auf einen extrem hohen Wert gesetzt
-                    .css('transform', 'translateZ(1px)') // Erzwingt eine eigene Compositing-Schicht mit einem minimalen Z-Offset
-                    .css('will-change', 'transform') // Signalisiert dem Browser zukünftige Transformationen für Optimierung
-                    .css('background-color', 'var(--widgetBackground)') // Sicherstellen, dass der Titel einen undurchsichtigen Hintergrund hat
                     .click(function(event) {titleClick(event.ctrlKey, key);})
                     .html(title))
             .append($('<div></div>')
                     .attr('id', 'choice' + fact.type + fact.address)
                     .addClass('widget-choice rounded-border')
-                    .css('color', widget.color)
-                    .css('position', 'relative')
-                    .css('z-index', '1'));
+                    .css('color', widget.color))
          let choices = fact.choices.split(",");
          for (c = 0; c < choices.length; ++c) {
-            // console.log("c: ", choices[c]);
             $('#choice' + fact.type + fact.address)
                .append($('<div></div>')
                        .attr('id', 'widget' + fact.type + fact.address + '_' + c)

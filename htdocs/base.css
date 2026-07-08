@@ -2070,8 +2070,7 @@ table.tableMultiCol td
     align-items: center;
     align-self: center;
     overflow-y: auto;
-    height: -webkit-fill-available;
-    height: -moz-available;
+    height: 100%;
     width: inherit;
     word-break: break-word;
     color: var(--light4);

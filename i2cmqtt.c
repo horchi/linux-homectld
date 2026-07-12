@@ -15,6 +15,7 @@
 #include "lib/i2c/ads1115.h"
 #include "lib/i2c/mcp23017.h"
 #include "lib/i2c/dht20.h"
+#include "lib/i2c/ds2484.h"
 
 #include "gpio.h"
 
@@ -73,6 +74,7 @@ class I2CMqtt
       int initDht(const char* config);
       int initMcp(const char* config);
       int initAds(const char* config);
+      int initDs(const char* config);
 
    protected:
 
@@ -96,6 +98,7 @@ class I2CMqtt
       std::vector<Dht20> dhtChips;
       std::vector<Mcp23017> mcpChips;
       std::vector<Ads1115> adsChips;
+      std::vector<Ds2484> dsChips;
 
       static bool shutdown;
 };
@@ -233,6 +236,46 @@ int I2CMqtt::initMcp(const char* config)
 
    return done;
 }
+
+//***************************************************************************
+// Init DS2484
+//***************************************************************************
+
+int I2CMqtt::initDs(const char* config)
+{
+   if (isEmpty(config))
+      return done;
+
+   auto tuples = split(config, ',');
+
+   for (const auto& t : tuples)
+   {
+      auto options = split(t, ':');
+
+      if (options[0] == "tca")
+      {
+         uint8_t tcaAddress = strtol(options[1].c_str(), nullptr, 0);
+         uint8_t tcaChannel = strtol(options[2].c_str(), nullptr, 0);
+         uint8_t dsAddress = strtol(options[3].c_str(), nullptr, 0);
+
+         dsChips.emplace_back();
+         dsChips.back().setTcaChannel(tcaChannel);
+         dsChips.back().init(device.c_str(), dsAddress, tcaAddress);
+
+         tell(eloAlways, "Debug: Init DS2484 0x%02x via 0x%02x/%d", dsAddress, dsChips.back().getAddress(), dsChips.back().getTcaChannel());
+      }
+      else
+      {
+         uint8_t dsAddress = strtol(options[0].c_str(), nullptr, 0);
+
+         dsChips.emplace_back();
+         dsChips.back().init(device.c_str(), dsAddress);
+      }
+   }
+
+   return done;
+}
+
 //***************************************************************************
 // Init
 //***************************************************************************
@@ -350,6 +393,103 @@ int I2CMqtt::update()
       else
       {
          tell(eloAlways, "DHT request failed");
+      }
+   }
+
+   for (auto& ds : dsChips)
+   {
+      Ds2484::SensorList wireSensors;
+
+      // Schalte ggf. den TCA-Kanal um
+      if (ds.getTcaChannel() != 0xff)
+         ds.switchTcaChannel();
+
+      // Alle angeschlossenen 1-Wire ROM-IDs auf diesem Bus ermitteln
+      if (ds.searchRom(wireSensors) != success)
+      {
+         tell(eloAlways, "Error: 1-Wire ROM search failed on DS2484 (0x%02x)", ds.getAddress());
+         continue;
+      }
+
+      if (wireSensors.empty())
+         continue;
+
+      bool presence {false};
+
+      // 1. Temperaturkonvertierung für ALLE Sensoren auf diesem Bus gleichzeitig starten
+      if (ds.wireReset(presence) != success)
+         continue;
+
+      if (!presence)
+         continue;
+
+      ds.wireWriteByte(0xCC); // Skip ROM (gilt für alle Slaves am Bus)
+      ds.wireWriteByte(0x44); // Convert T (Temperaturmessung starten)
+
+      // DS18B20 benötigt maximal 750ms für die 12-Bit Konvertierung
+      usleep(750000);
+
+      // 2. Jeden gefundenen Sensor einzeln adressieren und auslesen
+      for (auto& [romStr, sensorInfo] : wireSensors)
+      {
+         // Überprüfung der Family-ID (0x28 = DS18B20).
+         // Die Family-ID steht in den ersten zwei Zeichen des Hex-Strings.
+         if (romStr.substr(0, 2) != "28")
+         {
+            tell(eloDetail, "Skipping non-temperature 1-Wire device: %s", romStr.c_str());
+            continue;
+         }
+
+         if (ds.wireReset(presence) != success)
+            continue;
+
+         // Sensor über seine individuelle ROM-ID ansprechen (Match ROM)
+         ds.wireWriteByte(0x55);
+         for (int i = 0; i < 8; i++)
+         {
+            std::string byteStr = romStr.substr(i * 2, 2);
+            uint8_t romByte = strtol(byteStr.c_str(), nullptr, 16);
+            ds.wireWriteByte(romByte);
+         }
+
+         // Scratchpad (Zwischenspeicher) des DS18B20 auslesen
+         ds.wireWriteByte(0xBE); // Read Scratchpad
+
+         uint8_t lowByte {0};
+         uint8_t highByte {0};
+
+         if (ds.wireReadByte(lowByte) != success)
+            continue;
+
+         if (ds.wireReadByte(highByte) != success)
+            continue;
+
+         // Berechne die Temperatur aus den zwei Datenbytes (12-Bit Auflösung)
+         int16_t rawTemp = (highByte << 8) | lowByte;
+         double temperature = rawTemp / 16.0;
+
+         // MQTT-Strukturen aufbereiten
+         SensorData sensor {};
+         char name[100] {};
+         char type[32] {};
+
+         if (ds.getTcaChannel() != 0xff)
+            sprintf(type, "DS%02x%x", ds.getAddress(), ds.getTcaChannel());
+         else
+            sprintf(type, "DS%02x", ds.getAddress());
+
+         // Als eindeutige Adresse wird die ROM-ID genutzt (umgewandelt in eine numerische ID für die Payload, falls benötigt, oder im Titel verwendet)
+         sprintf(name, "1-Wire Temp %s", romStr.c_str());
+
+         sensor.format = fReal;
+         sensor.type = type;
+         sensor.address = 0; // Primärer Kanal des Bridge-Chips
+         sensor.title = name;
+         sensor.unit = "°C";
+         sensor.dValue = temperature;
+         sensor.sValue = romStr; // Sichert die ROM-ID im Textfeld, falls benötigt
+
+         mqttPublish(sensor);
       }
    }
 
@@ -745,6 +885,56 @@ int I2CMqtt::show()
       tell(eloAlways, "-----------------------");
    }
 
+   for (auto& ds : dsChips)
+   {
+      char type[32] {};
+      if (ds.getTcaChannel() != 0xff)
+         sprintf(type, "DS2484 via 0x%02x:%d", ds.getAddress(), ds.getTcaChannel());
+      else
+         sprintf(type, "DS2484 0x%02x", ds.getAddress());
+
+      tell(eloAlways, "%s", type);
+
+      Ds2484::SensorList wireSensors;
+      if (ds.getTcaChannel() != 0xff)
+         ds.switchTcaChannel();
+
+      if (ds.searchRom(wireSensors) == success)
+      {
+         bool presence {false};
+         ds.wireReset(presence);
+         ds.wireWriteByte(0xCC);
+         ds.wireWriteByte(0x44);
+         usleep(750000);
+
+         for (auto& [romStr, sensorInfo] : wireSensors)
+         {
+            if (romStr.substr(0, 2) != "28")
+               continue;
+
+            ds.wireReset(presence);
+            ds.wireWriteByte(0x55);
+            for (int i = 0; i < 8; i++)
+            {
+               uint8_t romByte = strtol(romStr.substr(i * 2, 2).c_str(), nullptr, 16);
+               ds.wireWriteByte(romByte);
+            }
+            ds.wireWriteByte(0xBE);
+            uint8_t lowByte {}, highByte {};
+            ds.wireReadByte(lowByte);
+            ds.wireReadByte(highByte);
+
+            int16_t rawTemp = (highByte << 8) | lowByte;
+            tell(eloAlways, "  Sensor ROM %s: %.2f °C", romStr.c_str(), rawTemp / 16.0);
+         }
+      }
+      else
+      {
+         tell(eloAlways, "  1-Wire bus scan failed");
+      }
+      tell(eloAlways, "-----------------------");
+   }
+
    return success;
 }
 
@@ -787,6 +977,13 @@ void showUsage(const char* bin)
    printf("               tca:<tca-address>:<tca-channel>:<dht-address>\n");
    printf("            or\n");
    printf("               <dht-address>\n");
+   printf("     --ds <config>    DS2484 1-Wire Bridge config (defaults to -1/off)\n");
+   printf("        where <config>:\n");
+   printf("            <tuple>,<tuple>[,<tuple>,...]\n");
+   printf("            where <tuple>\n");
+   printf("               tca:<tca-address>:<tca-channel>:<ds-address>\n");
+   printf("            or\n");
+   printf("               <ds-address>\n");
    printf("     Note: tca is a TCA9548A i2c bus multiplexer\n");
 }
 
@@ -808,6 +1005,7 @@ int main(int argc, char** argv)
    const char* dhtConfig {};
    const char* mcpConfig {};
    const char* adsConfig {};
+   const char* dsConfig {};
 
    // usage ..
 
@@ -846,7 +1044,8 @@ int main(int argc, char** argv)
                mcpConfig = argv[++i];
             else if (strcmp(argv[i]+2, "dht") == 0 && argv[i+1])
                dhtConfig = argv[++i];
-
+            else if (strcmp(argv[i]+2, "ds") == 0 && argv[i+1])
+               dsConfig = argv[++i];
             break;
          }
       }
@@ -897,6 +1096,7 @@ int main(int argc, char** argv)
    job->initDht(dhtConfig);
    job->initMcp(mcpConfig);
    job->initAds(adsConfig);
+   job->initDs(dsConfig);
 
    if (showMode)
    {

@@ -239,6 +239,19 @@ button:focus {
   -webkit-animation: spin 2s linear infinite; /* Safari */
   animation: spin 2s linear infinite;
 }
+/* Die Animations-Regel */
+
+@keyframes spinmdi {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.mdispin
+{
+  animation: spinmdi 8s linear infinite !important;
+  display: inline-block;
+}
 
 .button-group-spacing
 {

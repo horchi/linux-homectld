@@ -512,6 +512,7 @@ int Daemon::init()
    }
 
    publishVictronInit("VIC");
+   publishAlpicoolInit("ALPICOOL");
 
    // init web socket ...
 
@@ -3980,7 +3981,7 @@ const char* Daemon::lookupCommandTopic(const char* type, int address)
 //   { "action": "trigger", "script": "lte.sh" }
 //
 // Registration of a topic to send "commands to the sensor:
-//   { "action": "init", "type": "ALPICOOL", "topic": "homectld2mqtt/alpicool/in"}
+//   { "action": "init", "type": "ALPICOOL", "topic": "homectld2mqtt/alpicool/in", "config" : true}
 //***************************************************************************
 
 int Daemon::dispatchOther(const char* topic, const char* message)
@@ -4062,6 +4063,8 @@ int Daemon::dispatchOther(const char* topic, const char* message)
    const char* image = getStringFromJson(jData, "image", "");
    const char* choices = getStringFromJson(jData, "choices", nullptr);
    json_t* jParameter = getObjectFromJson(jData, "parameter");
+   const char* cmdTopic = getStringFromJson(jData, "topic");
+   std::string deviceId = getStringFromJson(jData, "deviceid", "");
 
    if (type.empty())
    {
@@ -4072,14 +4075,14 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
    if (action == "init")
    {
-      if (!isEmpty(getStringFromJson(jData, "topic")))
+      if (!isEmpty(cmdTopic))
       {
          std::string cmdTopicKey {type};
 
          if (address != na)
             cmdTopicKey = type + ":" + std::to_string(address);
 
-         commandTopicsMap[cmdTopicKey] = getStringFromJson(jData, "topic");
+         commandTopicsMap[cmdTopicKey] = cmdTopic;
          setConfigItem(("mqttCmdTopic" + cmdTopicKey).c_str(), commandTopicsMap[cmdTopicKey].c_str());
       }
 
@@ -4130,6 +4133,22 @@ int Daemon::dispatchOther(const char* topic, const char* message)
             if (!isEmpty(topic))
                switchCommand(type, address, "toggle", topic);
          }
+      }
+
+      // sensor expect config?
+
+      bool config {getBoolFromJson(jData, "config")};
+
+      tell(eloAlways, "Sensor '%s' %sexpect config, sensor topic is '%s'",
+           type.c_str(), config ? "" : "don't ", cmdTopic);
+
+      if (config)
+      {
+         // #TODO store 'parameters' (with deviceId' as key) send from the device
+         //    like "eloquence,interval,i2cAddress"
+         // and make them avalible in the configuration
+
+         publishAlpicoolInit(type.c_str());
       }
 
       json_decref(jData);
@@ -4225,6 +4244,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
       bool oldState {sensors[type][address].state};
 
       sensors[type][address].state = sensors[type][address].invert ? !state : state;
+      sensors[type][address].text = getStringFromJson(jData, "text", "");
       // tell(eloAlways, "State of '%s:%d' is %d; invert %d", type.c_str(), address, sensors[type][address].state, sensors[type][address].invert);
 
       if (oldState != sensors[type][address].state && sensors[type][address].outputModes & ooUser)
@@ -4834,15 +4854,66 @@ void Daemon::publishVictronInit(const char* type)
       return;
    }
 
-   json_t* jConfig = json_object();
+   json_t* jConfig {json_object()};
 
    json_object_set_new(jConfig, "action", json_string("init"));
    json_object_set_new(jConfig, "type", json_string(type));
 
-   char* message = json_dumps(jConfig, JSON_REAL_PRECISION(8));
+   char* message {json_dumps(jConfig, JSON_REAL_PRECISION(8))};
+   json_decref(jConfig);
    mqttWriter->write(commandTopicsMap[type].c_str(), message);
    free(message);
-   json_decref(jConfig);
+
+}
+
+//***************************************************************************
+// Publish Alpicool Init
+//
+//    #TODO
+//     - collect publish????Init methods
+//***************************************************************************
+
+void Daemon::publishAlpicoolInit(const char* type)
+{
+   if (!lookupCommandTopic(type, na))
+   {
+      tell(eloAlways, "Info: Skip init alpicool '%s', missing topic", type);
+      return;
+   }
+
+   mqttCheckConnection();
+
+   if (!mqttWriter)
+   {
+      tell(eloAlways, "Error: Can't init alpicool for '%s', missing broker at '%s'", type, mqttUrl.c_str());
+      return;
+   }
+
+   // {"type": "ALPICOOL", "action": "init", "config": {"eloquence": 3, "interval": 20} }
+
+   json_t* jSetup {json_object()};
+   json_object_set_new(jSetup, "type", json_string(type));
+   json_object_set_new(jSetup, "action", json_string("init"));
+   json_t* jConfig {json_object()};
+   json_object_set_new(jSetup, "config", jConfig);
+
+   json_object_set_new(jConfig, "eloquence", json_integer(eloquence));
+
+   // #TODO make config options configurable
+   //    user deviceId to identify the config snippet
+   // ...
+
+   json_object_set_new(jConfig, "correctionFactor", json_real(0.9636f));
+   json_object_set_new(jConfig, "correctionOffset", json_real(0.0615f));
+
+   // json_object_set_new(jConfig, "type", json_string("xxxx"));
+   // json_object_set_new(jConfig, "i2cAddress", json_integer(0x40));
+   // json_object_set(jConfig, "interval", json_integer(30));
+
+   char* message {json_dumps(jSetup, JSON_REAL_PRECISION(8))};
+   json_decref(jSetup);
+   mqttWriter->write(commandTopicsMap[type].c_str(), message);
+   free(message);
 }
 
 //***************************************************************************

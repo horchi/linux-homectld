@@ -1,10 +1,28 @@
 
+
+// PART 1
+
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <NimBLEDevice.h>
 #include <ArduinoJson.h>
 #include <stdarg.h>
 #include "config.h"
+
+#include <Wire.h>
+#include <INA226_WE.h>
+
+String getUniqueDeviceId()
+{
+  uint64_t chipId = ESP.getEfuseMac();
+  char idBuffer[20];
+
+  snprintf(idBuffer, sizeof(idBuffer), "%04X%08X",
+           (uint16_t)(chipId >> 32),
+           (uint32_t)chipId);
+
+  return String(idBuffer);
+}
 
 class AlpicoolBridge;
 static AlpicoolBridge* bridgeInstance {};
@@ -22,6 +40,7 @@ private:
 
    NimBLEClient* pBleClient = nullptr;
    NimBLERemoteCharacteristic* pTxCharacteristic = nullptr;
+   INA226_WE* pIna226 {};
 
    bool IsBleConnected {false};
    bool IsBleInitialised {false};
@@ -36,6 +55,7 @@ private:
    unsigned long LastLedToggleTime {0};
    bool LedState {false};
    bool initialRun {true};
+   bool inaOnline {false};
 
 public:
 
@@ -49,39 +69,43 @@ public:
       pinMode(StatusLedPin, OUTPUT);
       digitalWrite(StatusLedPin, LOW);
 
+      // 1. Serielle Konsole
+
+      Serial.begin(115200);
+      tell(eloAlways, "\n[BOOT] ESP32 Alpicool Bridge startet...");
+
+      // 2. Bluetooth ZUERST (schützt den Funkchip vor dem Lockup)
+
+      tell(eloAlways, "[BOOT] Initialisiere Bluetooth...");
       NimBLEDevice::init("ESP32_Alpicool_Bridge");
-
-      // Just-Works Pairing ohne PIN (BOND) und Verschlüsselung (ENC) aktivieren
-
       NimBLEDevice::setSecurityAuth(BLE_SM_PAIR_AUTHREQ_BOND);
       NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
 
+      // 3. WLAN und MQTT
+
+      tell(eloAlways, "[BOOT] Verbinde mit WLAN ...");
       ConnectToWiFi();
 
-      MqttClient.setServer(MqttServer, MqttPort);
+      MqttClient.setServer(mqttServer, mqttPort);
       MqttClient.setCallback([this](char* topic, byte* payload, unsigned int length) {
          this->mqttCallback(topic, payload, length);
       });
 
+      tell(eloAlways, "[BOOT] Verbinde mit MQTT Broker ...");
       ConnectToMqtt();
-      tell(0, "System erfolgreich gebootet. WLAN, MQTT und BLE-Subsystem sind bereit!");
-   }
+      tell(eloAlways, "System erfolgreich gebootet. WLAN und MQTT sind bereit");
 
-   void InitBluetooth()
-   {
-      if (IsBleInitialised)
-         return;
+      // 4. I2C-Bus für INA226 starten
 
-      tell(1, "Starte Bluetooth-Subsystem...");
-      NimBLEDevice::init("ESP32_Alpicool_Bridge");
+      tell(eloAlways, "[BOOT] Initialisiere I2C-Sensor INA226 ...");
+      Wire.begin();
 
-      // Aktiviert das automatische Just-Works-Pairing für die Zahnrad-Taste der Box
+      if (!initIna226())
+         tell(eloAlways, "Error: INA226 nicht auf Adresse 0x%02X gefunden!", i2cAddress);
+      else
+         tell(eloInfo, "Info: INA226 erfolgreich auf Adresse 0x%02X erkannt", i2cAddress);
 
-      NimBLEDevice::setSecurityAuth(BLE_SM_PAIR_AUTHREQ_BOND);
-      NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
-
-      IsBleInitialised = true;
-      tell(0, "Bluetooth erfolgreich initialisiert. Suche Kühlbox...");
+      tell(eloAlways, "Starte zyklischen check ...");
    }
 
    void Loop()
@@ -101,30 +125,40 @@ public:
 
       if (!IsBleConnected)
       {
-         if (ConnectToBle())
+         unsigned long currentMillis {millis()};
+
+         if (currentMillis - LastBleConnectAttempt >= 15000) // Alle 15s ein kurzer, sauberer Connect-Versuch
          {
-            delay(500);
-            QueryFridge();
+            LastBleConnectAttempt = currentMillis;
+
+            if (ConnectToBle())
+            {
+               delay(500);
+               queryFridge();
+            }
          }
          else
          {
-            UpdateLedBlink();
-            delay(2000);
+            delay(10);
          }
+
+         queryAmpere();
       }
       else
       {
          unsigned long currentMillis {millis()};
 
-         if (currentMillis - LastQueryTime >= QueryInterval)
+         if (currentMillis - LastQueryTime >= (queryInterval * 1000))
          {
             LastQueryTime = currentMillis;
-            QueryFridge();
+            queryFridge();
+            queryAmpere();
+            initialRun = false;
          }
       }
    }
 
-   void tell(int eloquence, const char* format, ...)
+   void tell(int elo, const char* format, ...)
    {
       char messageBuffer[256] {};
       va_list args;
@@ -132,22 +166,130 @@ public:
       vsnprintf(messageBuffer, sizeof(messageBuffer), format, args);
       va_end(args);
 
-      if (!MqttClient.connected())
-         return;
+      Serial.println(messageBuffer);
 
-      StaticJsonDocument<384> doc;
-      doc["type"] = "alpicool";
-      doc["action"] = "log";
-      doc["level"] = eloquence;
-      doc["message"] = messageBuffer;
-      doc["timestamp"] = millis();
+      if ((eloquence & elo) && MqttClient.connected())
+      {
+         StaticJsonDocument<384> doc;
+         doc["type"] = "alpicool";
+         doc["action"] = "log";
+         doc["level"] = elo;
+         doc["message"] = messageBuffer;
+         doc["timestamp"] = millis() / 1000;
 
-      String outputStr;
-      serializeJson(doc, outputStr);
-      MqttClient.publish(TopicLog, outputStr.c_str());
+         String outputStr;
+         serializeJson(doc, outputStr);
+         MqttClient.publish(TopicLog, outputStr.c_str());
+      }
    }
 
 private:
+
+   bool initIna226()
+   {
+      if (pIna226)
+      {
+         delete pIna226;
+         pIna226 = nullptr;
+      }
+
+      tell(eloAlways, "Attempting to initialize INA226 at address 0x%02X ..", i2cAddress);
+
+      pIna226 = new INA226_WE(i2cAddress);
+      bool success {pIna226->init()};
+
+      if (!success)
+      {
+         tell(eloAlways, "Error: INA226 initialization failed. Device still offline");
+         inaOnline = false;
+         return false;
+      }
+
+      // Kalibrierung für das Standard-Modul setzen!
+      // Parameter: (Shunt-Widerstand in Ohm, Maximal erwarteter Strom in Ampere)
+      // Das korrigiert deinen Rechenfaktor um das 10-fache (von 0.1 Ohm Standard auf echte 0.01 Ohm)
+
+      // siehe auch Beschriftung des Wiederstands auf der Platine nahe der Storm Klemme!
+
+      pIna226->setResistorRange(0.002, 20.0);
+
+      // Hardware activate Oversampling
+      //   der Chip mittelt fortlaufend über ca. 140 Millisekunden.
+
+      pIna226->setAverage(INA226_AVERAGE_128);
+
+      if (correctionFactor)
+         pIna226->setCorrectionFactor(correctionFactor);
+
+      // Warten, bis die erste Hardware-Messung im Chip bereitsteht
+
+      pIna226->waitUntilConversionCompleted();
+      tell(eloAlways, "INA226 successfully initialized");
+      inaOnline = true;
+
+      return true;
+   }
+
+   void queryAmpere()
+   {
+      if (!pIna226 || !inaOnline)
+      {
+         static unsigned long lastRecoveryAttempt {0};
+         unsigned long currentMillis {millis()};
+
+         if (currentMillis - lastRecoveryAttempt < 10000)
+            return;
+
+         lastRecoveryAttempt = currentMillis;
+
+         if (!initIna226())
+            return;
+      }
+
+      float sumMilliAmps {0.0};
+      const int sampleCount {10}; // 10 Messungen für stabile Werte
+
+      // Schleife für die Mittelwertbildung gegen das Grundrauschen
+
+      for (int i = 0; i < sampleCount; i++)
+      {
+         sumMilliAmps += pIna226->getCurrent_mA();
+         delayMicroseconds(500);       // Pause zwischen den Messungen
+      }
+
+      // direkter Lesezugriff, da der Chip bereits filtert/mittelt
+
+      float rawCurrent {pIna226->getCurrent_mA()};
+
+      if (isnan(rawCurrent))
+      {
+         tell(eloAlways, "Error: Sensor returned NaN. Resetting status");
+         inaOnline = false;
+         return;
+      }
+
+      // Ampere
+
+      float ampere {rawCurrent / 1000.0};
+
+      if (correctionOffset)
+      {
+         if (ampere > 0.0)
+            ampere += correctionOffset;
+         else if (ampere < 0.0)
+            ampere -= correctionOffset;
+      }
+
+      // unter 50mA nullen
+
+      if (ampere < 0.05 && ampere > -0.05)
+         ampere = 0.0;
+
+      ampere = roundf(ampere * 100.0f) / 100.0f;   // zwei Nachkommastellen
+
+      PublishValue(6, "Current", ampere, "A");
+      PublishStatus(7, "Cooling", ampere > 0.5, 2);
+   }
 
    void UpdateLedBlink()
    {
@@ -185,6 +327,7 @@ private:
          return;
 
       WiFi.begin(WifiSsid, WifiPassword);
+
       while (WiFi.status() != WL_CONNECTED || WiFi.localIP() == IPAddress(0,0,0,0))
       {
          UpdateLedBlink();
@@ -204,24 +347,28 @@ private:
          if (MqttClient.connect(clientId.c_str()))
          {
             MqttClient.subscribe(TopicSubscribe);
-            PublishInitMessage();
+            publishInitMessage();
          }
       }
    }
-
-   void PublishInitMessage()
+// PART 2
+   void publishInitMessage()
    {
       StaticJsonDocument<128> doc;
-      doc["type"] = SensorType;
+      doc["type"] = sensorType;
       doc["action"] = "init";
+      doc["deviceid"] = getUniqueDeviceId();
       doc["topic"] = TopicSubscribe;
+      doc["config"] = true;   // we accept a config packet
+      doc["parameters"] = "eloquence,interval,i2cAddress,correctionFactor,correctionOffset";
 
       String outputStr;
       serializeJson(doc, outputStr);
+      tell(eloInfo, "Info: -> '%s'", outputStr.c_str());
       MqttClient.publish(TopicPublish, outputStr.c_str());
    }
 
-    bool ConnectToBle()
+   bool ConnectToBle()
    {
       if (pBleClient == nullptr)
       {
@@ -257,38 +404,39 @@ private:
 
       if (pRxCharacteristic->canNotify())
       {
-         tell(4, "Debug: Rx-Charakteristik unterstuetzt Notifications. Registriere Handler...");
+         tell(eloDebug, "Debug: Rx-Charakteristik unterstuetzt Notifications. Registriere Handler...");
 
          auto notifyHandler = [](NimBLERemoteCharacteristic* pChar, uint8_t* pData, size_t len, bool isNotify) {
-            if (bridgeInstance != nullptr)
+            if (bridgeInstance)
             {
-               bridgeInstance->tell(4, "Debug: BLE-Daten empfangen! Laenge: %d Bytes", len);
+               bridgeInstance->tell(eloDebug, "Debug: BLE-Daten empfangen! Laenge: %d Bytes", len);
                bridgeInstance->ParseNotification(pData, len);
             }
          };
 
          if (!pRxCharacteristic->subscribe(true, notifyHandler))
          {
-            tell(4, "Debug: Subscription-Aufruf fehlgeschlagen.");
+            tell(eloDebug, "Debug: Subscription-Aufruf fehlgeschlagen.");
             pBleClient->disconnect();
             return false;
          }
 
          NimBLERemoteDescriptor* pCccdDesc = pRxCharacteristic->getDescriptor(NimBLEUUID((uint16_t)0x2902));
-         if (pCccdDesc != nullptr)
+
+         if (pCccdDesc)
          {
             uint8_t val[] {0x01, 0x00};
             pCccdDesc->writeValue(val, 2, true);
-            tell(4, "Debug: CCCD Descriptor (0x2902) auf Kühlbox erfolgreich scharfgeschaltet!");
+            tell(eloDebug, "Debug: CCCD Descriptor (0x2902) auf Kühlbox erfolgreich scharfgeschaltet!");
          }
       }
 
-      tell(0, "Erfolgreich mit Kuehlbox via BLE verbunden und gekoppelt");
+      tell(eloAlways, "Erfolgreich mit Kuehlbox via BLE verbunden und gekoppelt");
       return true;
    }
 
    void onConnect(NimBLEClient* pClient) override { IsBleConnected = true; }
-   void onDisconnect(NimBLEClient* pClient, int reason) override { IsBleConnected = false; tell(0, "BLE Verbindung verloren"); }
+   void onDisconnect(NimBLEClient* pClient, int reason) override { IsBleConnected = false; tell(eloAlways, "BLE Verbindung verloren"); }
 
    void SendBleCommand(uint8_t command, uint8_t p1, uint8_t p2, uint8_t p3)
    {
@@ -319,7 +467,7 @@ private:
       pTxCharacteristic->writeValue(finalPacket, packetSize, false);
    }
 
-   void QueryFridge()
+   void queryFridge()
    {
       SendBleCommand(0x01, 0xFF, 0xFF, 0xFF);
    }
@@ -327,24 +475,34 @@ private:
    void PublishStatus(int address, const char* title, bool state, int rights = 0)
    {
       StaticJsonDocument<512> doc;
-      doc["type"] = SensorType; doc["address"] = address; doc["state"] = state;
-      doc["kind"] = "status"; doc["title"] = title;
+      doc["type"] = sensorType;
+      doc["address"] = address;
+      doc["state"] = state;
+      doc["kind"] = "status";
+      doc["title"] = title;
 
       if (initialRun)
       {
-         if (rights > 0) doc["rights"] = rights;
+         if (rights > 0)
+            doc["rights"] = rights;
+
          JsonObject param {doc.createNestedObject("parameter")};
+
          param["widgettype"] = 0;
 
          if (address == 0)
          {
-            param["symbol"] = "mdi:mdi-power"; param["symbolOn"] = "mdi:mdi-snowflake";
-            param["color"] = "gray"; param["colorOn"] = "rgb(3 169 244)";
+            param["symbol"] = "mdi:mdi-power";
+            param["symbolOn"] = "mdi:mdi-power";
+            param["color"] = "gray";
+            param["colorOn"] = "green";
          }
-         else if (address == 6)
+         else if (address == 7)
          {
-            param["symbol"] = "mdi:mdi-lock-open-outline"; param["symbolOn"] = "mdi:mdi-lock-outline";
-            param["color"] = "gray"; param["colorOn"] = "rgb(3 169 244)";
+            param["symbol"] = "mdi:mdi-snowflake";
+            param["symbolOn"] = "mdi:mdi-snowflake";
+            param["color"] = "gray";
+            param["colorOn"] = "rgb(3 169 244)";
          }
       }
 
@@ -355,18 +513,30 @@ private:
    void PublishValue(int address, const char* title, float value, const char* unit = nullptr, int rights = 0, const char* choices = nullptr)
    {
       StaticJsonDocument<512> doc;
-      doc["type"] = SensorType; doc["address"] = address; doc["value"] = value;
-      doc["kind"] = "value"; doc["title"] = title;
-      if (unit != nullptr) doc["unit"] = unit;
+      doc["type"] = sensorType;
+      doc["address"] = address;
+      doc["value"] = value;
+      doc["kind"] = "value";
+      doc["title"] = title;
+
+      if (unit)
+         doc["unit"] = unit;
 
       if (initialRun)
       {
-         if (rights > 0) doc["rights"] = rights;
-         if (choices != nullptr) doc["choices"] = choices;
+         if (rights > 0)
+            doc["rights"] = rights;
+         if (choices)
+            doc["choices"] = choices;
+
          JsonObject param {doc.createNestedObject("parameter")};
-         if (address == 1) param["widgettype"] = 8;
-         else if (address == 2) param["widgettype"] = 6;
-         else if (address == 3) param["widgettype"] = 3;
+
+         if (address == 1)
+            param["widgettype"] = 8;
+         else if (address == 2)
+            param["widgettype"] = 6;
+         else
+            param["widgettype"] = 3;
       }
 
       String outputStr; serializeJson(doc, outputStr);
@@ -376,22 +546,35 @@ private:
    void PublishText(int address, const char* title, const char* text, int rights = 0, const char* choices = nullptr)
    {
       StaticJsonDocument<512> doc;
-      doc["type"] = SensorType; doc["address"] = address; doc["text"] = text;
-      doc["kind"] = "text"; doc["title"] = title;
+      doc["type"] = sensorType;
+      doc["address"] = address;
+      doc["text"] = text;
+      doc["kind"] = "text";
+      doc["title"] = title;
 
       if (initialRun)
       {
-         if (rights > 0) doc["rights"] = rights;
-         if (choices != nullptr) doc["choices"] = choices;
+         if (rights > 0)
+            doc["rights"] = rights;
+         if (choices)
+            doc["choices"] = choices;
+
          JsonObject param {doc.createNestedObject("parameter")};
-         if (address == 4) param["widgettype"] = 8;
-         else if (address == 5) { param["widgettype"] = 2; param["colorCondition"] = "0=green,>0=red"; }
+
+         if (address == 4)
+            param["widgettype"] = 8;
+         else
+         {
+            param["widgettype"] = 2;
+            param["colorCondition"] = "0=green,>0=red";
+         }
       }
 
       String outputStr; serializeJson(doc, outputStr);
       MqttClient.publish(TopicPublish, outputStr.c_str());
    }
 
+// PART 3
    const char* GetErrorText(uint8_t code)
    {
       if (code == 1) return "F1 (Low Voltage)";
@@ -416,7 +599,7 @@ public:
       if (bufferIndex + length > sizeof(reassemblyBuffer))
       {
          bufferIndex = 0;
-         tell(3, "DIAGNOSE PARSER: Pufferueberlauf verhindert. Setze zurueck.");
+         tell(eloDebug2, "DIAGNOSE PARSER: Pufferueberlauf verhindert. Setze zurueck.");
          return;
       }
 
@@ -456,7 +639,7 @@ public:
 
          if ((calculatedChecksum & 0xFFFF) != packetChecksum)
          {
-            tell(2, "DIAGNOSE PARSER ABBRUCH: Checksummenfehler. Erwartet: 0x%04X, Berechnet: 0x%04X. Schiebe Puffer.",
+            tell(eloDebug, "DIAGNOSE PARSER ABBRUCH: Checksummenfehler. Erwartet: 0x%04X, Berechnet: 0x%04X. Schiebe Puffer.",
                  packetChecksum, (calculatedChecksum & 0xFFFF));
 
             memmove(&reassemblyBuffer[0], &reassemblyBuffer[2], bufferIndex -= 2);
@@ -484,9 +667,8 @@ public:
             PublishValue(3, "Battery", battery_voltage, "V");
             PublishText(4, "Mode", (run_mode == 1) ? "Eco" : "Max", 2, "Max,Eco");
             PublishText(5, "Status", GetErrorText(0));
-            PublishStatus(6, "Lock", controls_locked, 2);
 
-            initialRun = false;
+            tell(eloInfo, "Got BLE data ..");
          }
 
          size_t remainingBytes {bufferIndex - expectedTotalLength};
@@ -502,6 +684,9 @@ private:
 
    void mqttCallback(char* topic, byte* payload, unsigned int length)
    {
+      // {"type": "ALPICOOL", "action": "init", "config": {"eloquence": 3, "interval": 20} }
+      // {"type": "ALPICOOL", "address": 1, "value": "9"}
+
       StaticJsonDocument<256> doc;
 
       char* jsonStr {new char[length + 1]()};
@@ -512,6 +697,48 @@ private:
 
       if (res)
          return;
+
+      // init config
+
+      if (doc.containsKey("action") && doc["action"] == "init")
+      {
+         JsonObject config {doc["config"]};
+
+         if (config.isNull())
+            return;
+
+         if (config.containsKey("eloquence"))
+            eloquence = config["eloquence"].as<int>();
+
+         if (config.containsKey("interval"))
+            queryInterval = config["interval"].as<int>();
+
+         // if (config.containsKey("type"))
+         //    sensorType = config["type"].as<String>();
+
+         if (config.containsKey("i2cAddress"))
+            i2cAddress = config["i2cAddress"].as<int>();
+
+         if (config.containsKey("correctionFactor"))
+         {
+            correctionFactor = config["correctionFactor"].as<double>();
+
+            if (inaOnline)
+            {
+               tell(eloInfo, "Info: New correction factor (%.4f) received. Re-initializing INA226..", correctionFactor);
+               initIna226();
+            }
+         }
+
+         if (config.containsKey("correctionOffset"))
+            correctionOffset = config["correctionOffset"].as<double>();
+
+         tell(eloInfo, "Info: INIT: Eloquence %d; Interval auf %d s; Correction: %.4f", eloquence, queryInterval, correctionFactor);
+
+         return;
+      }
+
+      // process commands
 
       int address {doc["address"] | -1};
       JsonVariant valueVariant {doc["value"]};
@@ -530,7 +757,7 @@ private:
             value = atoi(valStr.c_str());
       }
 
-      // Adresse 0: Power schalten (An / Aus)
+      // Adresse 0: Power (On/Off)
 
       if (address == 0)
       {
@@ -559,7 +786,7 @@ private:
          powerPacket[19] = (uint8_t)(cksum & 0xFF);
 
          pTxCharacteristic->writeValue(powerPacket, 20, false);
-         tell(1, "MQTT BEFEHL: Power auf %s geschaltet.", (value == 1) ? "AN" : "AUS");
+         tell(eloInfo, "MQTT BEFEHL: Power auf %s geschaltet.", (value == 1) ? "AN" : "AUS");
       }
 
       // Adresse 1: Zieltemperatur setzen (Target Temp) -> Bleibt unverändert funktionsfähig
@@ -579,7 +806,7 @@ private:
          targetPacket[6] = (uint8_t)(targetChecksum & 0xFF);
 
          pTxCharacteristic->writeValue(targetPacket, 7, false);
-         tell(1, "MQTT BEFEHL: Zieltemperatur erfolgreich auf %d Grad geaendert.", value);
+         tell(eloInfo, "MQTT BEFEHL: Zieltemperatur erfolgreich auf %d Grad geaendert.", value);
       }
 
       // Adresse 4: Betriebsmodus ändern (Max / Eco)
@@ -611,11 +838,12 @@ private:
          modePacket[19] = (uint8_t)(cksum & 0xFF);
 
          pTxCharacteristic->writeValue(modePacket, 20, false);
-         tell(1, "MQTT BEFEHL: Modus auf %s umgestellt.", (value == 1) ? "Eco" : "Max");
+         tell(eloInfo, "MQTT BEFEHL: Modus auf %s umgestellt.", (value == 1) ? "Eco" : "Max");
       }
 
       delay(200);
-      QueryFridge();
+      queryFridge();
+      queryAmpere();
    }
 };
 

@@ -49,6 +49,7 @@ install-deps:
 	$(ARDUINO_CLI) lib install NimBLE-Arduino
 	$(ARDUINO_CLI) lib install PubSubClient
 	$(ARDUINO_CLI) lib install ArduinoJson
+	$(ARDUINO_CLI) lib install INA226_WE
 	@echo "Einrichtung abgeschlossen!"
 
 

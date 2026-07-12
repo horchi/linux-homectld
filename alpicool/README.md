@@ -104,7 +104,16 @@ Die Datenpakete der Kühlbox werden zerlegt und im `homectld`-Format publiziert:
 * **Adresse 3:** TARGET_TEMP (Soll-Temperatur in °C)
 * **Adresse 4:** CURRENT_TEMP (Ist-Temperatur der Zone in °C)
 * **Adresse 5:** VOLTAGE (Aktuelle Betriebsspannung in Volt, z.B. `12.4`)
-* **Adresse 6:** LOCK (Tastensperre der Box: 0 = Off, 1 = On)
+* **Adresse 6:** CURRENT (Strom der Box sofern separater INA-226 Sensor angeschlossen)
+* **Adresse 7:** COOLING (Kompressor läuft, INA Sensor meldet mehr als 500mA)
+
+### Diagnose des ESP32 Boot Vorgangs
+Fehler bei der Initialisiwerung könnne nicht über MATT geloggt werden wenn die Verbindung nicht aufgebaut werden konnte.
+
+Diagnose über die serielle Konsole:
+- Anschluss über USB an den PC
+- konsole öffnen mit `while true; do picocom -b 115200 /dev/ttyACM0 && break; sleep 0.1; done`
+  -> beenden mit Strg-A, Strg-X
 
 ### System-Logs (`homectld/alpicool/log`)
 Sämtliche Statusmeldungen der Brücke werden über ein eigenes Topic ausgegeben:

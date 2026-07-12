@@ -354,15 +354,20 @@ private:
 // PART 2
    void publishInitMessage()
    {
-      StaticJsonDocument<128> doc;
+      StaticJsonDocument<384> doc;
       doc["type"] = sensorType;
       doc["action"] = "init";
       doc["deviceid"] = getUniqueDeviceId();
       doc["topic"] = TopicSubscribe;
       doc["config"] = true;   // we accept a config packet
-      doc["parameters"] = "eloquence,interval,i2cAddress,correctionFactor,correctionOffset";
 
-      // #TODO umbauen 'parameters' auf JSON mit default Wert
+      JsonObject parameters = doc["parameters"].to<JsonObject>();
+
+      parameters["eloquence"] = eloquence;
+      parameters["interval"] = queryInterval;
+      parameters["i2cAddress"] = i2cAddress;
+      parameters["correctionFactor"] = correctionFactor;
+      parameters["correctionOffset"] = correctionOffset;
 
       String outputStr;
       serializeJson(doc, outputStr);
@@ -381,14 +386,15 @@ private:
       if (!pBleClient->isConnected())
       {
          NimBLEAddress targetAddress(BleMacStr, BLE_ADDR_RANDOM);
+
          if (!pBleClient->connect(targetAddress, false))
-         {
             return false;
-         }
+
          delay(1000);
       }
 
       NimBLERemoteService* pRemoteService {pBleClient->getService(ServiceUuid)};
+
       if (pRemoteService == nullptr)
       {
          pBleClient->disconnect();
@@ -396,7 +402,7 @@ private:
       }
 
       pTxCharacteristic = pRemoteService->getCharacteristic(TxUuid);
-      NimBLERemoteCharacteristic* pRxCharacteristic = pRemoteService->getCharacteristic(RxUuid);
+      NimBLERemoteCharacteristic* pRxCharacteristic {pRemoteService->getCharacteristic(RxUuid)};
 
       if (pTxCharacteristic == nullptr || pRxCharacteristic == nullptr)
       {
@@ -735,112 +741,113 @@ private:
          if (config.containsKey("correctionOffset"))
             correctionOffset = config["correctionOffset"].as<double>();
 
-         tell(eloInfo, "Info: INIT: Eloquence %d; Interval auf %d s; Correction: %.4f", eloquence, queryInterval, correctionFactor);
-
-         return;
+         tell(eloInfo, "Info: INIT: Eloquence %d; Interval auf %d s; Correction Factor: %.4f; Correction Offset: %.4f",
+              eloquence, queryInterval, correctionFactor, correctionOffset);
       }
-
-      // process commands
-
-      int address {doc["address"] | -1};
-      JsonVariant valueVariant {doc["value"]};
-      int value {1};
-
-      if (valueVariant.is<int>() || valueVariant.is<bool>())
+      else
       {
-         value = valueVariant.as<int>();
-      }
-      else if (valueVariant.is<const char*>())
-      {
-         String valStr {valueVariant.as<const char*>()};
-         valStr.toLowerCase();
+         // process commands
 
-         if (valStr != "eco" && valStr != "true")
-            value = atoi(valStr.c_str());
-      }
+         int address {doc["address"] | -1};
+         JsonVariant valueVariant {doc["value"]};
+         int value {1};
 
-      // Adresse 0: Power (On/Off)
+         if (valueVariant.is<int>() || valueVariant.is<bool>())
+         {
+            value = valueVariant.as<int>();
+         }
+         else if (valueVariant.is<const char*>())
+         {
+            String valStr {valueVariant.as<const char*>()};
+            valStr.toLowerCase();
 
-      if (address == 0)
-      {
-         uint8_t powerPacket[20] {
-            0xFE, 0xFE, 0x11, 0x02,
-            0x00,                                // controls_locked
-            (uint8_t)(value == 1 ? 0x01 : 0x00), // powered_on (Der MQTT-Sollwert!)
-            CurrentRunMode,                      // run_mode
-            0x01,                                // battery_saver (Medium)
-            (uint8_t)CurrentTargetTemp,          // unit1.target_temperature
-            0x0B,                                // max_selectable_temperature (+11)
-            0xFF,                                // min_selectable_temperature (-1)
-            0x02,                                // unit1.hysteresis (2)
-            0x00,                                // start_delay
-            0x00,                                // temperature_unit (0 = Celsius)
-            0x00, 0x00, 0x00, 0x00,              // 4 Korrektur-Bytes laut Python '>B??BBbbbbBBbbbb'
-            0x00, 0x00                           // Checksumme auf Index 18 und 19
-         };
+            if (valStr != "eco" && valStr != "true")
+               value = atoi(valStr.c_str());
+         }
 
-         uint16_t cksum {0};
+         // Adresse 0: Power (On/Off)
 
-         for (int i {0}; i < 18; i++)
-            cksum += powerPacket[i];
+         if (address == 0)
+         {
+            uint8_t powerPacket[20] {
+               0xFE, 0xFE, 0x11, 0x02,
+               0x00,                                // controls_locked
+               (uint8_t)(value == 1 ? 0x01 : 0x00), // powered_on (Der MQTT-Sollwert!)
+               CurrentRunMode,                      // run_mode
+               0x01,                                // battery_saver (Medium)
+               (uint8_t)CurrentTargetTemp,          // unit1.target_temperature
+               0x0B,                                // max_selectable_temperature (+11)
+               0xFF,                                // min_selectable_temperature (-1)
+               0x02,                                // unit1.hysteresis (2)
+               0x00,                                // start_delay
+               0x00,                                // temperature_unit (0 = Celsius)
+               0x00, 0x00, 0x00, 0x00,              // 4 Korrektur-Bytes laut Python '>B??BBbbbbBBbbbb'
+               0x00, 0x00                           // Checksumme auf Index 18 und 19
+            };
 
-         powerPacket[18] = (uint8_t)((cksum >> 8) & 0xFF);
-         powerPacket[19] = (uint8_t)(cksum & 0xFF);
+            uint16_t cksum {0};
 
-         pTxCharacteristic->writeValue(powerPacket, 20, false);
-         tell(eloInfo, "MQTT BEFEHL: Power auf %s geschaltet.", (value == 1) ? "AN" : "AUS");
-      }
+            for (int i {0}; i < 18; i++)
+               cksum += powerPacket[i];
 
-      // Adresse 1: Zieltemperatur setzen (Target Temp) -> Bleibt unverändert funktionsfähig
+            powerPacket[18] = (uint8_t)((cksum >> 8) & 0xFF);
+            powerPacket[19] = (uint8_t)(cksum & 0xFF);
 
-      else if (address == 1)
-      {
-         uint8_t targetPacket[] {
-            0xFE, 0xFE, 0x04, 0x05,
-            (uint8_t)((int8_t)value),
-            0x00, 0x00
-         };
+            pTxCharacteristic->writeValue(powerPacket, 20, false);
+            tell(eloInfo, "MQTT BEFEHL: Power auf %s geschaltet.", (value == 1) ? "AN" : "AUS");
+         }
 
-         uint16_t targetChecksum {0};
-         for (int i {0}; i < 5; i++) targetChecksum += targetPacket[i];
+         // Adresse 1: Zieltemperatur setzen (Target Temp) -> Bleibt unverändert funktionsfähig
 
-         targetPacket[5] = (uint8_t)((targetChecksum >> 8) & 0xFF);
-         targetPacket[6] = (uint8_t)(targetChecksum & 0xFF);
+         else if (address == 1)
+         {
+            uint8_t targetPacket[] {
+               0xFE, 0xFE, 0x04, 0x05,
+               (uint8_t)((int8_t)value),
+               0x00, 0x00
+            };
 
-         pTxCharacteristic->writeValue(targetPacket, 7, false);
-         tell(eloInfo, "MQTT BEFEHL: Zieltemperatur erfolgreich auf %d Grad geaendert.", value);
-      }
+            uint16_t targetChecksum {0};
+            for (int i {0}; i < 5; i++) targetChecksum += targetPacket[i];
 
-      // Adresse 4: Betriebsmodus ändern (Max / Eco)
+            targetPacket[5] = (uint8_t)((targetChecksum >> 8) & 0xFF);
+            targetPacket[6] = (uint8_t)(targetChecksum & 0xFF);
 
-      else if (address == 4)
-      {
-         uint8_t modePacket[20] {
-            0xFE, 0xFE, 0x11, 0x02,
-            0x00,                                // controls_locked
-            (uint8_t)(CurrentPowerState ? 0x01 : 0x00), // powered_on
-            (uint8_t)(value == 1 ? 0x01 : 0x00), // run_mode (Der MQTT-Sollwert!)
-            0x01,                                // battery_saver
-            (uint8_t)CurrentTargetTemp,          // unit1.target_temperature
-            0x0B,                                // max_selectable_temperature
-            0xFF,                                // min_selectable_temperature
-            0x02,                                // unit1.hysteresis
-            0x00,                                // start_delay
-            0x00,                                // temperature_unit
-            0x00, 0x00, 0x00, 0x00,              // 4 Korrektur-Bytes
-            0x00, 0x00                           // Checksumme auf Index 18 und 19
-         };
+            pTxCharacteristic->writeValue(targetPacket, 7, false);
+            tell(eloInfo, "MQTT BEFEHL: Zieltemperatur erfolgreich auf %d Grad geaendert.", value);
+         }
 
-         uint16_t cksum {0};
+         // Adresse 4: Betriebsmodus ändern (Max / Eco)
 
-         for (int i {0}; i < 18; i++)
-            cksum += modePacket[i];
+         else if (address == 4)
+         {
+            uint8_t modePacket[20] {
+               0xFE, 0xFE, 0x11, 0x02,
+               0x00,                                // controls_locked
+               (uint8_t)(CurrentPowerState ? 0x01 : 0x00), // powered_on
+               (uint8_t)(value == 1 ? 0x01 : 0x00), // run_mode (Der MQTT-Sollwert!)
+               0x01,                                // battery_saver
+               (uint8_t)CurrentTargetTemp,          // unit1.target_temperature
+               0x0B,                                // max_selectable_temperature
+               0xFF,                                // min_selectable_temperature
+               0x02,                                // unit1.hysteresis
+               0x00,                                // start_delay
+               0x00,                                // temperature_unit
+               0x00, 0x00, 0x00, 0x00,              // 4 Korrektur-Bytes
+               0x00, 0x00                           // Checksumme auf Index 18 und 19
+            };
 
-         modePacket[18] = (uint8_t)((cksum >> 8) & 0xFF);
-         modePacket[19] = (uint8_t)(cksum & 0xFF);
+            uint16_t cksum {0};
 
-         pTxCharacteristic->writeValue(modePacket, 20, false);
-         tell(eloInfo, "MQTT BEFEHL: Modus auf %s umgestellt.", (value == 1) ? "Eco" : "Max");
+            for (int i {0}; i < 18; i++)
+               cksum += modePacket[i];
+
+            modePacket[18] = (uint8_t)((cksum >> 8) & 0xFF);
+            modePacket[19] = (uint8_t)(cksum & 0xFF);
+
+            pTxCharacteristic->writeValue(modePacket, 20, false);
+            tell(eloInfo, "MQTT BEFEHL: Modus auf %s umgestellt.", (value == 1) ? "Eco" : "Max");
+         }
       }
 
       delay(200);

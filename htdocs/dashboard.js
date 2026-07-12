@@ -1560,6 +1560,19 @@ function titleClick(ctrlKey, key)
                                      .css('width', '30%')
                                      .css('text-align', 'end')
                                      .css('margin-right', '10px')
+                                     .html('Text'))
+                             .append($('<span></span>')
+                                     .append($('<div></div>')
+                                             .addClass('rounded-border')
+                                             .html(sensor.text)
+                                            )))
+                     .append($('<div></div>')
+                             .css('display', 'flex')
+                             .css('margin-bottom', '4px')
+                             .append($('<span></span>')
+                                     .css('width', '30%')
+                                     .css('text-align', 'end')
+                                     .css('margin-right', '10px')
                                      .html('Peak Max'))
                              .append($('<span></span>')
                                      .append($('<div></div>')
@@ -1712,6 +1725,8 @@ function updateWidget(sensor, refresh, widget)
       }
       else if (state && widget.symbolOn && widget.symbolOn != '') {  // MDI Icon ON
          classes = widget.symbolOn.replace(':', ' ');
+         if (classes.indexOf('mdi-snowflake') != -1)
+            classes += ' mdispin';
          $("#widget" + fact.type + fact.address).remove();
       }
       else if (!state && widget.symbol && widget.symbol != '') {     // MDI Icon OFF

@@ -362,6 +362,8 @@ private:
       doc["config"] = true;   // we accept a config packet
       doc["parameters"] = "eloquence,interval,i2cAddress,correctionFactor,correctionOffset";
 
+      // #TODO umbauen 'parameters' auf JSON mit default Wert
+
       String outputStr;
       serializeJson(doc, outputStr);
       tell(eloInfo, "Info: -> '%s'", outputStr.c_str());

@@ -456,7 +456,7 @@ int Daemon::init()
    }
 
    // ---------------------------------
-   // Update/Read configuration from config table
+   // Update configuration in config table
 
    for (const auto& it : *getConfiguration())
    {
@@ -466,7 +466,7 @@ int Daemon::init()
 
       if (!tableConfig->find())
       {
-         tableConfig->setValue("VALUE", it.def);
+         tableConfig->setValue("VALUE", it.def.c_str());
          tableConfig->store();
       }
    }
@@ -4144,9 +4144,53 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
       if (config)
       {
-         // #TODO store 'parameters' (with deviceId' as key) send from the device
-         //    like "eloquence,interval,i2cAddress"
+         // store 'parameters' (with deviceId' as key) send from the device
          // and make them avalible in the configuration
+
+         json_t* jParameters {getObjectFromJson(jData, "parameters")};
+
+         if (jParameters)
+         {
+            char* tmp {json_dumps(jParameters, JSON_REAL_PRECISION(4))};
+            std::string parameters {tmp};
+            free(tmp);
+
+            tell(eloAlways, "DEBUG: GOT parameters '%s'", parameters.c_str());
+
+            const char* deviceid {getStringFromJson(jData, "deviceid")};
+            std::string name {type + ':' + deviceid};
+
+            // read to avoid override
+
+            std::string p;
+            getConfigItem(name.c_str(), p);
+
+            if (!p.empty())
+               parameters = p;
+
+            // store
+
+            tell(eloAlways, "DEBUG: STORE parameters to '%s' [%s]", name.c_str(), parameters.c_str());
+
+            setConfigItem(name.c_str(), parameters.c_str());
+
+            // check if definition is already known
+
+            if (!std::any_of(getConfiguration()->begin(), getConfiguration()->end(),
+                             [&name](const ConfigItemDef& item) { return item.name == name; }))
+
+            {
+               tell(eloAlways, "DEBUG: ADD config iten '%s'", name.c_str());
+               getConfiguration()->emplace_back(
+                  name,
+                  ctString,             // type
+                  "",                   // default
+                  false,                // internal
+                  "Sensors",            // category
+                  name.c_str(),         // title
+                  "");                  // description
+            }
+         }
 
          publishAlpicoolInit(type.c_str());
       }

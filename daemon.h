@@ -292,11 +292,11 @@ class Daemon : public cWebInterface
       {
          std::string name;
          ConfigItemType type;
-         const char* def {};
+         std::string def {};
          bool internal {false};
          const char* category {};
-         const char* title {};
-         const char* description {};
+         std::string title {};
+         std::string description {};
       };
 
       struct DefaultWidgetProperty

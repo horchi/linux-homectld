@@ -2205,8 +2205,8 @@ int Daemon::configDetails2Json(json_t* obj)
       json_object_set_new(oDetail, "name", json_string(it.name.c_str()));
       json_object_set_new(oDetail, "type", json_integer(it.type));
       json_object_set_new(oDetail, "category", json_string(it.category));
-      json_object_set_new(oDetail, "title", json_string(it.title));
-      json_object_set_new(oDetail, "description", json_string(it.description));
+      json_object_set_new(oDetail, "title", json_string(it.title.c_str()));
+      json_object_set_new(oDetail, "description", json_string(it.description.c_str()));
 
       if (it.type == ctChoice || it.type == ctMultiSelect || it.type == ctBitSelect)
          configChoice2json(oDetail, it.name.c_str());

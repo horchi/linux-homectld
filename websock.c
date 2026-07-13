@@ -439,7 +439,7 @@ int cWebSock::callbackHttp(lws* wsi, lws_callback_reasons reason, void* user, vo
 
       case LWS_CALLBACK_PROTOCOL_DESTROY:        // 28
       {
-         tell(eloDetail, "DEBUG: PROTOCOL_DESTROY (%p)", (void*)wsi);
+         // tell(eloDetail, "DEBUG: PROTOCOL_DESTROY (%p)", (void*)wsi);
          break;
       }
 

@@ -1,10 +1,14 @@
 #!/bin/bash
 
-# ping and wait up to 1 second to avtivate the sensor
-ping -q -c 1 -W 1 dht >/dev/null
+temp=0
 
-temp=`/usr/local/bin/hhact hum dht`
-temp=`echo ${temp} | sed s/","/"."/g`
+if [ "$1" != "init" ]; then
+   # ping and wait up to 1 second to avtivate the sensor
+   ping -q -c 1 -W 1 dht >/dev/null
+
+   temp=`/usr/local/bin/hhact hum dht`
+   temp=`echo ${temp} | sed s/","/"."/g`
+fi
 
 VALID="true"
 

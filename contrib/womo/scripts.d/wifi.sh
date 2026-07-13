@@ -14,6 +14,13 @@ LOGGER="logger -t sensormqtt -p kern.warn"
 SSID=""
 BARS=""
 
+if [[ "${COMMAND}" == "init" ]]; then
+   PARAMETER='{"cloneable": false, "symbol": "mdi:mdi-wifi-off", "symbolOn": "mdi:mdi-wifi"}'
+   RESULT="{ \"type\":\"SC\",\"address\":${ADDRESS},\"kind\":\"status\",\"text\":\"${SSID}\",\"valid\":true,\"state\":${STATE},\"parameter\": ${PARAMETER} }"
+   echo -n ${RESULT}
+   exit 0
+fi
+
 LINE=$(nmcli -t -f IN-USE,SSID,BARS dev wifi | awk -F: '$1=="*"')
 
 SSID=$(printf '%s\n' "${LINE}" | awk -F: '{
@@ -33,11 +40,7 @@ if [ -n "${SSID}" ]; then
    IMAGE="mdi:mdi-wifi-strength-${STRENGTH}"
 fi
 
-if [[ "${COMMAND}" == "init" ]]; then
-   PARAMETER='{"cloneable": false, "symbol": "mdi:mdi-wifi-off", "symbolOn": "mdi:mdi-wifi"}'
-   RESULT="{ \"type\":\"SC\",\"address\":${ADDRESS},\"kind\":\"status\",\"text\":\"${SSID}\",\"valid\":true,\"state\":${STATE},\"parameter\": ${PARAMETER} }"
-   echo -n ${RESULT}
-elif [[ "${COMMAND}" == "toggle" ]]; then
+if [[ "${COMMAND}" == "toggle" ]]; then
    ${LOGGER} "wifi.sh: toggle called"
    mosquitto_pub --quiet -L ${MQTTURL} -m "{ \"image\":\"${IMAGE}\",\"type\":\"SC\",\"address\":${ADDRESS},\"kind\":\"status\",\"state\":${STATE},\"text\":\"${SSID}\" }"
 elif [[ "${COMMAND}" == "status" ]]; then

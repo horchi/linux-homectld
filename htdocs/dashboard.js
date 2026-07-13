@@ -862,6 +862,7 @@ function initWidget(key, widget, fact)
          $(elem).append($('<div></div>')
                         .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
                         .addClass(titleClass)
+                        .css('font-weight', 'bold')
                         .click(function(event) {titleClick(event.ctrlKey, key);})
                         .html(setupMode ? ' spacer' : title));
          //if (!setupMode)
@@ -1824,8 +1825,20 @@ function updateWidget(sensor, refresh, widget)
       if (!sensor.text)
          sensor.text = sensor.value;
       let choices = fact.choices.split(",");
-      for (c = 0; c < choices.length; ++c) {
-         $("#widget" + fact.type + fact.address + '_' + c).css('background-color', sensor.text == choices[c] ? 'gray' : "");
+      for (let c = 0; c < choices.length; ++c) {
+         let $element = $("#widget" + fact.type + fact.address + '_' + c);
+         let isSelected = (sensor.text == choices[c]);
+         $element.css('background-color', isSelected ? 'gray' : "");
+
+         // in den sichtbaren Bereich scrollen
+
+         if (isSelected && $element.length) {
+            $element[0].scrollIntoView({
+               behavior: 'smooth',    // 'smooth' für Animation, 'auto' für sofortigen Sprung
+               block: 'center'        // Erzwingt die Positionierung in der Mitte
+               // block: 'nearest'    // Scrollt nur, wenn das Element nicht bereits sichtbar ist
+            });
+         }
       }
    }
    else if (widget.widgettype == 2 || widget.widgettype == 7)    // Text, PlainText

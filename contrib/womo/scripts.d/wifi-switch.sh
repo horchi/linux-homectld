@@ -8,6 +8,16 @@ MQTTURL="$3"
 
 LOGGER="logger -t sensormqtt -p kern.warn"
 MSQ_SCRIPT="/usr/local/bin/msq.device"
+STATE="false"
+SSID=""
+
+if [[ "${COMMAND}" == "init" ]]; then
+
+   PARAMETER='{"cloneable": false, "symbol": "mdi:mdi-wifi-off", "symbolOn": "mdi:mdi-wifi"}'
+   RESULT="{ \"type\":\"SC\",\"address\":${ADDRESS},\"kind\":\"status\",\"text\":\"${SSID}\",\"valid\":true,\"state\":${STATE},\"parameter\": ${PARAMETER} }"
+   echo -n ${RESULT}
+   exit 0
+fi
 
 # ── state ──────────────────────────────────────────────────────────────────────
 
@@ -24,13 +34,7 @@ SSID=$(nmcli -t -f active,ssid dev wifi 2>/dev/null | grep '^yes:' | cut -d: -f2
 
 # ── commands ───────────────────────────────────────────────────────────────────
 
-if [[ "${COMMAND}" == "init" ]]; then
-
-   PARAMETER='{"cloneable": false, "symbol": "mdi:mdi-wifi-off", "symbolOn": "mdi:mdi-wifi"}'
-   RESULT="{ \"type\":\"SC\",\"address\":${ADDRESS},\"kind\":\"status\",\"text\":\"${SSID}\",\"valid\":true,\"state\":${STATE},\"parameter\": ${PARAMETER} }"
-   echo -n ${RESULT}
-
-elif [[ "${COMMAND}" == "toggle" ]]; then
+if [[ "${COMMAND}" == "toggle" ]]; then
 
    if [[ "$STATE" == "true" ]]; then
       nmcli radio wifi off

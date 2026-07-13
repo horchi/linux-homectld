@@ -512,7 +512,7 @@ int Daemon::init()
    }
 
    publishVictronInit("VIC");
-   publishAlpicoolInit("ALPICOOL");
+   requestAlpicoolInit("ALPICOOL");
 
    // init web socket ...
 
@@ -922,8 +922,6 @@ int Daemon::initScripts()
       return status;
    }
 
-   // ld.show("#2");
-
    for (const auto& script : scripts)
    {
       long addr {0};
@@ -966,7 +964,13 @@ int Daemon::initScripts()
       tell(eloScript, "Script: Calling %s %s %ld 'mqtt://%s/%s' '%s'", scriptPath, "init", addr, mqttUrlPlain, TARGET "2mqtt/scripts", arguments);
       result = executeCommand("%s %s %ld 'mqtt://%s/%s' '%s'", scriptPath, "init", addr, mqttUrlPlain, TARGET "2mqtt/scripts", arguments);
 
-      json_t* oData = jsonLoad(result.c_str(), 0, true);
+      json_t* oData {jsonLoad(result.c_str(), 0, true)};
+
+      // #TODO add a duration check and wan if > 500ms !!
+      // char* tmp {};
+      // asprintf(&tmp,"Debug: init of script %s:0x%lx", name.c_str(), addr);
+      // ld.show(tmp);
+      // free(tmp);
 
       if (!oData)
       {
@@ -4148,51 +4152,56 @@ int Daemon::dispatchOther(const char* topic, const char* message)
          // and make them avalible in the configuration
 
          json_t* jParameters {getObjectFromJson(jData, "parameters")};
+         const char* deviceid {getStringFromJson(jData, "deviceid")};
 
-         if (jParameters)
+         if (!isEmpty(deviceid))
          {
-            char* tmp {json_dumps(jParameters, JSON_REAL_PRECISION(4))};
-            std::string parameters {tmp};
-            free(tmp);
-
-            tell(eloAlways, "DEBUG: GOT parameters '%s'", parameters.c_str());
-
-            const char* deviceid {getStringFromJson(jData, "deviceid")};
             std::string name {type + ':' + deviceid};
 
-            // read to avoid override
-
-            std::string p;
-            getConfigItem(name.c_str(), p);
-
-            if (!p.empty())
-               parameters = p;
-
-            // store
-
-            tell(eloAlways, "DEBUG: STORE parameters to '%s' [%s]", name.c_str(), parameters.c_str());
-
-            setConfigItem(name.c_str(), parameters.c_str());
-
-            // check if definition is already known
-
-            if (!std::any_of(getConfiguration()->begin(), getConfiguration()->end(),
-                             [&name](const ConfigItemDef& item) { return item.name == name; }))
-
+            if (jParameters)
             {
-               tell(eloAlways, "DEBUG: ADD config iten '%s'", name.c_str());
-               getConfiguration()->emplace_back(
-                  name,
-                  ctString,             // type
-                  "",                   // default
-                  false,                // internal
-                  "Sensors",            // category
-                  name.c_str(),         // title
-                  "");                  // description
-            }
-         }
+               char* tmp {json_dumps(jParameters, JSON_REAL_PRECISION(4))};
+               std::string parameters {tmp};
+               free(tmp);
 
-         publishAlpicoolInit(type.c_str());
+               // read to avoid override
+
+               std::string p;
+               getConfigItem(name.c_str(), p);
+
+               if (!p.empty())
+                  parameters = p;
+
+               // store
+
+               setConfigItem(name.c_str(), parameters.c_str());
+
+               // check if definition is already known
+
+               if (!std::any_of(getConfiguration()->begin(), getConfiguration()->end(),
+                                [&name](const ConfigItemDef& item) { return item.name == name; }))
+
+               {
+                  // tell(eloAlways, "DEBUG: ADD config iten '%s'", name.c_str());
+                  getConfiguration()->emplace_back(
+                     name,
+                     ctText,               // type
+                     parameters,           // default
+                     false,                // internal
+                     "Sensors",            // category
+                     name.c_str(),         // title
+                     "after changing this setting restart homectld");  // description
+
+                  readConfiguration(false);
+
+                  json_t* oJson {json_object()};
+                  config2Json(oJson);
+                  pushOutMessage(oJson, "config");
+               }
+            }
+
+            publishAlpicoolInit(type.c_str(), name.c_str());
+         }
       }
 
       json_decref(jData);
@@ -4907,21 +4916,38 @@ void Daemon::publishVictronInit(const char* type)
    json_decref(jConfig);
    mqttWriter->write(commandTopicsMap[type].c_str(), message);
    free(message);
-
 }
 
 //***************************************************************************
-// Publish Alpicool Init
+// Publish/Request Alpicool Init
 //
 //    #TODO
 //     - collect publish????Init methods
 //***************************************************************************
 
-void Daemon::publishAlpicoolInit(const char* type)
+void Daemon::requestAlpicoolInit(const char* type)
 {
    if (!lookupCommandTopic(type, na))
    {
-      tell(eloAlways, "Info: Skip init alpicool '%s', missing topic", type);
+      tell(eloAlways, "Info: Skip request-init from '%s', missing topic", type);
+      return;
+   }
+
+   json_t* jInit {json_object()};
+   json_object_set_new(jInit, "type", json_string(type));
+   json_object_set_new(jInit, "action", json_string("requestinit"));
+
+   char* message {json_dumps(jInit, JSON_REAL_PRECISION(8))};
+   json_decref(jInit);
+   mqttWriter->write(commandTopicsMap[type].c_str(), message);
+   free(message);
+}
+
+void Daemon::publishAlpicoolInit(const char* type, const char* name)
+{
+   if (!lookupCommandTopic(type, na))
+   {
+      tell(eloAlways, "Info: Skip init '%s', missing topic", type);
       return;
    }
 
@@ -4929,35 +4955,30 @@ void Daemon::publishAlpicoolInit(const char* type)
 
    if (!mqttWriter)
    {
-      tell(eloAlways, "Error: Can't init alpicool for '%s', missing broker at '%s'", type, mqttUrl.c_str());
+      tell(eloAlways, "Error: Can't init for '%s', missing broker at '%s'", type, mqttUrl.c_str());
       return;
    }
 
    // {"type": "ALPICOOL", "action": "init", "config": {"eloquence": 3, "interval": 20} }
 
-   json_t* jSetup {json_object()};
-   json_object_set_new(jSetup, "type", json_string(type));
-   json_object_set_new(jSetup, "action", json_string("init"));
-   json_t* jConfig {json_object()};
-   json_object_set_new(jSetup, "config", jConfig);
+   std::string message;
+   getConfigItem(name, message);
 
-   json_object_set_new(jConfig, "eloquence", json_integer(eloquence));
+   if (!message.empty())
+   {
+      json_t* jSetup {json_object()};
+      json_object_set_new(jSetup, "type", json_string(type));
+      json_object_set_new(jSetup, "action", json_string("init"));
 
-   // #TODO make config options configurable
-   //    user deviceId to identify the config snippet
-   // ...
+      json_t* jConfig {jsonLoad(message.c_str())};
+      json_object_set_new(jSetup, "config", jConfig);
 
-   json_object_set_new(jConfig, "correctionFactor", json_real(0.9636f));
-   json_object_set_new(jConfig, "correctionOffset", json_real(0.0615f));
-
-   // json_object_set_new(jConfig, "type", json_string("xxxx"));
-   // json_object_set_new(jConfig, "i2cAddress", json_integer(0x40));
-   // json_object_set(jConfig, "interval", json_integer(30));
-
-   char* message {json_dumps(jSetup, JSON_REAL_PRECISION(8))};
-   json_decref(jSetup);
-   mqttWriter->write(commandTopicsMap[type].c_str(), message);
-   free(message);
+      char* tmp = json_dumps(jSetup, JSON_REAL_PRECISION(8));
+      json_decref(jSetup);
+      // tell(eloAlways, "DEBUG: SEND '%s'", tmp);
+      mqttWriter->write(commandTopicsMap[type].c_str(), tmp);
+      free(tmp);
+   }
 }
 
 //***************************************************************************

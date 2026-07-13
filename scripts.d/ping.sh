@@ -14,15 +14,6 @@ if [[ -z "${TIMEOUT}" || "${TIMEOUT}" == "null" ]]; then
    TIMEOUT=3
 fi
 
-if [[ -z "${IP}" ]]; then
-   ${LOGGER} "ping.sh: IP argument missing, call with '{ \"ip\": \"8.8.8.8\"}'"
-   STATE="false"
-elif ping -q -c 1 -W ${TIMEOUT} ${IP} >/dev/null; then
-   echo -n
-else
-   STATE="false"
-fi
-
 if [[ "${COMMAND}" == "init" ]]; then
 
    PARAMETER=$(jq -n '{
@@ -44,13 +35,24 @@ if [[ "${COMMAND}" == "init" ]]; then
          address: $address,
          kind: "status",
          valid: true,
-         value: $value,
+         value: false,
          parameter: $param
       }')
 
    echo -n ${RESULT}
+   exit 0
+fi
 
-elif [[ "${COMMAND}" == "toggle" ]]; then
+if [[ -z "${IP}" ]]; then
+   ${LOGGER} "ping.sh: IP argument missing, call with '{ \"ip\": \"8.8.8.8\"}'"
+   STATE="false"
+elif ping -q -c 1 -W ${TIMEOUT} ${IP} >/dev/null; then
+   echo -n
+else
+   STATE="false"
+fi
+
+if [[ "${COMMAND}" == "toggle" ]]; then
    ${LOGGER} "ping.sh: called with IP: ${IP}"
    mosquitto_pub --quiet -L ${MQTTURL} -m "{ \"type\":\"SC\",\"address\":${ADDRESS},\"kind\":\"status\",\"state\":${STATE} }"
 elif [ "${COMMAND}" == "status" ]; then

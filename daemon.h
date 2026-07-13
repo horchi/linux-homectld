@@ -421,7 +421,8 @@ class Daemon : public cWebInterface
       bool doShutDown() { return shutdown; }
 
       void publishVictronInit(const char* type);
-      void publishAlpicoolInit(const char* type);
+      void requestAlpicoolInit(const char* type);
+      void publishAlpicoolInit(const char* type, const char* name);
       void publishI2CSensorConfig(const char* type, uint pin, json_t* jParameters);
       void publishPin(const char* type, uint pin);
       void gpioWrite(uint pin, bool state, bool saveIoState = true);

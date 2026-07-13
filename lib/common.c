@@ -2065,8 +2065,13 @@ LogDuration::~LogDuration()
 
 void LogDuration::show(const char* label)
 {
-   tell(logLevel, "elapsed '%s' at '%s' was (%ldms)",
-        message, label, (long)(cMyTimeMs::Now() - durationStart));
+   uint64_t last {lastShowAt ? lastShowAt : durationStart};
+   uint64_t delta {cMyTimeMs::Now() - last};
+
+   tell(logLevel, "elapsed '%s' at '%s' was (%ldms) delta (%ldms)",
+        message, label, (long)(cMyTimeMs::Now() - durationStart), delta);
+
+   lastShowAt = cMyTimeMs::Now();
 }
 
 //***************************************************************************

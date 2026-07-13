@@ -627,9 +627,10 @@ class LogDuration
 
    protected:
 
-      char message[1000];
-      uint64_t durationStart;
-      Eloquence logLevel;
+      char message[1000] {};
+      uint64_t durationStart {0};
+      uint64_t lastShowAt {0};
+      Eloquence logLevel {eloInfo};
 };
 
 //***************************************************************************

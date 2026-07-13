@@ -22,6 +22,13 @@ UPD_PENDING=0
 STATE="false"
 COLOR="\"red\""
 
+if [[ "${COMMAND}" == "init" ]]; then
+   PARAMETER="{\"cloneable\": false, \"symbol\": \"mdi:mdi-progress-upload\", \"symbolOn\": \"mdi:mdi-progress-upload\"}"
+   RESULT="{ \"type\":\"SC\",\"address\":$2,\"kind\":\"status\",\"valid\":true,\"value\":${STATE}, \"color\": ${COLOR}, \"parameter\": ${PARAMETER}  }"
+   echo -n ${RESULT}
+   exit 0
+fi
+
 if [[ ! -d "${GIT_ROOT}" ]]; then
    STATE="false"
    COLOR="\"red\""
@@ -67,11 +74,12 @@ else
    STATE="false"
 fi
 
-if [[ "${COMMAND}" == "init" ]]; then
-   PARAMETER="{\"cloneable\": false, \"symbol\": \"mdi:mdi-progress-upload\", \"symbolOn\": \"mdi:mdi-progress-upload\"}"
-   RESULT="{ \"type\":\"SC\",\"address\":$2,\"kind\":\"status\",\"valid\":true,\"value\":${STATE}, \"color\": ${COLOR}, \"parameter\": ${PARAMETER}  }"
-   echo -n ${RESULT}
-elif [[ "${COMMAND}" == "toggle" ]]; then
+#if [[ "${COMMAND}" == "init" ]]; then
+#   PARAMETER="{\"cloneable\": false, \"symbol\": \"mdi:mdi-progress-upload\", \"symbolOn\": \"mdi:mdi-progress-upload\"}"
+#   RESULT="{ \"type\":\"SC\",\"address\":$2,\"kind\":\"status\",\"valid\":true,\"value\":${STATE}, \"color\": ${COLOR}, \"parameter\": ${PARAMETER}  }"
+#   echo -n ${RESULT}
+#elif [[ "${COMMAND}" == "toggle" ]]; then
+if [[ "${COMMAND}" == "toggle" ]]; then
    if [[ ! -d "${GIT_ROOT}" ]]; then
       ${LOGGER} "update.sh: Abort update, directory ${GIT_ROOT} not found"
    elif [[ "${STATE}" == "false" ]]; then

@@ -741,8 +741,12 @@ private:
          if (config.containsKey("correctionOffset"))
             correctionOffset = config["correctionOffset"].as<double>();
 
-         tell(eloInfo, "Info: INIT: Eloquence %d; Interval auf %d s; Correction Factor: %.4f; Correction Offset: %.4f",
+         tell(eloInfo, "Info: INIT: Eloquence %d; Interval auf %d s; Correction Factor: %.4f; Correction Offset: %.4f ",
               eloquence, queryInterval, correctionFactor, correctionOffset);
+      }
+      else if (doc.containsKey("action") && doc["action"] == "requestinit")
+      {
+         publishInitMessage();
       }
       else
       {

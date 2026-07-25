@@ -976,7 +976,7 @@ function initWidget(key, widget, fact)
                     .attr('id', 'widget' + fact.type + fact.address)
                     .css('user-select', 'none')
                     .css('color', widget.color)
-                    .addClass('widget-value'));
+                    .addClass('widget-txt'));
 
          let cFact = fact;
          if (!setupMode && fact.record) {
@@ -1819,6 +1819,38 @@ function updateWidget(sensor, refresh, widget)
       }
    }
    else if (widget.widgettype == 8)    // Choice
+   {
+      if (!sensor.text)
+         sensor.text = sensor.value;
+      let choices = fact.choices.split(",");
+
+      for (let c = 0; c < choices.length; ++c) {
+         let $element = $("#widget" + fact.type + fact.address + '_' + c);
+         let isSelected = (sensor.text == choices[c]);
+         $element.css('background-color', isSelected ? 'gray' : "");
+
+         if (isSelected && $element.length) {
+            // Findet das spezifische, scrollbare DIV dieses Widgets
+            let $container = $element.closest('.widget-choice'); // Passen Sie den CSS-Selektor an Ihr DIV an
+
+            if ($container.length) {
+               // Position des Elements relativ zum sichtbaren oberen Rand des Containers
+               let elementTop = $element.position().top;
+               let containerHeight = $container.height();
+               let elementHeight = $element.outerHeight();
+
+               // Berechnet den exakten Scroll-Wert für die Zentrierung IM Container
+               let targetScroll = $container.scrollTop() + elementTop - (containerHeight / 2) + (elementHeight / 2);
+
+               // Scrollt NUR den Container, die restliche Webseite bleibt starr
+               $container.stop().animate({
+                  scrollTop: targetScroll
+               }, 300); // 300ms für weiches Scrollen. Für sofortigen Sprung: $container.scrollTop(targetScroll);
+            }
+         }
+      }
+   }
+   else if (widget.widgettype == 88888)    // Choice
    {
       // let text = sensor.text.replace(/(?:\r\n|\r|\n)/g, '<br>');
 

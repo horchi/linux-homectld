@@ -2072,6 +2072,17 @@ table.tableMultiCol td
     word-break: break-word;
     color: var(--light4);
 }
+.widget-txt
+{
+    grid-area: main;
+    display: inline-grid;
+    text-align: center;
+    font-size: xx-large;
+    font-weight: bold;
+    align-items: center;
+    word-break: break-word;
+    color: var(--light4);
+}
 
 .widget-choice
 {
@@ -2519,6 +2530,10 @@ dialog::backdrop, #backdrop
 
 /* -------------- */
 /* Media specials */
+/*
+iPhones
+ - 13)  390 x 844
+*/
 
 @media only screen and (max-width: 320px)
 {
@@ -2543,7 +2558,8 @@ dialog::backdrop, #backdrop
     .widget                    { grid-template-rows: 15% 85%; }
     .widgetChart               { grid-template-rows: 15% 18% 67%; }
     .widget-title              { font-size: 1.0em; }
-    .widget-value              { font-size: 1.0em; }
+    .widget-value              { font-size: xx-large; }
+    .widget-txt                { font-size: large; }
     .widget-text               { font-size: large; }
     .widget-weather            { font-size: x-large; margin-top: 0px;  }
     .widget-weather > br       { display: none; }
@@ -2576,7 +2592,8 @@ dialog::backdrop, #backdrop
 
     .widget-title              { padding: 3px; padding-top: 4px; font-size: 1.0em; }
     .widget-main-peak-lin      { font-size: 0.7em; }
-    .widget-value              { font-size: x-large; }
+    .widget-value              { font-size: xx-large; }
+    .widget-txt                { font-size: large; }
     .widget-text               { font-size: large; }
     .widget-weather            { font-size: larger; margin-top: 0px;  }
     .widget-weather > br       { display: none; }
@@ -2602,7 +2619,8 @@ dialog::backdrop, #backdrop
     .widgetChart               { grid-template-rows: 15% 14% 71%; }
     .buttonDashboard           { padding: 4px; margin: 0px 0px 0px 0px; }
     .chart-peak                { font-size: 0.7em; margin-top: 4px; }
-    .widget-value              { font-size: 1.2em; }
+    .widget-value              { font-size: xx-large; }
+    .widget-txt                { font-size: large; }
     .widget-time               { font-size: 1.3em; }
     .chart-value               { font-size: 1.0em; }
     .widget-main               { font-size: 15vh;}

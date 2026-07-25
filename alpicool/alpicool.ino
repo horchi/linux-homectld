@@ -14,14 +14,14 @@
 
 String getUniqueDeviceId()
 {
-  uint64_t chipId = ESP.getEfuseMac();
-  char idBuffer[20];
+   uint64_t chipId {ESP.getEfuseMac()};
+   char idBuffer[20];
 
-  snprintf(idBuffer, sizeof(idBuffer), "%04X%08X",
-           (uint16_t)(chipId >> 32),
-           (uint32_t)chipId);
+   snprintf(idBuffer, sizeof(idBuffer), "%04X%08X",
+            (uint16_t)(chipId >> 32),
+            (uint32_t)chipId);
 
-  return String(idBuffer);
+   return String(idBuffer);
 }
 
 class AlpicoolBridge;
@@ -38,8 +38,8 @@ private:
    WiFiClient EspClient;
    PubSubClient MqttClient;
 
-   NimBLEClient* pBleClient = nullptr;
-   NimBLERemoteCharacteristic* pTxCharacteristic = nullptr;
+   NimBLEClient* pBleClient {};
+   NimBLERemoteCharacteristic* pTxCharacteristic {};
    INA226_WE* pIna226 {};
 
    bool IsBleConnected {false};
@@ -542,7 +542,11 @@ private:
          if (address == 1)
             param["widgettype"] = 8;
          else if (address == 2)
+         {
             param["widgettype"] = 6;
+            param["colorCondition"] = "9<red";
+            param["colorConditionBar"] = "9<red,9>blue";
+         }
          else
             param["widgettype"] = 3;
       }

@@ -134,6 +134,7 @@ enum Eloquence
    eloDebugGpio      = 0x080000,
    eloScript         = 0x100000,
    eloLoopTimings    = 0x200000,
+   eloDurations      = 0x400000,
 
    eloAlways         = 0x000000
 };

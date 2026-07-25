@@ -74,6 +74,7 @@ const char* Elo::eloquences[] =
    "Script",
 
    "LoopTimings",
+   "Durations",
 
    nullptr
 };

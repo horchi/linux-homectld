@@ -65,6 +65,7 @@ class Ds2484 : public I2C
          double value {0.0};
          std::vector<double> values;
          bool active {false};
+         uint8_t rawRom[8] {};
       };
 
       typedef std::map<std::string, SensorData> SensorList;

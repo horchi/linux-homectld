@@ -53,7 +53,7 @@ class HomeCtl : public Daemon
 
       int process(bool force = false, bool signal = false) override;
       int performJobs() override;
-      void logReport() override;
+      // void logReport() override;
 
       std::list<ConfigItemDef>* getConfiguration() override { return &configuration; }
 
@@ -74,7 +74,7 @@ class HomeCtl : public Daemon
 
       void phMeasurementActive();
       int calcPhMinusVolume(double ph);
-      cDbStatement* selectSolarWorkPerDay {};
+      // cDbStatement* selectSolarWorkPerDay {};
 
       int poolLightColorToggle {no};
       std::string w1AddrPool;
@@ -105,9 +105,9 @@ class HomeCtl : public Daemon
 
 #endif
 
-#ifdef _WOMO
-      cDbStatement* selectSolarAhPerDay {};
-#endif
+// #ifdef _WOMO
+//       cDbStatement* selectSolarAhPerDay {};
+// #endif
 
       static std::list<ConfigItemDef> configuration;
 };

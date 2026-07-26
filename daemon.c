@@ -80,7 +80,7 @@ Daemon::ValueTypes Daemon::defaultValueTypes[] =
    { "^MCPO",     "Digitale Ausgänge" },
    { "^DI",       "Digitale Eingänge" },
    { "^MCPI",     "Digitale Eingänge" },
-   { "^GPIO",     "Digitale Ein/Ausgänge" },
+   { "^GPIO",     "GPIO" },
    { "^W1",       "One Wire Sensoren" },
    { "^SC",       "Skripte" },
    { "^AO",       "Analog Ausgänge" },

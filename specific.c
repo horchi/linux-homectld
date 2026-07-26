@@ -156,52 +156,52 @@ int HomeCtl::initDb()
 {
    int status = Daemon::initDb();
 
-#ifdef _POOL
-   // ------------------
-   // select solar work per day
-   //    select date(time), max(value)
-   //      from samples
-   //      where type = 'SP' and address = 6 group by date(time);
+// #ifdef _POOL
+//    // ------------------
+//    // select solar work per day
+//    //    select date(time), max(value)
+//    //      from samples
+//    //      where type = 'SP' and address = 6 group by date(time);
 
-   selectSolarWorkPerDay = new cDbStatement(tableSamples);
-   selectSolarWorkPerDay->build("select ");
-   selectSolarWorkPerDay->bindTextFree("date(time)", tableSamples->getValue("time"), "", cDBS::bndOut);
-   selectSolarWorkPerDay->bindTextFree("max(value)", tableSamples->getValue("value"), ", ", cDBS::bndOut);
-   selectSolarWorkPerDay->build(" from %s where ", tableSamples->TableName());
-   selectSolarWorkPerDay->build(" TYPE = '%s' and ADDRESS = %d", "SP", spSolarWork);
-   selectSolarWorkPerDay->build(" group by date(time) order by time desc");
-   status += selectSolarWorkPerDay->prepare();
-#endif
+//    selectSolarWorkPerDay = new cDbStatement(tableSamples);
+//    selectSolarWorkPerDay->build("select ");
+//    selectSolarWorkPerDay->bindTextFree("date(time)", tableSamples->getValue("time"), "", cDBS::bndOut);
+//    selectSolarWorkPerDay->bindTextFree("max(value)", tableSamples->getValue("value"), ", ", cDBS::bndOut);
+//    selectSolarWorkPerDay->build(" from %s where ", tableSamples->TableName());
+//    selectSolarWorkPerDay->build(" TYPE = '%s' and ADDRESS = %d", "SP", spSolarWork);
+//    selectSolarWorkPerDay->build(" group by date(time) order by time desc");
+//    status += selectSolarWorkPerDay->prepare();
+// #endif
 
-#ifdef _WOMO
-   // ------------------
-   // select solar Ah per day
-   //    select date(time), max(value)
-   //      from samples
-   //      where type = 'SP' and address = 6 group by date(time);
+// #ifdef _WOMO
+//    // ------------------
+//    // select solar Ah per day
+//    //    select date(time), max(value)
+//    //      from samples
+//    //      where type = 'SP' and address = 6 group by date(time);
 
-   selectSolarAhPerDay = new cDbStatement(tableSamples);
-   selectSolarAhPerDay->build("select ");
-   selectSolarAhPerDay->bindTextFree("date(time)", tableSamples->getValue("time"), "", cDBS::bndOut);
-   selectSolarAhPerDay->bindTextFree("max(value)", tableSamples->getValue("value"), ", ", cDBS::bndOut);
-   selectSolarAhPerDay->build(" from %s where ", tableSamples->TableName());
-   selectSolarAhPerDay->build(" TYPE = '%s' and ADDRESS = %d", "CV", 0x01);
-   selectSolarAhPerDay->build(" and time >= curdate() - INTERVAL DAYOFWEEK(curdate())+14 DAY");
-   selectSolarAhPerDay->build(" group by date(time)");
-   status += selectSolarAhPerDay->prepare();
-#endif
+//    selectSolarAhPerDay = new cDbStatement(tableSamples);
+//    selectSolarAhPerDay->build("select ");
+//    selectSolarAhPerDay->bindTextFree("date(time)", tableSamples->getValue("time"), "", cDBS::bndOut);
+//    selectSolarAhPerDay->bindTextFree("max(value)", tableSamples->getValue("value"), ", ", cDBS::bndOut);
+//    selectSolarAhPerDay->build(" from %s where ", tableSamples->TableName());
+//    selectSolarAhPerDay->build(" TYPE = '%s' and ADDRESS = %d", "CV", 0x01);
+//    selectSolarAhPerDay->build(" and time >= curdate() - INTERVAL DAYOFWEEK(curdate())+14 DAY");
+//    selectSolarAhPerDay->build(" group by date(time)");
+//    status += selectSolarAhPerDay->prepare();
+// #endif
 
    return status;
 }
 
 int HomeCtl::exitDb()
 {
-#ifdef _POOL
-   delete selectSolarWorkPerDay;   selectSolarWorkPerDay = nullptr;
-#endif
-#ifdef _WOMO
-   delete selectSolarAhPerDay;     selectSolarAhPerDay = nullptr;
-#endif
+// #ifdef _POOL
+//    delete selectSolarWorkPerDay;   selectSolarWorkPerDay = nullptr;
+// #endif
+// #ifdef _WOMO
+//    delete selectSolarAhPerDay;     selectSolarAhPerDay = nullptr;
+// #endif
 
    return Daemon::exitDb();
 }
@@ -286,11 +286,16 @@ int HomeCtl::atMeanwhile()
    return done;
 }
 
+//***************************************************************************
+// On GPIO Change
+//  !Attention!
+//    calles in thred dont use database access functions like gpioWrite(), ...
+//***************************************************************************
+
 void Daemon::onGpioChange(int physPin, bool value)
 {
    tell(eloDebugGpio, "Debug: GPIO: Interrupt trigger for pin %d (%s)", physPin, value ? "ON" : "OFF");
    triggerGpioPins.push(physPin);
-   // gpioRead(physPin);  -> DB access from thread!!
 
 #ifdef _POOL
    static uint64_t lastShowerSwitch {cTimeMs::Now()};     // detect only once a second to prevent bouncing
@@ -345,12 +350,12 @@ int HomeCtl::applyConfigurationSpecials()
    initInput(pinShowerSwitch, "Shower");
    pullUpDnControl(pinShowerSwitch, PUD_UP);
 
-   if (gpio->setIsr(pinShowerSwitch, Gpio::edgeBoth, std::bind(&Daemon::onGpioChange, this, std::placeholders::_1, std::placeholders::_2)) != success)
-      tell(eloAlways, "Error: Unable to setup ISR: %s", strerror(errno));
+//   if (gpio->setIsr(pinShowerSwitch, Gpio::edgeBoth, std::bind(&Daemon::onGpioChange, this, std::placeholders::_1, std::placeholders::_2)) != success)
+//      tell(eloAlways, "Error: Unable to setup ISR: %s", strerror(errno));
 
    // special values
 
-   addValueFact(spSolarDelta, "SP", 1, "Solar Delta", "°C");
+   // addValueFact(spSolarDelta, "SP", 1, "Solar Delta", "°C");
    addValueFact(spPhMinusDemand, "SP", 1, "PH Minus Bedarf", "ml");
    addValueFact(spSolarPower, "SP", 1, "Solar Leistung", "W");
    addValueFact(spSolarWork, "SP", 1, "Solar Energie (heute)", "kWh");
@@ -419,42 +424,42 @@ int HomeCtl::process(bool force, bool signal)
       setConfigItem("lastSolarWork", sensors["SP"][spSolarWork].value);
    }
 
-   time_t tPoolLast {}, tSolarLast {};
-   double tPool = valueOfW1(toW1Id(w1AddrPool.c_str()), tPoolLast);
-   double tSolar = valueOfW1(toW1Id(w1AddrSolar.c_str()), tSolarLast);
+   // time_t tPoolLast {}, tSolarLast {};
+   // double tPool = valueOfW1(toW1Id(w1AddrPool.c_str()), tPoolLast);
+   // double tSolar = valueOfW1(toW1Id(w1AddrSolar.c_str()), tSolarLast);
 
-   // use W1 values only if not older than 2 cycles
+   // // use W1 values only if not older than 2 cycles
 
-   bool w1Valid = tPoolLast > time(0) - 2*interval && tSolarLast > time(0) - 2*interval;
+   // bool w1Valid = tPoolLast > time(0) - 2*interval && tSolarLast > time(0) - 2*interval;
 
-   // ------------
-   // Solar State
+   // // ------------
+   // // Solar State
 
-   if (w1Valid)
-   {
-      static time_t pSolarSince {0};
+   // if (w1Valid)
+   // {
+   //    static time_t pSolarSince {0};
 
-      setSpecialValue(spSolarWork, sensors["SP"][spSolarWork].value + (sensors["SP"][spSolarPower].value * ((time(0)-pSolarSince) / 3600.0) / 1000.0));  // in kWh
-      setConfigItem("lastSolarWork", sensors["SP"][spSolarWork].value);
-      setSpecialValue(spSolarDelta, tSolar - tPool);
+   //    setSpecialValue(spSolarWork, sensors["SP"][spSolarWork].value + (sensors["SP"][spSolarPower].value * ((time(0)-pSolarSince) / 3600.0) / 1000.0));  // in kWh
+   //    setConfigItem("lastSolarWork", sensors["SP"][spSolarWork].value);
+   //    setSpecialValue(spSolarDelta, tSolar - tPool);
 
-      const double termalCapacity = 4183.0; // Wärmekapazität Wasser bei 20°C [kJ·kg-1·K-1]
+   //    const double termalCapacity = 4183.0; // Wärmekapazität Wasser bei 20°C [kJ·kg-1·K-1]
 
-      if (sensors["DO"][pinSolarPump].state)
-         setSpecialValue(spSolarPower, termalCapacity * massPerSecond * sensors["SP"][spSolarDelta].value);
-      else
-         setSpecialValue(spSolarPower, 0.0);
+   //    if (sensors["DO"][pinSolarPump].state)
+   //       setSpecialValue(spSolarPower, termalCapacity * massPerSecond * sensors["SP"][spSolarDelta].value);
+   //    else
+   //       setSpecialValue(spSolarPower, 0.0);
 
-      pSolarSince = time(0);
+   //    pSolarSince = time(0);
 
-      // publish
+   //    // publish
 
-      publishSpecialValue(spSolarDelta);
-      publishSpecialValue(spSolarPower);
-      publishSpecialValue(spSolarWork);
-   }
-   else
-      tell(eloAlways, "W1 values NOT valid, skipping solar calculation");
+   //    publishSpecialValue(spSolarDelta);
+   //    publishSpecialValue(spSolarPower);
+   //    publishSpecialValue(spSolarWork);
+   // }
+   // else
+   //    tell(eloAlways, "W1 values NOT valid, skipping solar calculation");
 
    // -----------
    // PH
@@ -477,52 +482,52 @@ int HomeCtl::process(bool force, bool signal)
       // -----------
       // Solar Pump
 
-      if (w1Valid && sensors["DO"][pinSolarPump].mode == omAuto)
-      {
-         if (!w1AddrPool.empty() && !w1AddrSolar.empty() && existW1(toW1Id(w1AddrPool.c_str())) && existW1(toW1Id(w1AddrSolar.c_str())))
-         {
-            if (tPool > tPoolMax)
-            {
-               // switch OFF solar pump
+      // if (w1Valid && sensors["DO"][pinSolarPump].mode == omAuto)
+      // {
+      //    if (!w1AddrPool.empty() && !w1AddrSolar.empty() && existW1(toW1Id(w1AddrPool.c_str())) && existW1(toW1Id(w1AddrSolar.c_str())))
+      //    {
+      //       if (tPool > tPoolMax)
+      //       {
+      //          // switch OFF solar pump
 
-               if (sensors["DO"][pinSolarPump].state)
-               {
-                  tell(eloAlways, "Configured pool maximum of %.2f°C reached, pool has is %.2f°C, stopping solar pump!", tPoolMax, tPool);
-                  gpioWrite(pinSolarPump, false);
-               }
-            }
-            else if (sensors["SP"][spSolarDelta].value > tSolarDelta)
-            {
-               // switch ON solar pump
+      //          if (sensors["DO"][pinSolarPump].state)
+      //          {
+      //             tell(eloAlways, "Configured pool maximum of %.2f°C reached, pool has is %.2f°C, stopping solar pump!", tPoolMax, tPool);
+      //             gpioWrite(pinSolarPump, false);
+      //          }
+      //       }
+      //       else if (sensors["SP"][spSolarDelta].value > tSolarDelta)
+      //       {
+      //          // switch ON solar pump
 
-               if (!sensors["DO"][pinSolarPump].state)
-               {
-                  tell(eloAlways, "Solar delta of %.2f°C reached, pool has %.2f°C, starting solar pump", tSolarDelta, tPool);
-                  gpioWrite(pinSolarPump, true);
-               }
-            }
-            else
-            {
-               // switch OFF solar pump
+      //          if (!sensors["DO"][pinSolarPump].state)
+      //          {
+      //             tell(eloAlways, "Solar delta of %.2f°C reached, pool has %.2f°C, starting solar pump", tSolarDelta, tPool);
+      //             gpioWrite(pinSolarPump, true);
+      //          }
+      //       }
+      //       else
+      //       {
+      //          // switch OFF solar pump
 
-               if (sensors["DO"][pinSolarPump].state && sensors["DO"][pinSolarPump].last < time(0) - minSolarPumpDuration*tmeSecondsPerMinute)
-               {
-                  tell(eloAlways, "Solar delta (%.2f°C) lower than %.2f°C, pool has %.2f°C, stopping solar pump", sensors["SP"][spSolarDelta].value, tSolarDelta, tPool);
-                  gpioWrite(pinSolarPump, false);
-               }
-            }
-         }
-         else
-         {
-            tell(eloAlways, "Warning: Missing at least one sensor, switching solar pump off!");
-            gpioWrite(pinSolarPump, false);
-         }
-      }
-      else if (!w1Valid && sensors["DO"][pinSolarPump].mode == omAuto)
-      {
-         gpioWrite(pinSolarPump, false);
-         tell(eloAlways, "Warning: Solar pump switched OFF, sensor values older than %d seconds!", 2*interval);
-      }
+      //          if (sensors["DO"][pinSolarPump].state && sensors["DO"][pinSolarPump].last < time(0) - minSolarPumpDuration*tmeSecondsPerMinute)
+      //          {
+      //             tell(eloAlways, "Solar delta (%.2f°C) lower than %.2f°C, pool has %.2f°C, stopping solar pump", sensors["SP"][spSolarDelta].value, tSolarDelta, tPool);
+      //             gpioWrite(pinSolarPump, false);
+      //          }
+      //       }
+      //    }
+      //    else
+      //    {
+      //       tell(eloAlways, "Warning: Missing at least one sensor, switching solar pump off!");
+      //       gpioWrite(pinSolarPump, false);
+      //    }
+      // }
+      // else if (!w1Valid && sensors["DO"][pinSolarPump].mode == omAuto)
+      // {
+      //    gpioWrite(pinSolarPump, false);
+      //    tell(eloAlways, "Warning: Solar pump switched OFF, sensor values older than %d seconds!", 2*interval);
+      // }
 
       // -----------
       // Filter Pump
@@ -622,90 +627,90 @@ int HomeCtl::process(bool force, bool signal)
 // Report Actual State
 //***************************************************************************
 
-void HomeCtl::logReport()
-{
-   Daemon::logReport();
+// void HomeCtl::logReport()
+// {
+//    Daemon::logReport();
 
-#ifdef _POOL
-   static time_t nextLogAt {0};
-   static time_t nextDetailLogAt {0};
-   char buf[255+TB] {};
-   time_t tPoolLast {0}, tSolarLast {0};
-   double tPool = valueOfW1(toW1Id(w1AddrPool.c_str()), tPoolLast);
-   double tSolar = valueOfW1(toW1Id(w1AddrSolar.c_str()), tSolarLast);
+// #ifdef _POOL
+//    static time_t nextLogAt {0};
+//    static time_t nextDetailLogAt {0};
+//    char buf[255+TB] {};
+//    // time_t tPoolLast {0}, tSolarLast {0};
+//    // double tPool = valueOfW1(toW1Id(w1AddrPool.c_str()), tPoolLast);
+//    // double tSolar = valueOfW1(toW1Id(w1AddrSolar.c_str()), tSolarLast);
 
-   if (time(0) > nextLogAt)
-   {
-      nextLogAt = time(0) + 1 * tmeSecondsPerMinute;
+//    if (time(0) > nextLogAt)
+//    {
+//       nextLogAt = time(0) + 1 * tmeSecondsPerMinute;
 
-      tell(eloAlways, "# ------------------------");
+//       tell(eloAlways, "# ------------------------");
 
-      tell(eloAlways, "# Pool has %.2f °C; Solar has %.2f °C; Current delta is %.2f° (%.2f° configured)",
-           tPool, tSolar, sensors["SP"][spSolarDelta].value, tSolarDelta);
-      tell(eloAlways, "# Solar power is %0.2f Watt; Solar work (today) %0.2f kWh", sensors["SP"][spSolarPower].value, sensors["SP"][spSolarWork].value);
-      tell(eloAlways, "# Solar pump is '%s/%s' since '%s'", sensors["DO"][pinSolarPump].state ? "running" : "stopped",
-           sensors["DO"][pinSolarPump].mode == omAuto ? "auto" : "manual", toElapsed(time(0)-sensors["DO"][pinSolarPump].last, buf));
-      tell(eloAlways, "# Filter pump is '%s/%s' since '%s'", sensors["DO"][pinFilterPump].state ? "running" : "stopped",
-           sensors["DO"][pinFilterPump].mode == omAuto ? "auto" : "manual", toElapsed(time(0)-sensors["DO"][pinFilterPump].last, buf));
-      tell(eloAlways, "# UV-C light is '%s/%s'", sensors["DO"][pinUVC].state ? "on" : "off",
-           sensors["DO"][pinUVC].mode == omAuto ? "auto" : "manual");
-      tell(eloAlways, "# Pool light is '%s/%s'", sensors["DO"][pinPoolLight].state ? "on" : "off",
-           sensors["DO"][pinPoolLight].mode == omAuto ? "auto" : "manual");
-      tell(eloAlways, "# PH Minus Demand %.2f", sensors["SP"][spPhMinusDemand].value);
+//       // tell(eloAlways, "# Pool has %.2f °C; Solar has %.2f °C; Current delta is %.2f° (%.2f° configured)",
+//       //      tPool, tSolar, sensors["SP"][spSolarDelta].value, tSolarDelta);
+//       tell(eloAlways, "# Solar power is %0.2f Watt; Solar work (today) %0.2f kWh", sensors["SP"][spSolarPower].value, sensors["SP"][spSolarWork].value);
+//       tell(eloAlways, "# Solar pump is '%s/%s' since '%s'", sensors["DO"][pinSolarPump].state ? "running" : "stopped",
+//            sensors["DO"][pinSolarPump].mode == omAuto ? "auto" : "manual", toElapsed(time(0)-sensors["DO"][pinSolarPump].last, buf));
+//       tell(eloAlways, "# Filter pump is '%s/%s' since '%s'", sensors["DO"][pinFilterPump].state ? "running" : "stopped",
+//            sensors["DO"][pinFilterPump].mode == omAuto ? "auto" : "manual", toElapsed(time(0)-sensors["DO"][pinFilterPump].last, buf));
+//       tell(eloAlways, "# UV-C light is '%s/%s'", sensors["DO"][pinUVC].state ? "on" : "off",
+//            sensors["DO"][pinUVC].mode == omAuto ? "auto" : "manual");
+//       tell(eloAlways, "# Pool light is '%s/%s'", sensors["DO"][pinPoolLight].state ? "on" : "off",
+//            sensors["DO"][pinPoolLight].mode == omAuto ? "auto" : "manual");
+//       tell(eloAlways, "# PH Minus Demand %.2f", sensors["SP"][spPhMinusDemand].value);
 
-      tell(eloAlways, "# ------------------------");
-   }
+//       tell(eloAlways, "# ------------------------");
+//    }
 
-   if (time(0) > nextDetailLogAt)
-   {
-      nextDetailLogAt = time(0) + 5 * tmeSecondsPerMinute;
-      tell(eloAlways, "# Solar Work");
+//    if (time(0) > nextDetailLogAt)
+//    {
+//       nextDetailLogAt = time(0) + 5 * tmeSecondsPerMinute;
+//       tell(eloAlways, "# Solar Work");
 
-      for (int i = 0, f = selectSolarWorkPerDay->find(); f && i++ < 5; f = selectSolarWorkPerDay->fetch())
-      {
-         if (tableSamples->getFloatValue("VALUE"))
-            tell(eloAlways, "#   %s: %.2f kWh", l2pTime(tableSamples->getTimeValue("TIME"), "%d.%m.%Y").c_str(),
-                 tableSamples->getFloatValue("VALUE"));
-      }
+//       for (int i = 0, f = selectSolarWorkPerDay->find(); f && i++ < 5; f = selectSolarWorkPerDay->fetch())
+//       {
+//          if (tableSamples->getFloatValue("VALUE"))
+//             tell(eloAlways, "#   %s: %.2f kWh", l2pTime(tableSamples->getTimeValue("TIME"), "%d.%m.%Y").c_str(),
+//                  tableSamples->getFloatValue("VALUE"));
+//       }
 
-      selectSolarWorkPerDay->freeResult();
-      tell(eloAlways, "# ------------------------");
-   }
-#endif
+//       selectSolarWorkPerDay->freeResult();
+//       tell(eloAlways, "# ------------------------");
+//    }
+// #endif
 
-#ifdef _WOMO
+// #ifdef _WOMO
 
-   // static time_t nextLogAt {0};
-   // if (time(0) > nextLogAt)
-   // {
-   //    nextLogAt = time(0) + 5 * tmeSecondsPerMinute;
+//    // static time_t nextLogAt {0};
+//    // if (time(0) > nextLogAt)
+//    // {
+//    //    nextLogAt = time(0) + 5 * tmeSecondsPerMinute;
 
-   //    tell(eloAlways, "# ------------------------");
-   //    tell(eloAlways, "Solar Strom: %0.2f A", sensors["AI"][aiUser4].value);
-   //    tell(eloAlways, "# ------------------------");
-   // }
+//    //    tell(eloAlways, "# ------------------------");
+//    //    tell(eloAlways, "Solar Strom: %0.2f A", sensors["AI"][aiUser4].value);
+//    //    tell(eloAlways, "# ------------------------");
+//    // }
 
-   static time_t nextDetailLogAt {0};
+//    static time_t nextDetailLogAt {0};
 
-   if (time(0) > nextDetailLogAt)
-   {
-      nextDetailLogAt = time(0) + 10 * tmeSecondsPerMinute;
+//    if (time(0) > nextDetailLogAt)
+//    {
+//       nextDetailLogAt = time(0) + 10 * tmeSecondsPerMinute;
 
-      tell(eloAlways, "# Solar Ladung/Tag");
+//       tell(eloAlways, "# Solar Ladung/Tag");
 
-      for (int f = selectSolarAhPerDay->find(); f; f = selectSolarAhPerDay->fetch())
-      {
-         tell(eloAlways, "#   %s: %3.2f [Ah]",
-              l2pTime(tableSamples->getTimeValue("TIME"), "%d.%m.%Y").c_str(),
-              tableSamples->getFloatValue("VALUE"));
-      }
+//       for (int f = selectSolarAhPerDay->find(); f; f = selectSolarAhPerDay->fetch())
+//       {
+//          tell(eloAlways, "#   %s: %3.2f [Ah]",
+//               l2pTime(tableSamples->getTimeValue("TIME"), "%d.%m.%Y").c_str(),
+//               tableSamples->getFloatValue("VALUE"));
+//       }
 
-      selectSolarAhPerDay->freeResult();
-      tell(eloAlways, "# ------------------------");
-   }
+//       selectSolarAhPerDay->freeResult();
+//       tell(eloAlways, "# ------------------------");
+//    }
 
-#endif
-}
+// #endif
+// }
 
 #ifdef _POOL
 

@@ -149,27 +149,29 @@ int Ds2484::readStatus(uint8_t& status)
 
 int Ds2484::waitOnBusy(uint8_t& status, int timeoutMs)
 {
-   time_t timeoutAt = time(0) + (timeoutMs / 1000 == 0 ? 1 : timeoutMs / 1000);
+   cTimeMs timeout(timeoutMs);
 
-   do {
-      // WICHTIG: Winzige Pause für die Hardware, damit das Statusregister synchronisiert wird
-      usleep(20);
+   // WICHTIG: Winzige Pause für die Hardware, damit das Statusregister synchronisiert wird
 
+   usleep(20);
+
+   while (true)
+   {
       if (readStatus(status) != success)
          return fail;
 
       if (!(status & status1WB))
          return success;
 
-      usleep(100);
-
-      if (time(0) > timeoutAt)
+      if (timeout.TimedOut())
       {
-         tell(eloAlways, "Error: Timeout waiting for 1-Wire Bus to become free, resetting device");
+         tell(eloAlways, "Error: Timeout (%dms) waiting for 1-Wire bus to become free, resetting device", timeoutMs);
          deviceReset();
          return fail;
       }
-   } while (true);
+
+      usleep(100);
+   }
 }
 
 //***************************************************************************

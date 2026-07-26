@@ -124,8 +124,17 @@ int Ds2484::writeConfig(uint8_t config)
 
 int Ds2484::readStatus(uint8_t& status)
 {
-   // Ein reiner Lesezugriff auf das geöffnete I2C-Device (ohne vorherigen Schreibbefehl)
-   // liefert beim DS2484 immer das aktuelle Statusregister zurück.
+   // Read-Pointer explizit auf das Statusregister setzen. Ohne das würde nach einem
+   // wireReadByte() (das den Pointer auf das Data-Register 0xE1 stehen lässt) hier
+   // fälschlich das zuletzt gelesene Datenbyte statt des Status geliefert.
+   uint8_t setPointer[2] {cmdSetReadPointer, regStatus};
+
+   if (::write(fd, setPointer, 2) != 2)
+   {
+      tell(eloDebug, "Error: Setting read pointer to status register failed");
+      return fail;
+   }
+
    if (::read(fd, &status, 1) != 1)
    {
       tell(eloDebug, "Error: Reading status register directly failed");
@@ -252,8 +261,8 @@ int Ds2484::wireReadByte(uint8_t& byte)
    // 2. Den internen I2C-Pointer des DS2484 explizit auf das Datenregister (0xE1) setzen.
    // Ohne diesen Schritt liefert ein nachfolgender Lesezugriff oft nur den alten Status.
    uint8_t setPointerCmd[2] {};
-   setPointerCmd[0] = 0xE1; // Set Read Pointer Kommando
-   setPointerCmd[1] = 0xE1; // Read Data Register Adresse
+   setPointerCmd[0] = cmdSetReadPointer; // Set Read Pointer Kommando
+   setPointerCmd[1] = regReadData;       // Read Data Register Adresse
 
    if (::write(fd, setPointerCmd, 2) != 2)
    {

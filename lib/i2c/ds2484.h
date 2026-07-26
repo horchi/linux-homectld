@@ -35,7 +35,17 @@ class Ds2484 : public I2C
          cmd1WireSingleBit       = 0x87,
          cmd1WireWriteByte       = 0xA5,
          cmd1WireReadByte        = 0x96,
-         cmd1WireTriplet         = 0x78
+         cmd1WireTriplet         = 0x78,
+         cmdSetReadPointer       = 0xE1
+      };
+
+      // Register-Codes für 'Set Read Pointer'
+      enum RegisterPointer : uint8_t
+      {
+         regStatus     = 0xF0,  // Status Register
+         regReadData   = 0xE1,  // Read Data Register
+         regConfig     = 0xC3,  // Device Configuration Register
+         regPortConfig = 0xB4   // Port Configuration Register
       };
 
       // Status Register Bits

@@ -406,6 +406,7 @@ class myString : public std::string
 //***************************************************************************
 
 std::string __attribute__ ((format(printf, 1, 2))) executeCommand(const char* format, ...);
+std::string __attribute__ ((format(printf, 2, 3))) executeCommand(int timeout, const char* format, ...);
 
 #ifdef USEUUID
   const char* getUniqueId();

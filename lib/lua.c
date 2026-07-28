@@ -462,9 +462,10 @@ int LuaSol::executeExpression(const char* expression, const std::vector<std::str
 
    sol::object obj = pfr;
 
-   if (obj.get_type() == sol::type::nil || obj.get_type() == sol::type::none)
+   if (obj.get_type() == sol::type::none)
       tell(eloAlways, "Warning: Lua expression returned no value: '%s'", expression);
 
    fillResult(obj, res);
+
    return success;
 }

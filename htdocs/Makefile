@@ -11,7 +11,7 @@ check:
 		fi; \
 	done
 
-install:
+install: check
 	make linstall
 
 linstall:

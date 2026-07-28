@@ -614,8 +614,39 @@ function sensorDoSetup(type, address)
       return;
    }
 
+   // Aktuellen outputModes aus den Settings holen (Default: 1 (Manuel), falls nicht gesetzt)
+
+   let currentOutputMode = (valueFacts[key].settings && valueFacts[key].settings.outputModes !== undefined)
+                           ? valueFacts[key].settings.outputModes
+                           : 1;
+
+   let isManualChecked = (currentOutputMode & 0x01) === 0x01;
+   let isAutoChecked = (currentOutputMode & 0x02) === 0x02;
+
    $(form).append($('<div></div>')
                   .addClass('settingsDialogContent')
+                  // NEU: Output Modes (Manuell / Auto)
+                  .append($('<div></div>')
+                          .append($('<span></span>')
+                                  .html('Modus'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .attr('id', 'modeManual')
+                                          .attr('type', 'checkbox')
+                                          .addClass('rounded-border inputSetting')
+                                          .prop('checked', isManualChecked))
+                                  .append($('<label></label>')
+                                          .prop('for', 'modeManual')
+                                          .text('Manuell '))
+                                  .append($('<input></input>')
+                                          .attr('id', 'modeAuto')
+                                          .attr('type', 'checkbox')
+                                          .addClass('rounded-border inputSetting')
+                                          .css('margin-left', '15px')
+                                          .prop('checked', isAutoChecked))
+                                  .append($('<label></label>')
+                                          .prop('for', 'modeAuto')
+                                          .text('Auto'))))
                   .append($('<div></div>')
                           .append($('<span></span>')
                                   .html('Invertieren'))
@@ -657,7 +688,12 @@ function sensorDoSetup(type, address)
                           .append($('<span></span>')
                                   .append($('<div></div>')
                                           .addClass('lua-cm-editor'))))
-                         );
+                  .append($('<div></div>')
+                          .attr('id', 'luaCheckResult')
+                          .css('font-size', 'large')
+                          .css('margin-top', '8px')
+                          .addClass('luaCheckResult'))
+                 );
 
    var doScript = valueFacts[key].settings &&  valueFacts[key].settings.script ? valueFacts[key].settings.script : '';
    var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
@@ -691,7 +727,26 @@ function sensorDoSetup(type, address)
          'Abbrechen': function () {
             $(this).dialog('close');
          },
+         'Syntax prüfen': function () {
+            $('#luaCheckResult').text('...').css('color', '');
+            socket.send({ "event" : "checkluascript", "object" : {
+               'lua': doEditor.getValue()
+            }});
+         },
          'Speichern': function () {
+            // bitmask
+
+            let targetMode = 0;
+            if ($('#modeManual').is(':checked')) targetMode |= 0x01;
+            if ($('#modeAuto').is(':checked')) targetMode |= 0x02;
+
+            // check
+
+            if (targetMode === 0) {
+               alert('Es muss mindestens ein Modus (Manuell oder Auto) ausgewählt sein!');
+               return; // Verhindert das Schließen und Speichern
+            }
+
             let addr = parseInt($('#feedbackIo').val().split(":")[1]);
             let fbType = $('#feedbackIo').val().split(":")[0];
 
@@ -699,6 +754,7 @@ function sensorDoSetup(type, address)
                'type': calSensorType,
                'address': parseInt(calSensorAddress),
                'settings': {
+                  'outputModes': targetMode,
                   'invert': $('#invertDo').is(':checked'),
                   'impulse': $('#impulseDo').is(':checked'),
                   'script': doEditor.getValue(),

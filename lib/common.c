@@ -7,6 +7,8 @@
 
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/wait.h>
+#include <poll.h>
 #include <math.h>
 
 #ifdef USEUUID
@@ -200,7 +202,7 @@ std::string executeCommand(const char* format, ...)
    if (len <= 0)
    {
       tell(eloAlways, "Error: Failed to prepare command '%s'", format);
-      return "command failed";
+      return "Error: command failed";
    }
 
    size = len + 1;
@@ -223,6 +225,138 @@ std::string executeCommand(const char* format, ...)
    tell(eloDebug, "Debug: .. done");
 
    return result;
+}
+
+std::string executeCommand(int timeout, const char* format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    int len = vsnprintf(nullptr, 0, format, ap);
+    va_end(ap);
+
+    if (len <= 0)
+        return "Error: command failed";
+
+    std::vector<char> cmdBuf(len + 1);
+    va_start(ap, format);
+    vsnprintf(cmdBuf.data(), cmdBuf.size(), format, ap);
+    va_end(ap);
+    std::string cmd(cmdBuf.data());
+
+    tell(eloDebug, "Debug: Calling '%s' with timeout %d s ...", cmd.c_str(), timeout);
+
+    // 2. Pipe erstellen
+
+    int pipefd[2];
+
+    if (pipe(pipefd) == -1)
+        return "Error: pipe failed";
+
+    // 3. Prozess forken
+
+    pid_t pid = fork();
+
+    if (pid == -1)
+    {
+        close(pipefd[0]);
+        close(pipefd[1]);
+        return "Error: fork failed";
+    }
+
+    if (pid == 0)
+    {
+        // Im Kindprozess:
+        dup2(pipefd[1], STDOUT_FILENO); // stdout in die Pipe umleiten
+        dup2(pipefd[1], STDERR_FILENO); // optional: auch stderr umleiten
+        close(pipefd[0]);               // Lese-Ende schließen
+        close(pipefd[1]);               // Schreib-Ende schließen
+
+        // Befehl über die Shell ausführen
+
+        execl("/bin/sh", "sh", "-c", cmd.c_str(), nullptr);
+        _exit(127); // Falls exec fehlschlägt
+    }
+
+    // Im Elternprozess:
+
+    close(pipefd[1]); // Schreib-Ende schließen, wir lesen nur
+
+    // Lese-Ende auf nicht-blockierend (O_NONBLOCK) setzen
+
+    int flags = fcntl(pipefd[0], F_GETFL, 0);
+    fcntl(pipefd[0], F_SETFL, flags | O_NONBLOCK);
+
+    std::string result;
+    char buffer[128];
+    struct pollfd pfd;
+    pfd.fd = pipefd[0];
+    pfd.events = POLLIN;
+
+    bool timedOut {false};
+
+    // 4. Lese-Schleife mit Timeout-Überwachung via poll()
+
+    while (true)
+    {
+        int ret = poll(&pfd, 1, timeout * 1000);
+
+        if (ret > 0)
+        {
+            if (pfd.revents & POLLIN)
+            {
+                // Daten liegen bereit zum Lesen
+
+                ssize_t bytesRead = read(pipefd[0], buffer, sizeof(buffer) - 1);
+
+                if (bytesRead > 0)
+                {
+                    buffer[bytesRead] = '\0';
+                    result += buffer;
+                } else if (bytesRead == 0)
+                {
+                    // EOF erreicht (Kindprozess hat fertig geschrieben / geschlossen)
+                    break;
+                }
+            }
+            if (pfd.revents & (POLLHUP | POLLERR))
+            {
+                // Pipe wurde geschlossen,restliche Daten im Puffer ungültig oder fertig
+                break;
+            }
+        }
+        else if (ret == 0)
+        {
+            timedOut = true;
+            tell(eloAlways, "Error: Command timed out after %d s", timeout);
+            break;
+        }
+        else
+        {
+            if (errno == EINTR)
+               continue; // Durch Signal unterbrochen, einfach weitermachen
+            break; // Anderer Fehler
+        }
+    }
+
+    close(pipefd[0]);
+
+    // 5. Prozess aufräumen
+
+    if (timedOut)
+    {
+        kill(pid, SIGKILL); // Kindprozess hart beenden, da Timeout
+        waitpid(pid, nullptr, 0); // Zombie-Prozess verhindern
+        return "Error: command timed out";
+    }
+    else
+    {
+        int status;
+        waitpid(pid, &status, 0); // Normal auf das Ende des Prozesses warten
+    }
+
+    tell(eloDebug, "Debug: .. done");
+
+    return result;
 }
 
 //***************************************************************************

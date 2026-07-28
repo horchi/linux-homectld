@@ -582,6 +582,84 @@ int Daemon::init()
       s["eloInfo"]   = (int)eloInfo;
       s["eloDebug"]  = (int)eloDebug;
       s["eloLua"]    = (int)eloLua;
+
+      // share config options
+
+      sol::table configTable {s.create_table()};
+      sol::table configMetatable {s.create_table()};
+
+      // Hook für den Zugriff: config["optionFooBar"]
+
+      configMetatable[sol::meta_function::index] = [this](sol::table t, const std::string& key) -> sol::object {
+         sol::state_view luaState = t.lua_state();
+
+         //  Zeiger auf die Konfigurationsliste
+
+         auto* configList {this->getConfiguration()};
+
+         if (!configList)
+            return sol::nil;
+
+         // Suche das Config-Item in der übergebenen Liste
+
+         auto it = std::find_if(configList->begin(), configList->end(),
+            [&key](const ConfigItemDef& item) {
+               return item.name == key;
+            });
+
+         // key existiert nicht in der Konfigurationsdefinition
+
+         if (it == configList->end())
+            return sol::nil;
+
+         // Type abhängiges Auslesen über die exakte Überladung
+
+         switch (it->type)
+         {
+            case ConfigItemType::ctInteger:
+            {
+               int intVal {0};
+               this->getConfigItem(key.c_str(), intVal);
+               return sol::make_object(luaState, intVal);
+            }
+            case ConfigItemType::ctBitSelect:
+            {
+               long longVal {0};
+               this->getConfigItem(key.c_str(), longVal);
+               return sol::make_object(luaState, longVal);
+            }
+            case ConfigItemType::ctNum:
+            {
+               double doubleVal {0.0};
+               this->getConfigItem(key.c_str(), doubleVal);
+               return sol::make_object(luaState, doubleVal);
+            }
+            case ConfigItemType::ctBool:
+            {
+               bool boolVal {false};
+               this->getConfigItem(key.c_str(), boolVal);
+               return sol::make_object(luaState, boolVal);
+            }
+
+            // Alle textbasierten und restlichen Auswahllisten nutzen std::string
+
+            case ConfigItemType::ctString:
+            case ConfigItemType::ctText:
+            case ConfigItemType::ctChoice:
+
+            case ConfigItemType::ctMultiSelect:
+            case ConfigItemType::ctRange:
+            default:
+            {
+               std::string strVal;
+               this->getConfigItem(key.c_str(), strVal);
+               return sol::make_object(luaState, strVal);
+            }
+         }
+      };
+
+      configTable[sol::metatable_key] = configMetatable;
+      s["config"] = configTable;
    });
 
    lua.push([&](sol::state& s) {
@@ -726,6 +804,7 @@ int Daemon::initSensorByFact(myString type, uint address)
          }
          else if (type == "DO" || type.starts_with("MCPO") || (type == "GPIO" && sensors[type][address].fct == "out"))
          {
+            sensors[type][address].outputModes = getIntFromJson(jCal, "outputModes", 1);
             sensors[type][address].invert = getBoolFromJson(jCal, "invert", true);
             sensors[type][address].impulse = getBoolFromJson(jCal, "impulse");
             sensors[type][address].feedbackInType = getStringFromJson(jCal, "feedbackInType", "");
@@ -767,9 +846,6 @@ int Daemon::initGpioLine(uint physPin, const PinInfo& pinInfo)
 
    if (sensors["GPIO"][physPin].active)
    {
-      sensors["GPIO"][physPin].outputModes = ooUser;
-      sensors["GPIO"][physPin].mode = omManual;
-
       if (sensors["GPIO"][physPin].fct == "out")
       {
          gpio->pinMode(physPin, Gpio::dirOut);
@@ -949,7 +1025,6 @@ int Daemon::initScripts()
 
    for (int f = selectValueFactsByType->find(); f; f = selectValueFactsByType->fetch())
    {
-      std::string result;
       char* scriptPath {};
       asprintf(&scriptPath, "%s/%s", path, tableValueFacts->getStrValue("NAME"));
       long addr {tableValueFacts->getIntValue("ADDRESS")};
@@ -962,11 +1037,11 @@ int Daemon::initScripts()
       const char* arguments {sensors["SC"][addr].script.c_str()};
 
       tell(eloScript, "Script: Calling %s %s %ld 'mqtt://%s/%s' '%s'", scriptPath, "init", addr, mqttUrlPlain, TARGET "2mqtt/scripts", arguments);
-      result = executeCommand("%s %s %ld 'mqtt://%s/%s' '%s'", scriptPath, "init", addr, mqttUrlPlain, TARGET "2mqtt/scripts", arguments);
+      std::string result {executeCommand(2 /*seconds timeout*/, "%s %s %ld 'mqtt://%s/%s' '%s'", scriptPath, "init", addr, mqttUrlPlain, TARGET "2mqtt/scripts", arguments)};
 
       json_t* oData {jsonLoad(result.c_str(), 0, true)};
 
-      // #TODO add a duration check and wan if > 500ms !!
+      // #TODO add a duration check and warn if > 500ms !!
       // char* tmp {};
       // asprintf(&tmp,"Debug: init of script %s:0x%lx", name.c_str(), addr);
       // ld.show(tmp);
@@ -974,7 +1049,11 @@ int Daemon::initScripts()
 
       if (!oData)
       {
-         tell(eloAlways, "Script: Error, got invalid JSON from script '%s' [%s]", scriptPath, result.c_str());
+         if (result.starts_with("Error:"))
+            tell(eloAlways, "Script: '%s' failed with [%s]", scriptPath, result.c_str());
+         else
+            tell(eloAlways, "Script: Error, got invalid JSON from script '%s' [%s]", scriptPath, result.c_str());
+
          free(scriptPath);
          continue;
       }
@@ -1049,7 +1128,7 @@ int Daemon::callScript(int addr, const char* command)
       if (commandThreads[addr].active)
       {
          tell(eloAlways, "Info: Skipping call of script 'SC:0x%02x', already running, timing out in %ld seconds",
-              addr, commandThreads[addr].timeoutAt- time(0));
+              addr, commandThreads[addr].timeoutAt - time(0));
          return done;
       }
    }
@@ -1071,7 +1150,7 @@ int Daemon::callScript(int addr, const char* command)
             command, addr, mqttUrlPlain, TARGET "2mqtt/scripts", arguments);
 
    tell(eloScript, "Script: Calling '%s' ..", cmd);
-   int result = executeCommandAsync(addr, cmd);
+   int result {executeCommandAsync(addr, cmd)};
    free(cmd);
    tell(eloScript, ".. done");
 
@@ -2367,18 +2446,21 @@ int Daemon::store(time_t now, const SensorData* sensor)
 
 int Daemon::process(bool force, bool signal)
 {
-   // calculate CV and DI/DO sensors by LUA
-   // #TODO -> also for GPOO fct 'out'
+   // calculate CV and DO/GPIO(out) sensors by LUA
 
    for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
       std::string type {tableValueFacts->getStrValue("TYPE")};
-      long address {tableValueFacts->getIntValue("ADDRESS")};
+      ulong address {(ulong)tableValueFacts->getIntValue("ADDRESS")};
+      bool gpioOut {type == "GPIO" && sensors[type][address].fct == "out"};
 
-      if (type != "CV" && type != "DO")
+      if (type == "GPIO" && address == 0x0c)
+         tell(eloAlways, "'%s/0x%02lx' gpioOut '%s' / '%s'", type.c_str(), address, gpioOut ? "true" : "false", sensors[type][address].mode == omAuto ? "omAuto" : "NOT omAuto");
+
+      if (type != "CV" && type != "DO" && !gpioOut)
          continue;
 
-      if (type == "DO" && sensors[type][address].mode != omAuto)
+      if ((gpioOut || type == "DO") && sensors[type][address].mode != omAuto)
          continue;
 
       std::string expression;
@@ -2396,7 +2478,7 @@ int Daemon::process(bool force, bool signal)
             json_decref(o);
          }
       }
-      else // if (tableValueFacts->hasValue("TYPE", "DO"))
+      else
          expression = sensors[type][address].script;
 
       if (expression.empty())
@@ -2445,7 +2527,8 @@ int Daemon::process(bool force, bool signal)
       // call LUA script
 
       std::vector<std::string> arguments;
-      char luaRef[64]; snprintf(luaRef, sizeof(luaRef), "%s:0x%02lx", type.c_str(), address);
+      char luaRef[64];
+      snprintf(luaRef, sizeof(luaRef), "%s:0x%02lx", type.c_str(), address);
       Lua::Result res;
 
       lua.push([&](sol::state& s) { s["signal"] = signal; });
@@ -2476,6 +2559,11 @@ int Daemon::process(bool force, bool signal)
          tell(eloLua, "LUA '%s' result was text '%s'", key, res.sValue.c_str());
          sensors[type][address].text = res.sValue;
       }
+      else if (res.type == Lua::tNil)
+      {
+         tell(eloAlways, "LUA: '%s' returned NIL", key);
+         continue;
+      }
       else
          tell(eloAlways, "LUA: '%s' got unexpected type (%d)", key, res.type);
 
@@ -2487,7 +2575,7 @@ int Daemon::process(bool force, bool signal)
 
       // tell(eloLua, "LUA '%s' changed from %f to %f", key, oldValue, sensors[type][address].value);
 
-      if (tableValueFacts->hasValue("TYPE", "DO"))
+      if (tableValueFacts->hasValue("TYPE", "DO") || gpioOut)
       {
          tell(eloDebug, "Debug: Calling toggleio() to %d for '%s:0x%02lx'", sensors[type][address].state, type.c_str(), address);
          toggleIo(address, type.c_str(), sensors[type][address].state);
@@ -2537,14 +2625,11 @@ void Daemon::updateScriptSensors()
 
    tell(eloInfo, "Update script sensors");
 
-   for (const auto& cmdThreadCtl : commandThreads)
-   {
-      if (!cmdThreadCtl.second.active)
-         pthread_join(cmdThreadCtl.second.pThread, 0);
-   }
-
-   // std::erase_if(commandThreads, [](const auto& item)
-   //    { auto const& [key, value] = item; return !value.active; });
+   // for (const auto& cmdThreadCtl : commandThreads)
+   // {
+   //    if (!cmdThreadCtl.second.active)
+   //       pthread_join(cmdThreadCtl.second.pThread, 0);
+   // }
 
    for (auto it = commandThreads.begin(), it_next = it; it != commandThreads.end(); it = it_next)
    {
@@ -4727,17 +4812,20 @@ void Daemon::pin2Json(json_t* ojData, const char* type, uint pin)
    }
 }
 
-int Daemon::toggleOutputMode(uint pin)
+int Daemon::toggleOutputMode(json_t* oObject, long client)
 {
+   int addr {getIntFromJson(oObject, "address")};
+   const char* type {getStringFromJson(oObject, "type")};
+
    // allow mode toggle only if more than one option is given
-   // #TODO fpr GPIO 'out' -> we need mode anf rights in config
-   if (sensors["DO"][pin].outputModes & ooAuto && sensors["DO"][pin].outputModes & ooUser)
+
+   if (sensors[type][addr].outputModes & ooAuto && sensors[type][addr].outputModes & ooUser)
    {
-      OutputMode mode = sensors["DO"][pin].mode == omAuto ? omManual : omAuto;
-      // tell(eloDetail, "Info: Toggle output mode of 'DO:0x%x' to (%d)", pin, mode);
-      sensors["DO"][pin].mode = mode;
-      storeIoState("DO", pin);
-      publishPin("DO", pin);
+      OutputMode mode = sensors[type][addr].mode == omAuto ? omManual : omAuto;
+      // tell(eloDetail, "Info: Toggle output mode of 'DO:0x%x' to (%d)", addr, mode);
+      sensors[type][addr].mode = mode;
+      storeIoState(type, addr);
+      publishPin(type, addr);
    }
 
    return success;
@@ -5461,35 +5549,109 @@ uint Daemon::toW1Id(const char* name)
 }
 
 //***************************************************************************
-// Execute Command
+// Execute Command Async
+//  mit 15 Sekunden Timeout
 //***************************************************************************
 
-void* Daemon::cmdThread(void* user)
+#include <poll.h>
+#include <unistd.h>
+
+void Daemon::cmdThread(ThreadControl* threadCtl)
 {
-   char buffer[128] {};
-   std::string result;
+   if (!threadCtl)
+      return;
 
-   ThreadControl* threadCtl = (ThreadControl*)user;
-   threadCtl->timeoutAt = time(0) + 60; // threadCtl->timeout;
+   threadCtl->timeoutAt = time(nullptr) + 15;
    threadCtl->active = true;
+   threadCtl->result.clear();
 
-   FILE* pipe = popen(threadCtl->command.c_str(), "r");
+   FILE* pipe {popen(threadCtl->command.c_str(), "r")};
 
-   while (time(0) < threadCtl->timeoutAt && !threadCtl->cancel && fgets(buffer, sizeof(buffer), pipe))
-      result += buffer;
+   if (!pipe)
+   {
+      threadCtl->active = false;
+      return;
+   }
+
+   // Holen des zugrundeliegenden Datei-Deskriptors für poll()
+
+   int fd {fileno(pipe)};
+   char buffer[128] {};
+
+   while (time(nullptr) < threadCtl->timeoutAt && !threadCtl->cancel)
+   {
+      struct pollfd pfd;
+      pfd.fd = fd;
+      pfd.events = POLLIN; // Wir wollen wissen, ob Daten zum Lesen da sind
+
+      // Wartet maximal 1000 Millisekunden (1 Sekunde) auf Daten
+
+      int ret {poll(&pfd, 1, 1000)};
+
+      if (ret > 0)
+      {
+         // Daten sind da oder die Pipe wurde geschlossen
+
+         if (pfd.revents & POLLIN)
+         {
+            if (fgets(buffer, sizeof(buffer), pipe))
+               threadCtl->result += buffer;
+            else
+               break; // EOF (Skript ist fertig)
+         }
+
+         if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL))
+            break; // Fehler oder Pipe geschlossen
+      }
+      else if (ret == 0)
+      {
+         // Timeout von poll() erreicht (1 Sekunde vorbei, keine Daten).
+         // Die Schleife läuft weiter und prüft oben das Gesamt-Timeout!
+
+         continue;
+      }
+      else
+      {
+         // poll() Fehler (z.B. durch Signal unterbrochen)
+
+         if (errno == EINTR)
+            continue;
+         break;
+      }
+   }
+
+   // Wenn abgebrochen/Timeout: Sicherstellen, dass der Prozess wirklich stirbt
+   // Prüfen, ob wir wegen eines Timeouts oder Cancels abgebrochen haben
+
+   if (time(nullptr) >= threadCtl->timeoutAt || threadCtl->cancel)
+   {
+      // Das Skript läuft noch! Wir müssen es hart beenden.
+      // pkill -P tötet alle Kindprozesse, die von dieser Pipe geöffnet wurden
+
+      std::string killCmd = "pkill -9 -P " + std::to_string(getpid()) + " -f \"" + threadCtl->command + "\"";
+      system(killCmd.c_str());
+   }
+
+   // Jetzt blockiert pclose nicht mehr, da der Prozess tot ist
 
    pclose(pipe);
-   threadCtl->result = result;
    threadCtl->active = false;
-
-   return nullptr;
 }
 
 int Daemon::executeCommandAsync(uint address, const char* cmd)
 {
-   commandThreads[address].command = cmd;
+   auto& tControl {commandThreads[address]};
+   tControl.command = cmd;
+   tControl.cancel = false;
 
-   if (pthread_create(&commandThreads[address].pThread, NULL, cmdThread, &commandThreads[address]))
+   try
+   {
+      // Erstellt einen std::thread und lagert ihn sofort aus (detach)
+      // Dadurch entfällt das manuelle pthread_join
+
+      std::thread(&Daemon::cmdThread, &tControl).detach();
+   }
+   catch (const std::system_error& e)
    {
       tell(eloAlways, "Error: Failed to start command thread");
       return fail;
@@ -5532,7 +5694,7 @@ int Daemon::executeNmcli(const std::vector<std::string>& cmdArgs, std::string& r
 
    if (pipe(pipe_fd) == -1)
    {
-      tell(eloAlways, "Error: Creating pipe faiuled");
+      tell(eloAlways, "Error: Creating pipe failed");
       return fail;
    }
 

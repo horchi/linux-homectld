@@ -18,6 +18,7 @@
 #include "lib/i2c/ds2484.h"
 
 #include "gpio.h"
+#include "service.h"
 
 #define confDir "/etc/" TARGET
 
@@ -42,7 +43,7 @@ uint toW1Address(const char* name)
 // Class I2CMqtt
 //***************************************************************************
 
-class I2CMqtt
+class I2CMqtt : public Service
 {
    public:
 
@@ -791,10 +792,14 @@ int I2CMqtt::mqttConnection()
       if (mqttReader->subscribe(mqttTopicIn.c_str()) == success)
          tell(eloAlways, "MQTT: Topic '%s' at '%s' subscribed", mqttTopicIn.c_str(), mqttUrl);
 
-      json_t* obj = json_object();
+      json_t* obj {json_object()};
       json_object_set_new(obj, "type", json_string("I2C"));
       json_object_set_new(obj, "action", json_string("init"));
       json_object_set_new(obj, "topic", json_string(mqttTopicIn.c_str()));
+
+      json_t* jParameter {json_object()};
+      json_object_set_new(obj, "parameter", jParameter);
+      json_object_set_new(jParameter, "widgettype", json_integer(wtMeterLevel));
 
       mqttPublish(obj);
    }

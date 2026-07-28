@@ -76,27 +76,15 @@ class HomeCtl : public Daemon
       int calcPhMinusVolume(double ph);
       // cDbStatement* selectSolarWorkPerDay {};
 
-      int poolLightColorToggle {no};
-      std::string w1AddrPool;
-      std::string w1AddrSolar;
-
-      double tPoolMax {28.0};
-      double tSolarDelta {5.0};
-      double massPerSecond {0.0};           // Fördermenge der Solarpumpe [kg·s-1] bzw. [l/s]
-
-      int showerDuration {20};              // seconds
-      int minSolarPumpDuration {10};        // minutes
-      int deactivatePumpsAtLowWater {no};
       double alertSwitchOffPressure {0.0};
-
-      // config - PH stuff
+      double massPerSecond {0.0};           // Fördermenge der Solarpumpe [kg·s-1] bzw. [l/s]
+      int showerDuration {20};              // seconds
 
       double phMinusDensity {0.0};
-      int phMinusDemand01 {0};         // Menge zum Senken um 0,1 [g]
+      int phMinusDemand01 {0};              // Menge zum Senken um 0,1 [g]
       int phMinusDayLimit {0};
       int phPumpDuration100 {0};
-      double phReference {0.0};        // PG Referenzwert (sollwert)
-
+      double phReference {0.0};             // PG Referenzwert (sollwert)
       int minPumpTimeForPh {10 * tmeSecondsPerMinute}; // [s] #TODO -> add to config?
 
       std::vector<Range> filterPumpTimes;

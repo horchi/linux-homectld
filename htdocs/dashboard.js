@@ -1472,7 +1472,7 @@ function titleClick(ctrlKey, key)
    let widget = dashboards[actDashboard].widgets[key];
    let hasMode = fact && fact.outputModes == 3 //  -> ooUser and ooAuto are set
 
-   // console.log("titleClick: ", ctrlKey, key, "fact.outputModes", fact.outputModes);
+   console.log("titleClick: ", ctrlKey, key, "fact.outputModes", fact.outputModes);
 
    if (setupMode) {
       widgetSetup(key);

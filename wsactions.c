@@ -64,7 +64,7 @@ int Daemon::dispatchClientRequest()
             case evGetToken:            status = performTokenRequest(oObject, client);   break;
             case evToggleIo:            status = performToggleIo(oObject, client);       break;
             case evToggleIoNext:        status = toggleIoNext(addr);                     break;
-            case evToggleMode:          status = toggleOutputMode(addr);                 break;
+            case evToggleMode:          status = toggleOutputMode(oObject, client);      break;
             case evStoreConfig:         status = storeConfig(oObject, client);           break;
             case evSetup:               status = performConfigDetails(client);           break;
             case evSystem:              status = performSystem(oObject, client);         break;
@@ -2445,7 +2445,11 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
       }
 
       if (sensors.find(type) != sensors.end())
+      {
+         // tell(eloAlways, "'%s0x%02lx': outputModes (%d)",type.c_str(), address, sensors[type][address].outputModes);
          json_object_set_new(oData, "outputModes", json_integer(sensors[type][address].outputModes));
+         json_object_set_new(oData, "mode", json_integer(sensors[type][address].mode));
+      }
 
       // #TODO check actor properties if dimmable ...
       json_object_set_new(oData, "dim", json_boolean(type == "DZL" || type == "HMB"));

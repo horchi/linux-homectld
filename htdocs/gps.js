@@ -34,7 +34,7 @@ mapManager = {
       }).addTo(this.map);
 
       this.map.on('movestart', (e) => {
-         if (e.target._mainviewchange || this.map._panAnim?.isPlaying) return;
+         if (e.target._mainviewchange || (this.map._panAnim && this.map._panAnim.isPlaying)) return;
          if (this.isTrackingActive) {
             this.isTrackingActive = false;
             this.updateButtonUI();

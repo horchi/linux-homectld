@@ -43,21 +43,15 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "filterPumpTimes",           ctRange,   "10:00-17:00",  false, "Pool", "Zeiten Filter Pumpe", "[hh:mm] - [hh:mm]" },
    { "uvcLightTimes",             ctRange,   "",             false, "Pool", "Zeiten UV-C Licht", "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!" },
    { "poolLightTimes",            ctRange,   "",             false, "Pool", "Zeiten Pool Licht", "[hh:mm] - [hh:mm] (ansonsten manuell schalten)" },
-   { "poolLightColorToggle",      ctBool,    "0",            false, "Pool", "Pool Licht Farb-Toggel", "" },
 
    { "alertSwitchOffPressure",    ctNum,     "0",            false, "Pool", "Trockenlaufschutz unter x bar", "Deaktiviert Pumpen nach 5 Minuten (0 deaktiviert)" },
 
    { "tPoolMax",                  ctNum,     "28.0",         false, "Pool", "Pool max Temperatur", "" },
-   { "tSolarDelta",               ctNum,     "5.0",          false, "Pool", "Einschaltdifferenz Solarpumpe", "" },
+   { "tSolarOff",                 ctNum,     "2.0",          false, "Pool", "Ausschaltdifferenz der Solarpumpe [°C]", "" },
+   { "tSolarOn",                  ctNum,     "7.0",          false, "Pool", "Einschaltdifferenz der Solarpumpe [°C]", "" },
    { "showerDuration",            ctInteger, "20",           false, "Pool", "Laufzeit der Dusche", "Laufzeit [s]" },
-   { "minSolarPumpDuration",      ctInteger, "10",           false, "Pool", "Mindestlaufzeit der Solarpumpe [m]", "" },
-// { "deactivatePumpsAtLowWater", ctBool,    "0",            false, "Pool", "Pumpen bei geringem Wasserstand deaktivieren", "" },
-   { "w1AddrPool",                ctString,  "",             false, "Pool", "Adresse Fühler Temperatur Pool", "" },
-   { "w1AddrSolar",               ctString,  "",             false, "Pool", "Adresse Fühler Temperatur Kollektor", "" },
    { "massPerSecond",             ctNum,     "11.0",         false, "Pool", "Durchfluss Solar", "[Liter/min]" },
-#endif
 
-#ifdef _POOL
    // PH stuff
 
    { "phReference",               ctNum,     "7.2",          false, "Pool", "PH Sollwert", "Sollwert [PH] (default 7,2)" },
@@ -229,18 +223,8 @@ int HomeCtl::readConfiguration(bool initial)
    Daemon::readConfiguration(initial);
 
 #ifdef _POOL
-   getConfigItem("poolLightColorToggle", poolLightColorToggle, no);
-
-   getConfigItem("w1AddrPool", w1AddrPool, "");
-   getConfigItem("w1AddrSolar", w1AddrSolar, "");
-
-   getConfigItem("tPoolMax", tPoolMax, tPoolMax);
-   getConfigItem("tSolarDelta", tSolarDelta, tSolarDelta);
    getConfigItem("lastSolarWork", sensors["SP"][spSolarWork].value, 0);
-
    getConfigItem("showerDuration", showerDuration, 20);
-   getConfigItem("minSolarPumpDuration", minSolarPumpDuration, 10);
-   getConfigItem("deactivatePumpsAtLowWater", deactivatePumpsAtLowWater, no);
    getConfigItem("alertSwitchOffPressure", alertSwitchOffPressure, 0);
 
    tell(eloAlways, "Pump 'alertSwitchOffPressure' is set to %.2f", alertSwitchOffPressure);
@@ -317,33 +301,24 @@ int HomeCtl::applyConfigurationSpecials()
 {
    Daemon::applyConfigurationSpecials();
 
-   initOutput(pinUserOut1, ooUser, omManual, "Digital Output");
-   // initOutput(pinUserOut2, ooUser, omManual, "Digital Output");
-   initOutput(pinUserOut3, ooUser, omManual, "Digital Output");
-   initOutput(pinUserOut4, ooUser, omManual, "Digital Output");
-   // initOutput(pinUserOut5, ooUser, omManual, "Digital Output");
-   initOutput(pinUserOut6, ooUser, omManual, "Digital Output");
-   // initOutput(pinUserOut10, ooUser, omManual, "Digital Output");
-
-   // initInput(pinUserInput1, "Digital Input");
-   // initInput(pinUserInput2, "Digital Input");
-   initInput(pinUserInput3, "Digital Input");
+   // initOutput(pinUserOut1, ooUser, omManual, "Digital Output");
+   // initOutput(pinUserOut3, ooUser, omManual, "Digital Output");
+   // initOutput(pinUserOut4, ooUser, omManual, "Digital Output");
+   // initOutput(pinUserOut6, ooUser, omManual, "Digital Output");
+   // initInput(pinUserInput3, "Digital Input");
 
 #ifndef _POOL
    initOutput(pinUserOut7, ooUser, omManual, "Digital Output");
    initOutput(pinUserOut8, ooAuto, omAuto, "Digital Output");
    initOutput(pinUserOut9, ooUser, omManual, "Digital Output");
 
-   // initInput(pinUserInput4, "Digital Input");
-   // initInput(pinUserInput5, "Digital Input");
    initInput(pinUserInput6, "Digital Input");
-   // initInput(pinUserInput7, "Digital Input");
 #else
    initOutput(pinFilterPump, ooAuto|ooUser, omAuto, "Filter Pump", urFullControl);
-   initOutput(pinSolarPump, ooAuto|ooUser, omAuto, "Solar Pump", urFullControl);
-   initOutput(pinPoolLight, ooUser, omManual, "Pool Light");
+   // initOutput(pinSolarPump, ooAuto|ooUser, omAuto, "Solar Pump", urFullControl);
+   // initOutput(pinPoolLight, ooUser, omManual, "Pool Light");
    initOutput(pinUVC, ooAuto|ooUser, omAuto, "UV-C Light", urFullControl);
-   initOutput(pinShower, ooAuto|ooUser, omAuto, "Shower");
+   // initOutput(pinShower, ooAuto|ooUser, omAuto, "Shower");
 
    // init input IO
 
@@ -355,21 +330,20 @@ int HomeCtl::applyConfigurationSpecials()
 
    // special values
 
-   // addValueFact(spSolarDelta, "SP", 1, "Solar Delta", "°C");
    addValueFact(spPhMinusDemand, "SP", 1, "PH Minus Bedarf", "ml");
    addValueFact(spSolarPower, "SP", 1, "Solar Leistung", "W");
    addValueFact(spSolarWork, "SP", 1, "Solar Energie (heute)", "kWh");
 
-   uint outputModes {ooUser};
+   // uint outputModes {ooUser};
 
-   if (poolLightTimes.size() > 0)
-      outputModes |= ooAuto;
+   // if (poolLightTimes.size() > 0)
+   //    outputModes |= ooAuto;
 
-   if (sensors["DO"][pinPoolLight].outputModes != outputModes)
-   {
-      sensors["DO"][pinPoolLight].outputModes = outputModes;
-      sensors["DO"][pinPoolLight].mode = (outputModes & ooAuto) ? omAuto : omManual;
-   }
+   // if (sensors["DO"][pinPoolLight].outputModes != outputModes)
+   // {
+   //    sensors["DO"][pinPoolLight].outputModes = outputModes;
+   //    sensors["DO"][pinPoolLight].mode = (outputModes & ooAuto) ? omAuto : omManual;
+   // }
 
 #endif  // _POOL
 
@@ -415,7 +389,7 @@ int HomeCtl::process(bool force, bool signal)
 
    static time_t lastDay {midnightOf(time(0))};
 
-   tell(eloAlways, "Process ...");
+   // tell(eloAlways, "Process ...");
 
    if (lastDay != midnightOf(time(0)))
    {
@@ -423,43 +397,6 @@ int HomeCtl::process(bool force, bool signal)
       setSpecialValue(spSolarWork, 0.0);
       setConfigItem("lastSolarWork", sensors["SP"][spSolarWork].value);
    }
-
-   // time_t tPoolLast {}, tSolarLast {};
-   // double tPool = valueOfW1(toW1Id(w1AddrPool.c_str()), tPoolLast);
-   // double tSolar = valueOfW1(toW1Id(w1AddrSolar.c_str()), tSolarLast);
-
-   // // use W1 values only if not older than 2 cycles
-
-   // bool w1Valid = tPoolLast > time(0) - 2*interval && tSolarLast > time(0) - 2*interval;
-
-   // // ------------
-   // // Solar State
-
-   // if (w1Valid)
-   // {
-   //    static time_t pSolarSince {0};
-
-   //    setSpecialValue(spSolarWork, sensors["SP"][spSolarWork].value + (sensors["SP"][spSolarPower].value * ((time(0)-pSolarSince) / 3600.0) / 1000.0));  // in kWh
-   //    setConfigItem("lastSolarWork", sensors["SP"][spSolarWork].value);
-   //    setSpecialValue(spSolarDelta, tSolar - tPool);
-
-   //    const double termalCapacity = 4183.0; // Wärmekapazität Wasser bei 20°C [kJ·kg-1·K-1]
-
-   //    if (sensors["DO"][pinSolarPump].state)
-   //       setSpecialValue(spSolarPower, termalCapacity * massPerSecond * sensors["SP"][spSolarDelta].value);
-   //    else
-   //       setSpecialValue(spSolarPower, 0.0);
-
-   //    pSolarSince = time(0);
-
-   //    // publish
-
-   //    publishSpecialValue(spSolarDelta);
-   //    publishSpecialValue(spSolarPower);
-   //    publishSpecialValue(spSolarWork);
-   // }
-   // else
-   //    tell(eloAlways, "W1 values NOT valid, skipping solar calculation");
 
    // -----------
    // PH
@@ -471,74 +408,14 @@ int HomeCtl::process(bool force, bool signal)
    }
 
    // -----------
-   // Pumps Alert
+   // Filter Pump
 
-   // if (deactivatePumpsAtLowWater)
-   // {
-   //    // TODO
-   // }
-   // else
+   if (sensors["DO"][pinFilterPump].mode == omAuto)
    {
-      // -----------
-      // Solar Pump
+      bool activate = isInTimeRange(&filterPumpTimes, time(0));
 
-      // if (w1Valid && sensors["DO"][pinSolarPump].mode == omAuto)
-      // {
-      //    if (!w1AddrPool.empty() && !w1AddrSolar.empty() && existW1(toW1Id(w1AddrPool.c_str())) && existW1(toW1Id(w1AddrSolar.c_str())))
-      //    {
-      //       if (tPool > tPoolMax)
-      //       {
-      //          // switch OFF solar pump
-
-      //          if (sensors["DO"][pinSolarPump].state)
-      //          {
-      //             tell(eloAlways, "Configured pool maximum of %.2f°C reached, pool has is %.2f°C, stopping solar pump!", tPoolMax, tPool);
-      //             gpioWrite(pinSolarPump, false);
-      //          }
-      //       }
-      //       else if (sensors["SP"][spSolarDelta].value > tSolarDelta)
-      //       {
-      //          // switch ON solar pump
-
-      //          if (!sensors["DO"][pinSolarPump].state)
-      //          {
-      //             tell(eloAlways, "Solar delta of %.2f°C reached, pool has %.2f°C, starting solar pump", tSolarDelta, tPool);
-      //             gpioWrite(pinSolarPump, true);
-      //          }
-      //       }
-      //       else
-      //       {
-      //          // switch OFF solar pump
-
-      //          if (sensors["DO"][pinSolarPump].state && sensors["DO"][pinSolarPump].last < time(0) - minSolarPumpDuration*tmeSecondsPerMinute)
-      //          {
-      //             tell(eloAlways, "Solar delta (%.2f°C) lower than %.2f°C, pool has %.2f°C, stopping solar pump", sensors["SP"][spSolarDelta].value, tSolarDelta, tPool);
-      //             gpioWrite(pinSolarPump, false);
-      //          }
-      //       }
-      //    }
-      //    else
-      //    {
-      //       tell(eloAlways, "Warning: Missing at least one sensor, switching solar pump off!");
-      //       gpioWrite(pinSolarPump, false);
-      //    }
-      // }
-      // else if (!w1Valid && sensors["DO"][pinSolarPump].mode == omAuto)
-      // {
-      //    gpioWrite(pinSolarPump, false);
-      //    tell(eloAlways, "Warning: Solar pump switched OFF, sensor values older than %d seconds!", 2*interval);
-      // }
-
-      // -----------
-      // Filter Pump
-
-      if (sensors["DO"][pinFilterPump].mode == omAuto)
-      {
-         bool activate = isInTimeRange(&filterPumpTimes, time(0));
-
-         if (sensors["DO"][pinFilterPump].state != activate)
-            gpioWrite(pinFilterPump, activate);
-      }
+      if (sensors["DO"][pinFilterPump].state != activate)
+         gpioWrite(pinFilterPump, activate);
    }
 
    // -----------
@@ -555,64 +432,64 @@ int HomeCtl::process(bool force, bool signal)
    // -----------
    // Pool Light
 
-   if (sensors["DO"][pinPoolLight].mode == omAuto)
-   {
-      bool activate = isInTimeRange(&poolLightTimes, time(0));
+   // if (sensors["DO"][pinPoolLight].mode == omAuto)
+   // {
+   //    bool activate = isInTimeRange(&poolLightTimes, time(0));
 
-      if (sensors["DO"][pinPoolLight].state != activate)
-         gpioWrite(pinPoolLight, activate);
-   }
+   //    if (sensors["DO"][pinPoolLight].state != activate)
+   //       gpioWrite(pinPoolLight, activate);
+   // }
 
    // --------------------
    // check pump condition
 
-   if (alertSwitchOffPressure != 0)
-   {
-      static time_t pressureAlarmDetectedAt {0};
+   // if (alertSwitchOffPressure != 0)
+   // {
+   //    static time_t pressureAlarmDetectedAt {0};
 
-      // tell(eloAlways, "aiFilterPressure %02.2f; alertSwitchOffPressure %02.2f", sensors["AI"][aiFilterPressure].value, alertSwitchOffPressure);
+   //    // tell(eloAlways, "aiFilterPressure %02.2f; alertSwitchOffPressure %02.2f", sensors["AI"][aiFilterPressure].value, alertSwitchOffPressure);
 
-      if (sensors["AI"][aiFilterPressure].value < alertSwitchOffPressure)
-      {
-         // pressure is less than configured value
+   //    if (sensors["AI"][aiFilterPressure].value < alertSwitchOffPressure)
+   //    {
+   //       // pressure is less than configured value
 
-         if (sensors["DO"][pinFilterPump].state && pressureAlarmDetectedAt && pressureAlarmDetectedAt < time(0) - 5*tmeSecondsPerMinute)
-         {
-            // and pump is runnning longer than 5 minutes
+   //       if (sensors["DO"][pinFilterPump].state && pressureAlarmDetectedAt && pressureAlarmDetectedAt < time(0) - 5*tmeSecondsPerMinute)
+   //       {
+   //          // and pump is runnning longer than 5 minutes
 
-            tell(eloAlways, "Filter pressure is %.2f bar, alarm detected at '%s', switching off now",
-                 sensors["AI"][aiFilterPressure].value, l2pTime(pressureAlarmDetectedAt).c_str());
+   //          tell(eloAlways, "Filter pressure is %.2f bar, alarm detected at '%s', switching off now",
+   //               sensors["AI"][aiFilterPressure].value, l2pTime(pressureAlarmDetectedAt).c_str());
 
-            gpioWrite(pinFilterPump, false);
-            gpioWrite(pinSolarPump, false);
-            gpioWrite(pinUVC, false);
-            sensors["DO"][pinFilterPump].mode = omManual;
-            sensors["DO"][pinSolarPump].mode = omManual;
-            sensors["DO"][pinUVC].mode = omManual;
+   //          gpioWrite(pinFilterPump, false);
+   //          gpioWrite(pinSolarPump, false);
+   //          gpioWrite(pinUVC, false);
+   //          sensors["DO"][pinFilterPump].mode = omManual;
+   //          sensors["DO"][pinSolarPump].mode = omManual;
+   //          sensors["DO"][pinUVC].mode = omManual;
 
-            char* body {};
-            asprintf(&body, "Filter pressure is %.2f bar and pump is running!\n Pumps switched off now!", sensors["AI"][aiFilterPressure].value);
+   //          char* body {};
+   //          asprintf(&body, "Filter pressure is %.2f bar and pump is running!\n Pumps switched off now!", sensors["AI"][aiFilterPressure].value);
 
-            if (sendMail(stateMailTo.c_str(), "Pool pump alert", body, "text/plain") != success)
-               tell(eloAlways, "Error: Sending alert mail failed");
-            free(body);
-         }
-         else if (sensors["DO"][pinFilterPump].state && !pressureAlarmDetectedAt)
-         {
-            pressureAlarmDetectedAt = time(0);
+   //          if (sendMail(stateMailTo.c_str(), "Pool pump alert", body, "text/plain") != success)
+   //             tell(eloAlways, "Error: Sending alert mail failed");
+   //          free(body);
+   //       }
+   //       else if (sensors["DO"][pinFilterPump].state && !pressureAlarmDetectedAt)
+   //       {
+   //          pressureAlarmDetectedAt = time(0);
 
-            tell(eloAlways, "Filter pressure is %.2f bar, setting alarm detection time to '%s'",
-                 sensors["AI"][aiFilterPressure].value, l2pTime(pressureAlarmDetectedAt).c_str());
-         }
-      }
-      else if (pressureAlarmDetectedAt)
-      {
-         // reset pressure alarm
+   //          tell(eloAlways, "Filter pressure is %.2f bar, setting alarm detection time to '%s'",
+   //               sensors["AI"][aiFilterPressure].value, l2pTime(pressureAlarmDetectedAt).c_str());
+   //       }
+   //    }
+   //    else if (pressureAlarmDetectedAt)
+   //    {
+   //       // reset pressure alarm
 
-         tell(eloAlways, "Pressure back to normal (%.2f), resetting alarm time", sensors["AI"][aiFilterPressure].value);
-         pressureAlarmDetectedAt = 0;
-      }
-   }
+   //       tell(eloAlways, "Pressure back to normal (%.2f), resetting alarm time", sensors["AI"][aiFilterPressure].value);
+   //       pressureAlarmDetectedAt = 0;
+   //    }
+   // }
 
    phMeasurementActive();
 
@@ -632,35 +509,6 @@ int HomeCtl::process(bool force, bool signal)
 //    Daemon::logReport();
 
 // #ifdef _POOL
-//    static time_t nextLogAt {0};
-//    static time_t nextDetailLogAt {0};
-//    char buf[255+TB] {};
-//    // time_t tPoolLast {0}, tSolarLast {0};
-//    // double tPool = valueOfW1(toW1Id(w1AddrPool.c_str()), tPoolLast);
-//    // double tSolar = valueOfW1(toW1Id(w1AddrSolar.c_str()), tSolarLast);
-
-//    if (time(0) > nextLogAt)
-//    {
-//       nextLogAt = time(0) + 1 * tmeSecondsPerMinute;
-
-//       tell(eloAlways, "# ------------------------");
-
-//       // tell(eloAlways, "# Pool has %.2f °C; Solar has %.2f °C; Current delta is %.2f° (%.2f° configured)",
-//       //      tPool, tSolar, sensors["SP"][spSolarDelta].value, tSolarDelta);
-//       tell(eloAlways, "# Solar power is %0.2f Watt; Solar work (today) %0.2f kWh", sensors["SP"][spSolarPower].value, sensors["SP"][spSolarWork].value);
-//       tell(eloAlways, "# Solar pump is '%s/%s' since '%s'", sensors["DO"][pinSolarPump].state ? "running" : "stopped",
-//            sensors["DO"][pinSolarPump].mode == omAuto ? "auto" : "manual", toElapsed(time(0)-sensors["DO"][pinSolarPump].last, buf));
-//       tell(eloAlways, "# Filter pump is '%s/%s' since '%s'", sensors["DO"][pinFilterPump].state ? "running" : "stopped",
-//            sensors["DO"][pinFilterPump].mode == omAuto ? "auto" : "manual", toElapsed(time(0)-sensors["DO"][pinFilterPump].last, buf));
-//       tell(eloAlways, "# UV-C light is '%s/%s'", sensors["DO"][pinUVC].state ? "on" : "off",
-//            sensors["DO"][pinUVC].mode == omAuto ? "auto" : "manual");
-//       tell(eloAlways, "# Pool light is '%s/%s'", sensors["DO"][pinPoolLight].state ? "on" : "off",
-//            sensors["DO"][pinPoolLight].mode == omAuto ? "auto" : "manual");
-//       tell(eloAlways, "# PH Minus Demand %.2f", sensors["SP"][spPhMinusDemand].value);
-
-//       tell(eloAlways, "# ------------------------");
-//    }
-
 //    if (time(0) > nextDetailLogAt)
 //    {
 //       nextDetailLogAt = time(0) + 5 * tmeSecondsPerMinute;

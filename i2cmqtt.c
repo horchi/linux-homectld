@@ -21,6 +21,23 @@
 
 #define confDir "/etc/" TARGET
 
+uint toW1Address(const char* name)
+{
+   const char* p;
+   int len = strlen(name);
+
+   // use 4 minor bytes as id
+   if (len <= 2)
+      return na;
+
+   if (len <= 8)
+      p = name;
+   else
+      p = name + (len - 8);
+
+   return strtoull(p, 0, 16);
+}
+
 //***************************************************************************
 // Class I2CMqtt
 //***************************************************************************
@@ -443,17 +460,13 @@ int I2CMqtt::update()
          if (ds.wireReset(presence) != success)
             continue;
 
-         // Sensor über seine individuelle ROM-ID ansprechen (Match ROM)
          ds.wireWriteByte(0x55);
+
          for (int i = 0; i < 8; i++)
-         {
-            std::string byteStr = romStr.substr(i * 2, 2);
-            uint8_t romByte = strtol(byteStr.c_str(), nullptr, 16);
-            ds.wireWriteByte(romByte);
-         }
+            ds.wireWriteByte(sensorInfo.rawRom[i]);
 
          // Scratchpad (Zwischenspeicher) des DS18B20 auslesen
-         ds.wireWriteByte(0xBE); // Read Scratchpad
+         ds.wireWriteByte(0xBE);
 
          uint8_t lowByte {0};
          uint8_t highByte {0};
@@ -461,16 +474,32 @@ int I2CMqtt::update()
          if (ds.wireReadByte(lowByte) != success)
             continue;
 
+         usleep(2000);
+
          if (ds.wireReadByte(highByte) != success)
             continue;
 
+         // Den Sensor mitten im Senden abbrechen und die Leitung
+         // gewaltsam freiräumen, damit der Bus im nächsten Intervall frei ist!
+
+         bool dummyPresence {false};
+         ds.wireReset(dummyPresence);
+
          // Berechne die Temperatur aus den zwei Datenbytes (12-Bit Auflösung)
+
          int16_t rawTemp = (highByte << 8) | lowByte;
          double temperature = rawTemp / 16.0;
 
+         // Plausibilitätsprüfung für unbelegte oder fehlerhafte Busse (85.0 °C ist der Power-On-Reset-Wert des DS18B20)
+
+         if (temperature > 150.0 || temperature < -55.0)
+         {
+            tell(eloAlways, "Warning: Invalid temperature data read: %.2f °C (Low: 0x%02X, High: 0x%02X)", temperature, lowByte, highByte);
+            continue;
+         }
+
          // MQTT-Strukturen aufbereiten
          SensorData sensor {};
-         char name[100] {};
          char type[32] {};
 
          if (ds.getTcaChannel() != 0xff)
@@ -478,13 +507,10 @@ int I2CMqtt::update()
          else
             sprintf(type, "DS%02x", ds.getAddress());
 
-         // Als eindeutige Adresse wird die ROM-ID genutzt (umgewandelt in eine numerische ID für die Payload, falls benötigt, oder im Titel verwendet)
-         sprintf(name, "1-Wire Temp %s", romStr.c_str());
-
          sensor.format = fReal;
          sensor.type = type;
-         sensor.address = 0; // Primärer Kanal des Bridge-Chips
-         sensor.title = name;
+         sensor.address = toW1Address(romStr.c_str());
+         sensor.title = romStr.c_str();
          sensor.unit = "°C";
          sensor.dValue = temperature;
          sensor.sValue = romStr; // Sichert die ROM-ID im Textfeld, falls benötigt
@@ -914,24 +940,47 @@ int I2CMqtt::show()
 
             ds.wireReset(presence);
             ds.wireWriteByte(0x55);
+
             for (int i = 0; i < 8; i++)
-            {
-               uint8_t romByte = strtol(romStr.substr(i * 2, 2).c_str(), nullptr, 16);
-               ds.wireWriteByte(romByte);
-            }
+               ds.wireWriteByte(sensorInfo.rawRom[i]);
+
             ds.wireWriteByte(0xBE);
-            uint8_t lowByte {}, highByte {};
-            ds.wireReadByte(lowByte);
-            ds.wireReadByte(highByte);
+
+            uint8_t lowByte {0};
+            uint8_t highByte {0};
+
+            if (ds.wireReadByte(lowByte) != success)
+               continue;
+
+            usleep(2000);
+
+            if (ds.wireReadByte(highByte) != success)
+               continue;
+
+            bool dummyPresence {false};
+            ds.wireReset(dummyPresence);
+
+            // Berechne die Temperatur aus den zwei Datenbytes (12-Bit Auflösung)
 
             int16_t rawTemp = (highByte << 8) | lowByte;
-            tell(eloAlways, "  Sensor ROM %s: %.2f °C", romStr.c_str(), rawTemp / 16.0);
+            double temperature = rawTemp / 16.0;
+
+            // Plausibilitätsprüfung für unbelegte oder fehlerhafte Busse (85.0 °C ist der Power-On-Reset-Wert des DS18B20)
+
+            if (temperature > 150.0 || temperature < -55.0)
+            {
+               tell(eloAlways, "Warning: Invalid temperature data read: %.2f °C (Low: 0x%02X, High: 0x%02X)", temperature, lowByte, highByte);
+               continue;
+            }
+
+            tell(eloAlways, "  Sensor ROM %s: %.2f °C", romStr.c_str(), temperature);
          }
       }
       else
       {
          tell(eloAlways, "  1-Wire bus scan failed");
       }
+
       tell(eloAlways, "-----------------------");
    }
 

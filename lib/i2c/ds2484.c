@@ -124,8 +124,17 @@ int Ds2484::writeConfig(uint8_t config)
 
 int Ds2484::readStatus(uint8_t& status)
 {
-   // Ein reiner Lesezugriff auf das geöffnete I2C-Device (ohne vorherigen Schreibbefehl)
-   // liefert beim DS2484 immer das aktuelle Statusregister zurück.
+   // Read-Pointer explizit auf das Statusregister setzen. Ohne das würde nach einem
+   // wireReadByte() (das den Pointer auf das Data-Register 0xE1 stehen lässt) hier
+   // fälschlich das zuletzt gelesene Datenbyte statt des Status geliefert.
+   uint8_t setPointer[2] {cmdSetReadPointer, regStatus};
+
+   if (::write(fd, setPointer, 2) != 2)
+   {
+      tell(eloDebug, "Error: Setting read pointer to status register failed");
+      return fail;
+   }
+
    if (::read(fd, &status, 1) != 1)
    {
       tell(eloDebug, "Error: Reading status register directly failed");
@@ -140,27 +149,29 @@ int Ds2484::readStatus(uint8_t& status)
 
 int Ds2484::waitOnBusy(uint8_t& status, int timeoutMs)
 {
-   time_t timeoutAt = time(0) + (timeoutMs / 1000 == 0 ? 1 : timeoutMs / 1000);
+   cTimeMs timeout(timeoutMs);
 
-   do {
+   // WICHTIG: Winzige Pause für die Hardware, damit das Statusregister synchronisiert wird
+
+   usleep(20);
+
+   while (true)
+   {
       if (readStatus(status) != success)
-      {
          return fail;
-      }
 
       if (!(status & status1WB))
-      {
-         return success; // 1-Wire Bus frei, Operation beendet
-      }
+         return success;
 
-      usleep(100); // Kurze Pause zum Entlasten der CPU
-
-      if (time(0) > timeoutAt)
+      if (timeout.TimedOut())
       {
-         tell(eloAlways, "Error: Timeout waiting for 1-Wire Bus to become free");
+         tell(eloAlways, "Error: Timeout (%dms) waiting for 1-Wire bus to become free, resetting device", timeoutMs);
+         deviceReset();
          return fail;
       }
-   } while (true);
+
+      usleep(100);
+   }
 }
 
 //***************************************************************************
@@ -169,13 +180,11 @@ int Ds2484::waitOnBusy(uint8_t& status, int timeoutMs)
 
 int Ds2484::wireReset(bool& presenceDetected)
 {
-   uint8_t buf[2] {};
-   buf[0] = cmd1WireReset;
-   buf[1] = 0x4B; // Datenblatt-spezifischer Parameterwert für den Reset-Befehl
+   uint8_t cmd = cmd1WireReset;
 
    presenceDetected = false;
 
-   if (::write(fd, buf, 2) != 2)
+   if (::write(fd, &cmd, 1) != 1)
    {
       tell(eloAlways, "Error: Sending 1-Wire Reset command failed");
       return fail;
@@ -183,19 +192,19 @@ int Ds2484::wireReset(bool& presenceDetected)
 
    uint8_t status {0};
    if (waitOnBusy(status) != success)
-   {
       return fail;
-   }
 
-   // Prüfen, ob ein Kurzschluss vorliegt
    if (status & statusSD)
    {
       tell(eloAlways, "Error: 1-Wire Short Circuit detected!");
       return fail;
    }
 
-   // Vorhandensein eines 1-Wire Slaves (Presence Pulse) prüfen
    presenceDetected = (status & statusPPD);
+
+   // Dem DS2484 nach dem Einmessen des Presence-Pulses eine kurze Erholungspause
+   // gönnen, BEVOR die CPU nach der Rückkehr sofort den nächsten Befehl schickt!
+   usleep(200);
 
    return success;
 }
@@ -206,13 +215,14 @@ int Ds2484::wireReset(bool& presenceDetected)
 
 int Ds2484::wireWriteByte(uint8_t byte)
 {
+   // Korrektur: buf explizit als Array mit der Größe 2 deklarieren
    uint8_t buf[2] {};
    buf[0] = cmd1WireWriteByte;
    buf[1] = byte;
 
    uint8_t status {0};
-   // Absicherung vor dem Senden: Bus muss frei sein
-   if (waitOnBusy(status) != success) return fail;
+   if (waitOnBusy(status) != success)
+      return fail;
 
    if (::write(fd, buf, 2) != 2)
    {
@@ -220,7 +230,10 @@ int Ds2484::wireWriteByte(uint8_t byte)
       return fail;
    }
 
-   // Warten bis das Byte fertig auf die 1-Wire-Leitung moduliert wurde
+   // Dem Linux I2C-Treiber und der Hardware Zeit geben,
+   // den Befehl physikalisch zu verarbeiten
+   usleep(15);
+
    return waitOnBusy(status);
 }
 
@@ -230,21 +243,36 @@ int Ds2484::wireWriteByte(uint8_t byte)
 
 int Ds2484::wireReadByte(uint8_t& byte)
 {
-   uint8_t cmd = cmd1WireReadByte;
+   uint8_t cmd = cmd1WireReadByte; // 0x96
    uint8_t status {0};
 
-   if (waitOnBusy(status) != success) return fail;
+   if (waitOnBusy(status) != success)
+      return fail;
 
+   // 1. Befehl an den DS2484 senden, um ein Byte vom 1-Wire Bus zu lesen
    if (::write(fd, &cmd, 1) != 1)
    {
       tell(eloAlways, "Error: Sending 1-Wire Read Byte command failed");
       return fail;
    }
 
-   if (waitOnBusy(status) != success) return fail;
+   // Warten, bis der DS2484 das Byte komplett vom 1-Wire-Bus abgeholt hat
+   if (waitOnBusy(status) != success)
+      return fail;
 
-   // Nach Abschluss des Read-Befehls muss der I2C-Pointer auf das Read-Data Register
-   // gerichtet werden. Das geschieht implizit, wir lesen nun das empfangene Datenbyte.
+   // 2. Den internen I2C-Pointer des DS2484 explizit auf das Datenregister (0xE1) setzen.
+   // Ohne diesen Schritt liefert ein nachfolgender Lesezugriff oft nur den alten Status.
+   uint8_t setPointerCmd[2] {};
+   setPointerCmd[0] = cmdSetReadPointer; // Set Read Pointer Kommando
+   setPointerCmd[1] = regReadData;       // Read Data Register Adresse
+
+   if (::write(fd, setPointerCmd, 2) != 2)
+   {
+      tell(eloAlways, "Error: Setting I2C read pointer failed");
+      return fail;
+   }
+
+   // 3. Das bereitgestellte Datenbyte aus dem Register auslesen
    if (::read(fd, &byte, 1) != 1)
    {
       tell(eloAlways, "Error: Fetching 1-Wire Read Byte data failed");
@@ -301,27 +329,55 @@ int Ds2484::wireReadBit(bool& bit)
    return success;
 }
 
-//***************************************************************************
-// 1-Wire Triplet (Für ROM-Suchalgorithmus / Search ROM)
-//***************************************************************************
-
 int Ds2484::wireTriplet(uint8_t searchDirection, uint8_t& status)
 {
-   uint8_t cmd = cmd1WireTriplet;
-   // Bit 7 definiert die eingeschlagene Richtung bei einem Konflikt
-   if (searchDirection) cmd |= 0x80;
+   // Korrektur: 2-Byte Array deklarieren für Befehl und Parameter
+   uint8_t buf[2] {};
+   buf[0] = cmd1WireTriplet; // Starr 0x78 laut Datenblatt
 
-   if (waitOnBusy(status) != success) return fail;
+   if (searchDirection)
+      buf[1] = 0x80; // Richtung 1: Bit 7 im Parameter-Byte setzen
+   else
+      buf[1] = 0x00; // Richtung 0: Parameter-Byte bleibt 0x00
 
-   if (::write(fd, &cmd, 1) != 1)
+   if (waitOnBusy(status) != success)
+      return fail;
+
+   // Sende Befehl und Parameter in einem einzigen I2C-Transfer (2 Bytes)
+   if (::write(fd, buf, 2) != 2)
    {
       tell(eloAlways, "Error: 1-Wire Triplet command failed");
       return fail;
    }
 
-   // Das Statusregister enthält nach dem Triplet-Befehl wichtige
-   // Weiterschalt-Informationen für das Suchverfahren (TSB und DIR Bits)
-   return waitOnBusy(status);
+   // Die physikalische Ausführungszeit für den 3-Bit-Hardwaretest abwarten
+   usleep(120);
+
+   // Den von der Hardware fertig berechneten Status abholen
+   return readStatus(status);
+}
+
+uint8_t calculateCRC8(const uint8_t* data, uint8_t len)
+{
+   uint8_t crc {0};
+
+   for (uint8_t i = 0; i < len; ++i)
+   {
+      uint8_t inbyte = data[i];
+
+      for (uint8_t j = 0; j < 8; ++j)
+      {
+         uint8_t mix = (crc ^ inbyte) & 0x01;
+         crc >>= 1;
+
+         if (mix)
+            crc ^= 0x8C; // Maxim-Standard-Polynom für 1-Wire
+
+         inbyte >>= 1;
+      }
+   }
+
+   return crc;
 }
 
 //***************************************************************************
@@ -330,13 +386,17 @@ int Ds2484::wireTriplet(uint8_t searchDirection, uint8_t& status)
 
 int Ds2484::searchRom(SensorList& foundSensors)
 {
-   uint8_t romId[8] {};
+   uint8_t romId[8];
+   memset(romId, 0, 8);
+
    int lastDiscrepancy {0};
    bool done {false};
 
    foundSensors.clear();
 
-   // Schleife läuft, bis alle Abzweigungen im Suchbaum abgearbeitet sind
+   if (deviceReset() != success)
+      return fail;
+
    while (!done)
    {
       bool presence {false};
@@ -345,16 +405,14 @@ int Ds2484::searchRom(SensorList& foundSensors)
          return fail;
 
       if (!presence)
-         return success; // Keine Devices am Bus vorhanden
+         return success;
 
-      // Sende den standardmäßigen Search-ROM Befehl (0xF0) an alle Slaves
       if (wireWriteByte(0xF0) != success)
          return fail;
 
       int currentBit {1};
       int discrepancyMarker {0};
 
-      // Jede ROM-ID hat exakt 64 Bit
       while (currentBit <= 64)
       {
          int byteIndex {(currentBit - 1) / 8};
@@ -362,7 +420,6 @@ int Ds2484::searchRom(SensorList& foundSensors)
 
          uint8_t searchDirection {0};
 
-         // Bestimme die Suchrichtung für das aktuelle Bit
          if (currentBit < lastDiscrepancy)
          {
             if (romId[byteIndex] & bitMask)
@@ -378,23 +435,19 @@ int Ds2484::searchRom(SensorList& foundSensors)
          if (wireTriplet(searchDirection, status) != success)
             return fail;
 
-         // statusTSB und statusDIR extrahieren aus dem Triplet-Ergebnis
          bool bitRead {(status & statusSBR) != 0};
          bool complimentBitRead {(status & statusTSB) != 0};
          bool directionTaken {(status & statusDIR) != 0};
 
-         // Fehlerzustand: Beide Bits antworten mit 1 -> Busfehler oder kein Gerät vorhanden
          if (bitRead && complimentBitRead)
             return fail;
 
          if (!bitRead && !complimentBitRead)
          {
-            // Ein Konflikt liegt vor (0 und 1 sind auf dem Bus vorhanden)
             if (!directionTaken)
                discrepancyMarker = currentBit;
          }
 
-         // Das eingeschlagene Bit in der aktuellen ROM-ID sichern
          if (directionTaken)
             romId[byteIndex] |= bitMask;
          else
@@ -403,24 +456,36 @@ int Ds2484::searchRom(SensorList& foundSensors)
          currentBit++;
       }
 
-      // Wenn kein neuer Konfliktweg gefunden wurde, sind wir fertig
-      if (discrepancyMarker == 0)
+      if (discrepancyMarker <= 0)
          done = true;
 
       lastDiscrepancy = discrepancyMarker;
 
-      // Die gefundene 64-Bit ROM-ID in einen lesbaren Hex-String konvertieren (16 Zeichen)
-      char romStr[17] {};
-      snprintf(romStr, sizeof(romStr), "%02X%02X%02X%02X%02X%02X%02X%02X",
-               romId[7], romId[6], romId[5], romId[4], romId[3], romId[2], romId[1], romId[0]);
+      if (calculateCRC8(romId, 7) != romId[7])
+      {
+         tell(eloAlways, "Warning: 1-Wire CRC Check failed! Transmission error, skipping corrupt ID.");
+         deviceReset();
+         return fail;
+      }
 
-      // Gefundenen Sensor in die Map eintragen und initialisieren
+      // KORREKTUR: Rückwärts-Mapping der Seriennummer-Bytes (Index 6 bis 1),
+      // um exakt Ihr Wunschformat "28-3c44f6494877" aus dem Speicher zu generieren!
+      char romStr[16] {};
+      snprintf(romStr, sizeof(romStr), "%02x-%02x%02x%02x%02x%02x%02x",
+               romId[0], romId[6], romId[5], romId[4], romId[3], romId[2], romId[1]);
+
       SensorData data;
       data.active = true;
       data.value = 0.0;
+
+      // Sichert die originale Byte-Reihenfolge für den Match-ROM Befehl
+      memcpy(data.rawRom, romId, 8);
       foundSensors[std::string(romStr)] = data;
 
       tell(eloDetail, "1-Wire Device discovered: %s", romStr);
+
+      if (discrepancyMarker == 0)
+         return success;
    }
 
    return success;

@@ -54,8 +54,10 @@ function initSensorSetup()
 
    prepareSetupMenu();
 
-   if (activeSection == '')
+   if (activeSection == '') {
       activeSection = 'io' + valueTypes[0].title.replace(/\s+/g, '');
+      activeSection = CSS.escape(activeSection);
+   }
 
    $("#controlContainer")
       .empty()
@@ -120,6 +122,7 @@ function initSensorSetup()
 
    for (var i = 0; i < valueTypes.length; i++) {
       var section = 'io' + valueTypes[i].title.replace(/\s+/g, '');
+      section = CSS.escape(section);
 
       if (!$("#"+'btn_' + section).length) {
          $("#controlContainer").append($('<div></div>')
@@ -268,6 +271,7 @@ function showTable(section)
       for (var i = 0; i < valueTypes.length; i++) {
          if (valueTypes[i].type == item.type) {
             sectionId = 'io' + valueTypes[i].title.replace(/\s+/g, '');
+            sectionId = CSS.escape(sectionId);
          }
       }
 

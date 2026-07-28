@@ -48,6 +48,11 @@ else
     git clone --depth=1 \
         https://github.com/LibreELEC/LibreELEC.tv.git \
         "$LIBREELEC_DIR"
+
+    # falls es Probleme gibt!
+    #    -> mit diesem '2501262549d001d0fc35bf3e4db642ce7744dd9f' commit funktioniert es!
+    #> git fetch --depth=1 origin 2501262549d001d0fc35bf3e4db642ce7744dd9f
+    #> git checkout 2501262549d001d0fc35bf3e4db642ce7744dd9f
 fi
 
 PATCH_BASE="$LIBREELEC_DIR/packages/multimedia/ffmpeg/patches"

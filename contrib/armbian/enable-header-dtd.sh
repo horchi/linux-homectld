@@ -202,7 +202,7 @@ EOF
     fi
 }
 
-# ── ODROID M1: 1-Wire Overlay (phys pin 15 = GPIO3_B6) ──────────────────────
+# ── ODROID M1: 1-Wire Overlay (phys pin 15 ──────────────────────
 fix_m1_onewire() {
     local ENV="/boot/armbianEnv.txt"
     local OVERLAY="onewire"
@@ -377,6 +377,42 @@ echo ""
 echo "Nach dem Reboot: i2cdetect -l  (Busnummer ermitteln), dann i2cdetect -y <N>  (DHT20 bei 0x38 erwartet)"
 echo "                 gpioget -c gpiochip3 --bias=pull-up 24  (Pin 12 offen → sollte '1' liefern)"
 echo "                 ls /sys/bus/w1/devices/  (1-Wire Sensoren erwartet)"
+echo "Hinweis:"
+echo "  altes   gpioget: --bias=pull-up"
+echo "  neueres gpioget: -B pull-up"
 echo ""
 read -rp "Jetzt rebooten? [j/N] " ans
 [[ "$ans" =~ ^[jJyY]$ ]] && reboot || echo "Bitte manuell rebooten."
+
+#     cat > "$TMP_DTS" << 'EOF'
+# /dts-v1/;
+# /plugin/;
+#
+# / {
+#    compatible = "rockchip,rk3568";
+#
+#    fragment@0 {
+#       target-path = "/";
+#       __overlay__ {
+#          onewire {
+#             compatible = "w1-gpio";
+#             gpios = <&gpio3 14 0>;
+#             pinctrl-names = "default";
+#             pinctrl-0 = <&w1_gpio_pin>;
+#             status = "okay";
+#          };
+#       };
+#    };
+#
+#    fragment@1 {
+#       target = <&pinctrl>;
+#       __overlay__ {
+#          onewire {
+#             w1_gpio_pin: w1-gpio-pin {
+#                rockchip,pins = <3 14 0 &pcfg_pull_up>;
+#             };
+#          };
+#       };
+#    };
+# };
+# EOF

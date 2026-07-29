@@ -105,6 +105,35 @@ int LmcCom::update(int stateOnly)
    playerState = {};
    tracks.clear();
 
+   if (!this->mac || strlen(this->mac) == 0)
+   {
+      tell(eloLmc, "[LMC] No player selected, skipping update");
+      return fail;
+   }
+
+   LmcCom::RangeList activePlayers;
+   bool playerIsOnline {false};
+
+   if (queryPlayers(&activePlayers) == done)
+   {
+      for (const auto& player : activePlayers)
+      {
+         if (strcasecmp(player.content.c_str(), this->mac) == 0)
+         {
+            if (player.isConnected == 1)
+               playerIsOnline = true;
+
+            break;
+         }
+      }
+   }
+
+   if (!playerIsOnline)
+   {
+      tell(eloAlways, "[LMC] Player '%s' is offline, skipping update until payer connected", this->mac);
+      return fail;
+   }
+
    if (restQuery("version", {"?"}) == success)
    {
       json_t* jResult {getRestResult()};
@@ -388,14 +417,14 @@ int LmcCom::restQueryRange(std::string what, int from, int count, const char* sp
 
    char* request = json_dumps(jRequest, JSON_REAL_PRECISION(4));
    json_decref(jRequest);
-   tell(eloAlways, "[LMC/REST] -> (%s) [%s]", what.c_str(), request);
+   tell(eloDebugLmc, "[LMC/REST] -> (%s) [%s]", what.c_str(), request);
    int res = curl->post(curlUrl, request, &lastRestResult);
    free(request);
 
    if (res != success)
       return fail;
 
-   tell(eloAlways, "[LMC/REST] <- [%s]", lastRestResult.c_str());
+   tell(eloDebugLmc, "[LMC/REST] <- [%s]", lastRestResult.c_str());
    json_t* jData {jsonLoad(lastRestResult.c_str())};
 
    if (!jData)

@@ -1889,8 +1889,9 @@ int Daemon::storeDashboards(json_t* obj, long client)
 
                   if (tableValueFacts->find())
                   {
-                     const char* title = !tableValueFacts->getValue("USRTITLE")->isEmpty() ? tableValueFacts->getStrValue("USRTITLE") : tableValueFacts->getStrValue("NAME");
-                     json_t* jDefaults = json_object();
+                     const char* title {!tableValueFacts->getValue("USRTITLE")->isEmpty() ? tableValueFacts->getStrValue("USRTITLE") : tableValueFacts->getStrValue("NAME")};
+                     json_t* jDefaults {json_object()};
+
                      widgetDefaults2Json(jDefaults, tableValueFacts->getStrValue("TYPE"),
                                          tableValueFacts->getStrValue("UNIT"), title,
                                          tableValueFacts->getIntValue("ADDRESS"));
@@ -1898,14 +1899,18 @@ int Daemon::storeDashboards(json_t* obj, long client)
                      // enrich with optional default settings of valuefacts 'parameter'
                      //  actually at least uses by script sensors (see ping.sh)
 
-                     const char* paramId {};
-                     json_t* jParam {};
-                     json_t* jParameters {jsonLoad(tableValueFacts->getStrValue("PARAMETER"))};
+                     json_t* jParameters {jsonLoad(tableValueFacts->getStrValue("PARAMETER"), 0, true)};
 
-                     json_object_foreach(jParameters, paramId, jParam)
+                     if (jParameters)
                      {
-                        if (!json_is_null(jParam))
-                           json_object_set_new(jDefaults, paramId, jParam);
+                        const char* paramId {};
+                        json_t* jParam {};
+
+                        json_object_foreach(jParameters, paramId, jParam)
+                        {
+                           if (!json_is_null(jParam))
+                              json_object_set_new(jDefaults, paramId, jParam);
+                        }
                      }
 
                      //
@@ -2478,14 +2483,18 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
       if (!tableValueFacts->getValue("CHOICES")->isNull())
          json_object_set_new(oData, "choices", json_string(tableValueFacts->getStrValue("CHOICES")));
 
-      // widget in valuefacts only used or list view!
+      // widget in valuefacts only used for list view!
+      //  until it don't access the dashboardwidgets
+      //  -> #TODO get this data from dashboardwidgets.widgetopts by a own table ROW (e.g. with dashboardid = -1 for LIST)
 
       json_t* jDefaults {json_object()};
       json_object_set_new(oData, "widget", jDefaults);
 
+      const char* title {!tableValueFacts->getValue("USRTITLE")->isEmpty() ? tableValueFacts->getStrValue("USRTITLE") : tableValueFacts->getStrValue("NAME")};
+
       widgetDefaults2Json(jDefaults, type.c_str(),
                           tableValueFacts->getStrValue("UNIT"),
-                          tableValueFacts->getStrValue("NAME"),
+                          title,
                           tableValueFacts->getIntValue("ADDRESS"));
 
       // tableGroups->clear();

@@ -509,7 +509,21 @@ int l2hhmm(time_t t)
 
    localtime_r(&t, &tm);
 
-   return  tm.tm_hour * 100 + tm.tm_min;
+   return tm.tm_hour * 100 + tm.tm_min;
+}
+
+//***************************************************************************
+// "12:15" to int 1215
+//***************************************************************************
+
+uint hh_mm2int(const char* str)
+{
+   int hh {0}, mm {0};
+
+   if (str && sscanf(str, "%d:%d", &hh, &mm) == 2)
+      return hh * 100 + mm;
+
+   return 0;
 }
 
 time_t midnightOf(time_t t)

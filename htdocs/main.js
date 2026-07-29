@@ -81,6 +81,17 @@ $('document').ready(function() {
    console.log("dashboardGroup" + " : " + dashboardGroup);
    startPage = urlParams.get('page') != null ? urlParams.get('page') : null;
    actDashboard = urlParams.get('dash') != null ? urlParams.get('dash') : -1;
+
+   if (!startPage)
+      startPage = localStorage.getItem(storagePrefix + 'startPage');
+
+   if (actDashboard == -1) {
+      actDashboard = localStorage.getItem(storagePrefix + 'actDashboard');
+      actDashboardIndex = localStorage.getItem(storagePrefix + 'actDashboardIndex');
+   }
+
+   controlContainerCollapsed = localStorage.getItem(storagePrefix + 'controlContainerCollapsed');
+   console.log("actDashboard: " + actDashboard);
    console.log("currentPage: " + currentPage);
    console.log("startPage: " + startPage);
 
@@ -243,6 +254,15 @@ function updateSocketState()
 
 function sleep(ms) {
    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function setActualDashboard(dashboard, index)
+{
+   actDashboard = dashboard;
+   actDashboardIndex = index;
+
+   localStorage.setItem(storagePrefix + 'actDashboard', actDashboard);
+   localStorage.setItem(storagePrefix + 'actDashboardIndex', actDashboardIndex);
 }
 
 var infoDialog = null;
@@ -833,6 +853,7 @@ function mainMenuSel(what, action = null)
 
    let lastPage = currentPage;
    currentPage = what;
+   localStorage.setItem(storagePrefix + 'startPage', currentPage);
    hideAllContainer();
    schemaEditActive = false;
 
@@ -1519,6 +1540,7 @@ function toggleControlPanel()
 {
    $('#controlContainer').toggleClass('ctrl-collapsed');
    controlContainerCollapsed = $("#controlContainer").hasClass("ctrl-collapsed");
+   localStorage.setItem(storagePrefix + 'controlContainerCollapsed', controlContainerCollapsed);
 }
 
 // ---------------------------------

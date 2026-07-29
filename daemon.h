@@ -146,9 +146,9 @@ class Daemon : public cWebInterface, public Service
          uint to {};
          bool inRange(uint t) const {
             if (from < to)
-               return t >= from && t <= to;
+               return t >= from && t < to;
             if (from > to)
-               return t >= from || t <= to;
+               return t >= from || t < to;
             return false;
          }
       };
@@ -200,7 +200,7 @@ class Daemon : public cWebInterface, public Service
 
       static DefaultWidgetProperty defaultWidgetProperties[];
       static DefaultWidgetProperty* getDefalutProperty(const char* type, const char* unit, int address = 0);
-      int widgetDefaults2Json(json_t* jDefaults, std::string type, std::string unit, const char* name, int address = 0);
+      int widgetDefaults2Json(json_t* jDefaults, std::string type, std::string unit, const char* usrTitle, int address = 0);
 
       struct ValueTypes
       {
@@ -246,6 +246,7 @@ class Daemon : public cWebInterface, public Service
       int sendAlertMail(const char* to);
 
       virtual int process(bool force = false, bool signal = false);
+      virtual int processLua(bool force = false, bool signal = false);
       virtual int performJobs() { return done; }           // called every loop (1 second)
       int dispatchClientRequest();
       virtual int dispatchSpecialRequest(Event event, json_t* oObject, long client) { return ignore; }
@@ -396,7 +397,7 @@ class Daemon : public cWebInterface, public Service
       int lmcPlaylist2Json(json_t* obj);
       int lmcMainMenu2Json(json_t* obj);
 
-      const char* getImageFor(std::string type, const char* title, std::string unit, int value);
+      const char* getImageFor(std::string type, const char* usrTitle, std::string unit, int value);
       int toggleIo(uint addr, const char* type, int state = na, int bri = na, int transitiontime = na);
       int toggleColor(uint addr, const char* type, int color, int sat, int bri);
       int toggleIoNext(uint pin);

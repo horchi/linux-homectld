@@ -22,53 +22,40 @@ class HomeCtl : public Daemon
       virtual ~HomeCtl();
 
       const char* myTitle() override { return "HomeCtl"; }
-      int init() override;
+      // int init() override;
 
 #ifdef _POOL
 
       enum AnalogInputs
       {
-         aiFilterPressure = 0x00,
-         aiPh             = 0x01
+         aiPh = 0x01
       };
 
       enum SpecialValues  // 'SP'
       {
-         spSolarDelta = 2,
-         spPhMinusDemand,
-         spSolarPower,
-         spSolarWork
+         spPhMinusDemand = 3
+         // spSolarPower = 4,
+         // spSolarWork = 5
       };
 #endif
 
    protected:
 
-      int initDb() override;
-      int exitDb() override;
+      // int initDb() override;
+      // int exitDb() override;
 
       int readConfiguration(bool initial) override;
       int applyConfigurationSpecials() override;
-      int loadIoStates() override;
-      int atMeanwhile() override;
+      // int loadIoStates() override;
+      // int atMeanwhile() override;
 
       int process(bool force = false, bool signal = false) override;
-      int performJobs() override;
+      // int performJobs() override;
       // void logReport() override;
 
       std::list<ConfigItemDef>* getConfiguration() override { return &configuration; }
 
 #ifdef _POOL
-    public:
-
-      enum PoolPins
-      {
-         pinShowerSwitch = pinGpio19,
-         pinFilterPump   = pinGpio17,
-         pinSolarPump    = pinGpio18,
-         pinPoolLight    = pinGpio27,
-         pinUVC          = pinGpio07,
-         pinShower       = pinGpio25
-      };
 
     protected:
 
@@ -76,20 +63,15 @@ class HomeCtl : public Daemon
       int calcPhMinusVolume(double ph);
       // cDbStatement* selectSolarWorkPerDay {};
 
-      double alertSwitchOffPressure {0.0};
-      double massPerSecond {0.0};           // Fördermenge der Solarpumpe [kg·s-1] bzw. [l/s]
-      int showerDuration {20};              // seconds
+      // double alertSwitchOffPressure {0.0};
+      // double massPerSecond {0.0};           // Fördermenge der Solarpumpe [kg·s-1] bzw. [l/s]
 
       double phMinusDensity {0.0};
-      int phMinusDemand01 {0};              // Menge zum Senken um 0,1 [g]
+      int phMinusDemand01 {0};                 // Menge zum Senken um 0,1 [g]
       int phMinusDayLimit {0};
       int phPumpDuration100 {0};
-      double phReference {0.0};             // PG Referenzwert (sollwert)
+      double phReference {0.0};                // PG Referenzwert (sollwert)
       int minPumpTimeForPh {10 * tmeSecondsPerMinute}; // [s] #TODO -> add to config?
-
-      std::vector<Range> filterPumpTimes;
-      std::vector<Range> uvcLightTimes;
-      std::vector<Range> poolLightTimes;
 
 #endif
 

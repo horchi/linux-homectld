@@ -129,7 +129,7 @@ Daemon::DefaultWidgetProperty Daemon::defaultWidgetProperties[] =
    { "TIME",     na, "txt",  wtPlainText,        0,         0,       0, true },
    { "DO",       na,   "*",     wtSymbol,        0,         0,       0, false },
    { "DI",       na,   "*",     wtSymbol,        0,         0,       0, false },
-   { "GOIO",     na,   "*",     wtSymbol,        0,         0,       0, false },
+   { "GPIO",     na,   "*",     wtSymbol,        0,         0,       0, false },
    { "AO",       na,   "*",      wtMeter,        0,        45,      10, false },
    { "AI",       na,   "*",      wtMeter,        0,        45,      10, false },
    { "SD",       na,   "*",      wtChart,        0,      2000,       0, true },
@@ -190,11 +190,13 @@ Daemon::DefaultWidgetProperty* Daemon::getDefalutProperty(const char* type, cons
 // Widget Defaults 2 Json
 //***************************************************************************
 
-int Daemon::widgetDefaults2Json(json_t* jDefaults, std::string type, std::string unit, const char* name, int address)
+int Daemon::widgetDefaults2Json(json_t* jDefaults, std::string type, std::string unit, const char* usrTitle, int address)
 {
    DefaultWidgetProperty* defProperty {getDefalutProperty(type.c_str(), unit.c_str(), address)};
 
-   // #TODO move color to getDefalutProperty() ?!!
+   // #TODO move to a json config
+   //                     like /etc/homectld/widget-defaults.json
+   //   and a user config like /etc/homectld/widget-defaults-usr.json
 
    const char* color {type != "HMB" ? "rgb(255, 255, 255)" : "rgb(0, 99, 162)"};
    const char* colorOn {type != "HMB" ? "rgb(235, 197, 5)" : "rgb(255, 255, 255)"};
@@ -224,8 +226,8 @@ int Daemon::widgetDefaults2Json(json_t* jDefaults, std::string type, std::string
    json_object_set_new(jDefaults, "color", json_string(color));
    json_object_set_new(jDefaults, "colorOn", json_string(colorOn));
 
-   const char* on {getImageFor(type, name, unit, true)};
-   const char* off {getImageFor(type, name, unit, false)};
+   const char* on {getImageFor(type, usrTitle, unit, true)};
+   const char* off {getImageFor(type, usrTitle, unit, false)};
 
    if (strstr(off, "mdi:") == off)
       json_object_set_new(jDefaults, "symbol", json_string(off));
@@ -244,36 +246,36 @@ int Daemon::widgetDefaults2Json(json_t* jDefaults, std::string type, std::string
 // Get Image For
 //***************************************************************************
 
-const char* Daemon::getImageFor(std::string type, const char* title, std::string unit, int value)
+const char* Daemon::getImageFor(std::string type, const char* usrTitle, std::string unit, int value)
 {
    // #TODO move symbol/image to getDefalutProperty() ?!!
 
    const char* imagePath {};
 
-   if (type == "DZL" || strcasestr(title, "Licht") || strcasestr(title, "Bulb") || strcasestr(title, "Light"))
+   if (strcasestr(usrTitle, "Pump"))
+      imagePath = value ? "img/icon/pump-on.gif" : "img/icon/pump-off.png";
+   else if (strcasestr(usrTitle, "Steckdose") || strcasestr(usrTitle, "Plug") )
+      imagePath = value ? "img/icon/plug-on.png" : "img/icon/plug-off.png";
+   else if (strcasestr(usrTitle, "UV-C") || strcasestr(usrTitle, "UVC"))
+      imagePath = value ? "img/icon/uvc-on.png" : "img/icon/uvc-off.png";
+   else if (strcasestr(usrTitle, "Shower") || strcasestr(usrTitle, "Dusche"))
+      imagePath = value ? "img/icon/shower-on.png" : "img/icon/shower-off.png";
+   else if (strcasestr(usrTitle, "VDR"))
+      imagePath = value ? "img/icon/vdr-on.png" : "img/icon/vdr-off.png";
+   else if (strcasestr(usrTitle, "VPN"))
+      imagePath = value ? "img/icon/vpn-on.png" : "img/icon/vpn-off.png";
+   else if (strcasestr(usrTitle, "SATIP"))
+      imagePath = value ? "img/icon/satip-on.png" : "img/icon/satip-off.png";
+   else if (strcasestr(usrTitle, "Music") || strcasestr(usrTitle, "Musik"))
+      imagePath = value ? "img/icon/note-on.png" : "img/icon/note-off.png";
+   else if (strcasestr(usrTitle, "Fan") || strcasestr(usrTitle, "Lüfter"))
+      imagePath = value ? "img/icon/fan-on.png" : "img/icon/fan-off.png";
+   else if (strcasestr(usrTitle, "Desktop"))
+      imagePath = value ? "img/icon/desktop-on.png" : "img/icon/desktop-off.png";
+   else if (type == "DZL" || strcasestr(usrTitle, "Licht") || strcasestr(usrTitle, "Bulb") || strcasestr(usrTitle, "Light"))
       imagePath = value ? "mdi:mdi-lightbulb" : "mdi:mdi-lightbulb";
    else if (type == "DI" || type == "DO" || type == "GPIO")
       imagePath = value ? "mdi:mdi-toggle-switch-outline" : "mdi:mdi-toggle-switch-off-outline";
-   else if (strcasestr(title, "Pump"))
-      imagePath = value ? "img/icon/pump-on.gif" : "img/icon/pump-off.png";
-   else if (strcasestr(title, "Steckdose") || strcasestr(title, "Plug") )
-      imagePath = value ? "img/icon/plug-on.png" : "img/icon/plug-off.png";
-   else if (strcasestr(title, "UV-C"))
-      imagePath = value ? "img/icon/uvc-on.png" : "img/icon/uvc-off.png";
-   else if (strcasestr(title, "Shower") || strcasestr(title, "Dusche"))
-      imagePath = value ? "img/icon/shower-on.png" : "img/icon/shower-off.png";
-   else if (strcasestr(title, "VDR"))
-      imagePath = value ? "img/icon/vdr-on.png" : "img/icon/vdr-off.png";
-   else if (strcasestr(title, "VPN"))
-      imagePath = value ? "img/icon/vpn-on.png" : "img/icon/vpn-off.png";
-   else if (strcasestr(title, "SATIP"))
-      imagePath = value ? "img/icon/satip-on.png" : "img/icon/satip-off.png";
-   else if (strcasestr(title, "Music") || strcasestr(title, "Musik"))
-      imagePath = value ? "img/icon/note-on.png" : "img/icon/note-off.png";
-   else if (strcasestr(title, "Fan") || strcasestr(title, "Lüfter"))
-      imagePath = value ? "img/icon/fan-on.png" : "img/icon/fan-off.png";
-   else if (strcasestr(title, "Desktop"))
-      imagePath = value ? "img/icon/desktop-on.png" : "img/icon/desktop-off.png";
    else if (unit == "mov")
       imagePath = "mdi:mdi-walk";
    else if (type == "HMB")
@@ -285,6 +287,8 @@ const char* Daemon::getImageFor(std::string type, const char* title, std::string
 
    else
       imagePath = value ? "mdi:mdi-toggle-switch-outline" : "mdi:mdi-toggle-switch-off-outline";
+
+   tell(eloDebug, "Debug: Found special image for '%s/%s/%s/%d' [%s]", type.c_str(), usrTitle, unit.c_str(), value, imagePath);
 
    return imagePath;
 }
@@ -536,7 +540,7 @@ int Daemon::init()
    {
       tell(eloAlways, "DECONZ: No API key for '%s' jet, try to query", deconz.getHttpUrl());
       std::string result;
-      int status = deconz.queryApiKey(result);
+      int status {deconz.queryApiKey(result)};
 
       if (status != success)
       {
@@ -1782,7 +1786,7 @@ int Daemon::initDb()
    status += selectHomeMaticByUuid->prepare();
 
    /*
-   // patch dashbors widget options to default
+   // patch dashboars widget options to default (once)
    tableDashboardWidgets->clear();
    tableDashboardWidgets->setValue("DASHBOARDID", 5);
    for (int f = selectDashboardWidgetsFor->find(); f; f = selectDashboardWidgetsFor->fetch())
@@ -2446,6 +2450,82 @@ int Daemon::store(time_t now, const SensorData* sensor)
 
 int Daemon::process(bool force, bool signal)
 {
+   // Zeitschaltuhr
+
+   for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
+   {
+      std::string type {tableValueFacts->getStrValue("TYPE")};
+      ulong address {(ulong)tableValueFacts->getIntValue("ADDRESS")};
+      bool gpioOut {type == "GPIO" && sensors[type][address].fct == "out"};
+
+      if (!sensors[type][address].active || sensors[type][address].mode != omAuto)
+         continue;
+
+      if (type != "DO" && !gpioOut)
+         continue;
+
+      bool activate {false};
+      bool hasRanges {false}; // 1. Flag hinzufügen, um zu tracken ob wir schalten dürfen
+
+      if (!tableValueFacts->getValue("SETTINGS")->isEmpty())
+      {
+         json_t* o {jsonLoad(tableValueFacts->getStrValue("SETTINGS"), 0, true)};
+
+         if (!o)
+            continue;
+
+         json_t* jTimes {getObjectFromJson(o, "times")};
+
+         if (jTimes && json_is_array(jTimes))
+         {
+            std::vector<Range> currentRanges;
+            size_t index {0};
+            json_t* value {};
+
+            json_array_foreach(jTimes, index, value)
+            {
+               json_t* jStart {getObjectFromJson(value, "start")};
+               json_t* jEnd {getObjectFromJson(value, "end")};
+
+               if (json_is_string(jStart) && json_is_string(jEnd))
+               {
+                  Range r;
+                  r.from = hh_mm2int(json_string_value(jStart));
+                  r.to = hh_mm2int(json_string_value(jEnd));
+                  currentRanges.push_back(r);
+               }
+            }
+
+            if (!currentRanges.empty())
+            {
+               activate = isInTimeRange(&currentRanges, time(0));
+               hasRanges = true;
+            }
+         }
+
+         json_decref(o);
+      }
+
+      // no times configured?
+
+      if (!hasRanges)
+         continue;
+
+      // changed?
+
+      if (sensors[type][address].state != activate)
+         gpioWrite(address, activate);
+   }
+
+   return processLua(force, signal);
+}
+
+//***************************************************************************
+// Process LUA
+//***************************************************************************
+
+int Daemon::processLua(bool force, bool signal)
+{
    // calculate CV and DO/GPIO(out) sensors by LUA
 
    for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
@@ -2454,8 +2534,8 @@ int Daemon::process(bool force, bool signal)
       ulong address {(ulong)tableValueFacts->getIntValue("ADDRESS")};
       bool gpioOut {type == "GPIO" && sensors[type][address].fct == "out"};
 
-      if (type == "GPIO" && address == 0x0c)
-         tell(eloAlways, "'%s/0x%02lx' gpioOut '%s' / '%s'", type.c_str(), address, gpioOut ? "true" : "false", sensors[type][address].mode == omAuto ? "omAuto" : "NOT omAuto");
+      if (!sensors[type][address].active)
+         continue;
 
       if (type != "CV" && type != "DO" && !gpioOut)
          continue;
@@ -2561,7 +2641,7 @@ int Daemon::process(bool force, bool signal)
       }
       else if (res.type == Lua::tNil)
       {
-         tell(eloAlways, "LUA: '%s' returned NIL", key);
+         tell(eloLua, "LUA: '%s' returned NIL", key);
          continue;
       }
       else
@@ -4831,11 +4911,23 @@ int Daemon::toggleOutputMode(json_t* oObject, long client)
    return success;
 }
 
+//***************************************************************************
+// On GPIO Change
+//  !Attention!
+//    calles in thred dont use database access functions like gpioWrite(), ...
+//***************************************************************************
+
+void Daemon::onGpioChange(int physPin, bool value)
+{
+   tell(eloDebugGpio, "Debug: GPIO: Interrupt trigger for pin %d (%s)", physPin, value ? "ON" : "OFF");
+   triggerGpioPins.push(physPin);
+}
+
 void Daemon::gpioWrite(uint pin, bool state, bool saveIoState)
 {
    // #TODO for GPIO
-   // workaround!
-   // -->
+   // workaround! -->
+
    std::string type {"DO"};
 
    if (auto it = sensors.find("GPIO"); it != sensors.end())
@@ -5194,7 +5286,10 @@ int Daemon::loadIoStates()
       uint address {(uint)tableIoStates->getIntValue("ADDRESS")};
       bool state {(bool)tableIoStates->getIntValue("STATE")};
 
-      if ((type == "DO" && address == pinW1Power) || sensors[type][address].impulse || !(sensors[type][address].outputModes & ooUser))
+      if (!sensors[type][address].active)
+         continue;
+
+      if (/*(type == "DO" && address == pinW1Power) ||*/ sensors[type][address].impulse || !(sensors[type][address].outputModes & ooUser))
          continue;
 
       tell(eloDebug2, "Debug2: Recover IO state of '%s:0x%x' to '%s', mode to (%ld)",
@@ -5339,7 +5434,7 @@ int Daemon::initArduino()
 bool Daemon::updateAnalogInput(uint addr, const char* type, double value, time_t stamp, const char* unit)
 {
    // the Ardoino read the analog inputs with a resolution of 12 bits (3.3V => 4095)
-   // the MCP read the analog inputs with of ...
+   // the MCP read the analog inputs with a resolution of ... bits ...
 
    if (!sensors[type][addr].active)
       return false;

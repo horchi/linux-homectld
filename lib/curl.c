@@ -503,7 +503,7 @@ int cCurl::post(const char* url, const std::string& sPost, std::string* sOutput)
 {
    init();
 
-   curl_slist* headers {nullptr};
+   curl_slist* headers {};
    headers = curl_slist_append(headers, "Accept: application/json");
    headers = curl_slist_append(headers, "Content-Type: application/json");
    headers = curl_slist_append(headers, "charset: utf-8");
@@ -522,8 +522,8 @@ int cCurl::post(const char* url, const std::string& sPost, std::string* sOutput)
       long httpCode = 0;
 
       curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &httpCode);
-      tell(eloAlways, "Error: Getting URL failed; %s (%d); http code was (%ld) [%s]",
-           curl_easy_strerror(res), res, httpCode, url);
+      tell(eloAlways, "Error: Getting URL failed; %s (%d); http code was (%ld) [%s / %s]",
+           curl_easy_strerror(res), res, httpCode, url, sPost.c_str());
 
      *sOutput = "";
 

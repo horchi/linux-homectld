@@ -81,14 +81,12 @@ function initDashboard(update = false)
 
    for (let i = 0; i < jDashboards.length; i++) {
       let did = jDashboards[i][1];
-      if (actDashboard < 0) {
-         actDashboard = did;
-         actDashboardIndex = i;
-      }
+      if (actDashboard < 0)
+         setActualDashboard(did, i);
 
       if (kioskBackTime > 0 && actDashboard != jDashboards[0][1]) {
          setTimeout(function() {
-            actDashboard = jDashboards[0][1];
+            setActualDashboard(jDashboards[0][1], 0);
             initDashboard(false);
          }, kioskBackTime * 1000);
       }
@@ -113,8 +111,7 @@ function initDashboard(update = false)
                                  .on('drop', function(event) {dropDashboard(event)})
                                  .html(dashboards[did].title)
                                  .click({'id': did, 'index': i}, function(event) {
-                                    actDashboard = $(this).data('did');
-                                    actDashboardIndex = $(this).data('index');
+                                    setActualDashboard($(this).data('did'), $(this).data('index'));
                                     console.log("Activate dashboard " + actDashboard);
                                     initDashboard();
                                  }));
@@ -271,16 +268,16 @@ function animateOut($el, targetX, pageDir)
    // Nach der Animation: Inhalt tauschen und von der anderen Seite reinholen
    setTimeout(() => {
       if (pageDir == 'prev') {
-         if (!actDashboardIndex)
-            actDashboardIndex = jDashboards.length;
-         actDashboardIndex--;
-         actDashboard = jDashboards[actDashboardIndex][1];
+         let index = actDashboardIndex;
+         if (!index)
+            index = jDashboards.length;
+         setActualDashboard(jDashboards[index-1][1], index-1);
       }
       else if (pageDir == 'next') {
-         actDashboardIndex++;
-         if (actDashboardIndex == jDashboards.length)
-            actDashboardIndex = 0;
-         actDashboard = jDashboards[actDashboardIndex][1];
+         let index = actDashboardIndex+1;
+         if (index == jDashboards.length)
+            index = 0;
+         setActualDashboard(jDashboards[index][1], index);
       }
 
       // console.log("Activate dashboard", actDashboard);

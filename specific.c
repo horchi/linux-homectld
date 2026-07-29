@@ -40,17 +40,9 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "eloquence",                 ctBitSelect, "1",          false, "Daemon", "Log Eloquence", "" },
 
 #ifdef _POOL
-   { "filterPumpTimes",           ctRange,   "10:00-17:00",  false, "Pool", "Zeiten Filter Pumpe", "[hh:mm] - [hh:mm]" },
-   { "uvcLightTimes",             ctRange,   "",             false, "Pool", "Zeiten UV-C Licht", "[hh:mm] - [hh:mm], wird nur angeschaltet wenn auch die Filterpumpe läuft!" },
-   { "poolLightTimes",            ctRange,   "",             false, "Pool", "Zeiten Pool Licht", "[hh:mm] - [hh:mm] (ansonsten manuell schalten)" },
-
-   { "alertSwitchOffPressure",    ctNum,     "0",            false, "Pool", "Trockenlaufschutz unter x bar", "Deaktiviert Pumpen nach 5 Minuten (0 deaktiviert)" },
-
    { "tPoolMax",                  ctNum,     "28.0",         false, "Pool", "Pool max Temperatur", "" },
-   { "tSolarOff",                 ctNum,     "2.0",          false, "Pool", "Ausschaltdifferenz der Solarpumpe [°C]", "" },
-   { "tSolarOn",                  ctNum,     "7.0",          false, "Pool", "Einschaltdifferenz der Solarpumpe [°C]", "" },
-   { "showerDuration",            ctInteger, "20",           false, "Pool", "Laufzeit der Dusche", "Laufzeit [s]" },
-   { "massPerSecond",             ctNum,     "11.0",         false, "Pool", "Durchfluss Solar", "[Liter/min]" },
+   { "tSolarOff",                 ctNum,     "2.0",          false, "Pool", "Ausschalt-Delta Solarpumpe [°C]", "" },
+   { "tSolarOn",                  ctNum,     "7.0",          false, "Pool", "Einschalt-Delta der Solarpumpe [°C]", "" },
 
    // PH stuff
 
@@ -131,88 +123,88 @@ HomeCtl::~HomeCtl()
 {
 }
 
-//***************************************************************************
-// Init/Exit
-//***************************************************************************
+// //***************************************************************************
+// // Init/Exit
+// //***************************************************************************
 
-int HomeCtl::init()
-{
-   int status = Daemon::init();
+// int HomeCtl::init()
+// {
+//    int status = Daemon::init();
 
-   return status;
-}
+//    return status;
+// }
 
-//***************************************************************************
-// Init/Exit Database
-//***************************************************************************
+// //***************************************************************************
+// // Init/Exit Database
+// //***************************************************************************
 
-int HomeCtl::initDb()
-{
-   int status = Daemon::initDb();
+// int HomeCtl::initDb()
+// {
+//    int status = Daemon::initDb();
 
-// #ifdef _POOL
-//    // ------------------
-//    // select solar work per day
-//    //    select date(time), max(value)
-//    //      from samples
-//    //      where type = 'SP' and address = 6 group by date(time);
+// // #ifdef _POOL
+// //    // ------------------
+// //    // select solar work per day
+// //    //    select date(time), max(value)
+// //    //      from samples
+// //    //      where type = 'SP' and address = 6 group by date(time);
 
-//    selectSolarWorkPerDay = new cDbStatement(tableSamples);
-//    selectSolarWorkPerDay->build("select ");
-//    selectSolarWorkPerDay->bindTextFree("date(time)", tableSamples->getValue("time"), "", cDBS::bndOut);
-//    selectSolarWorkPerDay->bindTextFree("max(value)", tableSamples->getValue("value"), ", ", cDBS::bndOut);
-//    selectSolarWorkPerDay->build(" from %s where ", tableSamples->TableName());
-//    selectSolarWorkPerDay->build(" TYPE = '%s' and ADDRESS = %d", "SP", spSolarWork);
-//    selectSolarWorkPerDay->build(" group by date(time) order by time desc");
-//    status += selectSolarWorkPerDay->prepare();
-// #endif
+// //    selectSolarWorkPerDay = new cDbStatement(tableSamples);
+// //    selectSolarWorkPerDay->build("select ");
+// //    selectSolarWorkPerDay->bindTextFree("date(time)", tableSamples->getValue("time"), "", cDBS::bndOut);
+// //    selectSolarWorkPerDay->bindTextFree("max(value)", tableSamples->getValue("value"), ", ", cDBS::bndOut);
+// //    selectSolarWorkPerDay->build(" from %s where ", tableSamples->TableName());
+// //    selectSolarWorkPerDay->build(" TYPE = '%s' and ADDRESS = %d", "SP", spSolarWork);
+// //    selectSolarWorkPerDay->build(" group by date(time) order by time desc");
+// //    status += selectSolarWorkPerDay->prepare();
+// // #endif
 
-// #ifdef _WOMO
-//    // ------------------
-//    // select solar Ah per day
-//    //    select date(time), max(value)
-//    //      from samples
-//    //      where type = 'SP' and address = 6 group by date(time);
+// // #ifdef _WOMO
+// //    // ------------------
+// //    // select solar Ah per day
+// //    //    select date(time), max(value)
+// //    //      from samples
+// //    //      where type = 'SP' and address = 6 group by date(time);
 
-//    selectSolarAhPerDay = new cDbStatement(tableSamples);
-//    selectSolarAhPerDay->build("select ");
-//    selectSolarAhPerDay->bindTextFree("date(time)", tableSamples->getValue("time"), "", cDBS::bndOut);
-//    selectSolarAhPerDay->bindTextFree("max(value)", tableSamples->getValue("value"), ", ", cDBS::bndOut);
-//    selectSolarAhPerDay->build(" from %s where ", tableSamples->TableName());
-//    selectSolarAhPerDay->build(" TYPE = '%s' and ADDRESS = %d", "CV", 0x01);
-//    selectSolarAhPerDay->build(" and time >= curdate() - INTERVAL DAYOFWEEK(curdate())+14 DAY");
-//    selectSolarAhPerDay->build(" group by date(time)");
-//    status += selectSolarAhPerDay->prepare();
-// #endif
+// //    selectSolarAhPerDay = new cDbStatement(tableSamples);
+// //    selectSolarAhPerDay->build("select ");
+// //    selectSolarAhPerDay->bindTextFree("date(time)", tableSamples->getValue("time"), "", cDBS::bndOut);
+// //    selectSolarAhPerDay->bindTextFree("max(value)", tableSamples->getValue("value"), ", ", cDBS::bndOut);
+// //    selectSolarAhPerDay->build(" from %s where ", tableSamples->TableName());
+// //    selectSolarAhPerDay->build(" TYPE = '%s' and ADDRESS = %d", "CV", 0x01);
+// //    selectSolarAhPerDay->build(" and time >= curdate() - INTERVAL DAYOFWEEK(curdate())+14 DAY");
+// //    selectSolarAhPerDay->build(" group by date(time)");
+// //    status += selectSolarAhPerDay->prepare();
+// // #endif
 
-   return status;
-}
+//    return status;
+// }
 
-int HomeCtl::exitDb()
-{
-// #ifdef _POOL
-//    delete selectSolarWorkPerDay;   selectSolarWorkPerDay = nullptr;
-// #endif
-// #ifdef _WOMO
-//    delete selectSolarAhPerDay;     selectSolarAhPerDay = nullptr;
-// #endif
+// int HomeCtl::exitDb()
+// {
+// // #ifdef _POOL
+// //    delete selectSolarWorkPerDay;   selectSolarWorkPerDay = nullptr;
+// // #endif
+// // #ifdef _WOMO
+// //    delete selectSolarAhPerDay;     selectSolarAhPerDay = nullptr;
+// // #endif
 
-   return Daemon::exitDb();
-}
+//    return Daemon::exitDb();
+// }
 
-int HomeCtl::loadIoStates()
-{
-   Daemon::loadIoStates();
+// int HomeCtl::loadIoStates()
+// {
+//    Daemon::loadIoStates();
 
-#ifdef _POOL
-   // if filter pump is running assume its running at least 'minPumpTimeForPh'
+// // #ifdef _POOL
+// //    // if filter pump is running assume its running at least 'minPumpTimeForPh'
 
-   if (sensors["DO"][pinFilterPump].state)
-      sensors["DO"][pinFilterPump].last = time(0)-minPumpTimeForPh;
-#endif
+// //    if (sensors["DO"][pinFilterPump].state)
+// //       sensors["DO"][pinFilterPump].last = time(0)-minPumpTimeForPh;
+// // #endif
 
-   return done;
-}
+//    return done;
+// }
 
 //***************************************************************************
 // Read Configuration
@@ -223,16 +215,16 @@ int HomeCtl::readConfiguration(bool initial)
    Daemon::readConfiguration(initial);
 
 #ifdef _POOL
-   getConfigItem("lastSolarWork", sensors["SP"][spSolarWork].value, 0);
-   getConfigItem("showerDuration", showerDuration, 20);
-   getConfigItem("alertSwitchOffPressure", alertSwitchOffPressure, 0);
+   // getConfigItem("lastSolarWork", sensors["SP"][spSolarWork].value, 0);
+   // getConfigItem("showerDuration", showerDuration, 20);
+   // getConfigItem("alertSwitchOffPressure", alertSwitchOffPressure, 0);
 
-   tell(eloAlways, "Pump 'alertSwitchOffPressure' is set to %.2f", alertSwitchOffPressure);
+   // tell(eloAlways, "Pump 'alertSwitchOffPressure' is set to %.2f", alertSwitchOffPressure);
 
-   // Solar stuff
+   // // Solar stuff
 
-   getConfigItem("massPerSecond", massPerSecond, 11.0);                  // [Liter/min]
-   massPerSecond /= 60.0;                                                // => [l/s]
+   // getConfigItem("massPerSecond", massPerSecond, 11.0);                  // [Liter/min]
+   // massPerSecond /= 60.0;                                                // => [l/s]
 
    // PH stuff
 
@@ -244,9 +236,9 @@ int HomeCtl::readConfiguration(bool initial)
 
    // Time ranges
 
-   getConfigTimeRangeItem("filterPumpTimes", filterPumpTimes);
-   getConfigTimeRangeItem("uvcLightTimes", uvcLightTimes);
-   getConfigTimeRangeItem("poolLightTimes", poolLightTimes);
+   // getConfigTimeRangeItem("filterPumpTimes", filterPumpTimes);
+   // getConfigTimeRangeItem("uvcLightTimes", uvcLightTimes);
+   // getConfigTimeRangeItem("poolLightTimes", poolLightTimes);
 
 #endif
 
@@ -257,18 +249,18 @@ int HomeCtl::readConfiguration(bool initial)
 // At Meanwhile
 //***************************************************************************
 
-int HomeCtl::atMeanwhile()
-{
-#ifdef _POOL
-   if (showerSwitch > 0)
-   {
-      toggleIo(pinShower, "DO");
-      showerSwitch = 0;
-   }
-#endif
+// int HomeCtl::atMeanwhile()
+// {
+// #ifdef _POOL
+//    if (showerSwitch > 0)
+//    {
+//       toggleIo(pinShower, "DO");
+//       showerSwitch = 0;
+//    }
+// #endif
 
-   return done;
-}
+//    return done;
+// }
 
 //***************************************************************************
 // On GPIO Change
@@ -276,22 +268,22 @@ int HomeCtl::atMeanwhile()
 //    calles in thred dont use database access functions like gpioWrite(), ...
 //***************************************************************************
 
-void Daemon::onGpioChange(int physPin, bool value)
-{
-   tell(eloDebugGpio, "Debug: GPIO: Interrupt trigger for pin %d (%s)", physPin, value ? "ON" : "OFF");
-   triggerGpioPins.push(physPin);
+// void Daemon::onGpioChange(int physPin, bool value)
+// {
+//    tell(eloDebugGpio, "Debug: GPIO: Interrupt trigger for pin %d (%s)", physPin, value ? "ON" : "OFF");
+//    triggerGpioPins.push(physPin);
 
-#ifdef _POOL
-   static uint64_t lastShowerSwitch {cTimeMs::Now()};     // detect only once a second to prevent bouncing
+// // #ifdef _POOL
+// //    static uint64_t lastShowerSwitch {cTimeMs::Now()};     // detect only once a second to prevent bouncing
 
-   if (cTimeMs::Now() > lastShowerSwitch + 1000 && !digitalRead(HomeCtl::pinShowerSwitch))
-   {
-      tell(eloDebug, "Info: Shower key detected");
-      showerSwitch = showerSwitch +1;
-      lastShowerSwitch = cTimeMs::Now();
-   }
-#endif
-}
+// //    if (cTimeMs::Now() > lastShowerSwitch + 1000 && !digitalRead(HomeCtl::pinShowerSwitch))
+// //    {
+// //       tell(eloDebug, "Info: Shower key detected");
+// //       showerSwitch = showerSwitch +1;
+// //       lastShowerSwitch = cTimeMs::Now();
+// //    }
+// // #endif
+// }
 
 //***************************************************************************
 // Apply Configuration Specials
@@ -308,22 +300,22 @@ int HomeCtl::applyConfigurationSpecials()
    // initInput(pinUserInput3, "Digital Input");
 
 #ifndef _POOL
-   initOutput(pinUserOut7, ooUser, omManual, "Digital Output");
-   initOutput(pinUserOut8, ooAuto, omAuto, "Digital Output");
-   initOutput(pinUserOut9, ooUser, omManual, "Digital Output");
+//    initOutput(pinUserOut7, ooUser, omManual, "Digital Output");
+//    initOutput(pinUserOut8, ooAuto, omAuto, "Digital Output");
+//    initOutput(pinUserOut9, ooUser, omManual, "Digital Output");
 
-   initInput(pinUserInput6, "Digital Input");
+//    initInput(pinUserInput6, "Digital Input");
 #else
-   initOutput(pinFilterPump, ooAuto|ooUser, omAuto, "Filter Pump", urFullControl);
-   // initOutput(pinSolarPump, ooAuto|ooUser, omAuto, "Solar Pump", urFullControl);
-   // initOutput(pinPoolLight, ooUser, omManual, "Pool Light");
-   initOutput(pinUVC, ooAuto|ooUser, omAuto, "UV-C Light", urFullControl);
-   // initOutput(pinShower, ooAuto|ooUser, omAuto, "Shower");
+//    initOutput(pinFilterPump, ooAuto|ooUser, omAuto, "Filter Pump", urFullControl);
+//    // initOutput(pinSolarPump, ooAuto|ooUser, omAuto, "Solar Pump", urFullControl);
+//    // initOutput(pinPoolLight, ooUser, omManual, "Pool Light");
+//    initOutput(pinUVC, ooAuto|ooUser, omAuto, "UV-C Light", urFullControl);
+//    // initOutput(pinShower, ooAuto|ooUser, omAuto, "Shower");
 
-   // init input IO
+//    // init input IO
 
-   initInput(pinShowerSwitch, "Shower");
-   pullUpDnControl(pinShowerSwitch, PUD_UP);
+//    initInput(pinShowerSwitch, "Shower");
+//    pullUpDnControl(pinShowerSwitch, PUD_UP);
 
 //   if (gpio->setIsr(pinShowerSwitch, Gpio::edgeBoth, std::bind(&Daemon::onGpioChange, this, std::placeholders::_1, std::placeholders::_2)) != success)
 //      tell(eloAlways, "Error: Unable to setup ISR: %s", strerror(errno));
@@ -331,8 +323,8 @@ int HomeCtl::applyConfigurationSpecials()
    // special values
 
    addValueFact(spPhMinusDemand, "SP", 1, "PH Minus Bedarf", "ml");
-   addValueFact(spSolarPower, "SP", 1, "Solar Leistung", "W");
-   addValueFact(spSolarWork, "SP", 1, "Solar Energie (heute)", "kWh");
+   // addValueFact(spSolarPower, "SP", 1, "Solar Leistung", "W");
+   // addValueFact(spSolarWork, "SP", 1, "Solar Energie (heute)", "kWh");
 
    // uint outputModes {ooUser};
 
@@ -354,28 +346,27 @@ int HomeCtl::applyConfigurationSpecials()
 // Perform Jobs
 //***************************************************************************
 
-int HomeCtl::performJobs()
-{
-#ifdef _POOL
-   // check timed shower duration
+// int HomeCtl::performJobs()
+// {
+// #ifdef _POOL
+//    // check timed shower duration
 
-   if (sensors["DO"][pinShower].state && sensors["DO"][pinShower].mode == omAuto)
-   {
-      if (sensors["DO"][pinShower].last < time(0) - showerDuration)
-      {
-         tell(eloDebug, "Shower of after %ld seconds", time(0)-sensors["DO"][pinShower].last);
-         // sensors["DO"][pinShower].next = 0;
-         gpioWrite(pinShower, false, true);
-      }
-      else
-      {
-         // sensors["DO"][pinShower].next = sensors["DO"][pinShower].last + showerDuration;
-      }
-   }
-#endif
-
-   return done;
-}
+//    if (sensors["DO"][pinShower].state && sensors["DO"][pinShower].mode == omAuto)
+//    {
+//       if (sensors["DO"][pinShower].last < time(0) - showerDuration)
+//       {
+//          tell(eloDebug, "Shower of after %ld seconds", time(0)-sensors["DO"][pinShower].last);
+//          // sensors["DO"][pinShower].next = 0;
+//          gpioWrite(pinShower, false, true);
+//       }
+//       else
+//       {
+//          // sensors["DO"][pinShower].next = sensors["DO"][pinShower].last + showerDuration;
+//       }
+//    }
+// #endif
+//    return done;
+// }
 
 //***************************************************************************
 // Process
@@ -387,16 +378,16 @@ int HomeCtl::process(bool force, bool signal)
 
 #ifdef _POOL
 
-   static time_t lastDay {midnightOf(time(0))};
+   // static time_t lastDay {midnightOf(time(0))};
 
-   // tell(eloAlways, "Process ...");
+   // // tell(eloAlways, "Process ...");
 
-   if (lastDay != midnightOf(time(0)))
-   {
-      lastDay = midnightOf(time(0));
-      setSpecialValue(spSolarWork, 0.0);
-      setConfigItem("lastSolarWork", sensors["SP"][spSolarWork].value);
-   }
+   // if (lastDay != midnightOf(time(0)))
+   // {
+   //    lastDay = midnightOf(time(0));
+   //    setSpecialValue(spSolarWork, 0.0);
+   //    setConfigItem("lastSolarWork", sensors["SP"][spSolarWork].value);
+   // }
 
    // -----------
    // PH
@@ -407,27 +398,27 @@ int HomeCtl::process(bool force, bool signal)
       publishSpecialValue(spPhMinusDemand);
    }
 
-   // -----------
-   // Filter Pump
+   // // -----------
+   // // Filter Pump
 
-   if (sensors["DO"][pinFilterPump].mode == omAuto)
-   {
-      bool activate = isInTimeRange(&filterPumpTimes, time(0));
+   // if (sensors["DO"][pinFilterPump].mode == omAuto)
+   // {
+   //    bool activate = isInTimeRange(&filterPumpTimes, time(0));
 
-      if (sensors["DO"][pinFilterPump].state != activate)
-         gpioWrite(pinFilterPump, activate);
-   }
+   //    if (sensors["DO"][pinFilterPump].state != activate)
+   //       gpioWrite(pinFilterPump, activate);
+   // }
 
-   // -----------
-   // UV-C Light (only if Filter Pump is running)
+   // // -----------
+   // // UV-C Light (only if Filter Pump is running)
 
-   if (sensors["DO"][pinUVC].mode == omAuto)
-   {
-      bool activate = sensors["DO"][pinFilterPump].state && isInTimeRange(&uvcLightTimes, time(0));
+   // if (sensors["DO"][pinUVC].mode == omAuto)
+   // {
+   //    bool activate = sensors["DO"][pinFilterPump].state && isInTimeRange(&uvcLightTimes, time(0));
 
-      if (sensors["DO"][pinUVC].state != activate)
-         gpioWrite(pinUVC, activate);
-   }
+   //    if (sensors["DO"][pinUVC].state != activate)
+   //       gpioWrite(pinUVC, activate);
+   // }
 
    // -----------
    // Pool Light
@@ -495,7 +486,7 @@ int HomeCtl::process(bool force, bool signal)
 
 #endif // _POOL
 
-   logReport();
+   // logReport();
 
    return success;
 }
@@ -568,12 +559,12 @@ int HomeCtl::process(bool force, bool signal)
 
 void HomeCtl::phMeasurementActive()
 {
-   if (sensors["DO"][pinFilterPump].state && sensors["DO"][pinFilterPump].last < time(0)-minPumpTimeForPh)
-   {
-      sensors["AI"][aiPh].disabled = false;
-      sensors["SP"][spPhMinusDemand].disabled = false;
-   }
-   else
+   // if (sensors["DO"][pinFilterPump].state && sensors["DO"][pinFilterPump].last < time(0)-minPumpTimeForPh)
+   // {
+   //    sensors["AI"][aiPh].disabled = false;
+   //    sensors["SP"][spPhMinusDemand].disabled = false;
+   // }
+   // else
    {
       sensors["AI"][aiPh].disabled = true;
       sensors["SP"][spPhMinusDemand].disabled = true;

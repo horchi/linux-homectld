@@ -211,6 +211,10 @@ install-web:
 	@echo install web
 	(cd htdocs; $(MAKE) install)
 
+linstall-web:
+	@echo install web
+	(cd htdocs; $(MAKE) linstall)
+
 dist: clean
 	@-rm -rf $(TMPDIR)/$(ARCHIVE)
 	@mkdir $(TMPDIR)/$(ARCHIVE)

@@ -419,6 +419,7 @@ const char* bytesPretty(double bytes, int precision = 0);
 double usNow();
 bool isDST();
 int l2hhmm(time_t t);
+uint hh_mm2int(const char* str);
 time_t midnightOf(time_t t);
 const char* toWeekdayName(uint day);
 unsigned int getHostId();

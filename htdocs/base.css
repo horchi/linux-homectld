@@ -649,6 +649,58 @@ span > select
     border-radius: 5px;
 }
 
+/* Styling für die Zeitschaltuhr-Zeilen */
+
+#sensor-tabs-nav button.active-tab {
+   background-color: #444 !important; /* Dunklerer Hintergrund für den aktiven Zustand */
+   color: #fff !important;
+   border-color: #222 !important;
+   font-weight: bold;
+}
+
+#doTimerListContainer {
+   width: 100% !important;
+   display: block !important;
+   margin-top: 15px;
+}
+
+.do-timer-row {
+   display: flex !important;
+   align-items: center;
+   justify-content: flex-start; /* Linksbuendig ausrichten */
+   width: 100% !important;
+   margin-bottom: 10px;
+   box-sizing: border-box;
+}
+
+.do-timer-row span {
+   margin: 0 6px;
+   font-size: 14px;
+}
+
+.do-timer-input {
+   flex: 1; /* Lässt die Inputs wachsen */
+   max-width: 120px; /* Verhindert übermäßiges Strecken auf großen Bildschirmen */
+   min-width: 85px;  /* Mindestbreite für Smartphones */
+   padding: 4px 6px;
+   font-size: 14px;
+   border: 1px solid #ccc;
+   border-radius: 4px;
+}
+
+.do-timer-delete {
+   color: #cc0000;
+   cursor: pointer;
+   border: 1px solid #ffcccc;
+   background: #fff0f0;
+   padding: 4px 10px;
+   border-radius: 4px;
+   font-weight: bold;
+   margin-left: auto; /* Schiebt das rote X ganz nach rechts */
+}
+
+/* ---- */
+
 .help
 {
     cursor: pointer;

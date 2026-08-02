@@ -401,8 +401,10 @@ function getWidgetTitleClass(widget, fact)
 
    // #TODO move to configuration
 
-   if (!setupMode && widget.unit == '°C' && title.indexOf('BOILER') != -1)
+   if (!setupMode && widget.unit == '°C' && title.toLowerCase().includes('BOILER'))
       titleClass = 'mdi mdi-shower-head';
+   else if (!setupMode && title.toLowerCase().includes('zeit'))
+      titleClass = 'mdi mdi-timer-sand-complete';
    else if (!setupMode && widget.unit == '°C')
       titleClass = 'mdi mdi-thermometer';
    else if (!setupMode && (widget.unit == 'hPa' || widget.unit == 'A' || widget.unit == 'mA' ||
@@ -416,6 +418,9 @@ function getWidgetTitleClass(widget, fact)
       titleClass = 'mdi mdi-label-percent-outline';
    else if (!setupMode && widget.unit == 'l')
       titleClass = 'mdi mdi-water';
+   else if (widget && widget.symbol) {
+      titleClass = widget.symbol.replace(':', ' ');
+   }
 
    return titleClass;
 }
@@ -535,7 +540,7 @@ function initWidget(key, widget, fact)
    if (!widget.color)
       widget.color = 'white';
 
-   $(document).on({'mouseup touchend' : function(e){
+   $(document).on({'mouseup touchend' : function(e) {
       if (!mouseDownOn.object)
          return;
       e.preventDefault();
@@ -547,7 +552,7 @@ function initWidget(key, widget, fact)
       mouseDownOn = { 'object' : null };
    }});
 
-   $(document).on({'mousemove touchmove' : function(e){
+   $(document).on({'mousemove touchmove' : function(e) {
       if (!mouseDownOn.object)
          return;
       e.preventDefault();
@@ -827,8 +832,8 @@ function initWidget(key, widget, fact)
          $(elem)
             .addClass("widgetSymbolValue widgetDropZone")
             .append($('<div></div>')
-                    .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
-                    .addClass(titleClass)
+                    .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : titleClass))
+                    // .addClass(titleClass)
                     .click(function(event) {titleClick(event.ctrlKey, key);})
                     .css('user-select', 'none')
                     .html(title))
@@ -1469,7 +1474,7 @@ function titleClick(ctrlKey, key)
    let widget = dashboards[actDashboard].widgets[key];
    let hasMode = fact && fact.outputModes == 3 //  -> ooUser and ooAuto are set
 
-   console.log("titleClick: ", ctrlKey, key, "fact.outputModes", fact.outputModes);
+   console.log("titleClick: ", ctrlKey, key, "fact.outputModes", fact ? fact.outputModes : "-");
 
    if (setupMode) {
       widgetSetup(key);

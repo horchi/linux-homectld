@@ -1,0 +1,38 @@
+
+usage: weewx.py [-h] [-i [I]] [-m [M]] [-p [P]] [-v [V]] [-l] [-T [T]] [-t [T]] [-u [U]] [-s]
+
+options:
+  -h, --help  show this help message and exit
+  -i [I]      Interval [seconds] (default 60)
+  -m [M]      MQTT host
+  -p [P]      MQTT port
+  -v [V]      Verbosity level (0-3) (default 0)
+  -l          Log to syslog (default console)
+  -T [T]      MQTT topic
+  -t [T]      Sensor type string
+  -u [U]      WeeWX URL
+  -s          Show current status and exit
+
+
+# Configuration for homectld WeeWX MQTT Daemon
+
+# MQTT Broker Connection (-m host -p port)
+WEEWX_MQTT="-m localhost -p 1883"
+
+# Target MQTT Topic (-T)
+WEEWX_TOPIC="-T homectld2mqtt/weewx"
+
+# Sensor type string (-t)
+WEEWX_TYPE="-t WEEWX"
+
+# WeeWX HTML URL (-u)
+WEEWX_URL="-u https://wsce.de/Wetter/weewx/index.html"
+
+# Fetch Interval in seconds (-i)
+WEEWX_INTERVAL="-i 60"
+
+# Verbosity Level (-v 0-3)
+WEEWX_LOG_LEVEL="-v 0"
+
+# Additional Options (e.g. -l for syslog output)
+WEEWX_OPTS="-l"

@@ -1,0 +1,18 @@
+[Unit]
+
+Description=homectld WSCG MQTT Daemon
+After=network-online.target mosquitto.service
+Wants=network-online.target
+
+[Service]
+
+Type=simple
+EnvironmentFile=/etc/default/weewxmqtt
+ExecStart=<BINDEST>/weewxmqtt.py $WEEWX_MQTT $WEEWX_TOPIC $WEEWX_TYPE $WEEWX_URL $WEEWX_OPTS $WEEWX_LOG_LEVEL $WEEWX_INTERVAL
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+
+WantedBy=multi-user.target

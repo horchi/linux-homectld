@@ -279,7 +279,7 @@ int W1::update()
    if (count)
       mqttW1Writer->writeRetained(mqttTopic.c_str(), p);
    else
-      mqttW1Writer->write(mqttPingTopic.c_str(), "{\"ping\" : true, \"sender\" : \"" TARGET "\"}");
+      mqttW1Writer->write(mqttPingTopic.c_str(), "{\"ping\" : true, \"sender\" : \"" INSTANCE "\"}");
 
    free(p);
    tell(eloInfo, " ... done");
@@ -344,7 +344,7 @@ int main(int argc, char** argv)
    bool nofork {false};
    int _stdout {na};
    W1* job {};
-   const char* topic {TARGET "2mqtt/w1"};
+   const char* topic {INSTANCE "2mqtt/w1"};
    Eloquence _eloquence {eloAlways};
    const char* url {"tcp://localhost:1883"};
 

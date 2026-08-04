@@ -569,7 +569,7 @@ void showUsage(const char* bin)
    printf("     -s              show and exit\n");
    printf("     -i <interval>   interval [s] (default 60)\n");
    printf("     -u <url>        MQTT url (default tcp://localhost:1883)\n");
-   printf("     -T <topic>      MQTT topic (default " TARGET "2mqtt/bms)\n");
+   printf("     -T <topic>      MQTT topic (default " INSTANCE "2mqtt/bms)\n");
    printf("     -n              Don't fork in background\n");
 }
 
@@ -581,7 +581,7 @@ int main(int argc, char** argv)
 {
    bool nofork {false};
    int _stdout {na};
-   const char* mqttTopic {TARGET "2mqtt/bms"};
+   const char* mqttTopic {INSTANCE "2mqtt/bms"};
    const char* mqttUrl {"tcp://localhost:1883"};
    const char* device {"/dev/ttyBms"};
    bool showMode {false};

@@ -131,13 +131,13 @@ int Daemon::mqttHaPublishSensor(SensorData& sensor, bool forceConfig)
          if (iot == iotLight)
          {
             char* cmdTopic {};
-            asprintf(&cmdTopic, TARGET "2mqtt/light/%s/set", sName.c_str());
+            asprintf(&cmdTopic, INSTANCE "2mqtt/light/%s/set", sName.c_str());
 
             asprintf(&configJson, "{"
                      "\"state_topic\"         : \"%s\","
                      "\"command_topic\"       : \"%s\","
                      "\"name\"                : \"%s %s\","
-                     "\"unique_id\"           : \"%s_" TARGET "2mqtt\","
+                     "\"unique_id\"           : \"%s_" INSTANCE "2mqtt\","
                      "\"schema\"              : \"json\","
                      "\"brightness\"          : \"false\""
                      "}",
@@ -153,7 +153,7 @@ int Daemon::mqttHaPublishSensor(SensorData& sensor, bool forceConfig)
                      "\"unit_of_measurement\" : \"%s\","
                      "\"value_template\"      : \"{{ value_json.value }}\","
                      "\"name\"                : \"%s %s\","
-                     "\"unique_id\"           : \"%s_" TARGET "2mqtt\""
+                     "\"unique_id\"           : \"%s_" INSTANCE "2mqtt\""
                      "}",
                      sDataTopic.c_str(), sensor.unit.c_str(), sensor.title.c_str(), myTitle(), sName.c_str());
          }
@@ -324,7 +324,7 @@ int Daemon::mqttDisconnect()
 
 int Daemon::mqttCheckConnection()
 {
-   const char* mqttPingTopic = TARGET "2mqtt/ping";
+   const char* mqttPingTopic = INSTANCE "2mqtt/ping";
    static time_t lastMqttPing {0};
 
    if (mqttUrl.empty())
@@ -341,7 +341,7 @@ int Daemon::mqttCheckConnection()
       if (lastMqttPing < time(0)-30)
       {
          lastMqttPing = time(0);
-         mqttWriter->write(mqttPingTopic, "{\"ping\" : true, \"sender\" : \"" TARGET "\"}");
+         mqttWriter->write(mqttPingTopic, "{\"ping\" : true, \"sender\" : \"" INSTANCE "\"}");
       }
 
       return success;
@@ -437,9 +437,9 @@ int Daemon::mqttNodeRedPublishAction(SensorData& sensor, double value, bool publ
 
    char* message = json_dumps(oJson, JSON_REAL_PRECISION(4));
    json_decref(oJson);
-   tell(eloNodeRed, "-> (node-red) (%s) [%s]", TARGET "2mqtt/changes", message);
+   tell(eloNodeRed, "-> (node-red) (%s) [%s]", INSTANCE "2mqtt/changes", message);
 
-   int status = mqttWriter->write(TARGET "2mqtt/changes", message);
+   int status = mqttWriter->write(INSTANCE "2mqtt/changes", message);
    free(message);
 
    return status;

@@ -1,10 +1,13 @@
 
-#  Options
+#Usage: w1mqtt <command> [-l <log-level>] [-d <device>]
+#  options:
 #     -u <url>        MQTT url
 #     -T <topic>      MQTT topic
+#     -m <value>      minimum value to be recorded (optional)
+#     -M <value>      maximum value to be recorded (optional)
 #     -c <count>      <count> of expected W1 sensors (optional)
-#                      if not <count> sensors present and <power pin> is configured
-#                      power line will be reset once per interval (optional)
+#                       if not <count> sensors present and <power pin> is configured
+#                       power line will be reset once per interval (optional)
 #     -p <GPIO pin>   physical number of GPIO pin of W1 power supply (optional)
 #     -l <eloquence>  set eloquence
 #     -n              don't demonize (optional)

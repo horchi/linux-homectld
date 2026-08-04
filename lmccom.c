@@ -1000,6 +1000,8 @@ int LmcCom::checkNotify(uint64_t timeout)
    int status {wrnNoEventPending};
    static time_t checkPlayersNext {time(0)};
    static time_t resyncCheckNext {0};
+   static time_t notifyStartedAt {0};
+   static int notifyRetryDelay {0};
 
    // check if 'my' player is connected
 
@@ -1025,7 +1027,10 @@ int LmcCom::checkNotify(uint64_t timeout)
          if (notify && !myPlayerConnected)
             stopNotify();
          else if (!notify && myPlayerConnected && startNotify() == success)
+         {
+            notifyStartedAt = time(0);
             status = success;   // force refresh, events during the gap are lost
+         }
       }
    }
 
@@ -1070,14 +1075,24 @@ int LmcCom::checkNotify(uint64_t timeout)
       //   check above. Don't call stopNotify() here, sending 'listen 0' into a
       //   dead socket would raise SIGPIPE
 
-      tell(eloAlways, "[LMC] Lost notification channel (%d), reconnecting", res);
+      // a channel that was up long enough counts as healthy, retry at once.
+      //   one dying right after opening gets an exponential backoff, we must not
+      //   hammer the server
+
+      if (notifyStartedAt && time(0) - notifyStartedAt >= tmoNotifyStable)
+         notifyRetryDelay = 0;
+      else
+         notifyRetryDelay = notifyRetryDelay ? std::min(notifyRetryDelay * 2, (int)tmoNotifyRetryMax) : 1;
+
+      tell(eloAlways, "[LMC] Lost notification channel (%d), reconnecting in %d seconds", res, notifyRetryDelay);
 
       notify->close();
       delete notify;
       notify = nullptr;
+      notifyStartedAt = 0;
 
-      checkPlayersNext = 0;   // recheck player on next call to reopen at once
-      status = success;       // and refresh, we may have missed events
+      checkPlayersNext = time(0) + notifyRetryDelay;
+      status = success;       // refresh, we may have missed events
    }
 
    // fallback resync - a notification we never got must not freeze the state forever

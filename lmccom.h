@@ -100,8 +100,10 @@ class LmcCom : public TcpChannel
       enum Misc
       {
          sizeMaxCommand = 100,
-         tmoResync = 60,        // [s] without state update forcing a resync
-         tmoResyncCheck = 15    // [s] between resync checks
+         tmoResync = 60,          // [s] without state update forcing a resync
+         tmoResyncCheck = 15,     // [s] between resync checks
+         tmoNotifyStable = 30,    // [s] uptime after which notify counts as healthy
+         tmoNotifyRetryMax = 60   // [s] max backoff between notify reconnects
       };
 
       enum Results

@@ -53,10 +53,19 @@ function initSensorSetup()
 
    prepareSetupMenu();
 
-   if (activeSection == '') {
-      activeSection = 'io' + valueTypes[0].title.replace(/\s+/g, '');
-      activeSection = CSS.escape(activeSection);
-   }
+   // die zuletzt gewählte Sensor Kategorie wiederherstellen,
+   //   sofern dieser Typ (noch) existiert
+
+   if (activeSection == '')
+      activeSection = localStorage.getItem(storagePrefix + 'activeIoSection');
+
+   let sections = [];
+
+   for (var i = 0; i < valueTypes.length; i++)
+      sections.push(CSS.escape('io' + valueTypes[i].title.replace(/\s+/g, '')));
+
+   if (!sections.includes(activeSection))
+      activeSection = sections.length ? sections[0] : '';
 
    $("#controlContainer")
       .empty()
@@ -183,6 +192,9 @@ function showTable(section)
    $('#ioSetupContainer').removeClass('hidden');
 
    activeSection = section;
+
+   if (activeSection)
+      localStorage.setItem(storagePrefix + 'activeIoSection', activeSection);
 
    $('button[id^="btn_io"]').each(function () {
       $(this).css('background-color', '');

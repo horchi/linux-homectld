@@ -999,6 +999,7 @@ int LmcCom::checkNotify(uint64_t timeout)
    char buf[1000+TB] {};
    int status {wrnNoEventPending};
    static time_t checkPlayersNext {time(0)};
+   static time_t resyncCheckNext {0};
 
    // check if 'my' player is connected
 
@@ -1023,8 +1024,8 @@ int LmcCom::checkNotify(uint64_t timeout)
 
          if (notify && !myPlayerConnected)
             stopNotify();
-         else if (!notify && myPlayerConnected)
-            startNotify();
+         else if (!notify && myPlayerConnected && startNotify() == success)
+            status = success;   // force refresh, events during the gap are lost
       }
    }
 
@@ -1036,7 +1037,9 @@ int LmcCom::checkNotify(uint64_t timeout)
       return fail;
    }
 
-   while (notify->look(timeout) == success)
+   int res {success};
+
+   while ((res = notify->look(timeout)) == success)
    {
       if (notify->read(buf, 1000, yes) == success)
       {
@@ -1053,6 +1056,41 @@ int LmcCom::checkNotify(uint64_t timeout)
             metaDataChanged = true;
             status = success;
          }
+      }
+   }
+
+   if (res != wrnNoEventPending && res != wrnSysInterrupt && res != wrnNoDataAvaileble)
+   {
+      // notification channel is broken - drop it, it gets reopened by the player
+      //   check above. Don't call stopNotify() here, sending 'listen 0' into a
+      //   dead socket would raise SIGPIPE
+
+      tell(eloAlways, "[LMC] Lost notification channel (%d), reconnecting", res);
+
+      notify->close();
+      delete notify;
+      notify = nullptr;
+
+      checkPlayersNext = 0;   // recheck player on next call to reopen at once
+      status = success;       // and refresh, we may have missed events
+   }
+
+   // fallback resync - a notification we never got must not freeze the state forever
+
+   if (status != success && time(0) >= resyncCheckNext)
+   {
+      resyncCheckNext = time(0) + tmoResyncCheck;
+
+      if (!playerState.updatedAt)
+      {
+         tell(eloLmc, "[LMC] State not initialized, forcing resync");
+         status = success;
+      }
+      else if (cTimeMs::Now() - playerState.updatedAt >= tmoResync * 1000ul)
+      {
+         tell(eloLmc, "[LMC] Last state update %lu seconds ago, forcing resync",
+              (unsigned long)((cTimeMs::Now() - playerState.updatedAt) / 1000));
+         status = success;
       }
    }
 

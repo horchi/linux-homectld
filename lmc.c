@@ -516,9 +516,9 @@ int Daemon::performLmcAction(json_t* oObject, long client)
    else if (action == "stop")
       lmc->restQuery(action);
    else if (action == "prevTrack")
-      lmc->restQuery("playlist", {"index", "+1"});
-   else if (action == "nextTrack")
       lmc->restQuery("playlist", {"index", "-1"});
+   else if (action == "nextTrack")
+      lmc->restQuery("playlist", {"index", "+1"});
    else if (action == "repeat")
       lmc->restQuery("playlist", {"repeat"});
    else if (action == "shuffle")

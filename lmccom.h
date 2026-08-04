@@ -158,6 +158,13 @@ class LmcCom : public TcpChannel
 
       TrackInfo* getCurrentTrack()
       {
+         // match by the track's own playlist index instead of its position in the
+         //   vector - playlist_loop is not guaranteed to start at index 0
+
+         for (auto& track : tracks)
+            if (track.index == playerState.plIndex)
+               return &track;
+
          if (playerState.plIndex >= 0 && playerState.plIndex < (int)tracks.size())
             return &tracks.at(playerState.plIndex);
 

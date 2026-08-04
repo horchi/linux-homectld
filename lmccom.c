@@ -97,6 +97,30 @@ int LmcCom::open(const char* aHost, unsigned short aPort)
 }
 
 //***************************************************************************
+// Get Number From Json
+//   LMS is inconsistent about numbers, depending on version and field they come
+//   as JSON number or as string. json_integer_value() yields 0 for a string and
+//   json_string_value() yields nullptr for a number, so getIntFromJson() as well
+//   as getStringFromJson() fail _silently_ on the other form
+//***************************************************************************
+
+static int getNumberFromJson(json_t* obj, const char* name, int def = 0)
+{
+   json_t* o {obj ? json_object_get(obj, name) : nullptr};
+
+   if (!o)
+      return def;
+
+   if (json_is_string(o))
+      return atoi(json_string_value(o));
+
+   if (json_is_number(o))
+      return (int)json_number_value(o);
+
+   return def;
+}
+
+//***************************************************************************
 // Update Current Playlist
 //***************************************************************************
 
@@ -226,7 +250,7 @@ int LmcCom::update(int stateOnly)
    playerState.updatedAt = cTimeMs::Now();
    playerState.trackTime = getDoubleFromJson(jResult, "time");
    playerState.volume = getIntFromJson(jResult, "mixer volume");
-   playerState.plIndex  = atoi(getStringFromJson(jResult, "playlist_cur_index", "0"));
+   playerState.plIndex  = getNumberFromJson(jResult, "playlist_cur_index");
    playerState.plShuffle = getIntFromJson(jResult, "playlist shuffle");
    playerState.plRepeat = getIntFromJson(jResult, "playlist repeat");
 
@@ -251,11 +275,11 @@ int LmcCom::update(int stateOnly)
       t = {};
 
       t.updatedAt = cTimeMs::Now();
-      t.index = getIntFromJson(jItem, "playlist index");
-      t.id = getIntFromJson(jItem, "id");
+      t.index = getNumberFromJson(jItem, "playlist index", na);
+      t.id = getNumberFromJson(jItem, "id");
       t.year = getStringFromJson(jItem, "year", "");
       t.duration = getDoubleFromJson(jItem, "duration");
-      t.remote = atoi(getStringFromJson(jItem, "remote", "0"));
+      t.remote = getNumberFromJson(jItem, "remote");
       t.bitrate = atoi(getStringFromJson(jItem, "bitrate", "0"));
 
       t.title = getStringFromJson(jItem, "title", "");

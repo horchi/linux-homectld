@@ -97,17 +97,17 @@ int LmcCom::open(const char* aHost, unsigned short aPort)
 }
 
 //***************************************************************************
-// Get Number From Json
-//   LMS is inconsistent about numbers, depending on version and field they come
-//   as JSON number or as string. json_integer_value() yields 0 for a string and
-//   json_string_value() yields nullptr for a number, so getIntFromJson() as well
-//   as getStringFromJson() fail _silently_ on the other form
+// Type Tolerant Json Access
+//   LMS is written in perl and serializes via JSON::XS, which picks the JSON type
+//   from the internal flags of the perl scalar. Whether a value arrives as number
+//   or as string therefore depends on what the perl code did with it before - the
+//   same field can change its form between two responses.
+//   The strict helpers fail _silently_ on the other form: json_integer_value()
+//   yields 0 for a string, json_string_value() yields nullptr for a number.
 //***************************************************************************
 
-static int getNumberFromJson(json_t* obj, const char* name, int def = 0)
+static int jsonToInt(json_t* o, int def)
 {
-   json_t* o {obj ? json_object_get(obj, name) : nullptr};
-
    if (!o)
       return def;
 
@@ -118,6 +118,57 @@ static int getNumberFromJson(json_t* obj, const char* name, int def = 0)
       return (int)json_number_value(o);
 
    return def;
+}
+
+static double jsonToDouble(json_t* o, double def)
+{
+   if (!o)
+      return def;
+
+   if (json_is_string(o))
+      return atof(json_string_value(o));
+
+   if (json_is_number(o))
+      return json_number_value(o);
+
+   return def;
+}
+
+static std::string jsonToString(json_t* o, const char* def)
+{
+   if (!o)
+      return def;
+
+   if (json_is_string(o))
+      return json_string_value(o);
+
+   if (json_is_integer(o))
+      return std::to_string(json_integer_value(o));
+
+   if (json_is_number(o))
+      return std::to_string((long long)json_number_value(o));
+
+   return def;
+}
+
+static int getNumberFromJson(json_t* obj, const char* name, int def = 0)
+{
+   return jsonToInt(obj ? json_object_get(obj, name) : nullptr, def);
+}
+
+static double getRealFromJson(json_t* obj, const char* name, double def = 0.0)
+{
+   return jsonToDouble(obj ? json_object_get(obj, name) : nullptr, def);
+}
+
+static std::string getTextFromJson(json_t* obj, const char* name, const char* def = "")
+{
+   return jsonToString(obj ? json_object_get(obj, name) : nullptr, def);
+}
+
+static int getNumberByPath(json_t* obj, const char* path, int def = 0)
+{
+   return jsonToInt(obj ? getObjectByPath(obj, path) : nullptr, def);
 }
 
 //***************************************************************************
@@ -168,7 +219,7 @@ int LmcCom::update(int stateOnly)
    if (restQuery("mixer", {"muting", "?"}) == success)
    {
       json_t* jResult {getRestResult()};
-      playerState.muted = atoi(getStringByPath(jResult, "result/_muting", "0"));
+      playerState.muted = getNumberByPath(jResult, "result/_muting");
       json_decref(jResult);
    }
 
@@ -176,7 +227,7 @@ int LmcCom::update(int stateOnly)
       return fail;
 
    json_t* jResult {getRestResult()};
-   int count = getIntByPath(jResult, "result/_tracks", 0);
+   int count = getNumberByPath(jResult, "result/_tracks");
    json_decref(jResult);
 
    if (!stateOnly)
@@ -248,11 +299,11 @@ int LmcCom::update(int stateOnly)
    jResult = getObjectFromJson(jData, "result");
 
    playerState.updatedAt = cTimeMs::Now();
-   playerState.trackTime = getDoubleFromJson(jResult, "time");
-   playerState.volume = getIntFromJson(jResult, "mixer volume");
+   playerState.trackTime = getRealFromJson(jResult, "time");
+   playerState.volume = getNumberFromJson(jResult, "mixer volume");
    playerState.plIndex  = getNumberFromJson(jResult, "playlist_cur_index");
-   playerState.plShuffle = getIntFromJson(jResult, "playlist shuffle");
-   playerState.plRepeat = getIntFromJson(jResult, "playlist repeat");
+   playerState.plShuffle = getNumberFromJson(jResult, "playlist shuffle");
+   playerState.plRepeat = getNumberFromJson(jResult, "playlist repeat");
 
    playerState.mode =  getStringFromJson(jResult, "mode", "");
    playerState.plName = getStringFromJson(jResult, "player_name", "");
@@ -277,8 +328,8 @@ int LmcCom::update(int stateOnly)
       t.updatedAt = cTimeMs::Now();
       t.index = getNumberFromJson(jItem, "playlist index", na);
       t.id = getNumberFromJson(jItem, "id");
-      t.year = getStringFromJson(jItem, "year", "");
-      t.duration = getDoubleFromJson(jItem, "duration");
+      t.year = getTextFromJson(jItem, "year");
+      t.duration = getRealFromJson(jItem, "duration");
       t.remote = getNumberFromJson(jItem, "remote");
       t.bitrate = atoi(getStringFromJson(jItem, "bitrate", "0"));
 
@@ -288,7 +339,7 @@ int LmcCom::update(int stateOnly)
       t.artworkTrackId = getStringFromJson(jItem, "artwork_track_id", "");
       t.artworkUrl = getStringFromJson(jItem, "artwork_url", "");
       t.album = getStringFromJson(jItem, "album", "");
-      t.remoteTitle = getStringFromJson(jItem, "remote", "");
+      t.remoteTitle = getStringFromJson(jItem, "remote_title", "");   // radio station / stream title
       t.contentType = getStringFromJson(jItem, "type", "");
       t.file = getStringFromJson(jItem, "url", "");
 

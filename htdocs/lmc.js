@@ -35,6 +35,13 @@ function initLmc()
                                       .attr('id', 'lmcCurrentArtist')
                                       .addClass('lmcCurrentArtist'))
                               .append($('<div></div>')
+                                      .attr('id', 'lmcDivCurrentRemoteTitle')
+                                      .css('margin-top', '8px')
+                                      .append($('<span></span>')
+                                              .html('Station: '))
+                                      .append($('<span></span>')
+                                              .attr('id', 'lmcCurrentRemoteTitle')))
+                              .append($('<div></div>')
                                       .attr('id', 'lmcDivCurrentAlbum')
                                       .css('margin-top', '8px')
                                       .append($('<span></span>')
@@ -218,6 +225,18 @@ function updateLmc()
 
    $('#lmcCurrentArtist').html(lmcData.current.artist);
    $('#lmcCurrentTitle').html(lmcData.current.title);
+
+   // radio/stream station name. Hide it when the stream delivers no song metadata,
+   //   LMS then reports the station in 'title' as well
+
+   let station = lmcData.current.remoteTitle || '';
+
+   if (station == lmcData.current.title)
+      station = '';
+
+   $('#lmcDivCurrentRemoteTitle').css('display', station != '' ? '' : 'none');
+   $('#lmcCurrentRemoteTitle').html(station);
+
    $('#lmcDivCurrentAlbum').css('display', lmcData.current.album != '' ? '' : 'none');
    $('#lmcCurrentAlbum').html(lmcData.current.album);
    $('#infoVolume').html(lmcData.state.volume + '%');

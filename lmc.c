@@ -113,6 +113,7 @@ int Daemon::lmcTrack2Json(json_t* obj, TrackInfo* track)
 
    json_object_set_new(current, "title", json_string(track->title.c_str()));
    json_object_set_new(current, "artist", json_string(track->artist.c_str()));
+   json_object_set_new(current, "remoteTitle", json_string(track->remoteTitle.c_str()));
    json_object_set_new(current, "genre", json_string(track->genre.c_str()));
    json_object_set_new(current, "album", json_string(track->album.c_str()));
 

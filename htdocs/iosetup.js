@@ -48,8 +48,7 @@ function initSensorSetup()
    changes = false;
    hideProgressDialog();
 
-   $('#controlContainer').removeClass('hidden');
-   $('#controlToggle').removeClass('hidden');
+   showControlContainer();
    $('#container').removeClass('hidden');
 
    prepareSetupMenu();

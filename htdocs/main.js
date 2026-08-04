@@ -90,7 +90,9 @@ $('document').ready(function() {
       actDashboardIndex = localStorage.getItem(storagePrefix + 'actDashboardIndex');
    }
 
-   controlContainerCollapsed = localStorage.getItem(storagePrefix + 'controlContainerCollapsed');
+   lastSetupPage = localStorage.getItem(storagePrefix + 'lastSetupPage');
+   lastSetupAction = localStorage.getItem(storagePrefix + 'lastSetupAction');
+   controlContainerCollapsed = localStorage.getItem(storagePrefix + 'controlContainerCollapsed') == 'true';
    console.log("actDashboard: " + actDashboard);
    console.log("currentPage: " + currentPage);
    console.log("startPage: " + startPage);
@@ -689,16 +691,30 @@ function dispatchMessage(message)
    // console.log("event: " + event + " dispatched");
 }
 
+function storeSetupPage(page, action)
+{
+   if (setupPages.indexOf(page) < 0)
+      return;
+
+   lastSetupPage = page;
+   lastSetupAction = action;
+
+   localStorage.setItem(storagePrefix + 'lastSetupPage', lastSetupPage);
+
+   if (lastSetupAction)
+      localStorage.setItem(storagePrefix + 'lastSetupAction', lastSetupAction);
+   else
+      localStorage.removeItem(storagePrefix + 'lastSetupAction');
+}
+
 function addSetupMenuButton(title, page, action = null)
 {
    $("#setupMenu")
       .append($('<button></button>')
-              .addClass('rounded-border button2')
+              .addClass('rounded-border button2' + (page == currentPage && action == lastSetupAction ? ' active' : ''))
               .html(title)
               .click(function() {
-                 lastSetupPage = page;
-                 lastSetupAction = action;
-                 mainMenuSel(page, action);
+                 mainMenuSel(page, action, false);    // explizite Auswahl -> kein Recover
               }));
 }
 
@@ -795,12 +811,7 @@ function prepareSetupMenu()
       }
    }
 
-   if (!$("#controlContainer").hasClass("hidden")) {
-      if (controlContainerCollapsed)
-         $("#controlContainer").addClass('ctrl-collapsed');
-      else
-         $("#controlContainer").removeClass('ctrl-collapsed');
-   }
+   applyControlContainerState();
 }
 
 function updateFooter()
@@ -847,12 +858,23 @@ function openMenuBurger()
    });
 }
 
-function mainMenuSel(what, action = null)
+function mainMenuSel(what, action = null, recoverSetupPage = true)
 {
    $("#burgerPopup").dialog("close");
 
    let lastPage = currentPage;
+
+   // beim Wechsel ins Setup (Hauptmenü) bzw. beim Wiederherstellen nach einem
+   //   Reload die zuletzt besuchte Setup Seite inkl. deren Action einsetzen
+
+   if (recoverSetupPage && lastSetupPage && setupPages.indexOf(what) > -1 &&
+       (what == 'setup' || what == lastSetupPage)) {
+      what = lastSetupPage;
+      action = lastSetupAction;
+   }
+
    currentPage = what;
+   storeSetupPage(currentPage, action);
    localStorage.setItem(storagePrefix + 'startPage', currentPage);
    hideAllContainer();
    schemaEditActive = false;
@@ -889,11 +911,6 @@ function mainMenuSel(what, action = null)
 
    if (currentPage != "vdr")
       socket.send({ "event" : "pagechange", "object" : { "page"  : currentPage }});
-
-   if (lastSetupPage && setupPages.indexOf(currentPage) > -1) {
-      currentPage = lastSetupPage;
-      action = lastSetupAction;
-   }
 
    // dispatch
 
@@ -1007,8 +1024,7 @@ function initLogin()
 
 function showSyslog(log)
 {
-   $('#controlContainer').removeClass('hidden');
-   $('#controlToggle').removeClass('hidden');
+   showControlContainer();
    $('#container').removeClass('hidden');
 
    prepareSetupMenu();
@@ -1130,8 +1146,7 @@ function showWifiList()
 {
    // console.log("WifiList: " + JSON.stringify(wifis, undefined, 2));
 
-   $('#controlContainer').removeClass('hidden');
-   $('#controlToggle').removeClass('hidden');
+   showControlContainer();
    $('#container').removeClass('hidden');
    $('#container').html('<div id="systemContainer"></div>');
 
@@ -1277,8 +1292,7 @@ function showSystemServicesList()
 {
    // console.log("SystemServices: " + JSON.stringify(systemServices, undefined, 2));
 
-   $('#controlContainer').removeClass('hidden');
-   $('#controlToggle').removeClass('hidden');
+   showControlContainer();
    $('#container').removeClass('hidden');
    $('#container').html('<div id="systemContainer"></div>');
 
@@ -1527,7 +1541,7 @@ function doLogout()
 function hideAllContainer()
 {
    $('#dashboardMenu').addClass('hidden');
-   $('#controlContainer').addClass('hidden').removeClass('ctrl-collapsed');
+   $('#controlContainer').addClass('hidden');    // ctrl-collapsed bleibt, sonst geht der Zustand verloren
    $('#controlToggle').addClass('hidden');
    $('#container').addClass('hidden');
    $('#mapcontainer').addClass('hidden');
@@ -1536,11 +1550,25 @@ function hideAllContainer()
    $("#mapcontainer").swipe("disable");
 }
 
+// das Control Panel (inkl. Toggle) einblenden und den gemerkten Zustand anwenden
+
+function showControlContainer()
+{
+   $('#controlContainer').removeClass('hidden');
+   $('#controlToggle').removeClass('hidden');
+   applyControlContainerState();
+}
+
+function applyControlContainerState()
+{
+   $('#controlContainer').toggleClass('ctrl-collapsed', controlContainerCollapsed);
+}
+
 function toggleControlPanel()
 {
-   $('#controlContainer').toggleClass('ctrl-collapsed');
-   controlContainerCollapsed = $("#controlContainer").hasClass("ctrl-collapsed");
+   controlContainerCollapsed = !controlContainerCollapsed;
    localStorage.setItem(storagePrefix + 'controlContainerCollapsed', controlContainerCollapsed);
+   applyControlContainerState();
 }
 
 // ---------------------------------

@@ -312,6 +312,12 @@ button:focus {
     background-color: var(--neutral3);
 }
 
+.button2.active
+{
+    background-color: slategray;
+    font-weight: bold;
+}
+
 .buttonOptions
 {
     display: inline;

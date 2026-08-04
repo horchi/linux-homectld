@@ -20,12 +20,25 @@ function initConfig(configdetails = null)
    if (configdetails)
       theConfigdetails = configdetails;
 
-   $('#controlContainer').removeClass('hidden');
-   $('#controlToggle').removeClass('hidden');
+   showControlContainer();
    $('#container').removeClass('hidden');
    $('#container').empty();
 
    prepareSetupMenu();
+
+   // die zuletzt gewählte Kategorie wiederherstellen, sofern sie (noch) existiert
+
+   let categories = [];
+
+   for (var i = 0; i < theConfigdetails.length; i++)
+      if (!categories.includes(theConfigdetails[i].category))
+         categories.push(theConfigdetails[i].category);
+
+   if (setupCategory == '')
+      setupCategory = localStorage.getItem(storagePrefix + 'setupCategory');
+
+   if (!categories.includes(setupCategory))
+      setupCategory = categories.length ? categories[0] : '';
 
    $("#controlContainer")
       .empty()
@@ -53,15 +66,13 @@ function initConfig(configdetails = null)
       let choiceSel = null;
 
       if (lastCat != item.category) {
-         if (setupCategory == '')
-            setupCategory = item.category;
-
          $("#controlContainer").append($('<div></div>')
                                        .append($('<button></button>')
                                                .addClass('rounded-border tool-button')
                                                .css('background-color', setupCategory == item.category ? 'slategray' : '')
                                                .click(function(event) {
-                                                  setupCategory = $(this).html();
+                                                  setupCategory = item.category;
+                                                  localStorage.setItem(storagePrefix + 'setupCategory', setupCategory);
                                                   initConfig(theConfigdetails);
                                                })
                                                .html(item.category)));

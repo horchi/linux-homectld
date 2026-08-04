@@ -1052,7 +1052,7 @@ int main(int argc, char** argv)
    bool showMode {false};
    bool scanMode {false};
 
-   const char* mqttTopic {TARGET "2mqtt/i2c"};
+   const char* mqttTopic {INSTANCE "2mqtt/i2c"};
    const char* mqttUrl {"tcp://localhost:1883"};
    const char* device {"/dev/i2c-0"};
    int interval {60};

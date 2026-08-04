@@ -72,8 +72,8 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "mqttUrl",                   ctString,  "tcp://localhost:1883", false, "MQTT", "MQTT Broker Url", "URL der MQTT Instanz Beispiel: 'tcp://127.0.0.1:1883'" },
    { "mqttUser",                  ctString,  "",                     false, "MQTT", "User", "" },
    { "mqttPassword",              ctString,  "",                     false, "MQTT", "Password", "" },
-   { "mqttSensorTopics",          ctText,    TARGET "2mqtt/w1/#",    false, "MQTT", "Zusätzliche sensor Topics", "Diese Topics werden gelesen und als Sensor Daten verwendet (Komma getrennte Liste)" },
-   { "arduinoTopic",              ctString,  TARGET "2mqtt/arduino", false, "MQTT", "MQTT Topic des Arduino Interface", "" },
+   { "mqttSensorTopics",          ctText,    INSTANCE "2mqtt/w1/#",    false, "MQTT", "Zusätzliche sensor Topics", "Diese Topics werden gelesen und als Sensor Daten verwendet (Komma getrennte Liste)" },
+   { "arduinoTopic",              ctString,  INSTANCE "2mqtt/arduino", false, "MQTT", "MQTT Topic des Arduino Interface", "" },
    { "arduinoInterval",           ctInteger, "10",                   false, "MQTT", "Intervall der Arduino Messungen", "[s]" },
 
    // Home Automation MQTT interface

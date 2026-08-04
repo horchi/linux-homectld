@@ -506,8 +506,8 @@ int Daemon::init()
       if (mqttCheckConnection() == success && !mqttUrl.empty())
       {
          const char* request {"{ \"method\" : \"listDevices\" }"};
-         mqttWriter->write(TARGET "2mqtt/homematic/rpccall", request);
-         tell(eloHomeMatic, "-> (home-matic) '%s' to '%s'", TARGET "2mqtt/homematic/rpccall", request);
+         mqttWriter->write(INSTANCE "2mqtt/homematic/rpccall", request);
+         tell(eloHomeMatic, "-> (home-matic) '%s' to '%s'", INSTANCE "2mqtt/homematic/rpccall", request);
       }
       else
       {
@@ -1040,8 +1040,8 @@ int Daemon::initScripts()
 
       const char* arguments {sensors["SC"][addr].script.c_str()};
 
-      tell(eloScript, "Script: Calling %s %s %ld 'mqtt://%s/%s' '%s'", scriptPath, "init", addr, mqttUrlPlain, TARGET "2mqtt/scripts", arguments);
-      std::string result {executeCommand(2 /*seconds timeout*/, "%s %s %ld 'mqtt://%s/%s' '%s'", scriptPath, "init", addr, mqttUrlPlain, TARGET "2mqtt/scripts", arguments)};
+      tell(eloScript, "Script: Calling %s %s %ld 'mqtt://%s/%s' '%s'", scriptPath, "init", addr, mqttUrlPlain, INSTANCE "2mqtt/scripts", arguments);
+      std::string result {executeCommand(2 /*seconds timeout*/, "%s %s %ld 'mqtt://%s/%s' '%s'", scriptPath, "init", addr, mqttUrlPlain, INSTANCE "2mqtt/scripts", arguments)};
 
       json_t* oData {jsonLoad(result.c_str(), 0, true)};
 
@@ -1151,7 +1151,7 @@ int Daemon::callScript(int addr, const char* command)
    const char* arguments {sensors["SC"][addr].script.c_str()};
 
    asprintf(&cmd, "%s/scripts.d/%s %s %d 'mqtt://%s/%s' '%s'", confDir, tableValueFacts->getStrValue("NAME"),
-            command, addr, mqttUrlPlain, TARGET "2mqtt/scripts", arguments);
+            command, addr, mqttUrlPlain, INSTANCE "2mqtt/scripts", arguments);
 
    tell(eloScript, "Script: Calling '%s' ..", cmd);
    int result {executeCommandAsync(addr, cmd)};
@@ -2014,17 +2014,17 @@ int Daemon::readConfiguration(bool initial)
    std::string sTopics {sensorTopics};
    getConfigItem("mqttSensorTopics", sensorTopics, "+/w1/#");
    mqttSensorTopics = split(sensorTopics, ',');
-   mqttSensorTopics.push_back(TARGET "2mqtt/ping/#");
-   mqttSensorTopics.push_back(TARGET "2mqtt/light/+/set/#");
-   mqttSensorTopics.push_back(TARGET "2mqtt/command/#");
-   mqttSensorTopics.push_back(TARGET "2mqtt/nodered/#");
-   mqttSensorTopics.push_back(TARGET "2mqtt/scripts/#");
+   mqttSensorTopics.push_back(INSTANCE "2mqtt/ping/#");
+   mqttSensorTopics.push_back(INSTANCE "2mqtt/light/+/set/#");
+   mqttSensorTopics.push_back(INSTANCE "2mqtt/command/#");
+   mqttSensorTopics.push_back(INSTANCE "2mqtt/nodered/#");
+   mqttSensorTopics.push_back(INSTANCE "2mqtt/scripts/#");
 
    if (homeMaticInterface)
    {
       tell(eloAlways, "Adding homematic topics");
-      mqttSensorTopics.push_back(TARGET "2mqtt/homematic/rpcresult");
-      mqttSensorTopics.push_back(TARGET "2mqtt/homematic/events");
+      mqttSensorTopics.push_back(INSTANCE "2mqtt/homematic/rpcresult");
+      mqttSensorTopics.push_back(INSTANCE "2mqtt/homematic/events");
    }
 
    if (url != mqttUrl || sTopics != sensorTopics)
@@ -2044,7 +2044,7 @@ int Daemon::readConfiguration(bool initial)
 
    // Home Automation MQTT
 
-   getConfigItem("mqttHaDataTopic", mqttHaDataTopic, TARGET "2mqtt/<TYPE>/<NAME>/state");
+   getConfigItem("mqttHaDataTopic", mqttHaDataTopic, INSTANCE "2mqtt/<TYPE>/<NAME>/state");
    getConfigItem("mqttHaSendWithKeyPrefix", mqttHaSendWithKeyPrefix, "");
    getConfigItem("mqttHaHaveConfigTopic", mqttHaHaveConfigTopic, false);
 
@@ -4207,9 +4207,9 @@ int Daemon::dispatchOther(const char* topic, const char* message)
       if (!fStat.size)
          return done;
 
-      executeCommand("%s 'mqtt://%s/%s' '%s' '%s' %d", converter, mqttUrlPlain, TARGET "2mqtt/scripts", topic, message, ++mqttConverters[converter]);
+      executeCommand("%s 'mqtt://%s/%s' '%s' '%s' %d", converter, mqttUrlPlain, INSTANCE "2mqtt/scripts", topic, message, ++mqttConverters[converter]);
       if (mqttConverters[converter] == 1)
-         executeCommand("%s 'mqtt://%s/%s' '%s' '%s' %d", converter, mqttUrlPlain, TARGET "2mqtt/scripts", topic, message, ++mqttConverters[converter]);
+         executeCommand("%s 'mqtt://%s/%s' '%s' '%s' %d", converter, mqttUrlPlain, INSTANCE "2mqtt/scripts", topic, message, ++mqttConverters[converter]);
       tell(eloScript, ".. '%s' done", converter);
       free(converter);
       return done;
@@ -4812,8 +4812,8 @@ int Daemon::toggleIo(uint addr, const char* type, int state, int bri, int transi
 
       /* char* request {};
       asprintf(&request, "{ \"method\" : \"getDeviceDescription\", \"parameters\" : [\"%s\"] }", uuid);
-      mqttWriter->write(TARGET "2mqtt/homematic/rpccall", request);
-      tell(eloHomeMatic, "-> (home-matic) '%s' to '%s'", TARGET "2mqtt/homematic/rpccall", request);
+      mqttWriter->write(INSTANCE "2mqtt/homematic/rpccall", request);
+      tell(eloHomeMatic, "-> (home-matic) '%s' to '%s'", INSTANCE "2mqtt/homematic/rpccall", request);
       free(request);*/
    }
    else if (!commandTopicsMap[type].empty())  //  if (myString(type).starts_with("MCPO"))

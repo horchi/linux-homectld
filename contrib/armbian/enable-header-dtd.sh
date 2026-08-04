@@ -134,8 +134,11 @@ fix_m1_gpio_pullups() {
             gpio3d0_pullup_p12: gpio3d0-pullup-p12 {
                rockchip,pins = <3 24 0 &pcfg_pull_up>;
             };
-            gpio0b6_pullup_p11: gpio0b6-pullup-p11 {
+            gpio0b6_pullup_p7: gpio0b6-pullup-p7 {
                rockchip,pins = <0 14 0 &pcfg_pull_up>;
+            };
+            gpio0c0_pullup_p11: gpio0c0-pullup-p11 {
+               rockchip,pins = <0 16 0 &pcfg_pull_up>;
             };
             gpio3b6_pullup_p8: gpio3b6-pullup-p8 {
                rockchip,pins = <3 30 0 &pcfg_pull_up>;
@@ -146,8 +149,8 @@ fix_m1_gpio_pullups() {
             gpio2d1_pullup_p19: gpio2d1-pullup-p19 {
                rockchip,pins = <2 25 0 &pcfg_pull_up>;
             };
-            gpio2b4_pullup_p21: gpio2b4-pullup-p21 {
-               rockchip,pins = <2 12 0 &pcfg_pull_up>;
+            gpio2d0_pullup_p21: gpio2d0-pullup-p21 {
+               rockchip,pins = <2 24 0 &pcfg_pull_up>;
             };
             gpio2d3_pullup_p23: gpio2d3-pullup-p23 {
                rockchip,pins = <2 27 0 &pcfg_pull_up>;
@@ -174,7 +177,7 @@ fix_m1_gpio_pullups() {
          homectld-gpio-consumer {
             compatible = "gpio-leds";
             pinctrl-names = "default";
-            pinctrl-0 = <&gpio0b6_pullup_p11 &gpio3d0_pullup_p12 &gpio3b6_pullup_p8 &gpio3b7_pullup_p10 &gpio2d1_pullup_p19 &gpio2b4_pullup_p21 &gpio2d3_pullup_p23 &gpio2d2_pullup_p24 &gpio4c1_pullup_p29 &gpio4b6_pullup_p31 &gpio3d4_pullup_p36>;
+            pinctrl-0 = <&gpio0b6_pullup_p7 &gpio0c0_pullup_p11 &gpio3d0_pullup_p12 &gpio3b6_pullup_p8 &gpio3b7_pullup_p10 &gpio2d1_pullup_p19 &gpio2d0_pullup_p21 &gpio2d3_pullup_p23 &gpio2d2_pullup_p24 &gpio4c1_pullup_p29 &gpio4b6_pullup_p31 &gpio3d4_pullup_p36>;
          };
       };
    };

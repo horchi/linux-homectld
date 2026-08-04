@@ -1162,23 +1162,41 @@ int LmcCom::getCurrentCoverUrl(TrackInfo* track, std::string& coverUrl, bool big
 {
    char* tmp {};
 
+   // remote (radio, spotify, ...) - the plugin delivers the artwork by url
+
    if (track && !track->artworkUrl.empty())
    {
       asprintf(&tmp, "http://%s:%d%s", host, 9000, track->artworkUrl.c_str());
       coverUrl = tmp;
+      free(tmp);
 
       if (big)
          coverUrl = strReplace("image.png", "image_1024x1024_f.png", coverUrl);
 
-      // asprintf(&tmp, "http://%s:%d%s%s", host, 9000, track->artworkurl[0] == '/' ? "" : "/", track->artworkurl);
-   }
-   else
-   {
-      // http://localhost:9000/music/current/cover.jpg?player=f0:4d:a2:33:b7:ed
-      asprintf(&tmp, "http://%s:%d/music/current/cover.jpg?player=%s&nocache=%ld", host, 9000, escId, time(0));
-      coverUrl = tmp;
+      return done;
    }
 
+   // local library track - address the cover of _this_ track instead of asking for
+   //   '/music/current/cover.jpg'. The latter is resolved by the server when the
+   //   browser fetches the image, so it drifts away from the metadata we push here.
+   //   Only for !remote, remote tracks have ids too but no cover behind them
+
+   if (track && !track->remote && !track->artworkTrackId.empty() && getCoverUrl(track, coverUrl) == success)
+   {
+      if (big)
+         coverUrl = strReplace("cover.jpg", "cover_1024x1024_f.jpg", coverUrl);
+
+      return done;
+   }
+
+   // fallback - remote without artwork url, or no artwork id at all. Let the server
+   //   resolve it. ms resolution here, two pushes within the same second must not
+   //   make the browser reuse the previous image
+   //   http://localhost:9000/music/current/cover.jpg?player=f0:4d:a2:33:b7:ed
+
+   asprintf(&tmp, "http://%s:%d/music/current/cover.jpg?player=%s&nocache=%llu",
+            host, 9000, escId, (unsigned long long)cTimeMs::Now());
+   coverUrl = tmp;
    free(tmp);
 
    return done;

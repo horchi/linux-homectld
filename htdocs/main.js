@@ -106,6 +106,8 @@ $('document').ready(function() {
 
    let protocol = myProtocol;
 
+   moment.locale('de');   // for the time axis labels of Chart.js
+
    // dialog default ENTER action always on the last button
    //   and focus ist at open
 
@@ -256,8 +258,8 @@ function sleep(ms) {
    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// date/time formatting - replaces moment.js, which was 360 KB of the page load
-//   for these five formats alone
+// date/time formatting via Intl, so these don't need moment. Careful: moment itself
+//   can't be dropped, Chart.js 2.x uses it as its date adapter
 
 const dateLocale = 'de-DE';
 

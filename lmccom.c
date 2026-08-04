@@ -1181,13 +1181,9 @@ int LmcCom::getCurrentCoverUrl(TrackInfo* track, std::string& coverUrl, bool big
    //   browser fetches the image, so it drifts away from the metadata we push here.
    //   Only for !remote, remote tracks have ids too but no cover behind them
 
-   if (track && !track->remote && !track->artworkTrackId.empty() && getCoverUrl(track, coverUrl) == success)
-   {
-      if (big)
-         coverUrl = strReplace("cover.jpg", "cover_1024x1024_f.jpg", coverUrl);
-
+   if (track && !track->remote && !track->artworkTrackId.empty() &&
+       getCoverUrl(track, coverUrl, big ? "1024x1024_f" : nullptr) == success)
       return done;
-   }
 
    // fallback - remote without artwork url, or no artwork id at all. Let the server
    //   resolve it. ms resolution here, two pushes within the same second must not
@@ -1234,25 +1230,35 @@ int LmcCom::getCover(MemoryStruct* cover, TrackInfo* track)
    return status;
 }
 
-int LmcCom::getCoverUrl(TrackInfo* track, std::string& coverUrl)
+int LmcCom::getCoverUrl(TrackInfo* track, std::string& coverUrl, const char* sizeSpec)
 {
    char* url {};
 
    if (track && !track->artworkUrl.empty())
    {
+      // don't touch this, the url is provided by the server or plugin
+
       asprintf(&url, "http://%s:%d%s", host, 9000, track->artworkUrl.c_str());
    }
    else if (track)
    {
       // http://<server>:<port>/music/<track_id>/cover.jpg
+      //   sizeSpec lets the server scale: cover_<width>x<height>_<mode>.jpg
+
+      std::string image {"cover"};
+
+      if (!isEmpty(sizeSpec))
+         image += std::string("_") + sizeSpec;
+
+      image += ".jpg";
 
       if (track->artworkTrackId.empty())
-         asprintf(&url, "http://%s:%d/music/%d/cover.jpg", host, 9000, track->id);
+         asprintf(&url, "http://%s:%d/music/%d/%s", host, 9000, track->id, image.c_str());
       else
-         asprintf(&url, "http://%s:%d/music/%s/cover.jpg", host, 9000, track->artworkTrackId.c_str());
+         asprintf(&url, "http://%s:%d/music/%s/%s", host, 9000, track->artworkTrackId.c_str(), image.c_str());
    }
 
-   coverUrl = url;
+   coverUrl = url ? url : "";
    free(url);
 
    return coverUrl.length() ? success : fail;

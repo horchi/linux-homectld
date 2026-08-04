@@ -210,7 +210,10 @@ int Daemon::lmcPlaylist2Json(json_t* obj)
 
       std::string url;
 
-      if (lmc->getCoverUrl(track, url) == success)
+      // thumbnails, displayed with 55px height (see .lmcPlaylist img) - request
+      //   twice that for high density displays instead of the full size cover
+
+      if (lmc->getCoverUrl(track, url, "110x110_f") == success)
          json_object_set_new(oTrack, "cover", json_string(url.c_str()));
    }
 

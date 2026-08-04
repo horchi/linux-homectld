@@ -141,7 +141,7 @@ class LmcCom : public TcpChannel
       int getCurrentCover(MemoryStruct* cover, TrackInfo* track = nullptr, bool big = false);
       int getCurrentCoverUrl(TrackInfo* track, std::string& coverUrl, bool big = false);
       int getCover(MemoryStruct* cover, TrackInfo* track);
-      int getCoverUrl(TrackInfo* track, std::string& coverUrl);
+      int getCoverUrl(TrackInfo* track, std::string& coverUrl, const char* sizeSpec = nullptr);
 
       // notification channel
 

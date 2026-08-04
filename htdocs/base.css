@@ -2385,6 +2385,15 @@ table.tableMultiCol td
     font-size: large;
 }
 
+/* dim the text only. On the div itself the opacity would apply to its border-top
+   as well and wash out the hairline below */
+
+#lmcDivCurrentGenreYear > span,
+#lmcDivCurrentStream > span
+{
+    opacity: 0.7;
+}
+
 /* hairline separating the metadata from title/station/album above. Semi transparent
    grey instead of var(--borderColor), that one is near black in both themes and
    would be invisible on the dark widget background */

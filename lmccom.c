@@ -1059,7 +1059,12 @@ int LmcCom::checkNotify(uint64_t timeout)
       }
    }
 
-   if (res != wrnNoEventPending && res != wrnSysInterrupt && res != wrnNoDataAvaileble)
+   // caution: LmcCom::wrnNoEventPending (-1000) shadows TcpChannel::wrnNoEventPending
+   //   (-90), look() returns the latter - so qualify all of them explicitly
+
+   if (res != TcpChannel::wrnNoEventPending &&
+       res != TcpChannel::wrnSysInterrupt &&
+       res != TcpChannel::wrnNoDataAvaileble)
    {
       // notification channel is broken - drop it, it gets reopened by the player
       //   check above. Don't call stopNotify() here, sending 'listen 0' into a

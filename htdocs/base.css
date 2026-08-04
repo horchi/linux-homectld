@@ -2385,6 +2385,17 @@ table.tableMultiCol td
     font-size: large;
 }
 
+/* hairline separating the metadata from title/station/album above. Semi transparent
+   grey instead of var(--borderColor), that one is near black in both themes and
+   would be invisible on the dark widget background */
+
+#lmcDivCurrentGenreYear
+{
+    border-top: 1px solid rgba(128, 128, 128, 0.3);
+    margin-top: 3px;
+    padding-top: 3px;
+}
+
 .lmcCurrentArtist
 {
     font-size: xx-large;

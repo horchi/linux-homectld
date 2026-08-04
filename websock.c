@@ -499,7 +499,30 @@ int cWebSock::serveFile(lws* wsi, const char* path)
 
    // printf("serve file '%s' with mime type '%s'\n", path, mime);
 
-   int res = lws_serve_http_file(wsi, path, mime, nullptr, 0);
+   // tell the browser to cache. Without an explicit cache-control lws sends neither
+   //   a lifetime nor a validator, the browser then decides by heuristic and re-fetches
+   //   all ~60 files of index.html far too often.
+   //   html is excluded, it references the (unversioned) asset names
+
+   unsigned char headers[LWS_PRE + 128] {};
+   unsigned char* p {headers + LWS_PRE};
+   unsigned char* start {p};
+   unsigned char* end {headers + sizeof(headers) - 1};
+   char cacheControl[40] {};
+
+   if (strcmp(mime, "text/html") == 0)
+      sprintf(cacheControl, "no-store");
+   else
+      sprintf(cacheControl, "max-age=%d", tmoCacheMaxAge);
+
+   if (lws_add_http_header_by_name(wsi, (const unsigned char*)"cache-control:",
+                                   (const unsigned char*)cacheControl, (int)strlen(cacheControl), &p, end) != 0)
+   {
+      tell(eloAlways, "HTTP: Failed to add cache-control header for '%s'", path);
+      return fail;
+   }
+
+   int res = lws_serve_http_file(wsi, path, mime, (const char*)start, lws_ptr_diff(p, start));
 
    if (res < 0)
    {

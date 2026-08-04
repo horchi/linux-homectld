@@ -48,6 +48,11 @@ class cWebSock : public cWebService
          sizeLwsFrame     = sizeLwsPreFrame + sizeLwsPostFrame
       };
 
+      enum Http
+      {
+         tmoCacheMaxAge = 3600     // [s] browser cache lifetime of static files
+      };
+
       struct SessionData
       {
          char* buffer;

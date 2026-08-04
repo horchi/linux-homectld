@@ -1373,13 +1373,14 @@ function getTimeHtml()
    }
 
    let cls = isDaytime ? 'mdi mdi-weather-sunny' : 'mdi mdi-weather-night';
+   let date = new Date();
 
    return '<div>'
       + '<span class="' + cls + ' " style="color:orange;"></span>'
-      + '<span> ' + moment().format('dddd Do') + '</span>'
-      + '<span> ' + moment().format('MMMM YYYY') + '</span>'
+      + '<span> ' + fmtWeekdayDay(date) + '</span>'
+      + '<span> ' + fmtMonthYear(date) + '</span>'
       + '</div>'
-      + '<div style="font-size:2em">' + moment().format('HH:mm:ss') + '</div>';
+      + '<div style="font-size:2em">' + fmtTime(date) + '</div>';
 }
 
 function getWeatherHtml(symbolView, wfact, weather)
@@ -1429,8 +1430,8 @@ function weatherForecast()
 
    for (let i = 0; i < weatherData.forecasts.length; i++) {
       let weather = weatherData.forecasts[i];
-      let day = moment(weather.time*1000).format('dddd Do MMMM');
-      let time = moment(weather.time*1000).format('HH:00');
+      let day = fmtWeekdayDayMonth(new Date(weather.time*1000));
+      let time = fmtHour(new Date(weather.time*1000));
       let wIconRef = 'img/weather/' + weather.icon + '.png';
 
       if (!images.find(img => img == wIconRef))

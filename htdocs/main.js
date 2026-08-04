@@ -106,8 +106,6 @@ $('document').ready(function() {
 
    let protocol = myProtocol;
 
-   moment.locale('de');
-
    // dialog default ENTER action always on the last button
    //   and focus ist at open
 
@@ -256,6 +254,31 @@ function updateSocketState()
 
 function sleep(ms) {
    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// date/time formatting - replaces moment.js, which was 360 KB of the page load
+//   for these five formats alone
+
+const dateLocale = 'de-DE';
+
+function fmtWeekdayDay(date) {            // 'Dienstag 4.'
+   return date.toLocaleDateString(dateLocale, { weekday: 'long' }) + ' ' + date.getDate() + '.';
+}
+
+function fmtWeekdayDayMonth(date) {       // 'Dienstag 4. August'
+   return fmtWeekdayDay(date) + ' ' + date.toLocaleDateString(dateLocale, { month: 'long' });
+}
+
+function fmtMonthYear(date) {             // 'August 2026'
+   return date.toLocaleDateString(dateLocale, { month: 'long', year: 'numeric' });
+}
+
+function fmtTime(date) {                  // '15:26:41'
+   return date.toLocaleTimeString(dateLocale, { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function fmtHour(date) {                  // '15:00'
+   return String(date.getHours()).padStart(2, '0') + ':00';
 }
 
 function setActualDashboard(dashboard, index)

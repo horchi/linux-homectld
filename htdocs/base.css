@@ -2371,8 +2371,10 @@ table.tableMultiCol td
     overflow-wrap: anywhere;
 }
 
-/* album wraps too - overrides the nowrap of .lmcCurrentTrack > div:nth-child(n+2) */
+/* station and album wrap too - overrides the nowrap of
+   .lmcCurrentTrack > div:nth-child(n+2) */
 
+#lmcDivCurrentRemoteTitle,
 #lmcDivCurrentAlbum
 {
     white-space: normal;

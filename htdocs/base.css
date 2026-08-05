@@ -2368,16 +2368,19 @@ table.tableMultiCol td
     font-weight: bold;
     color: var(--yellow2);
     line-height: 1.1em;
-    overflow-wrap: anywhere;
 }
 
-/* station and album wrap too - overrides the nowrap of
-   .lmcCurrentTrack > div:nth-child(n+2) */
+/* wrap instead of running out of the column. Addressed by id on purpose: a class
+   selector would lose against the nowrap of .lmcCurrentTrack > div:nth-child(n+2).
+   'break-word' first as fallback, safari knows 'anywhere' only from 15.4 on */
 
+#lmcCurrentTitle,
+#lmcCurrentArtist,
 #lmcDivCurrentRemoteTitle,
 #lmcDivCurrentAlbum
 {
     white-space: normal;
+    overflow-wrap: break-word;
     overflow-wrap: anywhere;
 }
 

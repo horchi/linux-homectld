@@ -179,6 +179,7 @@ class Daemon : public cWebInterface, public Service
          std::string name;
          ConfigItemType type;
          std::string def {};
+         const char* kind {};
          bool internal {false};
          const char* category {};
          std::string title {};
@@ -294,14 +295,14 @@ class Daemon : public cWebInterface, public Service
       int sendMail(const char* receiver, const char* subject, const char* body, const char* mimeType);
 
       int getConfigItem(const char* name, std::string& value, const char* def = 0);
-      int setConfigItem(const char* name, const char* value);
+      int setConfigItem(const char* name, const char* value, const char* kind = "N");
       int getConfigItem(const char* name, int& value, int def = na);
       int getConfigItem(const char* name, long& value, long def = na);
-      int setConfigItem(const char* name, long value);
+      int setConfigItem(const char* name, long value, const char* kind = "N");
       int getConfigItem(const char* name, double& value, double def = na);
-      int setConfigItem(const char* name, double value);
+      int setConfigItem(const char* name, double value, const char* kind = "N");
       int getConfigItem(const char* name, bool& value, bool def = false);
-      int setConfigItem(const char* name, bool value);
+      int setConfigItem(const char* name, bool value, const char* kind = "N");
 
       int getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges);
 

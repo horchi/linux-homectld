@@ -608,8 +608,7 @@ int Daemon::init()
 
          auto it = std::find_if(configList->begin(), configList->end(),
             [&key](const ConfigItemDef& item) {
-               return item.name == key;
-            });
+               return item.name == key; });
 
          // key existiert nicht in der Konfigurationsdefinition
 
@@ -677,28 +676,34 @@ int Daemon::init()
 
 int Daemon::initLocale()
 {
-   setenv("TZ", "CET", 1);
-   tzset();  // init timezone environment
-   tell(eloAlways, "Daylight (%d); Timezone is (%ld) now it's %ld", isDST(), timezone, time(0));
+   // setenv("TZ", "CET", 1);
 
-   // set a locale to "" means 'reset it to the environment'
-   // as defined by the ISO-C standard the locales after start are C
+   // Locale initialisieren (Liest die Umgebungsvariablen des Systems wie LANG oder LC_ALL)
 
-   const char* locale {};
-
-   setlocale(LC_ALL, "");
-   locale = setlocale(LC_ALL, 0);  // 0 for query the setting
+   const char* locale {setlocale(LC_ALL, "")};
 
    if (!locale)
    {
-      tell(eloAlways, "Info: Detecting locale setting for LC_ALL failed");
+      tell(eloDebug, "Debug: Detecting locale setting for LC_ALL failed");
       return fail;
    }
 
    tell(eloInfo, "Current locale is %s", locale);
 
+   // Zeitzone des Systems einlesen - tzset() nach setlocale
+
+   tzset();
+
    if ((strcasestr(locale, "UTF-8") != 0) || (strcasestr(locale, "UTF8") != 0))
       tell(eloInfo, "Detected UTF-8");
+
+   time_t nun {time(nullptr)};
+   struct tm* tmTime {localtime(&nun)};
+   char strTime[64] {};
+   strftime(strTime, sizeof(strTime), "%c", tmTime);
+
+   tell(eloAlways, "Daylight (glob: %d, akt: %d); Timezone offset is (%ld) now it's %ld [%s]",
+        daylight, tmTime->tm_isdst, timezone, nun, strTime);
 
    return done;
 }
@@ -2650,7 +2655,7 @@ int Daemon::processLua(bool force, bool signal)
       sensors[type][address].last = time(0) -1;
       sensors[type][address].changedAt = time(0); // #TODO set only if changed
       sensors[type][address].valid = true;
-      setConfigItem(key, sensors[type][address].value);
+      setConfigItem(key, sensors[type][address].value, "I");
       // tell(eloAlways, "Set value of %s:0x%lx to %f; last is %ld", type.c_str(), address, sensors[type][address].value, sensors[type][address].last);
 
       // tell(eloLua, "LUA '%s' changed from %f to %f", key, oldValue, sensors[type][address].value);
@@ -4337,10 +4342,6 @@ int Daemon::dispatchOther(const char* topic, const char* message)
                if (!p.empty())
                   parameters = p;
 
-               // store
-
-               setConfigItem(name.c_str(), parameters.c_str());
-
                // check if definition is already known
 
                if (!std::any_of(getConfiguration()->begin(), getConfiguration()->end(),
@@ -4352,6 +4353,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
                      name,
                      ctText,               // type
                      parameters,           // default
+                     "S",                  // kind
                      false,                // internal
                      "Sensors",            // category
                      name.c_str(),         // title
@@ -4363,6 +4365,9 @@ int Daemon::dispatchOther(const char* topic, const char* message)
                   config2Json(oJson);
                   pushOutMessage(oJson, "config");
                }
+
+               setConfigItem(name.c_str(), parameters.c_str(), "S");   // store
+
             }
 
             publishAlpicoolInit(type.c_str(), name.c_str());
@@ -4371,7 +4376,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
       json_decref(jData);
       return done;
-   }
+   } // if (action == "init")
 
    if (type != "SC")
    {
@@ -4384,14 +4389,14 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
       if (jParameter)
       {
-         char* p {json_dumps(jParameter, 0)};  // don't free jParameter - only a reference onto oData!
+         char* p {json_dumps(jParameter, 0)};  // don't free jParameter - only a reference to oData!
 
          tell(eloDebug, "Sensor parameter: '%s'", p);
          sensors[type][address].parameter = p;
          free(p);
       }
 
-      if (type.starts_with("MCPO"))  // #TODO i2cmqtt sollte rights mit liefern!
+      if (type.starts_with("MCPO"))   // #TODO i2cmqtt sollte rights mit liefern!
          rights = urControl;
 
       if (!isEmpty(choices))          // #TODO alle mit steuerbaren choices (THEATFORD, VICTRON) sollten rights mit liefern!
@@ -4604,13 +4609,48 @@ int Daemon::getConfigItem(const char* name, std::string& value, const char* def)
    return success;
 }
 
-int Daemon::setConfigItem(const char* name, const char* value)
+int Daemon::setConfigItem(const char* name, const char* value, const char* kind)
 {
    tell(eloDebug2, "Debug2: Storing config '%s' with value '%s'", name, value);
    tableConfig->clear();
    tableConfig->setValue("OWNER", myName());
    tableConfig->setValue("NAME", name);
    tableConfig->setValue("VALUE", value);
+
+   // config option 'kind'
+
+   // N - Normal                 - Page as described in config structure
+   // U - User defined           - Page 'User Options'
+   // I - Ingternal              - Page not shown
+   // S - Special Sensor options - Page 'Sensors' (we get it direct from the Sensor by MQTT)
+   //
+   // if kind is set to the default 'N' check if we have to patch it
+   // if kind is empty it's only a update of a already stores option - leave it
+
+   if (*kind == 'N')
+   {
+      // lookup config item in list
+
+      auto* configList {this->getConfiguration()};
+
+      if (configList)
+      {
+         auto it = std::find_if(configList->begin(), configList->end(),
+                                [&name](const ConfigItemDef& item) {
+                                   return item.name == name; });
+
+         // key existiert nicht in der Konfigurationsdefinition
+         //  -> user defined
+
+         if (it == configList->end())
+            kind = "U";       // user defined config option
+         else
+            kind = (*it).kind;
+      }
+   }
+
+   if (!isEmpty(kind))
+      tableConfig->setValue("KIND", kind);
 
    return tableConfig->store();
 }
@@ -4653,13 +4693,13 @@ int Daemon::getConfigItem(const char* name, long& value, long def)
    return success;
 }
 
-int Daemon::setConfigItem(const char* name, long value)
+int Daemon::setConfigItem(const char* name, long value, const char* kind)
 {
    char txt[16] {};
 
    snprintf(txt, sizeof(txt), "%ld", value);
 
-   return setConfigItem(name, txt);
+   return setConfigItem(name, txt, kind);
 }
 
 int Daemon::getConfigItem(const char* name, double& value, double def)
@@ -4683,11 +4723,11 @@ int Daemon::getConfigItem(const char* name, double& value, double def)
    return success;
 }
 
-int Daemon::setConfigItem(const char* name, double value)
+int Daemon::setConfigItem(const char* name, double value, const char* kind)
 {
    char txt[16+TB] {};
    snprintf(txt, sizeof(txt), "%.2f", value);
-   return setConfigItem(name, txt);
+   return setConfigItem(name, txt, kind);
 }
 
 int Daemon::getConfigItem(const char* name, bool& value, bool def)
@@ -4707,13 +4747,13 @@ int Daemon::getConfigItem(const char* name, bool& value, bool def)
    return success;
 }
 
-int Daemon::setConfigItem(const char* name, bool value)
+int Daemon::setConfigItem(const char* name, bool value, const char* kind)
 {
    char txt[16] {};
 
    snprintf(txt, sizeof(txt), "%d", value ? 1 : 0);
 
-   return setConfigItem(name, txt);
+   return setConfigItem(name, txt, kind);
 }
 
 //***************************************************************************

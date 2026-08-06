@@ -1479,7 +1479,7 @@ table.tableMultiCol td
     background: linear-gradient(to bottom right, #00000096, black);
     padding: var(--containerPadding);
     display: table;
-    width: 95%;
+    /* width: 95%;*/
     margin: 2%;
 }
 

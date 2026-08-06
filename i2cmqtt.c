@@ -797,9 +797,9 @@ int I2CMqtt::mqttConnection()
       json_object_set_new(obj, "action", json_string("init"));
       json_object_set_new(obj, "topic", json_string(mqttTopicIn.c_str()));
 
-      json_t* jParameter {json_object()};
-      json_object_set_new(obj, "parameter", jParameter);
-      json_object_set_new(jParameter, "widgettype", json_integer(wtMeterLevel));
+      // json_t* jParameter {json_object()};
+      // json_object_set_new(obj, "parameter", jParameter);
+      // json_object_set_new(jParameter, "widgettype", json_integer(wtMeterLevel));
 
       mqttPublish(obj);
    }

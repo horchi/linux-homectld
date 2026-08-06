@@ -1,4 +1,3 @@
-
 #! /bin/bash
 
 COMMAND="$1"
@@ -6,7 +5,6 @@ ADDRESS="$2"
 MQTTURL="$3"
 JARGS="$4"
 DIR=`dirname "$0"`
-SERVICE=`echo ${JARGS} | jq -r .service`
 STATE="false"
 
 if [ "${COMMAND}" == "init" ]; then
@@ -15,6 +13,8 @@ if [ "${COMMAND}" == "init" ]; then
    echo -n ${RESULT}
    exit 0
 fi
+
+SERVICE=`echo ${JARGS} | jq -r .service`
 
 if [[ -z "${SERVICE}" ]]; then
    ${LOGGER} "system.sh: SERVICE argument missing, call with '{ \"service\": \"your service\"}'"

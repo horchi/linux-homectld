@@ -2106,7 +2106,7 @@ int Daemon::storeGroups(json_t* oObject, long client)
 
 int Daemon::performImageConfig(json_t* obj, long client)
 {
-   const char* action = getStringFromJson(obj, "action");
+   const char* action {getStringFromJson(obj, "action")};
 
    if (strcmp(action, "delete") == 0)
    {
@@ -2119,15 +2119,15 @@ int Daemon::performImageConfig(json_t* obj, long client)
    }
    else if (strcmp(action, "upload") == 0)
    {
-      const char* name = getStringFromJson(obj, "name");
-      const char* data = getStringFromJson(obj, "data");
-      const char* p = strchr(data, ',');
+      const char* name {getStringFromJson(obj, "name")};
+      const char* data {getStringFromJson(obj, "data")};
+      const char* p {strchr(data, ',')};
 
       if (p)
       {
          // "data:image/png;base64,/9j/4AAQSkZJRg........."
 
-         const char* mediaTpe = strchr(data, '/');
+         const char* mediaTpe {strchr(data, '/')};
          mediaTpe++;
          char suffix[20];
          sprintf(suffix, "%.*s", (int)(strchr(mediaTpe, ';') - mediaTpe), mediaTpe);
@@ -2209,6 +2209,7 @@ int Daemon::configDetails2Json(json_t* obj)
 
       json_object_set_new(oDetail, "name", json_string(it.name.c_str()));
       json_object_set_new(oDetail, "type", json_integer(it.type));
+      json_object_set_new(oDetail, "kind", json_string(it.kind));
       json_object_set_new(oDetail, "category", json_string(it.category));
       json_object_set_new(oDetail, "title", json_string(it.title.c_str()));
       json_object_set_new(oDetail, "description", json_string(it.description.c_str()));

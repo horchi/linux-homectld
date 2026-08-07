@@ -73,6 +73,14 @@ class I2CMqtt : public Service
          std::string sValue;
       };
 
+      // homectld widget parameters, one entry per sensor type.
+      //   the key is '<type>' or '<type>:<address>', where <type> is matched as
+      //   prefix, since the published types contain the chip address
+      //   (like 'ADS48', 'DHT380', 'MCPO20', ...). An entry with <address>
+      //   wins over the type only entry, which is used as fallback.
+
+      static const std::map<std::string,std::string> sensorParameters;
+
       I2CMqtt(const char* aDevice, const char* aMqttUrl, const char* aMqttTopic, int aInterval = 60);
       virtual ~I2CMqtt();
 
@@ -100,6 +108,7 @@ class I2CMqtt : public Service
       int mqttDisconnect();
       int mqttPublish(json_t* jObject);
       int mqttPublish(SensorData& sensor);
+      const char* parameterOf(const std::string& type, uint address);
       int performMqttRequests();
       int dispatchMqttMessage(const char* message);
       void onGpioChange(int physPin, bool value);
@@ -112,6 +121,7 @@ class I2CMqtt : public Service
       std::string mqttTopicOut;
       int interval {60};
       std::string device;
+      bool initial {true};
 
       std::vector<Dht20> dhtChips;
       std::vector<Mcp23017> mcpChips;
@@ -136,6 +146,43 @@ void I2CMqtt::onGpioChange(int physPin, bool value)
 //***************************************************************************
 
 bool I2CMqtt::shutdown {false};
+
+//***************************************************************************
+// Widget Parameters - one entry per sensor type
+//***************************************************************************
+
+const std::map<std::string,std::string> I2CMqtt::sensorParameters =
+{
+   { "ADS",    R"({"widgettype": 5, "symbol": "mdi:mdi-sine-wave",       "symbolOn": "mdi:mdi-sine-wave"})" },
+   { "DHT:0",  R"({"widgettype": 6, "symbol": "mdi:mdi-thermometer",     "symbolOn": "mdi:mdi-thermometer",            "scalemin": 0, "scalemax": 45,  "scalestep": 10, "showpeak": true})" },
+   { "DHT:1",  R"({"widgettype": 5, "symbol": "mdi:mdi-water-percent",   "symbolOn": "mdi:mdi-water-percent",          "scalemin": 0, "scalemax": 100, "scalestep": 20, "showpeak": true})" },
+   { "DS",     R"({"widgettype": 6, "symbol": "mdi:mdi-thermometer",     "symbolOn": "mdi:mdi-thermometer",            "scalemin": 0, "scalemax": 45,  "scalestep": 10, "showpeak": true})" },
+   { "MCP",    R"({"widgettype": 0, "symbol": "mdi:mdi-electric-switch", "symbolOn": "mdi:mdi-electric-switch-closed", "symbol": "mdi:mdi-electric-switch"})" }
+};
+
+//***************************************************************************
+// Parameter Of
+//***************************************************************************
+
+const char* I2CMqtt::parameterOf(const std::string& type, uint address)
+{
+   const char* fallback {};
+
+   for (const auto& [key, parameter] : sensorParameters)
+   {
+      size_t sep {key.find(':')};
+
+      if (!type.starts_with(key.substr(0, sep)))
+         continue;
+
+      if (sep == std::string::npos)                    // entry without address is only the fallback
+         fallback = parameter.c_str();
+      else if (address == strtoul(key.c_str()+sep+1, nullptr, 0))
+         return parameter.c_str();
+   }
+
+   return fallback;
+}
 
 I2CMqtt::I2CMqtt(const char* aDevice, const char* aMqttUrl, const char* aMqttTopic, int aInterval)
    : mqttUrl(aMqttUrl),
@@ -448,6 +495,7 @@ int I2CMqtt::update()
       usleep(750000);
 
       // 2. Jeden gefundenen Sensor einzeln adressieren und auslesen
+
       for (auto& [romStr, sensorInfo] : wireSensors)
       {
          // Überprüfung der Family-ID (0x28 = DS18B20).
@@ -519,6 +567,8 @@ int I2CMqtt::update()
          mqttPublish(sensor);
       }
    }
+
+   initial = false;
 
    tell(eloInfo, "... done");
 
@@ -678,6 +728,23 @@ int I2CMqtt::mqttPublish(SensorData& sensor)
    json_object_set_new(obj, "title", json_string(sensor.title.c_str()));
    json_object_set_new(obj, "unit", json_string(sensor.unit.c_str()));
 
+   // append the widget parameters at the initial publish
+
+   if (initial)
+   {
+      const char* parameter {parameterOf(sensor.type, sensor.address)};
+
+      if (parameter)
+      {
+         json_t* jParameter {jsonLoad(parameter)};
+
+         if (jParameter)
+            json_object_set_new(obj, "parameter", jParameter);
+         else
+            tell(eloAlways, "Error: Ignoring invalid JSON in parameter of '%s' [%s]", sensor.type.c_str(), parameter);
+      }
+   }
+
    if (sensor.format == fReal)
    {
       json_object_set_new(obj, "kind", json_string("value"));
@@ -796,10 +863,6 @@ int I2CMqtt::mqttConnection()
       json_object_set_new(obj, "type", json_string("I2C"));
       json_object_set_new(obj, "action", json_string("init"));
       json_object_set_new(obj, "topic", json_string(mqttTopicIn.c_str()));
-
-      // json_t* jParameter {json_object()};
-      // json_object_set_new(obj, "parameter", jParameter);
-      // json_object_set_new(jParameter, "widgettype", json_integer(wtMeterLevel));
 
       mqttPublish(obj);
    }

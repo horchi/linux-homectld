@@ -593,7 +593,7 @@ function deleteValueFact(type, address)
       }});
    }
 
-   confirmDialog(doDelete, 'Delete Sensor', 'Delete', 'Cancel');
+   confirmDialog(doDelete, 'Delete Sensor?', 'Delete', 'Cancel');
 }
 
 function sensorGpioSetup(type, address)
@@ -633,6 +633,7 @@ function sensorDoSetup(type, address)
    let isAutoChecked = (currentOutputMode & 0x02) === 0x02;
 
    // Struktur bleibt 1:1 identisch, wir schalten die Zeilen später einfach per ID sichtbar/unsichtbar
+
    $(form).append($('<div></div>')
                   .addClass('settingsDialogContent')
                   .append($('<div></div>')
@@ -662,6 +663,19 @@ function sensorDoSetup(type, address)
                                           .addClass('rounded-border inputSetting')
                                           .prop('checked', valueFacts[key].settings ? valueFacts[key].settings.invert : true))
                                   .append($('<label></label>').prop('for', 'invertDo'))))
+
+                  .append($('<div></div>')
+                          .attr('id', 'row-ask')
+                          .attr('title', 'Rückfrage beim manuellen schalten')
+                          .append($('<span></span>').html('Rückfrage'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .attr('id', 'askDo')
+                                          .attr('type', 'checkbox')
+                                          .addClass('rounded-border inputSetting')
+                                          .prop('checked', valueFacts[key].settings ? valueFacts[key].settings.ask : false))
+                                  .append($('<label></label>').prop('for', 'askDo'))))
+
                   .append($('<div></div>')
                           .attr('id', 'row-impulse')
                           .append($('<span></span>').html('Impuls (50ms)'))
@@ -731,6 +745,7 @@ function sensorDoSetup(type, address)
          calSensorAddress = address;
 
          // Titelzeile holen und Navigations-Container mit ID erstellen
+
          let $titlebar = $(this).dialog('widget').find('.ui-dialog-titlebar');
          let $tabNav = $('<div></div>').attr('id', 'sensor-tabs-nav').css({'float': 'right', 'margin-right': '40px', 'display': 'flex', 'gap': '5px'})
             .append($('<button>Allgemein</button>').addClass('rounded-border tool-button active-tab').on('click', function() {
@@ -738,7 +753,7 @@ function sensorDoSetup(type, address)
                $('#sensor-tabs-nav button').removeClass('active-tab');
                $(this).addClass('active-tab');
 
-               $('#row-modus, #row-invert, #row-impulse, #row-feedback').show();
+               $('#row-modus, #row-invert, #row-impulse, #row-feedback, #row-ask').show();
                $('#row-zeiten, #row-script, #luaCheckResult').hide();
             }))
             .append($('<button>Zeiten</button>').addClass('rounded-border tool-button').on('click', function() {
@@ -746,20 +761,20 @@ function sensorDoSetup(type, address)
                $(this).addClass('active-tab');
 
                $('#row-zeiten').show();
-               $('#row-modus, #row-invert, #row-impulse, #row-feedback, #row-script, #luaCheckResult').hide();
+               $('#row-modus, #row-invert, #row-impulse, #row-feedback, #row-script, #luaCheckResult, #row-ask').hide();
             }))
             .append($('<button>Skript</button>').addClass('rounded-border tool-button').on('click', function() {
                $('#sensor-tabs-nav button').removeClass('active-tab');
                $(this).addClass('active-tab');
 
                $('#row-script, #luaCheckResult').show();
-               $('#row-modus, #row-invert, #row-impulse, #row-feedback, #row-zeiten').hide();
+               $('#row-modus, #row-invert, #row-impulse, #row-feedback, #row-zeiten, #row-ask').hide();
                doEditor.refresh();
             }));
          $titlebar.append($tabNav);
 
          // Initiale Ansicht beim Starten (Allgemein aktiv)
-         $('#row-modus, #row-invert, #row-impulse, #row-feedback').show();
+         $('#row-modus, #row-invert, #row-impulse, #row-feedback, #row-ask').show();
          $('#row-zeiten, #row-script, #luaCheckResult').hide();
 
          doEditor = CodeMirror($(form).find('.lua-cm-editor')[0], {
@@ -817,390 +832,12 @@ function sensorDoSetup(type, address)
                'settings': {
                   'outputModes': targetMode,
                   'invert': $('#invertDo').is(':checked'),
+                  'ask': $('#askDo').is(':checked'),
                   'impulse': $('#impulseDo').is(':checked'),
                   'script': doEditor.getValue(),
                   'feedbackInType': fbType,
                   'feedbackInAddress': addr,
                   'times': timesArray,
-                  'fct' : valueFacts[key].settings ? valueFacts[key].settings.fct : ''
-               }
-            }});
-            $(this).dialog('close');
-         }
-      },
-      close: function() {
-         doEditor = null;
-         calSensorType = '';
-         calSensorAddress = -1;
-         $(this).dialog('destroy').remove();
-      }
-   });
-}
-
-function ___sensorDoSetup(type, address)
-{
-   calSensorType = type;
-   calSensorAddress = address;
-
-   let key = toKey(calSensorType, parseInt(calSensorAddress));
-   let form = document.createElement("div");
-
-   if (valueFacts[key] == null) {
-      console.log("Sensor ", key, "undefined");
-      return;
-   }
-
-   let currentOutputMode = (valueFacts[key].settings && valueFacts[key].settings.outputModes !== undefined)
-                           ? valueFacts[key].settings.outputModes
-                           : 1;
-
-   let isManualChecked = (currentOutputMode & 0x01) === 0x01;
-   let isAutoChecked = (currentOutputMode & 0x02) === 0x02;
-
-   $(form).append($('<div></div>')
-                  .addClass('settingsDialogContent')
-                  .append($('<div></div>')
-                          .attr('id', 'row-modus')
-                          .append($('<span></span>').html('Modus'))
-                          .append($('<span></span>')
-                                  .append($('<input></input>')
-                                          .attr('id', 'modeManual')
-                                          .attr('type', 'checkbox')
-                                          .addClass('rounded-border inputSetting')
-                                          .prop('checked', isManualChecked))
-                                  .append($('<label></label>').prop('for', 'modeManual').text('Manuell '))
-                                  .append($('<input></input>')
-                                          .attr('id', 'modeAuto')
-                                          .attr('type', 'checkbox')
-                                          .addClass('rounded-border inputSetting')
-                                          .css('margin-left', '15px')
-                                          .prop('checked', isAutoChecked))
-                                  .append($('<label></label>').prop('for', 'modeAuto').text('Auto'))))
-                  .append($('<div></div>')
-                          .attr('id', 'row-invert')
-                          .append($('<span></span>').html('Invertieren'))
-                          .append($('<span></span>')
-                                  .append($('<input></input>')
-                                          .attr('id', 'invertDo')
-                                          .attr('type', 'checkbox')
-                                          .addClass('rounded-border inputSetting')
-                                          .prop('checked', valueFacts[key].settings ? valueFacts[key].settings.invert : true))
-                                  .append($('<label></label>').prop('for', 'invertDo'))))
-                  .append($('<div></div>')
-                          .attr('id', 'row-impulse')
-                          .append($('<span></span>').html('Impuls (50ms)'))
-                          .append($('<span></span>')
-                                  .append($('<input></input>')
-                                          .attr('id', 'impulseDo')
-                                          .attr('type', 'checkbox')
-                                          .addClass('rounded-border inputSetting')
-                                          .prop('checked', valueFacts[key].settings ? valueFacts[key].settings.impulse : false))
-                                  .append($('<label></label>').prop('for', 'impulseDo'))))
-                  .append($('<div></div>')
-                          .attr('id', 'row-feedback')
-                          .append($('<span></span>').html('Feedback Input'))
-                          .append($('<span></span>')
-                                  .append($('<input></input>')
-                                          .attr('id', 'feedbackIo')
-                                          .attr('type', 'search')
-                                          .addClass('rounded-border inputSetting')
-                                          .val(valueFacts[key].settings && valueFacts[key].settings.feedbackInType && valueFacts[key].settings.feedbackInAddress?
-                                               valueFacts[key].settings.feedbackInType + ':0x' + valueFacts[key].settings.feedbackInAddress.toString(16) :
-                                               ''))))
-                  .append($('<div></div>')
-                          .attr('id', 'row-zeiten')
-                          .append($('<span></span>').html('Zeitschaltuhr'))
-                          .append($('<span></span>')
-                                  .append($('<button></button>').text('+ Hinzufügen').addClass('rounded-border button2')
-                                          .on('click', function() { $('#doTimerListContainer').append(createTimeRow()); }))
-                                  .append($('<div></div>').attr('id', 'doTimerListContainer').addClass('do-timer-list'))))
-                  .append($('<div></div>')
-                          .attr('id', 'row-script')
-                          .addClass('textarea-row')
-                          .append($('<span></span>').html('Skript'))
-                          .append($('<span></span>')
-                                  .append($('<div></div>').addClass('lua-cm-editor'))))
-                  .append($('<div></div>')
-                          .attr('id', 'luaCheckResult')
-                          .css('font-size', 'large')
-                          .css('margin-top', '8px')
-                          .addClass('luaCheckResult'))
-                 );
-
-   let existingTimes = (valueFacts[key].settings && Array.isArray(valueFacts[key].settings.times)) ? valueFacts[key].settings.times : [];
-
-   function createTimeRow(startVal = '08:00', endVal = '17:00') {
-      let $row = $('<div></div>').addClass('do-timer-row');
-      $row.append($('<span>Von</span>'))
-          .append($('<input></input>').attr('type', 'time').addClass('do-timer-input timer-start').val(startVal))
-          .append($('<span>Bis</span>'))
-          .append($('<input></input>').attr('type', 'time').addClass('do-timer-input timer-end').val(endVal))
-          .append($('<button></button>').text('X').addClass('do-timer-delete').on('click', function() { $row.remove(); }));
-      return $row;
-   }
-
-   existingTimes.forEach(t => { $(form).find('#doTimerListContainer').append(createTimeRow(t.start, t.end)); });
-   let doScript = valueFacts[key].settings && valueFacts[key].settings.script ? valueFacts[key].settings.script : '';
-   let title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
-
-   $(form).dialog({
-      modal: true,
-      resizable: true,
-      closeOnEscape: true,
-      hide: "fade",
-      width: Math.round($(window).width() * 0.8),
-      height: Math.round($(window).height() * 0.6),
-      title: "DO settings '" + title + "'",
-      open: function() {
-         calSensorType = type;
-         calSensorAddress = address;
-
-         let $titlebar = $(this).dialog('widget').find('.ui-dialog-titlebar');
-         let $tabNav = $('<div></div>').css({'float': 'right', 'margin-right': '40px', 'display': 'flex', 'gap': '5px'})
-            .append($('<button>Allgemein & Zeiten</button>').addClass('rounded-border tool-button').on('click', function() {
-               $('#row-modus, #row-invert, #row-impulse, #row-feedback, #row-zeiten').show();
-               $('#row-script, #luaCheckResult').hide();
-            }))
-            .append($('<button>Skript</button>').addClass('rounded-border tool-button').on('click', function() {
-               $('#row-modus, #row-invert, #row-impulse, #row-feedback, #row-zeiten').hide();
-               $('#row-script, #luaCheckResult').show();
-               doEditor.refresh();
-            }));
-         $titlebar.append($tabNav);
-
-         $('#row-modus, #row-invert, #row-impulse, #row-feedback, #row-zeiten').show();
-         $('#row-script, #luaCheckResult').hide();
-
-         doEditor = CodeMirror($(form).find('.lua-cm-editor')[0], {
-            value:          doScript,
-            mode:           'lua',
-            lineNumbers:    true,
-            indentUnit:     3,
-            tabSize:        3,
-            indentWithTabs: false,
-            lineWrapping:   true,
-            autofocus:      true,
-            extraKeys:      { 'Esc': () => $(form).dialog('close') },
-         });
-         doEditor.setSize('100%', '220px');
-      },
-      buttons: {
-         'Abbrechen': function () {
-            $(this).dialog('close');
-         },
-         'Syntax prüfen': function () {
-            $('#row-script, #luaCheckResult').show();
-            $('#row-modus, #row-invert, #row-impulse, #row-feedback, #row-zeiten').hide();
-            doEditor.refresh();
-            $('#luaCheckResult').text('...').css('color', '');
-            socket.send({ "event" : "checkluascript", "object" : { 'lua': doEditor.getValue() }});
-         },
-         'Speichern': function () {
-            let targetMode = 0;
-            if ($('#modeManual').is(':checked')) targetMode |= 0x01;
-            if ($('#modeAuto').is(':checked')) targetMode |= 0x02;
-
-            if (targetMode === 0) {
-               alert('Es muss mindestens ein Modus (Manuell oder Auto) ausgewählt sein!');
-               return;
-            }
-
-            let timesArray = [];
-            $(form).find('.do-timer-row').each(function() {
-               let start = $(this).find('.timer-start').val();
-               let end = $(this).find('.timer-end').val();
-               if (start && end) timesArray.push({ 'start': start, 'end': end });
-            });
-
-            let splitVal = $('#feedbackIo').val().split(":");
-            let fbType = splitVal ? splitVal : '';
-            let addr = (splitVal && splitVal) ? parseInt(splitVal) : 0;
-
-            socket.send({ "event" : "storesensorsetup", "object" : {
-               'type': calSensorType,
-               'address': parseInt(calSensorAddress),
-               'settings': {
-                  'outputModes': targetMode,
-                  'invert': $('#invertDo').is(':checked'),
-                  'impulse': $('#impulseDo').is(':checked'),
-                  'script': doEditor.getValue(),
-                  'feedbackInType': fbType,
-                  'feedbackInAddress': addr,
-                  'times': timesArray,
-                  'fct' : valueFacts[key].settings ? valueFacts[key].settings.fct : ''
-               }
-            }});
-            $(this).dialog('close');
-         }
-      },
-      close: function() {
-         doEditor = null;
-         calSensorType = '';
-         calSensorAddress = -1;
-         $(this).dialog('destroy').remove();
-      }
-   });
-}
-
-function _obsolete_sensorDoSetup(type, address)
-{
-   calSensorType = type;
-   calSensorAddress = address;
-
-   let key = toKey(calSensorType, parseInt(calSensorAddress));
-   let form = document.createElement("div");
-
-   if (valueFacts[key] == null) {
-      console.log("Sensor ", key, "undefined");
-      return;
-   }
-
-   // Aktuellen outputModes aus den Settings holen (Default: 1 (Manuel), falls nicht gesetzt)
-
-   let currentOutputMode = (valueFacts[key].settings && valueFacts[key].settings.outputModes !== undefined)
-                           ? valueFacts[key].settings.outputModes
-                           : 1;
-
-   let isManualChecked = (currentOutputMode & 0x01) === 0x01;
-   let isAutoChecked = (currentOutputMode & 0x02) === 0x02;
-
-   $(form).append($('<div></div>')
-                  .addClass('settingsDialogContent')
-                  // NEU: Output Modes (Manuell / Auto)
-                  .append($('<div></div>')
-                          .append($('<span></span>')
-                                  .html('Modus'))
-                          .append($('<span></span>')
-                                  .append($('<input></input>')
-                                          .attr('id', 'modeManual')
-                                          .attr('type', 'checkbox')
-                                          .addClass('rounded-border inputSetting')
-                                          .prop('checked', isManualChecked))
-                                  .append($('<label></label>')
-                                          .prop('for', 'modeManual')
-                                          .text('Manuell '))
-                                  .append($('<input></input>')
-                                          .attr('id', 'modeAuto')
-                                          .attr('type', 'checkbox')
-                                          .addClass('rounded-border inputSetting')
-                                          .css('margin-left', '15px')
-                                          .prop('checked', isAutoChecked))
-                                  .append($('<label></label>')
-                                          .prop('for', 'modeAuto')
-                                          .text('Auto'))))
-                  .append($('<div></div>')
-                          .append($('<span></span>')
-                                  .html('Invertieren'))
-                          .append($('<span></span>')
-                                  .append($('<input></input>')
-                                          .attr('id', 'invertDo')
-                                          .attr('type', 'checkbox')
-                                          .addClass('rounded-border inputSetting')
-                                          .prop('checked', valueFacts[key].settings ? valueFacts[key].settings.invert : true))
-                                  .append($('<label></label>')
-                                          .prop('for', 'invertDo'))))
-                  .append($('<div></div>')
-                          .append($('<span></span>')
-                                  .html('Impuls (50ms)'))
-                          .append($('<span></span>')
-                                  .append($('<input></input>')
-                                          .attr('id', 'impulseDo')
-                                          .attr('type', 'checkbox')
-                                          .addClass('rounded-border inputSetting')
-                                          .prop('checked', valueFacts[key].settings ? valueFacts[key].settings.impulse : false))
-                                  .append($('<label></label>')
-                                          .prop('for', 'impulseDo'))))
-                  .append($('<div></div>')
-                          .append($('<span></span>')
-                                  .html('Feedback Input'))
-                          .append($('<span></span>')
-                                  .append($('<input></input>')
-                                          .attr('id', 'feedbackIo')
-                                          .attr('type', 'search')
-                                          .addClass('rounded-border inputSetting')
-                                          .val(valueFacts[key].settings && valueFacts[key].settings.feedbackInType ?
-                                               valueFacts[key].settings.feedbackInType
-                                               + ':0x'
-                                               + valueFacts[key].settings.feedbackInAddress.toString(16) : ''))))
-                  .append($('<div></div>')
-                          .addClass('textarea-row')
-                          .append($('<span></span>')
-                                  .html('Skript'))
-                          .append($('<span></span>')
-                                  .append($('<div></div>')
-                                          .addClass('lua-cm-editor'))))
-                  .append($('<div></div>')
-                          .attr('id', 'luaCheckResult')
-                          .css('font-size', 'large')
-                          .css('margin-top', '8px')
-                          .addClass('luaCheckResult'))
-                 );
-
-   var doScript = valueFacts[key].settings &&  valueFacts[key].settings.script ? valueFacts[key].settings.script : '';
-   var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
-
-   $(form).dialog({
-      modal: true,
-      resizable: true,
-      closeOnEscape: true,
-      hide: "fade",
-      width: Math.round($(window).width() * 0.8),
-      height: Math.round($(window).height() * 0.5),
-      title: "DO settings '" + title + '"',
-      open: function() {
-         calSensorType = type;
-         calSensorAddress = address;
-         doEditor = CodeMirror($(form).find('.lua-cm-editor')[0], {
-            value:          doScript,
-            mode:           'lua',
-            lineNumbers:    true,
-            indentUnit:     3,
-            tabSize:        3,
-            indentWithTabs: false,
-            lineWrapping:   false,
-            autofocus:      true,
-            extraKeys:      { 'Esc': () => $(form).dialog('close') },
-         });
-         doEditor.setSize('100%', '100%');
-         setTimeout(() => doEditor.refresh(), 50);
-      },
-      buttons: {
-         'Abbrechen': function () {
-            $(this).dialog('close');
-         },
-         'Syntax prüfen': function () {
-            $('#luaCheckResult').text('...').css('color', '');
-            socket.send({ "event" : "checkluascript", "object" : {
-               'lua': doEditor.getValue()
-            }});
-         },
-         'Speichern': function () {
-            // bitmask
-
-            let targetMode = 0;
-            if ($('#modeManual').is(':checked')) targetMode |= 0x01;
-            if ($('#modeAuto').is(':checked')) targetMode |= 0x02;
-
-            // check
-
-            if (targetMode === 0) {
-               alert('Es muss mindestens ein Modus (Manuell oder Auto) ausgewählt sein!');
-               return; // Verhindert das Schließen und Speichern
-            }
-
-            let addr = parseInt($('#feedbackIo').val().split(":")[1]);
-            let fbType = $('#feedbackIo').val().split(":")[0];
-
-            socket.send({ "event" : "storesensorsetup", "object" : {
-               'type': calSensorType,
-               'address': parseInt(calSensorAddress),
-               'settings': {
-                  'outputModes': targetMode,
-                  'invert': $('#invertDo').is(':checked'),
-                  'impulse': $('#impulseDo').is(':checked'),
-                  'script': doEditor.getValue(),
-                  'feedbackInType': fbType,
-                  'feedbackInAddress': addr,
                   'fct' : valueFacts[key].settings ? valueFacts[key].settings.fct : ''
                }
             }});

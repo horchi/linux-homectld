@@ -23,7 +23,7 @@
 bool Daemon::shutdown {false};
 
 //***************************************************************************
-// Widgetsactual time
+// Widgets
 //***************************************************************************
 
 const char* Daemon::widgetTypes[] =
@@ -101,7 +101,7 @@ Daemon::ValueTypes Daemon::defaultValueTypes[] =
    { "^VOTRO",    "Votronic" },
    { "^MOPEKA.*", "Mopeka" },
 
-   { "",        "" }
+   { "",          "" }
 };
 
 const char* Daemon::getTitleOfType(const char* type)
@@ -122,6 +122,8 @@ const char* Daemon::getTitleOfType(const char* type)
 
 Daemon::DefaultWidgetProperty Daemon::defaultWidgetProperties[] =
 {
+   // #TODO - auf einen JSON string umstellen
+
    // type, address,  unit,  widgetType, minScale, maxScale scaleStep, showPeak
 
    { "-",        na,   "*",      wtMeter,        0,        45,      10, false },
@@ -138,12 +140,12 @@ Daemon::DefaultWidgetProperty Daemon::defaultWidgetProperties[] =
    { "SC",       na, "stxt",wtSymbolText,        0,         0,       0, false },
    { "SC",       na, "zst",     wtSymbol,        0,         0,       0, false },
    { "SC",       na,   "*",      wtMeter,        0,        40,      10, true },
-   { "SP",       na,    "",       wtText,        0,         0,       0, false },
-   { "SP",       na,   "%", wtMeterLevel,        0,       100,      20, false },
-   { "SP",       na, "kWh",      wtChart,        0,        50,       0, true },
-   { "SP",       na,   "W",      wtMeter,        0,      3000,       0, true },
-   { "SP",       na, "txt",  wtPlainText,        0,         0,       0, true },
-   { "SP",       na,   "*",      wtMeter,        0,       100,      10, true },
+   // { "SP",       na,    "",       wtText,        0,         0,       0, false },
+   // { "SP",       na,   "%", wtMeterLevel,        0,       100,      20, false },
+   // { "SP",       na, "kWh",      wtChart,        0,        50,       0, true },
+   // { "SP",       na,   "W",      wtMeter,        0,      3000,       0, true },
+   // { "SP",       na, "txt",  wtPlainText,        0,         0,       0, true },
+   // { "SP",       na,   "*",      wtMeter,        0,       100,      10, true },
    { "UD",       na, "txt",       wtText,        0,         0,       0, false },
    { "UD",       na, "zst", wtSymbolText,        0,         0,       0, false },
    { "UD",       na,   "*",       wtText,        0,         0,       0, false },
@@ -460,7 +462,8 @@ int Daemon::init()
    }
 
    // ---------------------------------
-   // Update configuration in config table
+   // Update new configuration in config
+   // table to default vale
 
    for (const auto& it : *getConfiguration())
    {
@@ -468,13 +471,40 @@ int Daemon::init()
       tableConfig->setValue("OWNER", myName());
       tableConfig->setValue("NAME", it.name.c_str());
 
-      if (!tableConfig->find())
-      {
+      bool insert {!tableConfig->find()};
+
+      tableConfig->setValue("TYPE", it.type);
+      tableConfig->setValue("TITLE", it.title.c_str());
+      tableConfig->setValue("CATEGORY", it.category.c_str());
+      tableConfig->setValue("DESCRIPTION", it.description.c_str());
+      tableConfig->setValue("INTERNAL", it.internal ? "Y" : "N");
+      tableConfig->setValue("KIND", it.kind.c_str());
+
+      if (insert)
          tableConfig->setValue("VALUE", it.def.c_str());
-         tableConfig->store();
+
+      tableConfig->store();
+   }
+
+   // add user defined confg options to th array
+
+   for (int f = selectAllConfig->find(); f; f = selectAllConfig->fetch())
+   {
+      if (tableConfig->hasValue("KIND", "U"))
+      {
+         getConfiguration()->emplace_back(
+            tableConfig->getStrValue("NAME"),
+            (ConfigItemType)tableConfig->getIntValue("TYPE"),
+            tableConfig->getStrValue("VALUE"),
+            tableConfig->getStrValue("KIND"),
+            (bool)tableConfig->hasValue("INTERNAL", "Y"),
+            tableConfig->getStrValue("CATEGORY"),
+            tableConfig->getStrValue("TITLE"),
+            tableConfig->getStrValue("DESCRIPTION"));
       }
    }
 
+   selectAllConfig->freeResult();
    readConfiguration(true);
    mqttCheckConnection();
 
@@ -1492,7 +1522,6 @@ int Daemon::initDb()
    selectAllConfig->build("select ");
    selectAllConfig->bindAllOut();
    selectAllConfig->build(" from %s", tableConfig->TableName());
-   // selectAllConfig->build(" order by ord");
 
    status += selectAllConfig->prepare();
 
@@ -1804,7 +1833,7 @@ int Daemon::initDb()
 
          if (tableValueFacts->find())
          {
-            json_t* jDefaults = json_object();
+            json_t* jDefaults {json_object()};
             widgetDefaults2Json(jDefaults, tableValueFacts->getStrValue("TYPE"),
                                 tableValueFacts->getStrValue("UNIT"), "",
                                 tableValueFacts->getIntValue("ADDRESS"));
@@ -2145,7 +2174,7 @@ int Daemon::meanwhile()
    if (lastPingAt+2 <= time(0))
    {
       lastPingAt = time(0);
-      json_t* oJson = json_object();
+      json_t* oJson {json_object()};
       pushOutMessage(oJson, "ping", 0);
    }
 
@@ -3565,7 +3594,7 @@ int Daemon::updateWeather()
       if (index == 0)
          weather2json(jWeather, jObj);
 
-      json_t* jFcItem = json_object();
+      json_t* jFcItem {json_object()};
       json_array_append_new(jForecasts, jFcItem);
       weather2json(jFcItem, jObj);
    }
@@ -3582,7 +3611,7 @@ int Daemon::updateWeather()
    json_decref(jWeather);
 
    {
-      json_t* ojData = json_object();
+      json_t* ojData {json_object()};
       sensor2Json(ojData, "WEA", 1);
       json_object_set_new(ojData, "text", json_string(sensors["WEA"][1].text.c_str()));
 
@@ -3875,7 +3904,7 @@ int Daemon::dispatchHomematicEvents(const char* message)
    }
 
    {
-      json_t* ojData = json_object();
+      json_t* ojData {json_object()};
       sensor2Json(ojData, type, address);
       json_object_set_new(ojData, "value", json_real(value));
 
@@ -4010,7 +4039,7 @@ int Daemon::dispatchGrowattEvents(const char* message)
 
          // send update to WS
          {
-            json_t* ojData = json_object();
+            json_t* ojData {json_object()};
             sensor2Json(ojData, type, address);
 
             if (sensors[type][address].kind == "status")
@@ -4080,7 +4109,7 @@ int Daemon::dispatchRtl433(const char* message)
 
    // send update to WS
    {
-      json_t* ojData = json_object();
+      json_t* ojData {json_object()};
       sensor2Json(ojData, type, address);
 
       if (kind == "status")
@@ -4615,6 +4644,11 @@ int Daemon::setConfigItem(const char* name, const char* value, const char* kind)
    tableConfig->clear();
    tableConfig->setValue("OWNER", myName());
    tableConfig->setValue("NAME", name);
+
+   // load the already stored row (if any), otherwise the update would
+   //   clear all fields we don't set here (TYPE, TITLE, CATEGORY, ...)
+
+   tableConfig->find();
    tableConfig->setValue("VALUE", value);
 
    // config option 'kind'
@@ -4645,14 +4679,17 @@ int Daemon::setConfigItem(const char* name, const char* value, const char* kind)
          if (it == configList->end())
             kind = "U";       // user defined config option
          else
-            kind = (*it).kind;
+            kind = (*it).kind.c_str();   // the list entry lives as long as the daemon
       }
    }
 
    if (!isEmpty(kind))
       tableConfig->setValue("KIND", kind);
 
-   return tableConfig->store();
+   int status {tableConfig->store()};
+   tableConfig->reset();
+
+   return status;
 }
 
 int Daemon::getConfigItem(const char* name, int& value, int def)
@@ -5241,7 +5278,7 @@ void Daemon::publishI2CSensorConfig(const char* type, uint pin, json_t* jParamet
 
 void Daemon::publishPin(const char* type, uint pin)
 {
-   json_t* ojData = json_object();
+   json_t* ojData {json_object()};
    pin2Json(ojData, type, pin);
 
    char* key {};
@@ -5263,7 +5300,7 @@ void Daemon::publishSpecialValue(int addr)
    if (!fact)
       return ;
 
-   json_t* ojData = json_object();
+   json_t* ojData {json_object()};
 
    sensor2Json(ojData, "SP", addr);
 
@@ -5441,7 +5478,7 @@ int Daemon::initArduino()
    if (mqttUrl.empty() || !mqttReader->isConnected())
       return fail;
 
-   json_t* oJson = json_object();
+   json_t* oJson {json_object()};
 
    json_object_set_new(oJson, "event", json_string("setUpdateInterval"));
    json_object_set_new(oJson, "parameter", json_integer(arduinoInterval));
@@ -5492,7 +5529,7 @@ bool Daemon::updateAnalogInput(uint addr, const char* type, double value, time_t
    {
       double oValue {dValue};
       dValue = std::llround(dValue*aiSensorConfig[type][addr].round) / aiSensorConfig[type][addr].round;
-      tell(eloDebug, "Rounded %.2f to %.2f", oValue, dValue);
+      tell(eloDebug, "Debug: Rounded %.2f to %.2f", oValue, dValue);
    }
 
    if (dValue < aiSensorConfig[type][addr].cutBelow)
@@ -5518,7 +5555,7 @@ bool Daemon::updateAnalogInput(uint addr, const char* type, double value, time_t
 
    // ----------------------------------
 
-   json_t* ojData = json_object();
+   json_t* ojData {json_object()};
 
    sensor2Json(ojData, type, addr);
 

@@ -2103,8 +2103,7 @@ function alterColor(rgb, type, percent)
 
 function confirmDialog(onConfirm, message, okBtn = 'Continue', cancelBtn = 'Cancel', input = null)
 {
-   var form = '<div>' +
-       '<div class="dialog-titlebar">CONFIRM</div>';
+   var form = '<div>';
 
    if (!input) {
       form += '  <div class="dialog-content">' + message + '</div>';
@@ -2123,6 +2122,7 @@ function confirmDialog(onConfirm, message, okBtn = 'Continue', cancelBtn = 'Canc
       hide: "fade",
       width : "auto",
       modal: true,
+      title: "CONFIRM",
       buttons: {
          [okBtn]: function() {
             let value = $('#confirmInputValue').val();

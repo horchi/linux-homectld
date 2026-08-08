@@ -106,13 +106,18 @@ Table groups
 
 Table config
 {
-   OWNER                ""                 owner  Ascii     40 Primary,
-   NAME                 ""                 name   Ascii     40 Primary,
+   OWNER                ""                 owner           Ascii     40 Primary,
+   NAME                 ""                 name            Ascii     40 Primary,
 
-   KIND                 "U - user defined" kind   Ascii      1 Data,
-   INSSP                ""                 inssp  Int        0 Meta,
-   UPDSP                ""                 updsp  Int        0 Meta,
-   VALUE                ""                 value  Text    1500 Data,
+   TYPE                 ""                 type            Int        0 Data,
+   TITLE                ""                 title           Ascii    100 Data,
+   CATEGORY             ""                 category        Ascii     40 Data,
+   DESCRIPTION          ""                 description     Ascii    200 Data,
+   INTERNAL             ""                 internal        Ascii      1 Data,
+   KIND                 "U - user defined" kind            Ascii      1 Data,
+   INSSP                ""                 inssp           Int        0 Meta,
+   UPDSP                ""                 updsp           Int        0 Meta,
+   VALUE                ""                 value           Text    1500 Data,
 }
 
 // ----------------------------------------------------------------

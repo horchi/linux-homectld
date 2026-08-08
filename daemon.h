@@ -179,9 +179,9 @@ class Daemon : public cWebInterface, public Service
          std::string name;
          ConfigItemType type;
          std::string def {};
-         const char* kind {};
+         std::string kind {};
          bool internal {false};
-         const char* category {};
+         std::string category {};
          std::string title {};
          std::string description {};
       };

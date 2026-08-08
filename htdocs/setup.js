@@ -37,8 +37,8 @@ function initConfig(configdetails = null)
    if (setupCategory == '')
       setupCategory = localStorage.getItem(storagePrefix + 'setupCategory');
 
-   if (!categories.includes(setupCategory))
-      setupCategory = categories.length ? categories[0] : '';
+   // if (!categories.includes(setupCategory))
+   //    setupCategory = categories.length ? categories[0] : '';
 
    $("#controlContainer")
       .empty()
@@ -59,6 +59,7 @@ function initConfig(configdetails = null)
 
    $('#container').append(dlgContent);
 
+   let haveUserDefined = false;
    let lastCat = '';
 
    for (var i = 0; i < theConfigdetails.length; i++) {
@@ -66,6 +67,8 @@ function initConfig(configdetails = null)
       let choiceSel = null;
 
       if (lastCat != item.category) {
+         haveUserDefined = item.category == 'User Defined';
+
          $("#controlContainer").append($('<div></div>')
                                        .append($('<button></button>')
                                                .addClass('rounded-border tool-button')
@@ -242,6 +245,30 @@ function initConfig(configdetails = null)
       }
    }
 
+   if (!haveUserDefined) {
+      $("#controlContainer").append($('<div></div>')
+                                    .append($('<button></button>')
+                                            .addClass('rounded-border tool-button')
+                                            .css('background-color', setupCategory == "User Defined" ? 'slategray' : '')
+                                            .click(function(event) {
+                                               setupCategory = "User Defined";
+                                               localStorage.setItem(storagePrefix + 'setupCategory', setupCategory);
+                                               initConfig(theConfigdetails);
+                                            })
+                                            .html("User Defined")));
+   }
+
+   if (setupCategory == "User Defined")
+   {
+      $(dlgContent)
+         .append($('<div></div>')
+                 .append($('<button></button>')
+                         .addClass('rounded-border tool-button')
+                         .html("+")
+                         .click(function() { addConfigItem(); })
+                        ));
+   }
+
    $('input[id^="mselect_"]').each(function () {
       var item = theConfigdetails[$(this).data('index')];
       $(this).autocomplete({
@@ -255,6 +282,105 @@ function initConfig(configdetails = null)
    window.onresize = function() {
       $("#container").height($(window).height() - $("#menu").height() - getTotalHeightOf('footer') - sab - 8);
    };
+}
+
+function addConfigItem()
+{
+   // must match 'enum ConfigItemType' in daemon.h
+
+   const configItemTypes = [
+      { type: 0, title: 'Integer' },       // ctInteger
+      { type: 1, title: 'Number' },        // ctNum
+      { type: 2, title: 'String' },        // ctString
+      { type: 3, title: 'Bool' },          // ctBool
+      { type: 4, title: 'Range' },         // ctRange
+      { type: 5, title: 'Choice' },        // ctChoice
+      { type: 6, title: 'MultiSelect' },   // ctMultiSelect
+      { type: 7, title: 'BitSelect' },     // ctBitSelect
+      { type: 8, title: 'Text' }           // ctText
+   ];
+
+   let typeSel = null;
+   let form = document.createElement("div");
+   $(form).append($('<div></div>')
+                  .append($('<div></div>')
+                          .append($('<span></span>').html('Name'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .attr('id', 'cfgItemName')
+                                          .attr('type', 'search')
+                                          .addClass('rounded-border inputSetting')
+                                          )))
+                  .append($('<div></div>')
+                          .append($('<span></span>').html('Type'))
+                          .append($('<span></span>')
+                                  .append(typeSel = $('<select></select>')
+                                          .attr('id', 'cfgItemType')
+                                          .addClass('rounded-border inputSetting')
+                                          )))
+                  .append($('<div></div>')
+                          .append($('<span></span>').html('Title'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .attr('id', 'cfgItemTitle')
+                                          .attr('type', 'search')
+                                          .addClass('rounded-border inputSetting')
+                                          )))
+                  .append($('<div></div>')
+                          .append($('<span></span>').html('Description'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .attr('id', 'cfgItemDescription')
+                                          .attr('type', 'search')
+                                          .addClass('rounded-border inputSetting')
+                                         )))
+                  .append($('<div></div>')
+                          .append($('<span></span>').html('Value'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .attr('id', 'cfgItemValue')
+                                          .attr('type', 'search')
+                                          .addClass('rounded-border inputSetting')
+                                         )))
+                 );
+
+   for (var t = 0; t < configItemTypes.length; t++) {
+      $(typeSel).append($('<option></option>')
+                        .val(configItemTypes[t].type)
+                        .html(configItemTypes[t].title));
+   }
+
+   $(form).dialog({
+      modal: true,
+      resizable: false,
+      closeOnEscape: true,
+      hide: "fade",
+      width: "400px",
+      title: "New Config Item",
+      open: function() {
+      },
+      buttons: {
+         'Abbrechen': function () {
+            $(this).dialog('close');
+         },
+         'Speichern': function () {
+            socket.send({ "event" : "storeconfig", "object" : {
+               'action': 'add',
+               'name': $('#cfgItemName').val(),
+               'type': parseInt($('#cfgItemType').val()),
+               'title': $('#cfgItemTitle').val(),
+               'category': 'User Defined',
+               'description': $('#cfgItemDescription').val(),
+               'value': $('#cfgItemValue').val()
+            }});
+
+            $(this).dialog('close');
+         }
+      },
+      close: function() {
+         $(this).dialog('destroy').remove();
+      }
+   });
 }
 
 function storeConfig()

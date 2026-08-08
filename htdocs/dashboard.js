@@ -628,7 +628,11 @@ function initWidget(key, widget, fact)
                      if (Math.abs(lightClickPosX - posX) < 15 && Math.abs(lightClickPosY - posY) < 15) {
                         e.preventDefault();
                         e.stopPropagation();
-                        toggleIo(fact.address, fact.type);
+                        function doToggle() { toggleIo(fact.address, fact.type); }
+                        if (fact.settings && fact.settings.ask)
+                           confirmDialog(doToggle, 'Wirklich schalten', 'Schalten', 'Abbrechen');
+                        else
+                           toggleIo(fact.address, fact.type);
                      }
                   }
                   if (lightClickTimeout)
@@ -849,7 +853,13 @@ function initWidget(key, widget, fact)
                             .attr('draggable', false)
                             .addClass('rounded-border')
                             .css('user-select', 'none'))
-                    .click(function() { toggleIo(fact.address, fact.type); }))
+                    .click(function() {
+                       function doToggle() { toggleIo(fact.address, fact.type); }
+                       if (fact.settings && fact.settings.ask)
+                          confirmDialog(doToggle, 'Wirklich schalten', 'Schalten', 'Abbrechen');
+                       else
+                          toggleIo(fact.address, fact.type);
+                    }))
             .append($('<div></div>')
                     .attr('id', 'value' + fact.type + fact.address)
                     .addClass('symbol-value')

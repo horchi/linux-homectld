@@ -283,6 +283,39 @@ function fmtHour(date) {                  // '15:00'
    return String(date.getHours()).padStart(2, '0') + ':00';
 }
 
+function prettyDuration(seconds, short = true)
+{
+   if (typeof seconds !== 'number' || isNaN(seconds) || seconds <= 0)
+      return 'jetzt';
+
+   const intervals = [
+      { label: 'Woche', labels: 'Wochen', secs: 604800 },
+      { label: 'Tag', labels: 'Tage', secs: 86400 },
+      { label: 'Stunde', labels: 'Stunden', secs: 3600 },
+      { label: 'Minute', labels: 'Minuten', secs: 60 },
+      { label: 'Sekunde', labels: 'Sekunden', secs: 1 }
+   ];
+
+   const result = [];
+   let remainingSeconds = seconds;
+
+   for (const interval of intervals) {
+      if (short && interval.secs === 1 && seconds >= 600)
+         break;
+
+      const value = Math.floor(remainingSeconds / interval.secs);
+      if (value > 0) {
+         result.push(`${value} ${short ? '' : ' '}${value === 1 ? interval.label : interval.labels}`);
+         remainingSeconds %= interval.secs;
+      }
+   }
+
+   if (short && result.length > 1)
+      return result.slice(0, 2).join(' '); // Zeigt maximal die zwei größten Einheiten
+
+   return result.join(', ');
+}
+
 function setActualDashboard(dashboard, index)
 {
    actDashboard = dashboard;

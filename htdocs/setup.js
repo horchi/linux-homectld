@@ -37,8 +37,8 @@ function initConfig(configdetails = null)
    if (setupCategory == '')
       setupCategory = localStorage.getItem(storagePrefix + 'setupCategory');
 
-   // if (!categories.includes(setupCategory))
-   //    setupCategory = categories.length ? categories[0] : '';
+   if (!categories.includes(setupCategory) && setupCategory != 'User Defined')
+      setupCategory = categories.length ? categories[0] : '';
 
    $("#controlContainer")
       .empty()
@@ -59,28 +59,26 @@ function initConfig(configdetails = null)
 
    $('#container').append(dlgContent);
 
-   let haveUserDefined = false;
-   let lastCat = '';
+   let haveUserDefined = categories.includes('User Defined');
+
+   // die Kategorie Buttons
+
+   for (const category of categories) {
+      $("#controlContainer").append($('<div></div>')
+                                    .append($('<button></button>')
+                                            .addClass('rounded-border tool-button')
+                                            .css('background-color', setupCategory == category ? 'slategray' : '')
+                                            .click(function(event) {
+                                               setupCategory = category;
+                                               localStorage.setItem(storagePrefix + 'setupCategory', setupCategory);
+                                               initConfig(theConfigdetails);
+                                            })
+                                            .html(category)));
+   }
 
    for (var i = 0; i < theConfigdetails.length; i++) {
       let item = theConfigdetails[i];
       let choiceSel = null;
-
-      if (lastCat != item.category) {
-         haveUserDefined = item.category == 'User Defined';
-
-         $("#controlContainer").append($('<div></div>')
-                                       .append($('<button></button>')
-                                               .addClass('rounded-border tool-button')
-                                               .css('background-color', setupCategory == item.category ? 'slategray' : '')
-                                               .click(function(event) {
-                                                  setupCategory = item.category;
-                                                  localStorage.setItem(storagePrefix + 'setupCategory', setupCategory);
-                                                  initConfig(theConfigdetails);
-                                               })
-                                               .html(item.category)));
-         lastCat = item.category;
-      }
 
       if (item.category != setupCategory) {
          // console.log("Skipping category", item.category)

@@ -277,7 +277,7 @@ int W1::update()
    json_decref(oJson);
 
    if (count)
-      mqttW1Writer->writeRetained(mqttTopic.c_str(), p);
+      mqttW1Writer->write(mqttTopic.c_str(), p);
    else
       mqttW1Writer->write(mqttPingTopic.c_str(), "{\"ping\" : true, \"sender\" : \"" INSTANCE "\"}");
 

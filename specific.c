@@ -322,7 +322,7 @@ int HomeCtl::applyConfigurationSpecials()
 
    // special values
 
-   addValueFact(spPhMinusDemand, "SP", 1, "PH Minus Bedarf", "ml");
+   // addValueFact(spPhMinusDemand, "SP", 1, "PH Minus Bedarf", "ml");
    // addValueFact(spSolarPower, "SP", 1, "Solar Leistung", "W");
    // addValueFact(spSolarWork, "SP", 1, "Solar Energie (heute)", "kWh");
 
@@ -392,11 +392,11 @@ int HomeCtl::process(bool force, bool signal)
    // -----------
    // PH
 
-   if (!isNan(sensors["AI"][aiPh].value) && sensors["AI"][aiPh].last > time(0)-120) // not older than 2 minutes
-   {
-      setSpecialValue(spPhMinusDemand, calcPhMinusVolume(sensors["AI"][aiPh].value));
-      publishSpecialValue(spPhMinusDemand);
-   }
+   // if (!isNan(sensors["AI"][aiPh].value) && sensors["AI"][aiPh].last > time(0)-120) // not older than 2 minutes
+   // {
+   //    setSpecialValue(spPhMinusDemand, calcPhMinusVolume(sensors["AI"][aiPh].value));
+   //    publishSpecialValue(spPhMinusDemand);
+   // }
 
    // // -----------
    // // Filter Pump
@@ -565,10 +565,10 @@ void HomeCtl::phMeasurementActive()
    //    sensors["SP"][spPhMinusDemand].disabled = false;
    // }
    // else
-   {
-      sensors["AI"][aiPh].disabled = true;
-      sensors["SP"][spPhMinusDemand].disabled = true;
-   }
+   // {
+   //    sensors["AI"][aiPh].disabled = true;
+   //    // sensors["SP"][spPhMinusDemand].disabled = true;
+   // }
 }
 
 //***************************************************************************

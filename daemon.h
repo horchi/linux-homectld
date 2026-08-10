@@ -174,6 +174,17 @@ class Daemon : public cWebInterface, public Service
          ctText
       };
 
+      // ORD of config items created at runtime (sensor and user defined options),
+      //   they are shown after the items of the configuration definition
+
+      enum ConfigOrder
+      {
+         coDynamic = 10000
+      };
+
+      // the configuration definition, it's used to fill/update the config table
+      //   at startup, all further access is done via the table!
+
       struct ConfigItemDef
       {
          std::string name;
@@ -275,7 +286,8 @@ class Daemon : public cWebInterface, public Service
 
       cDbRow* valueFactRowOf(std::string type, uint addr);
       SensorData* getSensor(const char* type, int addr);
-      void setSpecialValue(uint addr, double value, const std::string& text = "");
+      // void setSpecialValue(uint addr, double value, const std::string& text = "");
+      // void publishSpecialValue(int addr);
 
       int performMqttRequests();
       int mqttCheckConnection();
@@ -293,6 +305,12 @@ class Daemon : public cWebInterface, public Service
 
       int loadHtmlHeader();
       int sendMail(const char* receiver, const char* subject, const char* body, const char* mimeType);
+
+      int initConfigTable();
+      bool configItemExists(const char* name, ConfigItemType* type = nullptr);
+      int addConfigItem(const char* name, ConfigItemType type, const char* value, const char* kind,
+                        bool internal, const char* category, const char* title, const char* description,
+                        int ord = coDynamic);
 
       int getConfigItem(const char* name, std::string& value, const char* def = 0);
       int setConfigItem(const char* name, const char* value, const char* kind = "N");
@@ -389,7 +407,6 @@ class Daemon : public cWebInterface, public Service
       int systemServices2Json(json_t* obj);
       int images2Json(json_t* obj);
       void pin2Json(json_t* ojData, const char* type, uint pin);
-      void publishSpecialValue(int addr);
       bool webFileExists(const char* file, const char* base = nullptr);
 
       int lmcTrack2Json(json_t* obj, TrackInfo* track);
@@ -461,6 +478,7 @@ class Daemon : public cWebInterface, public Service
       cDbStatement* selectAllConfig {};
       cDbStatement* selectAllUser {};
       cDbStatement* selectMaxTime {};
+      cDbStatement* selectSensorMaxTime {};
       cDbStatement* selectSamplesRange {};              // for chart
       cDbStatement* selectSamplesRange60 {};            // for chart
       cDbStatement* selectSamplesRange360 {};           // for chart

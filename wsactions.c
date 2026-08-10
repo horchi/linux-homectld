@@ -548,7 +548,7 @@ int Daemon::performAlertTestMail(int id, long client)
    if (!selectMaxTime->find())
       tell(eloAlways, "Warning: Got no result by 'select max(time) from samples'");
 
-   time_t  last = tableSamples->getTimeValue("TIME");
+   time_t last {tableSamples->getTimeValue("TIME")};
    selectMaxTime->freeResult();
 
    tableSensorAlert->clear();
@@ -1470,47 +1470,22 @@ int Daemon::storeConfig(json_t* obj, long client)
    if (action == "add")
    {
       const char* key {getStringFromJson(obj, "name")};
-      const char* value {getStringFromJson(obj, "value")};
+      const char* value {getStringFromJson(obj, "value", "")};
 
       if (isEmpty(key))
          return replyResult(success, "Hinzufügen fehlgeschlagen, Name fehlt", client);
 
-      tableConfig->clear();
-      tableConfig->setValue("OWNER", myName());
-      tableConfig->setValue("NAME", key);
-
-      if (tableConfig->find())
-      {
-         tableConfig->reset();
+      if (configItemExists(key))
          return replyResult(success, "Option bereits vorhanden", client);
-      }
 
-      tableConfig->setValue("TYPE", getIntFromJson(obj, "type"));
-      tableConfig->setValue("TITLE", getStringFromJson(obj, "title"));
-      tableConfig->setValue("CATEGORY", getStringFromJson(obj, "category"));
-      tableConfig->setValue("DESCRIPTION", getStringFromJson(obj, "description"));
-      tableConfig->setValue("INTERNAL", "N");
-      tableConfig->setValue("KIND", "U");
-      tableConfig->store();
-
-      setConfigItem(key, value, "U");
-
-      // the user defined options are read from the table at startup only,
-      //   therefore add the new one to the in memory configuration list here
-
-      if (!std::any_of(getConfiguration()->begin(), getConfiguration()->end(),
-                       [key](const ConfigItemDef& item) { return item.name == key; }))
-      {
-         getConfiguration()->emplace_back(
-            key,
-            (ConfigItemType)getIntFromJson(obj, "type"),
-            getStringFromJson(obj, "value", ""),         // default
-            "U",                                         // kind
-            false,                                       // internal
-            getStringFromJson(obj, "category", "User Defined"),
-            getStringFromJson(obj, "title", key),
-            getStringFromJson(obj, "description", ""));
-      }
+      addConfigItem(key,
+                    (ConfigItemType)getIntFromJson(obj, "type"),
+                    value,                                          // value
+                    "U",                                            // kind
+                    false,                                          // internal
+                    getStringFromJson(obj, "category", "User Defined"),
+                    getStringFromJson(obj, "title", key),
+                    getStringFromJson(obj, "description", ""));
 
       readConfiguration(false);
       json_t* oJson {json_object()};
@@ -2233,17 +2208,13 @@ int Daemon::environment2Json(json_t* obj)
 
 int Daemon::config2Json(json_t* obj)
 {
-   for (const auto& it : *getConfiguration())
-   {
-      tableConfig->clear();
-      tableConfig->setValue("OWNER", myName());
-      tableConfig->setValue("NAME", it.name.c_str());
+   tableConfig->clear();
+   tableConfig->setValue("OWNER", myName());
 
-      if (tableConfig->find())
-         json_object_set_new(obj, tableConfig->getStrValue("NAME"), json_string(tableConfig->getStrValue("VALUE")));
+   for (int f = selectAllConfig->find(); f; f = selectAllConfig->fetch())
+      json_object_set_new(obj, tableConfig->getStrValue("NAME"), json_string(tableConfig->getStrValue("VALUE")));
 
-      tableConfig->reset();
-   }
+   selectAllConfig->freeResult();
 
    return done;
 }
@@ -2254,14 +2225,42 @@ int Daemon::config2Json(json_t* obj)
 
 int Daemon::configDetails2Json(json_t* obj)
 {
-   for (const auto& it : *getConfiguration())
+   struct ConfigItem
    {
-      if (it.internal)
+      std::string name;
+      ConfigItemType type;
+      std::string kind;
+      std::string category;
+      std::string title;
+      std::string description;
+      std::string value;
+   };
+
+   // first read the items, configChoice2json() below may use the tables again
+
+   std::vector<ConfigItem> items;
+
+   tableConfig->clear();
+   tableConfig->setValue("OWNER", myName());
+
+   for (int f = selectAllConfig->find(); f; f = selectAllConfig->fetch())
+   {
+      if (tableConfig->hasValue("INTERNAL", "Y"))
          continue;
 
-      if (it.kind == "U")
-         tell(eloDebug, "Debug: '%s' : '%s'", it.name.c_str(), it.kind.c_str());
+      items.push_back({tableConfig->getStrValue("NAME"),
+                       (ConfigItemType)tableConfig->getIntValue("TYPE"),
+                       tableConfig->getStrValue("KIND"),
+                       tableConfig->getStrValue("CATEGORY"),
+                       tableConfig->getStrValue("TITLE"),
+                       tableConfig->getStrValue("DESCRIPTION"),
+                       tableConfig->getStrValue("VALUE")});
+   }
 
+   selectAllConfig->freeResult();
+
+   for (const auto& it : items)
+   {
       json_t* oDetail {json_object()};
       json_array_append_new(obj, oDetail);
 
@@ -2271,18 +2270,10 @@ int Daemon::configDetails2Json(json_t* obj)
       json_object_set_new(oDetail, "category", json_string(it.category.c_str()));
       json_object_set_new(oDetail, "title", json_string(it.title.c_str()));
       json_object_set_new(oDetail, "description", json_string(it.description.c_str()));
+      json_object_set_new(oDetail, "value", json_string(it.value.c_str()));
 
       if (it.type == ctChoice || it.type == ctMultiSelect || it.type == ctBitSelect)
          configChoice2json(oDetail, it.name.c_str());
-
-      tableConfig->clear();
-      tableConfig->setValue("OWNER", myName());
-      tableConfig->setValue("NAME", it.name.c_str());
-
-      if (tableConfig->find())
-         json_object_set_new(oDetail, "value", json_string(tableConfig->getStrValue("VALUE")));
-
-      tableConfig->reset();
    }
 
    return done;

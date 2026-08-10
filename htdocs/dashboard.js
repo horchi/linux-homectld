@@ -1485,7 +1485,7 @@ function titleClick(ctrlKey, key)
    let widget = dashboards[actDashboard].widgets[key];
    let hasMode = fact && fact.outputModes == 3 //  -> ooUser and ooAuto are set
 
-   console.log("titleClick: ", ctrlKey, key, "fact.outputModes", fact ? fact.outputModes : "-");
+   // console.log("titleClick: ", ctrlKey, key, "fact.outputModes", fact ? fact.outputModes : "-");
 
    if (setupMode) {
       widgetSetup(key);
@@ -1498,11 +1498,24 @@ function titleClick(ctrlKey, key)
    else {
       let sensor = allSensors[key];
       let now = new Date();
-      let last = new Date(sensor.last * 1000);
-      let before = Math.round((now - daemonState.timeOffset -last)/1000)
+      let lastUpd = new Date(sensor.last * 1000);
+      let updBefore = prettyDuration(Math.round((now - daemonState.timeOffset - lastUpd)/1000));
+      let changedAt = new Date(sensor.changedAt * 1000);
+      let chgBefore = prettyDuration(Math.round((now - daemonState.timeOffset - changedAt)/1000));
       let peakMaxTime = new Date(sensor.peakmaxtime * 1000);
       let peakMinTime = new Date(sensor.peakmintime * 1000);
       let form = document.createElement("div");
+
+      let timersString = (fact.settings && Array.isArray(fact.settings.times))
+          ? fact.settings.times.map(t => `${t.start}-${t.end}`).join(',') : '';
+
+      let value = sensor.value + ' ' + widget.unit;
+
+      if (fact.widget.widgettype == 0 || fact.widget.widgettype == 9 || fact.widget.widgettype == 12)
+         value = sensor.value ? "On" :  "Off";
+
+      if (!isEmpty(sensor.text))
+         value = value + " / '" + sensor.text + "'";
 
       // console.log(sensor);
       // console.log(fact);
@@ -1510,22 +1523,6 @@ function titleClick(ctrlKey, key)
       $(form).append($('<div></div>')
                      .css('z-index', '9999')
                      .css('minWidth', '40vh')
-
-                     .append($('<div></div>')
-                             .css('display', 'flex')
-                             .css('margin-bottom', '4px')
-                             .append($('<span></span>')
-                                     .css('width', '30%')
-                                     .css('text-align', 'end')
-                                     .css('margin-right', '10px')
-                                     .html('ID'))
-                             .append($('<span></span>')
-                                     .append($('<div></div>')
-                                             .addClass('rounded-border')
-                                             .css('font-family', 'monospace')
-                                             .css('font-size', 'larger')
-                                             .html(key + ' (' + parseInt(key.split(":")[1]) + ')')
-                                            )))
                      .append($('<div></div>')
                              .css('display', 'flex')
                              .css('margin-bottom', '4px')
@@ -1565,37 +1562,10 @@ function titleClick(ctrlKey, key)
                              .append($('<span></span>')
                                      .append($('<div></div>')
                                              .addClass('rounded-border')
-                                             .html(sensor.value + ' ' + widget.unit)
+                                             .html(value)
                                             )))
                      .append($('<div></div>')
-                             .css('display', 'flex')
-                             .css('margin-bottom', '4px')
-                             .append($('<span></span>')
-                                     .css('width', '30%')
-                                     .css('text-align', 'end')
-                                     .css('margin-right', '10px')
-                                     .html('Text'))
-                             .append($('<span></span>')
-                                     .append($('<div></div>')
-                                             .addClass('rounded-border')
-                                             .html(sensor.text)
-                                            )))
-                     .append($('<div></div>')
-                             .css('display', 'flex')
-                             .css('margin-bottom', '4px')
-                             .append($('<span></span>')
-                                     .css('width', '30%')
-                                     .css('text-align', 'end')
-                                     .css('margin-right', '10px')
-                                     .html('Peak Max'))
-                             .append($('<span></span>')
-                                     .append($('<div></div>')
-                                             .attr('id', 'dlgPeakMax')
-                                             .addClass('rounded-border')
-                                             .html(sensor.peakmax != null ? (sensor.peakmax + ' ' + widget.unit + ' / ' + peakMaxTime.toLocaleString('de-DE')) : '-')
-                                            )))
-                     .append($('<div></div>')
-                             .css('display', 'flex')
+                             .css('display', sensor.peakmin ? 'flex' : 'none')
                              .css('margin-bottom', '4px')
                              .append($('<span></span>')
                                      .css('width', '30%')
@@ -1606,7 +1576,29 @@ function titleClick(ctrlKey, key)
                                      .append($('<div></div>')
                                              .attr('id', 'dlgPeakMin')
                                              .addClass('rounded-border')
-                                             .html(sensor.peakmin != null ? (sensor.peakmin + ' ' + widget.unit + ' / ' + peakMinTime.toLocaleString('de-DE')) : '-')
+                                             .append(sensor.peakmin ? sensor.peakmin + ' ' + widget.unit : '-')
+                                             .append($('<span></span>')
+                                                     .css('font-size', 'smaller')
+                                                     .css('color', '#3d3737')
+                                                     .html(peakMinTime.toLocaleString('de-DE')))
+                                            )))
+                     .append($('<div></div>')
+                             .css('display', sensor.peakmax ? 'flex' : 'none')
+                             .css('margin-bottom', '4px')
+                             .append($('<span></span>')
+                                     .css('width', '30%')
+                                     .css('text-align', 'end')
+                                     .css('margin-right', '10px')
+                                     .html('Peak Max'))
+                             .append($('<span></span>')
+                                     .append($('<div></div>')
+                                             .attr('id', 'dlgPeakMax')
+                                             .addClass('rounded-border')
+                                             .append(sensor.peakmax ? sensor.peakmax + ' ' + widget.unit : '-')
+                                             .append($('<span></span>')
+                                                     .css('font-size', 'smaller')
+                                                     .css('color', '#3d3737')
+                                                     .html(peakMaxTime.toLocaleString('de-DE')))
                                             )))
                      .append($('<div></div>')
                              .css('display', 'flex')
@@ -1619,8 +1611,43 @@ function titleClick(ctrlKey, key)
                              .append($('<span></span>')
                                      .append($('<div></div>')
                                              .addClass('rounded-border')
-                                             .html(last.toLocaleString('de-DE') + ' (' + before + 's)'))
-                                    ))
+                                             .append(lastUpd.toLocaleString('de-DE') + ' ')
+                                             .append($('<span></span>')
+                                                     .css('font-size', 'smaller')
+                                                     .css('color', '#3d3737')
+                                                     .html(updBefore))
+                                            )))
+                     .append($('<div></div>')
+                             .css('display', 'flex')
+                             .css('margin-bottom', '4px')
+                             .append($('<span></span>')
+                                     .css('width', '30%')
+                                     .css('text-align', 'end')
+                                     .css('margin-right', '10px')
+                                     .html('Changed'))
+                             .append($('<span></span>')
+                                     .append($('<div></div>')
+                                             .addClass('rounded-border')
+                                             .append(changedAt.toLocaleString('de-DE') + ' ')
+                                             .append($('<span></span>')
+                                                     .css('font-size', 'smaller')
+                                                     .css('color', '#3d3737')
+                                                     .html(chgBefore))
+                                            )))
+
+                     .append($('<div></div>')
+                             .css('display', timersString != '' ? 'flex' : 'none')
+                             .css('margin-bottom', '4px')
+                             .append($('<span></span>')
+                                     .css('width', '30%')
+                                     .css('text-align', 'end')
+                                     .css('margin-right', '10px')
+                                     .html('Timers'))
+                             .append($('<span></span>')
+                                     .append($('<div></div>')
+                                             .addClass('rounded-border')
+                                             .html(timersString)
+                                            )))
                      .append($('<div></div>')
                              .css('display', sensor.battery ? 'flex' : 'none')
                              .css('margin-bottom', '4px')
@@ -1635,7 +1662,6 @@ function titleClick(ctrlKey, key)
                                              .html(sensor.battery ? sensor.battery + ' %' :  '-')
                                             )))
                     );
-
 
       let btns = {};
 
@@ -1665,7 +1691,7 @@ function titleClick(ctrlKey, key)
          closeOnEscape: true,
          hide: "fade",
          width: "auto",
-         title: "Info",
+         title: "Info - " + key + ' (' + parseInt(key.split(":")[1]) + ')',
          buttons: btns,
          close: function() { $(this).dialog('destroy').remove();}
       });

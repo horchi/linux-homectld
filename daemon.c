@@ -140,12 +140,6 @@ Daemon::DefaultWidgetProperty Daemon::defaultWidgetProperties[] =
    { "SC",       na, "stxt",wtSymbolText,        0,         0,       0, false },
    { "SC",       na, "zst",     wtSymbol,        0,         0,       0, false },
    { "SC",       na,   "*",      wtMeter,        0,        40,      10, true },
-   // { "SP",       na,    "",       wtText,        0,         0,       0, false },
-   // { "SP",       na,   "%", wtMeterLevel,        0,       100,      20, false },
-   // { "SP",       na, "kWh",      wtChart,        0,        50,       0, true },
-   // { "SP",       na,   "W",      wtMeter,        0,      3000,       0, true },
-   // { "SP",       na, "txt",  wtPlainText,        0,         0,       0, true },
-   // { "SP",       na,   "*",      wtMeter,        0,       100,      10, true },
    { "UD",       na, "txt",       wtText,        0,         0,       0, false },
    { "UD",       na, "zst", wtSymbolText,        0,         0,       0, false },
    { "UD",       na,   "*",       wtText,        0,         0,       0, false },
@@ -462,49 +456,9 @@ int Daemon::init()
    }
 
    // ---------------------------------
-   // Update new configuration in config
-   // table to default vale
+   // update the config table by the configuration definition
 
-   for (const auto& it : *getConfiguration())
-   {
-      tableConfig->clear();
-      tableConfig->setValue("OWNER", myName());
-      tableConfig->setValue("NAME", it.name.c_str());
-
-      bool insert {!tableConfig->find()};
-
-      tableConfig->setValue("TYPE", it.type);
-      tableConfig->setValue("TITLE", it.title.c_str());
-      tableConfig->setValue("CATEGORY", it.category.c_str());
-      tableConfig->setValue("DESCRIPTION", it.description.c_str());
-      tableConfig->setValue("INTERNAL", it.internal ? "Y" : "N");
-      tableConfig->setValue("KIND", it.kind.c_str());
-
-      if (insert)
-         tableConfig->setValue("VALUE", it.def.c_str());
-
-      tableConfig->store();
-   }
-
-   // add user defined confg options to th array
-
-   for (int f = selectAllConfig->find(); f; f = selectAllConfig->fetch())
-   {
-      if (tableConfig->hasValue("KIND", "U"))
-      {
-         getConfiguration()->emplace_back(
-            tableConfig->getStrValue("NAME"),
-            (ConfigItemType)tableConfig->getIntValue("TYPE"),
-            tableConfig->getStrValue("VALUE"),
-            tableConfig->getStrValue("KIND"),
-            (bool)tableConfig->hasValue("INTERNAL", "Y"),
-            tableConfig->getStrValue("CATEGORY"),
-            tableConfig->getStrValue("TITLE"),
-            tableConfig->getStrValue("DESCRIPTION"));
-      }
-   }
-
-   selectAllConfig->freeResult();
+   initConfigTable();
    readConfiguration(true);
    mqttCheckConnection();
 
@@ -627,27 +581,18 @@ int Daemon::init()
       configMetatable[sol::meta_function::index] = [this](sol::table t, const std::string& key) -> sol::object {
          sol::state_view luaState = t.lua_state();
 
-         //  Zeiger auf die Konfigurationsliste
+         // Suche das Config-Item in der config Tabelle
 
-         auto* configList {this->getConfiguration()};
+         ConfigItemType type {ctString};
 
-         if (!configList)
-            return sol::nil;
+         // key existiert nicht in der Konfiguration
 
-         // Suche das Config-Item in der übergebenen Liste
-
-         auto it = std::find_if(configList->begin(), configList->end(),
-            [&key](const ConfigItemDef& item) {
-               return item.name == key; });
-
-         // key existiert nicht in der Konfigurationsdefinition
-
-         if (it == configList->end())
+         if (!this->configItemExists(key.c_str(), &type))
             return sol::nil;
 
          // Type abhängiges Auslesen über die exakte Überladung
 
-         switch (it->type)
+         switch (type)
          {
             case ConfigItemType::ctInteger:
             {
@@ -1132,7 +1077,7 @@ int Daemon::initScripts()
       if (sensors["SC"][addr].kind == "value" && sensors["SC"][addr].value != value)
          sensors["SC"][addr].changedAt = time(0);
       else if (sensors["SC"][addr].kind != "value")
-         sensors["SC"][addr].changedAt = time(0);
+         sensors["SC"][addr].changedAt = time(0);  // #TODO?
 
       if (kind == "status")
          sensors["SC"][addr].state = (bool)value;
@@ -1252,7 +1197,6 @@ int Daemon::switchCommand(std::string type, int addr, std::string action, const 
    }
 
    json_decref(obj);
-   // storeIoState(....); -> makes no sence until we await feedback to switch the state
 
    return done;
 }
@@ -1299,17 +1243,17 @@ Daemon::SensorData* Daemon::getSensor(const char* type, int addr)
 // Set Special Value
 //***************************************************************************
 
-void Daemon::setSpecialValue(uint addr, double value, const std::string& text)
-{
-   if (sensors["SP"][addr].value != value)
-      sensors["SP"][addr].changedAt = time(0);
+// void Daemon::setSpecialValue(uint addr, double value, const std::string& text)
+// {
+//    if (sensors["SP"][addr].value != value)
+//       sensors["SP"][addr].changedAt = time(0);
 
-   sensors["SP"][addr].last = time(0) -1;
-   sensors["SP"][addr].value = value;
-   sensors["SP"][addr].text = text;
-   sensors["SP"][addr].kind = text == "" ? "value" : "text";
-   sensors["SP"][addr].valid = sensors["SP"][addr].kind == "text" ? true : !isNan(value);
-}
+//    sensors["SP"][addr].last = time(0) -1;
+//    sensors["SP"][addr].value = value;
+//    sensors["SP"][addr].text = text;
+//    sensors["SP"][addr].kind = text == "" ? "value" : "text";
+//    sensors["SP"][addr].valid = sensors["SP"][addr].kind == "text" ? true : !isNan(value);
+// }
 
 //***************************************************************************
 // Init/Exit Database
@@ -1515,13 +1459,15 @@ int Daemon::initDb()
    status += selectAllValueFacts->prepare();
 
    // ------------------
-   // select all config
+   // select all config items of this instance (in display order)
 
    selectAllConfig = new cDbStatement(tableConfig);
 
    selectAllConfig->build("select ");
    selectAllConfig->bindAllOut();
-   selectAllConfig->build(" from %s", tableConfig->TableName());
+   selectAllConfig->build(" from %s where ", tableConfig->TableName());
+   selectAllConfig->bind("OWNER", cDBS::bndIn | cDBS::bndSet);
+   selectAllConfig->build(" order by ord, category, name");
 
    status += selectAllConfig->prepare();
 
@@ -1557,6 +1503,19 @@ int Daemon::initDb()
    selectMaxTime->build(") from %s", tableSamples->TableName());
 
    status += selectMaxTime->prepare();
+
+   // ------------------
+   // select max(time) of specific sensor from samples
+
+   selectSensorMaxTime = new cDbStatement(tableSamples);
+
+   selectSensorMaxTime->build("select ");
+   selectSensorMaxTime->bind("TIME", cDBS::bndOut, "max(");
+   selectSensorMaxTime->build(") from %s where ", tableSamples->TableName());
+   selectSensorMaxTime->bind("TYPE", cDBS::bndIn | cDBS::bndSet);
+   selectSensorMaxTime->bind("ADDRESS", cDBS::bndIn | cDBS::bndSet, " and ");
+
+   status += selectSensorMaxTime->prepare();
 
    // ------------------
    // select samples for chart data
@@ -1861,6 +1820,7 @@ int Daemon::initDb()
    if (!count)
    {
       tableValueFacts->clear();
+
       for (int f = selectAllValueFacts->find(); f; f = selectAllValueFacts->fetch())
       {
          tableValueTypes->clear();
@@ -1872,6 +1832,7 @@ int Daemon::initDb()
             tableValueTypes->store();
          }
       }
+
       selectAllValueFacts->freeResult();
    }
 
@@ -1920,6 +1881,7 @@ int Daemon::exitDb()
    delete selectAllConfig;         selectAllConfig = nullptr;
    delete selectAllUser;           selectAllUser = nullptr;
    delete selectMaxTime;           selectMaxTime = nullptr;
+   delete selectSensorMaxTime;     selectSensorMaxTime = nullptr;
    delete selectSamplesRange;      selectSamplesRange = nullptr;
    delete selectSamplesRange60;    selectSamplesRange60 = nullptr;
    delete selectSamplesRange360;   selectSamplesRange360 = nullptr;
@@ -2420,6 +2382,7 @@ int Daemon::store(time_t now, const SensorData* sensor)
       return ignore;
    }
 
+   storeIoState(sensor->type.c_str(), sensor->address);
    tableSamples->clear();
 
    tableSamples->setValue("TIME", now);
@@ -2497,6 +2460,11 @@ int Daemon::process(bool force, bool signal)
 
       if (type != "DO" && !gpioOut)
          continue;
+
+      // output is 'pseude vaidated'
+
+      sensors[type][address].last = time(0) -1;
+      sensors[type][address].valid = true;
 
       bool activate {false};
       bool hasRanges {false}; // 1. Flag hinzufügen, um zu tracken ob wir schalten dürfen
@@ -2653,6 +2621,10 @@ int Daemon::processLua(bool force, bool signal)
          continue;
       }
 
+      double oldValue {sensors[type][address].value};
+      std::string oldText {sensors[type][address].text};
+      bool oldState {sensors[type][address].state};
+
       if (res.type == Lua::tDouble)
       {
          tell(eloLua, "LUA '%s' result was double (%f)", key, res.dValue);
@@ -2682,7 +2654,10 @@ int Daemon::processLua(bool force, bool signal)
          tell(eloAlways, "LUA: '%s' got unexpected type (%d)", key, res.type);
 
       sensors[type][address].last = time(0) -1;
-      sensors[type][address].changedAt = time(0); // #TODO set only if changed
+
+      if (sensors[type][address].value != oldValue || sensors[type][address].text != oldText || sensors[type][address].state != oldState)
+         sensors[type][address].changedAt = time(0);
+
       sensors[type][address].valid = true;
       setConfigItem(key, sensors[type][address].value, "I");
       // tell(eloAlways, "Set value of %s:0x%lx to %f; last is %ld", type.c_str(), address, sensors[type][address].value, sensors[type][address].last);
@@ -3602,7 +3577,7 @@ int Daemon::updateWeather()
    addValueFact(1, "WEA", 1, "weather", "txt", "Wetter");
    sensors["WEA"][1].kind = "text";
    sensors["WEA"][1].last = time(0) -1;
-   sensors["WEA"][1].changedAt = time(0); // #TODO set only if changed
+   sensors["WEA"][1].changedAt = time(0);
    sensors["WEA"][1].valid = true;
 
    char* p = json_dumps(jWeather, JSON_REAL_PRECISION(4));
@@ -3877,12 +3852,14 @@ int Daemon::dispatchHomematicEvents(const char* message)
    selectHomeMaticByUuid->freeResult();
 
    sensors[type][address].last = time(0) -1;
-   sensors[type][address].changedAt = time(0); // #TODO set only if changed
    sensors[type][address].valid = true;
 
    // for blinds:
    //  offen -> state true (on)
    //           100% (value 100)
+
+   bool oldState {sensors[type][address].state};
+   double oldValue {sensors[type][address].value};
 
    if (datapoint == "LEVEL")
    {
@@ -3902,6 +3879,9 @@ int Daemon::dispatchHomematicEvents(const char* message)
       value = getDoubleFromJson(jData, "val") * 100;    // to [%]
       sensors[type][address].working = false;
    }
+
+   if (oldState != sensors[type][address].state || oldValue != sensors[type][address].value)
+      sensors[type][address].changedAt = time(0);
 
    {
       json_t* ojData {json_object()};
@@ -4371,28 +4351,32 @@ int Daemon::dispatchOther(const char* topic, const char* message)
                if (!p.empty())
                   parameters = p;
 
-               // check if definition is already known
+               // check if the config item is already known
 
-               if (!std::any_of(getConfiguration()->begin(), getConfiguration()->end(),
-                                [&name](const ConfigItemDef& item) { return item.name == name; }))
+               bool exist {configItemExists(name.c_str())};
 
+               // store/refresh the definition of the sensors config item
+
+               addConfigItem(name.c_str(),
+                             ctText,               // type
+                             parameters.c_str(),   // value
+                             "S",                  // kind
+                             false,                // internal
+                             "Sensors",            // category
+                             name.c_str(),         // title
+                             "after changing this setting restart homectld");  // description
+
+               if (!exist)
                {
-                  // tell(eloAlways, "DEBUG: ADD config iten '%s'", name.c_str());
-                  getConfiguration()->emplace_back(
-                     name,
-                     ctText,               // type
-                     parameters,           // default
-                     "S",                  // kind
-                     false,                // internal
-                     "Sensors",            // category
-                     name.c_str(),         // title
-                     "after changing this setting restart homectld");  // description
-
                   readConfiguration(false);
 
                   json_t* oJson {json_object()};
                   config2Json(oJson);
                   pushOutMessage(oJson, "config");
+
+                  oJson = json_array();
+                  configDetails2Json(oJson);
+                  pushOutMessage(oJson, "configdetails");
                }
 
                setConfigItem(name.c_str(), parameters.c_str(), "S");   // store
@@ -4543,9 +4527,11 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
             if (feedbackInType.starts_with("MCPI") && s.second.feedbackInAddress == (uint)address)
             {
+               if (sensors[_type][s.first].state != sensors[type][address].state)
+                  sensors[_type][s.first].changedAt = time(0);
+
                sensors[_type][s.first].state = sensors[type][address].state;
                sensors[_type][s.first].last = time(0) -1;
-               sensors[_type][s.first].changedAt = time(0); // #TODO set only if changed
                sensors[_type][s.first].valid = true;
                publishPin(_type.c_str(), s.first);
             }
@@ -4612,6 +4598,149 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 }
 
 //***************************************************************************
+// Init Config Table
+//   the configuration definition (specific.c) is the source of the 'N' items,
+//   they are written to the config table here. Beside this all further access
+//   to the configuration is done via the config table!
+//***************************************************************************
+
+int Daemon::initConfigTable()
+{
+   std::set<std::string> known;
+   int ord {0};
+
+   for (const auto& it : *getConfiguration())
+   {
+      known.insert(it.name);
+
+      tableConfig->clear();
+      tableConfig->setValue("OWNER", myName());
+      tableConfig->setValue("NAME", it.name.c_str());
+
+      bool insert {!tableConfig->find()};
+
+      tableConfig->setValue("TYPE", it.type);
+      tableConfig->setValue("TITLE", it.title.c_str());
+      tableConfig->setValue("CATEGORY", it.category.c_str());
+      tableConfig->setValue("DESCRIPTION", it.description.c_str());
+      tableConfig->setValue("INTERNAL", it.internal ? "Y" : "N");
+      tableConfig->setValue("KIND", it.kind.c_str());
+      tableConfig->setValue("ORD", ord++);
+
+      if (insert)
+         tableConfig->setValue("VALUE", it.def.c_str());
+
+      tableConfig->store();
+      tableConfig->reset();
+   }
+
+   // check the table for items no longer part of the configuration definition
+   //   and for items implicitly created by setConfigItem() (they don't have a category)
+
+   std::vector<std::string> obsolete;
+   std::vector<std::string> internal;
+
+   tableConfig->clear();
+   tableConfig->setValue("OWNER", myName());
+
+   for (int f = selectAllConfig->find(); f; f = selectAllConfig->fetch())
+   {
+      const char* name {tableConfig->getStrValue("NAME")};
+
+      if (tableConfig->hasValue("KIND", "N"))
+      {
+         if (!known.count(name))
+            obsolete.push_back(name);
+      }
+      else if (isEmpty(tableConfig->getStrValue("CATEGORY")) && !tableConfig->hasValue("INTERNAL", "Y"))
+      {
+         internal.push_back(name);
+      }
+   }
+
+   selectAllConfig->freeResult();
+
+   for (const auto& name : obsolete)
+   {
+      tell(eloAlways, "Info: Removing obsolete config item '%s'", name.c_str());
+      tableConfig->deleteWhere("owner = '%s' and name = '%s'", myName(), name.c_str());
+   }
+
+   for (const auto& name : internal)
+   {
+      tell(eloAlways, "Info: Marking config item '%s' as internal", name.c_str());
+
+      tableConfig->clear();
+      tableConfig->setValue("OWNER", myName());
+      tableConfig->setValue("NAME", name.c_str());
+
+      if (tableConfig->find())
+      {
+         tableConfig->setValue("KIND", "I");
+         tableConfig->setValue("INTERNAL", "Y");
+         tableConfig->setValue("ORD", (long)coDynamic);
+         tableConfig->store();
+      }
+
+      tableConfig->reset();
+   }
+
+   return success;
+}
+
+//***************************************************************************
+// Config Item Exists
+//***************************************************************************
+
+bool Daemon::configItemExists(const char* name, ConfigItemType* type)
+{
+   tableConfig->clear();
+   tableConfig->setValue("OWNER", myName());
+   tableConfig->setValue("NAME", name);
+
+   bool exist {(bool)tableConfig->find()};
+
+   if (exist && type)
+      *type = (ConfigItemType)tableConfig->getIntValue("TYPE");
+
+   tableConfig->reset();
+
+   return exist;
+}
+
+//***************************************************************************
+// Add Config Item
+//   create a config item at runtime (sensor or user defined options)
+//***************************************************************************
+
+int Daemon::addConfigItem(const char* name, ConfigItemType type, const char* value, const char* kind,
+                          bool internal, const char* category, const char* title, const char* description,
+                          int ord)
+{
+   tableConfig->clear();
+   tableConfig->setValue("OWNER", myName());
+   tableConfig->setValue("NAME", name);
+
+   bool insert {!tableConfig->find()};
+
+   tableConfig->setValue("TYPE", type);
+   tableConfig->setValue("TITLE", title);
+   tableConfig->setValue("CATEGORY", category);
+   tableConfig->setValue("DESCRIPTION", description);
+   tableConfig->setValue("INTERNAL", internal ? "Y" : "N");
+   tableConfig->setValue("KIND", kind);
+   tableConfig->setValue("ORD", (long)ord);
+
+   if (insert)
+      tableConfig->setValue("VALUE", value);
+
+   int status {tableConfig->store()};
+   tableConfig->reset();
+
+   return status;
+}
+
+//***************************************************************************
 // Config Data
 //***************************************************************************
 
@@ -4648,7 +4777,8 @@ int Daemon::setConfigItem(const char* name, const char* value, const char* kind)
    // load the already stored row (if any), otherwise the update would
    //   clear all fields we don't set here (TYPE, TITLE, CATEGORY, ...)
 
-   tableConfig->find();
+   bool exist {(bool)tableConfig->find()};
+
    tableConfig->setValue("VALUE", value);
 
    // config option 'kind'
@@ -4663,23 +4793,19 @@ int Daemon::setConfigItem(const char* name, const char* value, const char* kind)
 
    if (*kind == 'N')
    {
-      // lookup config item in list
+      // the option is known if it's already stored in the config table,
+      //   in this case leave its kind untouched. Otherwise it's a option
+      //   created on the fly (a default of getConfigItem) -> internal
 
-      auto* configList {this->getConfiguration()};
-
-      if (configList)
+      if (exist)
       {
-         auto it = std::find_if(configList->begin(), configList->end(),
-                                [&name](const ConfigItemDef& item) {
-                                   return item.name == name; });
-
-         // key existiert nicht in der Konfigurationsdefinition
-         //  -> user defined
-
-         if (it == configList->end())
-            kind = "U";       // user defined config option
-         else
-            kind = (*it).kind.c_str();   // the list entry lives as long as the daemon
+         kind = "";
+      }
+      else
+      {
+         kind = "I";
+         tableConfig->setValue("INTERNAL", "Y");
+         tableConfig->setValue("ORD", (long)coDynamic);
       }
    }
 
@@ -5017,8 +5143,8 @@ void Daemon::gpioWrite(uint pin, bool state, bool saveIoState)
 
    // <--
 
+   bool oldState {sensors[type][pin].state};
    sensors[type][pin].last = time(0) -1;
-   sensors[type][pin].changedAt = time(0); // #TODO set only if changed
    sensors[type][pin].valid = true;
 
    if (sensors[type][pin].impulse)
@@ -5042,6 +5168,9 @@ void Daemon::gpioWrite(uint pin, bool state, bool saveIoState)
 
       gpio->digitalWrite(pin, invState);
    }
+
+   if (sensors[type][pin].state != oldState || !sensors[type][pin].changedAt)
+      sensors[type][pin].changedAt = time(0);
 
    if (saveIoState)
       storeIoState(type.c_str(), pin);
@@ -5116,9 +5245,12 @@ bool Daemon::gpioRead(uint pin, bool check)
       {
          if (s.second.feedbackInType == type && s.second.feedbackInAddress == pin)
          {
-            sensors[_type][s.first].state = state;
             sensors[_type][s.first].last = time(0) -1;
-            sensors[_type][s.first].changedAt = time(0); // #TODO set only if changed
+
+            if (sensors[_type][s.first].state != state)
+               sensors[_type][s.first].changedAt = time(0);
+
+            sensors[_type][s.first].state = state;
             sensors[_type][s.first].valid = true;
             publishPin(_type.c_str(), s.first);
          }
@@ -5293,32 +5425,32 @@ void Daemon::publishPin(const char* type, uint pin)
 // Publish Special Value
 //***************************************************************************
 
-void Daemon::publishSpecialValue(int addr)
-{
-   cDbRow* fact = valueFactRowOf("SP", addr);
+// void Daemon::publishSpecialValue(int addr)
+// {
+//    cDbRow* fact = valueFactRowOf("SP", addr);
 
-   if (!fact)
-      return ;
+//    if (!fact)
+//       return ;
 
-   json_t* ojData {json_object()};
+//    json_t* ojData {json_object()};
 
-   sensor2Json(ojData, "SP", addr);
+//    sensor2Json(ojData, "SP", addr);
 
-   if (sensors["SP"][addr].kind == "text")
-      json_object_set_new(ojData, "text", json_string(sensors["SP"][addr].text.c_str()));
-   else if (sensors["SP"][addr].kind == "value")
-      json_object_set_new(ojData, "value", json_real(sensors["SP"][addr].value));
+//    if (sensors["SP"][addr].kind == "text")
+//       json_object_set_new(ojData, "text", json_string(sensors["SP"][addr].text.c_str()));
+//    else if (sensors["SP"][addr].kind == "value")
+//       json_object_set_new(ojData, "value", json_real(sensors["SP"][addr].value));
 
-   if (sensors["SP"][addr].disabled)
-      json_object_set_new(ojData, "disabled", json_boolean(true));
+//    if (sensors["SP"][addr].disabled)
+//       json_object_set_new(ojData, "disabled", json_boolean(true));
 
-   char* tuple {};
-   asprintf(&tuple, "SP:0x%02x", addr);
-   jsonSensorList[tuple] = ojData;
-   free(tuple);
+//    char* tuple {};
+//    asprintf(&tuple, "SP:0x%02x", addr);
+//    jsonSensorList[tuple] = ojData;
+//    free(tuple);
 
-   pushDataUpdate("update", 0L);
-}
+//    pushDataUpdate("update", 0L);
+// }
 
 //***************************************************************************
 // Store/Load Output State
@@ -5326,12 +5458,16 @@ void Daemon::publishSpecialValue(int addr)
 
 int Daemon::storeIoState(const char* type, uint address)
 {
-   tell(eloDebug, "Debug: Store IO state of '%s:0x%x'", type, address);
+   tell(eloDebug, "Debug: Store IO state of '%s:0x%x' [%d]", type, address, sensors[type][address].state);
 
    tableIoStates->clear();
    tableIoStates->setValue("TYPE", type);
    tableIoStates->setValue("ADDRESS", (int)address);
+
+   tableIoStates->setValue("TIME", sensors[type][address].changedAt);
    tableIoStates->setValue("STATE", sensors[type][address].state);
+   tableIoStates->setValue("VALUE", sensors[type][address].value);
+   tableIoStates->setValue("TEXT", sensors[type][address].text.c_str());
    tableIoStates->setValue("MODE", sensors[type][address].mode);
    tableIoStates->store();
 
@@ -5366,11 +5502,15 @@ int Daemon::loadIoStates()
       if (!sensors[type][address].active)
          continue;
 
-      if (/*(type == "DO" && address == pinW1Power) ||*/ sensors[type][address].impulse || !(sensors[type][address].outputModes & ooUser))
+      if (sensors[type][address].impulse || !(sensors[type][address].outputModes & ooUser))
          continue;
 
       tell(eloDebug2, "Debug2: Recover IO state of '%s:0x%x' to '%s', mode to (%ld)",
            type.c_str(), address, state ? "true" : "false", tableIoStates->getIntValue("MODE"));
+
+      sensors[type][address].value = tableIoStates->getIntValue("VALUE");
+      sensors[type][address].text = tableIoStates->getStrValue("TEXT");
+      sensors[type][address].state = state;
 
       if (sensors[type][address].outputModes & ooAuto)
          sensors[type][address].mode = (OutputMode)tableIoStates->getIntValue("MODE");
@@ -5378,7 +5518,7 @@ int Daemon::loadIoStates()
       if (type == "DO" || (type == "GPIO" && sensors[type][address].fct == "out"))
       {
          gpioWrite(address, state, false);
-         tell(eloDetail, "Info: IO state of '%s:0x%x' recovered to '%s'", type.c_str(), address, state ? "true" : "false");
+         tell(eloDetail, "Info: IO state of '%s:0x%02x' recovered to '%s'", type.c_str(), address, state ? "true" : "false");
       }
       else
       {
@@ -5389,6 +5529,31 @@ int Daemon::loadIoStates()
 
    selectAllIoStates->freeResult();
    ioStatesLoaded = true;
+
+   // init sensors last info
+
+   tableValueFacts->clear();
+
+   for (int f = selectAllValueFacts->find(); f; f = selectAllValueFacts->fetch())
+   {
+      const char* type {tableValueFacts->getStrValue("TYPE")};
+      long address {tableValueFacts->getIntValue("ADDRESS")};
+
+      if (!sensors[type][address].active)
+         continue;
+
+      tableSamples->clear();
+      tableSamples->setValue("TYPE", type);
+      tableSamples->setValue("ADDRESS", address);
+
+      if (!selectSensorMaxTime->find())
+         continue;
+
+      sensors[type][address].last = tableSamples->getTimeValue("TIME");
+      tell(eloAlways, "Debug: Init 'last' of '%s:0x%02lx' to '%s'", type, address, l2pTime(sensors[type][address].last).c_str());
+   }
+
+   selectAllValueFacts->freeResult();
 
    return done;
 }

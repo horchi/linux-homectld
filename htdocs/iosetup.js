@@ -362,7 +362,7 @@ function showTable(section)
                                     .text('Clone')
                                     .on('click', () => sensorScClone(item.type, item.address))));
 
-      if (item.type != 'WEA' && item.type != 'BMS' && item.type != 'MOPEKA' && item.type != 'SP'
+      if (item.type != 'WEA' && item.type != 'BMS' && item.type != 'MOPEKA'
           && item.type != 'VIC' && !item.type.startsWith('VOTRO') )
          tr.append($('<td>').append($('<button>')
                                     .addClass('buttonOptions rounded-border')

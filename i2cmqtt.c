@@ -479,17 +479,13 @@ int I2CMqtt::update()
       if (wireSensors.empty())
          continue;
 
-      bool presence {false};
-
       // 1. Temperaturkonvertierung für ALLE Sensoren auf diesem Bus gleichzeitig starten
-      if (ds.wireReset(presence) != success)
-         continue;
 
-      if (!presence)
+      if (ds.startConversion() != success)
+      {
+         tell(eloAlways, "Error: Starting 1-Wire temperature conversion failed on DS2484 (0x%02x)", ds.getAddress());
          continue;
-
-      ds.wireWriteByte(0xCC); // Skip ROM (gilt für alle Slaves am Bus)
-      ds.wireWriteByte(0x44); // Convert T (Temperaturmessung starten)
+      }
 
       // DS18B20 benötigt maximal 750ms für die 12-Bit Konvertierung
       usleep(750000);
@@ -506,44 +502,13 @@ int I2CMqtt::update()
             continue;
          }
 
-         if (ds.wireReset(presence) != success)
-            continue;
+         double temperature {0.0};
 
-         ds.wireWriteByte(0x55);
+         // liest, prüft (CRC, Messbereich) und wiederholt den Zugriff bei Fehlern
 
-         for (int i = 0; i < 8; i++)
-            ds.wireWriteByte(sensorInfo.rawRom[i]);
-
-         // Scratchpad (Zwischenspeicher) des DS18B20 auslesen
-         ds.wireWriteByte(0xBE);
-
-         uint8_t lowByte {0};
-         uint8_t highByte {0};
-
-         if (ds.wireReadByte(lowByte) != success)
-            continue;
-
-         usleep(2000);
-
-         if (ds.wireReadByte(highByte) != success)
-            continue;
-
-         // Den Sensor mitten im Senden abbrechen und die Leitung
-         // gewaltsam freiräumen, damit der Bus im nächsten Intervall frei ist!
-
-         bool dummyPresence {false};
-         ds.wireReset(dummyPresence);
-
-         // Berechne die Temperatur aus den zwei Datenbytes (12-Bit Auflösung)
-
-         int16_t rawTemp = (highByte << 8) | lowByte;
-         double temperature = rawTemp / 16.0;
-
-         // Plausibilitätsprüfung für unbelegte oder fehlerhafte Busse (85.0 °C ist der Power-On-Reset-Wert des DS18B20)
-
-         if (temperature > 150.0 || temperature < -55.0)
+         if (ds.readTemperature(sensorInfo.rawRom, temperature) != success)
          {
-            tell(eloAlways, "Warning: Invalid temperature data read: %.2f °C (Low: 0x%02X, High: 0x%02X)", temperature, lowByte, highByte);
+            tell(eloAlways, "Error: Reading temperature of 1-Wire sensor %s failed, skipping sensor", romStr.c_str());
             continue;
          }
 
@@ -995,10 +960,9 @@ int I2CMqtt::show()
 
       if (ds.searchRom(wireSensors) == success)
       {
-         bool presence {false};
-         ds.wireReset(presence);
-         ds.wireWriteByte(0xCC);
-         ds.wireWriteByte(0x44);
+         if (ds.startConversion() != success)
+            tell(eloAlways, "  Starting temperature conversion failed");
+
          usleep(750000);
 
          for (auto& [romStr, sensorInfo] : wireSensors)
@@ -1006,38 +970,11 @@ int I2CMqtt::show()
             if (romStr.substr(0, 2) != "28")
                continue;
 
-            ds.wireReset(presence);
-            ds.wireWriteByte(0x55);
+            double temperature {0.0};
 
-            for (int i = 0; i < 8; i++)
-               ds.wireWriteByte(sensorInfo.rawRom[i]);
-
-            ds.wireWriteByte(0xBE);
-
-            uint8_t lowByte {0};
-            uint8_t highByte {0};
-
-            if (ds.wireReadByte(lowByte) != success)
-               continue;
-
-            usleep(2000);
-
-            if (ds.wireReadByte(highByte) != success)
-               continue;
-
-            bool dummyPresence {false};
-            ds.wireReset(dummyPresence);
-
-            // Berechne die Temperatur aus den zwei Datenbytes (12-Bit Auflösung)
-
-            int16_t rawTemp = (highByte << 8) | lowByte;
-            double temperature = rawTemp / 16.0;
-
-            // Plausibilitätsprüfung für unbelegte oder fehlerhafte Busse (85.0 °C ist der Power-On-Reset-Wert des DS18B20)
-
-            if (temperature > 150.0 || temperature < -55.0)
+            if (ds.readTemperature(sensorInfo.rawRom, temperature) != success)
             {
-               tell(eloAlways, "Warning: Invalid temperature data read: %.2f °C (Low: 0x%02X, High: 0x%02X)", temperature, lowByte, highByte);
+               tell(eloAlways, "  Sensor ROM %s: reading temperature failed", romStr.c_str());
                continue;
             }
 

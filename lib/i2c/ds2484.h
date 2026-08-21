@@ -61,6 +61,28 @@ class Ds2484 : public I2C
          statusDIR  = 0x80   // Triplet Direction Search Result
       };
 
+      // 1-Wire ROM- und DS18B20 Funktionskommandos (Kommandos auf dem 1-Wire Bus)
+
+      enum WireCommand : uint8_t
+      {
+         wcSearchRom      = 0xF0,
+         wcMatchRom       = 0x55,
+         wcSkipRom        = 0xCC,
+         wcConvertT       = 0x44,  // DS18B20: Messung starten
+         wcReadScratchpad = 0xBE   // DS18B20: Scratchpad (9 Byte) lesen
+      };
+
+      // Ausführungszeiten der 1-Wire Operationen in Mikrosekunden. Sie werden
+      // abgewartet *bevor* das Statusregister gepollt wird, siehe waitOnBusy()
+
+      enum WireTiming : int
+      {
+         tmSettleBit     = 100,   // ein einzelnes Bit (~70us)
+         tmSettleTriplet = 250,   // Triplet, entspricht 3 Bit Operationen
+         tmSettleByte    = 600,   // ein Byte, 8 Bit à ~70us
+         tmSettleReset   = 1300   // Reset-Puls + Presence-Detect (~1,2ms)
+      };
+
       // Konfigurations-Bits (Device Configuration)
       enum ConfigBit : uint8_t
       {
@@ -103,7 +125,13 @@ class Ds2484 : public I2C
       int readStatus(uint8_t& status);
       int searchRom(SensorList& foundSensors);
 
+      // DS18B20 (Family 0x28)
+
+      int startConversion();
+      int readTemperature(const uint8_t* rawRom, double& temperature, int retries = 2);
+
    protected:
 
-      int waitOnBusy(uint8_t& status, int timeoutMs = 100);
+      int waitOnBusy(uint8_t& status, int timeoutMs = 100, int settleUs = 0);
+      int readScratchpad(const uint8_t* rawRom, uint8_t* scratchpad);
 };

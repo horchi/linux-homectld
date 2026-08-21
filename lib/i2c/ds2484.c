@@ -147,21 +147,31 @@ int Ds2484::readStatus(uint8_t& status)
 // Wait On Busy (Hilfsfunktion)
 //***************************************************************************
 
-int Ds2484::waitOnBusy(uint8_t& status, int timeoutMs)
+int Ds2484::waitOnBusy(uint8_t& status, int timeoutMs, int settleUs)
 {
    cTimeMs timeout(timeoutMs);
 
-   // WICHTIG: Winzige Pause für die Hardware, damit das Statusregister synchronisiert wird
+   // WICHTIG: Der 1-Wire Bus arbeitet mit festen Zeiten (ein Byte ~520us, ein Reset ~1,2ms).
+   // Deshalb erst die erwartete Ausführungszeit der laufenden Operation abwarten und dann
+   // pollen. Würde man sofort das Statusregister lesen, wäre das 1WB-Bit unter Umständen
+   // noch nicht gesetzt und wir würden die Operation fälschlich für beendet erklären -
+   // mit der Folge, dass anschließend ein noch nicht aktualisiertes Datenregister
+   // gelesen wird (liefert dann z.B. 0x00 statt der Messdaten).
 
-   usleep(20);
+   if (settleUs > 0)
+      usleep(settleUs);
 
    while (true)
    {
       if (readStatus(status) != success)
-         return fail;
-
-      if (!(status & status1WB))
+      {
+         // ein einzelner I2C Aussetzer ist kein Grund zum Abbruch, bis zum Timeout weiter versuchen
+         tell(eloDebug, "Debug: Reading status register failed, retrying");
+      }
+      else if (!(status & status1WB))
+      {
          return success;
+      }
 
       if (timeout.TimedOut())
       {
@@ -191,7 +201,7 @@ int Ds2484::wireReset(bool& presenceDetected)
    }
 
    uint8_t status {0};
-   if (waitOnBusy(status) != success)
+   if (waitOnBusy(status, 100, tmSettleReset) != success)
       return fail;
 
    if (status & statusSD)
@@ -230,11 +240,10 @@ int Ds2484::wireWriteByte(uint8_t byte)
       return fail;
    }
 
-   // Dem Linux I2C-Treiber und der Hardware Zeit geben,
-   // den Befehl physikalisch zu verarbeiten
-   usleep(15);
+   // Die Übertragungszeit des Bytes auf dem 1-Wire Bus abwarten
+   // und erst dann auf das Ende der Operation warten
 
-   return waitOnBusy(status);
+   return waitOnBusy(status, 100, tmSettleByte);
 }
 
 //***************************************************************************
@@ -257,7 +266,7 @@ int Ds2484::wireReadByte(uint8_t& byte)
    }
 
    // Warten, bis der DS2484 das Byte komplett vom 1-Wire-Bus abgeholt hat
-   if (waitOnBusy(status) != success)
+   if (waitOnBusy(status, 100, tmSettleByte) != success)
       return fail;
 
    // 2. Den internen I2C-Pointer des DS2484 explizit auf das Datenregister (0xE1) setzen.
@@ -301,7 +310,7 @@ int Ds2484::wireWriteBit(bool bit)
       return fail;
    }
 
-   return waitOnBusy(status);
+   return waitOnBusy(status, 100, tmSettleBit);
 }
 
 //***************************************************************************
@@ -321,7 +330,7 @@ int Ds2484::wireReadBit(bool& bit)
       return fail;
    }
 
-   if (waitOnBusy(status) != success) return fail;
+   if (waitOnBusy(status, 100, tmSettleBit) != success) return fail;
 
    // Das gelesene Bit befindet sich im SBR-Bit (0x20) des zurückgegebenen Status
    bit = (status & statusSBR) != 0;
@@ -350,11 +359,10 @@ int Ds2484::wireTriplet(uint8_t searchDirection, uint8_t& status)
       return fail;
    }
 
-   // Die physikalische Ausführungszeit für den 3-Bit-Hardwaretest abwarten
-   usleep(120);
+   // Die physikalische Ausführungszeit für den 3-Bit-Hardwaretest abwarten und
+   // den von der Hardware fertig berechneten Status abholen
 
-   // Den von der Hardware fertig berechneten Status abholen
-   return readStatus(status);
+   return waitOnBusy(status, 100, tmSettleTriplet);
 }
 
 uint8_t calculateCRC8(const uint8_t* data, uint8_t len)
@@ -407,7 +415,7 @@ int Ds2484::searchRom(SensorList& foundSensors)
       if (!presence)
          return success;
 
-      if (wireWriteByte(0xF0) != success)
+      if (wireWriteByte(wcSearchRom) != success)
          return fail;
 
       int currentBit {1};
@@ -489,4 +497,147 @@ int Ds2484::searchRom(SensorList& foundSensors)
    }
 
    return success;
+}
+
+//***************************************************************************
+// Start Conversion
+//   Startet die Temperaturmessung für ALLE Sensoren am Bus (Skip ROM)
+//***************************************************************************
+
+int Ds2484::startConversion()
+{
+   bool presence {false};
+
+   if (wireReset(presence) != success)
+      return fail;
+
+   if (!presence)
+   {
+      tell(eloDetail, "Warning: No 1-Wire device present, skipping temperature conversion");
+      return fail;
+   }
+
+   if (wireWriteByte(wcSkipRom) != success)
+      return fail;
+
+   if (wireWriteByte(wcConvertT) != success)
+      return fail;
+
+   return success;
+}
+
+//***************************************************************************
+// Read Scratchpad
+//   Liest das komplette 9 Byte Scratchpad eines Sensors (ohne Prüfung)
+//***************************************************************************
+
+int Ds2484::readScratchpad(const uint8_t* rawRom, uint8_t* scratchpad)
+{
+   bool presence {false};
+
+   if (wireReset(presence) != success)
+      return fail;
+
+   if (!presence)
+   {
+      tell(eloDetail, "Warning: No presence pulse detected while addressing 1-Wire device");
+      return fail;
+   }
+
+   if (wireWriteByte(wcMatchRom) != success)
+      return fail;
+
+   for (int i = 0; i < 8; i++)
+      if (wireWriteByte(rawRom[i]) != success)
+         return fail;
+
+   if (wireWriteByte(wcReadScratchpad) != success)
+      return fail;
+
+   // Das Scratchpad *komplett* lesen, nur dann ist die CRC in Byte 8 prüfbar
+
+   for (int i = 0; i < 9; i++)
+      if (wireReadByte(scratchpad[i]) != success)
+         return fail;
+
+   // Den Sensor entlassen und die Leitung freiräumen,
+   // damit der Bus für den nächsten Zugriff frei ist
+
+   bool dummyPresence {false};
+   wireReset(dummyPresence);
+
+   return success;
+}
+
+//***************************************************************************
+// Read Temperature
+//   Liest die Temperatur eines DS18B20 inklusive aller Plausibilitätsprüfungen
+//***************************************************************************
+
+int Ds2484::readTemperature(const uint8_t* rawRom, double& temperature, int retries)
+{
+   temperature = 0.0;
+
+   for (int attempt = 1; attempt <= retries+1; attempt++)
+   {
+      uint8_t sp[9] {};
+
+      if (readScratchpad(rawRom, sp) != success)
+      {
+         tell(eloDetail, "Warning: Reading scratchpad failed (attempt %d/%d)", attempt, retries+1);
+         continue;
+      }
+
+      // Alle Bytes 0x00 oder 0xff -> der Sensor hat nicht (korrekt) geantwortet.
+      // ACHTUNG: Die CRC über acht 0x00 Bytes ist 0x00 und Byte 8 ist dann ebenfalls
+      // 0x00, ein leeres Scratchpad würde die CRC Prüfung also überleben und als
+      // 0,00 °C in der Datenbank landen!
+
+      bool allZero {true};
+      bool allOnes {true};
+
+      for (int i = 0; i < 9; i++)
+      {
+         if (sp[i] != 0x00) allZero = false;
+         if (sp[i] != 0xff) allOnes = false;
+      }
+
+      if (allZero || allOnes)
+      {
+         tell(eloAlways, "Warning: 1-Wire sensor didn't respond, scratchpad is all 0x%02x (attempt %d/%d)",
+              allZero ? 0x00 : 0xff, attempt, retries+1);
+         continue;
+      }
+
+      if (calculateCRC8(sp, 8) != sp[8])
+      {
+         tell(eloAlways, "Warning: Scratchpad CRC check failed, dropping value "
+              "[%02x %02x %02x %02x %02x %02x %02x %02x %02x] (attempt %d/%d)",
+              sp[0], sp[1], sp[2], sp[3], sp[4], sp[5], sp[6], sp[7], sp[8], attempt, retries+1);
+         continue;
+      }
+
+      int16_t rawTemp = (int16_t)((sp[1] << 8) | sp[0]);
+      double value = rawTemp / 16.0;
+
+      // Messbereich des DS18B20 ist -55 .. +125 °C
+
+      if (value > 125.0 || value < -55.0)
+      {
+         tell(eloAlways, "Warning: Invalid temperature data read: %.2f °C (Low: 0x%02X, High: 0x%02X) (attempt %d/%d)",
+              value, sp[0], sp[1], attempt, retries+1);
+         continue;
+      }
+
+      // 85,0 °C ist der Power-On-Reset Wert, der Sensor hat dann (noch) nicht gemessen
+
+      if (rawTemp == 0x0550)
+         tell(eloDetail, "Warning: Sensor reports the power-on reset value of 85.00 °C");
+
+      temperature = value;
+
+      return success;
+   }
+
+   return fail;
 }

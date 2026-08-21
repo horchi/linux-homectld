@@ -1,9 +1,5 @@
 
-# BUGS
-
-- LUA script für solar pumpe bekommt filter pump true in manual mode (der solar pumpe) nicht mit da es dann nicht aufgerufen wird
-   -> besser im script die laufzeit der pumpe via des sensor afragen
-      -> dann entfällt selbes Problem auch beim restart des daemon
+# Known BUGS
 
 # ....
 

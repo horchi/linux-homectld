@@ -26,17 +26,17 @@ class HomeCtl : public Daemon
 
 #ifdef _POOL
 
-      enum AnalogInputs
-      {
-         aiPh = 0x01
-      };
+      // enum AnalogInputs
+      // {
+      //    aiPh = 0x01
+      // };
 
-      enum SpecialValues  // 'SP'
-      {
-         spPhMinusDemand = 3
-         // spSolarPower = 4,
-         // spSolarWork = 5
-      };
+      // enum SpecialValues  // 'SP'
+      // {
+      //    spPhMinusDemand = 3
+      //    // spSolarPower = 4,
+      //    // spSolarWork = 5
+      // };
 #endif
 
    protected:
@@ -59,19 +59,19 @@ class HomeCtl : public Daemon
 
     protected:
 
-      void phMeasurementActive();
-      int calcPhMinusVolume(double ph);
+      // void phMeasurementActive();
+      // int calcPhMinusVolume(double ph);
       // cDbStatement* selectSolarWorkPerDay {};
 
       // double alertSwitchOffPressure {0.0};
       // double massPerSecond {0.0};           // Fördermenge der Solarpumpe [kg·s-1] bzw. [l/s]
 
-      double phMinusDensity {0.0};
-      int phMinusDemand01 {0};                 // Menge zum Senken um 0,1 [g]
-      int phMinusDayLimit {0};
-      int phPumpDuration100 {0};
-      double phReference {0.0};                // PG Referenzwert (sollwert)
-      int minPumpTimeForPh {10 * tmeSecondsPerMinute}; // [s] #TODO -> add to config?
+      // double phMinusDensity {0.0};
+      // int phMinusDemand01 {0};                 // Menge zum Senken um 0,1 [g]
+      // int phMinusDayLimit {0};
+      // int phPumpDuration100 {0};
+      // double phReference {0.0};                // PG Referenzwert (sollwert)
+      // int minPumpTimeForPh {10 * tmeSecondsPerMinute}; // [s] #TODO -> add to config?
 
 #endif
 

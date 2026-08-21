@@ -1322,6 +1322,49 @@ table.tableMultiCol td
     background-color: black;
 }
 
+.chartDialogNav
+{
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 34px;
+    height: 60px;
+    font-size: large;
+    color: white;
+    background-color: rgba(80, 80, 80, 0.7);
+    cursor: pointer;
+    z-index: 1003;
+}
+
+.chartDialogNav:disabled
+{
+    opacity: 0.3;
+    cursor: default;
+}
+
+.chartDialogNavLeft
+{
+    left: 1em;
+}
+
+.chartDialogNavRight
+{
+    right: 1em;
+}
+
+.chartDialogRange
+{
+    position: absolute;
+    top: 1em;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 2px 8px;
+    color: white;
+    background-color: rgba(80, 80, 80, 0.7);
+    cursor: pointer;
+    z-index: 1003;
+}
+
 .chartTitle
 {
     text-align: center;

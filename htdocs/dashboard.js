@@ -2225,24 +2225,18 @@ function toggleChartDialog(type, address)
       let canvas = document.querySelector("#chartDialog");
       canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
       chartDialogSensor = type + address;
+      chartDialogKey = toKey(type, address);
+      chartDialogDayOffset = 0;
 
       // show the dialog
 
       dialog.setAttribute('open', 'open');
 
-      let jsonRequest = {};
-      let key = toKey(type, address);
-      let widget = dashboards[actDashboard].widgets[key];
+      requestChartDialogData();
 
-      if (!widget.range)
-         widget.range = 1;
+      // EventListener für ESC- und Cursor-Tasten
 
-      prepareChartRequest(jsonRequest, toKey(type, address), 0, widget.range, "chartdialog");
-      socket.send({ "event" : "chartdata", "object" : jsonRequest });
-
-      // EventListener für ESC-Taste
-
-      document.addEventListener('keydown', closeChartDialog);
+      document.addEventListener('keydown', chartDialogKeyDown);
 
       // only hide the background *after* you've moved focus out of
       //   the content that will be "hidden"
@@ -2253,17 +2247,74 @@ function toggleChartDialog(type, address)
    }
    else {
       chartDialogSensor = "";
-      document.removeEventListener('keydown', closeChartDialog);
+      chartDialogKey = "";
+      chartDialogDayOffset = 0;
+      document.removeEventListener('keydown', chartDialogKeyDown);
       dialog.removeAttribute('open');
       let div = document.querySelector('#backdrop');
       div.parentNode.removeChild(div);
    }
 }
 
-function closeChartDialog(event)
+//***************************************************************************
+// Chart Dialog Daten anfordern / blättern
+//***************************************************************************
+
+function requestChartDialogData()
 {
-   if (event.keyCode == 27)
+   let widget = dashboards[actDashboard].widgets[chartDialogKey];
+
+   if (!widget)
+      return ;
+
+   if (!widget.range)
+      widget.range = 1;
+
+   let range = parseFloat(widget.range);
+   let start = 0;    // 0 -> der Server nimmt 'jetzt - range'
+
+   if (chartDialogDayOffset > 0)
+      start = new Date(Date.now() - (range + chartDialogDayOffset) * 24*60*60*1000);
+
+   let jsonRequest = {};
+   prepareChartRequest(jsonRequest, chartDialogKey, start, range, "chartdialog");
+   socket.send({ "event" : "chartdata", "object" : jsonRequest });
+
+   updateChartDialogRange(start, range);
+}
+
+function chartDialogPage(direction)
+{
+   if (chartDialogKey == "")
+      return ;
+
+   if (direction == 0)                    // zurück zum aktuellen Zeitraum
+      chartDialogDayOffset = 0;
+   else
+      chartDialogDayOffset = Math.max(0, chartDialogDayOffset - direction);
+
+   requestChartDialogData();
+}
+
+function updateChartDialogRange(start, range)
+{
+   let to = start == 0 ? new Date() : new Date(start.getTime() + range*24*60*60*1000);
+   let from = start == 0 ? new Date(to.getTime() - range*24*60*60*1000) : start;
+   let format = { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' };
+
+   $("#chartDialogRange").html(from.toLocaleString([], format) + ' &ndash; ' + to.toLocaleString([], format)
+                               + (chartDialogDayOffset == 0 ? ' (aktuell)' : ''));
+   $("#chartDialogNext").prop('disabled', chartDialogDayOffset == 0);
+}
+
+function chartDialogKeyDown(event)
+{
+   if (event.key == 'Escape' || event.keyCode == 27)
       toggleChartDialog("", 0);
+   else if (event.key == 'ArrowLeft')
+      chartDialogPage(-1);
+   else if (event.key == 'ArrowRight')
+      chartDialogPage(1);
 }
 
 // ---------------------------------

@@ -1,7 +1,7 @@
 /*
  *  setup.js
  *
- *  (c) 2020-2024 Jörg Wendel
+ *  (c) 2020-2026 Jörg Wendel
  *
  * This code is distributed under the terms and conditions of the
  * GNU GENERAL PUBLIC LICENSE. See the file COPYING for details.
@@ -86,12 +86,34 @@ function initConfig(configdetails = null)
       }
 
       let itemsDiv = null;
-      $(dlgContent).append(itemsDiv = $('<div></div>')
-                           .attr('id', 'div_' + item.name)
-                           .attr('title', item.description)
-                           .append($('<span></span>')
-                                   .addClass('labelB1')
-                                   .html(item.title)));
+
+      if (setupCategory == "User Defined") {
+         $(dlgContent).append(itemsDiv = $('<div></div>')
+                              .attr('id', 'div_' + item.name)
+                              .attr('title', item.description)
+                              .append($('<span></span>')
+                                      .addClass('labelB1 widget-edit')
+                                      .css('cursor', 'pointer')
+                                      .on('click', function(e) {
+                                         e.preventDefault();
+                                         addEditConfigItem(item.name);
+                                      })
+                                      .append($('<i></i>')
+                                              .addClass('mdi mdi-lead-pencil')
+                                              .css({
+                                                 'color': 'orange',
+                                                 'margin-right': '6px' // Kleiner Abstand zum Text
+                                              }))
+                                      .append(document.createTextNode(item.title + ' (' + item.name + ')'))));
+      }
+      else {
+         $(dlgContent).append(itemsDiv = $('<div></div>')
+                              .attr('id', 'div_' + item.name)
+                              .attr('title', item.description)
+                              .append($('<span></span>')
+                                      .addClass('labelB1')
+                                      .html(item.title + ' (' + item.name + ')')));
+      }
 
       switch (item.type) {
       case 0:     // ctInteger
@@ -261,9 +283,10 @@ function initConfig(configdetails = null)
       $(dlgContent)
          .append($('<div></div>')
                  .append($('<button></button>')
-                         .addClass('rounded-border tool-button')
-                         .html("+")
-                         .click(function() { addConfigItem(); })
+                         .addClass('rounded-border buttonOptions mdi mdi-file-plus-outline')
+                         .css('font-size', '20px')
+                         .css('color', 'orange')
+                         .click(function() { addEditConfigItem(); })
                         ));
    }
 
@@ -282,8 +305,130 @@ function initConfig(configdetails = null)
    };
 }
 
-function addConfigItem()
+function addEditConfigItem(name = null)
 {
+   // must match 'enum ConfigItemType' in daemon.h
+   const configItemTypes = [
+      { type: 0, title: 'Integer' },       // ctInteger
+      { type: 1, title: 'Number' },        // ctNum
+      { type: 2, title: 'String' },        // ctString
+      { type: 3, title: 'Bool' },          // ctBool
+      { type: 4, title: 'Range' },         // ctRange
+      { type: 5, title: 'Choice' },        // ctChoice
+      { type: 6, title: 'MultiSelect' },   // ctMultiSelect
+      { type: 7, title: 'BitSelect' },     // ctBitSelect
+      { type: 8, title: 'Text' }           // ctText
+   ];
+
+   // Prüfen, ob wir im Bearbeitungsmodus sind
+   let isEditMode = (name !== null && name !== undefined && name !== '');
+   let currentItem = null;
+
+   if (isEditMode) {
+      // Das bestehende Item aus den globalen Konfigurationsdetails suchen
+      currentItem = theConfigdetails.find(item => item.name === name);
+      if (!currentItem) {
+         console.error("Item nicht gefunden:", name);
+         return;
+      }
+   }
+
+   let typeSel = null;
+   let form = document.createElement("div");
+   $(form).append($('<div></div>')
+                  .append($('<div></div>')
+                          .append($('<span></span>').html('Name'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .attr('id', 'cfgItemName')
+                                          .attr('type', 'search')
+                                          .addClass('rounded-border inputSetting')
+                                          .val(isEditMode ? currentItem.name : '')
+                                          .prop('disabled', isEditMode)
+                                          )))
+                  .append($('<div></div>')
+                          .append($('<span></span>').html('Type'))
+                          .append($('<span></span>')
+                                  .append(typeSel = $('<select></select>')
+                                          .attr('id', 'cfgItemType')
+                                          .addClass('rounded-border inputSetting')
+                                          )))
+                  .append($('<div></div>')
+                          .append($('<span></span>').html('Title'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .attr('id', 'cfgItemTitle')
+                                          .attr('type', 'search')
+                                          .addClass('rounded-border inputSetting')
+                                          .val(isEditMode ? currentItem.title : '')
+                                          )))
+                  .append($('<div></div>')
+                          .append($('<span></span>').html('Description'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .attr('id', 'cfgItemDescription')
+                                          .attr('type', 'search')
+                                          .addClass('rounded-border inputSetting')
+                                          .val(isEditMode ? currentItem.description : '')
+                                         )))
+                  .append($('<div></div>')
+                          .css('display', isEditMode ? 'none' : 'block')
+                          .append($('<span></span>').html('Value'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .attr('id', 'cfgItemValue')
+                                          .attr('type', 'search')
+                                          .addClass('rounded-border inputSetting')
+                                          // Holt den aktuellen Live-Wert aus dem globalen 'config' Objekt
+                                          .val(isEditMode ? (config[name] !== undefined ? config[name] : '') : '')
+                                         )))
+                 );
+
+   for (var t = 0; t < configItemTypes.length; t++) {
+      $(typeSel).append($('<option></option>')
+                        .val(configItemTypes[t].type)
+                        .html(configItemTypes[t].title)
+                        .prop('selected', isEditMode && currentItem.type === configItemTypes[t].type));
+   }
+
+   $(form).dialog({
+      modal: true,
+      resizable: false,
+      closeOnEscape: true,
+      hide: "fade",
+      width: "80%",
+      title: isEditMode ? "Edit Config Item" : "New Config Item",
+      open: function() {
+      },
+      buttons: {
+         'Abbrechen': function () {
+            $(this).dialog('close');
+         },
+         'Speichern': function () {
+            socket.send({ "event" : "storeconfig", "object" : {
+               'action': isEditMode ? 'edit' : 'add',
+               'name': $('#cfgItemName').val(),
+               'type': parseInt($('#cfgItemType').val()),
+               'title': $('#cfgItemTitle').val(),
+               'category': 'User Defined',
+               'description': $('#cfgItemDescription').val(),
+               'value': $('#cfgItemValue').val()  // ignored in edit mode!
+            }});
+
+            $(this).dialog('close');
+         }
+      },
+      close: function() {
+         $(this).dialog('destroy').remove();
+      }
+   });
+}
+
+function addConfigItem(name = null)
+{
+   if (!isEmpty(name))
+      return;
+
    // must match 'enum ConfigItemType' in daemon.h
 
    const configItemTypes = [

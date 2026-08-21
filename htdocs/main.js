@@ -1,7 +1,7 @@
 /*
  *  main.js
  *
- *  (c) 2020-2025 Jörg Wendel
+ *  (c) 2020-2026 Jörg Wendel
  *
  * This code is distributed under the terms and conditions of the
  * GNU GENERAL PUBLIC LICENSE. See the file COPYING for details.
@@ -45,6 +45,8 @@ var theChart = null;
 var theChartRange = null;
 var theChartStart = null;
 var chartDialogSensor = "";
+var chartDialogKey = "";        // key des Sensors im Chart Dialog
+var chartDialogDayOffset = 0;   // Anzahl Tage die zurück geblättert wurde (0 = aktuell)
 var chartBookmarks = {};
 var infoDialogTimer = null;
 var grouplist = {};
@@ -1862,6 +1864,9 @@ function drawBarChartWidget(dataObject)
 function drawChartDialog(dataObject)
 {
    let root = document.querySelector('dialog')
+
+   if (!dataObject.rows || !dataObject.rows.length)   // z.B. Zeitraum ohne Daten
+      return ;
 
    if (dataObject.rows[0].sensor != chartDialogSensor)
       return ;

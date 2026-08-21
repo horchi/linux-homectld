@@ -39,19 +39,19 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
 
    { "eloquence",                 ctBitSelect, "1",          "N", false, "Daemon", "Log Eloquence", "" },
 
-#ifdef _POOL
-   { "tPoolMax",                  ctNum,     "28.0",         "N", false, "Pool", "Pool max Temperatur", "" },
-   { "tSolarOff",                 ctNum,     "2.0",          "N", false, "Pool", "Ausschalt-Delta Solarpumpe [°C]", "" },
-   { "tSolarOn",                  ctNum,     "7.0",          "N", false, "Pool", "Einschalt-Delta der Solarpumpe [°C]", "" },
+// #ifdef _POOL
+//    { "tPoolMax",                  ctNum,     "28.0",         "N", false, "Pool", "Pool max Temperatur", "" },
+//    { "tSolarOff",                 ctNum,     "2.0",          "N", false, "Pool", "Ausschalt-Delta Solarpumpe [°C]", "" },
+//    { "tSolarOn",                  ctNum,     "7.0",          "N", false, "Pool", "Einschalt-Delta der Solarpumpe [°C]", "" },
 
-   // PH stuff
+//    // PH stuff
 
-   { "phReference",               ctNum,     "7.2",          "N", false, "Pool", "PH Sollwert", "Sollwert [PH] (default 7,2)" },
-   { "phMinusDensity",            ctNum,     "1.4",          "N", false, "Pool", "Dichte PH Minus [kg/l]", "Wie viel kg wiegt ein Liter PH Minus (default 1,4)" },
-   { "phMinusDemand01",           ctInteger, "85",           "N", false, "Pool", "Menge zum Senken um 0,1 [g]", "Wie viel Gramm PH Minus wird zum Senken des PH Wertes um 0,1 für das vorhandene Pool Volumen benötigt (default 60g)" },
-   { "phMinusDayLimit",           ctInteger, "100",          "N", false, "Pool", "Obergrenze PH Minus/Tag [ml]", "Wie viel PH Minus wird pro Tag maximal zugegeben [ml] (default 100ml)" },
-   { "phPumpDurationPer100",      ctInteger, "1000",         "N", false, "Pool", "Laufzeit Dosierpumpe/100ml [ms]", "Welche Zeit in Millisekunden benötigt die Dosierpumpe um 100ml zu fördern (default 1000ms)" },
-#endif
+//    { "phReference",               ctNum,     "7.2",          "N", false, "Pool", "PH Sollwert", "Sollwert [PH] (default 7,2)" },
+//    { "phMinusDensity",            ctNum,     "1.4",          "N", false, "Pool", "Dichte PH Minus [kg/l]", "Wie viel kg wiegt ein Liter PH Minus (default 1,4)" },
+//    { "phMinusDemand01",           ctInteger, "85",           "N", false, "Pool", "Menge zum Senken um 0,1 [g]", "Wie viel Gramm PH Minus wird zum Senken des PH Wertes um 0,1 für das vorhandene Pool Volumen benötigt (default 60g)" },
+//    { "phMinusDayLimit",           ctInteger, "100",          "N", false, "Pool", "Obergrenze PH Minus/Tag [ml]", "Wie viel PH Minus wird pro Tag maximal zugegeben [ml] (default 100ml)" },
+//    { "phPumpDurationPer100",      ctInteger, "1000",         "N", false, "Pool", "Laufzeit Dosierpumpe/100ml [ms]", "Welche Zeit in Millisekunden benötigt die Dosierpumpe um 100ml zu fördern (default 1000ms)" },
+// #endif
 
    // web
 
@@ -228,11 +228,11 @@ int HomeCtl::readConfiguration(bool initial)
 
    // PH stuff
 
-   getConfigItem("phReference", phReference, 7.2);
-   getConfigItem("phMinusDensity", phMinusDensity, 1.4);                  // [kg/l]
-   getConfigItem("phMinusDemand01", phMinusDemand01, 85);                 // [ml]
-   getConfigItem("phMinusDayLimit", phMinusDayLimit, 100);                // [ml]
-   getConfigItem("phPumpDuration100", phPumpDuration100, 1000);           // [ms]
+   // getConfigItem("phReference", phReference, 7.2);
+   // getConfigItem("phMinusDensity", phMinusDensity, 1.4);                  // [kg/l]
+   // getConfigItem("phMinusDemand01", phMinusDemand01, 85);                 // [ml]
+   // getConfigItem("phMinusDayLimit", phMinusDayLimit, 100);                // [ml]
+   // getConfigItem("phPumpDuration100", phPumpDuration100, 1000);           // [ms]
 
    // Time ranges
 
@@ -482,7 +482,7 @@ int HomeCtl::process(bool force, bool signal)
    //    }
    // }
 
-   phMeasurementActive();
+   // phMeasurementActive();
 
 #endif // _POOL
 
@@ -551,38 +551,38 @@ int HomeCtl::process(bool force, bool signal)
 // #endif
 // }
 
-#ifdef _POOL
+// #ifdef _POOL
 
-//***************************************************************************
-// PH Measurement Active
-//***************************************************************************
+// //***************************************************************************
+// // PH Measurement Active
+// //***************************************************************************
 
-void HomeCtl::phMeasurementActive()
-{
-   // if (sensors["DO"][pinFilterPump].state && sensors["DO"][pinFilterPump].last < time(0)-minPumpTimeForPh)
-   // {
-   //    sensors["AI"][aiPh].disabled = false;
-   //    sensors["SP"][spPhMinusDemand].disabled = false;
-   // }
-   // else
-   // {
-   //    sensors["AI"][aiPh].disabled = true;
-   //    // sensors["SP"][spPhMinusDemand].disabled = true;
-   // }
-}
+// void HomeCtl::phMeasurementActive()
+// {
+//    if (sensors["DO"][pinFilterPump].state && sensors["DO"][pinFilterPump].last < time(0)-minPumpTimeForPh)
+//    {
+//       sensors["AI"][aiPh].disabled = false;
+//       sensors["SP"][spPhMinusDemand].disabled = false;
+//    }
+//    else
+//    {
+//       sensors["AI"][aiPh].disabled = true;
+//       // sensors["SP"][spPhMinusDemand].disabled = true;
+//    }
+// }
 
-//***************************************************************************
-// Calc PH Minus Volume
-//***************************************************************************
+// //***************************************************************************
+// // Calc PH Minus Volume
+// //***************************************************************************
 
-int HomeCtl::calcPhMinusVolume(double ph)
-{
-   double phLack = ph - phReference;
-   double mlPer01 = phMinusDemand01 * (1.0/phMinusDensity);
+// int HomeCtl::calcPhMinusVolume(double ph)
+// {
+//    double phLack = ph - phReference;
+//    double mlPer01 = phMinusDemand01 * (1.0/phMinusDensity);
 
-   // tell(eloAlways, "ph %0.2f; phLack %0.2f; mlPer01 %0.2f; phMinusDemand01 %d; phMinusDensity %0.2f -> %0.2f",
-   //      ph, phLack, mlPer01, phMinusDemand01, phMinusDensity, (phLack/0.1) * mlPer01);
+//    tell(eloAlways, "ph %0.2f; phLack %0.2f; mlPer01 %0.2f; phMinusDemand01 %d; phMinusDensity %0.2f -> %0.2f",
+//         ph, phLack, mlPer01, phMinusDemand01, phMinusDensity, (phLack/0.1) * mlPer01);
 
-   return (phLack/0.1) * mlPer01;
-}
-#endif
+//    return (phLack/0.1) * mlPer01;
+// }
+// #endif

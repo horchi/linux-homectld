@@ -4710,7 +4710,7 @@ bool Daemon::configItemExists(const char* name, ConfigItemType* type)
 
 //***************************************************************************
 // Add Config Item
-//   create a config item at runtime (sensor or user defined options)
+//   create/edit a config item at runtime (sensor or user defined options)
 //***************************************************************************
 
 int Daemon::addConfigItem(const char* name, ConfigItemType type, const char* value, const char* kind,
@@ -5483,6 +5483,8 @@ int Daemon::loadIoState(const char* type, uint address, bool& state, OutputMode&
    if (!tableIoStates->find())
       return fail;
 
+   // changedAt = tableIoStates->getTimeValue("TIME");
+   // value = tableIoStates->getIntValue("VALUE");
    state = tableIoStates->getIntValue("STATE") == 1;
    mode = (OutputMode)tableIoStates->getIntValue("MODE");
 
@@ -5508,6 +5510,7 @@ int Daemon::loadIoStates()
       tell(eloDebug2, "Debug2: Recover IO state of '%s:0x%x' to '%s', mode to (%ld)",
            type.c_str(), address, state ? "true" : "false", tableIoStates->getIntValue("MODE"));
 
+      sensors[type][address].changedAt = tableIoStates->getTimeValue("TIME");
       sensors[type][address].value = tableIoStates->getIntValue("VALUE");
       sensors[type][address].text = tableIoStates->getStrValue("TEXT");
       sensors[type][address].state = state;

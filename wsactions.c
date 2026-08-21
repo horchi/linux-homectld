@@ -1467,7 +1467,7 @@ int Daemon::storeConfig(json_t* obj, long client)
 {
    std::string action {getStringFromJson(obj, "action", "store")};
 
-   if (action == "add")
+   if (action == "add" || action == "edit")
    {
       const char* key {getStringFromJson(obj, "name")};
       const char* value {getStringFromJson(obj, "value", "")};
@@ -1475,7 +1475,7 @@ int Daemon::storeConfig(json_t* obj, long client)
       if (isEmpty(key))
          return replyResult(success, "Hinzufügen fehlgeschlagen, Name fehlt", client);
 
-      if (configItemExists(key))
+      if (action == "add" && configItemExists(key))
          return replyResult(success, "Option bereits vorhanden", client);
 
       addConfigItem(key,

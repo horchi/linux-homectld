@@ -116,6 +116,9 @@
 
     <dialog role="dialog">
       <canvas id="chartDialog" class="chartDialogCanvas" onclick="toggleChartDialog('',0)"></canvas>
+      <button id="chartDialogPrev" class="rounded-border chartDialogNav chartDialogNavLeft" title="Tag zurück" onclick="chartDialogPage(-1)">&#10094;</button>
+      <button id="chartDialogNext" class="rounded-border chartDialogNav chartDialogNavRight" title="Tag vor" onclick="chartDialogPage(1)">&#10095;</button>
+      <div id="chartDialogRange" class="rounded-border chartDialogRange" title="zurück zum aktuellen Zeitraum" onclick="chartDialogPage(0)"></div>
     </dialog>
 
     <svg display="none">

@@ -31,7 +31,7 @@ parameters[3] = '{"parameter": {"cloneable": false, "widgettype": 2, "symbol": "
 # 4: Outside Temperature (°C)
 parameters[4] = '{"parameter": {"cloneable": false, "widgettype": 6, "symbol": "mdi:mdi-thermometer", "symbolOn": "mdi:mdi-thermometer"}}'
 # 5: Humidity (%)
-parameters[5] = '{"parameter": {"cloneable": false, "widgettype": 3, "symbol": "mdi:mdi-water-percent""symbolOn": "mdi:mdi-water-percent"}}'
+parameters[5] = '{"parameter": {"cloneable": false, "widgettype": 3, "symbol": "mdi:mdi-water-percent", "symbolOn": "mdi:mdi-water-percent"}}'
 # 6: Barometer (mbar)
 parameters[6] = '{"parameter": {"cloneable": false, "widgettype": 3, "symbol": "mdi:mdi-gauge", "symbolOn": "mdi:mdi-gauge"}}'
 # 7: Station Timestamp

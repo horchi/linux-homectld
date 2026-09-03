@@ -937,6 +937,7 @@ function initWidget(key, widget, fact)
          }
 
          if (widget.symbol == null || widget.symbol == 0) {
+            console.log("widget.symbol: '" + widget.symbol + "'");
             // plain rectangular tank symbol
 
             html = '<svg xmlns="http://www.w3.org/2000/svg" style="height:100%;aspect-ratio:1/1;" viewBox="0 0 300 200">' +
@@ -1027,7 +1028,7 @@ function initWindy(key, widget, fact)
          '   data-heightunit="m"' +              // m|ft
          '   data-spotid="' + config.windyAppSpotID + '"' +
          '   data-fields="wind-speed,wind-gust,wind-direction,air-temp,clouds,precipitation"' +
-         '   data-appid="widgets_' + config.windyAppID + '"' +
+         '   data-appid="' + config.windyAppID + '"' +
          ' >' +
          '</div>' +
          '<script async="true" data-cfasync="false" type="text/javascript"' +
@@ -1051,7 +1052,7 @@ function initWindy(key, widget, fact)
             '   data-lat="' + allSensors[keyLat].value + '"' +
             '   data-lng="' + allSensors[keyLong].value + '"' +
             '   data-fields="wind-speed,wind-gust,wind-direction,air-temp,clouds,precipitation"' +
-            '   data-appid="widgets_' + config.windyAppID + '"' +
+            '   data-appid="' + config.windyAppID + '"' +
             ' >' +
             '</div>' +
             '<script async="true" data-cfasync="false" type="text/javascript"' +
@@ -1081,7 +1082,7 @@ function initWindyMap(key, widget, fact)
        '  data-windywidget="map"' +
        '  data-thememode="white"' +
        '  data-spotid="' + config.windyAppSpotID + '"' +
-       '  data-appid="widgets_' + config.windyAppID + '"' +
+       '  data-appid="' + config.windyAppID + '"' +
        '</div>' +
        '<script async="true" data-cfasync="false" type="text/javascript" src="//windy.app/widget3/windy_map_async.js?v289"></script>';
 
@@ -1530,6 +1531,21 @@ function titleClick(ctrlKey, key)
                                      .css('width', '30%')
                                      .css('text-align', 'end')
                                      .css('margin-right', '10px')
+                                     .html('Sensor'))
+                             .append($('<span></span>')
+                                     .append($('<div></div>')
+                                             .css('font-style', 'italic')
+                                             .addClass('rounded-border')
+                                             .html(key + ' (' + parseInt(key.split(":")[1]) + ')')
+                                            )))
+
+                     .append($('<div></div>')
+                             .css('display', 'flex')
+                             .css('margin-bottom', '4px')
+                             .append($('<span></span>')
+                                     .css('width', '30%')
+                                     .css('text-align', 'end')
+                                     .css('margin-right', '10px')
                                      .html('Title'))
                              .append($('<span></span>')
                                      .append($('<div></div>')
@@ -1576,7 +1592,7 @@ function titleClick(ctrlKey, key)
                                      .append($('<div></div>')
                                              .attr('id', 'dlgPeakMin')
                                              .addClass('rounded-border')
-                                             .append(sensor.peakmin ? sensor.peakmin + ' ' + widget.unit : '-')
+                                             .append(sensor.peakmin ? sensor.peakmin + ' ' + widget.unit  + ' ' : '- ')
                                              .append($('<span></span>')
                                                      .css('font-size', 'smaller')
                                                      .css('color', '#3d3737')
@@ -1594,7 +1610,7 @@ function titleClick(ctrlKey, key)
                                      .append($('<div></div>')
                                              .attr('id', 'dlgPeakMax')
                                              .addClass('rounded-border')
-                                             .append(sensor.peakmax ? sensor.peakmax + ' ' + widget.unit : '-')
+                                             .append(sensor.peakmax ? sensor.peakmax + ' ' + widget.unit + ' ' : '- ')
                                              .append($('<span></span>')
                                                      .css('font-size', 'smaller')
                                                      .css('color', '#3d3737')
@@ -1743,6 +1759,9 @@ function updateWidget(sensor, refresh, widget)
 
    if (sensor.type == 'WEA' && (sensor.address == 2 || sensor.address == 3 || sensor.address == 4)) // Windy App
       sensor.valid = true;
+
+   if (sensor.type == 'WEA' && sensor.address == 1)
+      console.log("WEA 1: valid", String(sensor.valid));
 
    widgetDiv.css('opacity', sensor.valid ? '100%' : '45%');
    // $('#div_' + key.replace(':', '\\:')).css('opacity', sensor.valid ? '100%' : '25%');

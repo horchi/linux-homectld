@@ -2774,19 +2774,22 @@ int Daemon::sensor2Json(json_t* obj, const char* type, uint address)
 
    tablePeaks->reset();
 
-   // at least one update / 2 minutes ?? -> move to configuration ??
+   // at least one update / 2 minutes!
+   //  #TODO - sensoren sollten ihren intervall und/oder einen timeout anmelden
+   //          Beispiel: sie liefern "nextUpdate" : "<time>"
+   //                    diese wird dann hier zum valid check verwendet
 
-   if (strcmp(type, "DO") == 0 || (strcmp(type, "GPIO") == 0 && sensors[type][address].fct == "out"))
+   if (strcmp(type, "GPIO") == 0 && sensors[type][address].fct == "out")
       ;
    else if (strcmp(type, "WEA") == 0)
-      sensors[type][address].valid = sensors[type][address].last >= time(0) - 60*tmeSecondsPerMinute;
+      ; // valid ist bereits korrekt gesetzt
    else if (strcmp(type, "HMB") == 0)
       ;
    else if (strcmp(type, "DZS") == 0 || strncmp(type, "DZL", 3) == 0)
       ;
    else if (strncmp(type, "P4", 2) == 0)
       sensors[type][address].valid = sensors[type][address].last >= time(0) - 10*tmeSecondsPerMinute;
-   else if (sensors[type][address].last < time(0)-2*tmeSecondsPerMinute)
+   else if (sensors[type][address].last < time(0)-2 * tmeSecondsPerMinute)
       sensors[type][address].valid = false;
 
    json_object_set_new(obj, "valid", json_boolean(sensors[type][address].valid));

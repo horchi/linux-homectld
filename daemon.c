@@ -1514,6 +1514,7 @@ int Daemon::initDb()
    selectSensorMaxTime->build(") from %s where ", tableSamples->TableName());
    selectSensorMaxTime->bind("TYPE", cDBS::bndIn | cDBS::bndSet);
    selectSensorMaxTime->bind("ADDRESS", cDBS::bndIn | cDBS::bndSet, " and ");
+   selectSensorMaxTime->build(" having max(time) is not null");  // verhindert Rückgabe von NULL statt keiner row
 
    status += selectSensorMaxTime->prepare();
 
@@ -3517,6 +3518,7 @@ int Daemon::updateWeather()
       return done;
 
    nextWeatherAt = time(0) + weatherInterval*tmeSecondsPerMinute;
+   sensors["WEA"][1].valid = false;
 
    cCurl curl;
    curl.init();
@@ -3529,7 +3531,7 @@ int Daemon::updateWeather()
             openWeatherApiKey.c_str(), latitude, longitude);
 
    tell(eloWeather, "-> (openweathermap) [%s]", url);
-   int status = curl.downloadFile(url, size, &data, 2);
+   int status {curl.downloadFile(url, size, &data, 2)};
 
    if (status != success)
    {
@@ -3541,13 +3543,13 @@ int Daemon::updateWeather()
    free(url);
    tell(eloWeather, "<- (openweathermap) [%s]", data.memory);
 
-   json_t* jData = jsonLoad(data.memory);
+   json_t* jData {jsonLoad(data.memory)};
 
    if (!jData)
       return fail;
 
-   const char* city = getStringByPath(jData, "city/name");
-   json_t* jArray = getObjectFromJson(jData, "list");
+   const char* city {getStringByPath(jData, "city/name")};
+   json_t* jArray {getObjectFromJson(jData, "list")};
 
    if (!jArray)
    {
@@ -3576,14 +3578,14 @@ int Daemon::updateWeather()
 
    addValueFact(1, "WEA", 1, "weather", "txt", "Wetter");
    sensors["WEA"][1].kind = "text";
-   sensors["WEA"][1].last = time(0) -1;
+   sensors["WEA"][1].last = time(0);
    sensors["WEA"][1].changedAt = time(0);
    sensors["WEA"][1].valid = true;
 
-   char* p = json_dumps(jWeather, JSON_REAL_PRECISION(4));
+   char* p {json_dumps(jWeather, JSON_REAL_PRECISION(4))};
+   json_decref(jWeather);
    sensors["WEA"][1].text = p;
    free(p);
-   json_decref(jWeather);
 
    {
       json_t* ojData {json_object()};

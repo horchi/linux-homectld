@@ -418,9 +418,10 @@ function getWidgetTitleClass(widget, fact)
       titleClass = 'mdi mdi-label-percent-outline';
    else if (!setupMode && widget.unit == 'l')
       titleClass = 'mdi mdi-water';
-   else if (widget && widget.symbol) {
+   else if (widget && widget.symbolOn)
+      titleClass = widget.symbolOn.replace(':', ' ');
+   else if (widget && widget.symbol)
       titleClass = widget.symbol.replace(':', ' ');
-   }
 
    return titleClass;
 }

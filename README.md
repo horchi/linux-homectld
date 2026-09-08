@@ -233,6 +233,37 @@ Reboot to apply this settings!
 The homectld checks automatically if there are 'One Wire Sensors' connected, each detected sensor will be
 configurable via the web interface.
 
+<a id="hasp-panel"></a>
+# HASP Panel (openHASP Display)
+
+homectld can drive an [openHASP](https://www.openhasp.com) touch panel (e.g. the Elecrow CrowPanel 5.0) as a
+small wall or vehicle display. The pages of the panel are configured in the WEBIF under
+*Setup -> HASP Panel*, stored in the tables `hasppages` / `hasppagewidgets` and sent to the panel via MQTT.
+
+## Prerequisites
+
+- openHASP firmware on the panel, MQTT configured to the same broker as homectld
+  (the group topic of the panel is `hasp/plates` by default)
+- configuration item *HASP Panel -> haspMqttTopic* (`hasp/plates` or `hasp/<hostname>`); empty = disabled
+- for MDI symbols the complete Material Design Icons font has to be uploaded to the panel once as `/mdi.ttf`
+  (the file of the WEBIF: `htdocs/mds/fonts/materialdesignicons-webfont.ttf`), e.g.
+  `curl -F "data=@materialdesignicons-webfont.ttf;filename=/mdi.ttf" http://<panel-ip>/edit`, then reboot the panel
+
+## Pages and widgets
+
+- a page has up to 4 rows, each row 1..3 widgets (cards); pages are changed by swiping left/right on the panel
+- per slot a sensor is selected (filter and sorting by type / name), *Setup* opens the widget dialog
+- when a sensor is selected its settings are copied **once** from its dashboard widget (if it is on a dashboard,
+  otherwise the sensor defaults); afterwards the HASP settings are independent of the dashboard
+- widget types: **Symbol** (MDI symbol, color shows the state, acts as toggle button), **SymbolValue**,
+  **Value**, **Text**, **Meter** (gauge), **MeterLinear** (vertical bar with scale, thermometer for °C),
+  **Time** (clock and date, rendered by the panel) and **Level** (MDI symbol filled by percentage in the
+  bar color, e.g. `mdi-water`, `mdi-propane-tank`, `mdi-car-battery`; range from the scale of the widget)
+- the pages are sent after saving, with the button *An Panel senden* and automatically whenever the panel
+  comes online (openHASP forgets objects received via MQTT on reboot)
+- values are pushed on every sensor change; openHASP has no chart object, so charts are not available
+
+
 # I2c Bus
 
 ## Rasperyy Pi

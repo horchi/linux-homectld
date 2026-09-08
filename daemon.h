@@ -371,6 +371,8 @@ class Daemon : public cWebInterface, public Service
       int performForceRefresh(json_t* obj, long client);
       int storeConfig(json_t* obj, long client);
       int storeDashboards(json_t* obj, long client);
+      int performHaspPages(json_t* obj, long client);
+      int storeHaspPages(json_t* obj, long client);
       virtual int storeIoSetup(json_t* array, long client);
       int storeGroups(json_t* array, long client);
       int performChartbookmarks(long client);
@@ -399,6 +401,68 @@ class Daemon : public cWebInterface, public Service
       int valueTypes2Json(json_t* obj);
       int valueFacts2Json(json_t* obj, bool filterActive);
       int dashboards2Json(json_t* obj);
+      int haspPages2Json(json_t* obj);
+
+      // openHASP panel (hasp.c)
+
+      enum HaspWidgetType
+      {
+         hwtUnknown = 0,
+         hwtMeter,          // gauge with needle
+         hwtMeterLevel,    // horizontal bar
+         hwtValue,          // big value
+         hwtText,           // text
+         hwtSymbol,         // MDI symbol as toggle button
+         hwtSymbolValue,    // MDI symbol plus value
+         hwtTime,           // clock (rendered by the panel itself)
+         hwtLevel,          // MDI symbol filled by percentage (tank, gas bottle, battery, ...)
+         hwtCount
+      };
+
+      struct HaspObjRef            // where a sensor lives on the panel (for value updates)
+      {
+         int page {0};
+         int objId {0};            // main object (gauge, bar, button, ...)
+         int valueId {0};          // value label (0 if none)
+         HaspWidgetType widgetType {hwtUnknown};
+         std::string unit;
+         std::string symbolOff;    // UTF-8 glyphs for state off/on (Symbol, SymbolValue)
+         std::string symbolOn;
+         std::string colorOff;     // colors for state off/on (SymbolValue)
+         std::string colorOn;
+         int extraId {0};          // additional label (Level: percent)
+         int size {0};             // Level: glyph size
+         int top {0};              // Level: glyph top (y inside the card)
+         double scaleMin {0};      // Level: value range for the percentage
+         double scaleMax {100};
+      };
+
+      static const char* haspWidgetTypeNames[];
+      int haspWidgetTypes2Json(json_t* obj);
+      int haspSendPages();
+      int haspPublish(const char* command, const char* payload);
+      int haspPublishJsonl(json_t* jObj);
+      int haspBuildPage(int pageNo, const std::vector<int>& layout, json_t* jWidgets, int nextPage, int prevPage);
+      int haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, int h, const char* key, json_t* jOpts);
+      std::vector<int> haspLayoutOf(const char* opts, int rows, int cols);
+      static HaspWidgetType haspTypeOfDashboardType(int dashboardWidgetType);
+      int haspLoadMdiCodepoints();
+      int haspPublishSensor(const SensorData& sensor);      // value/state of one sensor -> panel
+      int haspDispatchState(const char* topic, const char* message);   // touch events of the panel -> homectld
+      int haspPublishAllValues();                            // all sensors on the panel
+      void haspQueueCommand(const std::string& objAttr, const std::string& value);
+      int haspFlushCommands();
+      std::string haspMdiChar(const char* symbol);
+      bool haspMdiExists(const std::string& name);
+      static std::string haspMdiName(const char* symbol);   // "mdi:mdi-water-outline" -> "water-outline"
+      json_t* haspWidgetDefaults(const char* type, long address);
+
+      std::string haspMqttTopic;                          // base topic, e.g. hasp/plates
+      std::map<std::string,uint32_t> mdiCodepoints;       // "fridge-outline" -> 0xF028F
+      std::map<std::string,std::vector<HaspObjRef>> haspObjects;   // "TYPE:0xADDR" -> panel objects
+      std::map<std::string,std::string> haspLastSent;             // "p1b12.val" -> last value sent (avoid repeats)
+      std::vector<std::string> haspPending;                        // batched "p1b12.val=23" commands
+      std::vector<std::pair<int,int>> haspDateLabels;             // (page, id) of date labels (Time widget), text set by us (weekday in german)
       int groups2Json(json_t* obj);
       virtual int commands2Json(json_t* obj);
       int syslogs2Json(json_t* obj);
@@ -463,6 +527,8 @@ class Daemon : public cWebInterface, public Service
       cDbTable* tableGroups {};
       cDbTable* tableDashboards {};
       cDbTable* tableDashboardWidgets {};
+      cDbTable* tableHaspPages {};
+      cDbTable* tableHaspPageWidgets {};
       cDbTable* tableSchemaConf {};
       cDbTable* tableHomeMatic {};
       cDbTable* tableIoStates {};
@@ -492,6 +558,8 @@ class Daemon : public cWebInterface, public Service
       cDbStatement* selectDashboards {};
       cDbStatement* selectDashboardById {};
       cDbStatement* selectDashboardWidgetsFor {};
+      cDbStatement* selectHaspPages {};
+      cDbStatement* selectHaspPageWidgetsFor {};
       cDbStatement* selectSchemaConfByState {};
       cDbStatement* selectAllSchemaConf {};
       cDbStatement* selectHomeMaticByUuid {};

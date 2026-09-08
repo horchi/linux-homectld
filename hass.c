@@ -18,6 +18,8 @@
 
 int Daemon::mqttHaPublish(SensorData& sensor, bool forceConfig)
 {
+   haspPublishSensor(sensor);   // openHASP panel (independent of the home automation interface)
+
    if (mqttUrl.empty() || mqttHaInterfaceStyle == misNone)
       return done;
 
@@ -273,6 +275,15 @@ int Daemon::performMqttRequests()
          }
       }
 
+      else if (strstr(tp.c_str(), "hasp/") && strstr(tp.c_str(), "/state/"))
+         haspDispatchState(tp.c_str(), message.memory);
+      else if (strstr(tp.c_str(), "hasp/") && strstr(tp.c_str(), "/LWT"))
+      {
+         // openHASP panel (re)connected -> it lost all pages sent via MQTT, send them again
+
+         if (strcasecmp(message.memory, "online") == 0)
+            haspSendPages();
+      }
       else if (strstr(tp.c_str(), "2mqtt/command") || strstr(tp.c_str(), "2mqtt/nodered"))
       {
          json_t* jData = jsonLoad(message.memory);

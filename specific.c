@@ -82,6 +82,10 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
    { "mqttHaSendWithKeyPrefix",   ctString,  "",  "N", false, "Home Automation Interface", "Adresse übertragen", "Wenn hier ein Präfix konfiguriert ist wird die Adresse der Sensoren nebst Präfix übertragen" },
    { "mqttHaHaveConfigTopic",     ctBool,    "0", "N", false, "Home Automation Interface", "Config Topic", "Speziell für HomeAssistant" },
 
+   // openHASP panel
+
+   { "haspMqttTopic",             ctString,  "hasp/plates", "N", false, "HASP Panel", "MQTT Basis-Topic des openHASP Panels", "Kommandos gehen an &lt;Topic&gt;/command/..., z.B. 'hasp/plates' (Gruppe) oder 'hasp/&lt;hostname&gt;'. Leer = Panel-Anbindung aus" },
+
    // mail
 
    { "mail",                      ctBool,    "0",                  "N", false, "Mail", "Mail Benachrichtigung", "Mail Benachrichtigungen aktivieren/deaktivieren" },

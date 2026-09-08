@@ -67,7 +67,7 @@ var sab = 0;             // env(safe-area-inset-bottom)
 var controlContainerCollapsed = false;
 var lastSetupPage = null;
 var lastSetupAction = null;
-var setupPages = ['setup', 'sensorsetup', 'userdetails', 'alerts', 'images', 'groups', 'syslog', 'system', 'commands', 'readme'];
+var setupPages = ['setup', 'sensorsetup', 'userdetails', 'alerts', 'images', 'groups', 'syslog', 'system', 'commands', 'readme', 'hasp'];
 
 $('document').ready(function() {
    daemonState.state = -1;
@@ -665,6 +665,12 @@ function dispatchMessage(message)
       // console.log("valueTypes " + JSON.stringify(valueTypes, undefined, 4));
    }
 
+   else if (event == "hasppages") {
+      haspPages = jMessage.object;
+
+      if (currentPage == "hasp")
+         initHaspSetup();
+   }
    else if (event == "valuefacts") {
       valueFacts = jMessage.object;
       // console.log("valueFacts " + JSON.stringify(valueFacts, undefined, 4));
@@ -767,6 +773,13 @@ function storeSetupPage(page, action)
       localStorage.removeItem(storagePrefix + 'lastSetupAction');
 }
 
+// open the README at the given anchor (id of a heading or <a id="..."></a> in README.md)
+
+function showHelp(anchor)
+{
+   mainMenuSel('readme', anchor, false);
+}
+
 function addSetupMenuButton(title, page, action = null)
 {
    $("#setupMenu")
@@ -861,6 +874,7 @@ function prepareSetupMenu()
          addSetupMenuButton('User', 'userdetails');
          addSetupMenuButton('Alerts', 'alerts');
          addSetupMenuButton('Images', 'images');
+         addSetupMenuButton('HASP Panel', 'hasp');
          // addSetupMenuButton('Baugruppen', 'groups');
          addSetupMenuButton('Syslog', 'syslog');
          addSetupMenuButton('Database', 'system', 'database');
@@ -991,6 +1005,8 @@ function mainMenuSel(what, action = null, recoverSetupPage = true)
       event = "userdetails";
    else if (currentPage == "images")
       initImages();
+   else if (currentPage == "hasp")
+      event = "hasppages";
    else if (currentPage == "syslog") {
       updateSyslog();
       return;
@@ -1010,7 +1026,7 @@ function mainMenuSel(what, action = null, recoverSetupPage = true)
    else if (currentPage == "lmc")
       initLmc();
    else if (currentPage == "readme")
-      return initReadme();
+      return initReadme(action);
    if (currentPage == "gpslive")
       event = "gpslive";
    else if (currentPage == "chart") {

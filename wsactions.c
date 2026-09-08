@@ -93,6 +93,8 @@ int Daemon::dispatchClientRequest()
             case evGpioData:            status = performGpioData(oObject, client);       break;
             case evCheckLuaScript:      status = checkLuaScript(oObject, client);        break;
             case evGpsLive:             status = gpsLive(oObject, client);               break;
+            case evHaspPages:           status = performHaspPages(oObject, client);      break;
+            case evStoreHaspPages:      status = storeHaspPages(oObject, client);        break;
             default:
             {
                if (dispatchSpecialRequest(event,oObject, client) == ignore)
@@ -153,6 +155,8 @@ bool Daemon::checkRights(long client, Event event, json_t* oObject)
       case evAlerts:              return rights & urSettings;
       case evStoreAlerts:         return rights & urSettings;
       case evStoreDashboards:     return rights & urFullControl;
+      case evHaspPages:           return rights & urSettings;
+      case evStoreHaspPages:      return rights & urFullControl;
       case evGroups:              return rights & urSettings;
       case evImageConfig:         return rights & urSettings;
 

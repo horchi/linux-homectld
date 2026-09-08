@@ -157,6 +157,41 @@ Table dashboardwidgets
 }
 
 // ----------------------------------------------------------------
+// Table HaspPages (openHASP panel pages)
+// ----------------------------------------------------------------
+
+Table hasppages
+{
+   ID                   ""  id                   UInt         4 Primary|Autoinc,
+
+   INSSP                ""  inssp                Int          0 Meta,
+   UPDSP                ""  updsp                Int          0 Meta,
+
+   TITLE                ""  title                Ascii      100 Data,
+   ORDER                ""  ord                  Int         10 Data,
+   COLUMNS              ""  ncols                Int         10 Data,
+   ROWS                 ""  nrows                Int         10 Data,
+   OPTS                 ""  opts                 Ascii      500 Data,
+}
+
+// ----------------------------------------------------------------
+// Table HaspPageWidgets (one row per occupied slot of a page)
+// ----------------------------------------------------------------
+
+Table hasppagewidgets
+{
+   PAGEID               ""  pageid               UInt         4 Primary,
+   POSITION             ""  pos                  Int          4 Primary,
+
+   INSSP                ""  inssp                Int          0 Meta,
+   UPDSP                ""  updsp                Int          0 Meta,
+
+   ADDRESS              ""  address              UInt         4 Data,
+   TYPE                 ""  type                 Ascii        8 Data,
+   WIDGETOPTS           ""  widgetopts           Ascii     1000 Data,
+}
+
+// ----------------------------------------------------------------
 // Table Users
 // ----------------------------------------------------------------
 

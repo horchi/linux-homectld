@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.9"
-#define VERSION_DATE "27.04.2026"
+#define _VERSION     "0.1.10"
+#define VERSION_DATE "07.09.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,14 @@
 
 /*
  * ------------------------------------
+
+2026-09-08: version 0.1.10
+    - added: Support of openHASP touch panels (e.g. Elecrow CrowPanel) as display.
+             Pages and widgets are configured in the WEBIF (Setup -> HASP Panel),
+             the daemon sends them via MQTT, shows live values and handles touches
+             on switch widgets. Widget types: Symbol, SymbolValue, Value, Text,
+             Meter, MeterLevel, Time and Level (symbol filled by percentage).
+    - added: Help buttons in the WEBIF open the README at the related section
 
 2026-01-27: version 0.1.9
     - added: Support of LTE modem (Alfa Tube-U4G LTE USB Modem)

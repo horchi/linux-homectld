@@ -1371,6 +1371,12 @@ int Daemon::initDb()
    tableDashboardWidgets = new cDbTable(connection, "dashboardwidgets");
    if (tableDashboardWidgets->open() != success) return fail;
 
+   tableHaspPages = new cDbTable(connection, "hasppages");
+   if (tableHaspPages->open() != success) return fail;
+
+   tableHaspPageWidgets = new cDbTable(connection, "hasppagewidgets");
+   if (tableHaspPageWidgets->open() != success) return fail;
+
    tableSchemaConf = new cDbTable(connection, "schemaconf");
    if (tableSchemaConf->open() != success) return fail;
 
@@ -1733,6 +1739,28 @@ int Daemon::initDb()
 
    // ------------------
 
+   selectHaspPages = new cDbStatement(tableHaspPages);
+
+   selectHaspPages->build("select ");
+   selectHaspPages->bindAllOut();
+   selectHaspPages->build(" from %s order by ord", tableHaspPages->TableName());
+
+   status += selectHaspPages->prepare();
+
+   // ------------------
+
+   selectHaspPageWidgetsFor = new cDbStatement(tableHaspPageWidgets);
+
+   selectHaspPageWidgetsFor->build("select ");
+   selectHaspPageWidgetsFor->bindAllOut();
+   selectHaspPageWidgetsFor->build(" from %s where ", tableHaspPageWidgets->TableName());
+   selectHaspPageWidgetsFor->bind("PAGEID", cDBS::bndIn | cDBS::bndSet);
+   selectHaspPageWidgetsFor->build(" order by pos");
+
+   status += selectHaspPageWidgetsFor->prepare();
+
+   // ------------------
+
    selectSchemaConfByState = new cDbStatement(tableSchemaConf);
 
    selectSchemaConfByState->build("select ");
@@ -1898,6 +1926,8 @@ int Daemon::exitDb()
    delete selectAllSchemaConf;     selectAllSchemaConf = nullptr;
    delete selectHomeMaticByUuid;   selectHomeMaticByUuid = nullptr;
    delete selectDashboardWidgetsFor; selectDashboardWidgetsFor = nullptr;
+   delete selectHaspPages;         selectHaspPages = nullptr;
+   delete selectHaspPageWidgetsFor; selectHaspPageWidgetsFor = nullptr;
 
    delete connection;              connection = nullptr;
 
@@ -2009,6 +2039,7 @@ int Daemon::readConfiguration(bool initial)
    mqttUrlPlain = strdup(strrchr(mqttUrl.c_str(), '/') ? strrchr(mqttUrl.c_str(), '/')+1 : mqttUrl.c_str());
 
    std::string sTopics {sensorTopics};
+   std::string hTopic {haspMqttTopic};
    getConfigItem("mqttSensorTopics", sensorTopics, "+/w1/#");
    mqttSensorTopics = split(sensorTopics, ',');
    mqttSensorTopics.push_back(INSTANCE "2mqtt/ping/#");
@@ -2017,6 +2048,14 @@ int Daemon::readConfiguration(bool initial)
    mqttSensorTopics.push_back(INSTANCE "2mqtt/nodered/#");
    mqttSensorTopics.push_back(INSTANCE "2mqtt/scripts/#");
 
+   getConfigItem("haspMqttTopic", haspMqttTopic, "hasp/plates");
+
+   if (!haspMqttTopic.empty())
+   {
+      mqttSensorTopics.push_back("hasp/+/LWT");       // openHASP panel online/offline -> resend pages
+      mqttSensorTopics.push_back("hasp/+/state/+");   // touch events of the panel objects
+   }
+
    if (homeMaticInterface)
    {
       tell(eloAlways, "Adding homematic topics");
@@ -2024,7 +2063,7 @@ int Daemon::readConfiguration(bool initial)
       mqttSensorTopics.push_back(INSTANCE "2mqtt/homematic/events");
    }
 
-   if (url != mqttUrl || sTopics != sensorTopics)
+   if (url != mqttUrl || sTopics != sensorTopics || hTopic != haspMqttTopic)
    {
       tell(eloAlways, "Config of MQTT url or subscribtions changed, reconnect");
       mqttDisconnect();
@@ -2229,6 +2268,7 @@ int Daemon::loop()
          }
 
          performData(0L);
+         haspPublishAllValues();   // openHASP panel: publish changed values (no-op without configured pages)
 
          {
             LogDuration ld("updateScriptSensors", eloLoopTimings);

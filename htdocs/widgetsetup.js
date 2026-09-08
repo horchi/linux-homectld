@@ -8,10 +8,13 @@
  *
  */
 
-function widgetSetup(key)
+// hasp (optional): { widget, types, onSave(widget), onDelete() } -> dialog works on the given
+//   widget object instead of the dashboard widget (used by the HASP panel setup, hasp.js)
+
+function widgetSetup(key, hasp)
 {
    var item = valueFacts[key];
-   var widget = dashboards[actDashboard].widgets[key];
+   var widget = hasp ? hasp.widget : dashboards[actDashboard].widgets[key];
 
    if (allSensors[key] != null)
    {
@@ -351,18 +354,18 @@ function widgetSetup(key)
    {
       var wType = parseInt($('#widgettype').val());
 
-      $("#divUnit").css("display", [1,3,4,5,6,9,13,14].includes(wType) ? 'flex' : 'none');
+      $("#divUnit").css("display", [1,3,4,5,6,9,13,14,15].includes(wType) ? 'flex' : 'none');
       // $("#divFactor").css("display", [1,3,4,6,9,13].includes(wType) ? 'flex' : 'none');
-      $("#divScalemax").css("display", [5,6,14].includes(wType) ? 'flex' : 'none');
+      $("#divScalemax").css("display", [5,6,14,15].includes(wType) ? 'flex' : 'none');
       $("#divRescale").css("display", [5,6].includes(wType) ? 'flex' : 'none');
-      $("#divScalemin").css("display", [5,6].includes(wType) ? 'flex' : 'none');
+      $("#divScalemin").css("display", [5,6,15].includes(wType) ? 'flex' : 'none');
       $("#divScalestep").css("display", [5,6].includes(wType) ? 'flex' : 'none');
       $("#divCritmin").css("display", [5,6].includes(wType) ? 'flex' : 'none');
       $("#divCritmax").css("display", [5,6].includes(wType) ? 'flex' : 'none');
       $("#divBarWidth").css("display", [6,14].includes(wType) ? 'flex' : 'none');
-      $("#divBarColor").css("display", [6].includes(wType) ? 'flex' : 'none');
+      $("#divBarColor").css("display", [6,15].includes(wType) ? 'flex' : 'none');
       $("#divSymbolOn").css("display", [6].includes(wType) ? 'flex' : 'none');
-      $("#divSymbol").css("display", [0,9,12].includes(wType) ? 'flex' : 'none');
+      $("#divSymbol").css("display", [0,9,12,15].includes(wType) ? 'flex' : 'none');
       $("#divSymbolOn").css("display", [0,9,12].includes(wType) ? 'flex' : 'none');
       $("#divImgon").css("display", ([0,9].includes(wType) && $('#symbol').val() == '') ? 'flex' : 'none');
       $("#divImgoff").css("display", ([0,9].includes(wType) && $('#symbol').val() == '') ? 'flex' : 'none');
@@ -384,6 +387,14 @@ function widgetSetup(key)
          $('#spanColor').html("Farbe aus, an, condition");
          $('#colorSpan').css("margin-right", '5px');
       }
+
+      if (hasp) {
+         // settings without meaning for the HASP panel
+
+         ['#divRescale', '#divScalestep', '#divBarWidth', '#divImgon', '#divImgoff', '#divPeak', '#divShowValue',
+          '#divLinefeed', '#divRange', '#divColorCondition'].forEach(function(id) { $(id).css('display', 'none'); });
+         $('#widthfactor, #heightfactor').parent().parent().css('display', 'none');   // the rows 'Breite' and 'Höhe'
+      }
    }
 
    var title = key.split(":")[0];
@@ -399,11 +410,13 @@ function widgetSetup(key)
       width: 'auto',
       title: 'Widget - ' + title,
       open: function() {
-         for (var wdKey in widgetTypes) {
+         var types = hasp ? hasp.types : widgetTypes;
+
+         for (var wdKey in types) {
             $('#widgettype').append($('<option></option>')
-                                    .val(widgetTypes[wdKey])
+                                    .val(types[wdKey])
                                     .html(wdKey)
-                                    .attr('selected', widgetTypes[wdKey] == widget.widgettype));
+                                    .attr('selected', types[wdKey] == widget.widgettype));
          }
 
          images.sort();
@@ -485,10 +498,19 @@ function widgetSetup(key)
          }
 
          widgetTypeChanged();
+
+         if (hasp)
+            $(".ui-dialog-buttonpane button:contains('Vorschau')").hide();
          $(".ui-dialog-buttonpane button:contains('Widget löschen')").attr('style','color:#ff5757');
       },
       buttons: {
          'Widget löschen': function () {
+            if (hasp) {
+               hasp.onDelete();
+               $(this).dialog('close');
+               return;
+            }
+
             console.log("delete widget: " + key);
             document.getElementById('div_' + key).remove();
 
@@ -505,6 +527,11 @@ function widgetSetup(key)
          },
 
          'Abbrechen': function () {
+            if (hasp) {
+               $(this).dialog('close');
+               return;
+            }
+
             // socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'dashboards' } });
             if (allSensors[key] == null) {
                console.log("missing sensor!!");
@@ -515,6 +542,9 @@ function widgetSetup(key)
             $(this).dialog('close');
          },
          'Vorschau': function () {
+            if (hasp)
+               return;      // no preview for the panel
+
             widget = Object.create(dashboards[actDashboard].widgets[key]); // valueFacts[key]);
             widget.title = $("#title").val();
             widget.unit = $("#unit").val();
@@ -573,15 +603,21 @@ function widgetSetup(key)
             widget.heightfactor = $("#heightfactor").val();
             widget.range = $("#range").val();
 
-            initWidget(key, widget);
-            if (allSensors[key] != null)
-               updateWidget(allSensors[key], true, widget);
-
             var json = {};
-            $('#widgetContainer > div').each(function () {
-               var key = $(this).attr('id').substring($(this).attr('id').indexOf("_") + 1);
-               json[key] = dashboards[actDashboard].widgets[key];
-            });
+
+            if (hasp) {
+               json[key] = widget;
+            }
+            else {
+               initWidget(key, widget);
+               if (allSensors[key] != null)
+                  updateWidget(allSensors[key], true, widget);
+
+               $('#widgetContainer > div').each(function () {
+                  var key = $(this).attr('id').substring($(this).attr('id').indexOf("_") + 1);
+                  json[key] = dashboards[actDashboard].widgets[key];
+               });
+            }
 
             if ($("#title").length)
                json[key]["title"] = $("#title").val();
@@ -624,8 +660,13 @@ function widgetSetup(key)
 				json[key]["colorConditionBar"] = $("#colorConditionBar").val();
             json[key]["barcolor"] = $("#barcolor").spectrum("get").toRgbString();
 
-            socket.send({ "event" : "storedashboards", "object" : { [actDashboard] : { 'title' : dashboards[actDashboard].title, 'widgets' : json } } });
-            socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'dashboards' } });
+            if (hasp) {
+               hasp.onSave(widget);
+            }
+            else {
+               socket.send({ "event" : "storedashboards", "object" : { [actDashboard] : { 'title' : dashboards[actDashboard].title, 'widgets' : json } } });
+               socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'dashboards' } });
+            }
 
             $(this).dialog('close');
          }

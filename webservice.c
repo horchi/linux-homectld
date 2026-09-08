@@ -55,6 +55,8 @@ const char* cWebService::events[] =
    "gpiodata",
    "checkluascript",
    "gpslive",
+   "hasppages",
+   "storehasppages",
 
    0
 };

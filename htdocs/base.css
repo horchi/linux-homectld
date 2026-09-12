@@ -2640,6 +2640,56 @@ dialog::backdrop, #backdrop
     background: #f4f4f4;
 }
 
+/* GPS tours (gps.js) */
+
+#mapcontainer {
+    position: relative;
+}
+
+.gpsRecordState {
+    align-self: center;
+    margin: 0px 10px;
+    font-size: medium;
+}
+
+.gpsRecording {
+    color: #d32f2f !important;   /* !important: also inside .labelB1 of the control panel */
+}
+
+.gpsPaused {
+    color: orange !important;
+}
+
+.gpsTourTable {
+    width: 100%;
+}
+
+.gpsTourTable td.gpsTourName {
+    padding-left: 8px;
+}
+
+.gpsTourActions button {
+    margin: 2px 4px 2px 0px;
+}
+
+.gpsTourHint {
+    padding: 12px;
+    color: var(--buttonFont);
+}
+
+.gpsTourInfo {
+    position: absolute;
+    left: 10px;
+    bottom: 10px;
+    z-index: 1000;
+    padding: 6px 10px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #333;
+    font-size: 12px;
+    font-weight: bold;
+    border: 2px solid rgba(0,0,0,0.2);
+}
+
 .live-tracking-active {
     color: #d32f2f; /* Rote Schrift, wenn aktiv */
     border-color: #d32f2f;

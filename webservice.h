@@ -57,6 +57,7 @@ class cWebService
          evGpioData,
          evCheckLuaScript,
          evGpsLive,
+         evGpsTour,
          evHaspPages,
          evStoreHaspPages,
 

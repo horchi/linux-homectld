@@ -384,6 +384,7 @@ class Daemon : public cWebInterface, public Service
       int storeSensorSetup(json_t* oObject, long client);
       int checkLuaScript(json_t* obj, long client);
       int gpsLive(json_t* obj, long client);
+      int performGpsTour(json_t* obj, long client);
       int storeCvSettings(json_t* oObject, long client);
       int storeAiSettings(json_t* oObject, long client);
       int storeIoSettings(json_t* oObject, long client);
@@ -450,6 +451,31 @@ class Daemon : public cWebInterface, public Service
       int haspPublishSensor(const SensorData& sensor);      // value/state of one sensor -> panel
       int haspDispatchState(const char* topic, const char* message);   // touch events of the panel -> homectld
       int haspPublishAllValues();                            // all sensors on the panel
+
+      // GPS tour recording (gpstour.c)
+
+      struct GpsCoordinate
+      {
+         double latitude {};
+         double longitude {};
+      };
+
+      int gpsTourInit();                                     // resume an open tour after restart
+      int gpsTourStart(const char* name);
+      int gpsTourStop();
+      int gpsTourDelete(long id);
+      int gpsTourRename(long id, const char* name);
+      int gpsTourUpdate(time_t now);                         // called on every new GPS coordinate
+      int gpsTourCheckPause(time_t now);                     // called from the main loop
+      int gpsTourStorePoint(time_t now, const GpsCoordinate& c, double distance = 0.0);
+      int gpsTourStoreState();
+      int gpsTourSetRecordFlag(bool on);
+      int gpsTours2Json(json_t* obj);
+      int gpsTourPoints2Json(json_t* obj, long id);
+      int gpsTourPushState(long client = 0);
+      static bool parseGpsText(const char* text, GpsCoordinate& c);
+      static std::string gpsCoordinateText(const GpsCoordinate& c);
+      static double gpsDistance(const GpsCoordinate& a, const GpsCoordinate& b);
       void haspQueueCommand(const std::string& objAttr, const std::string& value);
       int haspFlushCommands();
       std::string haspMdiChar(const char* symbol);
@@ -529,6 +555,7 @@ class Daemon : public cWebInterface, public Service
       cDbTable* tableDashboardWidgets {};
       cDbTable* tableHaspPages {};
       cDbTable* tableHaspPageWidgets {};
+      cDbTable* tableGpsTours {};
       cDbTable* tableSchemaConf {};
       cDbTable* tableHomeMatic {};
       cDbTable* tableIoStates {};
@@ -559,6 +586,8 @@ class Daemon : public cWebInterface, public Service
       cDbStatement* selectDashboardById {};
       cDbStatement* selectDashboardWidgetsFor {};
       cDbStatement* selectHaspPages {};
+      cDbStatement* selectGpsTours {};
+      cDbStatement* selectGpsTourSamples {};
       cDbStatement* selectHaspPageWidgetsFor {};
       cDbStatement* selectSchemaConfByState {};
       cDbStatement* selectAllSchemaConf {};
@@ -567,6 +596,8 @@ class Daemon : public cWebInterface, public Service
       cDbValue xmlTime;
       cDbValue rangeFrom;
       cDbValue rangeTo;
+      cDbValue gpsTourFrom;
+      cDbValue gpsTourTo;
       cDbValue avgValue;
       cDbValue maxValue;
       cDbValue rangeEnd;
@@ -693,13 +724,30 @@ class Daemon : public cWebInterface, public Service
       std::map<std::string,std::map<int,AiSensorConfig>> aiSensorConfig;
       std::map<std::string,std::map<int,SensorData>> sensors;
 
-      struct GpsCoordinate
+      GpsCoordinate gpsCoordinate;
+      static constexpr uint gpsCoordinateAddress {0x0a};    // GPS sensor 'Coordinate' (text 'lat/lng')
+      static constexpr uint gpsSpeedAddress {0x03};         // GPS sensor 'Speed' [km/h]
+      static constexpr uint gpsAltitudeAddress {0x05};      // GPS sensor 'Altitude' [m]
+      static constexpr const char* gpsTourAggregate {"T"};  // AGGREGATE of the tour samples (never aggregated)
+
+      struct GpsTour                     // the active tour (id == 0 -> no tour active)
       {
-         double latitude {};
-         double longitude {};
+         long id {0};
+         std::string name;
+         time_t start {0};
+         bool paused {false};
+         bool hasLastPoint {false};
+         GpsCoordinate lastPoint;        // last recorded point
+         time_t lastMoveAt {0};          // time of the last recorded point
+         time_t pausedAt {0};
+         double distance {0.0};          // [m]
+         long points {0};
+         long pauseTime {0};             // [s]
       };
 
-      GpsCoordinate gpsCoordinate;
+      GpsTour gpsTour;
+      int gpsTourMinDistance {25};       // [m] record a point if moved at least this distance
+      int gpsTourPauseAfter {5};         // [min] pause the tour after this time without movement
 
       virtual std::list<ConfigItemDef>* getConfiguration() = 0;
 

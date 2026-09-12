@@ -687,6 +687,12 @@ function dispatchMessage(message)
    else if (event == "gpslive") {
       processLiveGpsMessage(jMessage.object);
    }
+   else if (event == "gpstours") {
+      processGpsTours(jMessage.object);
+   }
+   else if (event == "gpstourpoints") {
+      processGpsTourPoints(jMessage.object);
+   }
    else if (event == "chartdata") {
       hideProgressDialog();
       let id = jMessage.object.id;
@@ -1027,8 +1033,10 @@ function mainMenuSel(what, action = null, recoverSetupPage = true)
       initLmc();
    else if (currentPage == "readme")
       return initReadme(action);
-   if (currentPage == "gpslive")
+   if (currentPage == "gpslive") {
+      initGpsPage();
       event = "gpslive";
+   }
    else if (currentPage == "chart") {
       event = "chartdata";
       // console.log("config.chartSensors: " + config.chartSensors);

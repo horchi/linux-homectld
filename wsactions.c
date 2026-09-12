@@ -93,6 +93,7 @@ int Daemon::dispatchClientRequest()
             case evGpioData:            status = performGpioData(oObject, client);       break;
             case evCheckLuaScript:      status = checkLuaScript(oObject, client);        break;
             case evGpsLive:             status = gpsLive(oObject, client);               break;
+            case evGpsTour:             status = performGpsTour(oObject, client);        break;
             case evHaspPages:           status = performHaspPages(oObject, client);      break;
             case evStoreHaspPages:      status = storeHaspPages(oObject, client);        break;
             default:
@@ -167,6 +168,7 @@ bool Daemon::checkRights(long client, Event event, json_t* oObject)
       case evGpioData:            return rights & urView;
       case evCheckLuaScript:      return rights & urSettings;
       case evGpsLive:             return rights & urView;
+      case evGpsTour:             return rights & urView;   // modifying actions are checked in performGpsTour()
 
       default: break;
    }

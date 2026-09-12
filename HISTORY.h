@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.10"
-#define VERSION_DATE "07.09.2026"
+#define _VERSION     "0.1.11"
+#define VERSION_DATE "12.09.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,10 @@
 
 /*
  * ------------------------------------
+
+2026-09-12: version 0.1.11
+    - added: Recording of GPS tours (WEBIF: Map -> Touren), points are stored on movement,
+             auto pause/resume, survives a restart; new table 'gpstours'
 
 2026-09-08: version 0.1.10
     - added: Support of openHASP touch panels (e.g. Elecrow CrowPanel) as display.

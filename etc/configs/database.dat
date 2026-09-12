@@ -192,6 +192,25 @@ Table hasppagewidgets
 }
 
 // ----------------------------------------------------------------
+// Table GpsTours (recorded GPS tours, the points are in 'samples' GPS:0x0a)
+// ----------------------------------------------------------------
+
+Table gpstours
+{
+   ID                   ""  id                   UInt         4 Primary|Autoinc,
+
+   INSSP                ""  inssp                Int          0 Meta,
+   UPDSP                ""  updsp                Int          0 Meta,
+
+   NAME                 ""  name                 Ascii      100 Data,
+   START                ""  starttime            DateTime     0 Data,
+   STOP                 ""  stoptime             DateTime     0 Data,   // NULL -> tour is active
+   DISTANCE             ""  distance             Float      122 Data,   // [m]
+   POINTS               ""  points               Int         10 Data,
+   PAUSETIME            ""  pausetime            Int         10 Data,   // [s]
+}
+
+// ----------------------------------------------------------------
 // Table Users
 // ----------------------------------------------------------------
 

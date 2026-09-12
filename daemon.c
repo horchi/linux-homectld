@@ -483,6 +483,10 @@ int Daemon::init()
 
    applyConfigurationSpecials();
 
+   // resume a GPS tour which was active at the last shutdown
+
+   gpsTourInit();
+
    // homeMaticInterface
 
    if (homeMaticInterface)
@@ -1377,6 +1381,9 @@ int Daemon::initDb()
    tableHaspPageWidgets = new cDbTable(connection, "hasppagewidgets");
    if (tableHaspPageWidgets->open() != success) return fail;
 
+   tableGpsTours = new cDbTable(connection, "gpstours");
+   if (tableGpsTours->open() != success) return fail;
+
    tableSchemaConf = new cDbTable(connection, "schemaconf");
    if (tableSchemaConf->open() != success) return fail;
 
@@ -1748,6 +1755,38 @@ int Daemon::initDb()
    status += selectHaspPages->prepare();
 
    // ------------------
+   // all GPS tours, newest first
+
+   selectGpsTours = new cDbStatement(tableGpsTours);
+
+   selectGpsTours->build("select ");
+   selectGpsTours->bindAllOut();
+   selectGpsTours->build(" from %s order by starttime desc", tableGpsTours->TableName());
+
+   status += selectGpsTours->prepare();
+
+   // ------------------
+   // recorded GPS points (tour samples GPS:0x0a, aggregate 'T') of a time range
+
+   gpsTourFrom.setField(tableSamples->getField("TIME"));
+   gpsTourTo.setField(tableSamples->getField("TIME"));
+
+   selectGpsTourSamples = new cDbStatement(tableSamples);
+
+   selectGpsTourSamples->build("select ");
+   selectGpsTourSamples->bind("TIME", cDBS::bndOut);
+   selectGpsTourSamples->bind("TEXT", cDBS::bndOut, ", ");
+   selectGpsTourSamples->build(" from %s where ", tableSamples->TableName());
+   selectGpsTourSamples->bind("ADDRESS", cDBS::bndIn | cDBS::bndSet);
+   selectGpsTourSamples->bind("TYPE", cDBS::bndIn | cDBS::bndSet, " and ");
+   selectGpsTourSamples->bind("AGGREGATE", cDBS::bndIn | cDBS::bndSet, " and ");
+   selectGpsTourSamples->bindCmp(0, "TIME", &gpsTourFrom, ">=", " and ");
+   selectGpsTourSamples->bindCmp(0, "TIME", &gpsTourTo, "<=", " and ");
+   selectGpsTourSamples->build(" order by time");
+
+   status += selectGpsTourSamples->prepare();
+
+   // ------------------
 
    selectHaspPageWidgetsFor = new cDbStatement(tableHaspPageWidgets);
 
@@ -1928,6 +1967,9 @@ int Daemon::exitDb()
    delete selectDashboardWidgetsFor; selectDashboardWidgetsFor = nullptr;
    delete selectHaspPages;         selectHaspPages = nullptr;
    delete selectHaspPageWidgetsFor; selectHaspPageWidgetsFor = nullptr;
+   delete selectGpsTours;          selectGpsTours = nullptr;
+   delete selectGpsTourSamples;    selectGpsTourSamples = nullptr;
+   delete tableGpsTours;           tableGpsTours = nullptr;
 
    delete connection;              connection = nullptr;
 
@@ -1993,6 +2035,9 @@ int Daemon::readConfiguration(bool initial)
 
    getConfigItem("aggregateInterval", aggregateInterval);
    getConfigItem("aggregateHistory", aggregateHistory);
+
+   getConfigItem("gpsTourMinDistance", gpsTourMinDistance, 25);
+   getConfigItem("gpsTourPauseAfter", gpsTourPauseAfter, 5);
 
    // DECONZ
 
@@ -2269,6 +2314,7 @@ int Daemon::loop()
 
          performData(0L);
          haspPublishAllValues();   // openHASP panel: publish changed values (no-op without configured pages)
+         gpsTourCheckPause(time(0));
 
          {
             LogDuration ld("updateScriptSensors", eloLoopTimings);
@@ -2366,6 +2412,11 @@ int Daemon::storeSamples()
          const SensorData* sensor = &sensorIt.second;
 
          if (!sensor->record || sensor->type == "WEA")
+            continue;
+
+         // the coordinates of an active GPS tour are stored by gpsTourUpdate() on movement
+
+         if (gpsTour.id && sensor->type == "GPS" && sensor->address == gpsCoordinateAddress)
             continue;
 
          if (store(lastSampleTime, sensor) == success)
@@ -3225,7 +3276,7 @@ int Daemon::aggregate()
             "  from "
             "    samples "
             "  where "
-            "    aggregate != 'A' and "
+            "    aggregate = 'S' and "
             "    time <= from_unixtime(%ld) "
             "  group by "
             "    CONCAT(DATE(time), ' ', SEC_TO_TIME((TIME_TO_SEC(time) DIV %d) * %d)) + INTERVAL %d MINUTE, address, type;",
@@ -3240,9 +3291,9 @@ int Daemon::aggregate()
       tell(eloDebug, "Aggregation: [%s]", stmt);
       free(stmt);
 
-      // Einzelmesspunkte löschen ...
+      // Einzelmesspunkte löschen ... (die Samples der GPS Touren (aggregate 'T') bleiben erhalten)
 
-      asprintf(&stmt, "aggregate != 'A' and time <= from_unixtime(%ld)", history);
+      asprintf(&stmt, "aggregate = 'S' and time <= from_unixtime(%ld)", history);
 
       if ((status = tableSamples->deleteWhere("%s", stmt)) == success)
          tell(eloAlways, "Aggregation with interval of %d minutes done; Created %d aggregation rows", aggregateInterval, aggCount);
@@ -4588,20 +4639,15 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
       triggerProcess = true; // dispatchOther
 
-      if (type == "GPS" && address == 0x0a)
+      if (type == "GPS" && address == gpsCoordinateAddress)
       {
-         std::replace(sensors[type][address].text.begin(), sensors[type][address].text.end(), '.', ',');
-         std::vector<std::string> tuples;
-         split(sensors[type][address].text, '/', &tuples);
+         GpsCoordinate c;
 
-         // tell(eloAlways, "got GPS: %zu [%s]", tuples.size(), sensors[type][address].text.c_str());
-
-         if (tuples.size() == 2)
+         if (parseGpsText(sensors[type][address].text.c_str(), c))
          {
-            gpsCoordinate.latitude = strtod(tuples[0].c_str(), nullptr);
-            gpsCoordinate.longitude = strtod(tuples[1].c_str(), nullptr);
-
+            gpsCoordinate = c;
             gpsLive(nullptr, 0);
+            gpsTourUpdate(time(0));
          }
       }
    }

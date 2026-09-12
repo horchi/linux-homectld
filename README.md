@@ -264,6 +264,44 @@ small wall or vehicle display. The pages of the panel are configured in the WEBI
 - values are pushed on every sensor change; openHASP has no chart object, so charts are not available
 
 
+<a id="gps-tours"></a>
+# GPS Tours (recording of trips)
+
+With a GPS receiver (see `gps.u-blox`, sensor type `GPS`) the page *Map* of the WEBIF shows the live position.
+In addition trips can be recorded as tours and displayed later.
+
+## Recording
+
+- *Map -> ● Tour aufzeichnen*: enter a name and start the recording (needs control rights),
+  *■ Tour beenden* stops it. Only one tour can be active at a time.
+- while a tour is active a point is stored whenever the position moved at least
+  *gpsTourMinDistance* meters (Setup -> Configuration -> GPS, default 25 m) since the last stored point.
+  Standing still therefore does not produce data.
+- without movement for *gpsTourPauseAfter* minutes (default 5) the tour is *paused*, on the next
+  movement it continues automatically. The pause time is summed up and shown in the tour list.
+- the active tour survives a restart of the daemon: it is continued automatically, including the
+  distance and the point count.
+- the recording is bound to the sensor `GPS:0x0a` (*Coordinate*), it has to be active. While a tour is
+  active its *Record* flag in *Setup -> IO Setup* is set by the daemon, when the tour is stopped it is cleared.
+
+## Storage
+
+- table `gpstours` holds only the tour itself: name, start, stop, distance [m], number of points and pause time [s]
+- the points are the samples of `GPS:0x0a` (text `lat/lng`) between start and stop of the tour. With each point
+  the speed (`GPS:0x03`) and the altitude (`GPS:0x05`) are stored with the same time stamp (if the sensors are
+  active), e.g. for speed or altitude profiles. Outside of a tour nothing is stored by the tour recording
+- tour samples have `AGGREGATE = 'T'`; they are never aggregated or deleted by the aggregation, so the tours stay
+  complete. Regular samples (`'S'`, sensors with the *Record* flag) are aggregated as before
+- deleting a tour in the WEBIF also deletes its samples (coordinate, speed, altitude) from `samples`
+
+## Display
+
+- *Map -> Live*: the map follows the live position (button *Live-Tracking* on the map)
+- *Map -> Touren*: list of the recorded tours with start, end, duration, pause, distance and number
+  of points; *Anzeigen* draws the tour on the map (green marker = start, red marker = end),
+  *Umbenennen* and *Löschen* need control rights. The active tour can be displayed too but not deleted.
+
+
 # I2c Bus
 
 ## Rasperyy Pi

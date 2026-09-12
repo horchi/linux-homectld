@@ -39,6 +39,11 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
 
    { "eloquence",                 ctBitSelect, "1",          "N", false, "Daemon", "Log Eloquence", "" },
 
+   // GPS tour recording
+
+   { "gpsTourMinDistance",        ctInteger, "25",           "N", false, "GPS", "Tour: Mindestbewegung [m]", "Ein Punkt wird aufgezeichnet wenn die Position sich mindestens um diese Distanz geändert hat" },
+   { "gpsTourPauseAfter",         ctInteger, "5",            "N", false, "GPS", "Tour: Pause nach Stillstand [min]", "Ohne Bewegung für diese Zeit gilt die Tour als pausiert, bei erneuter Bewegung wird automatisch fortgesetzt" },
+
 // #ifdef _POOL
 //    { "tPoolMax",                  ctNum,     "28.0",         "N", false, "Pool", "Pool max Temperatur", "" },
 //    { "tSolarOff",                 ctNum,     "2.0",          "N", false, "Pool", "Ausschalt-Delta Solarpumpe [°C]", "" },

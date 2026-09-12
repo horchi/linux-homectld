@@ -281,7 +281,7 @@ function widgetSetup(key, hasp)
                   .append($('<div></div>')
                           .attr('id', 'divPeak')
                           .append($('<span></span>')
-                                  .html('Peak anzeigen'))
+                                  .html('Peak Max anzeigen'))
                           .append($('<span></span>')
                                   .append($('<input></input>')
                                           .addClass('rounded-border inputSetting')
@@ -290,6 +290,20 @@ function widgetSetup(key, hasp)
                                           .prop('checked', widget.showpeak))
                                   .append($('<label></label>')
                                           .prop('for', 'peak')
+                                         )))
+
+                  .append($('<div></div>')
+                          .attr('id', 'divPeakMin')
+                          .append($('<span></span>')
+                                  .html('Peak Min anzeigen'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'peakmin')
+                                          .attr('type', 'checkbox')
+                                          .prop('checked', widget.showpeakmin))
+                                  .append($('<label></label>')
+                                          .prop('for', 'peakmin')
                                          )))
 
                   .append($('<div></div>')
@@ -369,7 +383,8 @@ function widgetSetup(key, hasp)
       $("#divSymbolOn").css("display", [0,9,12].includes(wType) ? 'flex' : 'none');
       $("#divImgon").css("display", ([0,9].includes(wType) && $('#symbol').val() == '') ? 'flex' : 'none');
       $("#divImgoff").css("display", ([0,9].includes(wType) && $('#symbol').val() == '') ? 'flex' : 'none');
-      $("#divPeak").css("display", [1,3,6,9,13].includes(wType) ? 'flex' : 'none');
+      $("#divPeak").css("display", [1,3,4,5,6,13].includes(wType) ? 'flex' : 'none');
+      $("#divPeakMin").css("display", [1,3,4,5,6,13].includes(wType) ? 'flex' : 'none');
       $("#divColor").css("display", [0,1,2,3,4,6,7,8,9,10,11,12,13,14].includes(wType) ? 'flex' : 'none');
       $("#divColorCondition").css("display", [0,2,3,6,7,8,9,10,11,12].includes(wType) ? 'flex' : 'none');
       $("#divLinefeed").css("display", [10].includes(wType) ? 'flex' : 'none');
@@ -391,7 +406,7 @@ function widgetSetup(key, hasp)
       if (hasp) {
          // settings without meaning for the HASP panel
 
-         ['#divRescale', '#divScalestep', '#divBarWidth', '#divImgon', '#divImgoff', '#divPeak', '#divShowValue',
+         ['#divRescale', '#divScalestep', '#divBarWidth', '#divImgon', '#divImgoff', '#divPeak', '#divPeakMin', '#divShowValue',
           '#divLinefeed', '#divRange', '#divColorCondition'].forEach(function(id) { $(id).css('display', 'none'); });
          $('#widthfactor, #heightfactor').parent().parent().css('display', 'none');   // the rows 'Breite' and 'Höhe'
       }
@@ -566,6 +581,7 @@ function widgetSetup(key, hasp)
             widget.colorCondition = $("#colorCondition").val();
             widget.colorConditionBar = $("#colorConditionBar").val();
             widget.showpeak = $("#peak").is(':checked');
+            widget.showpeakmin = $("#peakmin").is(':checked');
             widget.showvalue = $("#showvalue").is(':checked');
             widget.linefeed = $("#linefeed").is(':checked');
             widget.widthfactor = $("#widthfactor").val();
@@ -597,6 +613,7 @@ function widgetSetup(key, hasp)
             widget.colorCondition = $("#colorCondition").val();
             widget.colorConditionBar = $("#colorConditionBar").val();
             widget.showpeak = $("#peak").is(':checked');
+            widget.showpeakmin = $("#peakmin").is(':checked');
             widget.showvalue = $("#showvalue").is(':checked');
             widget.linefeed = $("#linefeed").is(':checked');
             widget.widthfactor = $("#widthfactor").val();
@@ -652,6 +669,7 @@ function widgetSetup(key, hasp)
             json[key]["widgettype"] = parseInt($("#widgettype").val());
             json[key]["rescale"] = $("#rescale").is(':checked');
             json[key]["showpeak"] = $("#peak").is(':checked');
+            json[key]["showpeakmin"] = $("#peakmin").is(':checked');
             json[key]["showvalue"] = $("#showvalue").is(':checked');
             json[key]["linefeed"] = $("#linefeed").is(':checked');
             json[key]["color"] = $("#color").spectrum("get").toRgbString();

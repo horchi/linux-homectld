@@ -2128,7 +2128,7 @@ table.tableMultiCol td
         'title title'
         'main peak'
         'main value';
-    grid-template-rows: 15% 12% 73%;
+    grid-template-rows: 15% auto 1fr;    /* peak row grows to one or two lines (min / max) */
     grid-template-columns: 58% 42%;
     grid-gap: 1px;
     box-shadow: 1px 1px 1px 0px var(--shadow);
@@ -2160,6 +2160,54 @@ table.tableMultiCol td
     color: var(--peakColor);
     text-align: right;
     margin-right: 5px;
+    line-height: 1.1;
+}
+
+.widget-meter-canvas
+{
+    display: inline-block;
+    position: relative;
+}
+
+.widget-meter-peak
+{
+    position: absolute;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 0.8em;
+    white-space: nowrap;
+    pointer-events: none;
+    color: var(--peakColor);
+    top: 2px;
+}
+
+/* radial meter with peak: min/max line on top, the gauge below it aligned to the bottom */
+
+.widget-main-meter.with-peak
+{
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: 0px;
+}
+
+.widget-meter-peak-top
+{
+    flex-shrink: 0;
+    font-size: 0.8em;
+    height: 1.4em;              /* fixed, the canvas is sized to the remaining space */
+    line-height: 1.4em;
+    white-space: nowrap;
+    color: var(--peakColor);
+    align-self: flex-end;
+    margin-right: 5px;
+}
+
+.peak-min
+{
+    color: var(--peakMinColor);
 }
 
 .widget-value
@@ -2315,7 +2363,12 @@ table.tableMultiCol td
 
 .widgetGauge.participation path.data-peak
 {
-    color: var(--peakColor);
+    stroke: var(--peakColor);
+}
+
+.widgetGauge.participation path.data-peak-min
+{
+    stroke: var(--peakMinColor);
 }
 
 .widgetGauge.participation path.data-arc
@@ -2773,7 +2826,7 @@ iPhones
     .widgetGauge               { grid-template-rows: 30% 70%; }
     .widget                    { grid-template-rows: 15% 85%; }
     .widgetChart               { grid-template-rows: 15% 18% 67%; }
-    .widgetMeterLinear         { grid-template-rows: 15% 25% 60%; }
+    .widgetMeterLinear         { grid-template-rows: 15% auto 1fr; }
     .widgetMeter               { grid-template-rows: 15% 85%; }
 
     .widget-title              { padding: 3px; padding-top: 4px; font-size: 1.0em; }

@@ -732,6 +732,9 @@ function initWidget(key, widget, fact)
                             .append($('<path></path>')
                                     .attr('id', 'pp' + fact.type + fact.address)
                                     .addClass('data-peak'))
+                            .append($('<path></path>')
+                                    .attr('id', 'pm' + fact.type + fact.address)
+                                    .addClass('data-peak-min'))
                             .append($('<text></text>')
                                     .attr('id', 'value' + fact.type + fact.address)
                                     .addClass('gauge-value')
@@ -1097,6 +1100,29 @@ function initWindyMap(key, widget, fact)
 }
 
 //***************************************************************************
+// Peak Text (min / max)
+//***************************************************************************
+
+//  separator: between min and max (' ' or '<br>'), withUnit: append the unit
+//  (to each line when separated by <br>, otherwise once at the end)
+
+function peakHtml(widget, sensor, separator, withUnit)
+{
+   let unit = withUnit && widget.unit != '' ? ' ' + widget.unit : '';
+   let parts = [];
+
+   if (widget.showpeakmin && sensor.peakmin != null)
+      parts.push('<span class="peak-min">\u25BC' + sensor.peakmin.toFixed(2) + (separator == '<br>' ? unit : '') + '</span>');
+
+   if (widget.showpeak && sensor.peakmax != null)
+      parts.push((widget.showpeakmin ? '\u25B2' : '') + sensor.peakmax.toFixed(2) + unit);
+   else if (parts.length && separator != '<br>')
+      parts[0] = parts[0].replace('</span>', unit + '</span>');
+
+   return parts.join(separator);
+}
+
+//***************************************************************************
 // Init Meter Widget
 //***************************************************************************
 
@@ -1131,8 +1157,31 @@ function initMeter(key, widget, fact, neededScaleMax, value)
    elem.appendChild(main);
 
    let canvas = document.createElement('canvas');
-   main.appendChild(canvas);
    canvas.setAttribute('id', 'widget' + fact.type + fact.address);
+   let showPeak = widget.showpeak || widget.showpeakmin;
+
+   if (radial && showPeak) {
+      // no separate grid cell for the peak - min/max line above the gauge, the gauge moves down
+      main.className += ' with-peak';
+      let ePeak = document.createElement('div');
+      ePeak.setAttribute('id', 'peak' + fact.type + fact.address);
+      ePeak.className = 'widget-meter-peak-top';
+      main.appendChild(ePeak);
+      main.appendChild(canvas);
+   }
+   else if (!showValue && showPeak) {
+      // linear gauge without value - overlay min/max on the gauge (title area)
+      let wrap = document.createElement('div');
+      wrap.className = 'widget-meter-canvas';
+      wrap.appendChild(canvas);
+      let ePeak = document.createElement('div');
+      ePeak.setAttribute('id', 'peak' + fact.type + fact.address);
+      ePeak.className = 'widget-meter-peak';
+      wrap.appendChild(ePeak);
+      main.appendChild(wrap);
+   }
+   else
+      main.appendChild(canvas);
 
    let cFact = fact;
    if (!setupMode && fact.record) {
@@ -1251,6 +1300,7 @@ function initMeter(key, widget, fact, neededScaleMax, value)
       colorNeedleEnd: 'rgba(255, 160, 122, .9)',
 
       fontNumbersSize: radial ? 34 : (showValue ? 40 : 30),
+      title: !radial && !showValue && showPeak ? ' ' : false,   // reserve space for the peak overlay
       fontUnitsSize: 45,
       fontUnitsWeight: 'bold',
       borderOuterWidth: 0,
@@ -1284,7 +1334,12 @@ function initMeter(key, widget, fact, neededScaleMax, value)
 
    // patch width and height due to strange behavior of (at least) the LinearGauge when wider than high
 
-   if ($(main).innerHeight() < $(main).innerWidth())
+   if (radial && showPeak) {
+      // the min/max line above takes height from the gauge - size the canvas to the remaining square
+      let size = Math.min($(main).innerWidth(), $(main).innerHeight() - $('#peak' + fact.type + fact.address).outerHeight(true));
+      options.width = options.height = Math.max(size, 50);
+   }
+   else if ($(main).innerHeight() < $(main).innerWidth())
       options.width = options.hight = $(main).innerHeight();
 
    if (dashboardGauges[fact.type + fact.address] != null) {
@@ -1582,7 +1637,7 @@ function titleClick(ctrlKey, key)
                                              .html(value)
                                             )))
                      .append($('<div></div>')
-                             .css('display', sensor.peakmin ? 'flex' : 'none')
+                             .css('display', !isNil(sensor.peakmin) ? 'flex' : 'none')
                              .css('margin-bottom', '4px')
                              .append($('<span></span>')
                                      .css('width', '30%')
@@ -1593,14 +1648,14 @@ function titleClick(ctrlKey, key)
                                      .append($('<div></div>')
                                              .attr('id', 'dlgPeakMin')
                                              .addClass('rounded-border')
-                                             .append(sensor.peakmin ? sensor.peakmin + ' ' + widget.unit  + ' ' : '- ')
+                                             .append(!isNil(sensor.peakmin) ? sensor.peakmin + ' ' + widget.unit + ' ' : '- ')
                                              .append($('<span></span>')
                                                      .css('font-size', 'smaller')
                                                      .css('color', '#3d3737')
                                                      .html(peakMinTime.toLocaleString('de-DE')))
                                             )))
                      .append($('<div></div>')
-                             .css('display', sensor.peakmax ? 'flex' : 'none')
+                             .css('display', !isNil(sensor.peakmax) ? 'flex' : 'none')
                              .css('margin-bottom', '4px')
                              .append($('<span></span>')
                                      .css('width', '30%')
@@ -1611,7 +1666,7 @@ function titleClick(ctrlKey, key)
                                      .append($('<div></div>')
                                              .attr('id', 'dlgPeakMax')
                                              .addClass('rounded-border')
-                                             .append(sensor.peakmax ? sensor.peakmax + ' ' + widget.unit + ' ' : '- ')
+                                             .append(!isNil(sensor.peakmax) ? sensor.peakmax + ' ' + widget.unit + ' ' : '- ')
                                              .append($('<span></span>')
                                                      .css('font-size', 'smaller')
                                                      .css('color', '#3d3737')
@@ -1682,7 +1737,7 @@ function titleClick(ctrlKey, key)
 
       let btns = {};
 
-      if (sensor.peakmax) {
+      if (!isNil(sensor.peakmax)) {
          btns['Reset Peak'] = function() {
             $('#dlgPeakMax').html('-');
             $('#dlgPeakMin').html('-');
@@ -1864,8 +1919,8 @@ function updateWidget(sensor, refresh, widget)
    }
    else if (widget.widgettype == 1 || widget.widgettype == 13)    // Chart
    {
-      if (widget.showpeak != null && widget.showpeak)
-         $("#peak" + fact.type + fact.address).text(sensor.peakmax != null ? sensor.peakmax.toFixed(2) + " " + widget.unit : "");
+      if (widget.showpeak || widget.showpeakmin)
+         $("#peak" + fact.type + fact.address).html(peakHtml(widget, sensor, ' ', true));
 
       $("#value" + fact.type + fact.address).text(sensor.value.toFixed(2) + " " + widget.unit);
 
@@ -1979,8 +2034,8 @@ function updateWidget(sensor, refresh, widget)
    {
       $("#widget" + fact.type + fact.address).css('color', getWidgetColor(widget, widget.colorCondition, widget.color, sensor.value));
       $("#widget" + fact.type + fact.address).html(sensor.value + " " + widget.unit);
-      if (widget.showpeak != null && widget.showpeak)
-         $("#peak" + fact.type + fact.address).text(sensor.peakmax != null ? sensor.peakmax.toFixed(2) + " " + widget.unit : "");
+      if (widget.showpeak || widget.showpeakmin)
+         $("#peak" + fact.type + fact.address).html(peakHtml(widget, sensor, ' ', true));
    }
    else if (widget.widgettype == 4)      // Gauge
    {
@@ -1988,20 +2043,26 @@ function updateWidget(sensor, refresh, widget)
       let scaleMax = !widget.scalemax || widget.unit == '%' ? 100 : widget.scalemax.toFixed(0);
       let scaleMin = value >= 0 ? "0" : Math.ceil(value / 5) * 5 - 5;
       let _peak = sensor.peakmax != null ? sensor.peakmax : 0;
+      let _peakMin = sensor.peakmin != null ? sensor.peakmin : 0;
       if (scaleMax < Math.ceil(value))
          scaleMax = value;
       if (widget.showpeak != null && widget.showpeak && scaleMax < Math.ceil(_peak))
          scaleMax = _peak.toFixed(0);
+      if (widget.showpeakmin && _peakMin < scaleMin)
+         scaleMin = Math.floor(_peakMin / 5) * 5;
       $("#sMin" + fact.type + fact.address).text(scaleMin);
       $("#sMax" + fact.type + fact.address).text(scaleMax);
       $("#value" + fact.type + fact.address).text(value + " " + widget.unit);
       let ratio = (value - scaleMin) / (scaleMax - scaleMin);
       let peak = (_peak.toFixed(2) - scaleMin) / (scaleMax - scaleMin);
+      let peakMin = (_peakMin.toFixed(2) - scaleMin) / (scaleMax - scaleMin);
 
       $("#pb" + fact.type + fact.address).attr("d", "M 950 500 A 450 450 0 0 0 50 500");
       $("#pv" + fact.type + fact.address).attr("d", svg_circle_arc_path(500, 500, 450 /*radius*/, -90, ratio * 180.0 - 90));
       if (widget.showpeak != null && widget.showpeak)
          $("#pp" + fact.type + fact.address).attr("d", svg_circle_arc_path(500, 500, 450 /*radius*/, peak * 180.0 - 91, peak * 180.0 - 90));
+      if (widget.showpeakmin)
+         $("#pm" + fact.type + fact.address).attr("d", svg_circle_arc_path(500, 500, 450 /*radius*/, peakMin * 180.0 - 90, peakMin * 180.0 - 89));
    }
    else if (widget.widgettype == 5 || widget.widgettype == 6)    // Meter
    {
@@ -2063,8 +2124,14 @@ function updateWidget(sensor, refresh, widget)
          else
             console.log("Missing gauge instance for " + '#widget' + fact.type + fact.address);
 
-         if (widget.showpeak != null && widget.showpeak)
-            $("#peak" + fact.type + fact.address).text(sensor.peakmax != null ? sensor.peakmax.toFixed(2) + " " + widget.unit : "");
+         if (widget.showpeak || widget.showpeakmin) {
+            let ePeak = $("#peak" + fact.type + fact.address);
+
+            if (ePeak.hasClass('widget-main-peak-lin'))      // own grid cell right of the linear gauge, two lines
+               ePeak.html(peakHtml(widget, sensor, '<br>', true));
+            else                                             // one line above / on the gauge, the radial one shows the unit itself
+               ePeak.html(peakHtml(widget, sensor, ' ', widget.widgettype != 5));
+         }
       }
       else
          console.log("Missing value for " + '#widget' + fact.type + fact.address);

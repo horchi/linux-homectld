@@ -2217,3 +2217,23 @@ function isEmpty(s)
 {
    return !s || s == '';
 }
+
+//***************************************************************************
+// isNil - true for null and undefined only ("no value"), 0, '' and false
+//  count as values. The loose == is intended, it treats null and undefined
+//  as equal but does NOT convert numbers or strings to them:
+//
+//    0 == null           false
+//    0 == undefined      false
+//    null == undefined   true
+//    0 == ''             true    (that's why isNil doesn't use !v)
+//    0 === null          false
+//    null === undefined  false
+//
+//  use isEmpty() for strings (not set or ''), isNil() for numbers/objects
+//***************************************************************************
+
+function isNil(v)
+{
+   return v == null;
+}

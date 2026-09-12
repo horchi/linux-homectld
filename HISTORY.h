@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.13"
+#define _VERSION     "0.1.14"
 #define VERSION_DATE "12.09.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,13 @@
 
 /*
  * ------------------------------------
+
+2026-09-12: version 0.1.14
+    - added: WEBIF widgets can show the peak min value in addition to the peak max
+             (Value, Chart, MeterLevel, Gauge); the Meter widget shows min/max
+             above the gauge
+    - bugfix: The first store after a daemon start wrote a sample with value 0 for
+              every sensor which had not reported yet (poisoned charts and peak min)
 
 2026-09-12: version 0.1.13
     - added: Support of the INA219 current/power monitor in the i2cmqtt service

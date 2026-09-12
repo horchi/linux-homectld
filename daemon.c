@@ -5646,6 +5646,12 @@ int Daemon::loadIoStates()
 
    selectAllValueFacts->freeResult();
 
+   // the values are still unknown (0) - don't store a sensor until it got a
+   // new value after the start, otherwise the first store() writes 0 for all
+   // sensors which haven't reported yet (which also poisons the peaks)
+
+   lastStore = time(0);
+
    return done;
 }
 

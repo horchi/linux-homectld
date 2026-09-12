@@ -672,8 +672,12 @@ function dispatchMessage(message)
          initHaspSetup();
    }
    else if (event == "valuefacts") {
+      let hadGps = gpsAvailable();
       valueFacts = jMessage.object;
       // console.log("valueFacts " + JSON.stringify(valueFacts, undefined, 4));
+
+      if (hadGps != gpsAvailable())     // the 'Map' tab depends on the GPS sensor
+         prepareMenu();
 
       if (currentPage == "sensorsetup")
          initSensorSetup();
@@ -797,6 +801,13 @@ function addSetupMenuButton(title, page, action = null)
               }));
 }
 
+// the page 'Map' is only offered with a GPS receiver (sensor GPS:0x0a 'Coordinate')
+
+function gpsAvailable()
+{
+   return valueFacts != null && valueFacts['GPS:0x0a'] != null;
+}
+
 function addMainMenuButton(title, page, condition = true)
 {
    if (!condition)
@@ -829,7 +840,7 @@ function prepareMenu()
    addMainMenuButton('Dash', 'dashboard', true);
    addMainMenuButton('List', 'list', config.showList == '1');
    addMainMenuButton('Charts', 'chart');
-   addMainMenuButton('Map', 'gpslive');
+   addMainMenuButton('Map', 'gpslive', gpsAvailable());
    addMainMenuButton('Schema', 'schema', config.schema);
    addMainMenuButton('Music', 'lmc', config.lmcHost != '');
    addMainMenuButton('VDR', 'vdr', config.vdr != '');

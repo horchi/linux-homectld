@@ -33,7 +33,7 @@ W1OBJS       = w1.o gpio.o lib/common.o lib/json.o lib/thread.o $(MQTTOBJS)
 BMSOBJS      = bms.o lib/common.o lib/thread.o lib/serial.o $(MQTTOBJS)
 VOTROOBJS    = votro.o lib/common.o lib/thread.o lib/serial.o $(MQTTOBJS)
 VICTRONOBJS  = victron.o lib/common.o lib/thread.o lib/json.o lib/serial.o lib/victron/vecom.o lib/victron/veframehandler.o $(MQTTOBJS)
-I2COBJS      = i2cmqtt.o gpio.o lib/common.o lib/json.o lib/thread.o lib/i2c/i2c.o lib/i2c/mcp23017.o lib/i2c/ads1115.o lib/i2c/dht20.o lib/i2c/ds2484.o $(MQTTOBJS)
+I2COBJS      = i2cmqtt.o gpio.o lib/common.o lib/json.o lib/thread.o lib/i2c/i2c.o lib/i2c/mcp23017.o lib/i2c/ads1115.o lib/i2c/dht20.o lib/i2c/ds2484.o lib/i2c/ina219.o $(MQTTOBJS)
 
 CFLAGS      += $(shell $(SQLCFG) --include)
 

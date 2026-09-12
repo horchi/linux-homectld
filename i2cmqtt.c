@@ -16,6 +16,7 @@
 #include "lib/i2c/mcp23017.h"
 #include "lib/i2c/dht20.h"
 #include "lib/i2c/ds2484.h"
+#include "lib/i2c/ina219.h"
 
 #include "gpio.h"
 #include "service.h"
@@ -101,6 +102,7 @@ class I2CMqtt : public Service
       int initMcp(const char* config);
       int initAds(const char* config);
       int initDs(const char* config);
+      int initIna(const char* config);
 
    protected:
 
@@ -127,6 +129,7 @@ class I2CMqtt : public Service
       std::vector<Mcp23017> mcpChips;
       std::vector<Ads1115> adsChips;
       std::vector<Ds2484> dsChips;
+      std::vector<Ina219> inaChips;
 
       static bool shutdown;
 };
@@ -157,6 +160,9 @@ const std::map<std::string,std::string> I2CMqtt::sensorParameters =
    { "DHT:0",  R"({"widgettype": 6, "symbol": "mdi:mdi-thermometer",     "symbolOn": "mdi:mdi-thermometer",            "scalemin": 0, "scalemax": 45,  "scalestep": 10, "showpeak": true})" },
    { "DHT:1",  R"({"widgettype": 5, "symbol": "mdi:mdi-water-percent",   "symbolOn": "mdi:mdi-water-percent",          "scalemin": 0, "scalemax": 100, "scalestep": 20, "showpeak": true})" },
    { "DS",     R"({"widgettype": 6, "symbol": "mdi:mdi-thermometer",     "symbolOn": "mdi:mdi-thermometer",            "scalemin": 0, "scalemax": 45,  "scalestep": 10, "showpeak": true})" },
+   { "INA:0",  R"({"widgettype": 5, "symbol": "mdi:mdi-flash",           "symbolOn": "mdi:mdi-flash",                  "scalemin": 0, "scalemax": 30,  "scalestep": 5,  "showpeak": true})" },
+   { "INA:1",  R"({"widgettype": 5, "symbol": "mdi:mdi-current-dc",      "symbolOn": "mdi:mdi-current-dc",             "scalemin": 0, "scalemax": 20,  "scalestep": 5,  "showpeak": true})" },
+   { "INA:2",  R"({"widgettype": 5, "symbol": "mdi:mdi-lightning-bolt",  "symbolOn": "mdi:mdi-lightning-bolt",         "scalemin": 0, "scalemax": 300, "scalestep": 50, "showpeak": true})" },
    { "MCP",    R"({"widgettype": 0, "symbol": "mdi:mdi-electric-switch", "symbolOn": "mdi:mdi-electric-switch-closed", "symbol": "mdi:mdi-electric-switch"})" }
 };
 
@@ -342,6 +348,59 @@ int I2CMqtt::initDs(const char* config)
 }
 
 //***************************************************************************
+// Init INA219
+//***************************************************************************
+
+int I2CMqtt::initIna(const char* config)
+{
+   if (isEmpty(config))
+      return done;
+
+   // --ina '0x40'
+   // --ina '0x40:0.1'
+   // --ina '0x40,0x41:0.01'
+   // --ina 'tca:0x70:0:0x40'
+   // --ina 'tca:0x70:0:0x40:0.1'
+
+   auto tuples = split(config, ',');
+
+   for (const auto& t : tuples)
+   {
+      auto options = split(t, ':');
+
+      if (options[0] == "tca")
+      {
+         uint8_t tcaAddress = strtol(options[1].c_str(), nullptr, 0);
+         uint8_t tcaChannel = strtol(options[2].c_str(), nullptr, 0);
+         uint8_t inaAddress = strtol(options[3].c_str(), nullptr, 0);
+
+         inaChips.emplace_back();
+         inaChips.back().setTcaChannel(tcaChannel);
+
+         if (options.size() > 4)
+            inaChips.back().setShunt(strtod(options[4].c_str(), nullptr));
+
+         inaChips.back().init(device.c_str(), inaAddress, tcaAddress);
+
+         tell(eloAlways, "Debug: Init INA219 0x%02x via 0x%02x/%d", inaAddress, inaChips.back().getAddress(), inaChips.back().getTcaChannel());
+      }
+      else
+      {
+         uint8_t inaAddress = strtol(options[0].c_str(), nullptr, 0);
+
+         inaChips.emplace_back();
+
+         if (options.size() > 1)
+            inaChips.back().setShunt(strtod(options[1].c_str(), nullptr));
+
+         inaChips.back().init(device.c_str(), inaAddress);
+      }
+   }
+
+   return done;
+}
+
+//***************************************************************************
 // Init
 //***************************************************************************
 
@@ -459,6 +518,30 @@ int I2CMqtt::update()
       {
          tell(eloAlways, "DHT request failed");
       }
+   }
+
+   for (auto& ina : inaChips)
+   {
+      if (ina.read() != success)
+      {
+         tell(eloAlways, "INA219 (0x%02x) request failed", ina.getAddress());
+         continue;
+      }
+
+      SensorData sensor {};
+      char name[100] {}; char type[10] {};
+
+      if (ina.getTcaChannel() != 0xff)
+         sprintf(type, "INA%02x%x", ina.getAddress(), ina.getTcaChannel());
+      else
+         sprintf(type, "INA%02x", ina.getAddress());
+
+      sprintf(name, "%s Voltage", type);
+      mqttPublish(sensor = {fReal, type, 0, name, "V", 0, ina.getBusVoltage()});
+      sprintf(name, "%s Current", type);
+      mqttPublish(sensor = {fReal, type, 1, name, "A", 0, ina.getCurrent()});
+      sprintf(name, "%s Power", type);
+      mqttPublish(sensor = {fReal, type, 2, name, "W", 0, ina.getPower()});
    }
 
    for (auto& ds : dsChips)
@@ -944,6 +1027,32 @@ int I2CMqtt::show()
       tell(eloAlways, "-----------------------");
    }
 
+   for (auto& ina : inaChips)
+   {
+      char type[10] {};
+
+      if (ina.getTcaChannel() != 0xff)
+         sprintf(type, "INA%02x%x", ina.getAddress(), ina.getTcaChannel());
+      else
+         sprintf(type, "INA%02x", ina.getAddress());
+
+      tell(eloAlways, "%s (shunt %.4f Ohm)", type, ina.getShunt());
+
+      if (ina.read() == success)
+      {
+         tell(eloAlways, "Bus voltage   %.3f V", ina.getBusVoltage());
+         tell(eloAlways, "Shunt voltage %.3f mV", ina.getShuntVoltage());
+         tell(eloAlways, "Current       %.3f A", ina.getCurrent());
+         tell(eloAlways, "Power         %.3f W", ina.getPower());
+      }
+      else
+      {
+         tell(eloAlways, "INA219 request failed");
+      }
+
+      tell(eloAlways, "-----------------------");
+   }
+
    for (auto& ds : dsChips)
    {
       char type[32] {};
@@ -1038,6 +1147,14 @@ void showUsage(const char* bin)
    printf("               tca:<tca-address>:<tca-channel>:<ds-address>\n");
    printf("            or\n");
    printf("               <ds-address>\n");
+   printf("     --ina <config>   INA219 current/power monitor config (defaults to -1/off)\n");
+   printf("        where <config>:\n");
+   printf("            <tuple>,<tuple>[,<tuple>,...]\n");
+   printf("            where <tuple>\n");
+   printf("               tca:<tca-address>:<tca-channel>:<ina-address>[:<shunt-ohm>]\n");
+   printf("            or\n");
+   printf("               <ina-address>[:<shunt-ohm>]\n");
+   printf("            <shunt-ohm> defaults to 0.1 (the value of most breakout boards)\n");
    printf("     Note: tca is a TCA9548A i2c bus multiplexer\n");
 }
 
@@ -1060,6 +1177,7 @@ int main(int argc, char** argv)
    const char* mcpConfig {};
    const char* adsConfig {};
    const char* dsConfig {};
+   const char* inaConfig {};
 
    // usage ..
 
@@ -1100,6 +1218,8 @@ int main(int argc, char** argv)
                dhtConfig = argv[++i];
             else if (strcmp(argv[i]+2, "ds") == 0 && argv[i+1])
                dsConfig = argv[++i];
+            else if (strcmp(argv[i]+2, "ina") == 0 && argv[i+1])
+               inaConfig = argv[++i];
             break;
          }
       }
@@ -1151,6 +1271,7 @@ int main(int argc, char** argv)
    job->initMcp(mcpConfig);
    job->initAds(adsConfig);
    job->initDs(dsConfig);
+   job->initIna(inaConfig);
 
    if (showMode)
    {

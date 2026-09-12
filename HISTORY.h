@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.12"
+#define _VERSION     "0.1.13"
 #define VERSION_DATE "12.09.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,11 @@
 
 /*
  * ------------------------------------
+
+2026-09-12: version 0.1.13
+    - added: Support of the INA219 current/power monitor in the i2cmqtt service
+             (option --ina), publishes bus voltage, current and power; the shunt
+             resistor is configurable and defaults to 0.1 Ohm
 
 2026-09-12: version 0.1.12
     - added: ESP32 sketch kenwood/ to control a Kenwood car radio via the steering wheel

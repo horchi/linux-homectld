@@ -354,6 +354,21 @@ Temperature 23.95 °C
 Humidity 51 %
 -----------------------
 ```
+A INA219 current/power monitor (default i2c address 0x40) is read with:
+```
+root@odroidn2 (gpiod-dev u=) ~/source/homectld> i2cmqtt -d /dev/i2c-2 --ina 0x40 -s
+-----------------------
+INA40 (shunt 0.1000 Ohm)
+Bus voltage   12.416 V
+Shunt voltage 21.340 mV
+Current       0.213 A
+Power         2.650 W
+-----------------------
+```
+The shunt resistor defaults to 0.1 Ohm, which is the value most breakout boards are equipped with.
+If your board uses another one append it to the address, e.g. ```--ina 0x40:0.01``` for a 10 mOhm shunt.
+Voltage, current and power are published as three values with the addresses 0, 1 and 2.
+
 calling:
 ```i2cmqtt --help```
 show the options and supported sensor types. You can start it as a service anbs provide the data by MQTT to the homerctld.

@@ -19,6 +19,21 @@
 #               tca:<tca-address>:<tca-channel>:<dht-address>
 #            or
 #               <dht-address>
+#     --ds <config>    DS2484 1-Wire Bridge config (defaults to -1/off)
+#        where <config>:
+#            <tuple>,<tuple>[,<tuple>,...]
+#            where <tuple>
+#               tca:<tca-address>:<tca-channel>:<ds-address>
+#            or
+#               <ds-address>
+#     --ina <config>   INA219 current/power monitor config (defaults to -1/off)
+#        where <config>:
+#            <tuple>,<tuple>[,<tuple>,...]
+#            where <tuple>
+#               tca:<tca-address>:<tca-channel>:<ina-address>[:<shunt-ohm>]
+#            or
+#               <ina-address>[:<shunt-ohm>]
+#            <shunt-ohm> defaults to 0.1 (the value of most breakout boards)
 #   note: tca is a TCA9548A i2c bus multiplexer
 
 I2CMQTT_OPTS="-u tcp://localhost:1883 -i 10 -l 0x02 --ads 0x48 --mcp 0x27,0x26 --dht tca:0x70:0:0x38,tca:0x70:1:0x38"

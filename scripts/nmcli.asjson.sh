@@ -32,24 +32,34 @@ if [ "${COMMAND}" == "wifi-list" ]; then
    ' | json_pp -json_opt canonical,utf8
 
 elif [ "${COMMAND}" == "wifi-con" ]; then
-   LC_ALL=C.UTF-8 nmcli -t -f name,autoconnect,autoconnect-priority,active,device,state,type connection show \
+   # stored wifi profiles; 'iface' is the interface the profile is bound to ('' = any),
+   # 'ssid' the network name (may differ from the profile name, e.g. 'hierimhaus 2')
+   LC_ALL=C.UTF-8 nmcli -t -f name,uuid,autoconnect,autoconnect-priority,active,device,state,type connection show \
    | grep 'wireless' \
-   | jq -sR 'split("\n")
-     | map(select(length > 0))
-     | map(split(":"))
-     | map({
-         "network": .[0],
-         "autoconnect": .[1],
-         "priority": .[2],
-         "active": .[3],
-         "device": .[4],
-         "state": .[5],
-         "type": .[6]
-       })
-   ' | json_pp -json_opt canonical,utf8
+   | while IFS=: read -r name uuid autoconnect priority active device state type; do
+        iface=$(nmcli -e no -g connection.interface-name connection show uuid "${uuid}")
+        ssid=$(nmcli -e no -g 802-11-wireless.ssid connection show uuid "${uuid}")
+        jq -n --arg network "${name}" --arg uuid "${uuid}" --arg ssid "${ssid}" --arg iface "${iface}" \
+              --arg autoconnect "${autoconnect}" --arg priority "${priority}" --arg active "${active}" \
+              --arg device "${device}" --arg state "${state}" --arg type "${type}" \
+              '{network: $network, uuid: $uuid, ssid: $ssid, iface: $iface, autoconnect: $autoconnect,
+                priority: $priority, active: $active, device: $device, state: $state, type: $type}'
+     done \
+   | jq -s '.' | json_pp -json_opt canonical,utf8
+
+elif [ "${COMMAND}" == "wifi-dev" ]; then
+   # the present wifi devices (USB sticks are all 'wlan0', only the MAC is unique)
+   LC_ALL=C.UTF-8 nmcli -t -f device,type,state device status \
+   | grep ':wifi:' \
+   | while IFS=: read -r device type state; do
+        nmcli -e no -g GENERAL.VENDOR,GENERAL.PRODUCT,GENERAL.HWADDR,GENERAL.DRIVER device show "${device}" \
+        | jq -sR --arg device "${device}" --arg state "${state}" 'split("\n")
+          | {device: $device, state: $state, vendor: .[0], product: .[1], mac: .[2], driver: .[3]}'
+     done \
+   | jq -s '.' | json_pp -json_opt canonical,utf8
 
 else
-   echo "Usage: $0 { wifi-list [0-4] | wifi-con }"
+   echo "Usage: $0 { wifi-list [0-4] | wifi-con | wifi-dev }"
 fi
 
 exit 0

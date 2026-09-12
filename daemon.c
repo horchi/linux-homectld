@@ -6098,17 +6098,88 @@ int Daemon::executeCommandAsync(uint address, const char* cmd)
 // Wifi Commands
 //***************************************************************************
 
-int Daemon::connectWifi(const char* ssid, std::string& result, const char* pwd)
+bool Daemon::wifiDeviceExists(const char* iface)
 {
-   std::vector<std::string> args = {"nmcli", "device", "wifi", "connect", ssid};
+   if (isEmpty(iface))
+      return true;                       // profile not bound to an interface
 
-   if (!isEmpty(pwd))
+   std::string out {executeCommand("nmcli.asjson.sh wifi-dev")};
+   json_t* jDevs {jsonLoad(out.c_str())};
+   bool exists {false};
+   size_t i {0};
+   json_t* jDev {};
+
+   json_array_foreach(jDevs, i, jDev)
    {
-      args.push_back("password");
-      args.push_back(pwd);
+      if (strcmp(getStringFromJson(jDev, "device", ""), iface) == 0)
+         exists = true;
    }
 
-   return executeNmcli(args, result);
+   json_decref(jDevs);
+
+   return exists;
+}
+
+int Daemon::connectWifi(const char* ssid, std::string& result, const char* pwd)
+{
+   // prefer a stored profile of this SSID. A profile is bound to the interface it was
+   // created on (USB sticks got names like wlx74da38732900), after a change of the stick
+   // it can't be activated any more -> unbind it first, then it works on any wifi device
+
+   std::string out {executeCommand("nmcli.asjson.sh wifi-con")};
+   json_t* jCons {jsonLoad(out.c_str())};
+   std::string uuid;
+   std::string iface;
+   bool usable {false};
+   size_t i {0};
+   json_t* jCon {};
+
+   json_array_foreach(jCons, i, jCon)
+   {
+      if (strcmp(getStringFromJson(jCon, "ssid", ""), ssid) != 0)
+         continue;
+
+      const char* boundTo {getStringFromJson(jCon, "iface", "")};
+      bool exists {wifiDeviceExists(boundTo)};
+
+      if (uuid.empty() || exists)
+      {
+         uuid = getStringFromJson(jCon, "uuid", "");
+         iface = boundTo;
+         usable = exists;
+      }
+
+      if (usable)
+         break;
+   }
+
+   json_decref(jCons);
+
+   if (uuid.empty())
+   {
+      // no profile yet - let nmcli create one
+
+      std::vector<std::string> args {"nmcli", "device", "wifi", "connect", ssid};
+
+      if (!isEmpty(pwd))
+      {
+         args.push_back("password");
+         args.push_back(pwd);
+      }
+
+      return executeNmcli(args, result);
+   }
+
+   if (!usable)
+   {
+      tell(eloAlways, "Info: Wifi profile of '%s' is bound to the missing interface '%s', unbinding it", ssid, iface.c_str());
+      executeNmcli({"nmcli", "connection", "modify", "uuid", uuid, "connection.interface-name", ""}, result);
+   }
+
+   if (!isEmpty(pwd))
+      executeNmcli({"nmcli", "connection", "modify", "uuid", uuid, "802-11-wireless-security.psk", pwd}, result);
+
+   return executeNmcli({"nmcli", "connection", "up", "uuid", uuid}, result);
 }
 
 int Daemon::disconnectWifi(const char* ssid, std::string& result)
@@ -6119,6 +6190,82 @@ int Daemon::disconnectWifi(const char* ssid, std::string& result)
    // std::vector<std::string> args = {"nmcli", "device", "disconnect", "<wlan0>"};
 
    return executeNmcli(args, result);
+}
+
+int Daemon::forgetWifi(const char* uuid, const char* ssid, std::string& result)
+{
+   // delete the stored connection profile(s), the network needs a new setup (password) afterwards
+   //  - by uuid: exactly this profile
+   //  - by ssid: all profiles of the network
+
+   if (!isEmpty(uuid))
+   {
+      int status {executeNmcli({"nmcli", "connection", "delete", "uuid", uuid}, result)};
+
+      if (status == success && !isEmpty(ssid))
+         tidyWifiProfileName(ssid);
+
+      return status;
+   }
+
+   if (isEmpty(ssid))
+      return fail;
+
+   std::string out {executeCommand("nmcli.asjson.sh wifi-con")};
+   json_t* jCons {jsonLoad(out.c_str())};
+   int status {success};
+   size_t i {0};
+   json_t* jCon {};
+
+   json_array_foreach(jCons, i, jCon)
+   {
+      if (strcmp(getStringFromJson(jCon, "ssid", ""), ssid) != 0)
+         continue;
+
+      std::string res;
+
+      if (executeNmcli({"nmcli", "connection", "delete", "uuid", getStringFromJson(jCon, "uuid", "")}, res) != success)
+         status = fail;
+
+      result += res;
+   }
+
+   json_decref(jCons);
+
+   return status;
+}
+
+void Daemon::tidyWifiProfileName(const char* ssid)
+{
+   // nmcli names duplicates 'SSID 1', 'SSID 2', ... - if only one profile of the SSID
+   // is left, name it like the SSID again
+
+   std::string out {executeCommand("nmcli.asjson.sh wifi-con")};
+   json_t* jCons {jsonLoad(out.c_str())};
+   std::string uuid;
+   std::string name;
+   int count {0};
+   size_t i {0};
+   json_t* jCon {};
+
+   json_array_foreach(jCons, i, jCon)
+   {
+      if (strcmp(getStringFromJson(jCon, "ssid", ""), ssid) != 0)
+         continue;
+
+      count++;
+      uuid = getStringFromJson(jCon, "uuid", "");
+      name = getStringFromJson(jCon, "network", "");
+   }
+
+   json_decref(jCons);
+
+   if (count == 1 && name != ssid)
+   {
+      std::string result;
+      tell(eloAlways, "Info: Renaming wifi profile '%s' to '%s'", name.c_str(), ssid);
+      executeNmcli({"nmcli", "connection", "modify", "uuid", uuid, "connection.id", ssid}, result);
+   }
 }
 
 int Daemon::executeNmcli(const std::vector<std::string>& cmdArgs, std::string& result)

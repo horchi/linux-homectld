@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.14"
+#define _VERSION     "0.1.15"
 #define VERSION_DATE "12.09.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,14 @@
 
 /*
  * ------------------------------------
+
+2026-09-12: version 0.1.15
+    - added: WEBIF Setup -> Wifi: 'Forget' button deletes stored connection profiles,
+             list of all stored profiles with the bound device, the present wifi
+             device (vendor, product, MAC) is shown; the last profile of a SSID is
+             renamed to the SSID when duplicates ('SSID 1', ...) are deleted
+    - bugfix: Wifi connect failed for stored networks after a change of the USB wifi
+              stick (profile bound to the old interface name), the profile is unbound now
 
 2026-09-12: version 0.1.14
     - added: WEBIF widgets can show the peak min value in addition to the peak max

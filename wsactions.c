@@ -755,12 +755,18 @@ int Daemon::performWifi(json_t* oObject, long client)
    if (!oWifis)
       return replyResult(fail, "Error: Got invalid JSON from script 'nmcli.asjson.sh wifi-list'", client);
 
+   result = executeCommand("nmcli.asjson.sh wifi-dev");
+   json_t* oDevices {jsonLoad(result.c_str())};
+
    json_t* oWifi {json_object()};
 
    json_object_set_new(oWifi, "reachable", oWifis);
 
    if (oConnections)
       json_object_set_new(oWifi, "known", oConnections);
+
+   if (oDevices)
+      json_object_set_new(oWifi, "devices", oDevices);
 
    return pushOutMessage(oWifi, "wifis", client);
 }
@@ -784,6 +790,21 @@ int Daemon::performWifiCommand(json_t* oObject, long client)
          tell(eloAlways, "Info: Wifi disconnect failed with '%s'", result.c_str());
       else
          tell(eloAlways, "Info: Wifi disconnect succeeded with '%s'", result.c_str());
+
+      performWifi(oObject, client);
+
+      return replyResult(done, result.c_str(), client);
+   }
+
+   if (action == "wifi-forget")
+   {
+      std::string result;
+      const char* uuid {getStringFromJson(oObject, "uuid", "")};
+
+      if (forgetWifi(uuid, ssid, result) != success)
+         tell(eloAlways, "Info: Wifi forget of '%s' (%s) failed with '%s'", ssid, uuid, result.c_str());
+      else
+         tell(eloAlways, "Info: Wifi forget of '%s' (%s) succeeded with '%s'", ssid, uuid, result.c_str());
 
       performWifi(oObject, client);
 

@@ -777,6 +777,9 @@ class Daemon : public cWebInterface, public Service
 
       int connectWifi(const char* ssid, std::string& result, const char* pwd = nullptr);
       int disconnectWifi(const char* ssid, std::string& result);
+      int forgetWifi(const char* uuid, const char* ssid, std::string& result);
+      bool wifiDeviceExists(const char* iface);
+      void tidyWifiProfileName(const char* ssid);
       int executeNmcli(const std::vector<std::string>& cmdArgs, std::string& result);
 
       int executeCommandAsync(uint address, const char* cmd);

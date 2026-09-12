@@ -1284,11 +1284,28 @@ function getBarCount(barString)
    return barString.replace(/[ _]/g, '').length;
 }
 
+function wifiDeviceExists(iface)
+{
+   if (isEmpty(iface))
+      return true;                          // profile not bound to an interface
+
+   return (wifis.devices || []).some(function(d) { return d.device == iface; });
+}
+
 function updateWifiList()
 {
    let html = '<div>';
 
-   html += '  <div class="rounded-border seperatorFold">Wifi Networks</div>';
+   // the present wifi device(s) in the title - USB sticks are all 'wlan0', the MAC tells which one it is
+
+   let devices = (wifis.devices || []).map(function(d) {
+      return d.device + ' \u00b7 ' + d.vendor + ' ' + d.product + ' \u00b7 ' + d.mac + ' \u00b7 ' + d.state;
+   });
+
+   let deviceInfo = devices.length ? ' <span style="font-weight:normal;">(' + devices.join(', ') + ')</span>'
+                                   : ' <span style="font-weight:normal;color:var(--red);">(no wifi device present)</span>';
+
+   html += '  <div class="rounded-border seperatorFold">Wifi Networks' + deviceInfo + '</div>';
    html += '  <table class="tableMultiCol">' +
       '    <thead>' +
       '     <tr style="height:30px;font-weight:bold;">' +
@@ -1329,13 +1346,58 @@ function updateWifiList()
       html += ' <td>' + wifi.security + '</td>';
       html += ' <td>' + wifi.signal + '</td>';
       html += ' <td style="font-family:monospace;color:' + signalColor + ';">' + wifi.bars + '</td>';
-      html += ' <td>' + '<button class="buttonOptions rounded-border" style="color:' + btnColor + ';" onclick="wifiAction(\'' + wifi.id + '\')">' + action + '</button>' + '</td>';
+      html += ' <td style="white-space:nowrap;">' + '<button class="buttonOptions rounded-border" style="color:' + btnColor + ';" onclick="wifiAction(\'' + wifi.id + '\')">' + action + '</button>';
+      if (known)
+         html += ' <button class="buttonOptions rounded-border" style="color:var(--red);" title="Delete all stored profiles of this network (password)" onclick="wifiForget(\'\', \'' + wifi.network + '\')">Forget</button>';
+      html += '</td>';
       html += '</tr>';
    }
 
    html += '    </tbody>' +
-       '  </table>' +
-       '</div>';
+       '  </table>';
+
+   // all stored profiles (also duplicates of one SSID and networks not in range)
+
+   let known = wifis.known || [];
+
+   if (known.length) {
+      html += '  <div class="rounded-border seperatorFold">Stored Connections</div>';
+      html += '  <table class="tableMultiCol">' +
+         '    <thead>' +
+         '     <tr style="height:30px;font-weight:bold;">' +
+         '       <td style="width:18%;">Network</td>' +
+         '       <td style="width:10%;">Device</td>' +
+         '       <td style="width:8%;">Autoconnect</td>' +
+         '       <td style="width:5%;">Priority</td>' +
+         '       <td style="width:5%">State</td>' +
+         '       <td style="width:5%"></td>' +
+         '     </tr>' +
+         '    </thead>' +
+         '    <tbody>';
+
+      for (let i = 0; i < known.length; i++) {
+         let k = known[i];
+         let inRange = wifis.reachable.some(function(r) { return r.network == (k.ssid || k.network); });
+         let name = (k.ssid || k.network) + (k.ssid && k.ssid != k.network ? ' <span style="color:gray;">(profile: ' + k.network + ')</span>' : '');
+         let device = isEmpty(k.iface) ? 'any' : k.iface;
+         if (!wifiDeviceExists(k.iface))
+            device = '<span style="color:var(--red);" title="bound to an interface which is not present, will be unbound on connect">' + k.iface + ' (missing)</span>';
+         let state = k.active == 'yes' ? 'connected' : inRange ? 'in range' : '';
+         html += '<tr style="height:28px;color:' + (k.active == 'yes' ? 'green' : '') + ';">';
+         html += ' <td>' + name + '</td>';
+         html += ' <td>' + device + '</td>';
+         html += ' <td>' + k.autoconnect + '</td>';
+         html += ' <td>' + k.priority + '</td>';
+         html += ' <td>' + state + '</td>';
+         html += ' <td>' + '<button class="buttonOptions rounded-border" style="color:var(--red);" title="Delete this stored profile (password)" onclick="wifiForget(\'' + k.uuid + '\', \'' + (k.ssid || k.network) + '\')">Forget</button>' + '</td>';
+         html += '</tr>';
+      }
+
+      html += '    </tbody>' +
+         '  </table>';
+   }
+
+   html += '</div>';
 
    $('#systemContainer').html(html)
       .addClass('setupContainer');
@@ -1344,7 +1406,7 @@ function updateWifiList()
 function isWifiKnown(network)
 {
    for (let i = 0; i < wifis.known.length; i++) {
-      if (wifis.known[i].network == network) // && wifis.known[i].device != null && wifis.known[i].device != '')
+      if ((wifis.known[i].ssid || wifis.known[i].network) == network)
          return true;
    }
    return false;
@@ -1381,6 +1443,17 @@ function wifiAction(id)
       pwdDialog(doWifiAction, "Password");
    else
       doWifiAction();
+}
+
+function wifiForget(uuid, network)
+{
+   // uuid set: exactly this profile, otherwise all profiles of the network
+
+   confirmDialog(function() {
+      pingTimeoutMs = 30000;
+      showProgressDialog();
+      socket.send({ "event": "system", "object": { 'action': 'wifi-forget', 'uuid': uuid, 'ssid': network } });
+   }, 'Delete the stored ' + (uuid ? 'profile' : 'profiles') + ' of \'' + network + '\'?<br/>The network has to be set up again with its password.', 'Forget');
 }
 
 function showSystemServicesList()

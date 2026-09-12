@@ -31,5 +31,7 @@ lib/sdclient
 gpiotst
 alpicool/config.h
 alpicool/build
+kenwood/config.h
+kenwood/build
 
 .aider*

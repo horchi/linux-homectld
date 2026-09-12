@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.11"
+#define _VERSION     "0.1.12"
 #define VERSION_DATE "12.09.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,10 @@
 
 /*
  * ------------------------------------
+
+2026-09-12: version 0.1.12
+    - added: ESP32 sketch kenwood/ to control a Kenwood car radio via the steering wheel
+             remote wire (MQTT -> NEC codes), power state read from P.CONT
 
 2026-09-12: version 0.1.11
     - added: Recording of GPS tours (WEBIF: Map -> Touren), points are stored on movement,

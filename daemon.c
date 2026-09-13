@@ -336,14 +336,17 @@ int Daemon::pushInMessage(const char* data)
 // Push Out Message (from daemon to WS)
 //***************************************************************************
 
-int Daemon::pushOutMessage(json_t* oContents, const char* event, long client, bool keepJson)
+// realPrecision: significant digits of the reals; 4 fits the (float) sensor values,
+//  coordinates need more (4 digits round 51.0579 to 51.06 - a grid of about 1 km)
+
+int Daemon::pushOutMessage(json_t* oContents, const char* event, long client, bool keepJson, int realPrecision)
 {
    json_t* obj {json_object()};
 
    addToJson(obj, "event", event);
    json_object_set_new(obj, "object", oContents);
 
-   char* p {json_dumps(obj, JSON_REAL_PRECISION(4))};
+   char* p {json_dumps(obj, JSON_REAL_PRECISION(realPrecision))};
 
    if (!keepJson)
       json_decref(obj);
@@ -1384,6 +1387,12 @@ int Daemon::initDb()
    tableGpsTours = new cDbTable(connection, "gpstours");
    if (tableGpsTours->open() != success) return fail;
 
+   tableActivities = new cDbTable(connection, "activities");
+   if (tableActivities->open(1 /*allow alter*/) != success) return fail;
+
+   tableActivityTracks = new cDbTable(connection, "activitytracks");
+   if (tableActivityTracks->open() != success) return fail;
+
    tableSchemaConf = new cDbTable(connection, "schemaconf");
    if (tableSchemaConf->open() != success) return fail;
 
@@ -1766,6 +1775,17 @@ int Daemon::initDb()
    status += selectGpsTours->prepare();
 
    // ------------------
+   // Garmin activities, newest first
+
+   selectActivities = new cDbStatement(tableActivities);
+
+   selectActivities->build("select ");
+   selectActivities->bindAllOut();
+   selectActivities->build(" from %s order by starttime desc", tableActivities->TableName());
+
+   status += selectActivities->prepare();
+
+   // ------------------
    // recorded GPS points (tour samples GPS:0x0a, aggregate 'T') of a time range
 
    gpsTourFrom.setField(tableSamples->getField("TIME"));
@@ -1970,6 +1990,9 @@ int Daemon::exitDb()
    delete selectGpsTours;          selectGpsTours = nullptr;
    delete selectGpsTourSamples;    selectGpsTourSamples = nullptr;
    delete tableGpsTours;           tableGpsTours = nullptr;
+   delete selectActivities;        selectActivities = nullptr;
+   delete tableActivities;         tableActivities = nullptr;
+   delete tableActivityTracks;     tableActivityTracks = nullptr;
 
    delete connection;              connection = nullptr;
 

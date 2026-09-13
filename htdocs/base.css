@@ -2947,3 +2947,160 @@ iPhones
 .gpio-blocked-text { color: #e67e22; }
 .gpio-special-text { color: #5dade2; }
 .gpio-unknown-text { color: #aaa; }
+
+/* Garmin activities (activities.js) */
+
+.actGroup {
+    margin-bottom: 6px;
+}
+
+.actGroupHead {
+    cursor: pointer;
+    user-select: none;
+}
+
+.actGroupArrow {
+    display: inline-block;
+    width: 1em;
+}
+
+.actGroupSum {
+    float: right;
+    font-weight: normal;
+    margin-right: 8px;
+}
+
+.actGroupBody {
+    background: linear-gradient(to bottom right, #00000096, black);
+    padding: var(--containerPadding);
+    margin: 0px 4px 6px 4px;
+}
+
+.actTable {
+    width: 100%;
+    margin-top: 0px;
+}
+
+.actTable td {
+    padding: 2px 8px;
+}
+
+.actTable td.actNum, .actDetailsTable td.actNum {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.actTable td {
+    white-space: normal;          /* let date, name and location wrap instead of overlapping */
+    overflow: hidden;
+}
+
+.actTable td.actWrap {
+    overflow-wrap: anywhere;
+}
+
+@media only screen and (max-width: 900px)
+{
+    .actTable .actColOpt   { display: none; }     /* location and kcal only on wide screens */
+    .actTable              { font-size: 0.9em; }
+    .actGroupSum           { display: block; float: none; }
+}
+
+.actHighlight {
+    font-weight: bold;
+}
+
+.actActions button {
+    margin: 2px 4px 2px 0px;
+}
+
+.actActions .tool-button {
+    background-color: slategray;     /* the color of .buttonOptions */
+    width: auto;
+    min-width: 32px;
+    margin-bottom: 2px;
+}
+
+.actActions .actDelete:hover {
+    background-color: var(--red);
+}
+
+.actTable td.actActions {          /* the buttons side by side (td rule above allows wrapping) */
+    white-space: nowrap;
+    overflow: visible;
+}
+
+.actActions .tool-button {
+    display: inline-block;
+}
+
+.actRow {
+    cursor: pointer;
+}
+
+.actRow:hover {
+    background-color: #ffffff14;
+}
+
+.actEditDialog .labelB1 {
+    margin-top: 8px;
+}
+
+.actHint {
+    padding: 12px;
+    color: var(--buttonFont);
+}
+
+.actSyncDialog div {
+    margin: 6px 0px;
+}
+
+.actSyncHint {
+    font-size: smaller;
+    color: gray;
+}
+
+.actDetailsHead {
+    font-weight: bold;
+    margin-bottom: 6px;
+}
+
+.actDetailsDesc {
+    margin-bottom: 6px;
+    font-style: italic;
+}
+
+.actDetailsTable {
+    width: 100%;
+}
+
+.actDetailsTable td {
+    padding: 1px 10px 1px 0px;
+}
+
+.actDetailsTable td.actDetailsCol2 {
+    padding-left: 24px;
+    border-left: 1px solid var(--neutral3);
+}
+
+.actTrackHead {
+    margin-bottom: 6px;
+    font-weight: bold;
+}
+
+.actTrackLegend > span {
+    display: inline-block;
+    width: 14px;
+    height: 10px;
+    margin-left: 1px;
+    vertical-align: middle;
+}
+
+.actTrackLegend {
+    margin-left: 12px;
+    font-weight: normal;
+}
+
+#actTrackMap {
+    background: #ddd;
+}

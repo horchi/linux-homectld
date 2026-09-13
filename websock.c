@@ -104,7 +104,7 @@ int cWebSock::init(int aPort, int aTimeout, const char* confDir, bool ssl)
    mount.mountpoint = "/";
    mount.origin = httpPath;
    mount.mountpoint_len = 1;
-   mount.cache_max_age = noStore ? 0 : 86400;
+   mount.cache_max_age = noStore ? 0 : 600;    // 10 min - after an update all browsers see the new files soon, without asking on every load
    mount.cache_reusable = !noStore;       // 0 => no-store
    mount.cache_revalidate = 1;
    mount.cache_intermediaries = 1;

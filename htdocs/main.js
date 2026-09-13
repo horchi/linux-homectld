@@ -697,6 +697,18 @@ function dispatchMessage(message)
    else if (event == "gpstourpoints") {
       processGpsTourPoints(jMessage.object);
    }
+   else if (event == "activities") {
+      processActivities(jMessage.object);
+   }
+   else if (event == "activitytypes") {
+      processActivityTypes(jMessage.object);
+   }
+   else if (event == "activitydetails") {
+      showActivityDetails(jMessage.object);
+   }
+   else if (event == "activitytrack") {
+      showActivityTrack(jMessage.object);
+   }
    else if (event == "chartdata") {
       hideProgressDialog();
       let id = jMessage.object.id;
@@ -841,6 +853,7 @@ function prepareMenu()
    addMainMenuButton('List', 'list', config.showList == '1');
    addMainMenuButton('Charts', 'chart');
    addMainMenuButton('Map', 'gpslive', gpsAvailable());
+   addMainMenuButton('Garmin', 'activities', config.garminAvailable == '1');
    addMainMenuButton('Schema', 'schema', config.schema);
    addMainMenuButton('Music', 'lmc', config.lmcHost != '');
    addMainMenuButton('VDR', 'vdr', config.vdr != '');
@@ -1048,6 +1061,8 @@ function mainMenuSel(what, action = null, recoverSetupPage = true)
       initGpsPage();
       event = "gpslive";
    }
+   else if (currentPage == "activities")
+      initActivitiesPage();
    else if (currentPage == "chart") {
       event = "chartdata";
       // console.log("config.chartSensors: " + config.chartSensors);

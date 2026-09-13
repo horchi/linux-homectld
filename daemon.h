@@ -337,7 +337,7 @@ class Daemon : public cWebInterface, public Service
 
       // web
 
-      int pushOutMessage(json_t* obj, const char* event, long client = 0, bool keepJson = false);
+      int pushOutMessage(json_t* obj, const char* event, long client = 0, bool keepJson = false, int realPrecision = 4);
       int pushDataUpdate(const char* event, long client);
 
       int pushInMessage(const char* data) override;
@@ -385,6 +385,7 @@ class Daemon : public cWebInterface, public Service
       int checkLuaScript(json_t* obj, long client);
       int gpsLive(json_t* obj, long client);
       int performGpsTour(json_t* obj, long client);
+      int performActivities(json_t* obj, long client);
       int storeCvSettings(json_t* oObject, long client);
       int storeAiSettings(json_t* oObject, long client);
       int storeIoSettings(json_t* oObject, long client);
@@ -473,6 +474,20 @@ class Daemon : public cWebInterface, public Service
       int gpsTours2Json(json_t* obj);
       int gpsTourPoints2Json(json_t* obj, long id);
       int gpsTourPushState(long client = 0);
+
+      // Garmin activities (activities.c)
+
+      json_t* garminCall(const char* args, int timeout, std::string& error);
+      bool garminConfigured();
+      int activityStore(json_t* jAct);
+      int activitiesSync(const char* since, std::string& message);
+      int activities2Json(json_t* obj);
+      int activitiesPush(long client = 0);
+      json_t* activityDetails(long id, bool force, std::string& error);
+      json_t* activityTrack(long id, bool force, std::string& error);
+      void activityDetailsPatch(long id, const char* key, const char* value);
+      int activityChangeType(long id, const char* type, std::string& error);
+      int activityRename(long id, const char* name, std::string& error);
       static bool parseGpsText(const char* text, GpsCoordinate& c);
       static std::string gpsCoordinateText(const GpsCoordinate& c);
       static double gpsDistance(const GpsCoordinate& a, const GpsCoordinate& b);
@@ -556,6 +571,8 @@ class Daemon : public cWebInterface, public Service
       cDbTable* tableHaspPages {};
       cDbTable* tableHaspPageWidgets {};
       cDbTable* tableGpsTours {};
+      cDbTable* tableActivities {};
+      cDbTable* tableActivityTracks {};
       cDbTable* tableSchemaConf {};
       cDbTable* tableHomeMatic {};
       cDbTable* tableIoStates {};
@@ -588,6 +605,7 @@ class Daemon : public cWebInterface, public Service
       cDbStatement* selectHaspPages {};
       cDbStatement* selectGpsTours {};
       cDbStatement* selectGpsTourSamples {};
+      cDbStatement* selectActivities {};
       cDbStatement* selectHaspPageWidgetsFor {};
       cDbStatement* selectSchemaConfByState {};
       cDbStatement* selectAllSchemaConf {};

@@ -25,7 +25,7 @@ GIT_REV      = $(shell git describe --always 2>/dev/null)
 LOBJS        = lib/db.o lib/dbdict.o lib/systemdctl.o lib/common.o lib/serial.o lib/curl.o lib/thread.o lib/json.o lib/lua.o lib/tcpchannel.o
 MQTTOBJS     = lib/mqtt.o lib/mqtt_c.o lib/mqtt_pal.o
 
-OBJS         = $(MQTTOBJS) $(LOBJS) main.o daemon.o wsactions.o hass.o hasp.o gpstour.o websock.o webservice.o deconz.o lmc.o lmccom.o
+OBJS         = $(MQTTOBJS) $(LOBJS) main.o daemon.o wsactions.o hass.o hasp.o gpstour.o activities.o websock.o webservice.o deconz.o lmc.o lmccom.o
 OBJS        += growatt.o
 OBJS        += specific.o gpio.o
 
@@ -99,6 +99,11 @@ linstall: $(TARGET) $(W1TARGET) $(BMSTARGET) $(VOTROTARGET) $(VICTRONTARGET) $(I
 	make install-daemon
 	make install-web
 
+# interactive configuration of Make.user (needs 'dialog')
+
+config:
+	@bash contrib/makeconfig.sh
+
 # super light install - only the daemon itself
 
 slinstall: $(TARGET)
@@ -113,6 +118,9 @@ install:  linstall
    endif
    ifdef THETFORD
 	   (cd thetford; $(MAKE) install)
+   endif
+   ifdef GARMIN
+	   (cd garmin; $(MAKE) install)
    endif
    ifdef WOMO
 	   (cd contrib/womo; $(MAKE) install)

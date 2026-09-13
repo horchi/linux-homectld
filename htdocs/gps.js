@@ -35,7 +35,7 @@ mapManager = {
       }).setView([50.1109, 8.6821], 2);
 
       if (navigator.onLine) {
-         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+         L.tileLayer('https://tile.openstreetmap.de/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap'
          }).addTo(this.map);
       }

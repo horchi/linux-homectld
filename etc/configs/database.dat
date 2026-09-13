@@ -210,6 +210,47 @@ Table gpstours
    PAUSETIME            ""  pausetime            Int         10 Data,   // [s]
 }
 
+Table activities
+{
+   GARMINID             ""  garminid             UBigInt     20 Primary,
+
+   INSSP                ""  inssp                Int          0 Meta,
+   UPDSP                ""  updsp                Int          0 Meta,
+
+   START                ""  starttime            DateTime     0 Data,
+   TYPE                 ""  type                 Ascii       50 Data,   // Garmin typeKey (e.g. windsurfing)
+   TYPEID               ""  typeid               Int         10 Data,
+   PARENTTYPEID         ""  parenttypeid         Int         10 Data,
+   NAME                 ""  name                 Ascii      200 Data,
+   LOCATION             ""  location             Ascii      100 Data,
+   DURATION             ""  duration             Int         10 Data,   // [s]
+   MOVING               ""  moving               Int         10 Data,   // [s]
+   ELAPSED              ""  elapsed              Int         10 Data,   // [s]
+   DISTANCE             ""  distance             Float      122 Data,   // [m]
+   ELEVGAIN             ""  elevgain             Float      122 Data,   // [m]
+   ELEVLOSS             ""  elevloss             Float      122 Data,   // [m]
+   AVGSPEED             ""  avgspeed             Float      123 Data,   // [m/s]
+   MAXSPEED             ""  maxspeed             Float      123 Data,   // [m/s]
+   AVGHR                ""  avghr                Int         10 Data,
+   MAXHR                ""  maxhr                Int         10 Data,
+   CALORIES             ""  calories             Int         10 Data,
+   STEPS                ""  steps                Int         10 Data,
+   LAT                  ""  lat                  Float      126 Data,
+   LON                  ""  lon                  Float      126 Data,
+   DETAILS              ""  details              Text     60000 Data,   // cached JSON of 'garmin.py details'
+}
+
+Table activitytracks
+{
+   GARMINID             ""  garminid             UBigInt     20 Primary,
+
+   INSSP                ""  inssp                Int          0 Meta,
+   UPDSP                ""  updsp                Int          0 Meta,
+
+   POINTS               ""  points               Int         10 Data,   // number of points
+   TRACK                ""  track                MText  1000000 Data,   // JSON [[lat, lon, time, alt, speed], ...] (size = buffer, not the column)
+}
+
 // ----------------------------------------------------------------
 // Table Users
 // ----------------------------------------------------------------

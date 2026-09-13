@@ -9,6 +9,7 @@ lib/tst
 core
 
 Make.user
+Make.user.bak
 
 mqt
 p4d
@@ -35,3 +36,6 @@ kenwood/config.h
 kenwood/build
 
 .aider*
+
+__pycache__/
+*.pyc

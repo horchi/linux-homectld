@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.15"
+#define _VERSION     "0.1.16"
 #define VERSION_DATE "12.09.2026"
 
 #ifdef GIT_REV
@@ -17,18 +17,26 @@
 /*
  * ------------------------------------
 
+2026-09-12: version 0.1.16
+    - added:  Garmin Connect activities fetched on demand via
+              garmin/garmin.py into the new table 'activities', grouped by type, details,
+              change of type and name, GPS track on a map colored by speed (see garmin/README.md)
+    - change: Browser cache time of the WEBIF files reduced from 1 day to 10 minutes
+    - added:  'make config' edits Make.user interactively (dialog based), GARMIN switch
+              in Make.user to include the Garmin script in 'make install'
+
 2026-09-12: version 0.1.15
-    - added: WEBIF Setup -> Wifi: 'Forget' button deletes stored connection profiles,
-             list of all stored profiles with the bound device, the present wifi
-             device (vendor, product, MAC) is shown; the last profile of a SSID is
-             renamed to the SSID when duplicates ('SSID 1', ...) are deleted
+    - added:  WEBIF Setup -> Wifi: 'Forget' button deletes stored connection profiles,
+              list of all stored profiles with the bound device, the present wifi
+              device (vendor, product, MAC) is shown; the last profile of a SSID is
+              renamed to the SSID when duplicates ('SSID 1', ...) are deleted
     - bugfix: Wifi connect failed for stored networks after a change of the USB wifi
               stick (profile bound to the old interface name), the profile is unbound now
 
 2026-09-12: version 0.1.14
-    - added: WEBIF widgets can show the peak min value in addition to the peak max
-             (Value, Chart, MeterLevel, Gauge); the Meter widget shows min/max
-             above the gauge
+    - added:  WEBIF widgets can show the peak min value in addition to the peak max
+              (Value, Chart, MeterLevel, Gauge); the Meter widget shows min/max
+              above the gauge
     - bugfix: The first store after a daemon start wrote a sample with value 0 for
               every sensor which had not reported yet (poisoned charts and peak min)
 

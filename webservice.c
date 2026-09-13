@@ -56,6 +56,7 @@ const char* cWebService::events[] =
    "checkluascript",
    "gpslive",
    "gpstour",
+   "activities",
    "hasppages",
    "storehasppages",
 

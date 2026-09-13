@@ -649,7 +649,7 @@ int Daemon::performGpsTour(json_t* obj, long client)
          return replyResult(fail, "Tour nicht gefunden", client);
       }
 
-      return pushOutMessage(oJson, "gpstourpoints", client);
+      return pushOutMessage(oJson, "gpstourpoints", client, false, 10);   // coordinates
    }
 
    // modifying actions need control rights

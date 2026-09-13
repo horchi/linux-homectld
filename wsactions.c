@@ -94,6 +94,7 @@ int Daemon::dispatchClientRequest()
             case evCheckLuaScript:      status = checkLuaScript(oObject, client);        break;
             case evGpsLive:             status = gpsLive(oObject, client);               break;
             case evGpsTour:             status = performGpsTour(oObject, client);        break;
+            case evActivities:          status = performActivities(oObject, client);     break;
             case evHaspPages:           status = performHaspPages(oObject, client);      break;
             case evStoreHaspPages:      status = storeHaspPages(oObject, client);        break;
             default:
@@ -169,6 +170,7 @@ bool Daemon::checkRights(long client, Event event, json_t* oObject)
       case evCheckLuaScript:      return rights & urSettings;
       case evGpsLive:             return rights & urView;
       case evGpsTour:             return rights & urView;   // modifying actions are checked in performGpsTour()
+      case evActivities:          return rights & urView;   // modifying actions are checked in performActivities()
 
       default: break;
    }
@@ -2242,6 +2244,10 @@ int Daemon::config2Json(json_t* obj)
       json_object_set_new(obj, tableConfig->getStrValue("NAME"), json_string(tableConfig->getStrValue("VALUE")));
 
    selectAllConfig->freeResult();
+
+   // not a config item - the tab 'Aktivitäten' is offered when the Garmin login exists
+
+   json_object_set_new(obj, "garminAvailable", json_string(garminConfigured() ? "1" : "0"));
 
    return done;
 }

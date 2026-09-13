@@ -302,6 +302,28 @@ In addition trips can be recorded as tours and displayed later.
   *Umbenennen* and *Löschen* need control rights. The active tour can be displayed too but not deleted.
 
 
+# Garmin Activities
+
+The tab *Aktivitäten* shows the activities of a Garmin Connect account (e.g. recorded with a Fenix
+watch), grouped by activity type. It is offered when the Garmin login exists (`/etc/homectld/garmin`).
+
+- installation and the one time login: see `garmin/README.md` (`garmin.py login`, works with and
+  without two factor authentication, the tokens are valid for about a year)
+- nothing is polled - the activities are fetched only with the button *Abgleich mit Garmin*, which asks
+  for the period (since the last activity, since a date or all). Data volume about 3-4 kB per activity,
+  tracks are not downloaded
+- the activities are stored in the table `activities`, not as sensors and not in `samples`
+- groups per type are collapsible and show count, total duration, total distance and the maximum speed;
+  water sports (windsurfing, kiteboarding, sailing, ...) show the speeds in knots, running and walking as pace
+- *Details* fetches all values Garmin provides for the activity (speeds, heart rate, temperature,
+  training effect, ...)
+- a click on a row opens the details, the pencil button a dialog to change the type (e.g. activities
+  recorded with a wrong profile) and the name at Garmin, the trash button deletes the activity at
+  Garmin (after confirmation); both need control rights
+- *Track* in the details loads the GPS track, simplified by Garmin to 1000 points or at least one
+  point per 15 seconds, and shows it on a map colored by speed; details and tracks are cached in
+  the tables `activities` / `activitytracks`, *Neu laden* fetches them again
+
 # I2c Bus
 
 ## Rasperyy Pi
@@ -668,6 +690,8 @@ Crony is used instead of systemd-timesyncd because the latter proved to be too �
 
 To enable the install some of the provided service configurations
 enable it by setting 'WOMO = 1' in Make.user in the projects (source) root directory of the homectld.
+`make config` edits Make.user interactively (switches and personalization, needs `apt install dialog`),
+the possible settings and their defaults are in Make.user.template.
 
 # if you use this 'server' for IP masquerading and/or as firewall or like to use openvpn
 

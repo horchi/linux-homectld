@@ -162,6 +162,8 @@ function initDashboard(update = false)
                 );
    }
 
+   initScrollStrip('dashboardMenu');
+
    // widgets
 
    document.getElementById("container").innerHTML = '<div id="widgetContainer" class="widgetContainer"></div>';

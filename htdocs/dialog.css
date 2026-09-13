@@ -37,9 +37,28 @@
     font-size: 1.3em;
 }
 
+.ui-dialog {
+    max-width: 100vw;                  /* never wider than the screen (phones) */
+    box-sizing: border-box;
+}
+
 .ui-dialog .ui-dialog-content {
     padding: 0px;
     margin: 20px;
+}
+
+/* the buttons wrap instead of overflowing the dialog on narrow screens */
+
+.ui-dialog .ui-dialog-buttonpane .ui-dialog-buttonset {
+    float: none;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+@media only screen and (max-width: 500px)
+{
+    .ui-dialog .ui-dialog-content { margin: 10px; }
 }
 
 .ui-dialog .ui-dialog-titlebar {

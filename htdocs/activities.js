@@ -750,15 +750,22 @@ function showActivityDetails(obj)
       rows.push([gpsEscape(key), actFmtSummary(key, summary[key], type)]);
    }
 
-   let half = Math.ceil(rows.length / 2);
+   // two key/value pairs per row, one on phones (the four columns don't fit, the dialog
+   //   would scroll horizontally and the buttons end below the screen)
+
+   let narrow = window.innerWidth < 640;
+   let half = narrow ? rows.length : Math.ceil(rows.length / 2);
 
    html += '<table class="actDetailsTable">';
 
    for (let i = 0; i < half; i++) {
       let l = rows[i];
-      let r = rows[i + half];
+      let r = narrow ? null : rows[i + half];
       html += '<tr><td>' + l[0] + '</td><td class="actNum">' + l[1] + '</td>';
-      html += r ? '<td class="actDetailsCol2">' + r[0] + '</td><td class="actNum">' + r[1] + '</td>' : '<td></td><td></td>';
+
+      if (!narrow)
+         html += r ? '<td class="actDetailsCol2">' + r[0] + '</td><td class="actNum">' + r[1] + '</td>' : '<td></td><td></td>';
+
       html += '</tr>';
    }
 
@@ -776,8 +783,8 @@ function showActivityDetails(obj)
 
    $(html).dialog({
       modal: true,
-      width: Math.min(980, Math.round($(window).width() * 0.92)),
-      maxHeight: $(window).height() * 0.9,
+      width: Math.min(980, Math.round(window.innerWidth * (narrow ? 0.97 : 0.92))),
+      maxHeight: Math.round(window.innerHeight * 0.92),
       title: 'Aktivität',
       buttons: buttons,
       close: function() { $(this).dialog('destroy').remove(); }

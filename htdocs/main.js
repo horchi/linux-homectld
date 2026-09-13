@@ -896,7 +896,9 @@ function prepareMenu()
                       .html('<svg><use xlink:href="#angle-down"></use></svg>')
                       .click(function() { toggleInfoDialog(); } )));
 
-   // scroll the active tab into view (matters on phones only)
+   // scroll arrows, scroll the active tab into view (matters on phones only)
+
+   initScrollStrip('mainTabs');
 
    let active = document.getElementById('mainmenu_' + currentPage);
 
@@ -931,6 +933,8 @@ function prepareSetupMenu()
          addSetupMenuButton('Wifi', 'system', 'wifis');
          addSetupMenuButton('System Services', 'system', 'system-services');
          addSetupMenuButton('README', 'readme');
+
+         initScrollStrip('setupMenu');
       }
    }
 
@@ -2348,4 +2352,146 @@ function isEmpty(s)
 function isNil(v)
 {
    return v == null;
+}
+
+//***************************************************************************
+// Dialogs on phones
+//   jQuery UI sizes and centers a dialog by the layout viewport ($(window).height()), on
+//   iOS Safari this is higher than the visible area (tool bars), the button pane then ends
+//   below the screen. Limit width / height to the visible viewport and center inside it.
+//***************************************************************************
+
+$.widget('ui.dialog', $.ui.dialog, {
+   _size: function() {
+      let vw = window.innerWidth - 8;
+      let vh = window.innerHeight - 8;
+
+      if (typeof this.options.width == 'number' && this.options.width > vw)
+         this.options.width = vw;
+
+      if (this.options.height == 'auto') {
+         if (typeof this.options.maxHeight != 'number' || this.options.maxHeight > vh)
+            this.options.maxHeight = vh;
+      }
+      else if (typeof this.options.height == 'number' && this.options.height > vh)
+         this.options.height = vh;
+
+      this._super();
+   },
+
+   _position: function() {
+      this._super();
+
+      // the default position (centered in the window) is corrected to the visible area,
+      // dialogs with an own position (popup at a button, ...) are left alone
+
+      if (!this.options.position || this.options.position.of !== window)
+         return;
+
+      let height = this.uiDialog.outerHeight();
+      let top = $(window).scrollTop() + Math.max(2, Math.round((window.innerHeight - height) / 2));
+
+      this.uiDialog.css('top', top + 'px');
+   }
+});
+
+//***************************************************************************
+// Load scripts / style sheets on demand (libraries needed rarely, e.g. the LUA editor)
+//   each URL is loaded once, the scripts of one call in order
+//***************************************************************************
+
+var loadedAssets = {};
+
+function loadAssets(urls)
+{
+   let chain = Promise.resolve();
+
+   urls.forEach(function(url) {
+      chain = chain.then(function() {
+         if (!loadedAssets[url]) {
+            loadedAssets[url] = new Promise(function(resolve, reject) {
+               let el = null;
+
+               if (url.endsWith('.css')) {
+                  el = document.createElement('link');
+                  el.rel = 'stylesheet';
+                  el.href = url;
+               }
+               else {
+                  el = document.createElement('script');
+                  el.src = url;
+               }
+
+               el.onload = resolve;
+               el.onerror = function() {
+                  delete loadedAssets[url];
+                  reject(new Error(url));
+               };
+
+               document.head.appendChild(el);
+            });
+         }
+
+         return loadedAssets[url];
+      });
+   });
+
+   return chain;
+}
+
+//***************************************************************************
+// Horizontal button strips (main tabs, dashboard tabs, setup menu)
+//   the scrollbar is hidden, arrows at the edges show that there is more:
+//   click scrolls, on touch devices swiping works anyway
+//***************************************************************************
+
+function initScrollStrip(id)
+{
+   let strip = document.getElementById(id);
+
+   if (!strip)
+      return;
+
+   let right = strip.querySelector('.stripArrowRight');
+
+   if (!right) {
+      let left = $('<div></div>')
+          .addClass('stripArrow stripArrowLeft mdi mdi-chevron-left')
+          .click(function() { strip.scrollBy({ left: -Math.round(strip.clientWidth * 0.6), behavior: 'smooth' }); });
+
+      right = $('<div></div>')
+          .addClass('stripArrow stripArrowRight mdi mdi-chevron-right')
+          .click(function() { strip.scrollBy({ left: Math.round(strip.clientWidth * 0.6), behavior: 'smooth' }); });
+
+      $(strip).addClass('scrollStrip').prepend(left).append(right);
+      strip.addEventListener('scroll', function() { updateScrollStrip(strip); }, { passive: true });
+
+      if (window.ResizeObserver)
+         new ResizeObserver(function() { updateScrollStrip(strip); }).observe(strip);
+   }
+   else
+      strip.appendChild(right);       // buttons appended later -> the arrow stays the last
+
+   updateScrollStrip(strip);
+   setTimeout(function() { updateScrollStrip(strip); }, 300);    // once more after fonts / icons
+}
+
+function updateScrollStrip(strip)
+{
+   let max = strip.scrollWidth - strip.clientWidth;
+
+   // the arrows take space (both or none, hidden ones stay invisible) - show them only if
+   //   the strip scrolls, the decision is made with the current space, so it can't flap
+
+   if (!strip.classList.contains('stripScrolls')) {
+      if (max > 4) {
+         strip.classList.add('stripScrolls');
+         max = strip.scrollWidth - strip.clientWidth;
+      }
+   }
+   else if (max <= 4)
+      strip.classList.remove('stripScrolls');
+
+   strip.classList.toggle('stripMoreLeft', strip.scrollLeft > 4);
+   strip.classList.toggle('stripMoreRight', max > 4 && strip.scrollLeft < max - 4);
 }

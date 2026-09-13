@@ -14,28 +14,62 @@ var changes = false;
 var cvEditor = null;
 var doEditor = null;
 
-CodeMirror.defineSimpleMode('lua', {
-   start: [
-      {regex: /--\[\[/,                                          token: 'comment',  next: 'comment_ml'},
-      {regex: /--.*$/,                                           token: 'comment'},
-      {regex: /"(?:[^\\"]|\\.)*"?/,                             token: 'string'},
-      {regex: /'(?:[^\\']|\\.)*'?/,                             token: 'string'},
-      {regex: /\[\[/,                                            token: 'string',   next: 'string_ml'},
-      {regex: /(?:and|break|do|else|elseif|end|false|for|function|goto|if|in|local|nil|not|or|repeat|return|then|true|until|while)\b/, token: 'keyword'},
-      {regex: /[+\-*\/\^%#<>=&|~:,;.(){}\[\]]/,                token: 'operator'},
-      {regex: /0x[0-9a-fA-F]+|[0-9]+\.?[0-9]*(?:[eE][+\-]?[0-9]+)?/, token: 'number'},
-      {regex: /[a-zA-Z_][a-zA-Z0-9_]*/,                        token: 'variable'},
-   ],
-   comment_ml: [
-      {regex: /.*?\]\]/,  token: 'comment', next: 'start'},
-      {regex: /.*/,       token: 'comment'},
-   ],
-   string_ml: [
-      {regex: /.*?\]\]/,  token: 'string',  next: 'start'},
-      {regex: /.*/,       token: 'string'},
-   ],
-   meta: { lineComment: '--' }
-});
+// CodeMirror (the LUA editor) is loaded on demand, it is only needed here
+
+async function loadCodeMirror()
+{
+   try {
+      await loadAssets(['lib/codemirror/codemirror.js', 'lib/codemirror/codemirror.css']);
+      await Promise.all(['lib/codemirror/simple.js',
+                         'lib/codemirror/jump-to-line.js',
+                         'lib/codemirror/searchcursor.js',
+                         'lib/codemirror/search.js',
+                         'lib/codemirror/annotatescrollbar.js',
+                         'lib/codemirror/matchesonscrollbar.js',
+                         'lib/codemirror/matchesonscrollbar.css',
+                         'lib/codemirror/dialog.js',
+                         'lib/codemirror/dialog.css',
+                         'lib/codemirror/show-hint.js',
+                         'lib/codemirror/show-hint.css'].map(function(url) { return loadAssets([url]); }));
+   }
+   catch (e) {
+      showInfoDialog({ 'status': -1, 'message': 'Laden des Editors fehlgeschlagen: ' + e.message });
+      return false;
+   }
+
+   defineLuaMode();
+
+   return true;
+}
+
+function defineLuaMode()
+{
+   if (CodeMirror.modes.lua)
+      return;
+
+   CodeMirror.defineSimpleMode('lua', {
+      start: [
+         {regex: /--\[\[/,                                          token: 'comment',  next: 'comment_ml'},
+         {regex: /--.*$/,                                           token: 'comment'},
+         {regex: /"(?:[^\\"]|\\.)*"?/,                             token: 'string'},
+         {regex: /'(?:[^\\']|\\.)*'?/,                             token: 'string'},
+         {regex: /\[\[/,                                            token: 'string',   next: 'string_ml'},
+         {regex: /(?:and|break|do|else|elseif|end|false|for|function|goto|if|in|local|nil|not|or|repeat|return|then|true|until|while)\b/, token: 'keyword'},
+         {regex: /[+\-*\/\^%#<>=&|~:,;.(){}\[\]]/,                token: 'operator'},
+         {regex: /0x[0-9a-fA-F]+|[0-9]+\.?[0-9]*(?:[eE][+\-]?[0-9]+)?/, token: 'number'},
+         {regex: /[a-zA-Z_][a-zA-Z0-9_]*/,                        token: 'variable'},
+      ],
+      comment_ml: [
+         {regex: /.*?\]\]/,  token: 'comment', next: 'start'},
+         {regex: /.*/,       token: 'comment'},
+      ],
+      string_ml: [
+         {regex: /.*?\]\]/,  token: 'string',  next: 'start'},
+         {regex: /.*/,       token: 'string'},
+      ],
+      meta: { lineComment: '--' }
+   });
+}
 
 // ----------------------------------------------------------------
 // Sensor Setup
@@ -612,8 +646,11 @@ function sensorGpioSetup(type, address)
       sensorDoSetup(type, address);
 }
 
-function sensorDoSetup(type, address)
+async function sensorDoSetup(type, address)
 {
+   if (!await loadCodeMirror())
+      return;
+
    calSensorType = type;
    calSensorAddress = address;
 
@@ -1053,8 +1090,11 @@ function sensorScSetup(type, address)
    });
 }
 
-function sensorCvSetup(type, address)
+async function sensorCvSetup(type, address)
 {
+   if (!await loadCodeMirror())
+      return;
+
    calSensorType = type;
    calSensorAddress = parseInt(address);
 

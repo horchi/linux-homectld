@@ -46,7 +46,8 @@
     <script src="jquery/jquery.wheelcolorpicker.min.js"></script>
     <script src="jquery/autocomplete.js"></script>
     <!-- moment is the date adapter of Chart.js 2.x, it must be loaded before it -->
-    <script src="jquery/moment-with-locales.min.js"></script>
+    <script src="jquery/moment.min.js"></script>
+    <script src="jquery/moment-locale-de.min.js"></script>
     <script src="jquery/Chart.min.js"></script>
     <script src="jquery/canvas-gauges-master/gauge.min.js"></script>
     <script src="jquery/tinycolor.js"></script>
@@ -54,19 +55,7 @@
     <script src="jquery/jquery.touchSwipe.min.js"></script>
     <script src="lib/map/leaflet.min.js"></script>
 
-    <link rel="stylesheet" href="lib/codemirror/codemirror.css">
-    <script src="lib/codemirror/codemirror.js"></script>
-    <script src="lib/codemirror/simple.js"></script>
-    <script src="lib/codemirror/jump-to-line.js"></script>
-    <script src="lib/codemirror/searchcursor.js"></script>
-    <script src="lib/codemirror/search.js"></script>
-    <script src="lib/codemirror/annotatescrollbar.js"></script>
-    <link rel="stylesheet" href="lib/codemirror/matchesonscrollbar.css">
-    <script src="lib/codemirror/matchesonscrollbar.js"></script>
-    <link rel="stylesheet" href="lib/codemirror/dialog.css">
-    <script src="lib/codemirror/dialog.js"></script>
-    <link rel="stylesheet" href="lib/codemirror/show-hint.css">
-    <script src="lib/codemirror/show-hint.js"></script>
+    <!-- CodeMirror (lib/codemirror, the LUA editor) is loaded on demand by iosetup.js -->
 
     <link rel="stylesheet" href="lib/markdown/markdown-dark.min.css">
     <script src="lib/markdown/marked.umd.min.js"></script>

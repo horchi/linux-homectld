@@ -50,7 +50,9 @@ class cWebSock : public cWebService
 
       enum Http
       {
-         tmoCacheMaxAge = 600      // [s] browser cache lifetime of static files (10 min, see also the mount in init())
+         tmoCacheMaxAge = 600,                 // [s] browser cache lifetime of static files without version tag (images, ...),
+                                               //     afterwards the browser asks with If-Modified-Since (-> 304)
+         tmoCacheMaxAgeVersioned = 31536000    // [s] a year for files requested with ?v=<content hash> (see htdocs/genindex.sh)
       };
 
       struct SessionData

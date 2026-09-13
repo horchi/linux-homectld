@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.18"
+#define _VERSION     "0.1.19"
 #define VERSION_DATE "13.09.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,16 @@
 
 /*
  * ------------------------------------
+
+2026-09-13: version 0.1.19
+    - bugfix: dialogs on phones: size and center by the visible area (on iOS Safari the OK
+              button ended below the screen), buttons wrap, Garmin details in one column
+    - added: scroll arrows at the button strips (main tabs, dashboards, setup menu) when
+             there is more to scroll, a click scrolls, on touch devices swipe as before
+    - change: loading: files with version tag are cached a year ('immutable'), others get
+              Last-Modified / 304; 'make install' creates gzip twins (<file>.gz) which the
+              daemon serves; CodeMirror (LUA editor) is loaded on demand; moment without
+              the locale bundle (de only)
 
 2026-09-13: version 0.1.18
     - added: Garmin table shows two dots per activity: details / track already loaded

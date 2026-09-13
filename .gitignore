@@ -42,3 +42,4 @@ __pycache__/
 
 # generated from htdocs/index.html.in (make)
 htdocs/index.html
+*.gz

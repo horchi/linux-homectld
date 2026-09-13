@@ -109,19 +109,65 @@ button:focus {
     display: flex;
     overflow-x: auto;
     white-space: nowrap;
-    scrollbar-width: none;             /* firefox */
     -webkit-overflow-scrolling: touch;
-}
-
-.mainTabs::-webkit-scrollbar
-{
-    display: none;                     /* chrome / safari */
 }
 
 .mainTabs > .tabButton
 {
     flex-shrink: 0;
 }
+
+/* horizontally scrollable button strips (main tabs, dashboard tabs, setup menu): the scrollbar
+   is hidden, arrows at the edges (sticky, see initScrollStrip) show that there is more to scroll,
+   a click scrolls. The arrows are in the flow (both or none), so nothing jumps when one toggles */
+
+.scrollStrip
+{
+    scrollbar-width: none;             /* firefox */
+    scroll-padding-inline: 24px;       /* scrollIntoView keeps clear of the arrows */
+}
+
+.scrollStrip::-webkit-scrollbar
+{
+    display: none;                     /* chrome / safari */
+}
+
+.stripArrow
+{
+    display: none;
+    position: sticky;
+    z-index: 2;
+    flex: 0 0 auto;
+    align-self: stretch;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    font-size: 24px;
+    color: var(--yellow);
+    cursor: pointer;
+    visibility: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.stripScrolls > .stripArrow           { display: flex; }
+.stripMoreLeft > .stripArrowLeft      { visibility: visible; }
+.stripMoreRight > .stripArrowRight    { visibility: visible; }
+
+.stripArrowLeft
+{
+    left: 0;
+    background: linear-gradient(to right, var(--stripBg, var(--menu)) 60%, transparent);
+}
+
+.stripArrowRight
+{
+    right: 0;
+    background: linear-gradient(to left, var(--stripBg, var(--menu)) 60%, transparent);
+}
+
+.menuDashboard { --stripBg: var(--dashboardMenuBackground); }
+.setupMenu     { --stripBg: var(--menu); }
 
 .mainMenuTools
 {
@@ -3163,6 +3209,10 @@ iPhones
 .actDetailsTable td.actDetailsCol2 {
     padding-left: 24px;
     border-left: 1px solid var(--neutral3);
+}
+
+.actDetailsTable td.actNum {
+    width: 40%;
 }
 
 .actTrackHead {

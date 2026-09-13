@@ -557,13 +557,13 @@ int Daemon::init()
          "value",     sol::readonly(&SensorData::value),
          "state",     sol::readonly(&SensorData::state),
          "text",      sol::readonly(&SensorData::text),
-         "last",      sol::readonly(&SensorData::last),
-         "changedAt", sol::readonly(&SensorData::changedAt),
+         "last",      sol::property(&SensorData::last),         // getters -> read-only properties
+         "changedAt", sol::property(&SensorData::changedAt),
          "kind",      sol::readonly(&SensorData::kind),
          "name",      sol::readonly(&SensorData::name),
          "title",     sol::readonly(&SensorData::title),
          "unit",      sol::readonly(&SensorData::unit),
-         "valid",     sol::readonly(&SensorData::valid));
+         "valid",     sol::property(&SensorData::valid));
 
       s.set_function("watch", [this](const std::string& wType, int wAddr) {
          luaDeps[luaCurrentKey].insert({wType, wAddr});

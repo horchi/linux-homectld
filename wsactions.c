@@ -147,7 +147,7 @@ bool Daemon::checkRights(long client, Event event, json_t* oObject)
       case evStoreUserConfig:     return rights & urAdmin;
       case evUserDetails:         return rights & urAdmin;
       case evChangePasswd:        return true;   // check will done in performPasswChange()
-      case evCommand:             return rights & urFullControl;
+      case evCommand:             return getStringFromJson(oObject, "what", "") == std::string("sensorjson") ? rights & urView : rights & urFullControl;
       case evSyslog:              return rights & urAdmin;
       case evSystem:              return rights & urView;
       case evForceRefresh:        return rights & urView;

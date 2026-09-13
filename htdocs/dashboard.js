@@ -1788,6 +1788,7 @@ function titleClick(ctrlKey, key)
          open: function() {
             if (sensor.hasjson) {
                $('#sensorInfoTabs').tabs({
+                  active: 0,                       // always start with 'Daten' (else jQuery UI picks the tab matching location.hash)
                   activate: function(event, ui) {
                      if (ui.newPanel.attr('id') == 'sensorInfoJson')
                         socket.send({ "event" : "command", "object" : { "what" : 'sensorjson', "type": fact.type, "address": fact.address } });
@@ -1798,6 +1799,10 @@ function titleClick(ctrlKey, key)
                // when switching to the (initially almost empty) JSON tab
 
                $('#sensorInfoTabs').css('min-width', $('#sensorInfoTabs').width() + 'px');
+
+               // fetch the JSON right away (small), so it is there when the tab is opened
+
+               socket.send({ "event" : "command", "object" : { "what" : 'sensorjson', "type": fact.type, "address": fact.address } });
             }
          },
          close: function() { $(this).dialog('destroy').remove();}

@@ -3166,3 +3166,87 @@ iPhones
 #actTrackMap {
     background: #ddd;
 }
+
+/* widget info dialog: tabs data / JSON (dashboard.js titleClick) - look of the main menu tabs */
+
+#sensorInfoTabs,
+#sensorInfoTabs .ui-tabs-nav,
+#sensorInfoTabs .ui-tabs-nav li,
+#sensorInfoTabs .ui-tabs-panel {
+    box-shadow: none;             /* .ui-widget-content of dialog.css adds one */
+}
+
+#sensorInfoTabs {
+    border: none;
+    background: transparent;
+    padding: 0px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#sensorInfoTabs .ui-tabs-nav {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--neutral3);
+    border-radius: 0px;
+    padding: 0px;
+    margin: 0px 0px 8px 0px;
+}
+
+#sensorInfoTabs .ui-tabs-nav li {
+    background: transparent;
+    border: none;
+    border-radius: 0px;
+    margin: 0px 4px 0px 0px;
+    opacity: 0.6;
+}
+
+#sensorInfoTabs .ui-tabs-nav li:hover {
+    opacity: 0.8;
+}
+
+#sensorInfoTabs .ui-tabs-nav li.ui-tabs-active {
+    opacity: 1.0;
+    font-weight: bold;
+    border-bottom: 3px solid var(--yellow);
+}
+
+#sensorInfoTabs .ui-tabs-nav li a {
+    color: var(--dialogColor);            /* the text color of the dialogs, not the (white) button font */
+    font-size: 14px;                      /* like the buttons of the WEBIF */
+    padding: 4px 12px;
+    outline: none;
+}
+
+#sensorInfoTabs .ui-tabs-panel {
+    padding: 0px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#sensorInfoData > div {
+    width: 100%;                          /* the rows fill the dialog, not only their own content width */
+    min-width: 40vh;
+    box-sizing: border-box;
+}
+
+#sensorInfoData > div > div > span:last-child {
+    flex: 1 1 auto;                       /* the value column takes the remaining width */
+}
+
+.sensorJsonHead {
+    font-size: smaller;
+    color: gray;
+    margin-bottom: 4px;
+}
+
+.sensorJsonBody {
+    width: 100%;
+    box-sizing: border-box;
+    max-height: 60vh;
+    overflow: auto;
+    font-size: 12px;
+    margin: 0px;
+    padding: 6px;
+    background: #00000060;
+}

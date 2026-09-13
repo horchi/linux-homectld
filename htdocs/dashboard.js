@@ -1577,7 +1577,27 @@ function titleClick(ctrlKey, key)
       // console.log(sensor);
       // console.log(fact);
 
-      $(form).append($('<div></div>')
+      // two tabs when the daemon holds the raw message (JSON) of the sensor: data / JSON
+
+      let tabs = $('<div></div>').attr('id', 'sensorInfoTabs');
+      let dataTab = $('<div></div>').attr('id', 'sensorInfoData');
+
+      if (sensor.hasjson) {
+         tabs.append($('<ul></ul>')
+                     .append($('<li></li>').append($('<a></a>').attr('href', '#sensorInfoData').html('Daten')))
+                     .append($('<li></li>').append($('<a></a>').attr('href', '#sensorInfoJson').html('JSON'))));
+      }
+
+      tabs.append(dataTab);
+
+      if (sensor.hasjson)
+         tabs.append($('<div></div>').attr('id', 'sensorInfoJson')
+                     .append($('<div></div>').attr('id', 'sensorInfoJsonHead').addClass('sensorJsonHead').html('wird geladen ...'))
+                     .append($('<pre></pre>').attr('id', 'sensorInfoJsonBody').addClass('sensorJsonBody')));
+
+      $(form).append(tabs);
+
+      $(dataTab).append($('<div></div>')
                      .css('z-index', '9999')
                      .css('minWidth', '40vh')
                      .append($('<div></div>')
@@ -1765,9 +1785,47 @@ function titleClick(ctrlKey, key)
          width: "auto",
          title: "Info - " + key + ' (' + parseInt(key.split(":")[1]) + ')',
          buttons: btns,
+         open: function() {
+            if (sensor.hasjson) {
+               $('#sensorInfoTabs').tabs({
+                  activate: function(event, ui) {
+                     if (ui.newPanel.attr('id') == 'sensorInfoJson')
+                        socket.send({ "event" : "command", "object" : { "what" : 'sensorjson', "type": fact.type, "address": fact.address } });
+                  }
+               });
+
+               // the dialog is sized by its content ('auto'); keep the width of the data tab
+               // when switching to the (initially almost empty) JSON tab
+
+               $('#sensorInfoTabs').css('min-width', $('#sensorInfoTabs').width() + 'px');
+            }
+         },
          close: function() { $(this).dialog('destroy').remove();}
       });
    }
+}
+
+// event 'sensorjson' - the last raw message of a sensor (info dialog, tab JSON)
+
+function showSensorJson(obj)
+{
+   if (!$('#sensorInfoJson').length)
+      return;
+
+   let head = obj.json ? (obj.topic ? obj.topic + ' · ' : '') + new Date(obj.time * 1000).toLocaleString('de-DE') : 'keine Nachricht vorhanden';
+   let body = '';
+
+   if (obj.json) {
+      try {
+         body = JSON.stringify(JSON.parse(obj.json), null, 2);
+      }
+      catch (e) {
+         body = obj.json;      // not (valid) JSON - show as is
+      }
+   }
+
+   $('#sensorInfoJsonHead').text(head);
+   $('#sensorInfoJsonBody').text(body);
 }
 
 function updateDashboard(widgets, refresh)

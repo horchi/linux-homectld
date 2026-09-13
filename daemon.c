@@ -890,7 +890,7 @@ int Daemon::cfgOutput(myString type, uint pin, json_t* jCal)
    {
       if (sensors[type][pin].impulse)
       {
-         sensors[type][pin].valid = true;
+         sensors[type][pin].markValid();
          sensors[type][pin].state = sensors[type][pin].invert ? true : false;
       }
    }
@@ -1069,8 +1069,6 @@ int Daemon::initScripts()
       }
 
       sensors["SC"][addr].kind = kind;
-      sensors["SC"][addr].last = time(0) -1;
-      sensors["SC"][addr].valid = valid;
 
       if (jParameter)
       {
@@ -1081,19 +1079,15 @@ int Daemon::initScripts()
          free(p);
       }
 
-      if (sensors["SC"][addr].kind == "value" && sensors["SC"][addr].value != value)
-         sensors["SC"][addr].changedAt = time(0);
-      else if (sensors["SC"][addr].kind != "value")
-         sensors["SC"][addr].changedAt = time(0);  // #TODO?
-
-      if (kind == "status")
-         sensors["SC"][addr].state = (bool)value;
-      else if (kind == "trigger")
-         sensors["SC"][addr].state = (bool)value;
+      if (kind == "status" || kind == "trigger")
+         sensors["SC"][addr].setState((bool)value);
       else if (kind == "text")
-         sensors["SC"][addr].text = text;
-      else if (kind == "value")
-         sensors["SC"][addr].value = value;
+         sensors["SC"][addr].setText(text);
+      else
+         sensors["SC"][addr].setValue(value);
+
+      if (!valid)
+         sensors["SC"][addr].invalidate();    // the script may report invalid data
 
       auto tuple {split(name, '.')};
       addValueFact(addr, "SC", 1, !isEmpty(title) ? title : name.c_str(), unit, tuple[0].c_str(), urControl, choices, soNone, sensors["SC"][addr].parameter.c_str());
@@ -1245,22 +1239,6 @@ Daemon::SensorData* Daemon::getSensor(const char* type, int addr)
 
    return &itSensor->second;
 }
-
-//***************************************************************************
-// Set Special Value
-//***************************************************************************
-
-// void Daemon::setSpecialValue(uint addr, double value, const std::string& text)
-// {
-//    if (sensors["SP"][addr].value != value)
-//       sensors["SP"][addr].changedAt = time(0);
-
-//    sensors["SP"][addr].last = time(0) -1;
-//    sensors["SP"][addr].value = value;
-//    sensors["SP"][addr].text = text;
-//    sensors["SP"][addr].kind = text == "" ? "value" : "text";
-//    sensors["SP"][addr].valid = sensors["SP"][addr].kind == "text" ? true : !isNan(value);
-// }
 
 //***************************************************************************
 // Init/Exit Database
@@ -2428,11 +2406,11 @@ int Daemon::storeSamples()
    if (mqttHaInterfaceStyle == misSingleTopic)
        oHaJson = json_object();
 
-   for (const auto& typeSensorsIt : sensors)
+   for (auto& typeSensorsIt : sensors)
    {
-      for (const auto& sensorIt : typeSensorsIt.second)
+      for (auto& sensorIt : typeSensorsIt.second)
       {
-         const SensorData* sensor = &sensorIt.second;
+         SensorData* sensor = &sensorIt.second;
 
          if (!sensor->record || sensor->type == "WEA")
             continue;
@@ -2443,13 +2421,15 @@ int Daemon::storeSamples()
             continue;
 
          if (store(lastSampleTime, sensor) == success)
+         {
+            sensor->clearDirty();
             count++;
+         }
          else
             skipped++;
       }
    }
 
-   lastStore = time(0);
    connection->commit();
    tell(eloInfo, "Stored %d samples, skipped %d", count, skipped);
 
@@ -2483,17 +2463,17 @@ int Daemon::store(time_t now, const SensorData* sensor)
       return ignore;
    }
 
-   if (!sensor->last)
+   if (!sensor->last())
    {
       tell(eloDebug, "Debug: Missing data stamp of '%s:0x%02x' (%s), skipping store",
            sensor->type.c_str(), sensor->address, sensor->name.c_str());
       return ignore;
    }
 
-   if (sensor->last <= lastStore)
+   if (!sensor->dirty())
    {
-      tell(eloDebug, "Debug: No update for '%s:0x%02x' (%s) until last store, skipping store (%s / %s)",
-           sensor->type.c_str(), sensor->address, sensor->name.c_str(), l2pTime(sensor->last).c_str(), l2pTime(lastStore).c_str());
+      tell(eloDebug, "Debug: No new data for '%s:0x%02x' (%s) since the last store, skipping store (%s)",
+           sensor->type.c_str(), sensor->address, sensor->name.c_str(), l2pTime(sensor->last()).c_str());
       return ignore;
    }
 
@@ -2576,10 +2556,9 @@ int Daemon::process(bool force, bool signal)
       if (type != "DO" && !gpioOut)
          continue;
 
-      // output is 'pseude vaidated'
+      // output is 'pseudo validated' (stored every cycle)
 
-      sensors[type][address].last = time(0) -1;
-      sensors[type][address].valid = true;
+      sensors[type][address].touch();
 
       bool activate {false};
       bool hasRanges {false}; // 1. Flag hinzufügen, um zu tracken ob wir schalten dürfen
@@ -2686,7 +2665,7 @@ int Daemon::processLua(bool force, bool signal)
 
       tell(eloLua, "LUA: Processing '%s'", key);
 
-      if (!sensors[type][address].last)
+      if (!sensors[type][address].last())
          getConfigItem(key, sensors[type][address].value, 0);
 
       luaCurrentKey = key;
@@ -2702,11 +2681,11 @@ int Daemon::processLua(bool force, bool signal)
             if (!sensors.count(wType) || !sensors.at(wType).count(wAddr))
                continue;
 
-            if (sensors.at(wType).at(wAddr).changedAt > sensors[type][address].changedAt)
+            if (sensors.at(wType).at(wAddr).changedAt() > sensors[type][address].changedAt())
             {
                tell(eloLua, "LUA: '%s:0x%02x' (%s) changed later than '%s:0x%02lx' (%s)",
-                    wType.c_str(), wAddr, l2pTime(sensors.at(wType).at(wAddr).changedAt).c_str(),
-                    type.c_str(), address, l2pTime(sensors[type][address].changedAt).c_str());
+                    wType.c_str(), wAddr, l2pTime(sensors.at(wType).at(wAddr).changedAt()).c_str(),
+                    type.c_str(), address, l2pTime(sensors[type][address].changedAt()).c_str());
 
                update = true;
                break;
@@ -2736,29 +2715,25 @@ int Daemon::processLua(bool force, bool signal)
          continue;
       }
 
-      double oldValue {sensors[type][address].value};
-      std::string oldText {sensors[type][address].text};
-      bool oldState {sensors[type][address].state};
-
       if (res.type == Lua::tDouble)
       {
          tell(eloLua, "LUA '%s' result was double (%f)", key, res.dValue);
-         sensors[type][address].value = res.dValue;
+         sensors[type][address].setValue(res.dValue);
       }
       else if (res.type == Lua::tInteger)
       {
          tell(eloLua, "LUA '%s' result was integer (%d)", key, res.iValue);
-         sensors[type][address].value = res.iValue;
+         sensors[type][address].setValue(res.iValue);
       }
       else if (res.type == Lua::tBoolean)
       {
          tell(eloLua, "LUA '%s' result was bool (%s)", key, res.bValue ? "true" : "false");
-         sensors[type][address].state = res.bValue;
+         sensors[type][address].setState(res.bValue);
       }
       else if (res.type == Lua::tString)
       {
          tell(eloLua, "LUA '%s' result was text '%s'", key, res.sValue.c_str());
-         sensors[type][address].text = res.sValue;
+         sensors[type][address].setText(res.sValue);
       }
       else if (res.type == Lua::tNil)
       {
@@ -2766,16 +2741,13 @@ int Daemon::processLua(bool force, bool signal)
          continue;
       }
       else
+      {
          tell(eloAlways, "LUA: '%s' got unexpected type (%d)", key, res.type);
+         sensors[type][address].touch();
+      }
 
-      sensors[type][address].last = time(0) -1;
-
-      if (sensors[type][address].value != oldValue || sensors[type][address].text != oldText || sensors[type][address].state != oldState)
-         sensors[type][address].changedAt = time(0);
-
-      sensors[type][address].valid = true;
       setConfigItem(key, sensors[type][address].value, "I");
-      // tell(eloAlways, "Set value of %s:0x%lx to %f; last is %ld", type.c_str(), address, sensors[type][address].value, sensors[type][address].last);
+      // tell(eloAlways, "Set value of %s:0x%lx to %f; last is %ld", type.c_str(), address, sensors[type][address].value, sensors[type][address].last());
 
       // tell(eloLua, "LUA '%s' changed from %f to %f", key, oldValue, sensors[type][address].value);
 
@@ -3632,7 +3604,7 @@ int Daemon::updateWeather()
       return done;
 
    nextWeatherAt = time(0) + weatherInterval*tmeSecondsPerMinute;
-   sensors["WEA"][1].valid = false;
+   sensors["WEA"][1].invalidate();
 
    cCurl curl;
    curl.init();
@@ -3692,13 +3664,10 @@ int Daemon::updateWeather()
 
    addValueFact(1, "WEA", 1, "weather", "txt", "Wetter");
    sensors["WEA"][1].kind = "text";
-   sensors["WEA"][1].last = time(0);
-   sensors["WEA"][1].changedAt = time(0);
-   sensors["WEA"][1].valid = true;
 
    char* p {json_dumps(jWeather, JSON_REAL_PRECISION(4))};
    json_decref(jWeather);
-   sensors["WEA"][1].text = p;
+   sensors["WEA"][1].setText(p);
    free(p);
 
    {
@@ -3786,26 +3755,31 @@ int Daemon::dispatchDeconz()
       int sat {getIntFromJson(oData, "sat", 0)};
 
       if (getObjectFromJson(oData, "state"))
-         sensor->state = state;
+         sensor->setState(state);
       else if (getObjectFromJson(oData, "value"))
-         sensor->value = value;
+         sensor->setValue(value);
       else if (getObjectFromJson(oData, "btnevent"))
-         sensor->value = getIntFromJson(oData, "btnevent");
+         sensor->setValue(getIntFromJson(oData, "btnevent"));
       else if (getObjectFromJson(oData, "presence"))
-         sensor->state = getBoolFromJson(oData, "presence");
+         sensor->setState(getBoolFromJson(oData, "presence"));
 
       if (getObjectFromJson(oData, "bri"))
-         sensor->value = bri;
+         sensor->setValue(bri);
 
-      if (getObjectFromJson(oData, "hue"))
+      if (getObjectFromJson(oData, "hue") && sensor->hue != hue)
+      {
          sensor->hue = hue;
+         sensor->markChanged();
+      }
 
-      if (getObjectFromJson(oData, "sat"))
+      if (getObjectFromJson(oData, "sat") && sensor->sat != sat)
+      {
          sensor->sat = sat;
+         sensor->markChanged();
+      }
 
-      sensor->last = time(0) -1;
-      sensor->changedAt = time(0); // #TODO set only if changed
-      sensor->valid = true;
+      sensor->touch();                       // also for messages without one of the above
+      sensor->setLastJson("deconz", msg);
       sensor->battery = getIntFromJson(oData, "battery", na);
 
       // send update to WS
@@ -3915,10 +3889,7 @@ int Daemon::dispatchHomematicRpcResult(const char* message)
 
       addValueFact(address, "HMB", 1, uuid, "%", "", urControl);
       sensors["HMB"][address].lastDir = getIntFromJson(jItem, "DIRECTION") == 2 ? dirClose : dirOpen;
-      sensors["HMB"][address].value = 100;   // #TODO: request the actual value/postiton !
-      sensors["HMB"][address].last = time(0) -1;
-      sensors["HMB"][address].changedAt = time(0); // #TODO set only if changed
-      sensors["HMB"][address].valid = true;
+      sensors["HMB"][address].setValue(100);   // #TODO: request the actual value/position !
    }
 
    json_decref(jData);
@@ -3967,21 +3938,18 @@ int Daemon::dispatchHomematicEvents(const char* message)
    tell(eloDebug, "Debug: Got (home-matic) '%s' last value is %d", datapoint.c_str(), (int)sensors[type][address].value);
    selectHomeMaticByUuid->freeResult();
 
-   sensors[type][address].last = time(0) -1;
-   sensors[type][address].valid = true;
+   sensors[type][address].touch();
+   sensors[type][address].setLastJson("homematic/events", message);
 
    // for blinds:
    //  offen -> state true (on)
    //           100% (value 100)
 
-   bool oldState {sensors[type][address].state};
-   double oldValue {sensors[type][address].value};
-
    if (datapoint == "LEVEL")
    {
       value = getDoubleFromJson(jData, "val") * 100;     // to [%]
-      sensors[type][address].state = value == 100;        // on wenn ganz offen (offen entspricht=> 100%)
-      sensors[type][address].value = value;
+      sensors[type][address].setState(value == 100);     // on wenn ganz offen (offen entspricht=> 100%)
+      sensors[type][address].setValue(value);
    }
    else if (datapoint == "WORKING")
       sensors[type][address].working = getBoolFromJson(jData, "val");
@@ -3995,9 +3963,6 @@ int Daemon::dispatchHomematicEvents(const char* message)
       value = getDoubleFromJson(jData, "val") * 100;    // to [%]
       sensors[type][address].working = false;
    }
-
-   if (oldState != sensors[type][address].state || oldValue != sensors[type][address].value)
-      sensors[type][address].changedAt = time(0);
 
    {
       json_t* ojData {json_object()};
@@ -4107,13 +4072,9 @@ int Daemon::dispatchGrowattEvents(const char* message)
          json_t* jValue  = getObjectFromJson(jObj, "val");
          double value = json_is_integer(jValue) ? json_integer_value(jValue) : json_real_value(jValue);
 
-         if (sensors[type][address].value != value)
-            sensors[type][address].changedAt = time(0);
-
          sensors[type][address].kind = "value";
-         sensors[type][address].value = value;
-         sensors[type][address].last = time(0) -1;
-         sensors[type][address].valid = true;
+         sensors[type][address].setValue(value);
+         sensors[type][address].setLastJson("growatt/solar", message);
 
          if (address == 51)                     // Laufzeit in Sekunden
          {
@@ -4125,7 +4086,7 @@ int Daemon::dispatchGrowattEvents(const char* message)
          if (!text.empty())
          {
             sensors[type][address].kind = "text";
-            sensors[type][address].text = text;
+            sensors[type][address].setText(text);
          }
 
          // tell(eloAlways, "update samples set address = %s where address = %d and type = 'GROWATT'", key, address);
@@ -4195,13 +4156,9 @@ int Daemon::dispatchRtl433(const char* message)
 
    addValueFact(address, type, 1, title, unit, title);
 
-   if (sensors[type][address].value != value)
-      sensors[type][address].changedAt = time(0);
-
-   sensors[type][address].valid = true;
    sensors[type][address].kind = kind;
-   sensors[type][address].value = value;
-   sensors[type][address].last = time(0) -1;
+   sensors[type][address].setValue(value);
+   sensors[type][address].setLastJson("rtl_433", message);
 
    // send update to WS
    {
@@ -4548,13 +4505,16 @@ int Daemon::dispatchOther(const char* topic, const char* message)
       return done;
    }
 
-   sensors[type][address].last = newTime -1;
-   sensors[type][address].valid = valid;
+   sensors[type][address].setLastJson(topic, message, newTime);
 
-   // ignore invalid data - don't publish
+   // ignore invalid data - don't publish and don't store
 
    if (!valid)
+   {
+      sensors[type][address].invalidate(newTime);
+      json_decref(jData);
       return done;
+   }
 
    sensors[type][address].battery = getIntFromJson(jData, "battery", na);
    sensors[type][address].kind = getStringFromJson(jData, "kind", "value");
@@ -4582,42 +4542,25 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
    if (sensors[type][address].kind == "value")
    {
-      if (sensors[type][address].value != getDoubleFromJson(jData, "value"))
-      {
-         // tell(eloAlways, "DEBUG: Change double from '%f' to '%f'", sensors[type][address].value, getDoubleFromJson(jData, "value"));
-         sensors[type][address].value = getDoubleFromJson(jData, "value");
-         sensors[type][address].changedAt = newTime;
-         changed = true;
-      }
+      changed = sensors[type][address].setValue(getDoubleFromJson(jData, "value"), newTime);
    }
    else if (sensors[type][address].kind == "status")
    {
       bool state {getBoolFromJson(jData, "state")};
-      bool oldState {sensors[type][address].state};
 
-      sensors[type][address].state = sensors[type][address].invert ? !state : state;
-      sensors[type][address].text = getStringFromJson(jData, "text", "");
-      // tell(eloAlways, "State of '%s:%d' is %d; invert %d", type.c_str(), address, sensors[type][address].state, sensors[type][address].invert);
+      changed = sensors[type][address].setState(sensors[type][address].invert ? !state : state, newTime);
+      sensors[type][address].setText(getStringFromJson(jData, "text", ""), newTime);
 
-      if (oldState != sensors[type][address].state && sensors[type][address].outputModes & ooUser)
-      {
+      if (changed && sensors[type][address].outputModes & ooUser)
          storeIoState(type.c_str(), address);
-         sensors[type][address].changedAt = newTime;
-         changed = true;
-      }
    }
    else if (sensors[type][address].kind == "text")
    {
-      if (sensors[type][address].text != getStringFromJson(jData, "text", "-"))
-      {
-         sensors[type][address].text = getStringFromJson(jData, "text", "");
-         sensors[type][address].changedAt = newTime;
-         changed = true;
-      }
+      changed = sensors[type][address].setText(getStringFromJson(jData, "text", ""), newTime);
    }
    else // ??
    {
-      sensors[type][address].changedAt = newTime;
+      sensors[type][address].markChanged(newTime);
       changed = true;
    }
 
@@ -4643,12 +4586,7 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
             if (feedbackInType.starts_with("MCPI") && s.second.feedbackInAddress == (uint)address)
             {
-               if (sensors[_type][s.first].state != sensors[type][address].state)
-                  sensors[_type][s.first].changedAt = time(0);
-
-               sensors[_type][s.first].state = sensors[type][address].state;
-               sensors[_type][s.first].last = time(0) -1;
-               sensors[_type][s.first].valid = true;
+               sensors[_type][s.first].setState(sensors[type][address].state);
                publishPin(_type.c_str(), s.first);
             }
          }
@@ -5189,7 +5127,7 @@ void Daemon::pin2Json(json_t* ojData, const char* type, uint pin)
 {
    json_object_set_new(ojData, "address", json_integer(pin));
    json_object_set_new(ojData, "type", json_string(type));
-   json_object_set_new(ojData, "valid", json_boolean(sensors[type][pin].valid));
+   json_object_set_new(ojData, "valid", json_boolean(sensors[type][pin].valid()));
    json_object_set_new(ojData, "mode", json_string(sensors[type][pin].mode == omManual ? "manual" : "auto"));
 
    // pin state -> value
@@ -5254,10 +5192,6 @@ void Daemon::gpioWrite(uint pin, bool state, bool saveIoState)
 
    // <--
 
-   bool oldState {sensors[type][pin].state};
-   sensors[type][pin].last = time(0) -1;
-   sensors[type][pin].valid = true;
-
    if (sensors[type][pin].impulse)
    {
       tell(eloDebug, "Debug: Trigger impulse for %s:0x%02x", type.c_str(), pin);
@@ -5265,13 +5199,13 @@ void Daemon::gpioWrite(uint pin, bool state, bool saveIoState)
       usleep(50000); // 50 ms
       gpio->digitalWrite(pin, true);
 
-      sensors[type][pin].state = true;
+      sensors[type][pin].setState(true);
    }
    else
    {
       // invert the state on 'invert' - most relay board are active at 'false'
 
-      sensors[type][pin].state = state;
+      sensors[type][pin].setState(state);
       bool invState {sensors[type][pin].invert ? !state : state};
 
       tell(eloDebugGpio, "Debug: GPIO: calling digitalWrite(%s:0x%x, %d), invert was %s",
@@ -5279,9 +5213,6 @@ void Daemon::gpioWrite(uint pin, bool state, bool saveIoState)
 
       gpio->digitalWrite(pin, invState);
    }
-
-   if (sensors[type][pin].state != oldState || !sensors[type][pin].changedAt)
-      sensors[type][pin].changedAt = time(0);
 
    if (saveIoState)
       storeIoState(type.c_str(), pin);
@@ -5326,20 +5257,12 @@ bool Daemon::gpioRead(uint pin, bool check)
 
    // tell(eloAlways, "Pin %d %d / %d", pin, sensors[type][pin].state, state);
 
-   sensors[type][pin].last = time(0) -1;
-   sensors[type][pin].valid = true;
+   sensors[type][pin].touch();
 
    if (check && sensors[type][pin].state == state)
       return state;
 
-   if (sensors[type][pin].state != state)
-   {
-      sensors[type][pin].last = time(0) -1;
-      sensors[type][pin].changedAt = time(0);
-      changed = true;
-   }
-
-   sensors[type][pin].state = state;
+   changed = sensors[type][pin].setState(state);
 
    // check 'linked' output(s)
 
@@ -5356,13 +5279,7 @@ bool Daemon::gpioRead(uint pin, bool check)
       {
          if (s.second.feedbackInType == type && s.second.feedbackInAddress == pin)
          {
-            sensors[_type][s.first].last = time(0) -1;
-
-            if (sensors[_type][s.first].state != state)
-               sensors[_type][s.first].changedAt = time(0);
-
-            sensors[_type][s.first].state = state;
-            sensors[_type][s.first].valid = true;
+            sensors[_type][s.first].setState(state);
             publishPin(_type.c_str(), s.first);
          }
       }
@@ -5575,7 +5492,7 @@ int Daemon::storeIoState(const char* type, uint address)
    tableIoStates->setValue("TYPE", type);
    tableIoStates->setValue("ADDRESS", (int)address);
 
-   tableIoStates->setValue("TIME", sensors[type][address].changedAt);
+   tableIoStates->setValue("TIME", sensors[type][address].changedAt());
    tableIoStates->setValue("STATE", sensors[type][address].state);
    tableIoStates->setValue("VALUE", sensors[type][address].value);
    tableIoStates->setValue("TEXT", sensors[type][address].text.c_str());
@@ -5621,7 +5538,7 @@ int Daemon::loadIoStates()
       tell(eloDebug2, "Debug2: Recover IO state of '%s:0x%x' to '%s', mode to (%ld)",
            type.c_str(), address, state ? "true" : "false", tableIoStates->getIntValue("MODE"));
 
-      sensors[type][address].changedAt = tableIoStates->getTimeValue("TIME");
+      sensors[type][address].restoreChangedAt(tableIoStates->getTimeValue("TIME"));
       sensors[type][address].value = tableIoStates->getIntValue("VALUE");
       sensors[type][address].text = tableIoStates->getStrValue("TEXT");
       sensors[type][address].state = state;
@@ -5663,17 +5580,14 @@ int Daemon::loadIoStates()
       if (!selectSensorMaxTime->find())
          continue;
 
-      sensors[type][address].last = tableSamples->getTimeValue("TIME");
-      tell(eloAlways, "Debug: Init 'last' of '%s:0x%02lx' to '%s'", type, address, l2pTime(sensors[type][address].last).c_str());
+      sensors[type][address].restoreLast(tableSamples->getTimeValue("TIME"));
+      tell(eloAlways, "Debug: Init 'last' of '%s:0x%02lx' to '%s'", type, address, l2pTime(sensors[type][address].last()).c_str());
    }
 
    selectAllValueFacts->freeResult();
 
-   // the values are still unknown (0) - don't store a sensor until it got a
-   // new value after the start, otherwise the first store() writes 0 for all
-   // sensors which haven't reported yet (which also poisons the peaks)
-
-   lastStore = time(0);
+   // nothing is 'dirty' at start - store() writes a sensor only after it got
+   // new data (before: the first store wrote 0 for all sensors not reported yet)
 
    return done;
 }
@@ -5732,6 +5646,10 @@ int Daemon::dispatchArduinoMsg(const char* message)
 
          addValueFact(addr, type, 1, title.c_str(), unit.c_str());
          changed |= updateAnalogInput(addr, type, value, stamp, unit.c_str());
+
+         char* raw {json_dumps(jValue, JSON_COMPACT)};
+         sensors[type][addr].setLastJson("arduino/out", raw, stamp);
+         free(raw);
       }
 
       if (changed)
@@ -5820,23 +5738,15 @@ bool Daemon::updateAnalogInput(uint addr, const char* type, double value, time_t
    if (dValue < aiSensorConfig[type][addr].cutBelow)
       dValue = 0.0;
 
-   bool changed {false};
+   bool changed {sensors[type][addr].setValue(dValue, stamp)};
 
-   if (sensors[type][addr].value != dValue)
-   {
-      tell(eloDebug, "Debug: %s:0x%02x canged from %f to %f", type, addr, sensors[type][addr].value, dValue);
-      sensors[type][addr].changedAt = stamp;
-      changed = true;
-   }
-
-   sensors[type][addr].value = dValue;
-   sensors[type][addr].last = stamp -1;
-   sensors[type][addr].valid = true;
+   if (changed)
+      tell(eloDebug, "Debug: %s:0x%02x changed to %f", type, addr, dValue);
 
    tell(eloDebug, "Debug: Input A%d (%s:0x%02x): %.3f%s [%.2f] from '%s'", addr,
         sensors[type][addr].type.c_str(), sensors[type][addr].address,
         sensors[type][addr].value, sensors[type][addr].unit.c_str(),
-        value, l2pTime(sensors[type][addr].last).c_str());
+        value, l2pTime(sensors[type][addr].last()).c_str());
 
    // ----------------------------------
 
@@ -5882,6 +5792,10 @@ int Daemon::dispatchW1Msg(const char* message)
       time_t stamp {getIntFromJson(jValue, "time")};
 
       changed |= updateW1(name, value, stamp);
+
+      char* raw {json_dumps(jValue, JSON_COMPACT)};
+      sensors["W1"][toW1Id(name)].setLastJson("w1", raw, stamp ? stamp : time(0));
+      free(raw);
    }
 
    json_decref(jArray);
@@ -5920,14 +5834,7 @@ bool Daemon::updateW1(const char* id, double value, time_t stamp)
       return false;
    }
 
-   bool changed {sensors["W1"][address].value != value};
-
-   sensors["W1"][address].value = value;
-   sensors["W1"][address].valid = true;
-   sensors["W1"][address].last = stamp -1;
-
-   if (changed)
-      sensors["W1"][address].changedAt = stamp;
+   bool changed {sensors["W1"][address].setValue(value, stamp)};
 
    json_t* ojData {json_object()};
 
@@ -5958,10 +5865,10 @@ void Daemon::cleanupW1()
 
    for (auto& it : sensors["W1"])
    {
-      if (it.second.valid && it.second.last < time(0) - 5*tmeSecondsPerMinute)
+      if (it.second.valid() && it.second.last() < time(0) - 5*tmeSecondsPerMinute)
       {
          tell(eloAlways, "Info: Missing w1 sensor '%x', removing it from list", it.first);
-         it.second.valid = false;
+         it.second.invalidate();
          detached++;
       }
    }
@@ -5982,7 +5889,7 @@ double Daemon::valueOfW1(uint address, time_t& last)
    if (it == sensors["W1"].end())
       return 0;
 
-   last = sensors["W1"][address].last;
+   last = sensors["W1"][address].last();
 
    return sensors["W1"][address].value;
 }

@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.16"
-#define VERSION_DATE "12.09.2026"
+#define _VERSION     "0.1.17"
+#define VERSION_DATE "13.09.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,14 @@
 
 /*
  * ------------------------------------
+
+2026-09-13: version 0.1.17
+    - change: SensorData got setters (setValue/setState/setText/touch) which maintain
+              last, changedAt, valid and a 'dirty' flag; store() writes a sensor only with
+              new data (dirty) instead of comparing time stamps (the 'time(0) - 1' hack is gone);
+              last, changedAt, valid and dirty are private now (getters, named mutators)
+    - added: The last raw message (JSON) of a sensor is kept and shown in the widget info
+             dialog on a second tab 'JSON' (MQTT, Deconz, Arduino, W1, ...)
 
 2026-09-12: version 0.1.16
     - added:  Garmin Connect activities fetched on demand via

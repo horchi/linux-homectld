@@ -362,15 +362,15 @@ int HomeCtl::applyConfigurationSpecials()
 
 //    if (sensors["DO"][pinShower].state && sensors["DO"][pinShower].mode == omAuto)
 //    {
-//       if (sensors["DO"][pinShower].last < time(0) - showerDuration)
+//       if (sensors["DO"][pinShower].last() < time(0) - showerDuration)
 //       {
-//          tell(eloDebug, "Shower of after %ld seconds", time(0)-sensors["DO"][pinShower].last);
+//          tell(eloDebug, "Shower of after %ld seconds", time(0)-sensors["DO"][pinShower].last());
 //          // sensors["DO"][pinShower].next = 0;
 //          gpioWrite(pinShower, false, true);
 //       }
 //       else
 //       {
-//          // sensors["DO"][pinShower].next = sensors["DO"][pinShower].last + showerDuration;
+//          // sensors["DO"][pinShower].next = sensors["DO"][pinShower].last() + showerDuration;
 //       }
 //    }
 // #endif
@@ -401,7 +401,7 @@ int HomeCtl::process(bool force, bool signal)
    // -----------
    // PH
 
-   // if (!isNan(sensors["AI"][aiPh].value) && sensors["AI"][aiPh].last > time(0)-120) // not older than 2 minutes
+   // if (!isNan(sensors["AI"][aiPh].value) && sensors["AI"][aiPh].last() > time(0)-120) // not older than 2 minutes
    // {
    //    setSpecialValue(spPhMinusDemand, calcPhMinusVolume(sensors["AI"][aiPh].value));
    //    publishSpecialValue(spPhMinusDemand);
@@ -568,7 +568,7 @@ int HomeCtl::process(bool force, bool signal)
 
 // void HomeCtl::phMeasurementActive()
 // {
-//    if (sensors["DO"][pinFilterPump].state && sensors["DO"][pinFilterPump].last < time(0)-minPumpTimeForPh)
+//    if (sensors["DO"][pinFilterPump].state && sensors["DO"][pinFilterPump].last() < time(0)-minPumpTimeForPh)
 //    {
 //       sensors["AI"][aiPh].disabled = false;
 //       sensors["SP"][spPhMinusDemand].disabled = false;

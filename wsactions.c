@@ -2738,6 +2738,26 @@ int Daemon::performCommand(json_t* obj, long client)
    }
    else if (what == "testmail")
       performTestMail(obj, client);
+   else if (what == "sensorjson")
+   {
+      // the last raw message (JSON) a sensor got its value from - for the info dialog
+
+      const char* type {getStringFromJson(obj, "type", "")};
+      uint address {(uint)getIntFromJson(obj, "address", 0)};
+      json_t* oJson {json_object()};
+
+      json_object_set_new(oJson, "type", json_string(type));
+      json_object_set_new(oJson, "address", json_integer(address));
+
+      if (sensors.count(type) && sensors[type].count(address))
+      {
+         json_object_set_new(oJson, "topic", json_string(sensors[type][address].lastTopic.c_str()));
+         json_object_set_new(oJson, "time", json_integer(sensors[type][address].lastJsonAt));
+         json_object_set_new(oJson, "json", json_string(sensors[type][address].lastJson.c_str()));
+      }
+
+      return pushOutMessage(oJson, "sensorjson", client);
+   }
    else
       return fail;
 
@@ -2788,8 +2808,9 @@ int Daemon::sensor2Json(json_t* obj, const char* type, uint address)
    json_object_set_new(obj, "address", json_integer(address));
    json_object_set_new(obj, "type", json_string(type));
    json_object_set_new(obj, "working", json_boolean(sensors[type][address].working));
-   json_object_set_new(obj, "last", json_integer(sensors[type][address].last));
-   json_object_set_new(obj, "changedAt", json_integer(sensors[type][address].changedAt));
+   json_object_set_new(obj, "last", json_integer(sensors[type][address].last()));
+   json_object_set_new(obj, "changedAt", json_integer(sensors[type][address].changedAt()));
+   json_object_set_new(obj, "hasjson", json_boolean(!sensors[type][address].lastJson.empty()));
 
    // optional peak
 
@@ -2821,11 +2842,14 @@ int Daemon::sensor2Json(json_t* obj, const char* type, uint address)
    else if (strcmp(type, "DZS") == 0 || strncmp(type, "DZL", 3) == 0)
       ;
    else if (strncmp(type, "P4", 2) == 0)
-      sensors[type][address].valid = sensors[type][address].last >= time(0) - 10*tmeSecondsPerMinute;
-   else if (sensors[type][address].last < time(0)-2 * tmeSecondsPerMinute)
-      sensors[type][address].valid = false;
+   {
+      if (sensors[type][address].last() < time(0) - 10*tmeSecondsPerMinute)
+         sensors[type][address].invalidate();
+   }
+   else if (sensors[type][address].last() < time(0)-2 * tmeSecondsPerMinute)
+      sensors[type][address].invalidate();
 
-   json_object_set_new(obj, "valid", json_boolean(sensors[type][address].valid));
+   json_object_set_new(obj, "valid", json_boolean(sensors[type][address].valid()));
 
    if (!sensors[type][address].color.empty())
       json_object_set_new(obj, "color", json_string(sensors[type][address].color.c_str()));

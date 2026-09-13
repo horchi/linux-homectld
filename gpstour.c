@@ -422,7 +422,7 @@ int Daemon::gpsTourStorePoint(time_t now, const GpsCoordinate& c, double distanc
       {
          auto itSensor {itGps->second.find(address)};
 
-         if (itSensor == itGps->second.end() || !itSensor->second.active || !itSensor->second.valid || isNan(itSensor->second.value))
+         if (itSensor == itGps->second.end() || !itSensor->second.active || !itSensor->second.valid() || isNan(itSensor->second.value))
             continue;
 
          tableSamples->clear();

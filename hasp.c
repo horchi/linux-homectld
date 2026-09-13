@@ -1475,7 +1475,7 @@ int Daemon::haspPublishAllValues()
 
       const SensorData& sensor {sensors[tuple[0]][address]};
 
-      if (!sensor.valid && !sensor.last && sensor.kind != "status")
+      if (!sensor.valid() && !sensor.last() && sensor.kind != "status")
          continue;                              // never got a value yet
 
       haspPublishSensor(sensor);

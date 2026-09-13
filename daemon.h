@@ -98,15 +98,87 @@ class Daemon : public cWebInterface, public Service
          bool state {false};
          std::string text;
 
-         time_t last {0};                  // last info about value/state/..
-         time_t changedAt {0};             // last change of value/state/..
          uint64_t lastInterruptMs {0};
+
+         std::string lastJson;             // the last raw message (JSON) the value came from, if any
+         std::string lastTopic;            //   .. and its (MQTT) topic
+         time_t lastJsonAt {0};
+
+         // time stamps and flags are private (below) - they are maintained by the setters,
+         // the way values should enter: last, valid, dirty and changedAt (on a change, or
+         // if never set); the setters return true when the value changed
+
+         bool setValue(double v, time_t now = time(0))
+         {
+            bool changed {value != v || !changedAt_};
+            if (changed) changedAt_ = now;
+            value = v;
+            touch(now);
+            return changed;
+         }
+
+         bool setState(bool s, time_t now = time(0))
+         {
+            bool changed {state != s || !changedAt_};
+            if (changed) changedAt_ = now;
+            state = s;
+            touch(now);
+            return changed;
+         }
+
+         bool setText(const std::string& t, time_t now = time(0))
+         {
+            bool changed {text != t || !changedAt_};
+            if (changed) changedAt_ = now;
+            text = t;
+            touch(now);
+            return changed;
+         }
+
+         void touch(time_t now = time(0))    // new (possibly unchanged) data: valid and to be stored
+         {
+            last_ = now;
+            valid_ = true;
+            dirty_ = true;
+         }
+
+         void markChanged(time_t now = time(0))   // changed without a value (e.g. color, unknown kind)
+         {
+            changedAt_ = now;
+            touch(now);
+         }
+
+         void markValid()                          { valid_ = true; }                  // e.g. outputs at init
+         void invalidate(time_t now = 0)           { valid_ = false; if (now) last_ = now; }
+         void restoreLast(time_t t)                { last_ = t; }                      // from the DB at start
+         void restoreChangedAt(time_t t)           { changedAt_ = t; }                 // from the DB at start
+         void clearDirty()                         { dirty_ = false; }                 // after store()
+
+         time_t last() const                       { return last_; }                   // last data of value/state/..
+         time_t changedAt() const                  { return changedAt_; }              // last change of value/state/..
+         bool valid() const                        { return valid_; }                  // value, text or state is valid
+         bool dirty() const                        { return dirty_; }                  // new data since the last store()
+
+         void setLastJson(const char* topic, const char* json, time_t now = time(0))
+         {
+            lastTopic = topic ? topic : "";
+            lastJson = json ? json : "";
+            lastJsonAt = now;
+         }
+
+        private:
+
+         time_t last_ {0};
+         time_t changedAt_ {0};
+         bool valid_ {false};
+         bool dirty_ {false};
+
+        public:
 
          bool working {false};             // actually working/moving (eg for blinds or script running)
          Direction lastDir {dirOpen};
          std::string image;
          bool disabled {false};
-         bool valid {false};               // set if the value, text or state is valid
          int battery {na};
          std::string color;
          int hue {0};                      // 0-360° hue
@@ -697,7 +769,6 @@ class Daemon : public cWebInterface, public Service
       std::string windyAppSpotID;
       std::string windyAppID;
       int weatherInterval {15};           // minutes
-      time_t lastStore {0};
       int arduinoInterval {10};
       std::string arduinoTopic;
 

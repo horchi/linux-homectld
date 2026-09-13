@@ -13,8 +13,10 @@
 #include <string.h>
 
 #include "specific.h"
+#include "HISTORY.h"
 
 char* confDir = (char*)confDirDefault;
+const char* daemonVersion {VERSION};
 
 // defaults
 

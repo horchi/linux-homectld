@@ -325,7 +325,7 @@ function gpsBuildControlPanel()
       $("#controlContainer")
          .append($('<div></div>')
                  .addClass('labelB1')
-                 .html('Punkt ab ' + gpsTours.minDistance + ' m Bewegung<br/>Pause nach ' + gpsTours.pauseAfter + ' min Stillstand<br/>(Konfiguration -> GPS)'))
+                 .html('Punkt ab ' + gpsTours.minDistance + ' m Bewegung<br/>Pause nach ' + gpsTours.pauseAfter + ' min Stillstand<br/>Ankunft innerhalb ' + (gpsTours.endTolerance || 200) + ' m<br/>(Konfiguration -> GPS)'))
          .append($('<div></div>')
                  .addClass('button-group-spacing'));
    }
@@ -544,8 +544,8 @@ function processGpsTourPoints(tour)
 function gpsToggleRecording()
 {
    if (gpsTours && gpsTours.active) {
-      if (confirm("Aufzeichnung der Tour '" + gpsTours.active.name + "' beenden?"))
-         socket.send({ "event" : "gpstour", "object" : { "action" : "stop" } });
+      // ask the daemon for the end proposal first (arrival at the final position) -> gpsStopDialog()
+      socket.send({ "event" : "gpstour", "object" : { "action" : "stopinfo" } });
       return;
    }
 
@@ -554,6 +554,42 @@ function gpsToggleRecording()
 
    gpsNameDialog('Tour aufzeichnen', defaultName, 'Starten', function(name) {
       socket.send({ "event" : "gpstour", "object" : { "action" : "start", "name" : name } });
+   });
+}
+
+// event 'gpstourstopinfo': stop the tour now or at the arrival at the final position
+
+function gpsStopDialog(info)
+{
+   let hasArrival = info.arrival != null && info.now - info.arrival > 60;
+   let stillFor = hasArrival ? gpsFmtDuration(info.now - info.arrival) : '';
+
+   let form = '<div class="dialog-content gpsStopDialog">' +
+       ' <div>Aufzeichnung der Tour <b>' + gpsEscape(info.name) + '</b> beenden.</div>' +
+       ' <div class="labelB1">Ende der Tour</div>' +
+       ' <div><label><input type="radio" name="gpsStopMode" value="now"' + (hasArrival ? '' : ' checked') + '> jetzt (' + gpsFmtTime(info.now) + ')</label></div>';
+
+   if (hasArrival)
+      form += ' <div><label><input type="radio" name="gpsStopMode" value="arrival" checked> Ankunft ' + gpsFmtTime(info.arrival) +
+              ' <span class="actSyncHint">(seit ' + stillFor + ' innerhalb von ' + info.tolerance + ' m um die Endposition)</span></label></div>';
+   else
+      form += ' <div class="actSyncHint">Keine Ankunft erkannt, die Position hat sich zuletzt um mehr als ' + info.tolerance + ' m bewegt.</div>';
+
+   form += '</div>';
+
+   $(form).dialog({
+      modal: true,
+      width: 'auto',
+      title: 'Tour beenden',
+      buttons: {
+         'Abbrechen': function() { $(this).dialog('close'); },
+         'Beenden': function() {
+            let mode = $('input[name=gpsStopMode]:checked').val();
+            $(this).dialog('close');
+            socket.send({ "event" : "gpstour", "object" : { "action" : "stop", "stop" : mode == 'arrival' ? info.arrival : 0 } });
+         }
+      },
+      close: function() { $(this).dialog('destroy').remove(); }
    });
 }
 

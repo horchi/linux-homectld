@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.17"
+#define _VERSION     "0.1.18"
 #define VERSION_DATE "13.09.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,14 @@
 
 /*
  * ------------------------------------
+
+2026-09-13: version 0.1.18
+    - added: Garmin table shows two dots per activity: details / track already loaded
+    - added: GPS tour stop asks for the end: now or the arrival at the final position
+             (config 'Tour: Toleranz Ankunft', default 200 m)
+    - change: build: HISTORY.h is included by main.c only (a version bump rebuilds main.o instead
+              of everything), dependency rules keep the lib/ paths (header changes there rebuild
+              the objects now), -pipe, compile echo shows the directory
 
 2026-09-13: version 0.1.17
     - change: SensorData got setters (setValue/setState/setText/touch) which maintain

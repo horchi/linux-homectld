@@ -245,16 +245,73 @@ int Daemon::gpsTourStart(const char* name)
    return success;
 }
 
-int Daemon::gpsTourStop()
+// proposal for the end of the active tour: the time the position arrived within
+// 'gpsTourEndTolerance' meters of the final position and stayed there (e.g. waiting at
+// the reception of the camp site or a forgotten stop). fail -> no proposal (still moving,
+// or not enough points)
+
+int Daemon::gpsTourArrival(time_t& arrival, double& toleranceUsed)
+{
+   if (!gpsTour.id)
+      return fail;
+
+   struct Point { time_t time; GpsCoordinate c; };
+   std::vector<Point> points;
+
+   tableSamples->clear();
+   tableSamples->setValue("ADDRESS", (long)gpsCoordinateAddress);
+   tableSamples->setValue("TYPE", "GPS");
+   tableSamples->setValue("AGGREGATE", gpsTourAggregate);
+   gpsTourFrom.setValue((long)gpsTour.start);
+   gpsTourTo.setValue((long)time(0));
+
+   for (int f = selectGpsTourSamples->find(); f; f = selectGpsTourSamples->fetch())
+   {
+      GpsCoordinate c;
+
+      if (parseGpsText(tableSamples->getStrValue("TEXT"), c))
+         points.push_back({tableSamples->getTimeValue("TIME"), c});
+   }
+
+   selectGpsTourSamples->freeResult();
+   tableSamples->reset();
+
+   if (points.size() < 2)
+      return fail;
+
+   toleranceUsed = gpsTourEndTolerance;
+
+   // walk back from the final position while the points stay within the tolerance
+
+   const GpsCoordinate& end {points.back().c};
+   size_t i {points.size() - 1};
+
+   while (i > 0 && gpsDistance(points[i-1].c, end) <= toleranceUsed)
+      i--;
+
+   if (i == 0)
+      return fail;                  // the whole tour is within the tolerance - nothing to propose
+
+   arrival = points[i].time;       // first point of the trailing cluster around the final position
+
+   return success;
+}
+
+int Daemon::gpsTourStop(time_t stopAt)
 {
    if (!gpsTour.id)
       return fail;
 
    time_t now {time(0)};
 
+   if (stopAt <= gpsTour.start || stopAt > now)
+      stopAt = now;
+
    if (gpsTour.paused)
    {
-      gpsTour.pauseTime += now - gpsTour.pausedAt;
+      if (stopAt > gpsTour.pausedAt)
+         gpsTour.pauseTime += stopAt - gpsTour.pausedAt;
+
       gpsTour.paused = false;
    }
 
@@ -263,7 +320,7 @@ int Daemon::gpsTourStop()
 
    if (tableGpsTours->find())
    {
-      tableGpsTours->setValue("STOP", (long)now);
+      tableGpsTours->setValue("STOP", (long)stopAt);
       tableGpsTours->setValue("DISTANCE", gpsTour.distance);
       tableGpsTours->setValue("POINTS", gpsTour.points);
       tableGpsTours->setValue("PAUSETIME", gpsTour.pauseTime);
@@ -272,8 +329,8 @@ int Daemon::gpsTourStop()
 
    tableGpsTours->reset();
 
-   tell(eloAlways, "GPS: Stopped tour %ld '%s' (%ld points, %.1f km, %ld min paused)", gpsTour.id, gpsTour.name.c_str(),
-        gpsTour.points, gpsTour.distance / 1000.0, gpsTour.pauseTime / 60);
+   tell(eloAlways, "GPS: Stopped tour %ld '%s' at %s (%ld points, %.1f km, %ld min paused)", gpsTour.id, gpsTour.name.c_str(),
+        l2pTime(stopAt).c_str(), gpsTour.points, gpsTour.distance / 1000.0, gpsTour.pauseTime / 60);
 
    gpsTour = GpsTour();
    gpsTourSetRecordFlag(false);
@@ -508,6 +565,7 @@ int Daemon::gpsTours2Json(json_t* obj)
 {
    json_object_set_new(obj, "minDistance", json_integer(gpsTourMinDistance));
    json_object_set_new(obj, "pauseAfter", json_integer(gpsTourPauseAfter));
+   json_object_set_new(obj, "endTolerance", json_integer(gpsTourEndTolerance));
 
    if (gpsTour.id)
    {
@@ -669,9 +727,30 @@ int Daemon::performGpsTour(json_t* obj, long client)
       return replyResult(fail, status == ignore ? "GPS Sensor (GPS:0x0a 'Coordinate') ist nicht aktiv" : "Es ist bereits eine Tour aktiv", client);
    }
 
+   if (action == "stopinfo")
+   {
+      // the WEBIF asks before stopping: now or the arrival at the final position?
+
+      if (!gpsTour.id)
+         return replyResult(fail, "Keine Tour aktiv", client);
+
+      json_t* oJson {json_object()};
+      time_t arrival {0};
+      double tolerance {(double)gpsTourEndTolerance};
+      bool hasArrival {gpsTourArrival(arrival, tolerance) == success};
+
+      json_object_set_new(oJson, "id", json_integer(gpsTour.id));
+      json_object_set_new(oJson, "name", json_string(gpsTour.name.c_str()));
+      json_object_set_new(oJson, "now", json_integer(time(0)));
+      json_object_set_new(oJson, "arrival", hasArrival ? json_integer(arrival) : json_null());
+      json_object_set_new(oJson, "tolerance", json_integer((long)tolerance));
+
+      return pushOutMessage(oJson, "gpstourstopinfo", client);
+   }
+
    if (action == "stop")
    {
-      if (gpsTourStop() == success)
+      if (gpsTourStop(getLongFromJson(obj, "stop", 0)) == success)
          return replyResult(success, "Tour Aufzeichnung beendet", client);
 
       return replyResult(fail, "Keine Tour aktiv", client);

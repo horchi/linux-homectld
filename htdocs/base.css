@@ -3100,6 +3100,26 @@ iPhones
     cursor: pointer;
 }
 
+/* cache flags: two dots (details / track), not higher than a single line */
+
+.actTable td.actFlags {
+    padding: 0px 2px 0px 6px;
+    vertical-align: middle;
+}
+
+.actDot {
+    display: block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #666;
+    margin: 2px 0px;
+}
+
+.actDot.on {
+    background-color: #3cb043;
+}
+
 .actRow:hover {
     background-color: #ffffff14;
 }
@@ -3249,4 +3269,8 @@ iPhones
     margin: 0px;
     padding: 6px;
     background: #00000060;
+}
+
+.gpsStopDialog div {
+    margin: 6px 0px;
 }

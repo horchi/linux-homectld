@@ -1763,6 +1763,16 @@ int Daemon::initDb()
 
    status += selectActivities->prepare();
 
+   // the activities with a stored track (cache flag in the list)
+
+   selectActivityTrackIds = new cDbStatement(tableActivityTracks);
+
+   selectActivityTrackIds->build("select ");
+   selectActivityTrackIds->bind("GARMINID", cDBS::bndOut);
+   selectActivityTrackIds->build(" from %s where track is not null and track <> ''", tableActivityTracks->TableName());
+
+   status += selectActivityTrackIds->prepare();
+
    // ------------------
    // recorded GPS points (tour samples GPS:0x0a, aggregate 'T') of a time range
 
@@ -1969,6 +1979,7 @@ int Daemon::exitDb()
    delete selectGpsTourSamples;    selectGpsTourSamples = nullptr;
    delete tableGpsTours;           tableGpsTours = nullptr;
    delete selectActivities;        selectActivities = nullptr;
+   delete selectActivityTrackIds;  selectActivityTrackIds = nullptr;
    delete tableActivities;         tableActivities = nullptr;
    delete tableActivityTracks;     tableActivityTracks = nullptr;
 
@@ -2039,6 +2050,7 @@ int Daemon::readConfiguration(bool initial)
 
    getConfigItem("gpsTourMinDistance", gpsTourMinDistance, 25);
    getConfigItem("gpsTourPauseAfter", gpsTourPauseAfter, 5);
+   getConfigItem("gpsTourEndTolerance", gpsTourEndTolerance, 200);
 
    // DECONZ
 

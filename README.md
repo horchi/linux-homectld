@@ -297,6 +297,9 @@ In addition trips can be recorded as tours and displayed later.
 ## Display
 
 - *Map -> Live*: the map follows the live position (button *Live-Tracking* on the map)
+- on stop the daemon proposes the arrival at the final position as end of the tour (the time the
+  position came within *Tour: Toleranz Ankunft* meters of the final position and stayed there, default
+  200 m) - for a forgotten stop or a long wait at the reception; *jetzt* is offered as well
 - *Map -> Touren*: list of the recorded tours with start, end, duration, pause, distance and number
   of points; *Anzeigen* draws the tour on the map (green marker = start, red marker = end),
   *Umbenennen* and *Löschen* need control rights. The active tour can be displayed too but not deleted.

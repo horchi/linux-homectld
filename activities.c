@@ -204,17 +204,29 @@ int Daemon::activities2Json(json_t* obj)
    json_t* oActs {json_array()};
    long newest {0};
 
+   // the activities with a cached track (flag in the list)
+
+   std::set<long> withTrack;
+   tableActivityTracks->clear();
+
+   for (int f = selectActivityTrackIds->find(); f; f = selectActivityTrackIds->fetch())
+      withTrack.insert((long)tableActivityTracks->getBigintValue("GARMINID"));
+
+   selectActivityTrackIds->freeResult();
    tableActivities->clear();
 
    for (int f = selectActivities->find(); f; f = selectActivities->fetch())
    {
       json_t* oAct {json_object()};
       long start {tableActivities->getTimeValue("START")};
+      long id {(long)tableActivities->getBigintValue("GARMINID")};
 
       if (start > newest)
          newest = start;
 
-      json_object_set_new(oAct, "id", json_integer(tableActivities->getBigintValue("GARMINID")));
+      json_object_set_new(oAct, "id", json_integer(id));
+      json_object_set_new(oAct, "hasdetails", json_boolean(!tableActivities->getValue("DETAILS")->isNull() && !isEmpty(tableActivities->getStrValue("DETAILS"))));
+      json_object_set_new(oAct, "hastrack", json_boolean(withTrack.count(id) > 0));
       json_object_set_new(oAct, "start", json_integer(start));
       json_object_set_new(oAct, "type", json_string(tableActivities->getStrValue("TYPE")));
       json_object_set_new(oAct, "name", json_string(tableActivities->getStrValue("NAME")));

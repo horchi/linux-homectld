@@ -2790,7 +2790,7 @@ int Daemon::daemonState2Json(json_t* obj)
 
    json_object_set_new(obj, "state", json_integer(success));
    json_object_set_new(obj, "systime", json_integer(time(0)));
-   json_object_set_new(obj, "version", json_string(VERSION));
+   json_object_set_new(obj, "version", json_string(daemonVersion));
    json_object_set_new(obj, "runningsince", json_string(d));
    json_object_set_new(obj, "average0", json_real(averages[0]));
    json_object_set_new(obj, "average1", json_real(averages[1]));

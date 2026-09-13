@@ -17,7 +17,6 @@
 #include "lib/mqtt.h"
 #include "lib/lua.h"
 
-#include "HISTORY.h"
 
 #include "service.h"
 
@@ -35,6 +34,7 @@ extern char dbUser[];
 extern char dbPass[];
 
 extern char* confDir;
+extern const char* daemonVersion;     // VERSION of HISTORY.h - defined in main.c, so a version bump rebuilds main.o only
 
 //***************************************************************************
 // Class Daemon
@@ -535,7 +535,8 @@ class Daemon : public cWebInterface, public Service
 
       int gpsTourInit();                                     // resume an open tour after restart
       int gpsTourStart(const char* name);
-      int gpsTourStop();
+      int gpsTourStop(time_t stopAt = 0);                     // stopAt 0 -> now
+      int gpsTourArrival(time_t& arrival, double& toleranceUsed);   // proposal for the end of the active tour
       int gpsTourDelete(long id);
       int gpsTourRename(long id, const char* name);
       int gpsTourUpdate(time_t now);                         // called on every new GPS coordinate
@@ -678,6 +679,7 @@ class Daemon : public cWebInterface, public Service
       cDbStatement* selectGpsTours {};
       cDbStatement* selectGpsTourSamples {};
       cDbStatement* selectActivities {};
+      cDbStatement* selectActivityTrackIds {};
       cDbStatement* selectHaspPageWidgetsFor {};
       cDbStatement* selectSchemaConfByState {};
       cDbStatement* selectAllSchemaConf {};
@@ -837,6 +839,7 @@ class Daemon : public cWebInterface, public Service
       GpsTour gpsTour;
       int gpsTourMinDistance {25};       // [m] record a point if moved at least this distance
       int gpsTourPauseAfter {5};         // [min] pause the tour after this time without movement
+      int gpsTourEndTolerance {200};     // [m] on stop: the arrival within this distance of the final position is proposed as end
 
       virtual std::list<ConfigItemDef>* getConfiguration() = 0;
 

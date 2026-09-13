@@ -43,6 +43,7 @@ std::list<Daemon::ConfigItemDef> HomeCtl::configuration
 
    { "gpsTourMinDistance",        ctInteger, "25",           "N", false, "GPS", "Tour: Mindestbewegung [m]", "Ein Punkt wird aufgezeichnet wenn die Position sich mindestens um diese Distanz geändert hat" },
    { "gpsTourPauseAfter",         ctInteger, "5",            "N", false, "GPS", "Tour: Pause nach Stillstand [min]", "Ohne Bewegung für diese Zeit gilt die Tour als pausiert, bei erneuter Bewegung wird automatisch fortgesetzt" },
+   { "gpsTourEndTolerance",       ctInteger, "200",          "N", false, "GPS", "Tour: Toleranz Ankunft [m]", "Beim Beenden einer Tour wird als Ende der Zeitpunkt vorgeschlagen, ab dem die Position innerhalb dieser Distanz um den Endpunkt blieb (z.B. Anmeldung am Campingplatz)" },
 
 // #ifdef _POOL
 //    { "tPoolMax",                  ctNum,     "28.0",         "N", false, "Pool", "Pool max Temperatur", "" },

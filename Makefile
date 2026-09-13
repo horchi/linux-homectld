@@ -60,11 +60,14 @@ DEPFILE = .dependencies
 #	$(MAKEDEP) $(CFLAGS) $(OBJS:%.o=%.c) $(VICTRONOBJS:%.o=%.c) > $@
 
 
+# -MT keeps the directory in the target (lib/common.o instead of common.o), otherwise the
+# rules for the lib/ objects never match and header changes there don't rebuild them
+
 $(DEPFILE): Makefile
 	@echo Making dependencies ...
 	@rm -f $(DEPFILE)
-	@for file in $(OBJS:%.o=%.c) $(VICTRONOBJS:%.o=%.c); do \
-		$(MAKEDEP) $(CFLAGS) $$file >> $(DEPFILE) 2>/dev/null || true; \
+	@for file in $(sort $(OBJS:%.o=%.c) $(VICTRONOBJS:%.o=%.c) $(I2COBJS:%.o=%.c) $(W1OBJS:%.o=%.c) $(BMSOBJS:%.o=%.c) $(VOTROOBJS:%.o=%.c)); do \
+		$(MAKEDEP) $(CFLAGS) -MT $${file%.c}.o $$file >> $(DEPFILE) 2>/dev/null || true; \
 	done
 
 ifeq ($(filter clean dist build,$(MAKECMDGOALS)),)
@@ -222,11 +225,11 @@ install-scripts:
 
 iw: install-web
 
-install-web: htdocs/index.html
+install-web:
 	@echo install web
 	(cd htdocs; $(MAKE) install)
 
-linstall-web: htdocs/index.html
+linstall-web:
 	@echo install web
 	(cd htdocs; $(MAKE) linstall)
 

@@ -391,8 +391,9 @@ function actRender()
          html += ' <div class="rounded-border actGroupBody">';
          html += ' <table class="tableMultiCol actTable">';
          html += '  <thead><tr>';
-         html += '   <td style="width:19%;">Datum</td>';
-         html += '   <td style="width:30%;">Name</td>';
+         html += '   <td style="width:2%;" title="oben: Details geladen, unten: Track geladen"></td>';
+         html += '   <td style="width:18%;">Datum</td>';
+         html += '   <td style="width:29%;">Name</td>';
          html += '   <td style="width:21%;" class="actColOpt">Ort</td>';
          html += '   <td style="width:10%;" class="actNum">Dauer</td>';
          html += '   <td style="width:10%;" class="actNum">Distanz</td>';
@@ -401,6 +402,8 @@ function actRender()
 
          for (let a of g.items) {
             html += '  <tr class="actRow" onclick="actShowDetails(' + a.id + ')">';
+            html += '   <td class="actFlags"><span class="actDot' + (a.hasdetails ? ' on' : '') + '" title="Details ' + (a.hasdetails ? '' : 'nicht ') + 'geladen"></span>'
+                  + '<span class="actDot' + (a.hastrack ? ' on' : '') + '" title="Track ' + (a.hastrack ? '' : 'nicht ') + 'geladen"></span></td>';
             html += '   <td class="actDate">' + actFmtDateCell(a.start) + '</td>';
             html += '   <td class="actWrap">' + gpsEscape(a.name) + '</td>';
             html += '   <td class="actWrap actColOpt">' + gpsEscape(a.location) + '</td>';
@@ -692,9 +695,20 @@ function actShowDetails(id, force = false)
    socket.send({ "event" : "activities", "object" : { "action" : "details", "id" : id, "force" : force } });
 }
 
+function actMarkLoaded(id, what)
+{
+   let a = actFind(id);
+
+   if (a && !a[what]) {
+      a[what] = true;
+      actRender();
+   }
+}
+
 function showActivityDetails(obj)
 {
    hideProgressDialog();
+   actMarkLoaded(obj.id, 'hasdetails');
 
    let a = actFind(obj.id) || {};
    let type = obj.type || a.type;
@@ -813,6 +827,7 @@ function actHaversine(a, b)
 function showActivityTrack(obj)
 {
    hideProgressDialog();
+   actMarkLoaded(obj.id, 'hastrack');
 
    let a = actFind(obj.id) || {};
    let points = obj.points || [];

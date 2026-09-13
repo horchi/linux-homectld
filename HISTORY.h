@@ -23,7 +23,7 @@
               change of type and name, GPS track on a map colored by speed (see garmin/README.md)
     - change: Browser cache time of the WEBIF files reduced from 1 hour to 10 minutes;
               htdocs/index.html is generated from index.html.in with versioned asset
-              URLs (?v=version-gitrev), browsers load new files right after an update
+              URLs (?v=<content hash>), browsers load changed files right after 'make'
     - added:  'make config' edits Make.user interactively (dialog based), GARMIN switch
               in Make.user to include the Garmin script in 'make install'
 

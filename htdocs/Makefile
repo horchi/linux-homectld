@@ -1,6 +1,17 @@
 
 include ../Make.config
 
+# index.html is generated from index.html.in by genindex.sh: the local .css/.js references
+# get '?v=<content hash>' appended, a changed file gets a new URL with the next make (also
+# during development), unchanged files stay cached. index.html itself is delivered 'no-store'.
+
+all: index.html
+
+.PHONY: index.html
+
+index.html: index.html.in
+	@bash genindex.sh $< $@
+
 check:
 	for f in *.js; do \
 		echo Check "$$f" ..; \
@@ -11,7 +22,7 @@ check:
 		fi; \
 	done
 
-install: check
+install: check index.html
 	make linstall
 
 linstall:

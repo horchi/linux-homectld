@@ -50,7 +50,7 @@ class cWebSock : public cWebService
 
       enum Http
       {
-         tmoCacheMaxAge = 3600     // [s] browser cache lifetime of static files
+         tmoCacheMaxAge = 600      // [s] browser cache lifetime of static files (10 min, see also the mount in init())
       };
 
       struct SessionData

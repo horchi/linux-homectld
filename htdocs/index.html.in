@@ -24,6 +24,12 @@
     <link rel="stylesheet" type="text/css" href="jquery/spectrum.css">
     <link rel="stylesheet" type="text/css" href="jquery/wheelcolorpicker.css">
     <link rel="stylesheet" type="text/css" href="jquery/picktim.css">
+    <!-- the common style sheets were @imported by the themes (stylesheet-*.css); they are linked
+         here instead so that the versioned URLs (make generates index.html) bust the browser cache -->
+    <link rel="stylesheet" type="text/css" href="normalize.css">
+    <link rel="stylesheet" type="text/css" href="checkbox.css">
+    <link rel="stylesheet" type="text/css" href="dialog.css">
+    <link rel="stylesheet" type="text/css" href="base.css">
     <link rel="stylesheet" type="text/css" href="stylesheet.css">
     <link rel="stylesheet" type="text/css" href="scrollbar.css">
     <link rel="stylesheet" type="text/css" href="lib/map/leaflet.css">

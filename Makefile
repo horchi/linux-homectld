@@ -42,7 +42,19 @@ GPIOTSTTARGET = gpiotst
 
 # main taget
 
-all: $(TARGET) $(W1TARGET) $(BMSTARGET) $(VOTROTARGET) $(VICTRONTARGET) $(I2CTARGET) $(ARDUINO_IF_CMD)
+all: $(TARGET) $(W1TARGET) $(BMSTARGET) $(VOTROTARGET) $(VICTRONTARGET) $(I2CTARGET) $(ARDUINO_IF_CMD) htdocs/index.html
+
+# htdocs/index.html is generated from index.html.in: the local .css/.js references get
+# '?v=<version>-<git rev>' appended, so browsers fetch the new files right after an update
+# (index.html itself is delivered with 'no-store'). Regenerated on every make (cheap).
+
+WEBVERSION = $(VERSION)$(if $(GIT_REV),-$(GIT_REV))
+
+.PHONY: htdocs/index.html
+
+htdocs/index.html: htdocs/index.html.in
+	@sed -e 's#\(href\|src\)="\([^":]*\.\(css\|js\)\)"#\1="\2?v=$(WEBVERSION)"#g' $< > $@
+	@echo "generated $@ (assets versioned $(WEBVERSION))"
 
 # auto dependencies
 MAKEDEP = g++ -std=c++2a -x c++ -MM -MG
@@ -215,11 +227,11 @@ install-scripts:
 
 iw: install-web
 
-install-web:
+install-web: htdocs/index.html
 	@echo install web
 	(cd htdocs; $(MAKE) install)
 
-linstall-web:
+linstall-web: htdocs/index.html
 	@echo install web
 	(cd htdocs; $(MAKE) linstall)
 

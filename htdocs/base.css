@@ -94,9 +94,45 @@ button:focus {
     display: block;
 }
 
+/* main menu: tabs strip + tools (burger, messages) on one line */
+
+.mainMenu
+{
+    display: flex;
+    align-items: center;
+}
+
+.mainTabs
+{
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: none;             /* firefox */
+    -webkit-overflow-scrolling: touch;
+}
+
+.mainTabs::-webkit-scrollbar
+{
+    display: none;                     /* chrome / safari */
+}
+
+.mainTabs > .tabButton
+{
+    flex-shrink: 0;
+}
+
+.mainMenuTools
+{
+    display: flex;
+    flex-shrink: 0;
+    margin-left: auto;
+    align-items: center;
+}
+
 .burgerMenu
 {
-    float: right;
     width: 42px;
     padding: 4px 4px !important;
     margin-left: 8px;
@@ -886,6 +922,7 @@ span > select
     overflow-y: auto;
     width: -webkit-fill-available;
     width: -moz-available;
+    min-width: 0;            /* flex item: may shrink below its content, the content scrolls then (instead of pushing the layout beyond the viewport) */
     padding: 0px 0px 0px env(safe-area-inset-left);
 }
 
@@ -3001,13 +3038,38 @@ iPhones
 
 @media only screen and (max-width: 900px)
 {
-    .actTable .actColOpt   { display: none; }     /* location and kcal only on wide screens */
+    .actTable .actColOpt   { display: none; }     /* location only on wide screens */
     .actTable              { font-size: 0.9em; }
     .actGroupSum           { display: block; float: none; }
+    /* narrow screens: the group (and with it the table, width 100%) keeps a minimum width, the page
+       container (#container, viewport high) scrolls horizontally - its scrollbar is at the bottom of
+       the screen, not below the last of hundreds of rows. Don't use width: max-content here, a
+       fixed-layout table has no usable max-content width (Chrome takes 1000000px). */
+    .actGroup              { min-width: 560px; }
+    .actGroupBody          { margin: 0px 0px 6px 0px; padding: 2px; }
+    .actTable .actDateLong  { display: none; }      /* more specific than the .actDateShort rule below the media block */
+    .actTable .actDateShort { display: inline; }
+    .actActions .tool-button { min-width: 28px; padding: 0px 5px; margin: 1px; }
 }
 
 .actHighlight {
     font-weight: bold;
+}
+
+/* a filter which restricts the list */
+
+#controlContainer .actFilterActive {
+    background-color: var(--blueshade);
+    color: white;
+    border: 1px solid var(--blue);
+}
+
+.actDateShort {
+    display: none;                 /* narrow screens only (media query below) */
+}
+
+.actTable td.actDate {
+    white-space: nowrap;
 }
 
 .actActions button {

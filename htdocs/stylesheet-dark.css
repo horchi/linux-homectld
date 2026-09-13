@@ -1,8 +1,5 @@
 
-@import url("normalize.css");
-@import url("checkbox.css");
-@import url("dialog.css");
-@import url("base.css");
+/* normalize.css, checkbox.css, dialog.css and base.css are linked in index.html (versioned URLs) */
 
 :root
 {

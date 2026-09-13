@@ -825,7 +825,7 @@ function addMainMenuButton(title, page, condition = true)
    if (!condition)
       return;
 
-   $("#mainMenu")
+   $("#mainTabs")
       .append($('<button></button>')
               .attr('id', 'mainmenu_' + page)
               .addClass('rounded-border tabButton ' + (page == currentPage ? 'active' : ''))
@@ -845,9 +845,16 @@ function prepareMenu()
    document.title = config.instanceName;
    console.log("---- prepareMenu: " + currentPage);
 
+   // the tabs are a horizontally scrollable strip (swipe on phones), burger and
+   // message toggle stay at the right end of the same line
+
    $("#navMenu").empty()
       .append($('<div></div>')
-              .attr('id', 'mainMenu'));
+              .attr('id', 'mainMenu')
+              .addClass('mainMenu')
+              .append($('<div></div>')
+                      .attr('id', 'mainTabs')
+                      .addClass('mainTabs')));
 
    addMainMenuButton('Dash', 'dashboard', true);
    addMainMenuButton('List', 'list', config.showList == '1');
@@ -866,8 +873,7 @@ function prepareMenu()
 
    $("#mainMenu")
       .append($('<div></div>')
-              .css('display', 'flex')
-              .css('float', 'right')
+              .addClass('mainMenuTools')
               .append($('<button></button>')
                       .attr('id', 'burgerMenu')
                       .addClass('rounded-border button1 burgerMenu')
@@ -883,6 +889,13 @@ function prepareMenu()
                       .css('width', '22px')
                       .html('<svg><use xlink:href="#angle-down"></use></svg>')
                       .click(function() { toggleInfoDialog(); } )));
+
+   // scroll the active tab into view (matters on phones only)
+
+   let active = document.getElementById('mainmenu_' + currentPage);
+
+   if (active && active.scrollIntoView)
+      active.scrollIntoView({ inline: 'nearest', block: 'nearest' });
 }
 
 function prepareSetupMenu()
@@ -987,13 +1000,18 @@ function mainMenuSel(what, action = null, recoverSetupPage = true)
 
    console.log("---- switch to " + currentPage);
 
-   if (document.getElementById('mainMenu')) {
-      let children = document.getElementById('mainMenu').children;
+   if (document.getElementById('mainTabs')) {
+      let children = document.getElementById('mainTabs').children;     // the tab buttons
 
       for (let i = 0; i < children.length; i++)
          children[i].className = children[i].className.replace(" active", "");
 
       $('#mainmenu_' + currentPage).addClass('active');
+
+      let active = document.getElementById('mainmenu_' + currentPage);
+
+      if (active && active.scrollIntoView)
+         active.scrollIntoView({ inline: 'nearest', block: 'nearest' });
    }
 
    if (currentPage != lastPage && (currentPage == "vdr" || lastPage == "vdr")) {

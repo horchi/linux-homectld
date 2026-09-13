@@ -39,3 +39,6 @@ kenwood/build
 
 __pycache__/
 *.pyc
+
+# generated from htdocs/index.html.in (make)
+htdocs/index.html

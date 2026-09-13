@@ -102,6 +102,20 @@ function actFmtDate(ts)
    return ts ? new Date(ts * 1000).toLocaleString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
 }
 
+// table cell: one line on wide screens, two lines (short year) on narrow ones - see .actDateLong/.actDateShort
+
+function actFmtDateCell(ts)
+{
+   if (!ts)
+      return '-';
+
+   let d = new Date(ts * 1000);
+   let short = d.toLocaleString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit' }).replace(',', '')
+             + '<br/>' + d.toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+   return '<span class="actDateLong">' + actFmtDate(ts) + '</span><span class="actDateShort">' + short + '</span>';
+}
+
 function actFmtDuration(seconds)
 {
    seconds = Math.max(0, Math.round(seconds || 0));
@@ -121,10 +135,21 @@ function initActivitiesPage()
    $('#dashboardMenu').addClass('hidden');
    showControlContainer();
    $('#container').removeClass('hidden');
+   actResizeContainer();
    actBuildControlPanel();
    actRender();
 
    socket.send({ "event" : "activities", "object" : { "action" : "list" } });
+}
+
+// the container is viewport high (like the setup pages), it scrolls vertically and horizontally
+
+function actResizeContainer()
+{
+   let height = $(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('footer') - sab - 10;
+
+   $('#container').height(height);
+   window.onresize = function() { actResizeContainer(); };
 }
 
 function actBuildControlPanel()
@@ -143,11 +168,16 @@ function actBuildControlPanel()
                  .addClass('button-group-spacing'));
    }
 
+   // counts per type within the period / name filter (what the list would show)
+
    let types = {};
+   let from = actPeriodStart();
+   let matcher = actNameMatcher();
 
    if (activities)
       for (let a of activities.activities)
-         types[a.type] = (types[a.type] || 0) + 1;
+         if (actPassesFilter(a, from, matcher))
+            types[a.type] = (types[a.type] || 0) + 1;
 
    let selType = $('<select></select>')
        .attr('id', 'actFilterType')
@@ -157,6 +187,7 @@ function actBuildControlPanel()
        .on('change', function() {
           actFilterType = $(this).val();
           localStorage.setItem(storagePrefix + 'actFilterType', actFilterType);
+          actMarkFilters();
           actRender();
        })
        .append($('<option></option>').val('all').html('alle Typen'));
@@ -173,6 +204,7 @@ function actBuildControlPanel()
        .on('change', function() {
           actFilterPeriod = $(this).val();
           localStorage.setItem(storagePrefix + 'actFilterPeriod', actFilterPeriod);
+          actBuildControlPanel();      // type counts follow the period
           actRender();
        });
 
@@ -191,6 +223,7 @@ function actBuildControlPanel()
        .on('input', function() {
           actFilterName = $(this).val();
           localStorage.setItem(storagePrefix + 'actFilterName', actFilterName);
+          actMarkFilters();
           actRender();
        });
 
@@ -207,6 +240,7 @@ function actBuildControlPanel()
 
    selType.val(types[actFilterType] ? actFilterType : 'all');
    selPeriod.val(actFilterPeriod);
+   actMarkFilters();
 
    if (activities) {
       $("#controlContainer")
@@ -222,6 +256,46 @@ function actBuildControlPanel()
               .html('Hilfe')
               .attr('title', 'Beschreibung im README')
               .click(function() { showHelp('garmin-activities'); }));
+}
+
+// period and name filter (the type filter is applied separately)
+
+function actNameMatcher()
+{
+   if (!actFilterName)
+      return null;
+
+   let re = null;
+
+   try {
+      re = new RegExp(actFilterName, 'i');
+   }
+   catch (e) {
+      re = null;      // invalid expression (e.g. while typing) -> plain substring
+   }
+
+   let needle = actFilterName.toLowerCase();
+
+   return function(a) {
+      return re ? re.test(a.name) || re.test(a.location || '') : (a.name + ' ' + (a.location || '')).toLowerCase().includes(needle);
+   };
+}
+
+function actPassesFilter(a, from, matcher)
+{
+   if (from && a.start < from)
+      return false;
+
+   return !matcher || matcher(a);
+}
+
+// highlight filters which restrict the list
+
+function actMarkFilters()
+{
+   $('#actFilterType').toggleClass('actFilterActive', actFilterType != 'all');
+   $('#actFilterPeriod').toggleClass('actFilterActive', actFilterPeriod != 'all');
+   $('#actFilterName').toggleClass('actFilterActive', actFilterName != '');
 }
 
 function actPeriodStart()
@@ -272,28 +346,14 @@ function actRender()
    }
 
    let from = actPeriodStart();
+   let matcher = actNameMatcher();
    let groups = {};
-   let nameRe = null;
-
-   if (actFilterName) {
-      try {
-         nameRe = new RegExp(actFilterName, 'i');
-      }
-      catch (e) {
-         nameRe = null;      // invalid expression (e.g. while typing) -> plain substring below
-      }
-   }
 
    for (let a of activities.activities) {
       if (actFilterType != 'all' && a.type != actFilterType)
          continue;
-      if (from && a.start < from)
+      if (!actPassesFilter(a, from, matcher))
          continue;
-      if (actFilterName) {
-         let hit = nameRe ? nameRe.test(a.name) || nameRe.test(a.location || '') : (a.name + ' ' + (a.location || '')).toLowerCase().includes(actFilterName.toLowerCase());
-         if (!hit)
-            continue;
-      }
 
       if (!groups[a.type])
          groups[a.type] = { 'type': a.type, 'items': [], 'duration': 0, 'distance': 0, 'maxspeed': 0 };
@@ -336,12 +396,12 @@ function actRender()
          html += '   <td style="width:21%;" class="actColOpt">Ort</td>';
          html += '   <td style="width:10%;" class="actNum">Dauer</td>';
          html += '   <td style="width:10%;" class="actNum">Distanz</td>';
-         html += '   <td style="width:10%;"></td>';
+         html += '   <td style="width:10%;" class="actActions"></td>';
          html += '  </tr></thead><tbody>';
 
          for (let a of g.items) {
             html += '  <tr class="actRow" onclick="actShowDetails(' + a.id + ')">';
-            html += '   <td>' + actFmtDate(a.start) + '</td>';
+            html += '   <td class="actDate">' + actFmtDateCell(a.start) + '</td>';
             html += '   <td class="actWrap">' + gpsEscape(a.name) + '</td>';
             html += '   <td class="actWrap actColOpt">' + gpsEscape(a.location) + '</td>';
             html += '   <td class="actNum">' + actFmtDuration(a.moving || a.duration) + '</td>';

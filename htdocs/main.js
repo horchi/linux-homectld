@@ -697,6 +697,9 @@ function dispatchMessage(message)
    else if (event == "gpstourpoints") {
       processGpsTourPoints(jMessage.object);
    }
+   else if (event == "gpstourevents") {
+      processGpsTourEvents(jMessage.object);
+   }
    else if (event == "gpstourstopinfo") {
       gpsStopDialog(jMessage.object);
    }

@@ -55,7 +55,7 @@ function initDashboard(update = false)
 
    if (!update) {
       $('#container').removeClass('hidden');
-      $('#dashboardMenu').removeClass('hidden');
+      $('#dashboardMenu').removeClass('hidden gpsToolbar');
       $('#dashboardMenu').empty();
    }
 

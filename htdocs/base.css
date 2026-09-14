@@ -2788,24 +2788,156 @@ dialog::backdrop, #backdrop
     font-size: medium;
 }
 
+.gpsRecordState.gpsRecording,
+.gpsRecordState.gpsPaused {
+    background: rgba(0, 0, 0, 0.55);    /* readable on the translucent tool bar */
+    padding: 2px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
 .gpsRecording {
-    color: #d32f2f !important;   /* !important: also inside .labelB1 of the control panel */
+    color: #ff7070 !important;   /* light red, readable on the dark backgrounds; !important: also inside .labelB1 */
 }
 
 .gpsPaused {
     color: orange !important;
 }
 
-.gpsTourTable {
+/* tour list in the control panel */
+
+.gpsTourList {
+    max-height: 45vh;
+    overflow-y: auto;
+}
+
+.gpsTourList .gpsTourBtn {
+    height: auto;
+    text-align: left;
+    padding: 4px 8px;
+    margin: 2px 0px;
+    line-height: 1.3;
+}
+
+.gpsTourList .gpsTourBtn.active {
+    background-color: var(--blue);
+}
+
+.gpsTourBtnSub {
+    font-size: 10px;
+    color: var(--light2);
+}
+
+.gpsTourSub {
+    font-size: smaller;
+    color: var(--neutral4);
+}
+
+/* details and events of the selected tour */
+
+.gpsTourDetails {
+    margin: 0px 5px;
+}
+
+.gpsTourHead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+
+.gpsTourBody {
+    background: linear-gradient(to bottom right, #00000096, black);
+    color: var(--buttonFont);
+    padding: 8px;
+    margin: 0px 0px 8px 0px;
+    overflow-x: auto;
+}
+
+.gpsTourComment {
     width: 100%;
+    height: auto;                 /* .input has a fixed height */
+    min-height: 90px;
+    box-sizing: border-box;
+    resize: vertical;
+    font-family: inherit;
+    line-height: 1.3;
 }
 
-.gpsTourTable td.gpsTourName {
-    padding-left: 8px;
+.gpsTourBodyFlex {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;         /* the comment box is as high as the value table */
+    gap: 10px 40px;
 }
 
-.gpsTourActions button {
-    margin: 2px 4px 2px 0px;
+.gpsTourCommentText {
+    flex: 1 1 260px;
+    box-sizing: border-box;
+    margin: 3px 0px;
+    font-style: italic;
+    white-space: normal;
+    color: var(--light2);
+    border: 1px solid var(--neutral3);
+    border-radius: 6px;
+    padding: 6px 10px;
+}
+
+.gpsDetailsTable td {
+    padding: 1px 10px 1px 0px;
+}
+
+.gpsDetailsTable td.gpsNum,
+.gpsEventTable td.gpsNum {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.gpsDetailsTable td.gpsDetailsCol2 {
+    padding-left: 24px;
+    border-left: 1px solid var(--neutral3);
+}
+
+.gpsEventTable {
+    border-collapse: collapse;
+    width: 100%;                  /* spare width is spread over the columns, the note column wraps if it gets tight */
+}
+
+.gpsEventTable thead td {
+    color: var(--neutral4);
+    font-size: smaller;
+}
+
+.gpsEventTable td {
+    padding: 2px 16px 2px 0px;
+    white-space: nowrap;
+    vertical-align: middle;
+    line-height: 1.25;
+}
+
+.gpsEventTable td.gpsWrap {
+    white-space: normal;
+    min-width: 120px;
+}
+
+.gpsEventTable td.gpsTourActions {
+    width: 1%;                    /* only the buttons */
+}
+
+.gpsEventTable tr.gpsEventClickable {
+    cursor: pointer;
+}
+
+.gpsEventTable tr.gpsEventClickable:hover td {
+    background-color: var(--neutral2);
+}
+
+
+.gpsTourActions .tool-button {
+    width: auto;                  /* .tool-button fills its parent otherwise */
+    min-width: 30px;
+    padding: 0px 6px;
+    margin: 1px;
 }
 
 .gpsTourHint {
@@ -2824,6 +2956,67 @@ dialog::backdrop, #backdrop
     font-size: 12px;
     font-weight: bold;
     border: 2px solid rgba(0,0,0,0.2);
+    max-width: calc(100% - 20px);
+    box-sizing: border-box;
+}
+
+.gpsTourInfoTotals {
+    font-weight: normal;
+    margin-top: 3px;
+}
+
+/* GPS page: the tool bar gets the container background (the translucent one is hard to read
+   with the state and the event buttons), the event buttons are aligned to the right */
+
+.menuDashboard.gpsToolbar {
+    background-color: var(--background);
+    --stripBg: var(--background);
+}
+
+/* tour events: buttons in the tool bar, markers and popups on the map */
+
+.gpsEventButtons {
+    display: inline-flex;
+    align-items: center;
+    margin-left: auto;
+    margin-right: 6px;
+}
+
+.gpsEventBtn {
+    font-size: x-large;
+    padding: 0px 6px;
+    color: var(--yellow);
+}
+
+.gpsEventIcon span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid rgba(0, 0, 0, 0.25);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    font-size: 17px;
+}
+
+.gpsEvFull {
+    margin: 6px 0px 2px 0px;
+}
+
+.gpsEventPopup {
+    color: #333;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.gpsEventPopupActions {
+    margin-top: 6px;
+}
+
+.gpsEventPopupActions button {
+    margin-right: 6px;
 }
 
 .live-tracking-active {
@@ -3102,6 +3295,76 @@ iPhones
     font-weight: bold;
 }
 
+/* selection for the bulk edit */
+
+.actTable td.actSel {
+    width: 24px;
+    text-align: center;
+}
+
+.actSelBox {
+    font-size: 20px;
+    line-height: 1;
+    vertical-align: middle;
+    cursor: pointer;
+    color: var(--light4);
+}
+
+.actSelBox.mdi-checkbox-marked {
+    color: var(--yellow);
+}
+
+.actGroupHead .actSelBox {
+    margin-right: 4px;
+}
+
+.actTable tr.actRowSelected td {
+    background-color: var(--neutral2);
+}
+
+/* world map of the activities */
+
+#actMap {
+    width: 100%;
+    height: 100%;
+    background: #ddd;
+}
+
+.actMapLegend {
+    background: rgba(23, 23, 23, 0.85);
+    color: white;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 0.9em;
+    max-height: 40vh;
+    overflow: auto;
+}
+
+.actLegendItem {
+    cursor: pointer;
+    white-space: nowrap;
+    padding: 1px 0px;
+}
+
+.actLegendItem.active {
+    font-weight: bold;
+}
+
+.actLegendDot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1px solid white;
+    margin-right: 6px;
+}
+
+.mapCenterButton {
+    font-size: 18px;
+    line-height: 1;
+    padding: 4px 6px;
+}
+
 /* a filter which restricts the list */
 
 #controlContainer .actFilterActive {
@@ -3211,8 +3474,11 @@ iPhones
     border-left: 1px solid var(--neutral3);
 }
 
+/* the value columns take only their content (nowrap), the labels get the rest and wrap only
+   when the dialog is really too narrow */
+
 .actDetailsTable td.actNum {
-    width: 40%;
+    width: 1%;
 }
 
 .actTrackHead {

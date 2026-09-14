@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.19"
-#define VERSION_DATE "13.09.2026"
+#define _VERSION     "0.1.20"
+#define VERSION_DATE "14.09.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,21 @@
 
 /*
  * ------------------------------------
+
+2026-09-14: version 0.1.20
+    - added: Garmin: location editable, bulk edit (check boxes in the list, group check box) of
+             type / name / location via garmin.py settypes / renames / setlocations
+    - added: Garmin: world map of the activities (start positions as points colored by type,
+             legend filters, click opens the track), speed / time / altitude on hovering the track
+    - added: 'Zentrieren' button on the maps (live map, Garmin track, activity map)
+    - change: Garmin: water sports show km/h next to the knots everywhere (list, details, track, hover)
+    - added: GPS tours: odometer at start / end and a comment (gpstours, editable with the name), events while
+             recording (fuel stop with liters, price and odometer, toll, pause, night stop, note)
+             with the current position in the new table 'gpstourevents'; costs and fuel consumption
+             per stop (partial fills count to the next full tank, by odometer and by GPS distance) and average are calculated and
+             shown in the list, the tour info and as markers on the map (edit / delete)
+    - change: tour name dialog in the look of the other dialogs, field labels in dialogs
+              in the dialog text color (the panel gray was too pale)
 
 2026-09-13: version 0.1.19
     - bugfix: dialogs on phones: size and center by the visible area (on iOS Safari the OK

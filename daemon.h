@@ -534,11 +534,11 @@ class Daemon : public cWebInterface, public Service
       };
 
       int gpsTourInit();                                     // resume an open tour after restart
-      int gpsTourStart(const char* name);
-      int gpsTourStop(time_t stopAt = 0);                     // stopAt 0 -> now
+      int gpsTourStart(const char* name, long odometer = 0);
+      int gpsTourStop(time_t stopAt = 0, long odometer = 0);  // stopAt 0 -> now
       int gpsTourArrival(time_t& arrival, double& toleranceUsed);   // proposal for the end of the active tour
       int gpsTourDelete(long id);
-      int gpsTourRename(long id, const char* name);
+      int gpsTourRename(long id, const char* name, json_t* obj = nullptr);   // obj: optional 'odometer' / 'odometerend'
       int gpsTourUpdate(time_t now);                         // called on every new GPS coordinate
       int gpsTourCheckPause(time_t now);                     // called from the main loop
       int gpsTourStorePoint(time_t now, const GpsCoordinate& c, double distance = 0.0);
@@ -547,10 +547,13 @@ class Daemon : public cWebInterface, public Service
       int gpsTours2Json(json_t* obj);
       int gpsTourPoints2Json(json_t* obj, long id);
       int gpsTourPushState(long client = 0);
+      int gpsTourEventStore(json_t* obj, std::string& error);   // insert / update from the WEBIF
+      int gpsTourEventDelete(long id);
+      int gpsTourEvents2Json(json_t* obj, long tourId, long odometerStart, long odometerEnd);   // 'events' and 'totals'
 
       // Garmin activities (activities.c)
 
-      json_t* garminCall(const char* args, int timeout, std::string& error);
+      json_t* garminCall(const char* args, int timeout, std::string& error, const char* input = nullptr);
       bool garminConfigured();
       int activityStore(json_t* jAct);
       int activitiesSync(const char* since, std::string& message);
@@ -561,6 +564,8 @@ class Daemon : public cWebInterface, public Service
       void activityDetailsPatch(long id, const char* key, const char* value);
       int activityChangeType(long id, const char* type, std::string& error);
       int activityRename(long id, const char* name, std::string& error);
+      int activitySetLocation(long id, const char* location, std::string& error);
+      int activitiesBulkEdit(json_t* jIds, const char* type, const char* name, const char* location, std::string& message);
       static bool parseGpsText(const char* text, GpsCoordinate& c);
       static std::string gpsCoordinateText(const GpsCoordinate& c);
       static double gpsDistance(const GpsCoordinate& a, const GpsCoordinate& b);
@@ -644,6 +649,7 @@ class Daemon : public cWebInterface, public Service
       cDbTable* tableHaspPages {};
       cDbTable* tableHaspPageWidgets {};
       cDbTable* tableGpsTours {};
+      cDbTable* tableGpsTourEvents {};
       cDbTable* tableActivities {};
       cDbTable* tableActivityTracks {};
       cDbTable* tableSchemaConf {};
@@ -677,6 +683,7 @@ class Daemon : public cWebInterface, public Service
       cDbStatement* selectDashboardWidgetsFor {};
       cDbStatement* selectHaspPages {};
       cDbStatement* selectGpsTours {};
+      cDbStatement* selectGpsTourEvents {};
       cDbStatement* selectGpsTourSamples {};
       cDbStatement* selectActivities {};
       cDbStatement* selectActivityTrackIds {};
@@ -834,6 +841,7 @@ class Daemon : public cWebInterface, public Service
          double distance {0.0};          // [m]
          long points {0};
          long pauseTime {0};             // [s]
+         long odometer {0};              // [km] at start
       };
 
       GpsTour gpsTour;

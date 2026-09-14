@@ -208,6 +208,29 @@ Table gpstours
    DISTANCE             ""  distance             Float      122 Data,   // [m]
    POINTS               ""  points               Int         10 Data,
    PAUSETIME            ""  pausetime            Int         10 Data,   // [s]
+   ODOMETER             ""  odometer             Int         10 Data,   // [km] at start
+   ODOMETEREND          ""  odometerend          Int         10 Data,   // [km] at the end
+   COMMENT              ""  comment              Text      2000 Data,   // free text for the whole tour
+}
+
+Table gpstourevents
+{
+   ID                   ""  id                   UInt         4 Primary|Autoinc,
+
+   INSSP                ""  inssp                Int          0 Meta,
+   UPDSP                ""  updsp                Int          0 Meta,
+
+   TOURID               ""  tourid               UInt        10 Data,
+   TIME                 ""  time                 DateTime     0 Data,
+   TYPE                 ""  type                 Ascii       10 Data,   // fuel, toll, pause, night, note
+   LAT                  ""  lat                  Float      126 Data,
+   LON                  ""  lon                  Float      126 Data,
+   ODOMETER             ""  odometer             Int         10 Data,   // [km]
+   DISTANCE             ""  distance             Float      122 Data,   // [m] GPS distance of the tour at this moment
+   AMOUNT               ""  amount               Float      102 Data,   // fuel [l]
+   FULL                 ""  full                 Int          1 Data,   // fuel: 1 = tank filled up, 0 = partial
+   PRICE                ""  price                Float      102 Data,   // total costs [EUR]
+   NOTE                 ""  note                 Ascii      200 Data,
 }
 
 Table activities

@@ -42,9 +42,29 @@
     box-sizing: border-box;
 }
 
+/* dialogs above the Leaflet maps in the page (activity map, live map): the map panes have
+   z-index 400 and the controls 1000, jQuery UI puts .ui-front at 100 */
+
+.ui-widget-overlay.ui-front {
+    z-index: 1050;
+}
+
+.ui-dialog.ui-front {
+    z-index: 1100;
+}
+
 .ui-dialog .ui-dialog-content {
     padding: 0px;
     margin: 20px;
+}
+
+/* field labels (labelB1) inside dialogs: the gray of the side panels is too pale on the dialog background */
+
+.ui-dialog .labelB1 {
+    color: var(--dialogColor) !important;
+    opacity: 0.75;
+    font-size: 13px;
+    margin-top: 6px;
 }
 
 /* the buttons wrap instead of overflowing the dialog on narrow screens */

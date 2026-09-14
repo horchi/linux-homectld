@@ -25,12 +25,42 @@
 // Call the garmin.py script (stderr is dropped, stdout is JSON)
 //***************************************************************************
 
-json_t* Daemon::garminCall(const char* args, int timeout, std::string& error)
+json_t* Daemon::garminCall(const char* args, int timeout, std::string& error, const char* input)
 {
+   // input (the bulk commands read their lines from stdin) is passed via a temporary file
+
+   char inputFile[64] {};
+
+   if (input)
+   {
+      strcpy(inputFile, "/tmp/garmin-XXXXXX");
+      int fd {mkstemp(inputFile)};
+
+      if (fd < 0 || write(fd, input, strlen(input)) != (ssize_t)strlen(input))
+      {
+         error = "Temporäre Datei konnte nicht geschrieben werden";
+         tell(eloAlways, "Error: Garmin: %s (%s)", error.c_str(), strerror(errno));
+
+         if (fd >= 0) { close(fd); unlink(inputFile); }
+
+         return nullptr;
+      }
+
+      close(fd);
+   }
+
    std::string cmd {std::string("garmin.py --tokens '") + confDir + "/garmin' " + args + " 2>/dev/null"};
+
+   if (input)
+      cmd += std::string(" < ") + inputFile;
+
    tell(eloDetail, "Detail: Garmin: calling '%s'", cmd.c_str());
 
    std::string result {executeCommand(timeout, "%s", cmd.c_str())};
+
+   if (input)
+      unlink(inputFile);
+
    json_t* jResult {jsonLoad(result.c_str(), 0, true)};
 
    if (!jResult)
@@ -459,6 +489,148 @@ int Daemon::activityRename(long id, const char* name, std::string& error)
    return success;
 }
 
+int Daemon::activitySetLocation(long id, const char* location, std::string& error)
+{
+   if (strchr(location, '\''))
+   {
+      error = "Kein Apostroph im Ort";
+      return fail;
+   }
+
+   std::string args {"setlocation " + std::to_string(id) + " '" + location + "'"};
+   json_t* jResult {garminCall(args.c_str(), 60, error)};
+
+   if (!jResult)
+      return fail;
+
+   json_decref(jResult);
+   tableActivities->clear();
+   tableActivities->setBigintValue("GARMINID", id);
+
+   if (tableActivities->find())
+   {
+      tableActivities->setValue("LOCATION", location);
+      tableActivities->update();
+   }
+
+   tableActivities->reset();
+   activityDetailsPatch(id, "location", location);
+
+   return success;
+}
+
+//***************************************************************************
+// Bulk Edit - type, name and location for a list of activities, empty = unchanged
+//   one garmin.py call (one login) per field, the ids via stdin
+//***************************************************************************
+
+int Daemon::activitiesBulkEdit(json_t* jIds, const char* type, const char* name, const char* location, std::string& message)
+{
+   size_t count {json_array_size(jIds)};
+
+   if (!count)
+   {
+      message = "Keine Aktivitäten gewählt";
+      return fail;
+   }
+
+   if (strchr(name, '\'') || strchr(location, '\''))
+   {
+      message = "Kein Apostroph in Name oder Ort";
+      return fail;
+   }
+
+   if (isEmpty(type) && isEmpty(name) && isEmpty(location))
+   {
+      message = "Keine Änderung";
+      return success;
+   }
+
+   int timeout {60 + (int)count * 2};        // garmin.py pauses 0.5 s per activity
+   std::string ids;
+   std::string lines;                        // "id<TAB>value" for renames / setlocations
+   size_t i {0};
+   json_t* jId {};
+
+   json_array_foreach(jIds, i, jId)
+      ids += std::to_string(json_integer_value(jId)) + "\n";
+
+   struct Field { const char* key; const char* column; const char* command; const char* value; const char* label; };
+   Field fields[] {{ "type", "TYPE", "settypes", type, "Typ" }, { "name", "NAME", "renames", name, "Name" }, { "location", "LOCATION", "setlocations", location, "Ort" }};
+   int failed {0};
+
+   for (const auto& field : fields)
+   {
+      if (isEmpty(field.value))
+         continue;
+
+      std::string error;
+      std::string args {field.command};
+      json_t* jResult {};
+
+      if (strcmp(field.key, "type") == 0)
+      {
+         args += std::string(" '") + type + "'";
+         jResult = garminCall(args.c_str(), timeout, error, ids.c_str());
+      }
+      else
+      {
+         lines.clear();
+         json_array_foreach(jIds, i, jId)
+            lines += std::to_string(json_integer_value(jId)) + "\t" + field.value + "\n";
+
+         jResult = garminCall(args.c_str(), timeout, error, lines.c_str());
+      }
+
+      if (!jResult)
+      {
+         message = std::string(field.label) + ": " + error;
+         return fail;
+      }
+
+      // update the succeeded ones locally
+
+      json_t* jOk {json_object_get(jResult, "ok")};
+      json_t* jItem {};
+      int changed {0};
+
+      json_array_foreach(jOk, i, jItem)
+      {
+         long id {json_is_integer(jItem) ? (long)json_integer_value(jItem) : getLongFromJson(jItem, "id", 0)};
+
+         tableActivities->clear();
+         tableActivities->setBigintValue("GARMINID", id);
+
+         if (tableActivities->find())
+         {
+            tableActivities->setValue(field.column, field.value);
+
+            if (strcmp(field.key, "type") == 0)
+            {
+               tableActivities->setValue("TYPEID", getLongFromJson(jResult, "typeid", 0));
+               tableActivities->setValue("PARENTTYPEID", getLongFromJson(jResult, "parenttypeid", 0));
+            }
+
+            tableActivities->update();
+            changed++;
+         }
+
+         tableActivities->reset();
+         activityDetailsPatch(id, field.key, field.value);
+      }
+
+      failed += json_array_size(json_object_get(jResult, "failed"));
+      message += (message.empty() ? "" : ", ") + std::string(field.label) + " bei " + std::to_string(changed) + " geändert";
+      tell(eloAlways, "Info: Garmin: bulk %s of %zu activities, %d changed, %zu failed", field.key, count, changed, json_array_size(json_object_get(jResult, "failed")));
+      json_decref(jResult);
+   }
+
+   if (failed)
+      message += ", " + std::to_string(failed) + " fehlgeschlagen";
+
+   return success;
+}
+
 //***************************************************************************
 // Perform Activities (websocket event 'activities')
 //***************************************************************************
@@ -566,13 +738,27 @@ int Daemon::performActivities(json_t* obj, long client)
 
    if (action == "edit")
    {
-      // type and name from the edit dialog, only the changed ones are sent to Garmin
+      // type, name and location from the edit dialog, only the changed ones are sent to Garmin
+      //   'ids' (array) -> bulk edit of several activities, 'id' -> one
 
-      long id {getLongFromJson(obj, "id", 0)};
       const char* type {getStringFromJson(obj, "type", "")};
       const char* name {getStringFromJson(obj, "name", "")};
+      const char* location {getStringFromJson(obj, "location", "")};
+      json_t* jIds {json_object_get(obj, "ids")};
       std::string error;
       std::string message;
+
+      if (json_is_array(jIds) && json_array_size(jIds) > 1)
+      {
+         int status {activitiesBulkEdit(jIds, type, name, location, message)};
+
+         if (status == success)
+            activitiesPush(0);
+
+         return replyResult(status, message.c_str(), client);
+      }
+
+      long id {json_is_array(jIds) && json_array_size(jIds) == 1 ? (long)json_integer_value(json_array_get(jIds, 0)) : getLongFromJson(obj, "id", 0)};
 
       tableActivities->clear();
       tableActivities->setBigintValue("GARMINID", id);
@@ -585,6 +771,7 @@ int Daemon::performActivities(json_t* obj, long client)
 
       bool typeChanged {!isEmpty(type) && strcmp(type, tableActivities->getStrValue("TYPE")) != 0};
       bool nameChanged {!isEmpty(name) && strcmp(name, tableActivities->getStrValue("NAME")) != 0};
+      bool locationChanged {!isEmpty(location) && strcmp(location, tableActivities->getStrValue("LOCATION")) != 0};
       tableActivities->reset();
 
       if (typeChanged)
@@ -603,7 +790,15 @@ int Daemon::performActivities(json_t* obj, long client)
          message += (message.empty() ? "" : ", ") + std::string("umbenannt");
       }
 
-      if (!typeChanged && !nameChanged)
+      if (locationChanged)
+      {
+         if (activitySetLocation(id, location, error) != success)
+            return replyResult(fail, error.c_str(), client);
+
+         message += (message.empty() ? "" : ", ") + std::string("Ort geändert");
+      }
+
+      if (!typeChanged && !nameChanged && !locationChanged)
          return replyResult(success, "Keine Änderung", client);
 
       activitiesPush(0);

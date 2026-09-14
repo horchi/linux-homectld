@@ -48,6 +48,8 @@ garmin.py settype <id> windsurfing_v2
 garmin.py settypes windsurfing_v2 < ids.txt     # bulk, one id per line, one login
 garmin.py renames < lines.txt                   # bulk, "id<TAB>new name" per line
 garmin.py rename <id> "new name"
+garmin.py setlocation <id> "Malcesine"
+garmin.py setlocations < lines.txt               # bulk, "id<TAB>location" per line
 garmin.py delete <id>                          # deletes the activity at Garmin!
 ```
 

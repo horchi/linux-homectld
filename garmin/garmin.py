@@ -339,6 +339,42 @@ def do_renames(args):
 
     out({"ok": ok, "failed": failed})
 
+def set_location(garmin, aid, name):
+    # no setter in garminconnect, the same PUT as set_activity_name with locationName
+    url = "%s/%s" % (garmin.garmin_connect_activity, aid)
+    return garmin.client.put("connectapi", url, json={"activityId": str(aid), "locationName": name}, api=True)
+
+def do_setlocation(args):
+    garmin = connect(args.tokens)
+
+    try:
+        set_location(garmin, args.id, args.name)
+    except Exception as e:
+        fail("setting the location of activity %s failed: %s" % (args.id, e))
+
+    out({"id": args.id, "location": args.name})
+
+def do_setlocations(args):
+    # bulk, "id<TAB>location" per line from stdin
+    garmin = connect(args.tokens)
+    ok, failed = [], []
+    lines = [l.rstrip("\n") for l in sys.stdin if l.strip()]
+
+    for n, line in enumerate(lines, 1):
+        aid, name = line.split("\t", 1)
+
+        try:
+            set_location(garmin, aid, name)
+            ok.append({"id": int(aid), "location": name})
+            log("%d/%d %s -> '%s' ok" % (n, len(lines), aid, name))
+        except Exception as e:
+            failed.append({"id": int(aid), "error": str(e)})
+            log("%d/%d %s FAILED: %s" % (n, len(lines), aid, e))
+
+        time.sleep(args.pause)
+
+    out({"ok": ok, "failed": failed})
+
 def do_delete(args):
     garmin = connect(args.tokens)
 
@@ -382,6 +418,8 @@ def main():
     s = sub.add_parser("renames"); s.add_argument("--pause", type=float, default=0.5); s.set_defaults(fct=do_renames)
     s = sub.add_parser("delete");  s.add_argument("id", type=int); s.set_defaults(fct=do_delete)
     s = sub.add_parser("rename");  s.add_argument("id", type=int); s.add_argument("name"); s.set_defaults(fct=do_rename)
+    s = sub.add_parser("setlocation");  s.add_argument("id", type=int); s.add_argument("name"); s.set_defaults(fct=do_setlocation)
+    s = sub.add_parser("setlocations"); s.add_argument("--pause", type=float, default=0.5); s.set_defaults(fct=do_setlocations)
 
     args = p.parse_args()
     args.fct(args)

@@ -1365,6 +1365,9 @@ int Daemon::initDb()
    tableGpsTours = new cDbTable(connection, "gpstours");
    if (tableGpsTours->open() != success) return fail;
 
+   tableGpsTourEvents = new cDbTable(connection, "gpstourevents");
+   if (tableGpsTourEvents->open() != success) return fail;
+
    tableActivities = new cDbTable(connection, "activities");
    if (tableActivities->open(1 /*allow alter*/) != success) return fail;
 
@@ -1752,6 +1755,18 @@ int Daemon::initDb()
 
    status += selectGpsTours->prepare();
 
+   // the events (fuel, toll, ...) of one tour
+
+   selectGpsTourEvents = new cDbStatement(tableGpsTourEvents);
+
+   selectGpsTourEvents->build("select ");
+   selectGpsTourEvents->bindAllOut();
+   selectGpsTourEvents->build(" from %s where ", tableGpsTourEvents->TableName());
+   selectGpsTourEvents->bind("TOURID", cDBS::bndIn | cDBS::bndSet);
+   selectGpsTourEvents->build(" order by time");
+
+   status += selectGpsTourEvents->prepare();
+
    // ------------------
    // Garmin activities, newest first
 
@@ -1976,6 +1991,8 @@ int Daemon::exitDb()
    delete selectHaspPages;         selectHaspPages = nullptr;
    delete selectHaspPageWidgetsFor; selectHaspPageWidgetsFor = nullptr;
    delete selectGpsTours;          selectGpsTours = nullptr;
+   delete selectGpsTourEvents;     selectGpsTourEvents = nullptr;
+   delete tableGpsTourEvents;      tableGpsTourEvents = nullptr;
    delete selectGpsTourSamples;    selectGpsTourSamples = nullptr;
    delete tableGpsTours;           tableGpsTours = nullptr;
    delete selectActivities;        selectActivities = nullptr;

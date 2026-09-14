@@ -21,6 +21,8 @@ var actFilterType = localStorage.getItem(storagePrefix + 'actFilterType') || 'al
 var actFilterPeriod = localStorage.getItem(storagePrefix + 'actFilterPeriod') || 'all';
 var actFilterName = localStorage.getItem(storagePrefix + 'actFilterName') || '';
 var actCollapsed = JSON.parse(localStorage.getItem(storagePrefix + 'actCollapsed') || '{}');
+var actView = localStorage.getItem(storagePrefix + 'actView') || 'list';   // 'list' | 'map'
+var actSelected = {};                                                       // ids of the selected activities (bulk edit)
 
 // German labels of the Garmin type keys, unknown keys are shown 'as is'
 
@@ -86,15 +88,17 @@ function actFmtSpeed(mps, type)
    if (!mps)
       return '-';
 
-   if (actIsWater(type))
-      return (mps * 1.943844).toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' kn';
+   let kmh = (mps * 3.6).toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' km/h';
+
+   if (actIsWater(type))          // knots, km/h in brackets - everywhere the speed is shown
+      return (mps * 1.943844).toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' kn (' + kmh + ')';
 
    if (actIsPace(type)) {
       let secPerKm = 1000 / mps;
       return Math.floor(secPerKm / 60) + ':' + ('0' + Math.round(secPerKm % 60)).slice(-2) + ' /km';
    }
 
-   return (mps * 3.6).toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' km/h';
+   return kmh;
 }
 
 function actFmtDate(ts)
@@ -167,6 +171,18 @@ function actBuildControlPanel()
          .append($('<div></div>')
                  .addClass('button-group-spacing'));
    }
+
+   // list <-> world map
+
+   $("#controlContainer")
+      .append($('<div></div>')
+              .append($('<button></button>')
+                      .addClass('rounded-border tool-button mdi ' + (actView == 'map' ? 'mdi-format-list-bulleted' : 'mdi-map'))
+                      .html(actView == 'map' ? ' Liste' : ' Karte')
+                      .attr('title', actView == 'map' ? 'zurück zur Liste' : 'alle Aktivitäten als Punkte auf einer Weltkarte, gefärbt nach Typ')
+                      .click(function() { actSetView(actView == 'map' ? 'list' : 'map'); })))
+      .append($('<div></div>')
+              .addClass('button-group-spacing'));
 
    // counts per type within the period / name filter (what the list would show)
 
@@ -250,12 +266,90 @@ function actBuildControlPanel()
          .append($('<div></div>').addClass('button-group-spacing'));
    }
 
+   // bulk edit of the selected activities (check boxes in the list)
+
+   if (actHasControlRights() && actView == 'list') {
+      $("#controlContainer")
+         .append($('<div></div>').attr('id', 'actSelInfo').addClass('labelB1'))
+         .append($('<div></div>')
+                 .append($('<button></button>')
+                         .attr('id', 'actBtnEditSel')
+                         .addClass('rounded-border tool-button')
+                         .html('Auswahl bearbeiten')
+                         .attr('title', 'Typ, Name und/oder Ort der gewählten Aktivitäten ändern')
+                         .click(function() { actEditDialog(Object.keys(actSelected).map(Number)); }))
+                 .append($('<button></button>')
+                         .attr('id', 'actBtnClearSel')
+                         .addClass('rounded-border tool-button')
+                         .html('Auswahl aufheben')
+                         .click(function() { actClearSelection(); })))
+         .append($('<div></div>').addClass('button-group-spacing'));
+
+      actUpdateSelection();
+   }
+
    $("#controlContainer")
       .append($('<button></button>')
               .addClass('rounded-border tool-button')
               .html('Hilfe')
               .attr('title', 'Beschreibung im README')
               .click(function() { showHelp('garmin-activities'); }));
+}
+
+function actSetView(view)
+{
+   actView = view;
+   localStorage.setItem(storagePrefix + 'actView', actView);
+   actBuildControlPanel();
+   actRender();
+}
+
+//***************************************************************************
+// Selection (bulk edit)
+//***************************************************************************
+
+function actToggleSelect(id, on = null)
+{
+   if (on == null)
+      on = !actSelected[id];
+
+   if (on)
+      actSelected[id] = true;
+   else
+      delete actSelected[id];
+
+   // the row without re-rendering the list (the native check box is styled as a switch, too big here)
+
+   $('#actSel_' + id).toggleClass('mdi-checkbox-marked', on).toggleClass('mdi-checkbox-blank-outline', !on).closest('tr').toggleClass('actRowSelected', on);
+   actUpdateSelection();
+}
+
+function actSelectGroup(type, on)
+{
+   let from = actPeriodStart();
+   let matcher = actNameMatcher();
+
+   for (let a of activities.activities)
+      if (a.type == type && actPassesFilter(a, from, matcher))
+         actToggleSelect(a.id, on);
+
+   actRender();
+}
+
+function actClearSelection()
+{
+   actSelected = {};
+   actRender();
+   actUpdateSelection();
+}
+
+function actUpdateSelection()
+{
+   let n = Object.keys(actSelected).length;
+
+   $('#actSelInfo').html(n ? n + ' gewählt' : 'keine Auswahl (Häkchen in der Liste)');
+   $('#actBtnEditSel').prop('disabled', !n);
+   $('#actBtnClearSel').prop('disabled', !n);
 }
 
 // period and name filter (the type filter is applied separately)
@@ -316,6 +410,13 @@ function actPeriodStart()
 function processActivities(obj)
 {
    activities = obj;
+   actTypeColorMap = null;
+
+   // drop selected ids which are gone
+
+   for (let id in actSelected)
+      if (!actFind(id))
+         delete actSelected[id];
 
    if (currentPage != 'activities')
       return;
@@ -348,12 +449,20 @@ function actRender()
    let from = actPeriodStart();
    let matcher = actNameMatcher();
    let groups = {};
+   let inPeriod = activities.activities.filter(function(a) { return actPassesFilter(a, from, matcher); });   // period / name filter only
+   let items = inPeriod.filter(function(a) { return actFilterType == 'all' || a.type == actFilterType; });
 
-   for (let a of activities.activities) {
-      if (actFilterType != 'all' && a.type != actFilterType)
-         continue;
-      if (!actPassesFilter(a, from, matcher))
-         continue;
+   if (actView == 'map') {
+      actRenderMap(root, items, inPeriod);
+      return;
+   }
+
+   if (actMap) {           // back from the map
+      actMap.remove();
+      actMap = null;
+   }
+
+   for (let a of items) {
 
       if (!groups[a.type])
          groups[a.type] = { 'type': a.type, 'items': [], 'duration': 0, 'distance': 0, 'maxspeed': 0 };
@@ -378,10 +487,17 @@ function actRender()
    for (let key of keys) {
       let g = groups[key];
       let collapsed = actFilterType == 'all' && actCollapsed[key] == true;   // a selected type is always expanded
+      let allSelected = g.items.every(function(a) { return actSelected[a.id]; });
 
       html += '<div class="actGroup">';
       html += ' <div class="rounded-border seperatorFold actGroupHead" onclick="actToggleGroup(\'' + key + '\')">';
-      html += '  <span class="actGroupArrow">' + (collapsed ? '▸' : '▾') + '</span> ' + gpsEscape(actTypeLabel(key));
+      html += '  <span class="actGroupArrow">' + (collapsed ? '▸' : '▾') + '</span> ';
+
+      if (control)
+         html += '<span class="actSelBox mdi ' + (allSelected ? 'mdi-checkbox-marked' : 'mdi-checkbox-blank-outline') + '" title="alle Aktivitäten dieser Gruppe wählen / abwählen"'
+               + ' onclick="event.stopPropagation(); actSelectGroup(\'' + key + '\', ' + (allSelected ? 'false' : 'true') + ')"></span> ';
+
+      html += gpsEscape(actTypeLabel(key));
       html += '  <span class="actGroupSum">' + g.items.length + ' · ' + actFmtDuration(g.duration)
             + (g.distance ? ' · ' + gpsFmtDistance(g.distance) : '')
             + (g.maxspeed ? ' · max ' + actFmtSpeed(g.maxspeed, key) : '') + '</span>';
@@ -391,6 +507,10 @@ function actRender()
          html += ' <div class="rounded-border actGroupBody">';
          html += ' <table class="tableMultiCol actTable">';
          html += '  <thead><tr>';
+
+         if (control)
+            html += '   <td class="actSel"></td>';
+
          html += '   <td style="width:2%;" title="oben: Details geladen, unten: Track geladen"></td>';
          html += '   <td style="width:18%;">Datum</td>';
          html += '   <td style="width:29%;">Name</td>';
@@ -401,7 +521,12 @@ function actRender()
          html += '  </tr></thead><tbody>';
 
          for (let a of g.items) {
-            html += '  <tr class="actRow" onclick="actShowDetails(' + a.id + ')">';
+            html += '  <tr class="actRow' + (actSelected[a.id] ? ' actRowSelected' : '') + '" onclick="actShowDetails(' + a.id + ')">';
+
+            if (control)
+               html += '   <td class="actSel" onclick="event.stopPropagation(); actToggleSelect(' + a.id + ')">'
+                     + '<span id="actSel_' + a.id + '" class="actSelBox mdi ' + (actSelected[a.id] ? 'mdi-checkbox-marked' : 'mdi-checkbox-blank-outline') + '"></span></td>';
+
             html += '   <td class="actFlags"><span class="actDot' + (a.hasdetails ? ' on' : '') + '" title="Details ' + (a.hasdetails ? '' : 'nicht ') + 'geladen"></span>'
                   + '<span class="actDot' + (a.hastrack ? ' on' : '') + '" title="Track ' + (a.hastrack ? '' : 'nicht ') + 'geladen"></span></td>';
             html += '   <td class="actDate">' + actFmtDateCell(a.start) + '</td>';
@@ -412,7 +537,7 @@ function actRender()
             html += '   <td class="actActions">';
 
             if (control) {
-               html += '    <button class="rounded-border tool-button mdi mdi-lead-pencil" type="button" title="Typ / Name ändern" onclick="event.stopPropagation(); actEdit(' + a.id + ')"></button>';
+               html += '    <button class="rounded-border tool-button mdi mdi-lead-pencil" type="button" title="Typ / Name / Ort ändern" onclick="event.stopPropagation(); actEditDialog([' + a.id + '])"></button>';
                html += '    <button class="rounded-border tool-button mdi mdi-delete actDelete" type="button" title="Aktivität bei Garmin löschen" onclick="event.stopPropagation(); actDelete(' + a.id + ')"></button>';
             }
 
@@ -482,50 +607,77 @@ function actSyncDialog()
 }
 
 //***************************************************************************
-// Edit (type and name in one dialog)
+// Edit (type, name and location in one dialog) - one activity or the selection (bulk)
+//   bulk: empty fields / type 'unverändert' stay as they are
 //***************************************************************************
 
-function actEdit(id)
+function actEditDialog(ids)
 {
+   if (!ids || !ids.length)
+      return;
+
    if (!activityTypes) {
-      actPendingTypeChange = id;
+      actPendingTypeChange = ids;
       showProgressDialog();
       socket.send({ "event" : "activities", "object" : { "action" : "types" } });
       return;
    }
 
-   let a = actFind(id);
+   let a = ids.length == 1 ? actFind(ids[0]) : null;
+   let bulk = ids.length > 1;
 
-   if (!a)
+   if (!a && !bulk)
       return;
 
    let sel = $('<select></select>').attr('id', 'actEditType').addClass('rounded-border input').css('width', '100%');
    let types = activityTypes.types.slice().sort(function(x, y) { return actTypeLabel(x.key).localeCompare(actTypeLabel(y.key), 'de'); });
 
+   if (bulk)
+      sel.append($('<option></option>').val('').html('unverändert'));
+
    for (let t of types)
-      sel.append($('<option></option>').val(t.key).html(actTypeLabel(t.key) + (actTypeLabels[t.key] ? '' : ' (' + t.key + ')')).prop('selected', t.key == a.type));
+      sel.append($('<option></option>').val(t.key).html(actTypeLabel(t.key) + (actTypeLabels[t.key] ? '' : ' (' + t.key + ')')).prop('selected', a && t.key == a.type));
+
+   let head = a ? actFmtDate(a.start) + ' · ' + actTypeLabel(a.type)
+                : ids.length + ' Aktivitäten gewählt<br/><span class="actSyncHint">leere Felder bleiben unverändert, die Änderung wird bei Garmin gespeichert (etwa 1 s je Aktivität)</span>';
 
    let form = $('<div></div>').addClass('dialog-content actEditDialog')
-       .append($('<div></div>').addClass('actDetailsHead').html(actFmtDate(a.start) + (a.location ? ' · ' + gpsEscape(a.location) : '')))
+       .append($('<div></div>').addClass('actDetailsHead').html(head))
        .append($('<div></div>').addClass('labelB1').html('Name'))
-       .append($('<input></input>').attr('id', 'actEditName').attr('type', 'text').attr('maxlength', 200).addClass('rounded-border input').css('width', '100%').val(a.name))
+       .append($('<input></input>').attr('id', 'actEditName').attr('type', 'text').attr('maxlength', 200).addClass('rounded-border input').css('width', '100%').val(a ? a.name : ''))
+       .append($('<div></div>').addClass('labelB1').html('Ort'))
+       .append($('<input></input>').attr('id', 'actEditLocation').attr('type', 'text').attr('maxlength', 100).addClass('rounded-border input').css('width', '100%').val(a ? a.location : ''))
        .append($('<div></div>').addClass('labelB1').html('Typ'))
        .append(sel);
 
    form.dialog({
       modal: true,
-      width: 'auto',
-      title: 'Aktivität ändern',
+      width: Math.min(420, window.innerWidth - 20),
+      title: bulk ? 'Aktivitäten ändern' : 'Aktivität ändern',
       buttons: {
          'Abbrechen': function() { $(this).dialog('close'); },
          'Speichern': function() {
             let type = $('#actEditType').val();
             let name = $('#actEditName').val().trim();
+            let location = $('#actEditLocation').val().trim();
             $(this).dialog('close');
-            if (type == a.type && (name == a.name || name == ''))
+
+            if (a) {         // only the changed fields
+               if (type == a.type) type = '';
+               if (name == a.name) name = '';
+               if (location == a.location) location = '';
+            }
+
+            if (type == '' && name == '' && location == '')
                return;
+
+            if (bulk) {
+               pingTimeoutMs = 600000;
+               actClearSelection();
+            }
+
             showProgressDialog();
-            socket.send({ "event" : "activities", "object" : { "action" : "edit", "id" : id, "type" : type, "name" : name } });
+            socket.send({ "event" : "activities", "object" : { "action" : "edit", "ids" : ids, "type" : type, "name" : name, "location" : location } });
          }
       },
       open: function() { $('#actEditName').focus(); },
@@ -552,9 +704,9 @@ function processActivityTypes(obj)
    hideProgressDialog();
 
    if (actPendingTypeChange) {
-      let id = actPendingTypeChange;
+      let ids = actPendingTypeChange;
       actPendingTypeChange = null;
-      actEdit(id);
+      actEditDialog(ids);
    }
 }
 
@@ -672,7 +824,7 @@ function actFmtSummary(key, value, type)
    switch (fmt) {
       case 'dist':  return gpsFmtDistance(value);
       case 'time':  return actFmtDuration(value);
-      case 'speed': return actFmtSpeed(value, type) + (actIsWater(type) ? ' (' + (value * 3.6).toFixed(1) + ' km/h)' : '');
+      case 'speed': return actFmtSpeed(value, type);
       case 'coord': return value.toFixed(5);
       case 'text':  return gpsEscape(String(value));
       case 'enum':  return actFmtEnum(value);
@@ -821,6 +973,11 @@ function actSpeedColor(ratio)
    return 'rgb(220,40,40)';
 }
 
+function actFmtClock(ts)
+{
+   return new Date(ts * 1000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
 function actHaversine(a, b)
 {
    let R = 6371000;
@@ -893,7 +1050,9 @@ function showActivityTrack(obj)
             if (!container)
                return;
 
-            actTrackMap = L.map(container, { attributionControl: false, fadeAnimation: false, preferCanvas: true });
+            // canvas renderer with a tolerance, the segments are hovered for the speed
+
+            actTrackMap = L.map(container, { attributionControl: false, fadeAnimation: false, renderer: L.canvas({ tolerance: 6 }) });
 
             if (navigator.onLine)
                L.tileLayer('https://tile.openstreetmap.de/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(actTrackMap);
@@ -902,11 +1061,19 @@ function showActivityTrack(obj)
             let bounds = L.latLngBounds(latlngs);
 
             actTrackMap.fitBounds(bounds, { padding: [20, 20], maxZoom: 17 });
+            gpsCenterControl(actTrackMap, function() { actTrackMap.fitBounds(bounds, { padding: [20, 20], maxZoom: 17 }); });
 
-            // one polyline per segment, colored by its speed
+            // one polyline per segment, colored by its speed; hovering shows speed, time and altitude
 
-            for (let i = 1; i < latlngs.length; i++)
-               L.polyline([latlngs[i-1], latlngs[i]], { color: actSpeedColor(maxSpeed ? speeds[i-1] / maxSpeed : 0), weight: 4, opacity: 0.9 }).addTo(actTrackMap);
+            for (let i = 1; i < latlngs.length; i++) {
+               let tip = actFmtSpeed(speeds[i-1], a.type)
+                   + (points[i][2] ? ' · ' + actFmtClock(points[i][2]) : '')
+                   + (points[i][3] != null ? ' · ' + Math.round(points[i][3]) + ' m' : '');
+
+               L.polyline([latlngs[i-1], latlngs[i]], { color: actSpeedColor(maxSpeed ? speeds[i-1] / maxSpeed : 0), weight: 4, opacity: 0.9 })
+                  .bindTooltip(tip, { sticky: true, direction: 'top', opacity: 0.9 })
+                  .addTo(actTrackMap);
+            }
 
             L.circleMarker(latlngs[0], { radius: 6, color: 'white', fillColor: 'green', fillOpacity: 1 }).addTo(actTrackMap).bindTooltip('Start');
             L.circleMarker(latlngs[latlngs.length-1], { radius: 6, color: 'white', fillColor: 'black', fillOpacity: 1 }).addTo(actTrackMap).bindTooltip('Ende');
@@ -922,4 +1089,131 @@ function showActivityTrack(obj)
          $(this).dialog('destroy').remove();
       }
    });
+}
+
+//***************************************************************************
+// World map - the start positions of the activities as points, colored by type
+//   a click on a point opens the track dialog (the map stays behind it)
+//***************************************************************************
+
+var actMap = null;
+var actMapMarkers = null;
+var actMapLegend = null;
+var actMapView = null;             // last center / zoom, kept while filtering
+var actTypeColorMap = null;
+
+// categorical palette (dark surface), assigned in a fixed order (types by frequency), the rest gray
+
+var actPalette = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'];
+
+function actTypeColor(type)
+{
+   if (!actTypeColorMap) {
+      let counts = {};
+
+      for (let a of activities.activities)
+         counts[a.type] = (counts[a.type] || 0) + 1;
+
+      let keys = Object.keys(counts).sort(function(x, y) { return counts[y] - counts[x] || x.localeCompare(y); });
+
+      actTypeColorMap = {};
+      keys.forEach(function(key, i) { actTypeColorMap[key] = i < actPalette.length ? actPalette[i] : '#9e9e9e'; });
+   }
+
+   return actTypeColorMap[type] || '#9e9e9e';
+}
+
+function actRenderMap(root, items, legendItems)
+{
+   if (!document.getElementById('actMap')) {
+      if (actMap) {
+         actMap.remove();
+         actMap = null;
+      }
+
+      root.innerHTML = '<div id="actMap"></div>';
+   }
+
+   if (!actMap) {
+      actMap = L.map('actMap', { attributionControl: false, fadeAnimation: false, preferCanvas: true, worldCopyJump: true });
+
+      if (navigator.onLine)
+         L.tileLayer('https://tile.openstreetmap.de/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(actMap);
+
+      actMapMarkers = L.layerGroup().addTo(actMap);
+      actMap.on('moveend', function() { actMapView = { center: actMap.getCenter(), zoom: actMap.getZoom() }; });
+      gpsCenterControl(actMap, function() { actMapFit(); });
+
+      let Legend = L.Control.extend({
+         options: { position: 'bottomleft' },
+         onAdd: function() {
+            let div = L.DomUtil.create('div', 'actMapLegend');
+            L.DomEvent.disableClickPropagation(div);
+            return div;
+         }
+      });
+
+      actMapLegend = new Legend();
+      actMap.addControl(actMapLegend);
+
+      if (actMapView)
+         actMap.setView(actMapView.center, actMapView.zoom, { animate: false });
+      else
+         actMap.setView([30, 10], 2);
+
+      setTimeout(function() { actMap.invalidateSize(); }, 100);
+   }
+
+   actMapMarkers.clearLayers();
+
+   let noPosition = 0;
+
+   for (let a of items) {
+      if (!a.lat && !a.lon) {
+         noPosition++;
+         continue;
+      }
+
+      L.circleMarker([a.lat, a.lon], { radius: 6, fillColor: actTypeColor(a.type), fillOpacity: 0.9, color: '#ffffff', weight: 1 })
+         .bindTooltip(gpsEscape(a.name) + '<br/>' + actTypeLabel(a.type) + ' · ' + actFmtDate(a.start) + (a.location ? ' · ' + gpsEscape(a.location) : ''))
+         .on('click', function() { actShowTrack(a.id); })
+         .addTo(actMapMarkers);
+   }
+
+   // legend: the types within period / name filter, click restricts to one type (again: all)
+
+   let counts = {};
+
+   for (let a of legendItems)
+      counts[a.type] = (counts[a.type] || 0) + 1;
+
+   let html = '';
+
+   for (let key of Object.keys(counts).sort(function(x, y) { return counts[y] - counts[x]; }))
+      html += '<div class="actLegendItem' + (actFilterType == key ? ' active' : '') + '" onclick="actMapFilter(\'' + key + '\')" title="nur diesen Typ zeigen (nochmal: alle)">'
+            + '<span class="actLegendDot" style="background:' + actTypeColor(key) + '"></span>' + gpsEscape(actTypeLabel(key)) + ' (' + counts[key] + ')</div>';
+
+   html += '<div class="actSyncHint">' + (items.length - noPosition) + ' Punkte' + (noPosition ? ', ' + noPosition + ' ohne Position' : '') + ' · Klick öffnet den Track</div>';
+   actMapLegend.getContainer().innerHTML = html;
+
+   if (!actMapView)
+      actMapFit();
+}
+
+function actMapFit()
+{
+   let layers = actMapMarkers ? actMapMarkers.getLayers() : [];
+
+   if (!actMap || !layers.length)
+      return;
+
+   actMap.fitBounds(L.featureGroup(layers).getBounds(), { padding: [30, 30], maxZoom: 12 });
+}
+
+function actMapFilter(key)
+{
+   actFilterType = actFilterType == key ? 'all' : key;
+   localStorage.setItem(storagePrefix + 'actFilterType', actFilterType);
+   actBuildControlPanel();
+   actRender();
 }

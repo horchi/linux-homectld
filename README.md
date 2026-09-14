@@ -272,8 +272,22 @@ In addition trips can be recorded as tours and displayed later.
 
 ## Recording
 
-- *Map -> ● Tour aufzeichnen*: enter a name and start the recording (needs control rights),
-  *■ Tour beenden* stops it. Only one tour can be active at a time.
+- *Map -> ● Tour aufzeichnen*: enter a name and optionally the odometer reading [km] and start the
+  recording (needs control rights), *■ Tour beenden* stops it and asks for the odometer at the end.
+  Only one tour can be active at a time.
+- while a tour is active the tool bar offers buttons for events: fuel stop (liters, total price,
+  odometer), toll, pause, night stop (each with optional costs) and a note. Every event is stored
+  with its time and the current GPS position (table `gpstourevents`). The odometer readings at start
+  and end are columns of `gpstours`, they can be corrected later together with the name (pencil
+  button in the tour list)
+- costs and fuel consumption are calculated from the events: total costs (fuel + toll + other),
+  consumption per fuel stop = liters / km since the previous full tank (tour start or the previous
+  full fuel stop) and the average over all fuel stops with a known distance. The distance is taken
+  from the odometer readings (*Tacho*) and in parallel from the GPS distance of the tour at the
+  moment of the fuel stop (*GPS*, stored with the event), both values are shown. A fuel stop marked
+  *nicht voll* (partial fill) gets no value of its own, its liters are added to the next full one.
+  They are shown in the tour list, in the info box of the displayed tour and in the control panel
+  while recording
 - while a tour is active a point is stored whenever the position moved at least
   *gpsTourMinDistance* meters (Setup -> Configuration -> GPS, default 25 m) since the last stored point.
   Standing still therefore does not produce data.
@@ -293,6 +307,7 @@ In addition trips can be recorded as tours and displayed later.
 - tour samples have `AGGREGATE = 'T'`; they are never aggregated or deleted by the aggregation, so the tours stay
   complete. Regular samples (`'S'`, sensors with the *Record* flag) are aggregated as before
 - deleting a tour in the WEBIF also deletes its samples (coordinate, speed, altitude) from `samples`
+  and its events from `gpstourevents`
 
 ## Display
 
@@ -300,14 +315,22 @@ In addition trips can be recorded as tours and displayed later.
 - on stop the daemon proposes the arrival at the final position as end of the tour (the time the
   position came within *Tour: Toleranz Ankunft* meters of the final position and stayed there, default
   200 m) - for a forgotten stop or a long wait at the reception; *jetzt* is offered as well
-- *Map -> Touren*: list of the recorded tours with start, end, duration, pause, distance and number
-  of points; *Anzeigen* draws the tour on the map (green marker = start, red marker = end),
-  *Umbenennen* and *Löschen* need control rights. The active tour can be displayed too but not deleted.
+- *Map -> Touren*: the recorded tours are listed by name in the panel on the left, the selected one
+  shows its details on the right (start, end, duration, pause, distance, odometer, costs, consumption)
+  and the list of its events (time, kind, liters, price, odometer, consumption, note) where events can
+  be changed or deleted (control rights); *Karte* draws the tour on the map (green marker = start,
+  red marker = end) with the events as icons, their popup shows the details and offers the same
+  actions; the pencil button changes name, odometer readings and a free comment for the whole tour
+  (shown above the details), the trash button deletes the tour
+  (control rights). The active tour can be displayed too but not deleted. Entering an event never
+  changes the view.
+- *Zentrieren* (button on the map) brings the whole route into view
 
 
+<a id="garmin-activities"></a>
 # Garmin Activities
 
-The tab *Aktivitäten* shows the activities of a Garmin Connect account (e.g. recorded with a Fenix
+The tab *Garmin* shows the activities of a Garmin Connect account (e.g. recorded with a Fenix
 watch), grouped by activity type. It is offered when the Garmin login exists (`/etc/homectld/garmin`).
 
 - installation and the one time login: see `garmin/README.md` (`garmin.py login`, works with and
@@ -321,11 +344,18 @@ watch), grouped by activity type. It is offered when the Garmin login exists (`/
 - *Details* fetches all values Garmin provides for the activity (speeds, heart rate, temperature,
   training effect, ...)
 - a click on a row opens the details, the pencil button a dialog to change the type (e.g. activities
-  recorded with a wrong profile) and the name at Garmin, the trash button deletes the activity at
-  Garmin (after confirmation); both need control rights
+  recorded with a wrong profile), the name and the location at Garmin, the trash button deletes the
+  activity at Garmin (after confirmation); both need control rights
+- bulk edit: check boxes in the rows (the one in the group header selects the whole group), *Auswahl
+  bearbeiten* changes type, name and/or location of all selected activities, empty fields stay as they
+  are; Garmin is called once per field (about 1 s per activity)
 - *Track* in the details loads the GPS track, simplified by Garmin to 1000 points or at least one
-  point per 15 seconds, and shows it on a map colored by speed; details and tracks are cached in
-  the tables `activities` / `activitytracks`, *Neu laden* fetches them again
+  point per 15 seconds, and shows it on a map colored by speed, hovering a segment shows speed, time
+  and altitude; details and tracks are cached in the tables `activities` / `activitytracks`,
+  *Neu laden* fetches them again
+- *Karte*: world map with the start positions of the activities as points colored by type (the
+  legend filters by type), a click on a point opens the track; the period and name filters apply
+- the maps have a *Zentrieren* button which brings the whole route / all points into view
 
 # I2c Bus
 

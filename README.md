@@ -396,7 +396,7 @@ Voltage, current and power are published as three values with the addresses 0, 1
 
 calling:
 ```i2cmqtt --help```
-show the options and supported sensor types. You can start it as a service anbs provide the data by MQTT to the homerctld.
+show the options and supported sensor types. You can start it as a service and provide the data by MQTT to the homerctld.
 
 # Time to first start of homectld
 ```

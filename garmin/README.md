@@ -50,6 +50,7 @@ garmin.py renames < lines.txt                   # bulk, "id<TAB>new name" per li
 garmin.py rename <id> "new name"
 garmin.py setlocation <id> "Malcesine"
 garmin.py setlocations < lines.txt               # bulk, "id<TAB>location" per line
+garmin.py edit --type windsurfing_v2 --location "Sitia" < ids.txt   # bulk, all given fields in one request per activity
 garmin.py delete <id>                          # deletes the activity at Garmin!
 ```
 

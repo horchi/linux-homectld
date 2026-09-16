@@ -27,7 +27,7 @@ MQTTOBJS     = lib/mqtt.o lib/mqtt_c.o lib/mqtt_pal.o
 
 OBJS         = $(MQTTOBJS) $(LOBJS) main.o daemon.o wsactions.o hass.o hasp.o gpstour.o activities.o websock.o webservice.o deconz.o lmc.o lmccom.o
 OBJS        += growatt.o
-OBJS        += specific.o gpio.o
+OBJS        += config.o gpio.o
 
 W1OBJS       = w1.o gpio.o lib/common.o lib/json.o lib/thread.o $(MQTTOBJS)
 BMSOBJS      = bms.o lib/common.o lib/thread.o lib/serial.o $(MQTTOBJS)
@@ -225,6 +225,13 @@ install-web:
 linstall-web:
 	@echo install web
 	(cd htdocs; $(MAKE) linstall)
+
+# gzip twins of the web files only (WEBDEST is a symlink to htdocs/ on a development box), no install
+gz: gzip-web
+
+gzip-web: htdocs/index.html
+	@echo gzip web files
+	(cd htdocs; $(MAKE) --no-print-directory gzip)
 
 dist: clean
 	@-rm -rf $(TMPDIR)/$(ARCHIVE)

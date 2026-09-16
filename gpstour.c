@@ -50,7 +50,7 @@
 // text 'lat/lng', decimal separator '.' or ',' (the text of the sensor is
 //  converted to the locale format at some places)
 
-bool Daemon::parseGpsText(const char* text, GpsCoordinate& c)
+bool HomeCtl::parseGpsText(const char* text, GpsCoordinate& c)
 {
    if (isEmpty(text))
       return false;
@@ -83,7 +83,7 @@ bool Daemon::parseGpsText(const char* text, GpsCoordinate& c)
    return true;
 }
 
-std::string Daemon::gpsCoordinateText(const GpsCoordinate& c)
+std::string HomeCtl::gpsCoordinateText(const GpsCoordinate& c)
 {
    std::ostringstream o;
 
@@ -95,7 +95,7 @@ std::string Daemon::gpsCoordinateText(const GpsCoordinate& c)
 
 // distance in meters (haversine)
 
-double Daemon::gpsDistance(const GpsCoordinate& a, const GpsCoordinate& b)
+double HomeCtl::gpsDistance(const GpsCoordinate& a, const GpsCoordinate& b)
 {
    constexpr double earthRadius {6371000.0};
    constexpr double toRad {M_PI / 180.0};
@@ -112,7 +112,7 @@ double Daemon::gpsDistance(const GpsCoordinate& a, const GpsCoordinate& b)
 // Init - resume the tour which was active at the last shutdown
 //***************************************************************************
 
-int Daemon::gpsTourInit()
+int HomeCtl::gpsTourInit()
 {
    std::vector<long> openTours;
 
@@ -203,7 +203,7 @@ int Daemon::gpsTourInit()
 // Start / Stop / Delete / Rename
 //***************************************************************************
 
-int Daemon::gpsTourStart(const char* name, long odometer)
+int HomeCtl::gpsTourStart(const char* name, long odometer)
 {
    if (gpsTour.id)
    {
@@ -262,7 +262,7 @@ int Daemon::gpsTourStart(const char* name, long odometer)
 // the reception of the camp site or a forgotten stop). fail -> no proposal (still moving,
 // or not enough points)
 
-int Daemon::gpsTourArrival(time_t& arrival, double& toleranceUsed)
+int HomeCtl::gpsTourArrival(time_t& arrival, double& toleranceUsed)
 {
    if (!gpsTour.id)
       return fail;
@@ -309,7 +309,7 @@ int Daemon::gpsTourArrival(time_t& arrival, double& toleranceUsed)
    return success;
 }
 
-int Daemon::gpsTourStop(time_t stopAt, long odometer)
+int HomeCtl::gpsTourStop(time_t stopAt, long odometer)
 {
    if (!gpsTour.id)
       return fail;
@@ -358,7 +358,7 @@ int Daemon::gpsTourStop(time_t stopAt, long odometer)
 
 // delete the tour and its samples (coordinate, speed, altitude)
 
-int Daemon::gpsTourDelete(long id)
+int HomeCtl::gpsTourDelete(long id)
 {
    if (id == gpsTour.id)
    {
@@ -391,7 +391,7 @@ int Daemon::gpsTourDelete(long id)
    return success;
 }
 
-int Daemon::gpsTourRename(long id, const char* name, json_t* obj)
+int HomeCtl::gpsTourRename(long id, const char* name, json_t* obj)
 {
    if (isEmpty(name))
       return fail;
@@ -442,7 +442,7 @@ int Daemon::gpsTourRename(long id, const char* name, json_t* obj)
 // Update - called on every new GPS coordinate
 //***************************************************************************
 
-int Daemon::gpsTourUpdate(time_t now)
+int HomeCtl::gpsTourUpdate(time_t now)
 {
    if (!gpsTour.id)
       return done;
@@ -471,7 +471,7 @@ int Daemon::gpsTourUpdate(time_t now)
 
 // pause the tour without movement for 'gpsTourPauseAfter' minutes
 
-int Daemon::gpsTourCheckPause(time_t now)
+int HomeCtl::gpsTourCheckPause(time_t now)
 {
    if (!gpsTour.id || gpsTour.paused || !gpsTour.lastMoveAt)
       return done;
@@ -493,7 +493,7 @@ int Daemon::gpsTourCheckPause(time_t now)
 
 // the coordinate and, with the same time stamp, speed and altitude (if the sensors deliver data)
 
-int Daemon::gpsTourStorePoint(time_t now, const GpsCoordinate& c, double distance)
+int HomeCtl::gpsTourStorePoint(time_t now, const GpsCoordinate& c, double distance)
 {
    tableSamples->clear();
    tableSamples->setValue("TIME", (long)now);
@@ -540,7 +540,7 @@ int Daemon::gpsTourStorePoint(time_t now, const GpsCoordinate& c, double distanc
    return gpsTourStoreState();
 }
 
-int Daemon::gpsTourStoreState()
+int HomeCtl::gpsTourStoreState()
 {
    if (!gpsTour.id)
       return done;
@@ -566,7 +566,7 @@ int Daemon::gpsTourStoreState()
 
 // the RECORD flag of the GPS coordinate in valuefacts shows (and persists) the recording
 
-int Daemon::gpsTourSetRecordFlag(bool on)
+int HomeCtl::gpsTourSetRecordFlag(bool on)
 {
    tableValueFacts->clear();
    tableValueFacts->setValue("TYPE", "GPS");
@@ -595,7 +595,7 @@ int Daemon::gpsTourSetRecordFlag(bool on)
 // To JSON
 //***************************************************************************
 
-int Daemon::gpsTours2Json(json_t* obj)
+int HomeCtl::gpsTours2Json(json_t* obj)
 {
    json_object_set_new(obj, "minDistance", json_integer(gpsTourMinDistance));
    json_object_set_new(obj, "pauseAfter", json_integer(gpsTourPauseAfter));
@@ -676,7 +676,7 @@ int Daemon::gpsTours2Json(json_t* obj)
    return success;
 }
 
-int Daemon::gpsTourPoints2Json(json_t* obj, long id)
+int HomeCtl::gpsTourPoints2Json(json_t* obj, long id)
 {
    tableGpsTours->clear();
    tableGpsTours->setValue("ID", id);
@@ -740,7 +740,7 @@ int Daemon::gpsTourPoints2Json(json_t* obj, long id)
 // insert (no 'id') or update; missing time -> now, missing position -> the current GPS
 //  position or the last point of the active tour, missing tour -> the active tour
 
-int Daemon::gpsTourEventStore(json_t* obj, std::string& error)
+int HomeCtl::gpsTourEventStore(json_t* obj, std::string& error)
 {
    static const std::set<std::string> types {"fuel", "toll", "pause", "night", "note"};
 
@@ -828,7 +828,7 @@ int Daemon::gpsTourEventStore(json_t* obj, std::string& error)
    return success;
 }
 
-int Daemon::gpsTourEventDelete(long id)
+int HomeCtl::gpsTourEventDelete(long id)
 {
    tableGpsTourEvents->clear();
    tableGpsTourEvents->setValue("ID", id);
@@ -850,7 +850,7 @@ int Daemon::gpsTourEventDelete(long id)
 //  consumption - per fuel stop (liters since the previous odometer reading, the tour start
 //  or the previous fuel stop) and the average
 
-int Daemon::gpsTourEvents2Json(json_t* obj, long tourId, long odometerStart, long odometerEnd)
+int HomeCtl::gpsTourEvents2Json(json_t* obj, long tourId, long odometerStart, long odometerEnd)
 {
    json_t* oEvents {json_array()};
    json_t* oTotals {json_object()};
@@ -974,7 +974,7 @@ int Daemon::gpsTourEvents2Json(json_t* obj, long tourId, long odometerStart, lon
 
 // send the tour list including the state of the active tour (client 0 -> all clients)
 
-int Daemon::gpsTourPushState(long client)
+int HomeCtl::gpsTourPushState(long client)
 {
    json_t* oJson {json_object()};
    gpsTours2Json(oJson);
@@ -996,7 +996,7 @@ int Daemon::gpsTourPushState(long client)
 //   { "action": "eventdelete", "id": <id> }
 //***************************************************************************
 
-int Daemon::performGpsTour(json_t* obj, long client)
+int HomeCtl::performGpsTour(json_t* obj, long client)
 {
    std::string action {getStringFromJson(obj, "action", "list")};
 

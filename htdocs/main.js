@@ -464,12 +464,10 @@ async function hideProgressDialog()
    }
 }
 
-async function showProgressDialog()
+async function showProgressDialog(msDuration = 300000)   // closes itself after msDuration (default 5 minutes)
 {
    while (progressDialog)
       await sleep(100);
-
-   let msDuration = 300000;   // timeout 5 minutes
 
    let form = document.createElement("div");
    form.style.overflow = "hidden";
@@ -481,7 +479,7 @@ async function showProgressDialog()
 
    $(form).dialog({
       dialogClass: "no-titlebar rounded-border",
-      width: "125px",
+      width: "auto",                // as wide as the spinner plus the content margin (a fixed 125px cut the spinner)
       title: "",
       modal: true,
       resizable: false,
@@ -489,15 +487,18 @@ async function showProgressDialog()
       minHeight: "0px",
       hide: "fade",
       open: function() {
-         progressDialog = $(this);
+         let dlg = $(this);
+         progressDialog = dlg;
          setTimeout(function() {
-            if (progressDialog)
-               progressDialog.dialog('close');
-            progressDialog = null }, msDuration);
+            if (progressDialog === dlg)      // only this one, not a later dialog (the old timer closed the bulk edit's dialog)
+               dlg.dialog('close');
+         }, msDuration);
       },
       close: function() {
+         if (progressDialog && progressDialog[0] === this)    // a later dialog stays registered
+            progressDialog = null;
+
          $(this).dialog('destroy').remove();
-         progressDialog = null;
       }
    });
 }

@@ -48,7 +48,7 @@ Deconz::~Deconz()
 // Init / Exit
 //***************************************************************************
 
-int Deconz::init(Daemon* parent, cDbConnection* connection)
+int Deconz::init(HomeCtl* parent, cDbConnection* connection)
 {
    int status {success};
 
@@ -260,7 +260,7 @@ int Deconz::processDevices(json_t* jData, std::string kind)
       tell(eloDebugDeconz, "DECONZ: Found '%s' %d with uuid '%s'", kind.c_str(), address, uuid);
 
       const char* unit{""};
-      int so {Daemon::soNone};
+      int so {HomeCtl::soNone};
 
       if (kind == "sensor")
       {
@@ -277,16 +277,16 @@ int Deconz::processDevices(json_t* jData, std::string kind)
       }
       else if (kind == "light")
       {
-         so = Daemon::soSwitch;
+         so = HomeCtl::soSwitch;
 
          if (strcasestr(dzType.c_str(), "color"))
-            so += Daemon::soColor + Daemon::soDim; // assume all color lights are dimmable
+            so += HomeCtl::soColor + HomeCtl::soDim; // assume all color lights are dimmable
          if (strcasestr(dzType.c_str(), "dim"))
-            so += Daemon::soDim;
+            so += HomeCtl::soDim;
       }
 
       daemon->addValueFact(address, type, 1, getStringFromJson(jItem, "name"), unit, ""/*title*/,
-                           cWebService::urControl, nullptr, (Daemon::SensorOptions)so);
+                           cWebService::urControl, nullptr, (HomeCtl::SensorOptions)so);
 
       int battery = getIntByPath(jItem, "config/battery", -1);
 

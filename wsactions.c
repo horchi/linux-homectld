@@ -19,7 +19,7 @@
 // Dispatch Client Requests
 //***************************************************************************
 
-int Daemon::dispatchClientRequest()
+int HomeCtl::dispatchClientRequest()
 {
    int status {fail};
    json_t *oData {}, *oObject {};
@@ -121,7 +121,7 @@ int Daemon::dispatchClientRequest()
    return status;
 }
 
-bool Daemon::checkRights(long client, Event event, json_t* oObject)
+bool HomeCtl::checkRights(long client, Event event, json_t* oObject)
 {
    uint rights {urNone};
    auto it {wsClients.find((void*)client)};
@@ -203,7 +203,7 @@ bool Daemon::checkRights(long client, Event event, json_t* oObject)
 // Reply Result
 //***************************************************************************
 
-int Daemon::replyResult(int status, const char* message, long client)
+int HomeCtl::replyResult(int status, const char* message, long client)
 {
    if (status != success)
       tell(eloAlways, "Error: Web request failed with '%s' (%d)", message, status);
@@ -220,7 +220,7 @@ int Daemon::replyResult(int status, const char* message, long client)
 // Reply Result - the new version!!!
 //***************************************************************************
 /*
-int Daemon::replyResult(int status, long client, const char* format, ...)
+int HomeCtl::replyResult(int status, long client, const char* format, ...)
 {
    if (!client)
       return done;
@@ -249,7 +249,7 @@ int Daemon::replyResult(int status, long client, const char* format, ...)
 // Perform WS Client Login / Logout
 //***************************************************************************
 
-int Daemon::performLogin(json_t* oObject)
+int HomeCtl::performLogin(json_t* oObject)
 {
    long client = getLongFromJson(oObject, "client");
    const char* user = getStringFromJson(oObject, "user", "");
@@ -343,7 +343,7 @@ int Daemon::performLogin(json_t* oObject)
 // Perform Data
 //***************************************************************************
 
-int Daemon::performData(long client, const char* event)
+int HomeCtl::performData(long client, const char* event)
 {
    for (auto sj : jsonSensorList)
       json_decref(sj.second);
@@ -421,7 +421,7 @@ int Daemon::performData(long client, const char* event)
 // Perform Page Change
 //***************************************************************************
 
-int Daemon::performPageChange(json_t* oObject, long client)
+int HomeCtl::performPageChange(json_t* oObject, long client)
 {
    std::string page = getStringFromJson(oObject, "page", "");
 
@@ -437,7 +437,7 @@ int Daemon::performPageChange(json_t* oObject, long client)
    return done;
 }
 
-int Daemon::performLogout(json_t* oObject)
+int HomeCtl::performLogout(json_t* oObject)
 {
    long client = getLongFromJson(oObject, "client");
    tell(eloDebugWebSock, "Logout of client 0x%x", (unsigned int)client);
@@ -449,7 +449,7 @@ int Daemon::performLogout(json_t* oObject)
 // Perform WS Token Request
 //***************************************************************************
 
-int Daemon::performTokenRequest(json_t* oObject, long client)
+int HomeCtl::performTokenRequest(json_t* oObject, long client)
 {
    json_t* oJson {json_object()};
    const char* user = getStringFromJson(oObject, "user", "");
@@ -501,7 +501,7 @@ int Daemon::performTokenRequest(json_t* oObject, long client)
 //    {"action": "toggle", "value": -1, "address": 0, "type": "MCPO27"}
 //***************************************************************************
 
-int Daemon::performToggleIo(json_t* oObject, long client)
+int HomeCtl::performToggleIo(json_t* oObject, long client)
 {
    int addr {getIntFromJson(oObject, "address")};
    const char* type {getStringFromJson(oObject, "type")};
@@ -543,7 +543,7 @@ int Daemon::performToggleIo(json_t* oObject, long client)
 // Alert Test Mail
 //***************************************************************************
 
-int Daemon::performAlertTestMail(int id, long client)
+int HomeCtl::performAlertTestMail(int id, long client)
 {
    tell(eloDetail, "Test mail for alert (%d) requested", id);
 
@@ -580,7 +580,7 @@ int Daemon::performAlertTestMail(int id, long client)
 // Perform WS Sensor Alert Request
 //***************************************************************************
 
-int Daemon::performAlerts(json_t* oObject, long client)
+int HomeCtl::performAlerts(json_t* oObject, long client)
 {
    json_t* oArray {json_array()};
 
@@ -620,7 +620,7 @@ int Daemon::performAlerts(json_t* oObject, long client)
 // Store Sensor Alerts
 //***************************************************************************
 
-int Daemon::storeAlerts(json_t* oObject, long client)
+int HomeCtl::storeAlerts(json_t* oObject, long client)
 {
    const char* action {getStringFromJson(oObject, "action", "")};
 
@@ -708,7 +708,7 @@ static std::string serviceDefaultFile(const char* service)
 // Perform System Data
 //***************************************************************************
 
-int Daemon::performSystem(json_t* oObject, long client)
+int HomeCtl::performSystem(json_t* oObject, long client)
 {
    myString action {getStringFromJson(oObject, "action", "")};
 
@@ -804,7 +804,7 @@ int Daemon::performSystem(json_t* oObject, long client)
 // Perform Wifi
 //***************************************************************************
 
-int Daemon::performWifi(json_t* oObject, long client)
+int HomeCtl::performWifi(json_t* oObject, long client)
 {
    std::string result {executeCommand("nmcli.asjson.sh wifi-con")};
    json_t* oConnections {jsonLoad(result.c_str())};
@@ -835,7 +835,7 @@ int Daemon::performWifi(json_t* oObject, long client)
 // Perform Wifi Command
 //***************************************************************************
 
-int Daemon::performWifiCommand(json_t* oObject, long client)
+int HomeCtl::performWifiCommand(json_t* oObject, long client)
 {
    std::string action {getStringFromJson(oObject, "action", "")};
    const char* ssid {getStringFromJson(oObject, "ssid")};
@@ -904,7 +904,7 @@ int Daemon::performWifiCommand(json_t* oObject, long client)
 // Perform Database Statistic
 //***************************************************************************
 
-int Daemon::performDatabaseStatistic(json_t* oObject, long client)
+int HomeCtl::performDatabaseStatistic(json_t* oObject, long client)
 {
    tableTableStatistics->clear();
    tableTableStatistics->setValue("SCHEMA", connection->getName());
@@ -950,7 +950,7 @@ int Daemon::performDatabaseStatistic(json_t* oObject, long client)
 // Perform Syslog Request
 //***************************************************************************
 
-int Daemon::performSyslog(json_t* oObject, long client)
+int HomeCtl::performSyslog(json_t* oObject, long client)
 {
    std::string name {"/var/log/"};
 
@@ -998,7 +998,7 @@ int Daemon::performSyslog(json_t* oObject, long client)
 // Perform Config Data Request
 //***************************************************************************
 
-int Daemon::performConfigDetails(long client)
+int HomeCtl::performConfigDetails(long client)
 {
    if (!client)
       return done;
@@ -1014,7 +1014,7 @@ int Daemon::performConfigDetails(long client)
 // Perform WS User Data Request
 //***************************************************************************
 
-int Daemon::performUserDetails(long client)
+int HomeCtl::performUserDetails(long client)
 {
    if (!client)
       return done;
@@ -1030,7 +1030,7 @@ int Daemon::performUserDetails(long client)
 // Perform WS Groups Data Request
 //***************************************************************************
 
-int Daemon::performGroups(long client)
+int HomeCtl::performGroups(long client)
 {
    if (!client)
       return done;
@@ -1046,7 +1046,7 @@ int Daemon::performGroups(long client)
 // Perform Send Mail
 //***************************************************************************
 
-int Daemon::performTestMail(json_t* oObject, long client)
+int HomeCtl::performTestMail(json_t* oObject, long client)
 {
    int alertid = getIntFromJson(oObject, "alertid", na);
 
@@ -1105,7 +1105,7 @@ int Daemon::performTestMail(json_t* oObject, long client)
 // Perform WS ChartData request
 //***************************************************************************
 
-int Daemon::performChartData(json_t* oObject, long client)
+int HomeCtl::performChartData(json_t* oObject, long client)
 {
    if (!client)
       return done;
@@ -1278,7 +1278,7 @@ int Daemon::performChartData(json_t* oObject, long client)
 // Chart Bookmarks
 //***************************************************************************
 
-int Daemon::storeChartbookmarks(json_t* array, long client)
+int HomeCtl::storeChartbookmarks(json_t* array, long client)
 {
    char* bookmarks = json_dumps(array, JSON_REAL_PRECISION(4));
    setConfigItem("chartBookmarks", bookmarks);
@@ -1289,7 +1289,7 @@ int Daemon::storeChartbookmarks(json_t* array, long client)
    return done; // replyResult(success, "Bookmarks gespeichert", client);
 }
 
-int Daemon::performChartbookmarks(long client)
+int HomeCtl::performChartbookmarks(long client)
 {
    std::string bookmarks;
    getConfigItem("chartBookmarks", bookmarks, "[]");
@@ -1303,7 +1303,7 @@ int Daemon::performChartbookmarks(long client)
 // Store User Configuration
 //***************************************************************************
 
-int Daemon::storeUserConfig(json_t* oObject, long client)
+int HomeCtl::storeUserConfig(json_t* oObject, long client)
 {
    int count {0};
 
@@ -1404,7 +1404,7 @@ int Daemon::storeUserConfig(json_t* oObject, long client)
 // Perform password Change
 //***************************************************************************
 
-int Daemon::performPasswChange(json_t* oObject, long client)
+int HomeCtl::performPasswChange(json_t* oObject, long client)
 {
    if (!client)
       return done;
@@ -1439,7 +1439,7 @@ int Daemon::performPasswChange(json_t* oObject, long client)
 // Perform Schema Data
 //***************************************************************************
 
-int Daemon::performSchema(json_t* oObject, long client)
+int HomeCtl::performSchema(json_t* oObject, long client)
 {
    if (!client)
       return done;
@@ -1492,7 +1492,7 @@ int Daemon::performSchema(json_t* oObject, long client)
 // Store Schema
 //***************************************************************************
 
-int Daemon::storeSchema(json_t* oObject, long client)
+int HomeCtl::storeSchema(json_t* oObject, long client)
 {
    if (!client)
       return done;
@@ -1550,7 +1550,7 @@ int Daemon::storeSchema(json_t* oObject, long client)
 // Store Configuration
 //***************************************************************************
 
-int Daemon::storeConfig(json_t* obj, long client)
+int HomeCtl::storeConfig(json_t* obj, long client)
 {
    std::string action {getStringFromJson(obj, "action", "store")};
 
@@ -1580,6 +1580,23 @@ int Daemon::storeConfig(json_t* obj, long client)
       pushOutMessage(oJson, "config", client);
       performConfigDetails(client);
    }
+   else if (action == "label")
+   {
+      // ctComboChoice: the WEBIF resolved the label of a remembered value (silent, no config push)
+
+      comboHistoryLabel(getStringFromJson(obj, "name", ""), getStringFromJson(obj, "value", ""), getStringFromJson(obj, "label", ""));
+   }
+   else if (action == "forget")
+   {
+      // ctComboChoice: drop one of the remembered values
+
+      comboHistoryForget(getStringFromJson(obj, "name", ""), getStringFromJson(obj, "value", ""));
+
+      json_t* oJson {json_object()};
+      config2Json(oJson);
+      pushOutMessage(oJson, "config", client);
+      performConfigDetails(client);
+   }
    else if (action == "store")
    {
       int oldWebPort {webPort};
@@ -1595,6 +1612,10 @@ int Daemon::storeConfig(json_t* obj, long client)
       {
          tell(eloDebugWebSock, "Debug: Storing config item '%s' with '%s'", key, json_string_value(jValue));
          setConfigItem(key, json_string_value(jValue));
+
+         if (configItemType(key) == ctComboChoice)
+            comboHistoryAdd(key, json_string_value(jValue));      // remember it as suggestion
+
          count++;
       }
 
@@ -1635,7 +1656,7 @@ int Daemon::storeConfig(json_t* obj, long client)
 // Check Lua Script Syntax
 //***************************************************************************
 
-int Daemon::checkLuaScript(json_t* obj, long client)
+int HomeCtl::checkLuaScript(json_t* obj, long client)
 {
    const char* script {getStringFromJson(obj, "lua", "")};
 
@@ -1655,7 +1676,7 @@ int Daemon::checkLuaScript(json_t* obj, long client)
 // GPS Live
 //***************************************************************************
 
-int Daemon::gpsLive(json_t* obj, long client)
+int HomeCtl::gpsLive(json_t* obj, long client)
 {
    tell(eloAlways, "GPS: %f / %f", gpsCoordinate.latitude, gpsCoordinate.longitude);
 
@@ -1680,7 +1701,7 @@ int Daemon::gpsLive(json_t* obj, long client)
 // Store Sensor Settings
 //***************************************************************************
 
-int Daemon::storeSensorSetup(json_t* obj, long client)
+int HomeCtl::storeSensorSetup(json_t* obj, long client)
 {
    int status {success};
    myString type {getStringFromJson(obj, "type", "")};
@@ -1724,14 +1745,14 @@ int Daemon::storeSensorSetup(json_t* obj, long client)
 // Delete ValueFact
 //***************************************************************************
 
-int Daemon::deleteValueFact(const char* type, long address)
+int HomeCtl::deleteValueFact(const char* type, long address)
 {
    tell(eloAlways, "DELETE: type = '%s' and address = %ld", type, address);
    tableValueFacts->deleteWhere("type = '%s' and address = %ld", type, address);
    return success;
 }
 
-int Daemon::storeIoSettings(json_t* obj, long client)
+int HomeCtl::storeIoSettings(json_t* obj, long client)
 {
    std::string action {getStringFromJson(obj, "action", "")};
    const char* type {getStringFromJson(obj, "type")};
@@ -1801,7 +1822,7 @@ int Daemon::storeIoSettings(json_t* obj, long client)
    return success;
 }
 
-int Daemon::storeAiSettings(json_t* obj, long client)
+int HomeCtl::storeAiSettings(json_t* obj, long client)
 {
    std::string type {getStringFromJson(obj, "type", "")};
    long address {getIntFromJson(obj, "address", na)};
@@ -1849,7 +1870,7 @@ int Daemon::storeAiSettings(json_t* obj, long client)
 // Store Dashboards
 //***************************************************************************
 
-int Daemon::storeDashboards(json_t* obj, long client)
+int HomeCtl::storeDashboards(json_t* obj, long client)
 {
    const char* action = getStringFromJson(obj, "action", "");
 
@@ -2064,7 +2085,7 @@ int Daemon::storeDashboards(json_t* obj, long client)
 // Perform Force Refresh
 //***************************************************************************
 
-int Daemon::performForceRefresh(json_t* obj, long client)
+int HomeCtl::performForceRefresh(json_t* obj, long client)
 {
    std::string action = getStringFromJson(obj, "action", "");
 
@@ -2092,7 +2113,7 @@ int Daemon::performForceRefresh(json_t* obj, long client)
 // Store IO Setup
 //***************************************************************************
 
-int Daemon::storeIoSetup(json_t* array, long client)
+int HomeCtl::storeIoSetup(json_t* array, long client)
 {
    size_t index {0};
    json_t* jObj {};
@@ -2147,7 +2168,7 @@ int Daemon::storeIoSetup(json_t* array, long client)
 // Store Groups
 //***************************************************************************
 
-int Daemon::storeGroups(json_t* oObject, long client)
+int HomeCtl::storeGroups(json_t* oObject, long client)
 {
    const char* action = getStringFromJson(oObject, "action");
 
@@ -2221,7 +2242,7 @@ int Daemon::storeGroups(json_t* oObject, long client)
 
 #include "lib/base64.h"
 
-int Daemon::performImageConfig(json_t* obj, long client)
+int HomeCtl::performImageConfig(json_t* obj, long client)
 {
    const char* action {getStringFromJson(obj, "action")};
 
@@ -2282,7 +2303,7 @@ int Daemon::performImageConfig(json_t* obj, long client)
 // Environment 2 Json
 //***************************************************************************
 
-int Daemon::environment2Json(json_t* obj)
+int HomeCtl::environment2Json(json_t* obj)
 {
    json_object_set_new(obj, "boardType", json_string(gpio->getBoardType().c_str()));
 
@@ -2293,7 +2314,7 @@ int Daemon::environment2Json(json_t* obj)
 // Config 2 Json
 //***************************************************************************
 
-int Daemon::config2Json(json_t* obj)
+int HomeCtl::config2Json(json_t* obj)
 {
    tableConfig->clear();
    tableConfig->setValue("OWNER", myName());
@@ -2314,7 +2335,7 @@ int Daemon::config2Json(json_t* obj)
 // Config Details 2 Json
 //***************************************************************************
 
-int Daemon::configDetails2Json(json_t* obj)
+int HomeCtl::configDetails2Json(json_t* obj)
 {
    struct ConfigItem
    {
@@ -2365,7 +2386,139 @@ int Daemon::configDetails2Json(json_t* obj)
 
       if (it.type == ctChoice || it.type == ctMultiSelect || it.type == ctBitSelect)
          configChoice2json(oDetail, it.name.c_str());
+      else if (it.type == ctComboChoice)
+         json_object_set_new(oDetail, "options", comboHistory(it.name.c_str()));    // [{value, label}]
    }
+
+   return done;
+}
+
+//***************************************************************************
+// ComboChoice (ctComboChoice) - a text input with the values stored before as suggestions;
+//   they are kept as [{"value": .., "label": ..}] in the internal config item '<name>History'.
+//   The label is resolved by the WEBIF (setup.js, comboLabelResolvers - e.g. the Windy spot
+//   name for its id) and reported with the action 'label', the daemon doesn't block for it
+//***************************************************************************
+
+HomeCtl::ConfigItemType HomeCtl::configItemType(const char* name)
+{
+   tableConfig->clear();
+   tableConfig->setValue("OWNER", myName());
+   tableConfig->setValue("NAME", name);
+
+   ConfigItemType type {tableConfig->find() ? (ConfigItemType)tableConfig->getIntValue("TYPE") : ctString};
+   tableConfig->reset();
+
+   return type;
+}
+
+json_t* HomeCtl::comboHistory(const char* name)
+{
+   std::string history;
+   getConfigItem((std::string(name) + "History").c_str(), history, "");
+
+   json_t* jHistory {history.empty() ? nullptr : jsonLoad(history.c_str(), 0, true)};
+
+   if (!json_is_array(jHistory))
+   {
+      if (jHistory)
+         json_decref(jHistory);
+
+      jHistory = json_array();
+   }
+
+   return jHistory;
+}
+
+int HomeCtl::comboHistoryStore(const char* name, json_t* jHistory)
+{
+   std::string key {std::string(name) + "History"};
+   char* dump {json_dumps(jHistory, JSON_COMPACT | JSON_ENSURE_ASCII)};
+
+   if (!configItemExists(key.c_str()))
+      addConfigItem(key.c_str(), ctText, dump, "N", true /*internal*/, "", key.c_str(), "");
+   else
+      setConfigItem(key.c_str(), dump);
+
+   free(dump);
+
+   return done;
+}
+
+int HomeCtl::comboHistoryAdd(const char* name, const char* value)
+{
+   if (isEmpty(value))
+      return done;
+
+   json_t* jHistory {comboHistory(name)};
+   size_t i {0};
+   json_t* jItem {};
+
+   json_array_foreach(jHistory, i, jItem)
+   {
+      if (strcmp(getStringFromJson(jItem, "value", ""), value) == 0)
+      {
+         json_decref(jHistory);
+         return done;                       // known
+      }
+   }
+
+   json_t* jNew {json_object()};
+   json_object_set_new(jNew, "value", json_string(value));
+   json_object_set_new(jNew, "label", json_string(value));      // until the WEBIF reports a label
+   json_array_append_new(jHistory, jNew);
+   comboHistoryStore(name, jHistory);
+   json_decref(jHistory);
+
+   tell(eloAlways, "Info: Remembered '%s' for '%s'", value, name);
+
+   return done;
+}
+
+int HomeCtl::comboHistoryLabel(const char* name, const char* value, const char* label)
+{
+   if (isEmpty(value) || isEmpty(label))
+      return done;
+
+   json_t* jHistory {comboHistory(name)};
+   size_t i {0};
+   json_t* jItem {};
+   bool changed {false};
+
+   json_array_foreach(jHistory, i, jItem)
+   {
+      if (strcmp(getStringFromJson(jItem, "value", ""), value) == 0 && strcmp(getStringFromJson(jItem, "label", ""), label) != 0)
+      {
+         json_object_set_new(jItem, "label", json_string(label));
+         changed = true;
+      }
+   }
+
+   if (changed)
+   {
+      comboHistoryStore(name, jHistory);
+      tell(eloAlways, "Info: Label of '%s' for '%s' is '%s'", value, name, label);
+   }
+
+   json_decref(jHistory);
+
+   return done;
+}
+
+int HomeCtl::comboHistoryForget(const char* name, const char* value)
+{
+   json_t* jHistory {comboHistory(name)};
+   json_t* jKept {json_array()};
+   size_t i {0};
+   json_t* jItem {};
+
+   json_array_foreach(jHistory, i, jItem)
+      if (strcmp(getStringFromJson(jItem, "value", ""), value) != 0)
+         json_array_append(jKept, jItem);
+
+   comboHistoryStore(name, jKept);
+   json_decref(jKept);
+   json_decref(jHistory);
 
    return done;
 }
@@ -2374,7 +2527,7 @@ int Daemon::configDetails2Json(json_t* obj)
 // Config Choice to Json
 //***************************************************************************
 
-int Daemon::configChoice2json(json_t* obj, const char* name)
+int HomeCtl::configChoice2json(json_t* obj, const char* name)
 {
    if (strcmp(name, "eloquence") == 0)
    {
@@ -2514,7 +2667,7 @@ int Daemon::configChoice2json(json_t* obj, const char* name)
 // User Details 2 Json
 //***************************************************************************
 
-int Daemon::userDetails2Json(json_t* obj)
+int HomeCtl::userDetails2Json(json_t* obj)
 {
    for (int f = selectAllUser->find(); f; f = selectAllUser->fetch())
    {
@@ -2534,7 +2687,7 @@ int Daemon::userDetails2Json(json_t* obj)
 // Value Types 2 Json
 //***************************************************************************
 
-int Daemon::valueTypes2Json(json_t* obj)
+int HomeCtl::valueTypes2Json(json_t* obj)
 {
    tableValueTypes->clear();
 
@@ -2556,7 +2709,7 @@ int Daemon::valueTypes2Json(json_t* obj)
 // Value Facts 2 Json
 //***************************************************************************
 
-int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
+int HomeCtl::valueFacts2Json(json_t* obj, bool filterActive)
 {
    tableValueFacts->clear();
 
@@ -2659,7 +2812,7 @@ int Daemon::valueFacts2Json(json_t* obj, bool filterActive)
 // Dashboards 2 Json
 //***************************************************************************
 
-int Daemon::dashboards2Json(json_t* obj)
+int HomeCtl::dashboards2Json(json_t* obj)
 {
    tableDashboards->clear();
 
@@ -2708,7 +2861,7 @@ int Daemon::dashboards2Json(json_t* obj)
 // Groups 2 Json
 //***************************************************************************
 
-int Daemon::groups2Json(json_t* obj)
+int HomeCtl::groups2Json(json_t* obj)
 {
    tableGroups->clear();
 
@@ -2730,7 +2883,7 @@ int Daemon::groups2Json(json_t* obj)
 // Commands 2 Json
 //***************************************************************************
 
-int Daemon::commands2Json(json_t* obj)
+int HomeCtl::commands2Json(json_t* obj)
 {
    json_t* jCommand {json_object()};
    json_array_append_new(obj, jCommand);
@@ -2751,7 +2904,7 @@ int Daemon::commands2Json(json_t* obj)
 // Syslogs 2 Json
 //***************************************************************************
 
-int Daemon::syslogs2Json(json_t* obj)
+int HomeCtl::syslogs2Json(json_t* obj)
 {
    FileList syslogs;
    int count {0};
@@ -2774,7 +2927,7 @@ int Daemon::syslogs2Json(json_t* obj)
 // Perform Command
 //***************************************************************************
 
-int Daemon::performCommand(json_t* obj, long client)
+int HomeCtl::performCommand(json_t* obj, long client)
 {
    std::string what = getStringFromJson(obj, "what");
 
@@ -2826,7 +2979,7 @@ int Daemon::performCommand(json_t* obj, long client)
 // Widget Types 2 Json
 //***************************************************************************
 
-int Daemon::widgetTypes2Json(json_t* obj)
+int HomeCtl::widgetTypes2Json(json_t* obj)
 {
    for (int type = wtUnknown+1; type < wtCount; type++)
       json_object_set_new(obj, toName((WidgetType)type), json_integer(type));
@@ -2838,7 +2991,7 @@ int Daemon::widgetTypes2Json(json_t* obj)
 // Daemon Status 2 Json
 //***************************************************************************
 
-int Daemon::daemonState2Json(json_t* obj)
+int HomeCtl::daemonState2Json(json_t* obj)
 {
    double averages[3] {0.0, 0.0, 0.0};
    char d[100];
@@ -2861,7 +3014,7 @@ int Daemon::daemonState2Json(json_t* obj)
 // Sensor 2 Json
 //***************************************************************************
 
-int Daemon::sensor2Json(json_t* obj, const char* type, uint address)
+int HomeCtl::sensor2Json(json_t* obj, const char* type, uint address)
 {
    json_object_set_new(obj, "address", json_integer(address));
    json_object_set_new(obj, "type", json_string(type));
@@ -2919,7 +3072,7 @@ int Daemon::sensor2Json(json_t* obj, const char* type, uint address)
 // System Services To Json
 //***************************************************************************
 
-int Daemon::systemServices2Json(json_t* obj)
+int HomeCtl::systemServices2Json(json_t* obj)
 {
    SysCtl ctl;
    SysCtl::Services services;
@@ -2946,7 +3099,7 @@ int Daemon::systemServices2Json(json_t* obj)
 // Images 2 Json
 //***************************************************************************
 
-int Daemon::images2Json(json_t* obj)
+int HomeCtl::images2Json(json_t* obj)
 {
    FileList images;
    int count {0};
@@ -2978,7 +3131,7 @@ int Daemon::images2Json(json_t* obj)
 //  just the GPIO pin description (no runtime data)
 //***************************************************************************
 
-int Daemon::performGpioData(json_t* /*oObject*/, long client)
+int HomeCtl::performGpioData(json_t* /*oObject*/, long client)
 {
    if (!gpio)
       return replyResult(fail, "GPIO not available", client);
@@ -3013,7 +3166,7 @@ int Daemon::performGpioData(json_t* /*oObject*/, long client)
 // Web File Exists
 //***************************************************************************
 
-bool Daemon::webFileExists(const char* file, const char* base)
+bool HomeCtl::webFileExists(const char* file, const char* base)
 {
    char* path {};
    asprintf(&path, "%s/%s/%s", httpPath, base ? base : "", file);

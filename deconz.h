@@ -10,7 +10,7 @@
 
 #include "lib/common.h"
 
-class Daemon;
+class HomeCtl;
 
 //***************************************************************************
 // Class Deconz
@@ -23,7 +23,7 @@ class Deconz
       Deconz();
       ~Deconz();
 
-      int init(Daemon* parent, cDbConnection* connection);
+      int init(HomeCtl* parent, cDbConnection* connection);
       int exit();
 
       void setApiKey(const char* key)  { apiKey = key; }
@@ -59,7 +59,7 @@ class Deconz
 
       std::string httpUrl;
       std::string apiKey;
-      Daemon* daemon {};
+      HomeCtl* daemon {};
 
       std::map<std::string,uint> lights;
       std::map<std::string,uint> sensors;

@@ -18,6 +18,7 @@
 
 #include <sys/stat.h>
 #include <set>
+#include <cmath>
 
 #include "daemon.h"
 
@@ -25,7 +26,7 @@
 // Call the garmin.py script (stderr is dropped, stdout is JSON)
 //***************************************************************************
 
-json_t* Daemon::garminCall(const char* args, int timeout, std::string& error, const char* input)
+json_t* HomeCtl::garminCall(const char* args, int timeout, std::string& error, const char* input)
 {
    // input (the bulk commands read their lines from stdin) is passed via a temporary file
 
@@ -83,7 +84,7 @@ json_t* Daemon::garminCall(const char* args, int timeout, std::string& error, co
    return jResult;
 }
 
-bool Daemon::garminConfigured()
+bool HomeCtl::garminConfigured()
 {
    char* path {};
    asprintf(&path, "%s/garmin", confDir);
@@ -98,7 +99,7 @@ bool Daemon::garminConfigured()
 // Store one activity (insert or update)
 //***************************************************************************
 
-int Daemon::activityStore(json_t* jAct)
+int HomeCtl::activityStore(json_t* jAct)
 {
    long id {getLongFromJson(jAct, "id", 0)};
 
@@ -130,26 +131,80 @@ int Daemon::activityStore(json_t* jAct)
    tableActivities->setValue("LAT", getDoubleFromJson(jAct, "lat", 0.0));
    tableActivities->setValue("LON", getDoubleFromJson(jAct, "lon", 0.0));
 
-   if (exists)
-   {
-      // the activity may have been changed at Garmin -> drop the cached details
+   // the values of the list entry become a preliminary version of the details ("full": false),
+   //   the same format as 'garmin.py details' delivers; a changed activity gets them fresh, too.
+   //   JSON_ENSURE_ASCII: the tables are utf8mb3, an emoji (4 byte) in the description broke the insert
 
-      tableActivities->getValue("DETAILS")->setNull();
-      tableActivities->update();
+   json_t* jSummary {json_object_get(jAct, "summary")};
+   bool haveFull {exists && !tableActivities->getValue("DETAILS")->isNull() && activityDetailsFull(tableActivities->getStrValue("DETAILS"))};
+
+   if (json_is_object(jSummary) && haveFull)
+   {
+      // full details cached: keep them, refresh name / type / location and the values the list has
+
+      json_t* jDetails {jsonLoad(tableActivities->getStrValue("DETAILS"), 0, true)};
+
+      if (jDetails)
+      {
+         json_object_set_new(jDetails, "name", json_string(getStringFromJson(jAct, "name", "")));
+         json_object_set_new(jDetails, "type", json_string(getStringFromJson(jAct, "type", "other")));
+         json_object_set_new(jDetails, "location", json_string(getStringFromJson(jAct, "location", "")));
+
+         json_t* jOldSummary {json_object_get(jDetails, "summary")};
+
+         if (json_is_object(jOldSummary))
+            json_object_update(jOldSummary, jSummary);
+         else
+            json_object_set(jDetails, "summary", jSummary);
+
+         char* dump {json_dumps(jDetails, JSON_COMPACT | JSON_ENSURE_ASCII)};
+         tableActivities->setValue("DETAILS", dump);
+         free(dump);
+         json_decref(jDetails);
+      }
    }
+   else if (json_is_object(jSummary))
+   {
+      json_t* jDetails {json_object()};
+      json_object_set_new(jDetails, "id", json_integer(id));
+      json_object_set_new(jDetails, "name", json_string(getStringFromJson(jAct, "name", "")));
+      json_object_set_new(jDetails, "description", json_string(getStringFromJson(jAct, "description", "")));
+      json_object_set_new(jDetails, "type", json_string(getStringFromJson(jAct, "type", "other")));
+      json_object_set_new(jDetails, "location", json_string(getStringFromJson(jAct, "location", "")));
+      json_object_set(jDetails, "summary", jSummary);
+      json_object_set_new(jDetails, "full", json_false());
+
+      char* dump {json_dumps(jDetails, JSON_COMPACT | JSON_ENSURE_ASCII)};
+      tableActivities->setValue("DETAILS", dump);
+      free(dump);
+      json_decref(jDetails);
+   }
+   else if (exists)
+      tableActivities->getValue("DETAILS")->setNull();    // old script without the summary: drop the cached details
+
+   if (exists)
+      tableActivities->update();
    else
       tableActivities->insert();
 
    tableActivities->reset();
 
-   return exists ? done : success;    // success -> new
+   return exists ? done : yes;        // yes -> new
+}
+
+// the cached details are the full ones (loaded with 'garmin.py details'), not the preliminary
+//   version from the list entry (json_dumps writes the flag exactly like this)
+
+bool HomeCtl::activityDetailsFull(const char* details)
+{
+   return !isEmpty(details) && !strstr(details, "\"full\":false");
 }
 
 //***************************************************************************
 // Sync - fetch the activities from Garmin ('since' YYYY-MM-DD or empty -> all)
 //***************************************************************************
 
-int Daemon::activitiesSync(const char* since, std::string& message)
+int HomeCtl::activitiesSync(const char* since, std::string& message)
 {
    std::string args {"activities "};
 
@@ -182,7 +237,7 @@ int Daemon::activitiesSync(const char* since, std::string& message)
       int status {activityStore(jAct)};
       ids.insert(getLongFromJson(jAct, "id", 0));
 
-      if (status == success)
+      if (status == yes)
          added++;
       else if (status == done)
          updated++;
@@ -229,7 +284,7 @@ int Daemon::activitiesSync(const char* since, std::string& message)
 // Activities to JSON (for the WEBIF)
 //***************************************************************************
 
-int Daemon::activities2Json(json_t* obj)
+int HomeCtl::activities2Json(json_t* obj)
 {
    json_t* oActs {json_array()};
    long newest {0};
@@ -243,6 +298,7 @@ int Daemon::activities2Json(json_t* obj)
       withTrack.insert((long)tableActivityTracks->getBigintValue("GARMINID"));
 
    selectActivityTrackIds->freeResult();
+   activitiesFillTrackDistance(withTrack);
    tableActivities->clear();
 
    for (int f = selectActivities->find(); f; f = selectActivities->fetch())
@@ -255,7 +311,7 @@ int Daemon::activities2Json(json_t* obj)
          newest = start;
 
       json_object_set_new(oAct, "id", json_integer(id));
-      json_object_set_new(oAct, "hasdetails", json_boolean(!tableActivities->getValue("DETAILS")->isNull() && !isEmpty(tableActivities->getStrValue("DETAILS"))));
+      json_object_set_new(oAct, "hasdetails", json_boolean(!tableActivities->getValue("DETAILS")->isNull() && activityDetailsFull(tableActivities->getStrValue("DETAILS"))));
       json_object_set_new(oAct, "hastrack", json_boolean(withTrack.count(id) > 0));
       json_object_set_new(oAct, "start", json_integer(start));
       json_object_set_new(oAct, "type", json_string(tableActivities->getStrValue("TYPE")));
@@ -264,7 +320,17 @@ int Daemon::activities2Json(json_t* obj)
       json_object_set_new(oAct, "duration", json_integer(tableActivities->getIntValue("DURATION")));
       json_object_set_new(oAct, "moving", json_integer(tableActivities->getIntValue("MOVING")));
       json_object_set_new(oAct, "elapsed", json_integer(tableActivities->getIntValue("ELAPSED")));
-      json_object_set_new(oAct, "distance", json_real(tableActivities->getFloatValue("DISTANCE")));
+
+      // Garmin's distance, or the one of the stored track if Garmin's deviates too much
+
+      double garminDistance {tableActivities->getFloatValue("DISTANCE")};
+      double trackDistance {tableActivities->getValue("TRACKDISTANCE")->isNull() ? 0.0 : tableActivities->getFloatValue("TRACKDISTANCE")};
+      bool fromTrack {activityUseTrackDistance(garminDistance, trackDistance)};
+
+      json_object_set_new(oAct, "distance", json_real(fromTrack ? trackDistance : garminDistance));
+      json_object_set_new(oAct, "garmindistance", json_real(garminDistance));
+      json_object_set_new(oAct, "trackdistance", json_real(trackDistance));
+      json_object_set_new(oAct, "distancefromtrack", json_boolean(fromTrack));
       json_object_set_new(oAct, "elevgain", json_real(tableActivities->getFloatValue("ELEVGAIN")));
       json_object_set_new(oAct, "elevloss", json_real(tableActivities->getFloatValue("ELEVLOSS")));
       json_object_set_new(oAct, "avgspeed", json_real(tableActivities->getFloatValue("AVGSPEED")));
@@ -287,7 +353,7 @@ int Daemon::activities2Json(json_t* obj)
    return success;
 }
 
-int Daemon::activitiesPush(long client)
+int HomeCtl::activitiesPush(long client)
 {
    json_t* oJson {json_object()};
    activities2Json(oJson);
@@ -299,7 +365,7 @@ int Daemon::activitiesPush(long client)
 // Details - cached in the table, fetched from Garmin on the first request
 //***************************************************************************
 
-json_t* Daemon::activityDetails(long id, bool force, std::string& error)
+json_t* HomeCtl::activityDetails(long id, bool force, std::string& error)
 {
    tableActivities->clear();
    tableActivities->setBigintValue("GARMINID", id);
@@ -328,12 +394,36 @@ json_t* Daemon::activityDetails(long id, bool force, std::string& error)
 
       if (jDetails)
       {
-         char* dump {json_dumps(jDetails, JSON_COMPACT)};
+         // values only the list entry has (e.g. the training load) stay
+
+         if (!tableActivities->getValue("DETAILS")->isNull() && !isEmpty(tableActivities->getStrValue("DETAILS")))
+         {
+            json_t* jOld {jsonLoad(tableActivities->getStrValue("DETAILS"), 0, true)};
+            json_t* jOldSummary {json_object_get(jOld, "summary")};
+            json_t* jSummary {json_object_get(jDetails, "summary")};
+
+            if (json_is_object(jOldSummary) && json_is_object(jSummary))
+               json_object_update_missing(jSummary, jOldSummary);
+
+            json_decref(jOld);
+         }
+
+         json_object_set_new(jDetails, "full", json_true());
+         char* dump {json_dumps(jDetails, JSON_COMPACT | JSON_ENSURE_ASCII)};
          tableActivities->setValue("DETAILS", dump);
          tableActivities->update();
          free(dump);
          json_object_set_new(jDetails, "cached", json_false());
       }
+   }
+
+   if (jDetails)
+   {
+      double garminDistance {tableActivities->getFloatValue("DISTANCE")};
+      double trackDistance {tableActivities->getValue("TRACKDISTANCE")->isNull() ? 0.0 : tableActivities->getFloatValue("TRACKDISTANCE")};
+
+      json_object_set_new(jDetails, "trackdistance", json_real(trackDistance));
+      json_object_set_new(jDetails, "distancefromtrack", json_boolean(activityUseTrackDistance(garminDistance, trackDistance)));
    }
 
    tableActivities->reset();
@@ -346,7 +436,7 @@ json_t* Daemon::activityDetails(long id, bool force, std::string& error)
 //  cached in 'activitytracks'
 //***************************************************************************
 
-json_t* Daemon::activityTrack(long id, bool force, std::string& error)
+json_t* HomeCtl::activityTrack(long id, bool force, std::string& error)
 {
    tableActivities->clear();
    tableActivities->setBigintValue("GARMINID", id);
@@ -359,6 +449,9 @@ json_t* Daemon::activityTrack(long id, bool force, std::string& error)
    }
 
    long duration {std::max(tableActivities->getIntValue("ELAPSED"), tableActivities->getIntValue("DURATION"))};
+   bool distanceKnown {!tableActivities->getValue("TRACKDISTANCE")->isNull()};
+   double garminDistance {tableActivities->getFloatValue("DISTANCE")};
+   double trackDistance {distanceKnown ? tableActivities->getFloatValue("TRACKDISTANCE") : 0.0};
    tableActivities->reset();
 
    long points {std::max(1000L, (duration + 14) / 15)};
@@ -401,12 +494,125 @@ json_t* Daemon::activityTrack(long id, bool force, std::string& error)
 
    tableActivityTracks->reset();
 
+   if (jTrack)
+   {
+      // the track's distance, with the reply the list can update the row without a new list
+
+      if (!cached || !distanceKnown)
+         trackDistance = activityStoreTrackDistance(id, getObjectFromJson(jTrack, "points"));
+
+      json_object_set_new(jTrack, "trackdistance", json_real(trackDistance));
+      json_object_set_new(jTrack, "garmindistance", json_real(garminDistance));
+      json_object_set_new(jTrack, "distancefromtrack", json_boolean(activityUseTrackDistance(garminDistance, trackDistance)));
+   }
+
    return jTrack;
+}
+
+//***************************************************************************
+// Track Distance - the watch sums up (almost) no distance in some water sport sessions
+//   while the GPS track is complete; the sum of the track's segments is stored with the
+//   activity and shown instead of Garmin's value when both differ by more than
+//   'garminTrackDeviation' percent. Computed when a track is loaded (and once for the
+//   tracks stored before), the sync of the list doesn't load tracks.
+//***************************************************************************
+
+double HomeCtl::activityTrackDistance(json_t* jPoints)
+{
+   // points: [lat, lon, time, alt, speed]
+
+   double distance {0.0};
+   GpsCoordinate last {};
+   bool haveLast {false};
+   size_t i {0};
+   json_t* jPoint {};
+
+   json_array_foreach(jPoints, i, jPoint)
+   {
+      if (!json_is_array(jPoint) || json_array_size(jPoint) < 2)
+         continue;
+
+      GpsCoordinate c {json_number_value(json_array_get(jPoint, 0)), json_number_value(json_array_get(jPoint, 1))};
+
+      if (haveLast)
+         distance += gpsDistance(last, c);
+
+      last = c;
+      haveLast = true;
+   }
+
+   return distance;
+}
+
+double HomeCtl::activityStoreTrackDistance(long id, json_t* jPoints)
+{
+   double distance {json_is_array(jPoints) ? activityTrackDistance(jPoints) : 0.0};
+
+   tableActivities->clear();
+   tableActivities->setBigintValue("GARMINID", id);
+
+   if (tableActivities->find())
+   {
+      double garminDistance {tableActivities->getFloatValue("DISTANCE")};
+      tableActivities->setValue("TRACKDISTANCE", distance);
+      tableActivities->update();
+
+      if (activityUseTrackDistance(garminDistance, distance))
+         tell(eloAlways, "Info: Garmin: activity %ld: distance %.0f m (Garmin) vs. %.0f m (track), showing the track's", id, garminDistance, distance);
+   }
+
+   tableActivities->reset();
+
+   return distance;
+}
+
+void HomeCtl::activitiesFillTrackDistance(const std::set<long>& ids)
+{
+   // tracks stored before the column TRACKDISTANCE existed; one pass per daemon run is enough,
+   //   tracks loaded later store their distance directly
+
+   static bool done {false};
+
+   if (done)
+      return;
+
+   done = true;
+
+   for (long id : ids)
+   {
+      tableActivities->clear();
+      tableActivities->setBigintValue("GARMINID", id);
+      bool missing {tableActivities->find() && tableActivities->getValue("TRACKDISTANCE")->isNull()};
+      tableActivities->reset();
+
+      if (!missing)
+         continue;
+
+      tableActivityTracks->clear();
+      tableActivityTracks->setBigintValue("GARMINID", id);
+
+      if (tableActivityTracks->find())
+      {
+         json_t* jPoints {jsonLoad(tableActivityTracks->getStrValue("TRACK"), 0, true)};
+         activityStoreTrackDistance(id, jPoints);
+         json_decref(jPoints);
+      }
+
+      tableActivityTracks->reset();
+   }
+}
+
+bool HomeCtl::activityUseTrackDistance(double garminDistance, double trackDistance)
+{
+   if (garminTrackDeviation <= 0 || trackDistance <= 0.0)
+      return false;
+
+   return fabs(garminDistance - trackDistance) / trackDistance * 100.0 > garminTrackDeviation;
 }
 
 // keep the cached details in sync with a changed type / name
 
-void Daemon::activityDetailsPatch(long id, const char* key, const char* value)
+void HomeCtl::activityDetailsPatch(long id, const char* key, const char* value)
 {
    tableActivities->clear();
    tableActivities->setBigintValue("GARMINID", id);
@@ -418,7 +624,7 @@ void Daemon::activityDetailsPatch(long id, const char* key, const char* value)
       if (jDetails)
       {
          json_object_set_new(jDetails, key, json_string(value));
-         char* dump {json_dumps(jDetails, JSON_COMPACT)};
+         char* dump {json_dumps(jDetails, JSON_COMPACT | JSON_ENSURE_ASCII)};
          tableActivities->setValue("DETAILS", dump);
          tableActivities->update();
          free(dump);
@@ -430,101 +636,11 @@ void Daemon::activityDetailsPatch(long id, const char* key, const char* value)
 }
 
 //***************************************************************************
-// Change type / rename (at Garmin first, then in the table)
+// Edit - type, name and location of a list of activities, empty = unchanged
+//   one garmin.py call (one login), one request per activity with all fields
 //***************************************************************************
 
-int Daemon::activityChangeType(long id, const char* type, std::string& error)
-{
-   std::string args {"settype " + std::to_string(id) + " '" + type + "'"};
-   json_t* jResult {garminCall(args.c_str(), 60, error)};
-
-   if (!jResult)
-      return fail;
-
-   tableActivities->clear();
-   tableActivities->setBigintValue("GARMINID", id);
-
-   if (tableActivities->find())
-   {
-      tableActivities->setValue("TYPE", getStringFromJson(jResult, "type", type));
-      tableActivities->setValue("TYPEID", getLongFromJson(jResult, "typeid", 0));
-      tableActivities->setValue("PARENTTYPEID", getLongFromJson(jResult, "parenttypeid", 0));
-      tableActivities->update();
-   }
-
-   tableActivities->reset();
-   activityDetailsPatch(id, "type", getStringFromJson(jResult, "type", type));
-   json_decref(jResult);
-
-   return success;
-}
-
-int Daemon::activityRename(long id, const char* name, std::string& error)
-{
-   if (strchr(name, '\''))
-   {
-      error = "Kein Apostroph im Namen";
-      return fail;
-   }
-
-   std::string args {"rename " + std::to_string(id) + " '" + name + "'"};
-   json_t* jResult {garminCall(args.c_str(), 60, error)};
-
-   if (!jResult)
-      return fail;
-
-   json_decref(jResult);
-   tableActivities->clear();
-   tableActivities->setBigintValue("GARMINID", id);
-
-   if (tableActivities->find())
-   {
-      tableActivities->setValue("NAME", name);
-      tableActivities->update();
-   }
-
-   tableActivities->reset();
-   activityDetailsPatch(id, "name", name);
-
-   return success;
-}
-
-int Daemon::activitySetLocation(long id, const char* location, std::string& error)
-{
-   if (strchr(location, '\''))
-   {
-      error = "Kein Apostroph im Ort";
-      return fail;
-   }
-
-   std::string args {"setlocation " + std::to_string(id) + " '" + location + "'"};
-   json_t* jResult {garminCall(args.c_str(), 60, error)};
-
-   if (!jResult)
-      return fail;
-
-   json_decref(jResult);
-   tableActivities->clear();
-   tableActivities->setBigintValue("GARMINID", id);
-
-   if (tableActivities->find())
-   {
-      tableActivities->setValue("LOCATION", location);
-      tableActivities->update();
-   }
-
-   tableActivities->reset();
-   activityDetailsPatch(id, "location", location);
-
-   return success;
-}
-
-//***************************************************************************
-// Bulk Edit - type, name and location for a list of activities, empty = unchanged
-//   one garmin.py call (one login) per field, the ids via stdin
-//***************************************************************************
-
-int Daemon::activitiesBulkEdit(json_t* jIds, const char* type, const char* name, const char* location, std::string& message)
+int HomeCtl::activitiesEdit(json_t* jIds, const char* type, const char* name, const char* location, std::string& message)
 {
    size_t count {json_array_size(jIds)};
 
@@ -540,93 +656,101 @@ int Daemon::activitiesBulkEdit(json_t* jIds, const char* type, const char* name,
       return fail;
    }
 
-   if (isEmpty(type) && isEmpty(name) && isEmpty(location))
+   bool setType {!isEmpty(type)};
+   bool setName {!isEmpty(name)};
+   bool setLocation {!isEmpty(location)};
+
+   if (!setType && !setName && !setLocation)
    {
       message = "Keine Änderung";
       return success;
    }
 
-   int timeout {60 + (int)count * 2};        // garmin.py pauses 0.5 s per activity
+   std::string args {"edit"};
+   std::string what;                          // "Typ, Name, Ort" for the message
+
+   if (setType)     { args += std::string(" --type '") + type + "'";         what += "Typ"; }
+   if (setName)     { args += std::string(" --name '") + name + "'";         what += (what.empty() ? "" : ", ") + std::string("Name"); }
+   if (setLocation) { args += std::string(" --location '") + location + "'"; what += (what.empty() ? "" : ", ") + std::string("Ort"); }
+
    std::string ids;
-   std::string lines;                        // "id<TAB>value" for renames / setlocations
    size_t i {0};
    json_t* jId {};
 
    json_array_foreach(jIds, i, jId)
       ids += std::to_string(json_integer_value(jId)) + "\n";
 
-   struct Field { const char* key; const char* column; const char* command; const char* value; const char* label; };
-   Field fields[] {{ "type", "TYPE", "settypes", type, "Typ" }, { "name", "NAME", "renames", name, "Name" }, { "location", "LOCATION", "setlocations", location, "Ort" }};
-   int failed {0};
+   int timeout {60 + (int)count * 2};        // garmin.py pauses 0.5 s between the activities
+   std::string error;
+   json_t* jResult {garminCall(args.c_str(), timeout, error, ids.c_str())};
 
-   for (const auto& field : fields)
+   if (!jResult)
    {
-      if (isEmpty(field.value))
-         continue;
+      message = what + ": " + error;
+      return fail;
+   }
 
-      std::string error;
-      std::string args {field.command};
-      json_t* jResult {};
+   // update the succeeded ones locally
 
-      if (strcmp(field.key, "type") == 0)
+   json_t* jOk {json_object_get(jResult, "ok")};
+   json_t* jItem {};
+   int changed {0};
+
+   json_array_foreach(jOk, i, jItem)
+   {
+      long id {(long)json_integer_value(jItem)};
+
+      tableActivities->clear();
+      tableActivities->setBigintValue("GARMINID", id);
+
+      if (tableActivities->find())
       {
-         args += std::string(" '") + type + "'";
-         jResult = garminCall(args.c_str(), timeout, error, ids.c_str());
+         if (setType)
+         {
+            tableActivities->setValue("TYPE", getStringFromJson(jResult, "type", type));
+            tableActivities->setValue("TYPEID", getLongFromJson(jResult, "typeid", 0));
+            tableActivities->setValue("PARENTTYPEID", getLongFromJson(jResult, "parenttypeid", 0));
+         }
+
+         if (setName)     tableActivities->setValue("NAME", name);
+         if (setLocation) tableActivities->setValue("LOCATION", location);
+
+         tableActivities->update();
+         changed++;
       }
-      else
-      {
-         lines.clear();
-         json_array_foreach(jIds, i, jId)
-            lines += std::to_string(json_integer_value(jId)) + "\t" + field.value + "\n";
 
-         jResult = garminCall(args.c_str(), timeout, error, lines.c_str());
-      }
+      tableActivities->reset();
 
-      if (!jResult)
+      if (setType)     activityDetailsPatch(id, "type", getStringFromJson(jResult, "type", type));
+      if (setName)     activityDetailsPatch(id, "name", name);
+      if (setLocation) activityDetailsPatch(id, "location", location);
+   }
+
+   json_t* jFailed {json_object_get(jResult, "failed")};
+   size_t failed {json_array_size(jFailed)};
+
+   tell(eloAlways, "Info: Garmin: edit (%s) of %zu activities, %d changed, %zu failed", what.c_str(), count, changed, failed);
+
+   if (count == 1)
+   {
+      if (failed)
       {
-         message = std::string(field.label) + ": " + error;
+         message = what + ": " + getStringFromJson(json_array_get(jFailed, 0), "error", "fehlgeschlagen");
+         json_decref(jResult);
          return fail;
       }
 
-      // update the succeeded ones locally
+      message = what + " geändert";
+   }
+   else
+   {
+      message = what + " bei " + std::to_string(changed) + " von " + std::to_string(count) + " Aktivitäten geändert";
 
-      json_t* jOk {json_object_get(jResult, "ok")};
-      json_t* jItem {};
-      int changed {0};
-
-      json_array_foreach(jOk, i, jItem)
-      {
-         long id {json_is_integer(jItem) ? (long)json_integer_value(jItem) : getLongFromJson(jItem, "id", 0)};
-
-         tableActivities->clear();
-         tableActivities->setBigintValue("GARMINID", id);
-
-         if (tableActivities->find())
-         {
-            tableActivities->setValue(field.column, field.value);
-
-            if (strcmp(field.key, "type") == 0)
-            {
-               tableActivities->setValue("TYPEID", getLongFromJson(jResult, "typeid", 0));
-               tableActivities->setValue("PARENTTYPEID", getLongFromJson(jResult, "parenttypeid", 0));
-            }
-
-            tableActivities->update();
-            changed++;
-         }
-
-         tableActivities->reset();
-         activityDetailsPatch(id, field.key, field.value);
-      }
-
-      failed += json_array_size(json_object_get(jResult, "failed"));
-      message += (message.empty() ? "" : ", ") + std::string(field.label) + " bei " + std::to_string(changed) + " geändert";
-      tell(eloAlways, "Info: Garmin: bulk %s of %zu activities, %d changed, %zu failed", field.key, count, changed, json_array_size(json_object_get(jResult, "failed")));
-      json_decref(jResult);
+      if (failed)
+         message += ", " + std::to_string(failed) + " fehlgeschlagen";
    }
 
-   if (failed)
-      message += ", " + std::to_string(failed) + " fehlgeschlagen";
+   json_decref(jResult);
 
    return success;
 }
@@ -635,7 +759,7 @@ int Daemon::activitiesBulkEdit(json_t* jIds, const char* type, const char* name,
 // Perform Activities (websocket event 'activities')
 //***************************************************************************
 
-int Daemon::performActivities(json_t* obj, long client)
+int HomeCtl::performActivities(json_t* obj, long client)
 {
    std::string action {getStringFromJson(obj, "action", "list")};
 
@@ -693,28 +817,6 @@ int Daemon::performActivities(json_t* obj, long client)
       return replyResult(status, message.c_str(), client);
    }
 
-   if (action == "settype")
-   {
-      std::string error;
-
-      if (activityChangeType(getLongFromJson(obj, "id", 0), getStringFromJson(obj, "type", ""), error) != success)
-         return replyResult(fail, error.c_str(), client);
-
-      activitiesPush(0);
-      return replyResult(success, "Typ geändert", client);
-   }
-
-   if (action == "rename")
-   {
-      std::string error;
-
-      if (activityRename(getLongFromJson(obj, "id", 0), getStringFromJson(obj, "name", ""), error) != success)
-         return replyResult(fail, error.c_str(), client);
-
-      activitiesPush(0);
-      return replyResult(success, "Umbenannt", client);
-   }
-
    if (action == "delete")
    {
       // at Garmin first, then locally (with the track)
@@ -738,71 +840,51 @@ int Daemon::performActivities(json_t* obj, long client)
 
    if (action == "edit")
    {
-      // type, name and location from the edit dialog, only the changed ones are sent to Garmin
-      //   'ids' (array) -> bulk edit of several activities, 'id' -> one
+      // type, name and location from the edit dialog, empty = unchanged
+      //   'ids' (array) -> several activities, 'id' -> one (only the fields which differ are sent)
 
       const char* type {getStringFromJson(obj, "type", "")};
       const char* name {getStringFromJson(obj, "name", "")};
       const char* location {getStringFromJson(obj, "location", "")};
       json_t* jIds {json_object_get(obj, "ids")};
-      std::string error;
+      json_t* jOwnIds {};
       std::string message;
 
-      if (json_is_array(jIds) && json_array_size(jIds) > 1)
+      if (!json_is_array(jIds))
       {
-         int status {activitiesBulkEdit(jIds, type, name, location, message)};
-
-         if (status == success)
-            activitiesPush(0);
-
-         return replyResult(status, message.c_str(), client);
+         jOwnIds = json_array();
+         json_array_append_new(jOwnIds, json_integer(getLongFromJson(obj, "id", 0)));
+         jIds = jOwnIds;
       }
 
-      long id {json_is_array(jIds) && json_array_size(jIds) == 1 ? (long)json_integer_value(json_array_get(jIds, 0)) : getLongFromJson(obj, "id", 0)};
-
-      tableActivities->clear();
-      tableActivities->setBigintValue("GARMINID", id);
-
-      if (!tableActivities->find())
+      if (json_array_size(jIds) == 1)
       {
+         tableActivities->clear();
+         tableActivities->setBigintValue("GARMINID", json_integer_value(json_array_get(jIds, 0)));
+
+         if (!tableActivities->find())
+         {
+            tableActivities->reset();
+            if (jOwnIds) json_decref(jOwnIds);
+            return replyResult(fail, "Aktivität nicht gefunden", client);
+         }
+
+         if (strcmp(type, tableActivities->getStrValue("TYPE")) == 0)         type = "";
+         if (strcmp(name, tableActivities->getStrValue("NAME")) == 0)         name = "";
+         if (strcmp(location, tableActivities->getStrValue("LOCATION")) == 0) location = "";
+
          tableActivities->reset();
-         return replyResult(fail, "Aktivität nicht gefunden", client);
       }
 
-      bool typeChanged {!isEmpty(type) && strcmp(type, tableActivities->getStrValue("TYPE")) != 0};
-      bool nameChanged {!isEmpty(name) && strcmp(name, tableActivities->getStrValue("NAME")) != 0};
-      bool locationChanged {!isEmpty(location) && strcmp(location, tableActivities->getStrValue("LOCATION")) != 0};
-      tableActivities->reset();
+      int status {activitiesEdit(jIds, type, name, location, message)};
 
-      if (typeChanged)
-      {
-         if (activityChangeType(id, type, error) != success)
-            return replyResult(fail, error.c_str(), client);
+      if (jOwnIds)
+         json_decref(jOwnIds);
 
-         message = "Typ geändert";
-      }
+      if (status == success)
+         activitiesPush(0);
 
-      if (nameChanged)
-      {
-         if (activityRename(id, name, error) != success)
-            return replyResult(fail, error.c_str(), client);
-
-         message += (message.empty() ? "" : ", ") + std::string("umbenannt");
-      }
-
-      if (locationChanged)
-      {
-         if (activitySetLocation(id, location, error) != success)
-            return replyResult(fail, error.c_str(), client);
-
-         message += (message.empty() ? "" : ", ") + std::string("Ort geändert");
-      }
-
-      if (!typeChanged && !nameChanged && !locationChanged)
-         return replyResult(success, "Keine Änderung", client);
-
-      activitiesPush(0);
-      return replyResult(success, message.c_str(), client);
+      return replyResult(status, message.c_str(), client);
    }
 
    return replyResult(fail, "Unbekannte Aktion", client);

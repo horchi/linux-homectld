@@ -15,6 +15,62 @@ var setupCategory = '';
 // Base Setup
 // ----------------------------------------------------------------
 
+//***************************************************************************
+// ComboChoice - labels of the suggestions (the daemon stores value and label, the label is
+//   resolved here so the daemon doesn't block on it); one resolver per config item
+//***************************************************************************
+
+var comboLabelResolvers = {
+   // Windy: the data endpoint of the widget is a script 'window.wf<appid> = { spotInfo: { spotName }, .. }'
+   'windyAppSpotID': function(value, done) {
+      if (!config.windyAppID || !/^\d+$/.test(value))
+         return done(null);
+
+      let script = document.createElement('script');
+      script.src = 'https://windy.app/widget/data.php?id=wf' + config.windyAppID + '&spotID=' + value;
+      script.onload = function() {
+         let data = window['wf' + config.windyAppID];
+         script.remove();
+         done(data && data.spotInfo && data.spotInfo.spotName ? String(data.spotInfo.spotName).trim() : null);
+      };
+      script.onerror = function() { script.remove(); done(null); };
+      document.body.appendChild(script);
+   }
+};
+
+// resolve the labels which are still the plain value, one after the other (the Windy script
+//   uses one global for all spots); the daemon stores them, the datalist is patched locally
+
+function comboResolveLabels(item)
+{
+   let resolver = comboLabelResolvers[item.name];
+
+   if (!resolver)
+      return;
+
+   let pending = (item.options || []).filter(function(o) { return !o.label || o.label == o.value; });
+
+   let next = function() {
+      let o = pending.shift();
+
+      if (!o)
+         return;
+
+      resolver(o.value, function(label) {
+         if (label && label != o.value) {
+            o.label = label;
+            $('#combolist_' + item.name + ' option').filter(function() { return this.value == o.value; }).text(label);
+            let showLabel = $('#input_' + item.name).data('showLabel');
+            if (showLabel) showLabel();
+            socket.send({ "event" : "storeconfig", "object" : { "action" : "label", "name" : item.name, "value" : o.value, "label" : label } });
+         }
+         next();
+      });
+   };
+
+   next();
+}
+
 function initConfig(configdetails = null)
 {
    if (configdetails)
@@ -253,6 +309,51 @@ function initConfig(configdetails = null)
          }
          break;
 
+      case 9:     // ctComboChoice - text input, the values stored before as suggestions (datalist: label and value)
+      {
+         let comboInp = $('<input></input>')
+             .attr('id', 'input_' + item.name)
+             .attr('type', 'text')
+             .attr('list', 'combolist_' + item.name)
+             .addClass('rounded-border input')
+             .val(config[item.name]);
+
+         let comboList = $('<datalist></datalist>').attr('id', 'combolist_' + item.name);
+
+         for (let o of item.options || [])
+            comboList.append($('<option></option>').val(o.value).html(o.label && o.label != o.value ? o.label : ''));
+
+         // the label of the entered value as overlay at the right of the input (display only)
+
+         let comboLabel = $('<span></span>').addClass('comboLabel');
+
+         let showLabel = function() {
+            let o = (item.options || []).find(function(o) { return o.value == comboInp.val(); });
+            comboLabel.text(o && o.label && o.label != o.value ? o.label : '');
+         };
+
+         comboInp.on('input change', showLabel);
+         comboInp.data('showLabel', showLabel);       // comboResolveLabels() refreshes it
+         showLabel();
+
+         let comboSpan = $('<span></span>').addClass('comboChoice')
+             .append($('<span></span>').addClass('comboField').append(comboInp).append(comboLabel).append(comboList));
+
+         if (item.options && item.options.length)
+            comboSpan.append($('<button></button>')
+                             .attr('type', 'button')
+                             .addClass('rounded-border tool-button mdi mdi-delete comboForget')
+                             .attr('title', 'den eingetragenen Wert aus den Vorschlägen entfernen')
+                             .click(function() {
+                                if (item.options.some(function(o) { return o.value == comboInp.val(); }))
+                                   socket.send({ "event" : "storeconfig", "object" : { "action" : "forget", "name" : item.name, "value" : comboInp.val() } });
+                             }));
+
+         $(itemsDiv).append(comboSpan);
+         comboResolveLabels(item);
+         break;
+      }
+
       case 8:     // ctText
          $(itemsDiv)
             .append($('<span></span>')
@@ -317,7 +418,8 @@ function addEditConfigItem(name = null)
       { type: 5, title: 'Choice' },        // ctChoice
       { type: 6, title: 'MultiSelect' },   // ctMultiSelect
       { type: 7, title: 'BitSelect' },     // ctBitSelect
-      { type: 8, title: 'Text' }           // ctText
+      { type: 8, title: 'Text' },          // ctText
+      { type: 9, title: 'ComboChoice' }    // ctComboChoice
    ];
 
    // Prüfen, ob wir im Bearbeitungsmodus sind
@@ -440,7 +542,8 @@ function addConfigItem(name = null)
       { type: 5, title: 'Choice' },        // ctChoice
       { type: 6, title: 'MultiSelect' },   // ctMultiSelect
       { type: 7, title: 'BitSelect' },     // ctBitSelect
-      { type: 8, title: 'Text' }           // ctText
+      { type: 8, title: 'Text' },          // ctText
+      { type: 9, title: 'ComboChoice' }    // ctComboChoice
    ];
 
    let typeSel = null;

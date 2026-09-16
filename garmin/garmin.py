@@ -16,6 +16,7 @@
 #  garmin.py settypes TYPEKEY < ids          bulk: one activity id per line on stdin, one login
 #  garmin.py rename ID NAME
 #  garmin.py renames < lines                  bulk: "ID<TAB>NAME" per line on stdin, one login
+#  garmin.py edit [--type T] [--name N] [--location L] < ids   bulk: all fields in one request per activity
 #  garmin.py delete ID                       deletes the activity at Garmin (!)
 # -----------------------------------------------------------------------------
 
@@ -134,6 +135,29 @@ def num(v, default=0):
     except Exception:
         return default
 
+# fields of a list entry which are no measurement values (ids, owner, flags are dropped as booleans)
+LIST_SKIP = {"activityId", "activityName", "activityUUID", "locationName", "deviceId", "manufacturer", "sportTypeId",
+             "timeZoneId", "beginTimestamp", "endTimeGMT", "startTimeGMT", "startTimeLocal", "userPro", "lapCount",
+             "description"}
+
+def list_summary(a):
+    # the list entry already holds most of the values of 'details' (summaryDTO); the daemon stores
+    # them as a preliminary version of the details, 'details' is only needed for the rest
+    # (minHR, average temperature)
+    s = {k: v for k, v in a.items()
+         if v is not None and v != "" and not isinstance(v, (bool, dict, list)) and k not in LIST_SKIP and not k.startswith("owner")}
+
+    # some values are named differently in the list, use the names of summaryDTO (labels in the WEBIF)
+    for src, dst in (("aerobicTrainingEffect", "trainingEffect"),
+                     ("averageBikingCadenceInRevPerMinute", "averageBikeCadence"), ("maxBikingCadenceInRevPerMinute", "maxBikeCadence"),
+                     ("averageRunningCadenceInStepsPerMinute", "averageRunCadence"), ("maxRunningCadenceInStepsPerMinute", "maxRunCadence"),
+                     ("avgPower", "averagePower"), ("normPower", "normalizedPower")):
+        if a.get(src) is not None:
+            s[dst] = a[src]
+            s.pop(src, None)
+
+    return s
+
 def normalize(a):
     t = a.get("activityType") or {}
     return {
@@ -160,6 +184,8 @@ def normalize(a):
         "lat": float(num(a.get("startLatitude"))),
         "lon": float(num(a.get("startLongitude"))),
         "device": a.get("deviceId") or 0,
+        "description": a.get("description") or "",
+        "summary": list_summary(a),
     }
 
 def do_activities(args):
@@ -375,6 +401,58 @@ def do_setlocations(args):
 
     out({"ok": ok, "failed": failed})
 
+def do_edit(args):
+    # bulk, ids from stdin (one per line); type, name and location in ONE request per activity
+    # (the Garmin API has no bulk update, this is the minimum: one login, one PUT per activity)
+    if args.type is None and args.name is None and args.location is None:
+        fail("nothing to change, use --type, --name and/or --location")
+
+    garmin = connect(args.tokens)
+    payload = {}
+    t = None
+
+    if args.type is not None:
+        try:
+            types = garmin.get_activity_types()
+        except Exception as e:
+            fail("fetching activity types failed: %s" % e)
+
+        t = next((t for t in types if t.get("typeKey") == args.type), None)
+
+        if not t:
+            fail("unknown activity type '%s'" % args.type)
+
+        payload["activityTypeDTO"] = {"typeId": t["typeId"], "typeKey": t["typeKey"], "parentTypeId": t["parentTypeId"]}
+
+    if args.name is not None:
+        payload["activityName"] = args.name
+
+    if args.location is not None:
+        payload["locationName"] = args.location
+
+    ids = [int(l.strip()) for l in sys.stdin if l.strip()]
+    ok, failed = [], []
+
+    for n, aid in enumerate(ids, 1):
+        try:
+            url = "%s/%s" % (garmin.garmin_connect_activity, aid)
+            garmin.client.put("connectapi", url, json=dict(payload, activityId=str(aid)), api=True)
+            ok.append(aid)
+            log("%d/%d %d ok" % (n, len(ids), aid))
+        except Exception as e:
+            failed.append({"id": aid, "error": str(e)})
+            log("%d/%d %d FAILED: %s" % (n, len(ids), aid, e))
+
+        if n < len(ids):
+            time.sleep(args.pause)        # be nice to the Garmin API
+
+    result = {"ok": ok, "failed": failed}
+
+    if t:
+        result.update({"type": t["typeKey"], "typeid": t["typeId"], "parenttypeid": t["parentTypeId"]})
+
+    out(result)
+
 def do_delete(args):
     garmin = connect(args.tokens)
 
@@ -420,6 +498,8 @@ def main():
     s = sub.add_parser("rename");  s.add_argument("id", type=int); s.add_argument("name"); s.set_defaults(fct=do_rename)
     s = sub.add_parser("setlocation");  s.add_argument("id", type=int); s.add_argument("name"); s.set_defaults(fct=do_setlocation)
     s = sub.add_parser("setlocations"); s.add_argument("--pause", type=float, default=0.5); s.set_defaults(fct=do_setlocations)
+    s = sub.add_parser("edit"); s.add_argument("--type", metavar="TYPEKEY"); s.add_argument("--name"); s.add_argument("--location")
+    s.add_argument("--pause", type=float, default=0.5); s.set_defaults(fct=do_edit)
 
     args = p.parse_args()
     args.fct(args)

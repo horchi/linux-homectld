@@ -12,7 +12,7 @@
 #include <signal.h>
 #include <string.h>
 
-#include "specific.h"
+#include "daemon.h"
 #include "HISTORY.h"
 
 char* confDir = (char*)confDirDefault;

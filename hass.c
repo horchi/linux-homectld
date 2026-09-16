@@ -16,7 +16,7 @@
 // Push Value to MQTT for Home Automation Systems
 //***************************************************************************
 
-int Daemon::mqttHaPublish(SensorData& sensor, bool forceConfig)
+int HomeCtl::mqttHaPublish(SensorData& sensor, bool forceConfig)
 {
    haspPublishSensor(sensor);   // openHASP panel (independent of the home automation interface)
 
@@ -68,7 +68,7 @@ int Daemon::mqttHaPublish(SensorData& sensor, bool forceConfig)
 // Push Value to MQTT for Home Automation Systems
 //***************************************************************************
 
-int Daemon::mqttHaPublishSensor(SensorData& sensor, bool forceConfig)
+int HomeCtl::mqttHaPublishSensor(SensorData& sensor, bool forceConfig)
 {
    if (sensor.type == "")
       return done;
@@ -192,7 +192,7 @@ int Daemon::mqttHaPublishSensor(SensorData& sensor, bool forceConfig)
 // MQTT Write (to Home Automation Systems)
 //***************************************************************************
 
-int Daemon::mqttHaWrite(json_t* obj, uint groupid)
+int HomeCtl::mqttHaWrite(json_t* obj, uint groupid)
 {
    std::string sDataTopic = mqttHaDataTopic;
 
@@ -220,7 +220,7 @@ int Daemon::mqttHaWrite(json_t* obj, uint groupid)
 //      -> the arduino provide the values of his analog inputs
 //***************************************************************************
 
-int Daemon::performMqttRequests()
+int HomeCtl::performMqttRequests()
 {
    static time_t lastMqttRead {0};
    static time_t lastMqttRecover {0};
@@ -316,7 +316,7 @@ int Daemon::performMqttRequests()
 // Check MQTT Disconnect
 //***************************************************************************
 
-int Daemon::mqttDisconnect()
+int HomeCtl::mqttDisconnect()
 {
    if (mqttReader) mqttReader->disconnect();
    if (mqttWriter) mqttWriter->disconnect();
@@ -333,7 +333,7 @@ int Daemon::mqttDisconnect()
 // Check MQTT Connection and Connect
 //***************************************************************************
 
-int Daemon::mqttCheckConnection()
+int HomeCtl::mqttCheckConnection()
 {
    const char* mqttPingTopic = INSTANCE "2mqtt/ping";
    static time_t lastMqttPing {0};
@@ -409,12 +409,12 @@ int Daemon::mqttCheckConnection()
 // Publish to Node-Red (on change)
 //***************************************************************************
 
-int Daemon::mqttNodeRedPublishSensor(SensorData& sensor)
+int HomeCtl::mqttNodeRedPublishSensor(SensorData& sensor)
 {
    return mqttNodeRedPublishAction(sensor, sensor.value, true);
 }
 
-int Daemon::mqttNodeRedPublishAction(SensorData& sensor, double value, bool publishOnly)
+int HomeCtl::mqttNodeRedPublishAction(SensorData& sensor, double value, bool publishOnly)
 {
    if (!mqttWriter || !mqttWriter->isConnected())
        return done;
@@ -460,7 +460,7 @@ int Daemon::mqttNodeRedPublishAction(SensorData& sensor, double value, bool publ
 // Json Add Value
 //***************************************************************************
 
-int Daemon::jsonAddValue(json_t* obj, SensorData& sensor, bool forceConfig)
+int HomeCtl::jsonAddValue(json_t* obj, SensorData& sensor, bool forceConfig)
 {
    std::string sName = sensor.name;
    bool newGroup {false};

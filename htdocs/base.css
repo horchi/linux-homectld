@@ -3295,11 +3295,80 @@ iPhones
     font-weight: bold;
 }
 
+/* config item type 'ComboChoice' (setup.js): input with datalist suggestions, the label of the
+   entered value as overlay at the right of the input, and the forget button */
+
+.comboChoice {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    width: -webkit-fill-available;
+    width: -moz-available;
+}
+
+.comboChoice .comboField {
+    position: relative;
+    display: inline-flex;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.comboChoice input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-right: 45%;              /* room for the label overlay */
+}
+
+.comboChoice .comboLabel {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    max-width: 42%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    pointer-events: none;            /* display only, clicks and typing go to the input */
+    color: var(--fontColor);         /* like the input text, a bit dimmed (gray was too dark on the dark theme) */
+    opacity: 0.75;
+    font-style: italic;
+    font-size: 0.9em;
+}
+
+.comboChoice .comboForget {          /* .tool-button fills the width, here a square icon button */
+    flex: 0 0 auto;
+    width: 32px;
+    min-width: 32px;
+    padding: 0px;
+    margin: 2px 0px;                 /* like .input (the 4px bottom margin of .tool-button lifted it) */
+    font-size: 18px !important;
+}
+
+/* distance taken from the GPS track (Garmin's value deviates too much) */
+
+.actFromTrack {
+    font-style: italic;
+}
+
+/* sortable column headers */
+
+.actTable thead td.actSortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.actSortArrow {
+    font-size: 0.7em;
+    margin-left: 3px;
+    vertical-align: middle;
+}
+
 /* selection for the bulk edit */
 
 .actTable td.actSel {
     width: 24px;
     text-align: center;
+    user-select: none;            /* shift click (range selection) must not select text */
 }
 
 .actSelBox {

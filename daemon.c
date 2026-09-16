@@ -20,13 +20,13 @@
 #include "daemon.h"
 #include "growatt.h"
 
-bool Daemon::shutdown {false};
+bool HomeCtl::shutdown {false};
 
 //***************************************************************************
 // Widgets
 //***************************************************************************
 
-const char* Daemon::widgetTypes[] =
+const char* HomeCtl::widgetTypes[] =
 {
    "Symbol",
    "Chart",
@@ -46,7 +46,7 @@ const char* Daemon::widgetTypes[] =
    0
 };
 
-const char* Daemon::toName(WidgetType type)
+const char* HomeCtl::toName(WidgetType type)
 {
    if (type > wtUnknown && type < wtCount)
       return widgetTypes[type];
@@ -54,7 +54,7 @@ const char* Daemon::toName(WidgetType type)
    return widgetTypes[wtText];
 }
 
-Daemon::WidgetType Daemon::toType(const char* name)
+HomeCtl::WidgetType HomeCtl::toType(const char* name)
 {
    if (!name)
       return wtUnknown;
@@ -70,7 +70,7 @@ Daemon::WidgetType Daemon::toType(const char* name)
 // Default Value Types
 //***************************************************************************
 
-Daemon::ValueTypes Daemon::defaultValueTypes[] =
+HomeCtl::ValueTypes HomeCtl::defaultValueTypes[] =
 {
    // expression, title
 
@@ -104,7 +104,7 @@ Daemon::ValueTypes Daemon::defaultValueTypes[] =
    { "",          "" }
 };
 
-const char* Daemon::getTitleOfType(const char* type)
+const char* HomeCtl::getTitleOfType(const char* type)
 {
    for (int i = 0; defaultValueTypes[i].typeExpression != ""; i++)
    {
@@ -120,7 +120,7 @@ const char* Daemon::getTitleOfType(const char* type)
 // Widgets - Default Properties
 //***************************************************************************
 
-Daemon::DefaultWidgetProperty Daemon::defaultWidgetProperties[] =
+HomeCtl::DefaultWidgetProperty HomeCtl::defaultWidgetProperties[] =
 {
    // #TODO - auf einen JSON string umstellen
 
@@ -165,7 +165,7 @@ Daemon::DefaultWidgetProperty Daemon::defaultWidgetProperties[] =
    { "" }
 };
 
-Daemon::DefaultWidgetProperty* Daemon::getDefalutProperty(const char* type, const char* unit, int address)
+HomeCtl::DefaultWidgetProperty* HomeCtl::getDefalutProperty(const char* type, const char* unit, int address)
 {
    for (int i = 0; defaultWidgetProperties[i].type != ""; i++)
    {
@@ -186,7 +186,7 @@ Daemon::DefaultWidgetProperty* Daemon::getDefalutProperty(const char* type, cons
 // Widget Defaults 2 Json
 //***************************************************************************
 
-int Daemon::widgetDefaults2Json(json_t* jDefaults, std::string type, std::string unit, const char* usrTitle, int address)
+int HomeCtl::widgetDefaults2Json(json_t* jDefaults, std::string type, std::string unit, const char* usrTitle, int address)
 {
    DefaultWidgetProperty* defProperty {getDefalutProperty(type.c_str(), unit.c_str(), address)};
 
@@ -242,7 +242,7 @@ int Daemon::widgetDefaults2Json(json_t* jDefaults, std::string type, std::string
 // Get Image For
 //***************************************************************************
 
-const char* Daemon::getImageFor(std::string type, const char* usrTitle, std::string unit, int value)
+const char* HomeCtl::getImageFor(std::string type, const char* usrTitle, std::string unit, int value)
 {
    // #TODO move symbol/image to getDefalutProperty() ?!!
 
@@ -293,7 +293,7 @@ const char* Daemon::getImageFor(std::string type, const char* usrTitle, std::str
 // Object
 //***************************************************************************
 
-Daemon::Daemon()
+HomeCtl::HomeCtl()
 {
    nextRefreshAt = time(0) + 5;
    startedAt = time(0);
@@ -310,7 +310,7 @@ Daemon::Daemon()
    webSock = new cWebSock(this, httpPath);
 }
 
-Daemon::~Daemon()
+HomeCtl::~HomeCtl()
 {
    exit();
    delete webSock;
@@ -323,7 +323,7 @@ Daemon::~Daemon()
 // Push In Message (from WS to daemon)
 //***************************************************************************
 
-int Daemon::pushInMessage(const char* data)
+int HomeCtl::pushInMessage(const char* data)
 {
    cMyMutexLock lock(&messagesInMutex);
 
@@ -339,7 +339,7 @@ int Daemon::pushInMessage(const char* data)
 // realPrecision: significant digits of the reals; 4 fits the (float) sensor values,
 //  coordinates need more (4 digits round 51.0579 to 51.06 - a grid of about 1 km)
 
-int Daemon::pushOutMessage(json_t* oContents, const char* event, long client, bool keepJson, int realPrecision)
+int HomeCtl::pushOutMessage(json_t* oContents, const char* event, long client, bool keepJson, int realPrecision)
 {
    json_t* obj {json_object()};
 
@@ -364,7 +364,7 @@ int Daemon::pushOutMessage(json_t* oContents, const char* event, long client, bo
    return done;
 }
 
-int Daemon::pushDataUpdate(const char* event, long client)
+int HomeCtl::pushDataUpdate(const char* event, long client)
 {
    // push all in the jsonSensorList to the 'interested' clients
 
@@ -409,7 +409,7 @@ int Daemon::pushDataUpdate(const char* event, long client)
 // Init / Exit
 //***************************************************************************
 
-int Daemon::init()
+int HomeCtl::init()
 {
    int status {success};
 
@@ -631,6 +631,7 @@ int Daemon::init()
             case ConfigItemType::ctString:
             case ConfigItemType::ctText:
             case ConfigItemType::ctChoice:
+            case ConfigItemType::ctComboChoice:
 
             case ConfigItemType::ctMultiSelect:
             case ConfigItemType::ctRange:
@@ -656,7 +657,7 @@ int Daemon::init()
    return success;
 }
 
-int Daemon::initLocale()
+int HomeCtl::initLocale()
 {
    // setenv("TZ", "CET", 1);
 
@@ -690,7 +691,7 @@ int Daemon::initLocale()
    return done;
 }
 
-int Daemon::exit()
+int HomeCtl::exit()
 {
    for (auto it = sensors["DO"].begin(); it != sensors["DO"].end(); ++it)
    {
@@ -716,7 +717,7 @@ int Daemon::exit()
 // Init Sensor
 //***************************************************************************
 
-int Daemon::applyConfigurationSpecials()
+int HomeCtl::applyConfigurationSpecials()
 {
    std::map<int,PinInfo> pinList;
    gpio->getPinList(pinList);
@@ -736,7 +737,7 @@ int Daemon::applyConfigurationSpecials()
 // Init Sensor
 //***************************************************************************
 
-int Daemon::initSensorByFact(myString type, uint address)
+int HomeCtl::initSensorByFact(myString type, uint address)
 {
    cDbRow* fact {valueFactRowOf(type.c_str(), address)};
 
@@ -830,7 +831,7 @@ int Daemon::initSensorByFact(myString type, uint address)
 // Init GPIO Line
 //***************************************************************************
 
-int Daemon::initGpioLine(uint physPin, const PinInfo& pinInfo)
+int HomeCtl::initGpioLine(uint physPin, const PinInfo& pinInfo)
 {
    std::string name {std::to_string(physPin) + " - " + pinInfo.name + "\n" + pinInfo.description};
    addValueFact(physPin, "GPIO", 1, name.c_str(), "", "", urControl);
@@ -860,7 +861,7 @@ int Daemon::initGpioLine(uint physPin, const PinInfo& pinInfo)
 // Init digital Output
 //***************************************************************************
 
-int Daemon::initOutput(uint pin, int outputModes, OutputMode mode, const char* name, uint rights)
+int HomeCtl::initOutput(uint pin, int outputModes, OutputMode mode, const char* name, uint rights)
 {
    std::string n {std::string(name) + " " + std::to_string(pin) + "\n" + gpio->pinToName(pin)};
    addValueFact(pin, "DO", 1, n.c_str(), "", "", rights);
@@ -879,7 +880,7 @@ int Daemon::initOutput(uint pin, int outputModes, OutputMode mode, const char* n
    return done;
 }
 
-int Daemon::cfgOutput(myString type, uint pin, json_t* jCal)
+int HomeCtl::cfgOutput(myString type, uint pin, json_t* jCal)
 {
    if (type.starts_with("MCPO"))
    {
@@ -902,7 +903,7 @@ int Daemon::cfgOutput(myString type, uint pin, json_t* jCal)
 // Init digital Input
 //***************************************************************************
 
-int Daemon::initInput(uint pin, const char* name)
+int HomeCtl::initInput(uint pin, const char* name)
 {
    std::string n = std::string(name) + " " + std::to_string(pin) + "\n" + gpio->pinToName(pin);
    addValueFact(pin, "DI", 1, n.c_str());
@@ -914,7 +915,7 @@ int Daemon::initInput(uint pin, const char* name)
    return done;
 }
 
-int Daemon::cfgInput(myString type, uint pin, json_t* jCal)
+int HomeCtl::cfgInput(myString type, uint pin, json_t* jCal)
 {
    if (type.starts_with("MCPI"))
       publishI2CSensorConfig(type.c_str(), pin, jCal);
@@ -930,7 +931,7 @@ int Daemon::cfgInput(myString type, uint pin, json_t* jCal)
 
          if (!sensors[type][pin].interruptSet)
          {
-            if (gpio->setIsr(pin, Gpio::edgeBoth, std::bind(&Daemon::onGpioChange, this, std::placeholders::_1, std::placeholders::_2)) != success)
+            if (gpio->setIsr(pin, Gpio::edgeBoth, std::bind(&HomeCtl::onGpioChange, this, std::placeholders::_1, std::placeholders::_2)) != success)
                tell(eloAlways, "Error: Unable to setup ISR to pin %d (%s)", pin, gpio->pinToName(pin).c_str());
             else
                sensors[type][pin].interruptSet = true;
@@ -945,7 +946,7 @@ int Daemon::cfgInput(myString type, uint pin, json_t* jCal)
 // Init Scripts
 //***************************************************************************
 
-int Daemon::initScripts()
+int HomeCtl::initScripts()
 {
    // LogDuration ld("initScripts");
    int count {0};
@@ -1089,6 +1090,9 @@ int Daemon::initScripts()
       if (!valid)
          sensors["SC"][addr].invalidate();    // the script may report invalid data
 
+      sensors["SC"][addr].clearDirty();       // the init result is only provisional (some scripts report 0 at init),
+                                              //  stored is the first 'status' result (updateScriptSensors)
+
       auto tuple {split(name, '.')};
       addValueFact(addr, "SC", 1, !isEmpty(title) ? title : name.c_str(), unit, tuple[0].c_str(), urControl, choices, soNone, sensors["SC"][addr].parameter.c_str());
 
@@ -1106,7 +1110,7 @@ int Daemon::initScripts()
 // Call Script
 //***************************************************************************
 
-int Daemon::callScript(int addr, const char* command)
+int HomeCtl::callScript(int addr, const char* command)
 {
    if (commandThreads.find(addr) != commandThreads.end())
    {
@@ -1163,7 +1167,7 @@ int Daemon::callScript(int addr, const char* command)
 // Send Command via MQTT
 //***************************************************************************
 
-int Daemon::switchCommand(std::string type, int addr, std::string action, const char* topic, const char* value)
+int HomeCtl::switchCommand(std::string type, int addr, std::string action, const char* topic, const char* value)
 {
    // prepare command
 
@@ -1206,7 +1210,7 @@ int Daemon::switchCommand(std::string type, int addr, std::string action, const 
 // Value Fact Of
 //***************************************************************************
 
-cDbRow* Daemon::valueFactRowOf(std::string type, uint addr)
+cDbRow* HomeCtl::valueFactRowOf(std::string type, uint addr)
 {
    tableValueFacts->clear();
    tableValueFacts->setValue("ADDRESS", (long)addr);
@@ -1222,7 +1226,7 @@ cDbRow* Daemon::valueFactRowOf(std::string type, uint addr)
 // Get Sensor
 //***************************************************************************
 
-Daemon::SensorData* Daemon::getSensor(const char* type, int addr)
+HomeCtl::SensorData* HomeCtl::getSensor(const char* type, int addr)
 {
    if (isEmpty(type))
       return nullptr;
@@ -1251,7 +1255,7 @@ cDbFieldDef avgValueDef("AVG_VALUE", "avalue", cDBS::ffFloat, 122, cDBS::ftData)
 cDbFieldDef maxValueDef("MAX_VALUE", "mvalue", cDBS::ffFloat, 122, cDBS::ftData);
 cDbFieldDef rangeEndDef("time", "time", cDBS::ffDateTime, 0, cDBS::ftData);
 
-int Daemon::initDb()
+int HomeCtl::initDb()
 {
    static bool initial {true};
    int status {success};
@@ -1944,7 +1948,7 @@ int Daemon::initDb()
    return status;
 }
 
-int Daemon::exitDb()
+int HomeCtl::exitDb()
 {
    delete tableTableStatistics;    tableTableStatistics = nullptr;
    delete tableSamples;            tableSamples = nullptr;
@@ -2009,7 +2013,7 @@ int Daemon::exitDb()
 // Read Configuration
 //***************************************************************************
 
-int Daemon::readConfiguration(bool initial)
+int HomeCtl::readConfiguration(bool initial)
 {
    // init configuration
 
@@ -2036,6 +2040,7 @@ int Daemon::readConfiguration(bool initial)
    getConfigItem("iconSet", iconSet, "light");
    getConfigItem("windyAppSpotID", windyAppSpotID, "5247411");
    getConfigItem("windyAppID", windyAppID, "");
+   comboHistoryAdd("windyAppSpotID", windyAppSpotID.c_str());     // the current spot is a suggestion from the start
 
    std::string tmp;
    getConfigItem("schema", tmp);
@@ -2068,6 +2073,7 @@ int Daemon::readConfiguration(bool initial)
    getConfigItem("gpsTourMinDistance", gpsTourMinDistance, 25);
    getConfigItem("gpsTourPauseAfter", gpsTourPauseAfter, 5);
    getConfigItem("gpsTourEndTolerance", gpsTourEndTolerance, 200);
+   getConfigItem("garminTrackDeviation", garminTrackDeviation, 50);
 
    // DECONZ
 
@@ -2197,7 +2203,7 @@ int Daemon::readConfiguration(bool initial)
 // Do Sleep
 //***************************************************************************
 
-void Daemon::doSleep(int t)
+void HomeCtl::doSleep(int t)
 {
    time_t end = time(0) + t;
 
@@ -2209,7 +2215,7 @@ void Daemon::doSleep(int t)
 // standby
 //***************************************************************************
 
-int Daemon::standby(int t)
+int HomeCtl::standby(int t)
 {
    time_t end = time(0) + t;
 
@@ -2222,7 +2228,7 @@ int Daemon::standby(int t)
    return done;
 }
 
-int Daemon::standbyUntil()
+int HomeCtl::standbyUntil()
 {
    while (time(0) < nextRefreshAt && !doShutDown())
    {
@@ -2237,7 +2243,7 @@ int Daemon::standbyUntil()
 // Meanwhile
 //***************************************************************************
 
-int Daemon::meanwhile()
+int HomeCtl::meanwhile()
 {
    static time_t lastPingAt {0};
    static uint64_t nextProcessMs {0};
@@ -2285,7 +2291,7 @@ int Daemon::meanwhile()
 // Loop
 //***************************************************************************
 
-int Daemon::loop()
+int HomeCtl::loop()
 {
    tell(eloAlways, "%s started", TARGET);
 
@@ -2389,7 +2395,7 @@ int Daemon::loop()
 // Update Inputs
 //***************************************************************************
 
-int Daemon::updateInputs(bool check)
+int HomeCtl::updateInputs(bool check)
 {
    static time_t nextInputCheckAt {0};
 
@@ -2423,7 +2429,7 @@ int Daemon::updateInputs(bool check)
 // Store Samples
 //***************************************************************************
 
-int Daemon::storeSamples()
+int HomeCtl::storeSamples()
 {
    int count {0};
    int skipped {0};
@@ -2469,7 +2475,7 @@ int Daemon::storeSamples()
 // Store
 //***************************************************************************
 
-int Daemon::store(time_t now, const SensorData* sensor)
+int HomeCtl::store(time_t now, const SensorData* sensor)
 {
    if (!sensor->type.length())
    {
@@ -2503,6 +2509,13 @@ int Daemon::store(time_t now, const SensorData* sensor)
    {
       tell(eloDebug, "Debug: No new data for '%s:0x%02x' (%s) since the last store, skipping store (%s)",
            sensor->type.c_str(), sensor->address, sensor->name.c_str(), l2pTime(sensor->last()).c_str());
+      return ignore;
+   }
+
+   if (!sensor->valid())
+   {
+      tell(eloDebug, "Debug: Data of '%s:0x%02x' (%s) is invalid, skipping store",
+           sensor->type.c_str(), sensor->address, sensor->name.c_str());
       return ignore;
    }
 
@@ -2569,7 +2582,7 @@ int Daemon::store(time_t now, const SensorData* sensor)
 // Process
 //***************************************************************************
 
-int Daemon::process(bool force, bool signal)
+int HomeCtl::process(bool force, bool signal)
 {
    // Zeitschaltuhr
 
@@ -2649,7 +2662,7 @@ int Daemon::process(bool force, bool signal)
 // Process LUA
 //***************************************************************************
 
-int Daemon::processLua(bool force, bool signal)
+int HomeCtl::processLua(bool force, bool signal)
 {
    // calculate CV and DO/GPIO(out) sensors by LUA
 
@@ -2824,7 +2837,7 @@ int Daemon::processLua(bool force, bool signal)
 // Update Script Sensors
 //***************************************************************************
 
-void Daemon::updateScriptSensors()
+void HomeCtl::updateScriptSensors()
 {
    tableValueFacts->clear();
 
@@ -2863,7 +2876,7 @@ void Daemon::updateScriptSensors()
 // After Update
 //***************************************************************************
 
-void Daemon::afterUpdate()
+void HomeCtl::afterUpdate()
 {
    sensorAlertCheck(lastSampleTime);
 
@@ -2883,7 +2896,7 @@ void Daemon::afterUpdate()
 // Sensor Alert Check
 //***************************************************************************
 
-void Daemon::sensorAlertCheck(time_t now)
+void HomeCtl::sensorAlertCheck(time_t now)
 {
    tableSensorAlert->clear();
    tableSensorAlert->setValue("KIND", "M");
@@ -2904,7 +2917,7 @@ void Daemon::sensorAlertCheck(time_t now)
 // Perform Alert Check
 //***************************************************************************
 
-int Daemon::performAlertCheck(cDbRow* alertRow, time_t now, int recurse, int force)
+int HomeCtl::performAlertCheck(cDbRow* alertRow, time_t now, int recurse, int force)
 {
    int alert = 0;
 
@@ -3069,7 +3082,7 @@ int Daemon::performAlertCheck(cDbRow* alertRow, time_t now, int recurse, int for
 // Add To Alert Mail
 //***************************************************************************
 
-int Daemon::add2AlertMail(cDbRow* alertRow, const char* title, double value, const char* unit)
+int HomeCtl::add2AlertMail(cDbRow* alertRow, const char* title, double value, const char* unit)
 {
    char* sensor {};
 
@@ -3147,7 +3160,7 @@ int Daemon::add2AlertMail(cDbRow* alertRow, const char* title, double value, con
 // Send Mail
 //***************************************************************************
 
-int Daemon::sendAlertMail(const char* to)
+int HomeCtl::sendAlertMail(const char* to)
 {
    // check
 
@@ -3189,7 +3202,7 @@ int Daemon::sendAlertMail(const char* to)
 // Update Conf Tables
 //***************************************************************************
 
-int Daemon::updateSchemaConfTable()
+int HomeCtl::updateSchemaConfTable()
 {
    const int step = 20;
    int y = 50;
@@ -3227,7 +3240,7 @@ int Daemon::updateSchemaConfTable()
 // Is In Time Range
 //***************************************************************************
 
-bool Daemon::isInTimeRange(const std::vector<Range>* ranges, time_t t)
+bool HomeCtl::isInTimeRange(const std::vector<Range>* ranges, time_t t)
 {
    for (auto it = ranges->begin(); it != ranges->end(); ++it)
    {
@@ -3245,7 +3258,7 @@ bool Daemon::isInTimeRange(const std::vector<Range>* ranges, time_t t)
 // Schedule Aggregate
 //***************************************************************************
 
-int Daemon::scheduleAggregate()
+int HomeCtl::scheduleAggregate()
 {
    struct tm tm = {0};
    time_t now {0};
@@ -3283,7 +3296,7 @@ int Daemon::scheduleAggregate()
 // Aggregate
 //***************************************************************************
 
-int Daemon::aggregate()
+int HomeCtl::aggregate()
 {
    char* stmt {};
    time_t history = time(0) - (aggregateHistory * tmeSecondsPerDay);
@@ -3330,7 +3343,7 @@ int Daemon::aggregate()
    return success;
 }
 
-int Daemon::sendMail(const char* receiver, const char* subject, const char* body, const char* mimeType)
+int HomeCtl::sendMail(const char* receiver, const char* subject, const char* body, const char* mimeType)
 {
    char* command {};
    int result {0};
@@ -3351,7 +3364,7 @@ int Daemon::sendMail(const char* receiver, const char* subject, const char* body
 // Load HTML Mail Header
 //***************************************************************************
 
-int Daemon::loadHtmlHeader()
+int HomeCtl::loadHtmlHeader()
 {
    char* file {};
 
@@ -3419,7 +3432,7 @@ int Daemon::loadHtmlHeader()
 // Add Value Fact
 //***************************************************************************
 
-int Daemon::addValueFact(int addr, const char* type, int factor, const char* name, const char* unit,
+int HomeCtl::addValueFact(int addr, const char* type, int factor, const char* name, const char* unit,
                          const char* aTitle, int rights, const char* choices, SensorOptions options, const char* parameter)
 
 {
@@ -3524,7 +3537,7 @@ int Daemon::addValueFact(int addr, const char* type, int factor, const char* nam
 //   Format: {"state": "OFF", "brightness": 255}
 //***************************************************************************
 
-int Daemon::dispatchMqttHaCommandRequest(json_t* jData, const char* topic)
+int HomeCtl::dispatchMqttHaCommandRequest(json_t* jData, const char* topic)
 {
    auto it = hassCmdTopicMap.find(topic);
 
@@ -3556,7 +3569,7 @@ int Daemon::dispatchMqttHaCommandRequest(json_t* jData, const char* topic)
 //   Format:  '[{ "command" : "set", "id" : 'SC:0x9', "value" : "on|off" }, ...]'
 //***************************************************************************
 
-int Daemon::dispatchNodeRedCommands(const char* topic, json_t* jObject)
+int HomeCtl::dispatchNodeRedCommands(const char* topic, json_t* jObject)
 {
    if (json_is_array(jObject))
    {
@@ -3579,7 +3592,7 @@ int Daemon::dispatchNodeRedCommands(const char* topic, json_t* jObject)
 //   Format:  '{ "command" : "set", "id" : 'SC:0x9', "value" : "on|off", "bri" : 100 }'
 //***************************************************************************
 
-int Daemon::dispatchNodeRedCommand(json_t* jObject)
+int HomeCtl::dispatchNodeRedCommand(json_t* jObject)
 {
    const char* command = getStringFromJson(jObject, "command", "set");
    const char* key = getStringFromJson(jObject, "id");
@@ -3622,7 +3635,7 @@ int Daemon::dispatchNodeRedCommand(json_t* jObject)
 //  Get the free API Key here: https://openweathermap.org/price
 //***************************************************************************
 
-int Daemon::updateWeather()
+int HomeCtl::updateWeather()
 {
    static time_t nextWeatherAt {0};
 
@@ -3722,7 +3735,7 @@ int Daemon::updateWeather()
 // Weather 2 Json
 //***************************************************************************
 
-int Daemon::weather2json(json_t* jWeather, json_t* owmWeather)
+int HomeCtl::weather2json(json_t* jWeather, json_t* owmWeather)
 {
    json_object_set_new(jWeather, "stime", json_string(l2pTime(getIntFromJson(owmWeather, "dt")).c_str()));
    json_object_set_new(jWeather, "time", json_integer(getIntFromJson(owmWeather, "dt")));
@@ -3748,7 +3761,7 @@ int Daemon::weather2json(json_t* jWeather, json_t* owmWeather)
 //           {"type": "DZS", "address": 33, "presence": true}
 //***************************************************************************
 
-int Daemon::dispatchDeconz()
+int HomeCtl::dispatchDeconz()
 {
    cMyMutexLock lock(&Deconz::messagesInMutex);
 
@@ -3854,7 +3867,7 @@ int Daemon::dispatchDeconz()
 // Homematic Interface (via node-red)
 //***************************************************************************
 
-int Daemon::dispatchHomematicRpcResult(const char* message)
+int HomeCtl::dispatchHomematicRpcResult(const char* message)
 {
    json_t* jData {jsonLoad(message)};
 
@@ -3925,7 +3938,7 @@ int Daemon::dispatchHomematicRpcResult(const char* message)
    return done;
 }
 
-int Daemon::dispatchHomematicEvents(const char* message)
+int HomeCtl::dispatchHomematicEvents(const char* message)
 {
    // { "val" : 0.25,
    //   "hm" : { "device"      : "OEQ1853240",
@@ -4064,7 +4077,7 @@ std::string buildStringFromCamelCase(std::string camelCaseStr)
 //     ...
 //***************************************************************************
 
-int Daemon::dispatchGrowattEvents(const char* message)
+int HomeCtl::dispatchGrowattEvents(const char* message)
 {
    json_t* jData = jsonLoad(message);
 
@@ -4163,7 +4176,7 @@ int Daemon::dispatchGrowattEvents(const char* message)
 //     { "time":"2023-07-14 20:45:32", "model":"Nexus-T", "id":60, "channel":1, "temperature_C":14.8}
 //***************************************************************************
 
-int Daemon::dispatchRtl433(const char* message)
+int HomeCtl::dispatchRtl433(const char* message)
 {
    tell(eloMqtt, "(RTL433) <-'%s'", message);
 
@@ -4223,7 +4236,7 @@ int Daemon::dispatchRtl433(const char* message)
 // Lookup Command Topic
 //***************************************************************************
 
-const char* Daemon::lookupCommandTopic(const char* type, int address)
+const char* HomeCtl::lookupCommandTopic(const char* type, int address)
 {
    std::string cmdTopicKey {type};
 
@@ -4269,7 +4282,7 @@ const char* Daemon::lookupCommandTopic(const char* type, int address)
 //   { "action": "init", "type": "ALPICOOL", "topic": "homectld2mqtt/alpicool/in", "config" : true}
 //***************************************************************************
 
-int Daemon::dispatchOther(const char* topic, const char* message)
+int HomeCtl::dispatchOther(const char* topic, const char* message)
 {
    // tell(eloAlways, "Debug: Dispatch '%s'", message);
 
@@ -4677,17 +4690,17 @@ int Daemon::dispatchOther(const char* topic, const char* message)
 
 //***************************************************************************
 // Init Config Table
-//   the configuration definition (specific.c) is the source of the 'N' items,
+//   the configuration definition (config.c) is the source of the 'N' items,
 //   they are written to the config table here. Beside this all further access
 //   to the configuration is done via the config table!
 //***************************************************************************
 
-int Daemon::initConfigTable()
+int HomeCtl::initConfigTable()
 {
    std::set<std::string> known;
    int ord {0};
 
-   for (const auto& it : *getConfiguration())
+   for (const auto& it : configuration)
    {
       known.insert(it.name);
 
@@ -4770,7 +4783,7 @@ int Daemon::initConfigTable()
 // Config Item Exists
 //***************************************************************************
 
-bool Daemon::configItemExists(const char* name, ConfigItemType* type)
+bool HomeCtl::configItemExists(const char* name, ConfigItemType* type)
 {
    tableConfig->clear();
    tableConfig->setValue("OWNER", myName());
@@ -4791,7 +4804,7 @@ bool Daemon::configItemExists(const char* name, ConfigItemType* type)
 //   create/edit a config item at runtime (sensor or user defined options)
 //***************************************************************************
 
-int Daemon::addConfigItem(const char* name, ConfigItemType type, const char* value, const char* kind,
+int HomeCtl::addConfigItem(const char* name, ConfigItemType type, const char* value, const char* kind,
                           bool internal, const char* category, const char* title, const char* description,
                           int ord)
 {
@@ -4822,7 +4835,7 @@ int Daemon::addConfigItem(const char* name, ConfigItemType type, const char* val
 // Config Data
 //***************************************************************************
 
-int Daemon::getConfigItem(const char* name, std::string& value, const char* def)
+int HomeCtl::getConfigItem(const char* name, std::string& value, const char* def)
 {
    value.clear();
 
@@ -4845,7 +4858,7 @@ int Daemon::getConfigItem(const char* name, std::string& value, const char* def)
    return success;
 }
 
-int Daemon::setConfigItem(const char* name, const char* value, const char* kind)
+int HomeCtl::setConfigItem(const char* name, const char* value, const char* kind)
 {
    tell(eloDebug2, "Debug2: Storing config '%s' with value '%s'", name, value);
    tableConfig->clear();
@@ -4896,7 +4909,7 @@ int Daemon::setConfigItem(const char* name, const char* value, const char* kind)
    return status;
 }
 
-int Daemon::getConfigItem(const char* name, int& value, int def)
+int HomeCtl::getConfigItem(const char* name, int& value, int def)
 {
    std::string txt;
 
@@ -4915,7 +4928,7 @@ int Daemon::getConfigItem(const char* name, int& value, int def)
    return success;
 }
 
-int Daemon::getConfigItem(const char* name, long& value, long def)
+int HomeCtl::getConfigItem(const char* name, long& value, long def)
 {
    std::string txt;
 
@@ -4934,7 +4947,7 @@ int Daemon::getConfigItem(const char* name, long& value, long def)
    return success;
 }
 
-int Daemon::setConfigItem(const char* name, long value, const char* kind)
+int HomeCtl::setConfigItem(const char* name, long value, const char* kind)
 {
    char txt[16] {};
 
@@ -4943,7 +4956,7 @@ int Daemon::setConfigItem(const char* name, long value, const char* kind)
    return setConfigItem(name, txt, kind);
 }
 
-int Daemon::getConfigItem(const char* name, double& value, double def)
+int HomeCtl::getConfigItem(const char* name, double& value, double def)
 {
    std::string txt;
 
@@ -4964,14 +4977,14 @@ int Daemon::getConfigItem(const char* name, double& value, double def)
    return success;
 }
 
-int Daemon::setConfigItem(const char* name, double value, const char* kind)
+int HomeCtl::setConfigItem(const char* name, double value, const char* kind)
 {
    char txt[16+TB] {};
    snprintf(txt, sizeof(txt), "%.2f", value);
    return setConfigItem(name, txt, kind);
 }
 
-int Daemon::getConfigItem(const char* name, bool& value, bool def)
+int HomeCtl::getConfigItem(const char* name, bool& value, bool def)
 {
    std::string txt;
 
@@ -4988,7 +5001,7 @@ int Daemon::getConfigItem(const char* name, bool& value, bool def)
    return success;
 }
 
-int Daemon::setConfigItem(const char* name, bool value, const char* kind)
+int HomeCtl::setConfigItem(const char* name, bool value, const char* kind)
 {
    char txt[16] {};
 
@@ -5001,7 +5014,7 @@ int Daemon::setConfigItem(const char* name, bool value, const char* kind)
 // Get Config Time Range Item
 //***************************************************************************
 
-int Daemon::getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges)
+int HomeCtl::getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges)
 {
    std::string tmp;
    getConfigItem(name, tmp, "");
@@ -5037,7 +5050,7 @@ int Daemon::getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges)
 // Toggle Color
 //***************************************************************************
 
-int Daemon::toggleColor(uint addr, const char* type, int hue, int sat, int bri)
+int HomeCtl::toggleColor(uint addr, const char* type, int hue, int sat, int bri)
 {
    cDbRow* fact {valueFactRowOf(type, addr)};
 
@@ -5054,7 +5067,7 @@ int Daemon::toggleColor(uint addr, const char* type, int hue, int sat, int bri)
 // Digital IO Stuff
 //***************************************************************************
 
-int Daemon::toggleIo(uint addr, const char* type, int state, int bri, int transitiontime)
+int HomeCtl::toggleIo(uint addr, const char* type, int state, int bri, int transitiontime)
 {
    cDbRow* fact {valueFactRowOf(type, addr)};
 
@@ -5137,7 +5150,7 @@ int Daemon::toggleIo(uint addr, const char* type, int state, int bri, int transi
    return success;
 }
 
-int Daemon::toggleIoNext(uint pin)
+int HomeCtl::toggleIoNext(uint pin)
 {
    if (sensors["DO"][pin].state)
    {
@@ -5152,7 +5165,7 @@ int Daemon::toggleIoNext(uint pin)
    return success;
 }
 
-void Daemon::pin2Json(json_t* ojData, const char* type, uint pin)
+void HomeCtl::pin2Json(json_t* ojData, const char* type, uint pin)
 {
    json_object_set_new(ojData, "address", json_integer(pin));
    json_object_set_new(ojData, "type", json_string(type));
@@ -5173,7 +5186,7 @@ void Daemon::pin2Json(json_t* ojData, const char* type, uint pin)
    }
 }
 
-int Daemon::toggleOutputMode(json_t* oObject, long client)
+int HomeCtl::toggleOutputMode(json_t* oObject, long client)
 {
    int addr {getIntFromJson(oObject, "address")};
    const char* type {getStringFromJson(oObject, "type")};
@@ -5198,13 +5211,13 @@ int Daemon::toggleOutputMode(json_t* oObject, long client)
 //    calles in thred dont use database access functions like gpioWrite(), ...
 //***************************************************************************
 
-void Daemon::onGpioChange(int physPin, bool value)
+void HomeCtl::onGpioChange(int physPin, bool value)
 {
    tell(eloDebugGpio, "Debug: GPIO: Interrupt trigger for pin %d (%s)", physPin, value ? "ON" : "OFF");
    triggerGpioPins.push(physPin);
 }
 
-void Daemon::gpioWrite(uint pin, bool state, bool saveIoState)
+void HomeCtl::gpioWrite(uint pin, bool state, bool saveIoState)
 {
    // #TODO for GPIO
    // workaround! -->
@@ -5257,7 +5270,7 @@ void Daemon::gpioWrite(uint pin, bool state, bool saveIoState)
 // GPIO Read
 //***************************************************************************
 
-bool Daemon::gpioRead(uint pin, bool check)
+bool HomeCtl::gpioRead(uint pin, bool check)
 {
    int state {gpio->digitalRead(pin)};
    bool changed {false};
@@ -5328,7 +5341,7 @@ bool Daemon::gpioRead(uint pin, bool check)
 // Publish Victron Init
 //***************************************************************************
 
-void Daemon::publishVictronInit(const char* type)
+void HomeCtl::publishVictronInit(const char* type)
 {
    if (commandTopicsMap.find(type) == commandTopicsMap.end())
    {
@@ -5371,7 +5384,7 @@ void Daemon::publishVictronInit(const char* type)
 //     - collect publish????Init methods
 //***************************************************************************
 
-void Daemon::requestAlpicoolInit(const char* type)
+void HomeCtl::requestAlpicoolInit(const char* type)
 {
    if (!lookupCommandTopic(type, na))
    {
@@ -5389,7 +5402,7 @@ void Daemon::requestAlpicoolInit(const char* type)
    free(message);
 }
 
-void Daemon::publishAlpicoolInit(const char* type, const char* name)
+void HomeCtl::publishAlpicoolInit(const char* type, const char* name)
 {
    if (!lookupCommandTopic(type, na))
    {
@@ -5431,7 +5444,7 @@ void Daemon::publishAlpicoolInit(const char* type, const char* name)
 // Publish I2C Sensor Config
 //***************************************************************************
 
-void Daemon::publishI2CSensorConfig(const char* type, uint pin, json_t* jParameters)
+void HomeCtl::publishI2CSensorConfig(const char* type, uint pin, json_t* jParameters)
 {
    if (commandTopicsMap.find(type) == commandTopicsMap.end())
    {
@@ -5465,7 +5478,7 @@ void Daemon::publishI2CSensorConfig(const char* type, uint pin, json_t* jParamet
 // Publish Pin State
 //***************************************************************************
 
-void Daemon::publishPin(const char* type, uint pin)
+void HomeCtl::publishPin(const char* type, uint pin)
 {
    json_t* ojData {json_object()};
    pin2Json(ojData, type, pin);
@@ -5482,7 +5495,7 @@ void Daemon::publishPin(const char* type, uint pin)
 // Publish Special Value
 //***************************************************************************
 
-// void Daemon::publishSpecialValue(int addr)
+// void HomeCtl::publishSpecialValue(int addr)
 // {
 //    cDbRow* fact = valueFactRowOf("SP", addr);
 
@@ -5513,7 +5526,7 @@ void Daemon::publishPin(const char* type, uint pin)
 // Store/Load Output State
 //***************************************************************************
 
-int Daemon::storeIoState(const char* type, uint address)
+int HomeCtl::storeIoState(const char* type, uint address)
 {
    tell(eloDebug, "Debug: Store IO state of '%s:0x%x' [%d]", type, address, sensors[type][address].state);
 
@@ -5531,7 +5544,7 @@ int Daemon::storeIoState(const char* type, uint address)
    return done;
 }
 
-int Daemon::loadIoState(const char* type, uint address, bool& state, OutputMode& mode)
+int HomeCtl::loadIoState(const char* type, uint address, bool& state, OutputMode& mode)
 {
    tableIoStates->clear();
    tableIoStates->setValue("TYPE", type);
@@ -5548,7 +5561,7 @@ int Daemon::loadIoState(const char* type, uint address, bool& state, OutputMode&
    return success;
 }
 
-int Daemon::loadIoStates()
+int HomeCtl::loadIoStates()
 {
    tableIoStates->clear();
 
@@ -5568,9 +5581,17 @@ int Daemon::loadIoStates()
            type.c_str(), address, state ? "true" : "false", tableIoStates->getIntValue("MODE"));
 
       sensors[type][address].restoreChangedAt(tableIoStates->getTimeValue("TIME"));
-      sensors[type][address].value = tableIoStates->getIntValue("VALUE");
-      sensors[type][address].text = tableIoStates->getStrValue("TEXT");
-      sensors[type][address].state = state;
+
+      // the row exists for every stored sensor (store() -> storeIoState()) - restore the last
+      // stored value only for sensors without current data, data received during the init
+      // (MQTT, script init, ..) must not be overwritten (it's 'dirty' and would be stored as 0)
+
+      if (!sensors[type][address].valid())
+      {
+         sensors[type][address].value = tableIoStates->getFloatValue("VALUE");   // VALUE is a float column, getIntValue() returned 0
+         sensors[type][address].text = tableIoStates->getStrValue("TEXT");
+         sensors[type][address].state = state;
+      }
 
       if (sensors[type][address].outputModes & ooAuto)
          sensors[type][address].mode = (OutputMode)tableIoStates->getIntValue("MODE");
@@ -5625,7 +5646,7 @@ int Daemon::loadIoStates()
 // Arduino Stuff ...
 //***************************************************************************
 
-int Daemon::dispatchArduinoMsg(const char* message)
+int HomeCtl::dispatchArduinoMsg(const char* message)
 {
    json_t* jObject {jsonLoad(message)};
 
@@ -5701,7 +5722,7 @@ int Daemon::dispatchArduinoMsg(const char* message)
 // Init Arduino
 //***************************************************************************
 
-int Daemon::initArduino()
+int HomeCtl::initArduino()
 {
    tell(eloAlways, "initArduino(%s); connected %d", mqttUrl.c_str(), mqttReader->isConnected());
 
@@ -5740,7 +5761,7 @@ int Daemon::initArduino()
 // Update Analog Input
 //***************************************************************************
 
-bool Daemon::updateAnalogInput(uint addr, const char* type, double value, time_t stamp, const char* unit)
+bool HomeCtl::updateAnalogInput(uint addr, const char* type, double value, time_t stamp, const char* unit)
 {
    // the Ardoino read the analog inputs with a resolution of 12 bits (3.3V => 4095)
    // the MCP read the analog inputs with a resolution of ... bits ...
@@ -5800,7 +5821,7 @@ bool Daemon::updateAnalogInput(uint addr, const char* type, double value, time_t
 // W1 Stuff ...
 //***************************************************************************
 
-int Daemon::dispatchW1Msg(const char* message)
+int HomeCtl::dispatchW1Msg(const char* message)
 {
    json_t* jArray = jsonLoad(message);
 
@@ -5839,7 +5860,7 @@ int Daemon::dispatchW1Msg(const char* message)
    return success;
 }
 
-bool Daemon::updateW1(const char* id, double value, time_t stamp)
+bool HomeCtl::updateW1(const char* id, double value, time_t stamp)
 {
    uint address = toW1Id(id);
 
@@ -5888,7 +5909,7 @@ bool Daemon::updateW1(const char* id, double value, time_t stamp)
    return changed;
 }
 
-void Daemon::cleanupW1()
+void HomeCtl::cleanupW1()
 {
    uint detached {0};
 
@@ -5903,13 +5924,13 @@ void Daemon::cleanupW1()
    }
 }
 
-bool Daemon::existW1(uint address)
+bool HomeCtl::existW1(uint address)
 {
    auto it = sensors["W1"].find(address);
    return it != sensors["W1"].end();
 }
 
-double Daemon::valueOfW1(uint address, time_t& last)
+double HomeCtl::valueOfW1(uint address, time_t& last)
 {
    last = 0;
 
@@ -5923,7 +5944,7 @@ double Daemon::valueOfW1(uint address, time_t& last)
    return sensors["W1"][address].value;
 }
 
-uint Daemon::toW1Id(const char* name)
+uint HomeCtl::toW1Id(const char* name)
 {
    const char* p;
    int len = strlen(name);
@@ -5949,7 +5970,7 @@ uint Daemon::toW1Id(const char* name)
 #include <poll.h>
 #include <unistd.h>
 
-void Daemon::cmdThread(ThreadControl* threadCtl)
+void HomeCtl::cmdThread(ThreadControl* threadCtl)
 {
    if (!threadCtl)
       return;
@@ -6031,7 +6052,7 @@ void Daemon::cmdThread(ThreadControl* threadCtl)
    threadCtl->active = false;
 }
 
-int Daemon::executeCommandAsync(uint address, const char* cmd)
+int HomeCtl::executeCommandAsync(uint address, const char* cmd)
 {
    auto& tControl {commandThreads[address]};
    tControl.command = cmd;
@@ -6042,7 +6063,7 @@ int Daemon::executeCommandAsync(uint address, const char* cmd)
       // Erstellt einen std::thread und lagert ihn sofort aus (detach)
       // Dadurch entfällt das manuelle pthread_join
 
-      std::thread(&Daemon::cmdThread, &tControl).detach();
+      std::thread(&HomeCtl::cmdThread, &tControl).detach();
    }
    catch (const std::system_error& e)
    {
@@ -6057,7 +6078,7 @@ int Daemon::executeCommandAsync(uint address, const char* cmd)
 // Wifi Commands
 //***************************************************************************
 
-bool Daemon::wifiDeviceExists(const char* iface)
+bool HomeCtl::wifiDeviceExists(const char* iface)
 {
    if (isEmpty(iface))
       return true;                       // profile not bound to an interface
@@ -6079,7 +6100,7 @@ bool Daemon::wifiDeviceExists(const char* iface)
    return exists;
 }
 
-int Daemon::connectWifi(const char* ssid, std::string& result, const char* pwd)
+int HomeCtl::connectWifi(const char* ssid, std::string& result, const char* pwd)
 {
    // prefer a stored profile of this SSID. A profile is bound to the interface it was
    // created on (USB sticks got names like wlx74da38732900), after a change of the stick
@@ -6141,7 +6162,7 @@ int Daemon::connectWifi(const char* ssid, std::string& result, const char* pwd)
    return executeNmcli({"nmcli", "connection", "up", "uuid", uuid}, result);
 }
 
-int Daemon::disconnectWifi(const char* ssid, std::string& result)
+int HomeCtl::disconnectWifi(const char* ssid, std::string& result)
 {
    std::vector<std::string> args = {"nmcli", "connection", "down", ssid};
 
@@ -6151,7 +6172,7 @@ int Daemon::disconnectWifi(const char* ssid, std::string& result)
    return executeNmcli(args, result);
 }
 
-int Daemon::forgetWifi(const char* uuid, const char* ssid, std::string& result)
+int HomeCtl::forgetWifi(const char* uuid, const char* ssid, std::string& result)
 {
    // delete the stored connection profile(s), the network needs a new setup (password) afterwards
    //  - by uuid: exactly this profile
@@ -6194,7 +6215,7 @@ int Daemon::forgetWifi(const char* uuid, const char* ssid, std::string& result)
    return status;
 }
 
-void Daemon::tidyWifiProfileName(const char* ssid)
+void HomeCtl::tidyWifiProfileName(const char* ssid)
 {
    // nmcli names duplicates 'SSID 1', 'SSID 2', ... - if only one profile of the SSID
    // is left, name it like the SSID again
@@ -6227,7 +6248,7 @@ void Daemon::tidyWifiProfileName(const char* ssid)
    }
 }
 
-int Daemon::executeNmcli(const std::vector<std::string>& cmdArgs, std::string& result)
+int HomeCtl::executeNmcli(const std::vector<std::string>& cmdArgs, std::string& result)
 {
    result.clear();
    int pipe_fd[2] {};

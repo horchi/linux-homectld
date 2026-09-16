@@ -37,21 +37,21 @@ extern char* confDir;
 extern const char* daemonVersion;     // VERSION of HISTORY.h - defined in main.c, so a version bump rebuilds main.o only
 
 //***************************************************************************
-// Class Daemon
+// Class HomeCtl
 //***************************************************************************
 
-class Daemon : public cWebInterface, public Service
+class HomeCtl : public cWebInterface, public Service
 {
    public:
 
-      Daemon();
-      virtual ~Daemon();
+      HomeCtl();
+      virtual ~HomeCtl();
 
       int loop();
       virtual int init();
 
       const char* myName() override  { return TARGET; }
-      virtual const char* myTitle()  { return "Daemon"; }
+      const char* myTitle()          { return "HomeCtl"; }
       static void downF(int aSignal) { shutdown = true; }
 
       int addValueFact(int addr, const char* type, int factor, const char* name, const char* unit = "",
@@ -243,7 +243,8 @@ class Daemon : public cWebInterface, public Service
          ctChoice,
          ctMultiSelect,
          ctBitSelect,
-         ctText
+         ctText,
+         ctComboChoice    // text input with the values stored before as suggestions (by label), see comboHistoryAdd()
       };
 
       // ORD of config items created at runtime (sensor and user defined options),
@@ -471,6 +472,12 @@ class Daemon : public cWebInterface, public Service
       int configDetails2Json(json_t* obj);
       int userDetails2Json(json_t* obj);
       virtual int configChoice2json(json_t* obj, const char* name);
+      ConfigItemType configItemType(const char* name);
+      json_t* comboHistory(const char* name);
+      int comboHistoryStore(const char* name, json_t* jHistory);
+      int comboHistoryAdd(const char* name, const char* value);
+      int comboHistoryLabel(const char* name, const char* value, const char* label);
+      int comboHistoryForget(const char* name, const char* value);
 
       int valueTypes2Json(json_t* obj);
       int valueFacts2Json(json_t* obj, bool filterActive);
@@ -562,10 +569,12 @@ class Daemon : public cWebInterface, public Service
       json_t* activityDetails(long id, bool force, std::string& error);
       json_t* activityTrack(long id, bool force, std::string& error);
       void activityDetailsPatch(long id, const char* key, const char* value);
-      int activityChangeType(long id, const char* type, std::string& error);
-      int activityRename(long id, const char* name, std::string& error);
-      int activitySetLocation(long id, const char* location, std::string& error);
-      int activitiesBulkEdit(json_t* jIds, const char* type, const char* name, const char* location, std::string& message);
+      static bool activityDetailsFull(const char* details);              // full details cached, not the preliminary ones of the list
+      static double activityTrackDistance(json_t* jPoints);              // [m] sum of the segments
+      double activityStoreTrackDistance(long id, json_t* jPoints);       // -> activities.TRACKDISTANCE
+      void activitiesFillTrackDistance(const std::set<long>& ids);       // once for tracks stored before the column existed
+      bool activityUseTrackDistance(double garminDistance, double trackDistance);
+      int activitiesEdit(json_t* jIds, const char* type, const char* name, const char* location, std::string& message);
       static bool parseGpsText(const char* text, GpsCoordinate& c);
       static std::string gpsCoordinateText(const GpsCoordinate& c);
       static double gpsDistance(const GpsCoordinate& a, const GpsCoordinate& b);
@@ -848,8 +857,9 @@ class Daemon : public cWebInterface, public Service
       int gpsTourMinDistance {25};       // [m] record a point if moved at least this distance
       int gpsTourPauseAfter {5};         // [min] pause the tour after this time without movement
       int gpsTourEndTolerance {200};     // [m] on stop: the arrival within this distance of the final position is proposed as end
+      int garminTrackDeviation {50};     // [%] Garmin's distance deviates more than this from the track -> the track's distance is shown (0 = never)
 
-      virtual std::list<ConfigItemDef>* getConfiguration() = 0;
+      static std::list<ConfigItemDef> configuration;   // config.c
 
       std::string alertMailBody;
       std::string alertMailSubject;

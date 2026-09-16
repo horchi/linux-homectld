@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.21"
-#define VERSION_DATE "14.09.2026"
+#define _VERSION     "0.1.22"
+#define VERSION_DATE "16.09.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,40 @@
 
 /*
  * ------------------------------------
+
+2026-09-16: version 0.1.22
+    - change: Garmin: edit / bulk edit sends type, name and location in one request per activity
+              (garmin.py edit, one call instead of one per field)
+    - added: Garmin: filter on the location (with suggestions), the name filter matches the name only
+    - added: Garmin: shift / ctrl click on a check box selects the range from the last clicked one
+    - added: Garmin: sort the lists by a click on the column header
+    - bugfix: progress dialog: the 5 minute timer of an earlier dialog closed a later one
+              (e.g. the one of the bulk edit), the dialog of the bulk edit lives as long as the daemon waits
+    - bugfix: progress dialog: the spinner was cut on the right (fixed width 125px vs. the dialog margins)
+    - added: make gzip-web (gz): only refresh the gzip twins of the web files, no install
+    - added: Garmin: distance from the GPS track when Garmin's deviates by more than the configured
+             percentage (config 'Distanz aus dem Track ab Abweichung', default 50 %); computed when a
+             track is loaded, stored in the new column activities.trackdistance, the list marks it in
+             italics, the details show both values, the track header shows the track length
+    - change: Garmin: the sync stores the values of the list entry as preliminary details (no
+              'details' call needed for most values), the dialog offers 'Details nachladen' for the
+              rest (min. HR, avg. temperature); 'make install' + a full
+              sync ('alle') fill them for the existing activities
+    - added: config item type 'ComboChoice' (ctComboChoice): text input with the values stored before
+             as suggestions (internal item '<name>History' with value and label, the label is resolved by
+             the WEBIF, setup.js comboLabelResolvers), used for 'Windy App Spot ID' - the spot name comes
+             from Windy's widget endpoint, spots are picked by name, a button forgets the entered value
+    - change: the icon font (mdi, 400 kB) is preloaded with the page, the icons appeared late when the
+              font was first requested by the first icon drawn (e.g. on the setup page)
+    - change: web server: mime types for fonts (woff2, woff, ttf), json and ico (were text/plain)
+    - bugfix: Garmin: the type filter's options followed the name / location filter only with the next
+              list push and stayed restricted after the filter was cleared
+    - bugfix: Garmin: details with an emoji in the description could not be stored (tables are utf8mb3),
+              the JSON is written ASCII escaped now; the sync message counted all activities as new
+    - bugfix: start: loadIoStates() reset the values received during the init to 0 (float read as int),
+              the first store wrote them as 0 (since 0.1.17); invalid / script init data is not stored
+    - change: code cleanup: the empty subclass HomeCtl (specific.*) is gone, Daemon is renamed to HomeCtl,
+              the configuration items moved to the new config.c
 
 2026-09-14: version 0.1.21
     - added: System Services: 'Options' in the burger menu opens /etc/default/<service> in the

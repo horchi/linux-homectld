@@ -20,9 +20,12 @@ var actPendingTypeChange = null;
 var actFilterType = localStorage.getItem(storagePrefix + 'actFilterType') || 'all';
 var actFilterPeriod = localStorage.getItem(storagePrefix + 'actFilterPeriod') || 'all';
 var actFilterName = localStorage.getItem(storagePrefix + 'actFilterName') || '';
+var actFilterLocation = localStorage.getItem(storagePrefix + 'actFilterLocation') || '';
+var actSort = JSON.parse(localStorage.getItem(storagePrefix + 'actSort') || '{"key":"start","dir":"desc"}');   // column sort of the lists
 var actCollapsed = JSON.parse(localStorage.getItem(storagePrefix + 'actCollapsed') || '{}');
 var actView = localStorage.getItem(storagePrefix + 'actView') || 'list';   // 'list' | 'map'
 var actSelected = {};                                                       // ids of the selected activities (bulk edit)
+var actLastClicked = null;                                                  // last clicked check box (range selection with shift / ctrl)
 
 // German labels of the Garmin type keys, unknown keys are shown 'as is'
 
@@ -184,16 +187,13 @@ function actBuildControlPanel()
       .append($('<div></div>')
               .addClass('button-group-spacing'));
 
-   // counts per type within the period / name filter (what the list would show)
-
-   let types = {};
+   let locations = {};              // suggestions for the location filter (within the period)
    let from = actPeriodStart();
-   let matcher = actNameMatcher();
 
    if (activities)
       for (let a of activities.activities)
-         if (actPassesFilter(a, from, matcher))
-            types[a.type] = (types[a.type] || 0) + 1;
+         if (a.location && (!from || a.start >= from))
+            locations[a.location] = (locations[a.location] || 0) + 1;
 
    let selType = $('<select></select>')
        .attr('id', 'actFilterType')
@@ -205,11 +205,7 @@ function actBuildControlPanel()
           localStorage.setItem(storagePrefix + 'actFilterType', actFilterType);
           actMarkFilters();
           actRender();
-       })
-       .append($('<option></option>').val('all').html('alle Typen'));
-
-   for (let key of Object.keys(types).sort(function(a, b) { return types[b] - types[a]; }))
-      selType.append($('<option></option>').val(key).html(actTypeLabel(key) + ' (' + types[key] + ')'));
+       });
 
    let periods = { 'all': 'gesamter Zeitraum', 'year': 'dieses Jahr', '12m': 'letzte 12 Monate', '6m': 'letzte 6 Monate', '3m': 'letzte 3 Monate', '1m': 'letzter Monat' };
    let selPeriod = $('<select></select>')
@@ -239,9 +235,33 @@ function actBuildControlPanel()
        .on('input', function() {
           actFilterName = $(this).val();
           localStorage.setItem(storagePrefix + 'actFilterName', actFilterName);
+          actFillTypeOptions();
           actMarkFilters();
           actRender();
        });
+
+   let inpLocation = $('<input></input>')
+       .attr('id', 'actFilterLocation')
+       .attr('type', 'search')
+       .attr('list', 'actLocationList')
+       .attr('placeholder', 'Ort (Regex)')
+       .attr('title', 'Filter auf den Ort, regulärer Ausdruck, Groß-/Kleinschreibung egal, z.B. ^Malcesine|Sitia')
+       .addClass('input rounded-border clearableOD')
+       .css('width', '-webkit-fill-available')
+       .css('width', '-moz-available')
+       .val(actFilterLocation)
+       .on('input', function() {
+          actFilterLocation = $(this).val();
+          localStorage.setItem(storagePrefix + 'actFilterLocation', actFilterLocation);
+          actFillTypeOptions();
+          actMarkFilters();
+          actRender();
+       });
+
+   let locationList = $('<datalist></datalist>').attr('id', 'actLocationList');
+
+   for (let loc of Object.keys(locations).sort(function(a, b) { return locations[b] - locations[a] || a.localeCompare(b, 'de'); }))
+      locationList.append($('<option></option>').val(loc));
 
    $("#controlContainer")
       .append($('<div></div>').addClass('labelB1').html('Typ'))
@@ -252,9 +272,13 @@ function actBuildControlPanel()
       .append($('<div></div>').addClass('button-group-spacing'))
       .append($('<div></div>').addClass('labelB1').html('Name'))
       .append(inpName)
+      .append($('<div></div>').addClass('button-group-spacing'))
+      .append($('<div></div>').addClass('labelB1').html('Ort'))
+      .append(inpLocation)
+      .append(locationList)
       .append($('<div></div>').addClass('button-group-spacing'));
 
-   selType.val(types[actFilterType] ? actFilterType : 'all');
+   actFillTypeOptions();
    selPeriod.val(actFilterPeriod);
    actMarkFilters();
 
@@ -296,6 +320,37 @@ function actBuildControlPanel()
               .click(function() { showHelp('garmin-activities'); }));
 }
 
+// options of the type select: the types (with counts) within period, name and location filter;
+//   called by the filter inputs, too (the options followed a filter only with the next list push
+//   and stayed restricted after the filter was cleared)
+
+function actFillTypeOptions()
+{
+   let sel = $('#actFilterType');
+
+   if (!sel.length)
+      return;
+
+   let types = {};
+   let from = actPeriodStart();
+   let matcher = actTextMatcher();
+
+   if (activities)
+      for (let a of activities.activities)
+         if (actPassesFilter(a, from, matcher))
+            types[a.type] = (types[a.type] || 0) + 1;
+
+   if (actFilterType != 'all' && !types[actFilterType])
+      types[actFilterType] = 0;                 // the selected type stays visible (the list is empty then)
+
+   sel.empty().append($('<option></option>').val('all').html('alle Typen'));
+
+   for (let key of Object.keys(types).sort(function(a, b) { return types[b] - types[a]; }))
+      sel.append($('<option></option>').val(key).html(actTypeLabel(key) + ' (' + types[key] + ')'));
+
+   sel.val(actFilterType);
+}
+
 function actSetView(view)
 {
    actView = view;
@@ -321,19 +376,56 @@ function actToggleSelect(id, on = null)
    // the row without re-rendering the list (the native check box is styled as a switch, too big here)
 
    $('#actSel_' + id).toggleClass('mdi-checkbox-marked', on).toggleClass('mdi-checkbox-blank-outline', !on).closest('tr').toggleClass('actRowSelected', on);
+
+   // the check box of the group follows (all rows of the group selected?)
+
+   let a = actFind(id);
+
+   if (a) {
+      let rows = $('#actGroup_' + a.type + ' .actRow').toArray();
+      let all = rows.length > 0 && rows.every(function(tr) { return actSelected[tr.dataset.id]; });
+      $('#actGrpSel_' + a.type).toggleClass('mdi-checkbox-marked', all).toggleClass('mdi-checkbox-blank-outline', !all);
+   }
+
    actUpdateSelection();
 }
 
-function actSelectGroup(type, on)
+// click on the check box of a row: with shift or ctrl all rows from the last clicked one up to this
+//   one (in the order of the list, across the groups) get the state of the last clicked one
+
+function actSelectClick(event, id)
 {
-   let from = actPeriodStart();
-   let matcher = actNameMatcher();
+   event.stopPropagation();
 
-   for (let a of activities.activities)
-      if (a.type == type && actPassesFilter(a, from, matcher))
-         actToggleSelect(a.id, on);
+   if ((event.shiftKey || event.ctrlKey || event.metaKey) && actLastClicked != null && actLastClicked != id) {
+      let ids = $('#container .actRow').toArray().map(function(tr) { return Number(tr.dataset.id); });
+      let from = ids.indexOf(actLastClicked);
+      let to = ids.indexOf(id);
 
-   actRender();
+      if (from >= 0 && to >= 0) {
+         let on = !!actSelected[actLastClicked];
+
+         for (let i = Math.min(from, to); i <= Math.max(from, to); i++)
+            actToggleSelect(ids[i], on);
+
+         actLastClicked = id;
+         return;
+      }
+   }
+
+   actToggleSelect(id);
+   actLastClicked = id;
+}
+
+function actSelectGroup(type)
+{
+   // all rows of the group (within the filters); all selected -> deselect
+
+   let rows = $('#actGroup_' + type + ' .actRow').toArray();
+   let on = !rows.every(function(tr) { return actSelected[tr.dataset.id]; });
+
+   for (let tr of rows)
+      actToggleSelect(Number(tr.dataset.id), on);
 }
 
 function actClearSelection()
@@ -352,26 +444,39 @@ function actUpdateSelection()
    $('#actBtnClearSel').prop('disabled', !n);
 }
 
-// period and name filter (the type filter is applied separately)
+// period, name and location filter (the type filter is applied separately)
 
-function actNameMatcher()
+function actRegexMatcher(text)
 {
-   if (!actFilterName)
+   if (!text)
       return null;
 
    let re = null;
 
    try {
-      re = new RegExp(actFilterName, 'i');
+      re = new RegExp(text, 'i');
    }
    catch (e) {
       re = null;      // invalid expression (e.g. while typing) -> plain substring
    }
 
-   let needle = actFilterName.toLowerCase();
+   let needle = text.toLowerCase();
+
+   return function(value) {
+      return re ? re.test(value || '') : (value || '').toLowerCase().includes(needle);
+   };
+}
+
+function actTextMatcher()
+{
+   let byName = actRegexMatcher(actFilterName);
+   let byLocation = actRegexMatcher(actFilterLocation);
+
+   if (!byName && !byLocation)
+      return null;
 
    return function(a) {
-      return re ? re.test(a.name) || re.test(a.location || '') : (a.name + ' ' + (a.location || '')).toLowerCase().includes(needle);
+      return (!byName || byName(a.name)) && (!byLocation || byLocation(a.location));
    };
 }
 
@@ -390,6 +495,7 @@ function actMarkFilters()
    $('#actFilterType').toggleClass('actFilterActive', actFilterType != 'all');
    $('#actFilterPeriod').toggleClass('actFilterActive', actFilterPeriod != 'all');
    $('#actFilterName').toggleClass('actFilterActive', actFilterName != '');
+   $('#actFilterLocation').toggleClass('actFilterActive', actFilterLocation != '');
 }
 
 function actPeriodStart()
@@ -447,7 +553,7 @@ function actRender()
    }
 
    let from = actPeriodStart();
-   let matcher = actNameMatcher();
+   let matcher = actTextMatcher();
    let groups = {};
    let inPeriod = activities.activities.filter(function(a) { return actPassesFilter(a, from, matcher); });   // period / name filter only
    let items = inPeriod.filter(function(a) { return actFilterType == 'all' || a.type == actFilterType; });
@@ -489,13 +595,13 @@ function actRender()
       let collapsed = actFilterType == 'all' && actCollapsed[key] == true;   // a selected type is always expanded
       let allSelected = g.items.every(function(a) { return actSelected[a.id]; });
 
-      html += '<div class="actGroup">';
+      html += '<div class="actGroup" id="actGroup_' + key + '">';
       html += ' <div class="rounded-border seperatorFold actGroupHead" onclick="actToggleGroup(\'' + key + '\')">';
       html += '  <span class="actGroupArrow">' + (collapsed ? '▸' : '▾') + '</span> ';
 
       if (control)
-         html += '<span class="actSelBox mdi ' + (allSelected ? 'mdi-checkbox-marked' : 'mdi-checkbox-blank-outline') + '" title="alle Aktivitäten dieser Gruppe wählen / abwählen"'
-               + ' onclick="event.stopPropagation(); actSelectGroup(\'' + key + '\', ' + (allSelected ? 'false' : 'true') + ')"></span> ';
+         html += '<span id="actGrpSel_' + key + '" class="actSelBox mdi ' + (allSelected ? 'mdi-checkbox-marked' : 'mdi-checkbox-blank-outline') + '" title="alle Aktivitäten dieser Gruppe wählen / abwählen"'
+               + ' onclick="event.stopPropagation(); actSelectGroup(\'' + key + '\')"></span> ';
 
       html += gpsEscape(actTypeLabel(key));
       html += '  <span class="actGroupSum">' + g.items.length + ' · ' + actFmtDuration(g.duration)
@@ -512,19 +618,19 @@ function actRender()
             html += '   <td class="actSel"></td>';
 
          html += '   <td style="width:2%;" title="oben: Details geladen, unten: Track geladen"></td>';
-         html += '   <td style="width:18%;">Datum</td>';
-         html += '   <td style="width:29%;">Name</td>';
-         html += '   <td style="width:21%;" class="actColOpt">Ort</td>';
-         html += '   <td style="width:10%;" class="actNum">Dauer</td>';
-         html += '   <td style="width:10%;" class="actNum">Distanz</td>';
+         html += actHeadCell('start', 'Datum', 'width:18%;');
+         html += actHeadCell('name', 'Name', 'width:29%;');
+         html += actHeadCell('location', 'Ort', 'width:21%;', 'actColOpt');
+         html += actHeadCell('duration', 'Dauer', 'width:10%;', 'actNum');
+         html += actHeadCell('distance', 'Distanz', 'width:10%;', 'actNum');
          html += '   <td style="width:10%;" class="actActions"></td>';
          html += '  </tr></thead><tbody>';
 
-         for (let a of g.items) {
-            html += '  <tr class="actRow' + (actSelected[a.id] ? ' actRowSelected' : '') + '" onclick="actShowDetails(' + a.id + ')">';
+         for (let a of actSortItems(g.items)) {
+            html += '  <tr class="actRow' + (actSelected[a.id] ? ' actRowSelected' : '') + '" data-id="' + a.id + '" onclick="actShowDetails(' + a.id + ')">';
 
             if (control)
-               html += '   <td class="actSel" onclick="event.stopPropagation(); actToggleSelect(' + a.id + ')">'
+               html += '   <td class="actSel" onclick="actSelectClick(event, ' + a.id + ')" onmousedown="event.preventDefault()" title="wählen, mit Shift / Strg bis zur zuletzt geklickten">'
                      + '<span id="actSel_' + a.id + '" class="actSelBox mdi ' + (actSelected[a.id] ? 'mdi-checkbox-marked' : 'mdi-checkbox-blank-outline') + '"></span></td>';
 
             html += '   <td class="actFlags"><span class="actDot' + (a.hasdetails ? ' on' : '') + '" title="Details ' + (a.hasdetails ? '' : 'nicht ') + 'geladen"></span>'
@@ -533,7 +639,8 @@ function actRender()
             html += '   <td class="actWrap">' + gpsEscape(a.name) + '</td>';
             html += '   <td class="actWrap actColOpt">' + gpsEscape(a.location) + '</td>';
             html += '   <td class="actNum">' + actFmtDuration(a.moving || a.duration) + '</td>';
-            html += '   <td class="actNum">' + (a.distance ? gpsFmtDistance(a.distance) : '-') + '</td>';
+            html += '   <td class="actNum' + (a.distancefromtrack ? ' actFromTrack" title="aus dem GPS-Track berechnet, Garmin meldet ' + gpsFmtDistance(a.garmindistance) + '"' : '"') + '>'
+                  + (a.distance ? gpsFmtDistance(a.distance) : '-') + '</td>';
             html += '   <td class="actActions">';
 
             if (control) {
@@ -553,6 +660,48 @@ function actRender()
    }
 
    root.innerHTML = html;
+}
+
+// sort by a column (click on the header), the same column again toggles the direction
+
+function actSortBy(key)
+{
+   actSort = { 'key': key, 'dir': actSort.key == key && actSort.dir == 'asc' ? 'desc' : 'asc' };
+   localStorage.setItem(storagePrefix + 'actSort', JSON.stringify(actSort));
+   actRender();
+}
+
+function actSortValue(a)
+{
+   switch (actSort.key) {
+      case 'name':     return a.name || '';
+      case 'location': return a.location || '';
+      case 'duration': return a.moving || a.duration || 0;
+      case 'distance': return a.distance || 0;
+   }
+
+   return a.start || 0;
+}
+
+function actSortItems(items)
+{
+   let dir = actSort.dir == 'asc' ? 1 : -1;
+
+   return items.slice().sort(function(x, y) {
+      let vx = actSortValue(x);
+      let vy = actSortValue(y);
+      let c = typeof vx == 'string' ? vx.localeCompare(vy, 'de', { sensitivity: 'base' }) : vx - vy;
+
+      return c ? c * dir : y.start - x.start;       // equal -> newest first
+   });
+}
+
+function actHeadCell(key, label, style, cls)
+{
+   let active = actSort.key == key;
+
+   return '<td style="' + style + '" class="actSortable' + (cls ? ' ' + cls : '') + '" onclick="actSortBy(\'' + key + '\')" title="nach ' + label + ' sortieren">'
+        + label + (active ? '<span class="actSortArrow">' + (actSort.dir == 'asc' ? '▲' : '▼') + '</span>' : '') + '</td>';
 }
 
 function actToggleGroup(key)
@@ -676,7 +825,7 @@ function actEditDialog(ids)
                actClearSelection();
             }
 
-            showProgressDialog();
+            showProgressDialog(bulk ? 60000 + ids.length * 2000 : 300000);   // like the timeout of the daemon
             socket.send({ "event" : "activities", "object" : { "action" : "edit", "ids" : ids, "type" : type, "name" : name, "location" : location } });
          }
       },
@@ -860,7 +1009,8 @@ function actMarkLoaded(id, what)
 function showActivityDetails(obj)
 {
    hideProgressDialog();
-   actMarkLoaded(obj.id, 'hasdetails');
+   if (obj.full !== false)
+      actMarkLoaded(obj.id, 'hasdetails');
 
    let a = actFind(obj.id) || {};
    let type = obj.type || a.type;
@@ -890,6 +1040,15 @@ function showActivityDetails(obj)
          shown[key] = true;
          continue;
       }
+
+      if (key == 'distance' && obj.trackdistance) {
+         // the watch summed up (almost) no distance in some sessions: Garmin's value and the one of the track
+         rows.push(['Distanz (Garmin)', actFmtSummary(key, summary[key], type) + (obj.distancefromtrack ? ' <span class="actSyncHint">unplausibel</span>' : '')]);
+         rows.push(['Distanz (GPS-Track)', '<span' + (obj.distancefromtrack ? ' class="actFromTrack"' : '') + '>' + gpsFmtDistance(obj.trackdistance) + '</span>']);
+         shown[key] = true;
+         continue;
+      }
+
       rows.push([actSummaryLabels[key][0], actFmtSummary(key, summary[key], type)]);
       shown[key] = true;
    }
@@ -922,7 +1081,14 @@ function showActivityDetails(obj)
    }
 
    html += '</table>';
-   html += '<div class="actSyncHint">' + (obj.cached ? 'aus dem Zwischenspeicher' : 'von Garmin geladen') + '</div>';
+
+   let partial = obj.full === false;        // the values of the list entry, 'details' not loaded yet
+
+   if (partial)
+      html += '<div class="actSyncHint">Werte aus der Aktivitätenliste. \'Details nachladen\' holt den Rest von Garmin (min. Puls, Ø Temperatur)</div>';
+   else
+      html += '<div class="actSyncHint">' + (obj.cached ? 'aus dem Zwischenspeicher' : 'von Garmin geladen') + '</div>';
+
    html += '</div>';
 
    let buttons = {};
@@ -930,7 +1096,7 @@ function showActivityDetails(obj)
    if (a.lat || a.lon)
       buttons['Track'] = function() { $(this).dialog('close'); actShowTrack(obj.id); };
 
-   buttons['Neu laden'] = function() { $(this).dialog('close'); actShowDetails(obj.id, true); };
+   buttons[partial ? 'Details nachladen' : 'Neu laden'] = function() { $(this).dialog('close'); actShowDetails(obj.id, true); };
    buttons['Ok'] = function() { $(this).dialog('close'); };
 
    $(html).dialog({
@@ -996,6 +1162,15 @@ function showActivityTrack(obj)
    let a = actFind(obj.id) || {};
    let points = obj.points || [];
 
+   // the track's distance came with the reply: update the row (italic when it replaces Garmin's)
+
+   if (obj.trackdistance != null && a.id && (a.trackdistance != obj.trackdistance || a.distancefromtrack != obj.distancefromtrack)) {
+      a.trackdistance = obj.trackdistance;
+      a.distancefromtrack = obj.distancefromtrack;
+      a.distance = obj.distancefromtrack ? obj.trackdistance : obj.garmindistance;
+      actRender();
+   }
+
    if (points.length < 2) {
       showInfoDialog({ 'status': -1, 'message': 'Kein Track für diese Aktivität' });
       return;
@@ -1005,13 +1180,16 @@ function showActivityTrack(obj)
 
    let speeds = [];
    let maxSpeed = 0;
+   let trackDistance = 0;
 
    for (let i = 1; i < points.length; i++) {
       let s = points[i][4];
+      let d = actHaversine(points[i-1], points[i]);
+      trackDistance += d;
 
       if (!s) {
          let dt = points[i][2] - points[i-1][2];
-         s = dt > 0 ? actHaversine(points[i-1], points[i]) / dt : 0;
+         s = dt > 0 ? d / dt : 0;
       }
 
       speeds.push(s);
@@ -1025,7 +1203,7 @@ function showActivityTrack(obj)
    let h = Math.round($(window).height() * 0.75);
    let html = '<div class="actTrackDialog">' +
        '<div class="actTrackHead">' + gpsEscape(a.name || '') + ' · ' + actTypeLabel(a.type) + ' · ' + actFmtDate(a.start) +
-       ' · ' + points.length + ' Punkte · max ' + actFmtSpeed(shownMax, a.type) +
+       ' · ' + points.length + ' Punkte · ' + gpsFmtDistance(trackDistance) + ' · max ' + actFmtSpeed(shownMax, a.type) +
        ' <span class="actTrackLegend"><span style="background:' + actSpeedColor(0) + '"></span><span style="background:' + actSpeedColor(0.4) + '"></span>' +
        '<span style="background:' + actSpeedColor(0.7) + '"></span><span style="background:' + actSpeedColor(1) + '"></span> langsam → schnell</span>' +
        '<span class="actSyncHint"> (' + (obj.cached ? 'aus dem Zwischenspeicher' : 'von Garmin geladen') + ')</span></div>' +

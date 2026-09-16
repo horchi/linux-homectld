@@ -13,7 +13,7 @@
 // Init / Exit
 //***************************************************************************
 
-int Daemon::lmcInit(bool force)
+int HomeCtl::lmcInit(bool force)
 {
    static time_t lastTryAt {0};
 
@@ -45,7 +45,7 @@ int Daemon::lmcInit(bool force)
    return success;
 }
 
-int Daemon::lmcExit()
+int HomeCtl::lmcExit()
 {
    if (lmc)
    {
@@ -63,7 +63,7 @@ int Daemon::lmcExit()
 // Perform LMC Updates
 //***************************************************************************
 
-int Daemon::performLmcUpdates()
+int HomeCtl::performLmcUpdates()
 {
    if (!lmc)
       return done;
@@ -83,7 +83,7 @@ int Daemon::performLmcUpdates()
    return success;
 }
 
-int Daemon::lmcUpdates(long client)
+int HomeCtl::lmcUpdates(long client)
 {
    if (!lmc)
       return done;
@@ -102,7 +102,7 @@ int Daemon::lmcUpdates(long client)
 // LMC Track To Json
 //***************************************************************************
 
-int Daemon::lmcTrack2Json(json_t* obj, TrackInfo* track)
+int HomeCtl::lmcTrack2Json(json_t* obj, TrackInfo* track)
 {
    tell(eloDebugLmc, "[LMC] Track: %s / %s / %s / %s ", track->title.c_str(), track->artist.c_str(), track->genre.c_str(), track->album.c_str());
 
@@ -134,7 +134,7 @@ int Daemon::lmcTrack2Json(json_t* obj, TrackInfo* track)
    return success;
 }
 
-int Daemon::lmcPlayerState2Json(json_t* obj)
+int HomeCtl::lmcPlayerState2Json(json_t* obj)
 {
    // player state
 
@@ -167,7 +167,7 @@ int Daemon::lmcPlayerState2Json(json_t* obj)
    return success;
 }
 
-int Daemon::lmcPlayers2Json(json_t* obj)
+int HomeCtl::lmcPlayers2Json(json_t* obj)
 {
    LmcCom::RangeList players;
    json_t* oPlayers = json_array();
@@ -191,7 +191,7 @@ int Daemon::lmcPlayers2Json(json_t* obj)
    return success;
 }
 
-int Daemon::lmcPlaylist2Json(json_t* obj)
+int HomeCtl::lmcPlaylist2Json(json_t* obj)
 {
    // playlist
 
@@ -242,7 +242,7 @@ MenuItem menuItems[] =
 //   { "", LmcCom::rqtUnknown }
 };
 
-int Daemon::lmcMainMenu2Json(json_t* obj)
+int HomeCtl::lmcMainMenu2Json(json_t* obj)
 {
    json_t* oMenu {json_object()};
    json_object_set_new(obj, "menu", oMenu);
@@ -271,7 +271,7 @@ int Daemon::lmcMainMenu2Json(json_t* obj)
 // LMC Action
 //***************************************************************************
 
-int Daemon::performLmcAction(json_t* oObject, long client)
+int HomeCtl::performLmcAction(json_t* oObject, long client)
 {
    if (!lmc)
       return done;

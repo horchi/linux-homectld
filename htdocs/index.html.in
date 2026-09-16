@@ -34,6 +34,9 @@
     <link rel="stylesheet" type="text/css" href="scrollbar.css">
     <link rel="stylesheet" type="text/css" href="lib/map/leaflet.css">
     <link rel="stylesheet" type="text/css" href="mds/css/materialdesignicons.min.css">
+    <!-- the icon font is loaded with the page, not first when an icon is drawn (the URL must match the one
+         in the css exactly, 'crossorigin' is required for fonts, otherwise the browser loads it twice) -->
+    <link rel="preload" href="mds/fonts/materialdesignicons-webfont.woff2?v=7.4.47" as="font" type="font/woff2" crossorigin>
 
     <script src="jquery/jquery-3.5.1.min.js"></script>
     <script src="jquery/jquery-migrate-3.0.0.min.js"></script>

@@ -151,7 +151,7 @@ namespace
 // Widget Types
 //***************************************************************************
 
-const char* Daemon::haspWidgetTypeNames[] =
+const char* HomeCtl::haspWidgetTypeNames[] =
 {
    "",
    "Meter",
@@ -165,7 +165,7 @@ const char* Daemon::haspWidgetTypeNames[] =
    nullptr
 };
 
-int Daemon::haspWidgetTypes2Json(json_t* obj)
+int HomeCtl::haspWidgetTypes2Json(json_t* obj)
 {
    // the options use the dashboard widget type ids (the WEBIF dialog depends on them),
    // 15 is the HASP only type 'Level'; mapped to HaspWidgetType by haspTypeOfDashboardType()
@@ -185,7 +185,7 @@ int Daemon::haspWidgetTypes2Json(json_t* obj)
 // map the WEBIF dashboard widget type to the panel widget type
 //  (keep in sync with haspTypeOfDashboardType() in htdocs/hasp.js)
 
-Daemon::HaspWidgetType Daemon::haspTypeOfDashboardType(int dashboardWidgetType)
+HomeCtl::HaspWidgetType HomeCtl::haspTypeOfDashboardType(int dashboardWidgetType)
 {
    switch (dashboardWidgetType)
    {
@@ -211,7 +211,7 @@ Daemon::HaspWidgetType Daemon::haspTypeOfDashboardType(int dashboardWidgetType)
 //   {"layout":[3,2]} -> columns per row; fallback to the rows/cols columns
 //***************************************************************************
 
-std::vector<int> Daemon::haspLayoutOf(const char* opts, int rows, int cols)
+std::vector<int> HomeCtl::haspLayoutOf(const char* opts, int rows, int cols)
 {
    std::vector<int> layout;
    json_t* jOpts {isEmpty(opts) ? nullptr : jsonLoad(opts, 0, true)};
@@ -253,7 +253,7 @@ std::vector<int> Daemon::haspLayoutOf(const char* opts, int rows, int cols)
 //   as /mdi.ttf, see openHASP/README.md)
 //***************************************************************************
 
-int Daemon::haspLoadMdiCodepoints()
+int HomeCtl::haspLoadMdiCodepoints()
 {
    if (!mdiCodepoints.empty())
       return done;
@@ -314,7 +314,7 @@ int Daemon::haspLoadMdiCodepoints()
 //   returns the UTF-8 encoded codepoint for the panel text
 //***************************************************************************
 
-std::string Daemon::haspMdiName(const char* symbol)
+std::string HomeCtl::haspMdiName(const char* symbol)
 {
    std::string name {symbol ? symbol : ""};
 
@@ -327,13 +327,13 @@ std::string Daemon::haspMdiName(const char* symbol)
    return name;
 }
 
-bool Daemon::haspMdiExists(const std::string& name)
+bool HomeCtl::haspMdiExists(const std::string& name)
 {
    haspLoadMdiCodepoints();
    return !name.empty() && mdiCodepoints.count(name);
 }
 
-std::string Daemon::haspMdiChar(const char* symbol)
+std::string HomeCtl::haspMdiChar(const char* symbol)
 {
    std::string name {haspMdiName(symbol)};
    std::string out;
@@ -363,7 +363,7 @@ std::string Daemon::haspMdiChar(const char* symbol)
 //      sensor is configured on one (first found), incl. the mapped widget type
 //***************************************************************************
 
-json_t* Daemon::haspWidgetDefaults(const char* type, long address)
+json_t* HomeCtl::haspWidgetDefaults(const char* type, long address)
 {
    json_t* jDefaults {json_object()};
 
@@ -463,7 +463,7 @@ json_t* Daemon::haspWidgetDefaults(const char* type, long address)
 //     "widgettypes": { "Meter": 1, ... }, "topic": "hasp/plates" }
 //***************************************************************************
 
-int Daemon::haspPages2Json(json_t* obj)
+int HomeCtl::haspPages2Json(json_t* obj)
 {
    json_t* oPages {json_object()};
    json_object_set_new(obj, "pages", oPages);
@@ -531,7 +531,7 @@ int Daemon::haspPages2Json(json_t* obj)
 //   otherwise the configuration is sent to the client
 //***************************************************************************
 
-int Daemon::performHaspPages(json_t* obj, long client)
+int HomeCtl::performHaspPages(json_t* obj, long client)
 {
    std::string action {getStringFromJson(obj, "action", "")};
 
@@ -560,7 +560,7 @@ int Daemon::performHaspPages(json_t* obj, long client)
 //   id < 0 -> new page
 //***************************************************************************
 
-int Daemon::storeHaspPages(json_t* obj, long client)
+int HomeCtl::storeHaspPages(json_t* obj, long client)
 {
    std::string action {getStringFromJson(obj, "action", "store")};
 
@@ -751,7 +751,7 @@ int Daemon::storeHaspPages(json_t* obj, long client)
 // Publish
 //***************************************************************************
 
-int Daemon::haspPublish(const char* command, const char* payload)
+int HomeCtl::haspPublish(const char* command, const char* payload)
 {
    if (haspMqttTopic.empty())
       return ignore;
@@ -769,7 +769,7 @@ int Daemon::haspPublish(const char* command, const char* payload)
    return mqttWriter->write(topic.c_str(), payload);
 }
 
-int Daemon::haspPublishJsonl(json_t* jObj)
+int HomeCtl::haspPublishJsonl(json_t* jObj)
 {
    char* line {json_dumps(jObj, JSON_COMPACT | JSON_REAL_PRECISION(2))};
    json_decref(jObj);
@@ -790,7 +790,7 @@ int Daemon::haspPublishJsonl(json_t* jObj)
 //   generates all configured pages and sends them to the panel
 //***************************************************************************
 
-int Daemon::haspSendPages()
+int HomeCtl::haspSendPages()
 {
    if (haspMqttTopic.empty())
       return ignore;
@@ -877,7 +877,7 @@ int Daemon::haspSendPages()
 // Build Page
 //***************************************************************************
 
-int Daemon::haspBuildPage(int pageNo, const std::vector<int>& layout, json_t* jWidgets, int nextPage, int prevPage)
+int HomeCtl::haspBuildPage(int pageNo, const std::vector<int>& layout, json_t* jWidgets, int nextPage, int prevPage)
 {
    // the page itself: black, swipe left/right to change the page
 
@@ -927,7 +927,7 @@ int Daemon::haspBuildPage(int pageNo, const std::vector<int>& layout, json_t* jW
 // Build Widget (one card)
 //***************************************************************************
 
-int Daemon::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, int h, const char* key, json_t* jOpts)
+int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, int h, const char* key, json_t* jOpts)
 {
    int base {10 + (row * maxCols + col) * 20};    // up to 20 object ids per card (max 12 cards -> id 250)
    bool small {h < 160};                     // 4 rows -> small fonts
@@ -1306,7 +1306,7 @@ namespace
    }
 }
 
-void Daemon::haspQueueCommand(const std::string& objAttr, const std::string& value)
+void HomeCtl::haspQueueCommand(const std::string& objAttr, const std::string& value)
 {
    auto it = haspLastSent.find(objAttr);
 
@@ -1317,7 +1317,7 @@ void Daemon::haspQueueCommand(const std::string& objAttr, const std::string& val
    haspPending.push_back(objAttr + "=" + value);
 }
 
-int Daemon::haspFlushCommands()
+int HomeCtl::haspFlushCommands()
 {
    int status {success};
 
@@ -1356,7 +1356,7 @@ int Daemon::haspFlushCommands()
    return status;
 }
 
-int Daemon::haspPublishSensor(const SensorData& sensor)
+int HomeCtl::haspPublishSensor(const SensorData& sensor)
 {
    if (haspMqttTopic.empty() || haspObjects.empty())
       return ignore;
@@ -1454,7 +1454,7 @@ int Daemon::haspPublishSensor(const SensorData& sensor)
    return haspFlushCommands();
 }
 
-int Daemon::haspPublishAllValues()
+int HomeCtl::haspPublishAllValues()
 {
    if (haspMqttTopic.empty())
       return ignore;
@@ -1517,7 +1517,7 @@ int Daemon::haspPublishAllValues()
 //   for all others the button state is reverted to the sensor state.
 //***************************************************************************
 
-int Daemon::haspDispatchState(const char* topic, const char* message)
+int HomeCtl::haspDispatchState(const char* topic, const char* message)
 {
    const char* obj {strrchr(topic, '/')};
    int page {0};

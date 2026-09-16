@@ -496,6 +496,11 @@ int cWebSock::serveFile(lws* wsi, const char* path)
       else if (strcmp(suffix, "css") == 0)   mime = "text/css";
       else if (strcmp(suffix, "js") == 0)    mime = "application/javascript";
       else if (strcmp(suffix, "map") == 0)   mime = "application/json";
+      else if (strcmp(suffix, "json") == 0)  mime = "application/json";
+      else if (strcmp(suffix, "woff2") == 0) mime = "font/woff2";
+      else if (strcmp(suffix, "woff") == 0)  mime = "font/woff";
+      else if (strcmp(suffix, "ttf") == 0)   mime = "font/ttf";
+      else if (strcmp(suffix, "ico") == 0)   mime = "image/x-icon";
    }
 
    // printf("serve file '%s' with mime type '%s'\n", path, mime);

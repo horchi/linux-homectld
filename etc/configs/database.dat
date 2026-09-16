@@ -260,6 +260,7 @@ Table activities
    STEPS                ""  steps                Int         10 Data,
    LAT                  ""  lat                  Float      126 Data,
    LON                  ""  lon                  Float      126 Data,
+   TRACKDISTANCE        ""  trackdistance        Float      122 Data,   // [m] sum of the stored track's segments (fallback for a wrong DISTANCE)
    DETAILS              ""  details              Text     60000 Data,   // cached JSON of 'garmin.py details'
 }
 

@@ -19,9 +19,9 @@ install:
 		cat etc/dnsmasq/dnsmasq.profiles/womo-offline.conf | sed s:"<SUBNET>":"$(SUBNET)":g | install --mode=644 -C -D /dev/stdin $(DESTDIR)/etc/dnsmasq.profiles/womo-offline.conf; \
 		cat etc/dnsmasq/dnsmasq.profiles/womo-online.conf | sed s:"<SUBNET>":"$(SUBNET)":g | install --mode=644 -C -D /dev/stdin $(DESTDIR)/etc/dnsmasq.profiles/womo-online.conf; \
 		install --mode=644 -D etc/default/* $(DESTDIR)/etc/default/; \
-		install --mode=755 -D etc/dnsmasq/systemd/* $(DESTDIR)/etc/systemd/system/; \
-		systemctl daemon-reload; \
-		systemctl enable --now lan-mode.timer; \
+		$(call installUnit,etc/dnsmasq/systemd/lan-mode.service,lan-mode.service); \
+		$(call installUnit,etc/dnsmasq/systemd/lan-mode.timer,lan-mode.timer); \
+		systemctl is-enabled -q lan-mode.timer || systemctl enable --now lan-mode.timer; \
 		systemctl disable --now systemd-resolved; \
 		systemctl reload NetworkManager; \
 	fi
@@ -48,7 +48,7 @@ install:
 		fi; \
 	fi
 	install --mode=755 -D etc/logrotate.d/* $(DESTDIR)/etc/logrotate.d/
-	install --mode=664 -D etc/systemd/* $(SYSTEMDDEST)/
+	@$(call installUnit,etc/systemd/lte-modem.service,lte-modem.service)
 	install --mode=644 -D etc/udev.rules.d/* $(DESTDIR)/etc/udev/rules.d/
    ifdef VDR
 	   $(MAKE) install-vdr

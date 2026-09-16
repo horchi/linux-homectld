@@ -4,8 +4,7 @@ include ../Make.config
 install:
 	@echo thetford service
 	install --mode=755 -D thetford.py $(BINDEST)/
-	cat thetford.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/thetford.service
-	chmod a+r $(SYSTEMDDEST)/thetford.service
+	@$(call installUnit,thetford.service,thetford.service)
 	if ! test -f $(DESTDIR)/etc/default/thetford2mqtt; then \
 		cp thetford2mqtt $(DESTDIR)/etc/default/thetford2mqtt; \
 		echo "!! Adjust settings in $(DESTDIR)/etc/default/thetford2mqtt !!"; \
@@ -15,7 +14,6 @@ install:
 		udevadm control --reload-rules; \
 	fi
    ifeq ($(DESTDIR),)
-	   systemctl enable thetford.service
-	   systemctl daemon-reload
+	   @systemctl is-enabled -q thetford.service || systemctl enable thetford.service
 	   systemctl start thetford.service
    endif

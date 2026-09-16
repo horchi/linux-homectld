@@ -744,6 +744,10 @@ function dispatchMessage(message)
       systemServices = jMessage.object;
       showSystemServicesList();
    }
+   else if (event == "system-default") {
+      hideProgressDialog();
+      showSystemDefaultEditor(jMessage.object);
+   }
    else if (event == "grouplist") {
       grouplist = jMessage.object;
    }
@@ -1675,6 +1679,18 @@ function systemServiceMenu(service)
                         $("#actionPopup").dialog('close');
                      })
                     );
+   if (systemServices[i].defaultFile)
+      $(form).append($('<button></button>')
+                     .addClass('rounded-border button1')
+                     .css('width', '80px')
+                     .css('margin', '2px')
+                     .html('Options')
+                     .click({ "service" : service }, function(event) {
+                        showProgressDialog();
+                        systemServiceAction(event.data.service, 'sys-default-read');
+                        $("#actionPopup").dialog('close');
+                     })
+                    );
 
    $(form).dialog({
       position: { my: "right top", at: "left top", of: document.getElementById('btn_' + service)},
@@ -1705,6 +1721,106 @@ function systemServiceAction(service, action)
                     'service': service
                  }
                });
+}
+
+//***************************************************************************
+// Editor for the /etc/default/<service> file of a system service
+//***************************************************************************
+
+function defineShellMode()
+{
+   if (CodeMirror.modes.shell)
+      return;
+
+   CodeMirror.defineSimpleMode('shell', {
+      start: [
+         {regex: /#.*$/,                                  token: 'comment'},
+         {regex: /"(?:[^\\"]|\\.)*"?/,                    token: 'string'},
+         {regex: /'[^']*'?/,                              token: 'string'},
+         {regex: /(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*(?==)/, token: 'variable'},
+         {regex: /\$\{?[A-Za-z_][A-Za-z0-9_]*\}?/,          token: 'keyword'},
+         {regex: /\b\d+\b/,                                token: 'number'},
+         {regex: /[=]/,                                   token: 'operator'}
+      ]
+   });
+}
+
+async function showSystemDefaultEditor(obj)
+{
+   if (!await loadCodeMirror())
+      return;
+
+   defineShellMode();
+
+   let editor = null;
+   let form = document.createElement("div");
+
+   $(form).append($('<div></div>')
+                  .addClass('settingsDialogContent')
+                  .append($('<div></div>')
+                          .addClass('textarea-row')
+                          .append($('<span></span>').html('Datei'))
+                          .append($('<span></span>')
+                                  .append($('<div></div>').addClass('lua-cm-editor'))))
+                  .append($('<div></div>')
+                          .css('margin-top', '8px')
+                          .css('color', 'var(--light4)')
+                          .html('Änderungen wirken erst nach einem Neustart des Dienstes'))
+                 );
+
+   let save = function(restart) {
+      socket.send({ "event": "system", "object": {
+         'action': 'sys-default-write',
+         'service': obj.service,
+         'content': editor.getValue()
+      }});
+
+      if (restart) {
+         showProgressDialog();
+         systemServiceAction(obj.service, 'sys-service-Restart');
+      }
+   };
+
+   $(form).dialog({
+      modal: true,
+      resizable: true,
+      closeOnEscape: true,
+      hide: "fade",
+      width: Math.round($(window).width() * 0.8),
+      height: Math.round($(window).height() * 0.6),
+      title: obj.path + " (" + obj.service + ")",
+      open: function() {
+         editor = CodeMirror($(form).find('.lua-cm-editor')[0], {
+            value:          obj.content,
+            mode:           'shell',
+            lineNumbers:    true,
+            indentUnit:     3,
+            tabSize:        3,
+            indentWithTabs: false,
+            lineWrapping:   false,
+            autofocus:      true,
+            extraKeys:      { 'Esc': () => $(form).dialog('close') },
+         });
+         editor.setSize('100%', '100%');
+         setTimeout(() => editor.refresh(), 50);
+      },
+      buttons: {
+         'Abbrechen': function () {
+            $(this).dialog('close');
+         },
+         'Speichern': function () {
+            save(false);
+            $(this).dialog('close');
+         },
+         'Speichern & Neustart': function () {
+            save(true);
+            $(this).dialog('close');
+         }
+      },
+      close: function() {
+         $(this).dialog('destroy').remove();
+      }
+   });
 }
 
 window.toggleMode = function(address, type)

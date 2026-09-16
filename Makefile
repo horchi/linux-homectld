@@ -165,24 +165,17 @@ lrestart: $(TARGET) slinstall
 
 install-systemd:
 	@echo install systemd
-	cat contrib/daemon.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | sed s:"<TARGET>":"$(TARGET)":g | sed s:"<CLASS>":"$(CLASS)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/$(TARGET).service
-	cat contrib/w1mqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/w1mqtt.service
-	cat contrib/bmsmqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/bmsmqtt.service
-	cat contrib/votromqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/votromqtt.service
-	cat contrib/i2cmqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/i2cmqtt.service
-	cat contrib/victronmqtt.service | sed s:"<BINDEST>":"$(_BINDEST)":g | sed s:"<AFTER>":"$(INIT_AFTER)":g | install --mode=644 -C -D /dev/stdin $(SYSTEMDDEST)/victronmqtt.service
-	install --mode=664 -D contrib/mosquitto-log.service $(SYSTEMDDEST)/
-	install --mode=664 -D contrib/fwpn.service $(SYSTEMDDEST)/
-	chmod a+r $(SYSTEMDDEST)/$(TARGET).service
-	chmod a+r $(SYSTEMDDEST)/w1mqtt.service
-	chmod a+r $(SYSTEMDDEST)/bmsmqtt.service
-	chmod a+r $(SYSTEMDDEST)/votromqtt.service
-	chmod a+r $(SYSTEMDDEST)/victronmqtt.service
-	chmod a+r $(SYSTEMDDEST)/i2cmqtt.service
+	@$(call installUnit,contrib/daemon.service,$(TARGET).service)
+	@$(call installUnit,contrib/w1mqtt.service,w1mqtt.service)
+	@$(call installUnit,contrib/bmsmqtt.service,bmsmqtt.service)
+	@$(call installUnit,contrib/votromqtt.service,votromqtt.service)
+	@$(call installUnit,contrib/i2cmqtt.service,i2cmqtt.service)
+	@$(call installUnit,contrib/victronmqtt.service,victronmqtt.service)
+	@$(call installUnit,contrib/mosquitto-log.service,mosquitto-log.service)
+	@$(call installUnit,contrib/fwpn.service,fwpn.service)
    ifeq ($(DESTDIR),)
-	   systemctl daemon-reload
-	   systemctl enable $(TARGET)
-	   systemctl enable mosquitto-log.service
+	   @systemctl is-enabled -q $(TARGET) || systemctl enable $(TARGET)
+	   @systemctl is-enabled -q mosquitto-log.service || systemctl enable mosquitto-log.service
    endif
 
 install-config:

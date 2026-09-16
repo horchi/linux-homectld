@@ -686,6 +686,25 @@ int Daemon::storeAlerts(json_t* oObject, long client)
 }
 
 //***************************************************************************
+// Service Default File (/etc/default/<service>, "" if the unit has none)
+//***************************************************************************
+
+static std::string serviceDefaultFile(const char* service)
+{
+   if (isEmpty(service) || strchr(service, '/') || strstr(service, ".."))
+      return "";
+
+   std::string name {service};
+
+   if (name.ends_with(".service"))
+      name.erase(name.size() - strlen(".service"));
+
+   std::string path {"/etc/default/" + name};
+
+   return fileExists(path.c_str()) ? path : "";
+}
+
+//***************************************************************************
 // Perform System Data
 //***************************************************************************
 
@@ -737,6 +756,45 @@ int Daemon::performSystem(json_t* oObject, long client)
       json_t* oJson {json_array()};
       systemServices2Json(oJson);
       return pushOutMessage(oJson, "system-services", client);
+   }
+
+   if (action == "sys-default-read" || action == "sys-default-write")
+   {
+      if (!(wsClients[(void*)client].rights & urAdmin))
+         return replyResult(fail, "Insufficient rights for system service action", client);
+
+      const char* service {getStringFromJson(oObject, "service")};
+      std::string path {serviceDefaultFile(service)};
+
+      if (path.empty())
+         return replyResult(fail, "Service has no /etc/default file", client);
+
+      if (action == "sys-default-write")
+      {
+         const char* content {getStringFromJson(oObject, "content", "")};
+
+         if (storeToFile(path.c_str(), content) != success)
+            return replyResult(fail, ("Writing '" + path + "' failed").c_str(), client);
+
+         return replyResult(success, path.c_str(), client);
+      }
+
+      MemoryStruct data;
+
+      if (loadFromFile(path.c_str(), &data) != success)
+         return replyResult(fail, ("Reading '" + path + "' failed").c_str(), client);
+
+      json_t* oContent {json_stringn(data.memory, data.size)};
+
+      if (!oContent)
+         return replyResult(fail, ("'" + path + "' is not valid UTF-8, can't be edited here").c_str(), client);
+
+      json_t* oJson {json_object()};
+      json_object_set_new(oJson, "service", json_string(service));
+      json_object_set_new(oJson, "path", json_string(path.c_str()));
+      json_object_set_new(oJson, "content", oContent);
+
+      return pushOutMessage(oJson, "system-default", client);
    }
 
    return replyResult(fail, "Unexpected action", client);
@@ -2877,6 +2935,7 @@ int Daemon::systemServices2Json(json_t* obj)
       json_object_set_new(jService, "status", json_string(s.second.activeState.c_str()));
       json_object_set_new(jService, "subState", json_string(s.second.subState.c_str()));
       json_object_set_new(jService, "unitFileState", json_string(s.second.unitFileState.c_str()));
+      json_object_set_new(jService, "defaultFile", json_boolean(!serviceDefaultFile(s.second.primaryName.c_str()).empty()));
       json_array_append_new(obj, jService);
    }
 

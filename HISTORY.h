@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.20"
+#define _VERSION     "0.1.21"
 #define VERSION_DATE "14.09.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,12 @@
 
 /*
  * ------------------------------------
+
+2026-09-14: version 0.1.21
+    - added: System Services: 'Options' in the burger menu opens /etc/default/<service> in the
+             editor (only if the file exists), save or save & restart the service
+    - change: make install: systemd units are only written when their content changed,
+              'systemctl daemon-reload' only in this case (installUnit in Make.config)
 
 2026-09-14: version 0.1.20
     - added: Garmin: location editable, bulk edit (check boxes in the list, group check box) of

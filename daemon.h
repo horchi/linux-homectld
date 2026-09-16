@@ -355,7 +355,9 @@ class HomeCtl : public cWebInterface, public Service
       int updateWeather();
       int weather2json(json_t* jWeather, json_t* owmWeather);
 
+      int storable(const SensorData* sensor);
       int store(time_t now, const SensorData* sensor);
+      int storePeaks(time_t now, const SensorData* sensor);
 
       cDbRow* valueFactRowOf(std::string type, uint addr);
       SensorData* getSensor(const char* type, int addr);

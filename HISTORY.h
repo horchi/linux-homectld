@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.22"
+#define _VERSION     "0.1.23"
 #define VERSION_DATE "16.09.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,11 @@
 
 /*
  * ------------------------------------
+
+2026-09-16: version 0.1.23
+    - added: contrib/cleanup-false-zeros.sql: removes the false 0 samples of the starts with 0.1.17 .. 0.1.21
+             and repairs the peaks (dry run by default, see the header)
+    - change: the peaks (min / max in the widget) are maintained also for sensors without recording
 
 2026-09-16: version 0.1.22
     - change: Garmin: edit / bulk edit sends type, name and location in one request per activity

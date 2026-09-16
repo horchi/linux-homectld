@@ -2433,6 +2433,7 @@ int HomeCtl::storeSamples()
 {
    int count {0};
    int skipped {0};
+   int peaks {0};
 
    lastSampleTime = time(0);
    tell(eloDebug, "Debug: Store samples ..");
@@ -2447,7 +2448,7 @@ int HomeCtl::storeSamples()
       {
          SensorData* sensor = &sensorIt.second;
 
-         if (!sensor->record || sensor->type == "WEA")
+         if (sensor->type == "WEA")
             continue;
 
          // the coordinates of an active GPS tour are stored by gpsTourUpdate() on movement
@@ -2455,27 +2456,40 @@ int HomeCtl::storeSamples()
          if (gpsTour.id && sensor->type == "GPS" && sensor->address == gpsCoordinateAddress)
             continue;
 
-         if (store(lastSampleTime, sensor) == success)
+         if (storable(sensor) != success)
          {
-            sensor->clearDirty();
+            if (sensor->record)
+               skipped++;
+
+            continue;
+         }
+
+         if (sensor->record)
+         {
+            store(lastSampleTime, sensor);
             count++;
          }
          else
-            skipped++;
+         {
+            storePeaks(lastSampleTime, sensor);  // the peaks are maintained also without recording
+            peaks++;
+         }
+
+         sensor->clearDirty();
       }
    }
 
    connection->commit();
-   tell(eloInfo, "Stored %d samples, skipped %d", count, skipped);
+   tell(eloInfo, "Stored %d samples, skipped %d, peaks only %d", count, skipped, peaks);
 
    return success;
 }
 
 //***************************************************************************
-// Store
+// Storable - has the sensor new, valid data to be stored?
 //***************************************************************************
 
-int HomeCtl::store(time_t now, const SensorData* sensor)
+int HomeCtl::storable(const SensorData* sensor)
 {
    if (!sensor->type.length())
    {
@@ -2519,6 +2533,15 @@ int HomeCtl::store(time_t now, const SensorData* sensor)
       return ignore;
    }
 
+   return success;
+}
+
+//***************************************************************************
+// Store - sample, IO state and peaks (check storable() before)
+//***************************************************************************
+
+int HomeCtl::store(time_t now, const SensorData* sensor)
+{
    storeIoState(sensor->type.c_str(), sensor->address);
    tableSamples->clear();
 
@@ -2540,8 +2563,15 @@ int HomeCtl::store(time_t now, const SensorData* sensor)
 
    tableSamples->store();
 
-   // peaks
+   return storePeaks(now, sensor);
+}
 
+//***************************************************************************
+// Store Peaks
+//***************************************************************************
+
+int HomeCtl::storePeaks(time_t now, const SensorData* sensor)
+{
    tablePeaks->clear();
 
    tablePeaks->setValue("ADDRESS", (long)sensor->address);

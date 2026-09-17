@@ -20,10 +20,12 @@ Aufbau des Moduls: + -> 200 Ohm (R1) -> Anzeige-LED -> LED des PC817 -> -, am Au
 Kollektor an OUT mit 10k (R2) Pull-up nach VCC, der Emitter an GND. OUT ist high in Ruhe und geht
 auf Masse sobald am Eingang Strom fließt.
 
-![PC817 1-Kanal Modul](PC817-1.jpg)
+![PC817 1-Kanal Modul](PC817.jpg)
 
 Als ESP32 kommt ein Wemos "MINI D1 ESP32" zum Einsatz. Die Pinbezeichnungen unten entsprechen dem
 Aufdruck auf der Platine, die Zuordnung zu den GPIO Nummern des Sketches ist:
+
+![MINI D1 ESP32 Pinout](esp32.jpg)
 
 | Aufdruck | GPIO | Verwendung                                                     |
 | :------- | :--- | :------------------------------------------------------------- |
@@ -35,7 +37,28 @@ Aufdruck auf der Platine, die Zuordnung zu den GPIO Nummern des Sketches ist:
 | VCC      |      | 5 V Eingang vom Wandler (obere Reihe, innen)                    |
 | GND      |      | dreimal vorhanden: obere Reihe außen und innen, untere Reihe innen |
 
-![MINI D1 ESP32 Pinout](esp32.jpg)
+Lage der Pins, Ansicht von oben auf die Bauteilseite, USB Buchse unten, Antenne des ESP32 Moduls von oben.
+
+```
+                                         +--------------------------------------------+
+                                         |                  ESP32                     |
+                                         |                                            |
+                                     RST | o  o GND                    IO1 (TXD) o  o | GND
+                              IO36 (SVP) | o  o NC                     IO3 (RXD) o  o | IO27       <- IO27: (in) Relais Modum (optional)
+                                    IO26 | o  o IO39 (SVN)                  IO22 o  o | IO25       <- IO25: (+) von Modul 1
+                                    IO18 | o  o IO35                        IO21 o  o | IO32
+                                    IO19 | o  o IO33                        IO17 o  o | IO12 (TDI)
+ IO34: OUT von Modul 2 ->           IO23 | o  o IO34                        IO16 o  o | IO4
+                                     IO5 | o  o IO14 (TMS)                   GND o  o | IO0        <- GND: Masse / (-) von Modul 1 / GND von Modul 2
+ VCC: Modul 2 ->                    3.3V | o  o NC                           VCC o  o | IO2        <- VCC: 5V vom Wandler
+                              IO13 (TCK) | o  o IO9 (SD2)             IO15 (TDO) o  o | IO8 (SD1)
+                              IO10 (SD3) | o  o IO11 (CMD)             IO7 (SD0) o  o | IO6 (CLK)
+                                         |                                            |
+                                         |                  [ USB ]                   |
+                                         +--------------------------------------------+
+```
+IO6 bis IO11 (CLK, CMD, SD0 bis SD3) gehören zum Flash und sind nicht nutzbar.
+IO34 bis IO39 sind reine Eingänge.
 
 | Radio                                  | Modul                    | ESP32                                   |
 | :------------------------------------- | :----------------------- | :-------------------------------------- |
@@ -47,29 +70,31 @@ Aufdruck auf der Platine, die Zuordnung zu den GPIO Nummern des Sketches ist:
 ```
        MINI D1 ESP32                        PC817 Modul 1                        Kenwood Radio
        +---------------+               +---------------------+
-       |     IO25      |---------------| +              VCC  |----------------o (frei lassen)
+       |     IO25      |---------------| (+)            VCC  |----------------o (frei lassen)
        |  (RemotePin)  |               |                OUT  |----------------o  Steering Remote (hellblau/gelb)
-       |         GND   |---------------| -              GND  |----------------o  Masse (schwarz)
+       |         GND   |---------------| (-)            GND  |----------------o  Masse (schwarz)
        |               |               +---------------------+
        |               |
        |               |                    PC817 Modul 2
        |               |               +---------------------+
-       |     3.3V      |---------------| VCC              +  |-----[2,2k]-----o  P.CONT/ANT.CONT (blau/weiss, 12V = Radio an)
+       |     3.3V      |---------------| VCC             (+) |-----[2,2k]-----o  P.CONT/ANT.CONT (blau/weiss, 12V = Radio an)
        |     IO34      |---------------| OUT                 |
-       |(PowerSensePin)|       +-------| GND              -  |----------------o  Masse (schwarz)
-       |         GND   |-------+       +---------------------+
+       |(PowerSensePin)|       +-------| GND             (-) |----------------o  Masse (schwarz)
+       |               |       |       +---------------------+
+       |          GND  |-------+
        |               |
-       |               |         Relais in der ACC Leitung (optional)
-       |               |                     +---------+
-       | IO27          |-------------------->| Relais- |
-       | (AccRelayPin) |                     |         |  Versorgung 5 V / GND
-       |               |                     | modul   |
-       |               |                     +---------+
-       |               |                                Schaltkontakt (NO)
-       |               |       Zündung / ACC Plus  o---------o / o---------o  ACC (rot, Radio)
-       |   VCC  GND    |
-       +----+----+-----+
-        (5V in)
+       |               |         Relais in der Radio ACC Leitung (optional)
+       |               |                     +---------------+
+       | IO27          |                     |    Relais     |
+       | (AccRelayPin) |---------------------| (in)      (+) |  5V   Versorgung
+       |               |                     |           (-) |  GND
+       |               |                     +---------------+
+       |               |                             .
+       |               |                             .
+       |   VCC  GND    |         Zündung o---------o / o---------o  ACC (rot, Radio)
+       +----+----+-----+                     Schaltkontakt (NO)
+            |    |
+         (5V in) |
             |    |
        +----+----+-----+
        |   12V -> 5V   |

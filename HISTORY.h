@@ -18,32 +18,32 @@
  * ------------------------------------
 
 2026-09-16: version 0.1.23
-    - added: contrib/cleanup-false-zeros.sql: removes the false 0 samples of the starts with 0.1.17 .. 0.1.21
-             and repairs the peaks (dry run by default, see the header)
+    - added:  contrib/cleanup-false-zeros.sql: removes the false 0 samples
+              and repairs the peaks (dry run by default, see the header)
     - change: the peaks (min / max in the widget) are maintained also for sensors without recording
 
 2026-09-16: version 0.1.22
     - change: Garmin: edit / bulk edit sends type, name and location in one request per activity
               (garmin.py edit, one call instead of one per field)
-    - added: Garmin: filter on the location (with suggestions), the name filter matches the name only
-    - added: Garmin: shift / ctrl click on a check box selects the range from the last clicked one
-    - added: Garmin: sort the lists by a click on the column header
+    - added:  Garmin: filter on the location (with suggestions), the name filter matches the name only
+    - added:  Garmin: shift / ctrl click on a check box selects the range from the last clicked one
+    - added:  Garmin: sort the lists by a click on the column header
     - bugfix: progress dialog: the 5 minute timer of an earlier dialog closed a later one
               (e.g. the one of the bulk edit), the dialog of the bulk edit lives as long as the daemon waits
     - bugfix: progress dialog: the spinner was cut on the right (fixed width 125px vs. the dialog margins)
-    - added: make gzip-web (gz): only refresh the gzip twins of the web files, no install
-    - added: Garmin: distance from the GPS track when Garmin's deviates by more than the configured
-             percentage (config 'Distanz aus dem Track ab Abweichung', default 50 %); computed when a
-             track is loaded, stored in the new column activities.trackdistance, the list marks it in
-             italics, the details show both values, the track header shows the track length
+    - added:  make gzip-web (gz): only refresh the gzip twins of the web files, no install
+    - added:  Garmin: distance from the GPS track when Garmin's deviates by more than the configured
+              percentage (config 'Distanz aus dem Track ab Abweichung', default 50 %); computed when a
+              track is loaded, stored in the new column activities.trackdistance, the list marks it in
+              italics, the details show both values, the track header shows the track length
     - change: Garmin: the sync stores the values of the list entry as preliminary details (no
               'details' call needed for most values), the dialog offers 'Details nachladen' for the
               rest (min. HR, avg. temperature); 'make install' + a full
               sync ('alle') fill them for the existing activities
-    - added: config item type 'ComboChoice' (ctComboChoice): text input with the values stored before
-             as suggestions (internal item '<name>History' with value and label, the label is resolved by
-             the WEBIF, setup.js comboLabelResolvers), used for 'Windy App Spot ID' - the spot name comes
-             from Windy's widget endpoint, spots are picked by name, a button forgets the entered value
+    - added:  config item type 'ComboChoice' (ctComboChoice): text input with the values stored before
+              as suggestions (internal item '<name>History' with value and label, the label is resolved by
+              the WEBIF, setup.js comboLabelResolvers), used for 'Windy App Spot ID' - the spot name comes
+              from Windy's widget endpoint, spots are picked by name, a button forgets the entered value
     - change: the icon font (mdi, 400 kB) is preloaded with the page, the icons appeared late when the
               font was first requested by the first icon drawn (e.g. on the setup page)
     - change: web server: mime types for fonts (woff2, woff, ttf), json and ico (were text/plain)

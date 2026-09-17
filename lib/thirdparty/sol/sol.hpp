@@ -6747,12 +6747,15 @@ namespace sol {
 		/// one.
 		///
 		/// \group emplace
-		template <class... Args>
-		T& emplace(Args&&... args) noexcept {
-			static_assert(std::is_constructible<T, Args&&...>::value, "T must be constructible with Args");
+		// homectld: patched - the original called this->construct() which doesn't exist
+		// for the reference specialization (and returned nothing); GCC 15 rejects the
+		// template body (-Wtemplate-body). A reference optional just rebinds.
+		template <class U>
+		T& emplace(U&& u) noexcept {
+			static_assert(std::is_constructible<T, U&&>::value, "T must be constructible with U");
 
-			*this = nullopt;
-			this->construct(std::forward<Args>(args)...);
+			m_value = std::addressof(u);
+			return *m_value;
 		}
 
 		/// Swaps this optional with the other.

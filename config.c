@@ -38,24 +38,18 @@ std::list<HomeCtl::ConfigItemDef> HomeCtl::configuration
 
    { "gpsTourMinDistance",        ctInteger, "25",           "N", false, "GPS", "Tour: Mindestbewegung [m]", "Ein Punkt wird aufgezeichnet wenn die Position sich mindestens um diese Distanz geändert hat" },
    { "gpsTourPauseAfter",         ctInteger, "5",            "N", false, "GPS", "Tour: Pause nach Stillstand [min]", "Ohne Bewegung für diese Zeit gilt die Tour als pausiert, bei erneuter Bewegung wird automatisch fortgesetzt" },
+   { "gpsTourEndTolerance",       ctInteger, "200",          "N", false, "GPS", "Tour: Toleranz Ankunft [m]", "Beim Beenden einer Tour wird als Ende der Zeitpunkt vorgeschlagen, ab dem die Position innerhalb dieser Distanz um den Endpunkt blieb (z.B. Anmeldung am Campingplatz)" },
+
    // Garmin activities
 
    { "garminTrackDeviation",      ctInteger, "50",           "N", false, "Garmin", "Distanz aus dem Track ab Abweichung [%]", "Weicht die von Garmin gemeldete Distanz um mehr als diesen Prozentsatz von der aus dem geladenen GPS-Track berechneten ab, wird in Liste und Details die Track-Distanz verwendet (die Uhr summiert bei manchen Wassersport-Aktivitäten kaum Strecke auf). 0 = immer Garmins Wert" },
 
-   { "gpsTourEndTolerance",       ctInteger, "200",          "N", false, "GPS", "Tour: Toleranz Ankunft [m]", "Beim Beenden einer Tour wird als Ende der Zeitpunkt vorgeschlagen, ab dem die Position innerhalb dieser Distanz um den Endpunkt blieb (z.B. Anmeldung am Campingplatz)" },
-
 // #ifdef _POOL
-//    { "tPoolMax",                  ctNum,     "28.0",         "N", false, "Pool", "Pool max Temperatur", "" },
-//    { "tSolarOff",                 ctNum,     "2.0",          "N", false, "Pool", "Ausschalt-Delta Solarpumpe [°C]", "" },
-//    { "tSolarOn",                  ctNum,     "7.0",          "N", false, "Pool", "Einschalt-Delta der Solarpumpe [°C]", "" },
-
-//    // PH stuff
-
-//    { "phReference",               ctNum,     "7.2",          "N", false, "Pool", "PH Sollwert", "Sollwert [PH] (default 7,2)" },
-//    { "phMinusDensity",            ctNum,     "1.4",          "N", false, "Pool", "Dichte PH Minus [kg/l]", "Wie viel kg wiegt ein Liter PH Minus (default 1,4)" },
-//    { "phMinusDemand01",           ctInteger, "85",           "N", false, "Pool", "Menge zum Senken um 0,1 [g]", "Wie viel Gramm PH Minus wird zum Senken des PH Wertes um 0,1 für das vorhandene Pool Volumen benötigt (default 60g)" },
-//    { "phMinusDayLimit",           ctInteger, "100",          "N", false, "Pool", "Obergrenze PH Minus/Tag [ml]", "Wie viel PH Minus wird pro Tag maximal zugegeben [ml] (default 100ml)" },
-//    { "phPumpDurationPer100",      ctInteger, "1000",         "N", false, "Pool", "Laufzeit Dosierpumpe/100ml [ms]", "Welche Zeit in Millisekunden benötigt die Dosierpumpe um 100ml zu fördern (default 1000ms)" },
+//    { "phReference",               ctNum,     "7.2",       "N", false, "Pool", "PH Sollwert", "Sollwert [PH] (default 7,2)" },
+//    { "phMinusDensity",            ctNum,     "1.4",       "N", false, "Pool", "Dichte PH Minus [kg/l]", "Wie viel kg wiegt ein Liter PH Minus (default 1,4)" },
+//    { "phMinusDemand01",           ctInteger, "85",        "N", false, "Pool", "Menge zum Senken um 0,1 [g]", "Wie viel Gramm PH Minus wird zum Senken des PH Wertes um 0,1 für das vorhandene Pool Volumen benötigt (default 60g)" },
+//    { "phMinusDayLimit",           ctInteger, "100",       "N", false, "Pool", "Obergrenze PH Minus/Tag [ml]", "Wie viel PH Minus wird pro Tag maximal zugegeben [ml] (default 100ml)" },
+//    { "phPumpDurationPer100",      ctInteger, "1000",      "N", false, "Pool", "Laufzeit Dosierpumpe/100ml [ms]", "Welche Zeit in Millisekunden benötigt die Dosierpumpe um 100ml zu fördern (default 1000ms)" },
 // #endif
 
    // web

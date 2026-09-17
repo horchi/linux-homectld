@@ -22,37 +22,54 @@ auf Masse sobald am Eingang Strom fließt.
 
 ![PC817 1-Kanal Modul](PC817-1.jpg)
 
+Als ESP32 kommt ein Wemos "MINI D1 ESP32" zum Einsatz. Die Pinbezeichnungen unten entsprechen dem
+Aufdruck auf der Platine, die Zuordnung zu den GPIO Nummern des Sketches ist:
+
+| Aufdruck | GPIO | Verwendung                                                     |
+| :------- | :--- | :------------------------------------------------------------- |
+| IO25     | 25   | `RemotePin`, an + von Modul 1 (obere Reihe, außen)             |
+| IO34     | 34   | `PowerSensePin`, an OUT von Modul 2 (untere Reihe, innen, nur Eingang) |
+| IO27     | 27   | Vorschlag für `AccRelayPin`, direkt neben IO25                 |
+| IO2      | 2    | `StatusLedPin`, blaue LED auf der Platine                      |
+| 3.3V     |       | an VCC von Modul 2 (untere Reihe, außen)                        |
+| VCC      |      | 5 V Eingang vom Wandler (obere Reihe, innen)                    |
+| GND      |      | dreimal vorhanden: obere Reihe außen und innen, untere Reihe innen |
+
+![MINI D1 ESP32 Pinout](esp32.jpg)
+
 | Radio                                  | Modul                    | ESP32                                   |
 | :------------------------------------- | :----------------------- | :-------------------------------------- |
-| Steering Remote (hellblau/gelb)        | Modul 1: OUT             | Modul 1: + an GPIO 25, - an GND         |
+| Steering Remote (hellblau/gelb)        | Modul 1: OUT             | Modul 1: + an IO25, - an GND            |
 | Masse                                  | Modul 1: GND, Modul 2: - | GND                                  |
-| P.CONT / ANT.CONT (blau/weiß, 12 V)    | Modul 2: + über 2,2k     | Modul 2: OUT an GPIO 34, VCC an 3V3, GND an GND |
-| ACC (rot), optional                    |                          | Relaismodul an `AccRelayPin`            |
+| P.CONT / ANT.CONT (blau/weiß, 12 V)    | Modul 2: + über 2,2k     | Modul 2: OUT an IO34, VCC an 3.3V, GND an GND |
+| ACC (rot), optional                    |                          | Relaismodul an `AccRelayPin` (z.B. IO27) |
 
 ```
-            ESP32                           PC817 Modul 1                        Kenwood Radio
+       MINI D1 ESP32                        PC817 Modul 1                        Kenwood Radio
        +---------------+               +---------------------+
-       |     GPIO 25   |---------------| +              VCC  |----------------o (frei lassen)
+       |     IO25      |---------------| +              VCC  |----------------o (frei lassen)
        |  (RemotePin)  |               |                OUT  |----------------o  Steering Remote (hellblau/gelb)
        |         GND   |---------------| -              GND  |----------------o  Masse (schwarz)
        |               |               +---------------------+
        |               |
        |               |                    PC817 Modul 2
        |               |               +---------------------+
-       |         3V3   |---------------| VCC              +  |-----[2,2k]-----o  P.CONT/ANT.CONT (blau/weiss, 12V = Radio an)
-       |     GPIO 34   |---------------| OUT                 |
+       |     3.3V      |---------------| VCC              +  |-----[2,2k]-----o  P.CONT/ANT.CONT (blau/weiss, 12V = Radio an)
+       |     IO34      |---------------| OUT                 |
        |(PowerSensePin)|       +-------| GND              -  |----------------o  Masse (schwarz)
        |         GND   |-------+       +---------------------+
        |               |
        |               |         Relais in der ACC Leitung (optional)
        |               |                     +---------+
-       |  AccRelayPin  |-------------------->| Relais- |  Versorgung 5 V / GND
+       | IO27          |-------------------->| Relais- |
+       | (AccRelayPin) |                     |         |  Versorgung 5 V / GND
        |               |                     | modul   |
        |               |                     +---------+
        |               |                                Schaltkontakt (NO)
        |               |       Zündung / ACC Plus  o---------o / o---------o  ACC (rot, Radio)
-       |    5V  GND    |
+       |   VCC  GND    |
        +----+----+-----+
+        (5V in)
             |    |
        +----+----+-----+
        |   12V -> 5V   |
@@ -65,19 +82,22 @@ auf Masse sobald am Eingang Strom fließt.
                Masse
 ```
 
-* **Modul 1, Lenkraddraht**: GPIO 25 an +, GND an -. Bei 3,3 V fließen etwa 2 mA, das reicht dem
+* **Modul 1, Lenkraddraht**: IO25 an +, GND an -. Bei 3,3 V fließen etwa 2 mA, das reicht dem
   PC817. OUT zieht den Draht auf Masse, das ist der NEC 'mark', also `RemoteMarkLevel {HIGH}`.
   VCC frei lassen, der Draht wird vom Radio selbst auf 3,3 V gehalten. Der GPIO darf den Draht
   **niemals direkt** treiben, er hängt im Radio am selben Pin wie der IR-Empfänger.
 * **Modul 2, P.CONT**: Ohne Vorwiderstand würden bei 12 V rund 45 mA durch die LED fließen, an der
-  Grenze des PC817. Mit 2,2k in Reihe sind es bei 12 bis 14,4 V etwa 4 bis 5 mA. VCC an 3V3 des
+  Grenze des PC817. Mit 2,2k in Reihe sind es bei 12 bis 14,4 V etwa 4 bis 5 mA. VCC an 3.3V des
   ESP32, dann liefert der interne 10k Pull-up den Ruhepegel, OUT ist low sobald das Radio an ist,
-  daher `PowerSenseInvert {true}`. GPIO 34 hat keine internen Pull-Widerstände, der Pull-up des
+  daher `PowerSenseInvert {true}`. IO34 ist ein reiner Eingang ohne interne Pull-Widerstände, der Pull-up des
   Moduls übernimmt das. Die Anzeige-LED des Moduls leuchtet solange P.CONT 12 V führt.
+  Wird zunächst ohne Modul 2 getestet, IO34 mit einer Drahtbrücke auf 3.3V legen. Offen liefert der
+  Eingang Zufallswerte und der Sensor "Radio" flattert; mit der Brücke meldet er dauerhaft "aus".
 * **ACC Relais**: Relaismodul mit 3,3 V tauglichem Eingang oder Low-Level-Trigger verwenden
   (`AccRelayOnLevel` passend setzen). Während des Bootens ist der GPIO offen, ein High-Trigger
   Modul wäre in dem Moment eingeschaltet.
-* Versorgung des ESP32 aus Dauerplus (12 V -> 5 V Wandler), damit er das Radio auch einschalten kann.
+* Versorgung des ESP32 aus Dauerplus (12 V -> 5 V Wandler) an den Pin VCC des D1 Mini, das ist der
+  5 V Eingang vor dem Spannungsregler. Nicht an 3.3V einspeisen. So kann der ESP32 das Radio auch einschalten.
 * Pins und Pegel werden in `config-tmpl.h` eingestellt (`RemotePin`, `RemoteMarkLevel`,
   `PowerSensePin`, `PowerSenseInvert`, `AccRelayPin`, `AccRelayOnLevel`).
 

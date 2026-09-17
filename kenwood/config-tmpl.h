@@ -24,11 +24,11 @@ constexpr int mqttPort {1883};
 
 // --- Pins ---
 
-constexpr int RemotePin {25};          // -> Basis NPN / Gate N-MOSFET, zieht den Lenkraddraht (hellblau/gelb) nach Masse
+constexpr int RemotePin {25};          // -> + des PC817 Moduls 1, dessen OUT zieht den Lenkraddraht (hellblau/gelb) nach Masse
 constexpr int RemoteMarkLevel {HIGH};  // Pegel am GPIO waehrend eines NEC 'mark' (HIGH = Transistor leitet = Draht auf Masse)
 constexpr int PowerSensePin {34};      // Eingang, P.CONT (blau/weiss, 12V wenn Radio an) ueber PC817 Modul (OUT), 2.2k vor dem Moduleingang
 constexpr bool PowerSenseInvert {true}; // true: Optokoppler mit Pull-up am Ausgang (OUT ist LOW wenn Radio an); false: Spannungsteiler direkt am Pin
-constexpr int AccRelayPin {-1};        // optional: Relais in der ACC Leitung (rot), -1 = nicht vorhanden
+constexpr int AccRelayPin {-1};        // optional: Relais in der ACC Leitung (rot), -1 = nicht vorhanden, z.B. 27 (IO27 am D1 Mini)
 constexpr int AccRelayOnLevel {HIGH};  // Pegel am GPIO fuer 'Relais an'
 
 constexpr int StatusLedPin {2};

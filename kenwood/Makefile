@@ -2,10 +2,12 @@
 include ../Make.config
 
 TARGET = kenwood
-ARDUINO_CLI = /usr/local/bin/arduino-cli
+ARDUINO_CLI = arduino-cli
 
 # Board-Identifikator für den ESP32
 BOARD_TAG = esp32:esp32:esp32
+# alternativ passend zum Wemos MINI D1 ESP32:
+# BOARD_TAG = esp32:esp32:d1_mini32
 
 # Serieller Port für den Upload
 MONITOR_PORT = /dev/ttyACM0

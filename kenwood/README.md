@@ -5,8 +5,10 @@ Der ESP32 hängt am Lenkrad-Fernbedienungs-Eingang des Radios und simuliert dort
 zusätzlich liest er über P.CONT ob das Radio an ist. Aufbau und MQTT Schnittstelle folgen
 `alpicool/alpicool.ino`.
 
-Eine batteriebetriebene Lenkrad-Fernbedienung per ESP-NOW ist in [README-remote.md](README-remote.md)
-beschrieben (Planung).
+Eine Lenkrad-Fernbedienung per ESP-NOW ist in [README-remote.md](README-remote.md) beschrieben, der
+Sketch dafür liegt in `kenwood-remote/`. Der Empfänger in diesem Sketch ist nur aktiv, wenn in
+`Make.user` die WLAN-MAC des Bedienteils gesetzt ist (`KENWOOD_REMOTE_MAC`), sonst bleibt ESP-NOW aus.
+Empfangene Tastendrücke laufen über dieselbe Logik wie die MQTT-Kommandos und werden an homectld gemeldet.
 
 ## Funktionsweise
 
@@ -174,6 +176,7 @@ MQTT_HOST = 192.168.100.10
 KENWOOD_PORT = /dev/ttyACM0
 KENWOOD_OTA_HOST = 192.168.100.177
 KENWOOD_OTA_PWD =
+KENWOOD_REMOTE_MAC =              # WLAN-MAC des Lenkrad-Bedienteils, leer = Empfänger aus
 ```
 
 ```bash

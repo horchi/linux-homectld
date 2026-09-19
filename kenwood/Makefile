@@ -39,7 +39,8 @@ patch-config:
 	sed s:"<MQTT_SERVER>":"\"$(MQTT_HOST)\"":g | \
 	sed s:"<WIFI_SSID>":"\"$(WIFI_SSID)\"":g   | \
 	sed s:"<WIFI_PWD>":"\"$(WIFI_PWD)\"":g   | \
-	sed s:"<OTA_PWD>":"\"$(KENWOOD_OTA_PWD)\"":g > config.h.new
+	sed s:"<OTA_PWD>":"\"$(KENWOOD_OTA_PWD)\"":g   | \
+	sed 's|<REMOTE_MAC>|"$(KENWOOD_REMOTE_MAC)"|g' > config.h.new
 	@if cmp -s config.h.new config.h; then rm config.h.new; else echo "Erzeuge config.h .."; mv config.h.new config.h; fi
 
 upload:

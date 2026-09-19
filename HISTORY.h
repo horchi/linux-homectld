@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.25"
+#define _VERSION     "0.1.26"
 #define VERSION_DATE "19.09.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,12 @@
 
 /*
  * ------------------------------------
+
+2026-09-19: version 0.1.26
+    - added: kenwood: receiver for the steering wheel remote (ESP-NOW, enabled by KENWOOD_REMOTE_MAC),
+             remote sketch kenwood/kenwood-remote for the ESP32-C3 Super Mini
+    - bugfix: MQTT converter scripts (/etc/homectld/mqtt.d) were only called for JSON payloads
+              (since 05/2026, e.g. TASMOTA 'OFF' failed with 'Can't parse json'), checked before parsing again
 
 2026-09-19: version 0.1.25
     - added:  kenwood: OTA firmware update for the ESP32 sketches (make upload-ota, also alpicool),

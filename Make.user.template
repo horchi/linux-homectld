@@ -37,6 +37,7 @@ DOMAIN = womo.lan
 
 #KENWOOD_REMOTE_PORT = /dev/ttyACM0
 #KENWOOD_MAC = b0:cb:d8:98:6b:40
+#KENWOOD_REMOTE_MAC = aa:bb:cc:dd:ee:ff   # WLAN MAC of the remote (Super Mini), empty/unset = receiver off
 #WIFI_CHANNEL = 6
 
 # parameter for alpicool ESP32 (see kenwood above for PORT / OTA)

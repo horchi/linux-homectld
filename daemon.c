@@ -4329,6 +4329,37 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
 {
    // tell(eloAlways, "Debug: Dispatch '%s'", message);
 
+   // check if we have a converter script - before parsing, the payload of foreign
+   // devices (e.g. TASMOTA 'OFF') is usually no JSON, the script converts it
+
+   char* converter {};
+   asprintf(&converter, "%s/mqtt.d/%s.sh", confDir, strReplace("/", "_", topic).c_str());
+
+   tell(eloDebug2, "Debug2: Checking for converter script for '%s [%s]", topic, converter);
+
+   if (fileExists(converter))
+   {
+      FileStat fStat;
+      fileStat(converter, fStat);
+
+      // an empty converter script means skipping the message.
+
+      if (!fStat.size)
+      {
+         free(converter);
+         return done;
+      }
+
+      executeCommand("%s 'mqtt://%s/%s' '%s' '%s' %d", converter, mqttUrlPlain, INSTANCE "2mqtt/scripts", topic, message, ++mqttConverters[converter]);
+      if (mqttConverters[converter] == 1)
+         executeCommand("%s 'mqtt://%s/%s' '%s' '%s' %d", converter, mqttUrlPlain, INSTANCE "2mqtt/scripts", topic, message, ++mqttConverters[converter]);
+      tell(eloScript, ".. '%s' done", converter);
+      free(converter);
+      return done;
+   }
+
+   free(converter);
+
    json_t* jData {jsonLoad(message)};
 
    if (!jData)
@@ -4361,33 +4392,6 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
 
       return ignore;
    }
-
-   // check if we have a converter script
-
-   char* converter {};
-   asprintf(&converter, "%s/mqtt.d/%s.sh", confDir, strReplace("/", "_", topic).c_str());
-
-   tell(eloDebug2, "Debug2: Checking for converter script for '%s [%s]", topic, converter);
-
-   if (fileExists(converter))
-   {
-      FileStat fStat;
-      fileStat(converter, fStat);
-
-      // an empty converter script means skipping the message.
-
-      if (!fStat.size)
-         return done;
-
-      executeCommand("%s 'mqtt://%s/%s' '%s' '%s' %d", converter, mqttUrlPlain, INSTANCE "2mqtt/scripts", topic, message, ++mqttConverters[converter]);
-      if (mqttConverters[converter] == 1)
-         executeCommand("%s 'mqtt://%s/%s' '%s' '%s' %d", converter, mqttUrlPlain, INSTANCE "2mqtt/scripts", topic, message, ++mqttConverters[converter]);
-      tell(eloScript, ".. '%s' done", converter);
-      free(converter);
-      return done;
-   }
-
-   free(converter);
 
    // tell(eloAlways, "dispatch (%s) '%s'", topic, message);
 

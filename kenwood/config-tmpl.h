@@ -27,6 +27,12 @@ constexpr int mqttPort {1883};
 constexpr const char* OtaHostname {"kenwood-bridge"};
 constexpr const char* OtaPassword {<OTA_PWD>};
 
+// --- Lenkrad-Fernbedienung (ESP-NOW, siehe README-remote.md) ---
+//   WLAN-MAC des Bedienteils aus Make.user (KENWOOD_REMOTE_MAC), leer = Empfaenger aus
+
+constexpr const char* RemoteMacStr {<REMOTE_MAC>};
+constexpr uint8_t RemoteMagic {0x4B};   // 'K', kennzeichnet die Pakete des Bedienteils
+
 // --- Pins ---
 
 constexpr int RemotePin {25};          // -> + des PC817 Moduls 1, dessen OUT zieht den Lenkraddraht (hellblau/gelb) nach Masse (Modul VCC an 5V!)

@@ -13,6 +13,8 @@
 
 #include <WiFi.h>
 #include <ArduinoOTA.h>
+#include <esp_now.h>
+#include <esp_wifi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <stdarg.h>
@@ -79,6 +81,19 @@ Key keys[] {
    { 29, "Preset 9",     "codePreset9",     "mdi:mdi-numeric-9-box",      9 }
 };
 
+// Paket der Lenkrad-Fernbedienung (kenwood-remote/kenwood-remote.ino)
+
+struct RemotePacket
+{
+   uint8_t magic {0};
+   uint8_t address {0};   // KENWOOD Adresse der Taste
+   uint8_t count {1};
+   uint8_t seq {0};       // laufende Nummer gegen Doppelverarbeitung
+};
+
+class KenwoodBridge;
+static KenwoodBridge* bridgeInstance {};
+
 constexpr int AddressPower {0};
 constexpr int AddressPreset {18};      // Preset direkt waehlen: value 0..9 = Code 0..9
 constexpr const char* PresetChoices {"0,1,2,3,4,5,6,7,8,9"};
@@ -115,6 +130,14 @@ private:
    unsigned long powerRawSince {0};
    bool powerKnown {false};
 
+   // ESP-NOW Empfang (Lenkrad-Fernbedienung), aktiv wenn RemoteMacStr gesetzt ist
+
+   bool remoteEnabled {false};
+   uint8_t remoteMac[6] {};
+   volatile bool remotePending {false};
+   RemotePacket remotePacket;
+   int remoteLastSeq {-1};
+
    unsigned long LastPublishTime {0};
    unsigned long LastLedToggleTime {0};
    bool LedState {false};
@@ -122,7 +145,7 @@ private:
 
 public:
 
-   KenwoodBridge() : MqttClient(EspClient) {}
+   KenwoodBridge() : MqttClient(EspClient) { bridgeInstance = this; }
 
    void Setup()
    {
@@ -161,6 +184,7 @@ public:
       tell(eloAlways, "[BOOT] Verbinde mit WLAN ...");
       ConnectToWiFi();
       SetupOta();
+      SetupRemote();
 
       MqttClient.setServer(mqttServer, mqttPort);
       MqttClient.setCallback([this](char* topic, byte* payload, unsigned int length) {
@@ -176,6 +200,7 @@ public:
    {
       ConnectToWiFi();
       ArduinoOTA.handle();
+      processRemote();          // Lenkrad-Fernbedienung, auch ohne MQTT
 
       if (!MqttClient.connected())
       {
@@ -587,33 +612,125 @@ private:
             return;
          }
 
-         if (address == AddressPreset)
-         {
-            if (value < 0 || value > 9)
-            {
-               tell(eloAlways, "Warning: Preset %d ungueltig (0..9)", value);
-               return;
-            }
+         pressAddress(address, value);
+      }
+   }
 
-            char title[16];
-            snprintf(title, sizeof(title), "Preset %d", value);
-            sendKey(value, 1, title);
-            publishPreset();
+   //***************************************************************************
+   // Taste per Adresse ausloesen (MQTT Kommando oder Lenkrad-Fernbedienung)
+   //***************************************************************************
+
+   void pressAddress(int address, int value)
+   {
+      if (address == AddressPreset)
+      {
+         if (value < 0 || value > 9)
+         {
+            tell(eloAlways, "Warning: Preset %d ungueltig (0..9)", value);
             return;
          }
 
-         for (const Key& key : keys)
-         {
-            if (key.address == address)
-            {
-               sendKey(key.code, value, key.title);
-               publishKey(key);     // Taste hat keinen Zustand, immer wieder 'aus' melden
-               return;
-            }
-         }
-
-         tell(eloAlways, "Warning: Unbekannte Adresse %d", address);
+         char title[16];
+         snprintf(title, sizeof(title), "Preset %d", value);
+         sendKey(value, 1, title);
+         publishPreset();
+         return;
       }
+
+      for (const Key& key : keys)
+      {
+         if (key.address == address)
+         {
+            sendKey(key.code, value, key.title);
+            publishKey(key);     // Taste hat keinen Zustand, immer wieder 'aus' melden
+            return;
+         }
+      }
+
+      tell(eloAlways, "Warning: Unbekannte Adresse %d", address);
+   }
+
+   //***************************************************************************
+   // Lenkrad-Fernbedienung (ESP-NOW Empfang)
+   //
+   //   Das Bedienteil sendet RemotePacket an unsere WLAN-MAC, auf dem Kanal des Routers.
+   //   Der Callback laeuft im WLAN-Task und legt das Paket nur ab, gesendet wird in Loop().
+   //***************************************************************************
+
+   static bool parseMac(const char* str, uint8_t* mac)
+   {
+      int v[6] {};
+
+      if (sscanf(str, "%x:%x:%x:%x:%x:%x", &v[0], &v[1], &v[2], &v[3], &v[4], &v[5]) != 6)
+         return false;
+
+      for (int i {0}; i < 6; i++)
+         mac[i] = (uint8_t)v[i];
+
+      return true;
+   }
+
+   static void onRemoteReceive(const esp_now_recv_info_t* info, const uint8_t* data, int len)
+   {
+      if (bridgeInstance)
+         bridgeInstance->remoteReceived(info->src_addr, data, len);
+   }
+
+   void remoteReceived(const uint8_t* src, const uint8_t* data, int len)
+   {
+      if (len != (int)sizeof(RemotePacket) || memcmp(src, remoteMac, 6) != 0)
+         return;
+
+      const RemotePacket* packet {(const RemotePacket*)data};
+
+      if (packet->magic != RemoteMagic || remotePending)
+         return;
+
+      remotePacket = *packet;
+      remotePending = true;
+   }
+
+   void SetupRemote()
+   {
+      if (isEmptyStr(RemoteMacStr))
+      {
+         tell(eloAlways, "[BOOT] Lenkrad-Fernbedienung nicht konfiguriert (KENWOOD_REMOTE_MAC)");
+         return;
+      }
+
+      if (!parseMac(RemoteMacStr, remoteMac))
+      {
+         tell(eloAlways, "Error: Ungueltige MAC der Fernbedienung '%s'", RemoteMacStr);
+         return;
+      }
+
+      if (esp_now_init() != ESP_OK)
+      {
+         tell(eloAlways, "Error: ESP-NOW init fehlgeschlagen");
+         return;
+      }
+
+      esp_now_register_recv_cb(onRemoteReceive);
+      esp_wifi_set_ps(WIFI_PS_NONE);      // sonst gehen ESP-NOW Pakete im Stromsparmodus verloren
+
+      remoteEnabled = true;
+      tell(eloAlways, "[BOOT] Lenkrad-Fernbedienung aktiv, MAC %s, Kanal %d", RemoteMacStr, WiFi.channel());
+   }
+
+   void processRemote()
+   {
+      if (!remotePending)
+         return;
+
+      RemotePacket packet {remotePacket};
+      remotePending = false;
+
+      if (packet.seq == remoteLastSeq)
+         return;                          // Wiederholung desselben Pakets
+
+      remoteLastSeq = packet.seq;
+      tell(eloInfo, "Info: Fernbedienung: Adresse %d, %dx (seq %d)", packet.address, packet.count, packet.seq);
+      pressAddress(packet.address, packet.count);
    }
 
    //***************************************************************************

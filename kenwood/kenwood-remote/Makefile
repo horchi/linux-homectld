@@ -4,8 +4,8 @@ include ../../Make.config
 TARGET = kenwood-remote
 ARDUINO_CLI = /usr/local/bin/arduino-cli
 
-# Seeed Studio XIAO ESP32C3
-BOARD_TAG = esp32:esp32:XIAO_ESP32C3
+# ESP32-C3 Super Mini (Rueckfallebene Seeed XIAO ESP32C3: esp32:esp32:XIAO_ESP32C3, Pins in config-tmpl.h anpassen)
+BOARD_TAG = esp32:esp32:nologo_esp32c3_super_mini
 
 # Serieller Port für den Upload (KENWOOD_REMOTE_PORT aus Make.user), kein OTA:
 # das Bedienteil ist nie mit dem WLAN verbunden

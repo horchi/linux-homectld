@@ -1,8 +1,8 @@
 
 //***************************************************************************
-// Kenwood Remote - Lenkrad-Fernbedienung (Seeed XIAO ESP32C3)
+// Kenwood Remote - Lenkrad-Fernbedienung (ESP32-C3 Super Mini)
 //
-//  Schlaeft im Deep Sleep, wird ueber den Weckpin (alle Tasten per Diode) geweckt,
+//  Schlaeft im Deep Sleep, wird von einer der Tasten (GPIO 0..5) geweckt,
 //  ermittelt die gedrueckte Taste und schickt deren KENWOOD Adresse per ESP-NOW
 //  an den Kenwood-ESP (kenwood/kenwood.ino), der daraus den NEC Code auf den
 //  Lenkraddraht macht. Danach wieder Deep Sleep.
@@ -74,11 +74,18 @@ void goToSleep()
    esp_now_deinit();
    WiFi.mode(WIFI_OFF);
 
-   // Weckpin: low weckt, interner Pull-up bleibt im Deep Sleep aktiv (GPIO 0..5 des C3)
+   // alle Tasten wecken (low), die internen Pull-ups bleiben im Deep Sleep aktiv (GPIO 0..5 des C3)
 
-   gpio_pullup_en((gpio_num_t)WakePin);
-   gpio_pulldown_dis((gpio_num_t)WakePin);
-   esp_deep_sleep_enable_gpio_wakeup(1ULL << WakePin, ESP_GPIO_WAKEUP_GPIO_LOW);
+   uint64_t wakeMask {0};
+
+   for (int i {0}; i < ButtonCount; i++)
+   {
+      gpio_pullup_en((gpio_num_t)ButtonPins[i]);
+      gpio_pulldown_dis((gpio_num_t)ButtonPins[i]);
+      wakeMask |= 1ULL << ButtonPins[i];
+   }
+
+   esp_deep_sleep_enable_gpio_wakeup(wakeMask, ESP_GPIO_WAKEUP_GPIO_LOW);
 
    esp_deep_sleep_start();
 }
@@ -154,8 +161,6 @@ bool sendKey(int address)
 void setup()
 {
    Serial.begin(115200);
-
-   pinMode(WakePin, INPUT_PULLUP);
 
    for (int i {0}; i < ButtonCount; i++)
       pinMode(ButtonPins[i], INPUT_PULLUP);

@@ -22,6 +22,8 @@
              remote sketch kenwood/kenwood-remote for the ESP32-C3 Super Mini
     - bugfix: MQTT converter scripts (/etc/homectld/mqtt.d) were only called for JSON payloads
               (since 05/2026, e.g. TASMOTA 'OFF' failed with 'Can't parse json'), checked before parsing again
+    - bugfix: crash (atoi(nullptr)) in switchCommand() when the state of a sensor was restored on its
+              MQTT init message; the stored state is passed now, TASMOTA gets ON/OFF instead of TOGGLE
 
 2026-09-19: version 0.1.25
     - added:  kenwood: OTA firmware update for the ESP32 sketches (make upload-ota, also alpicool),

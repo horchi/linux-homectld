@@ -1179,11 +1179,11 @@ int HomeCtl::switchCommand(std::string type, int addr, std::string action, const
    const char* payload {};
 
    if (action == "switch")    // for 'choice' select (actually used at least for VICTRON)
-      json_object_set_new(obj, "value", json_string(value));
+      json_object_set_new(obj, "value", json_string(value ? value : ""));
    else if (type == "TASMOTA")
-      payload = "TOGGLE";
+      payload = !value ? "TOGGLE" : (atoi(value) ? "ON" : "OFF");
    else
-      json_object_set_new(obj, "value", json_integer(atoi(value)));
+      json_object_set_new(obj, "value", json_integer(value ? atoi(value) : 0));
 
    // send to command topic
 
@@ -4471,12 +4471,12 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
             if (sensors[type][address].outputModes & ooAuto)
                sensors[type][address].mode = mode;
 
-            // set state
+            // set (restore) the stored state
 
             const char* topic {lookupCommandTopic(type.c_str(), address)};
 
             if (!isEmpty(topic))
-               switchCommand(type, address, "toggle", topic);
+               switchCommand(type, address, "toggle", topic, state ? "1" : "0");
          }
       }
 

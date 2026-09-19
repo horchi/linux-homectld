@@ -1178,9 +1178,14 @@ int HomeCtl::switchCommand(std::string type, int addr, std::string action, const
 
    const char* payload {};
 
+   // TASMOTA devices expect the plain payload ON/OFF/TOGGLE on their command topic
+   // (cmnd/<device>/POWERn), the type is chosen by the converter script (e.g. 'BBQ')
+
+   bool tasmota {type == "TASMOTA" || strncmp(topic, "cmnd/", 5) == 0 || strstr(topic, "/cmnd/")};
+
    if (action == "switch")    // for 'choice' select (actually used at least for VICTRON)
       json_object_set_new(obj, "value", json_string(value ? value : ""));
-   else if (type == "TASMOTA")
+   else if (tasmota)
       payload = !value ? "TOGGLE" : (atoi(value) ? "ON" : "OFF");
    else
       json_object_set_new(obj, "value", json_integer(value ? atoi(value) : 0));
@@ -4484,7 +4489,7 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
 
       bool config {getBoolFromJson(jData, "config")};
 
-      tell(eloAlways, "Sensor '%s' %sexpect config, sensor topic is '%s'",
+      tell(eloAlways, "Info: Sensor '%s' %sexpect config, sensor topic is '%s'",
            type.c_str(), config ? "" : "don't ", cmdTopic);
 
       if (config)

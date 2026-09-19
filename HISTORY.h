@@ -24,6 +24,8 @@
               (since 05/2026, e.g. TASMOTA 'OFF' failed with 'Can't parse json'), checked before parsing again
     - bugfix: crash (atoi(nullptr)) in switchCommand() when the state of a sensor was restored on its
               MQTT init message; the stored state is passed now, TASMOTA gets ON/OFF instead of TOGGLE
+    - bugfix: switching TASMOTA devices sent JSON instead of ON/OFF/TOGGLE (since 05/2026), devices are
+              recognised by their command topic (cmnd/...) independent of the type set by the converter script
 
 2026-09-19: version 0.1.25
     - added:  kenwood: OTA firmware update for the ESP32 sketches (make upload-ota, also alpicool),

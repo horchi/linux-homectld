@@ -12,6 +12,7 @@
 //***************************************************************************
 
 #include <WiFi.h>
+#include <ArduinoOTA.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <stdarg.h>
@@ -39,28 +40,61 @@ String getUniqueDeviceId()
 
 struct Key
 {
-   int address;
-   const char* title;
-   const char* param;     // Name des Parameters im init/config Paket
-   const char* symbol;
-   int code;              // NEC Kommando, -1 = unbekannt
+   int address {0};
+   const char* title {};
+   const char* param {};     // Name des Parameters im init/config Paket
+   const char* symbol {};
+   int code {-1};            // NEC Kommando, -1 = unbekannt
 };
 
+// Codes am DMX8019DABS per Scan verifiziert (siehe README), -1 = unbekannt
+
 Key keys[] {
-   {  1, "Volume +",   "codeVolumeUp",   "mdi:mdi-volume-plus",     0x14 },
-   {  2, "Volume -",   "codeVolumeDown", "mdi:mdi-volume-minus",    0x15 },
-   {  3, "ATT",        "codeAtt",        "mdi:mdi-volume-mute",     0x16 },
-   {  4, "Source",     "codeSource",     "mdi:mdi-swap-horizontal", 0x13 },
-   {  5, "Track +",    "codeTrackUp",    "mdi:mdi-skip-next",       0x0B },
-   {  6, "Track -",    "codeTrackDown",  "mdi:mdi-skip-previous",   0x0A },
-   {  7, "Play/Pause", "codePlayPause",  "mdi:mdi-play-pause",      0x0E },
-   {  8, "Answer",     "codeAnswer",     "mdi:mdi-phone",           -1 },
-   {  9, "Hang up",    "codeHangUp",     "mdi:mdi-phone-hangup",    -1 },
-   { 10, "Voice",      "codeVoice",      "mdi:mdi-microphone",      -1 }
+   {  1, "Volume +",     "codeVolumeUp",    "mdi:mdi-volume-plus",       20 },   // 0x14
+   {  2, "Volume -",     "codeVolumeDown",  "mdi:mdi-volume-minus",      21 },   // 0x15
+   {  3, "ATT",          "codeAtt",         "mdi:mdi-volume-medium",     22 },   // 0x16 Toggle
+   {  4, "Source",       "codeSource",      "mdi:mdi-swap-horizontal",   19 },   // 0x13 alle Quellen
+   {  5, "Track +",      "codeTrackUp",     "mdi:mdi-skip-next",         10 },   // 0x0A naechster Sender / Titel
+   {  6, "Track -",      "codeTrackDown",   "mdi:mdi-skip-previous",     11 },   // 0x0B
+   {  7, "Play/Pause",   "codePlayPause",   "mdi:mdi-play-pause",        14 },   // 0x0E ungeprueft
+   {  8, "Answer",       "codeAnswer",      "mdi:mdi-phone",             -1 },
+   {  9, "Hang up",      "codeHangUp",      "mdi:mdi-phone-hangup",      -1 },
+   { 10, "Voice",        "codeVoice",       "mdi:mdi-microphone",        -1 },
+   { 11, "Preset +",     "codePresetUp",    "mdi:mdi-playlist-play",    141 },   // 0x8D naechster Preset
+   { 12, "Mute",         "codeMute",        "mdi:mdi-volume-mute",       91 },   // 0x5B Toggle
+   { 13, "Source Tuner", "codeSourceTuner", "mdi:mdi-radio-tower",       28 },   // 0x1C DAB -> Radio -> 'Standby' Anzeige (kein echter Standby)
+   { 14, "Source Media", "codeSourceMedia", "mdi:mdi-music",             30 },   // 0x1E Spotify -> iPod -> Bluetooth
+   { 15, "Source Video", "codeSourceVideo", "mdi:mdi-video-input-hdmi",  31 },   // 0x1F HDMI -> AV-In
+   { 16, "FM Radio",     "codeFmRadio",     "mdi:mdi-radio",            253 },   // 0xFD analoges Radio direkt
+   { 17, "Equalizer",    "codeEqualizer",   "mdi:mdi-equalizer",        130 },   // 0x82 Toggle
+   { 20, "Preset 0",     "codePreset0",     "mdi:mdi-numeric-0-box",      0 },
+   { 21, "Preset 1",     "codePreset1",     "mdi:mdi-numeric-1-box",      1 },
+   { 22, "Preset 2",     "codePreset2",     "mdi:mdi-numeric-2-box",      2 },
+   { 23, "Preset 3",     "codePreset3",     "mdi:mdi-numeric-3-box",      3 },
+   { 24, "Preset 4",     "codePreset4",     "mdi:mdi-numeric-4-box",      4 },
+   { 25, "Preset 5",     "codePreset5",     "mdi:mdi-numeric-5-box",      5 },
+   { 26, "Preset 6",     "codePreset6",     "mdi:mdi-numeric-6-box",      6 },
+   { 27, "Preset 7",     "codePreset7",     "mdi:mdi-numeric-7-box",      7 },
+   { 28, "Preset 8",     "codePreset8",     "mdi:mdi-numeric-8-box",      8 },
+   { 29, "Preset 9",     "codePreset9",     "mdi:mdi-numeric-9-box",      9 }
 };
 
 constexpr int AddressPower {0};
-int codePower {-1};                    // NEC Code fuer Power (Standby) Taste, -1 = unbekannt
+constexpr int AddressPreset {18};      // Preset direkt waehlen: value 0..9 = Code 0..9
+constexpr const char* PresetChoices {"0,1,2,3,4,5,6,7,8,9"};
+
+// Power nur ueber das ACC Relais: Das DMX merkt sich den Standby (Code 131) ueber
+// das Aus-/Einschalten der Zuendung hinweg und kommt aus dem Standby nur ueber die
+// Taste am Geraet zurueck, kein Code wird im Standby ausgewertet. Ohne Relais bleiben
+// die Codes als Option (per init Paket setzbar).
+
+int codePowerOff {-1};
+int codePowerOn {-1};
+
+// Codes die nie gesendet werden: 51 und 216 schalten in das Production Menu (Rueckweg
+// nur per Aus-/Einschalten), 131 fuehrt in den gemerkten Standby (s.o.)
+
+constexpr int BlockedCodes[] {51, 216, 131};
 
 //***************************************************************************
 // Class KenwoodBridge
@@ -84,7 +118,7 @@ private:
    unsigned long LastPublishTime {0};
    unsigned long LastLedToggleTime {0};
    bool LedState {false};
-   bool initialRun {true};
+   bool initialRun {true};             // rights und Widget Parameter mitsenden (nach Connect und requestinit)
 
 public:
 
@@ -110,7 +144,10 @@ public:
          digitalWrite(AccRelayPin, !AccRelayOnLevel);
       }
 
-      analogSetPinAttenuation(PowerSensePin, ADC_11db);   // bis ca. 3.1V messbar
+      if (PowerSensePin >= 0)
+         analogSetPinAttenuation(PowerSensePin, ADC_11db);   // bis ca. 3.1V messbar
+      else
+         powerKnown = true;                                  // ohne P.CONT gilt der Relaiszustand
 
       // RMT fuer das NEC Timing (1 MHz -> 1 Tick = 1 us)
 
@@ -123,6 +160,7 @@ public:
 
       tell(eloAlways, "[BOOT] Verbinde mit WLAN ...");
       ConnectToWiFi();
+      SetupOta();
 
       MqttClient.setServer(mqttServer, mqttPort);
       MqttClient.setCallback([this](char* topic, byte* payload, unsigned int length) {
@@ -137,6 +175,7 @@ public:
    void Loop()
    {
       ConnectToWiFi();
+      ArduinoOTA.handle();
 
       if (!MqttClient.connected())
       {
@@ -242,6 +281,15 @@ private:
          return;
       }
 
+      for (int blocked : BlockedCodes)
+      {
+         if (code == blocked)
+         {
+            tell(eloAlways, "Warning: Code %d (0x%02X) ist gesperrt (Production Menu), nicht gesendet", code, code);
+            return;
+         }
+      }
+
       count = constrain(count, 1, 20);
       tell(eloInfo, "Info: Sende '%s' (0x%02X) %dx", title, code, count);
 
@@ -274,6 +322,9 @@ private:
 
    bool checkPower()
    {
+      if (PowerSensePin < 0)
+         return false;
+
       bool raw {readPowerRaw()};
       unsigned long now {millis()};
 
@@ -301,24 +352,38 @@ private:
    {
       tell(eloInfo, "Info: Power Soll %s, Ist %s", on ? "AN" : "AUS", powerState ? "AN" : "AUS");
 
-      if (AccRelayPin >= 0 && relayState != on)
+      // mit Relais ausschliesslich ueber das Relais schalten, nie per Code (s. codePowerOff)
+
+      if (AccRelayPin >= 0)
       {
-         relayState = on;
-         digitalWrite(AccRelayPin, on ? AccRelayOnLevel : !AccRelayOnLevel);
-         tell(eloInfo, "Info: ACC Relais %s", on ? "AN" : "AUS");
+         if (relayState != on)
+         {
+            relayState = on;
+            digitalWrite(AccRelayPin, on ? AccRelayOnLevel : !AccRelayOnLevel);
+            tell(eloInfo, "Info: ACC Relais %s", on ? "AN" : "AUS");
+         }
+
+         if (PowerSensePin < 0)     // kein P.CONT -> Relaiszustand melden
+         {
+            powerState = on;
+            publishPower();
+         }
+
          return;
       }
 
       if (on == powerState)
          return;
 
-      if (codePower < 0)
+      int code {on ? codePowerOn : codePowerOff};
+
+      if (code < 0)
       {
-         tell(eloAlways, "Warning: Power Code unbekannt und kein ACC Relais, kann Radio nicht %s", on ? "ein" : "aus");
+         tell(eloAlways, "Warning: Kein Code fuer '%s' und kein ACC Relais, kann Radio nicht %sschalten", on ? "Power On" : "Power Off", on ? "ein" : "aus");
          return;
       }
 
-      sendKey(codePower, 1, "Power");
+      sendKey(code, 1, on ? "Power On" : "Power Off");
    }
 
    //***************************************************************************
@@ -331,16 +396,42 @@ private:
 
       for (const Key& key : keys)
          publishKey(key);
+
+      publishPreset();
+   }
+
+   void publishPreset()
+   {
+      // Zustand unbekannt, das Radio meldet den aktuellen Preset nicht zurueck
+
+      StaticJsonDocument<512> doc;
+      doc["type"] = sensorType;
+      doc["address"] = AddressPreset;
+      doc["text"] = "-";
+      doc["kind"] = "text";
+      doc["title"] = "Preset";
+      doc["choices"] = PresetChoices;
+
+      if (initialRun)
+      {
+         doc["rights"] = 2;    // urControl
+
+         JsonObject param {doc.createNestedObject("parameter")};
+         param["widgettype"] = 8;   // wtChoice
+      }
+
+      String outputStr; serializeJson(doc, outputStr);
+      MqttClient.publish(TopicPublish, outputStr.c_str());
    }
 
    void publishPower()
    {
-      PublishStatus(AddressPower, "Radio", powerState, "mdi:mdi-power", "gray", "green", powerKnown);
+      PublishStatus(AddressPower, "Power", powerState, "mdi:mdi-power", "gray", "green", powerKnown);
    }
 
    void publishKey(const Key& key)
    {
-      PublishStatus(key.address, key.title, false, key.symbol, "gray", "gray", true);
+      PublishStatus(key.address, key.title, false, key.symbol, "white", "white", true);
    }
 
    void PublishStatus(int address, const char* title, bool state, const char* symbol,
@@ -355,6 +446,9 @@ private:
 
       if (!valid)
          doc["valid"] = false;
+
+      // rights und Widget Parameter nur mit der ersten Meldung nach dem Connect und
+      // nach einem 'requestinit' von homectld (es wertet sie nur beim Anlegen des Sensors aus)
 
       if (initialRun)
       {
@@ -375,7 +469,7 @@ private:
 
    void publishInitMessage()
    {
-      StaticJsonDocument<768> doc;
+      StaticJsonDocument<2048> doc;
       doc["type"] = sensorType;
       doc["action"] = "init";
       doc["deviceid"] = getUniqueDeviceId();
@@ -388,7 +482,8 @@ private:
       parameters["interval"] = publishInterval;
       parameters["keyGap"] = keyGap;
       parameters["powerThreshold"] = powerThreshold;
-      parameters["codePower"] = codePower;
+      parameters["codePowerOff"] = codePowerOff;
+      parameters["codePowerOn"] = codePowerOn;
 
       for (const Key& key : keys)
          parameters[key.param] = key.code;
@@ -404,14 +499,13 @@ private:
    //
    //   {"type": "KENWOOD", "action": "init", "config": {"eloquence": 3, "codeAnswer": 28}}
    //   {"type": "KENWOOD", "action": "requestinit"}
-   //   {"type": "KENWOOD", "action": "raw", "code": 29, "count": 1}      Code zum Testen senden
+   //   {"type": "KENWOOD", "action": "raw", "code": 29, "count": 1}     Code zum Testen senden
    //   {"type": "KENWOOD", "address": 1, "value": 3}                    Taste (hier 3x Volume +)
-   //   {"type": "KENWOOD", "address": 0, "value": 1}                    Radio an
    //***************************************************************************
 
    void mqttCallback(char* topic, byte* payload, unsigned int length)
    {
-      StaticJsonDocument<768> doc;
+      StaticJsonDocument<1024> doc;
 
       char* jsonStr {new char[length + 1]()};
       memcpy(jsonStr, payload, length);
@@ -446,8 +540,11 @@ private:
          if (config.containsKey("powerThreshold"))
             powerThreshold = config["powerThreshold"].as<int>();
 
-         if (config.containsKey("codePower"))
-            codePower = config["codePower"].as<int>();
+         if (config.containsKey("codePowerOff"))
+            codePowerOff = config["codePowerOff"].as<int>();
+
+         if (config.containsKey("codePowerOn"))
+            codePowerOn = config["codePowerOn"].as<int>();
 
          for (Key& key : keys)
          {
@@ -455,12 +552,14 @@ private:
                key.code = config[key.param].as<int>();
          }
 
-         tell(eloInfo, "Info: INIT: Eloquence %d; Interval %lu s; keyGap %d ms; powerThreshold %d mV; codePower %d",
-              eloquence, publishInterval, keyGap, powerThreshold, codePower);
+         tell(eloInfo, "Info: INIT: Eloquence %d; Interval %lu s; keyGap %d ms; powerThreshold %d mV; codePowerOff %d; codePowerOn %d",
+              eloquence, publishInterval, keyGap, powerThreshold, codePowerOff, codePowerOn);
       }
       else if (strcmp(action, "requestinit") == 0)
       {
          publishInitMessage();
+         initialRun = true;         // homectld (neu) gestartet -> Zustaende samt Parametern sofort senden
+         LastPublishTime = 0;
       }
       else if (strcmp(action, "raw") == 0)
       {
@@ -488,6 +587,21 @@ private:
             return;
          }
 
+         if (address == AddressPreset)
+         {
+            if (value < 0 || value > 9)
+            {
+               tell(eloAlways, "Warning: Preset %d ungueltig (0..9)", value);
+               return;
+            }
+
+            char title[16];
+            snprintf(title, sizeof(title), "Preset %d", value);
+            sendKey(value, 1, title);
+            publishPreset();
+            return;
+         }
+
          for (const Key& key : keys)
          {
             if (key.address == address)
@@ -501,6 +615,34 @@ private:
          tell(eloAlways, "Warning: Unbekannte Adresse %d", address);
       }
    }
+
+   //***************************************************************************
+   // OTA (Firmware Update ueber WLAN, siehe 'make upload-ota')
+   //***************************************************************************
+
+   void SetupOta()
+   {
+      ArduinoOTA.setHostname(OtaHostname);
+
+      if (!isEmptyStr(OtaPassword))
+         ArduinoOTA.setPassword(OtaPassword);
+
+      ArduinoOTA.onStart([this]() {
+         tell(eloAlways, "OTA: Update startet ...");
+         digitalWrite(RemotePin, !RemoteMarkLevel);
+      });
+      ArduinoOTA.onEnd([this]() {
+         tell(eloAlways, "OTA: Update fertig, Neustart");
+      });
+      ArduinoOTA.onError([this](ota_error_t error) {
+         tell(eloAlways, "OTA: Fehler %u", error);
+      });
+
+      ArduinoOTA.begin();
+      tell(eloAlways, "[BOOT] OTA bereit als '%s' auf %s", OtaHostname, WiFi.localIP().toString().c_str());
+   }
+
+   static bool isEmptyStr(const char* s) { return !s || !*s; }
 
    //***************************************************************************
    // LED / WiFi / MQTT
@@ -548,7 +690,7 @@ private:
    {
       if (!MqttClient.connected())
       {
-         MqttClient.setBufferSize(1024);
+         MqttClient.setBufferSize(2048);
 
          String clientId {"ESP32_Kenwood"};
          clientId += String((uint32_t)ESP.getEfuseMac(), HEX);
@@ -557,7 +699,7 @@ private:
          {
             MqttClient.subscribe(TopicSubscribe);
             publishInitMessage();
-            initialRun = true;         // Widget Parameter nach Reconnect erneut mitsenden
+            initialRun = true;
             LastPublishTime = 0;
          }
       }

@@ -476,7 +476,7 @@ int HomeCtl::init()
 
    tableValueFacts->clear();
 
-   for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
+   for (bool f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
       initSensorByFact(tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"));
 
    selectActiveValueFacts->freeResult();
@@ -507,7 +507,8 @@ int HomeCtl::init()
    }
 
    publishVictronInit("VIC");
-   requestAlpicoolInit("ALPICOOL");
+   requestSensorInit("ALPICOOL");
+   requestSensorInit("KENWOOD");
 
    // init web socket ...
 
@@ -956,7 +957,7 @@ int HomeCtl::initScripts()
 
    // cleanup valuefacts (delete all 'SC' sensors which not exist)
 
-   for (int f = selectValueFactsByType->find(); f; f = selectValueFactsByType->fetch())
+   for (bool f = selectValueFactsByType->find(); f; f = selectValueFactsByType->fetch())
    {
       char* path {};
       asprintf(&path, "%s/scripts.d/%s", confDir, tableValueFacts->getStrValue("NAME"));
@@ -1015,7 +1016,7 @@ int HomeCtl::initScripts()
    tableValueFacts->clear();
    tableValueFacts->setValue("TYPE", "SC");
 
-   for (int f = selectValueFactsByType->find(); f; f = selectValueFactsByType->fetch())
+   for (bool f = selectValueFactsByType->find(); f; f = selectValueFactsByType->fetch())
    {
       char* scriptPath {};
       asprintf(&scriptPath, "%s/%s", path, tableValueFacts->getStrValue("NAME"));
@@ -1877,7 +1878,7 @@ int HomeCtl::initDb()
    // patch dashboars widget options to default (once)
    tableDashboardWidgets->clear();
    tableDashboardWidgets->setValue("DASHBOARDID", 5);
-   for (int f = selectDashboardWidgetsFor->find(); f; f = selectDashboardWidgetsFor->fetch())
+   for (bool f = selectDashboardWidgetsFor->find(); f; f = selectDashboardWidgetsFor->fetch())
    {
       if (tableDashboardWidgets->hasValue("TYPE", "DZL"))
       {
@@ -1916,7 +1917,7 @@ int HomeCtl::initDb()
    {
       tableValueFacts->clear();
 
-      for (int f = selectAllValueFacts->find(); f; f = selectAllValueFacts->fetch())
+      for (bool f = selectAllValueFacts->find(); f; f = selectAllValueFacts->fetch())
       {
          tableValueTypes->clear();
          tableValueTypes->setValue("TYPE", tableValueFacts->getStrValue("TYPE"));
@@ -2191,7 +2192,7 @@ int HomeCtl::readConfiguration(bool initial)
       tell(eloAlways, "MQTT interface style set to '%s' for [%s]", styleName.c_str(), mqttHaDataTopic.c_str());
    }
 
-   for (int f = selectAllGroups->find(); f; f = selectAllGroups->fetch())
+   for (bool f = selectAllGroups->find(); f; f = selectAllGroups->fetch())
       groups[tableGroups->getIntValue("ID")].name = tableGroups->getStrValue("NAME");
 
    selectAllGroups->freeResult();
@@ -2277,6 +2278,14 @@ int HomeCtl::meanwhile()
    performJobs();
    performLmcUpdates();
    // updateInputs();
+
+   if (valueFactsChanged)
+   {
+      valueFactsChanged = false;
+      json_t* oJson {json_object()};
+      valueFacts2Json(oJson, false);
+      pushOutMessage(oJson, "valuefacts");
+   }
 
    if (triggerProcess && nextProcessMs <= cTimeMs::Now())
    {
@@ -2616,7 +2625,7 @@ int HomeCtl::process(bool force, bool signal)
 {
    // Zeitschaltuhr
 
-   for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
+   for (bool f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
       std::string type {tableValueFacts->getStrValue("TYPE")};
       ulong address {(ulong)tableValueFacts->getIntValue("ADDRESS")};
@@ -2696,7 +2705,7 @@ int HomeCtl::processLua(bool force, bool signal)
 {
    // calculate CV and DO/GPIO(out) sensors by LUA
 
-   for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
+   for (bool f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
       std::string type {tableValueFacts->getStrValue("TYPE")};
       ulong address {(ulong)tableValueFacts->getIntValue("ADDRESS")};
@@ -2890,7 +2899,7 @@ void HomeCtl::updateScriptSensors()
       }
    }
 
-   for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
+   for (bool f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
       if (!tableValueFacts->hasValue("TYPE", "SC"))
          continue;
@@ -2933,7 +2942,7 @@ void HomeCtl::sensorAlertCheck(time_t now)
 
    // iterate over all alert roules ..
 
-   for (int f = selectSensorAlerts->find(); f; f = selectSensorAlerts->fetch())
+   for (bool f = selectSensorAlerts->find(); f; f = selectSensorAlerts->fetch())
    {
       alertMailBody = "";
       alertMailSubject = "";
@@ -3240,7 +3249,7 @@ int HomeCtl::updateSchemaConfTable()
 
    tableValueFacts->clear();
 
-   for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
+   for (bool f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
       int addr = tableValueFacts->getIntValue("ADDRESS");
       const char* type = tableValueFacts->getStrValue("TYPE");
@@ -3329,7 +3338,7 @@ int HomeCtl::scheduleAggregate()
 int HomeCtl::aggregate()
 {
    char* stmt {};
-   time_t history = time(0) - (aggregateHistory * tmeSecondsPerDay);
+   time_t history {time(0) - (aggregateHistory * tmeSecondsPerDay)};
    int aggCount {0};
    int status {fail};
 
@@ -3485,7 +3494,7 @@ int HomeCtl::addValueFact(int addr, const char* type, int factor, const char* na
    tableValueFacts->setValue("TYPE", type);
    tableValueFacts->setValue("ADDRESS", addr);
 
-   bool exist {(bool)tableValueFacts->find()};
+   bool exist {tableValueFacts->find()};
    // tell(eloAlways, "addValueFact(%d, %s, %d, %s, %s, %s, ...) [%s/%d]", addr, type, factor, name, unit, title, aTitle, exist);
 
    if (!exist)
@@ -3510,6 +3519,10 @@ int HomeCtl::addValueFact(int addr, const char* type, int factor, const char* na
 
       tableValueFacts->store();
       initSensorByFact(type, addr);
+
+      if (initialized)
+         valueFactsChanged = true;            // update web clients (done collected in meanwhile())
+
       return 1;                               // 1 for 'added'
    }
 
@@ -4418,7 +4431,7 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
 
       // publish IO config of MCP sensors to i2c process via mqtt
 
-      for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
+      for (bool f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
       {
          if (!myString(tableValueFacts->getStrValue("TYPE")).starts_with("MCP"))
             continue;
@@ -4528,7 +4541,7 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
 
             }
 
-            publishAlpicoolInit(type.c_str(), name.c_str());
+            publishSensorInit(type.c_str(), name.c_str());
          }
       }
 
@@ -4764,7 +4777,7 @@ int HomeCtl::initConfigTable()
    tableConfig->clear();
    tableConfig->setValue("OWNER", myName());
 
-   for (int f = selectAllConfig->find(); f; f = selectAllConfig->fetch())
+   for (bool f = selectAllConfig->find(); f; f = selectAllConfig->fetch())
    {
       const char* name {tableConfig->getStrValue("NAME")};
 
@@ -5408,13 +5421,15 @@ void HomeCtl::publishVictronInit(const char* type)
 }
 
 //***************************************************************************
-// Publish/Request Alpicool Init
+// Publish/Request Sensor Init
+//   for MQTT sensors (ESP32 sketches like alpicool, kenwood) which accept a
+//   config packet: request their init message / send them their config
 //
 //    #TODO
 //     - collect publish????Init methods
 //***************************************************************************
 
-void HomeCtl::requestAlpicoolInit(const char* type)
+void HomeCtl::requestSensorInit(const char* type)
 {
    if (!lookupCommandTopic(type, na))
    {
@@ -5432,7 +5447,7 @@ void HomeCtl::requestAlpicoolInit(const char* type)
    free(message);
 }
 
-void HomeCtl::publishAlpicoolInit(const char* type, const char* name)
+void HomeCtl::publishSensorInit(const char* type, const char* name)
 {
    if (!lookupCommandTopic(type, na))
    {
@@ -5595,7 +5610,7 @@ int HomeCtl::loadIoStates()
 {
    tableIoStates->clear();
 
-   for (int f = selectAllIoStates->find(); f; f = selectAllIoStates->fetch())
+   for (bool f = selectAllIoStates->find(); f; f = selectAllIoStates->fetch())
    {
       std::string type {tableIoStates->getStrValue("TYPE")};
       uint address {(uint)tableIoStates->getIntValue("ADDRESS")};
@@ -5645,7 +5660,7 @@ int HomeCtl::loadIoStates()
 
    tableValueFacts->clear();
 
-   for (int f = selectAllValueFacts->find(); f; f = selectAllValueFacts->fetch())
+   for (bool f = selectAllValueFacts->find(); f; f = selectAllValueFacts->fetch())
    {
       const char* type {tableValueFacts->getStrValue("TYPE")};
       long address {tableValueFacts->getIntValue("ADDRESS")};

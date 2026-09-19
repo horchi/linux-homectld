@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.24"
-#define VERSION_DATE "17.09.2026"
+#define _VERSION     "0.1.25"
+#define VERSION_DATE "19.09.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,18 @@
 
 /*
  * ------------------------------------
+
+2026-09-19: version 0.1.25
+    - added:  kenwood: OTA firmware update for the ESP32 sketches (make upload-ota, also alpicool),
+              scanned NEC codes of the DMX8019DABS, presets, power via ACC relay, ESP-NOW remote (planning)
+    - change: Sensor setup in the WEBIF shows newly registered sensors without page reload
+    - added:  'Add Widget' dialog allows selecting several widgets at once, across filters
+    - bugfix: WEBIF: after a login the login page came back (it was stored as start page),
+              now the dashboard opens; enter in the login fields submits (form with default button)
+    - bugfix: WEBIF: no dashboard was active when none was remembered (e.g. after a login with
+              fresh storage), now the first one is selected
+    - change: replyResult() takes a printf-style format (status, client, format, ...), old signature removed
+    - change: cDbTable::find() / fetch() and cDbStatement::fetch() return bool instead of int (yes/no)
 
 2026-09-17: version 0.1.24
     - change: build: the unused defines _POOL / _WOMO are gone (the make variable WOMO still selects contrib/womo)

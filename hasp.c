@@ -416,12 +416,12 @@ json_t* HomeCtl::haspWidgetDefaults(const char* type, long address)
    bool found {false};
    tableDashboards->clear();
 
-   for (int f = selectDashboards->find(); f && !found; f = selectDashboards->fetch())
+   for (bool f = selectDashboards->find(); f && !found; f = selectDashboards->fetch())
    {
       tableDashboardWidgets->clear();
       tableDashboardWidgets->setValue("DASHBOARDID", tableDashboards->getIntValue("ID"));
 
-      for (int w = selectDashboardWidgetsFor->find(); w && !found; w = selectDashboardWidgetsFor->fetch())
+      for (bool w = selectDashboardWidgetsFor->find(); w && !found; w = selectDashboardWidgetsFor->fetch())
       {
          if (strcmp(tableDashboardWidgets->getStrValue("TYPE"), type) != 0 || tableDashboardWidgets->getIntValue("ADDRESS") != address)
             continue;
@@ -470,7 +470,7 @@ int HomeCtl::haspPages2Json(json_t* obj)
 
    tableHaspPages->clear();
 
-   for (int f = selectHaspPages->find(); f; f = selectHaspPages->fetch())
+   for (bool f = selectHaspPages->find(); f; f = selectHaspPages->fetch())
    {
       json_t* oPage {json_object()};
       char* tmp {};
@@ -495,7 +495,7 @@ int HomeCtl::haspPages2Json(json_t* obj)
       tableHaspPageWidgets->clear();
       tableHaspPageWidgets->setValue("PAGEID", tableHaspPages->getIntValue("ID"));
 
-      for (int w = selectHaspPageWidgetsFor->find(); w; w = selectHaspPageWidgetsFor->fetch())
+      for (bool w = selectHaspPageWidgetsFor->find(); w; w = selectHaspPageWidgetsFor->fetch())
       {
          json_t* oWidget {jsonLoad(tableHaspPageWidgets->getStrValue("WIDGETOPTS"), 0, true)};
 
@@ -540,9 +540,9 @@ int HomeCtl::performHaspPages(json_t* obj, long client)
       int status {haspSendPages()};
 
       if (status == success)
-         return replyResult(success, "Seiten an das Panel gesendet", client);
+         return replyResult(success, client, "Seiten an das Panel gesendet");
 
-      return replyResult(fail, status == ignore ? "HASP Panel nicht konfiguriert (haspMqttTopic)" : "Senden fehlgeschlagen, MQTT nicht verbunden?", client);
+      return replyResult(fail, client, "%s", status == ignore ? "HASP Panel nicht konfiguriert (haspMqttTopic)" : "Senden fehlgeschlagen, MQTT nicht verbunden?");
    }
 
    json_t* oJson {json_object()};
@@ -742,9 +742,9 @@ int HomeCtl::storeHaspPages(json_t* obj, long client)
    int status {haspSendPages()};
 
    if (status == fail)
-      return replyResult(fail, "Konfiguration gespeichert, Senden an das Panel fehlgeschlagen (MQTT nicht verbunden?)", client);
+      return replyResult(fail, client, "Konfiguration gespeichert, Senden an das Panel fehlgeschlagen (MQTT nicht verbunden?)");
 
-   return replyResult(success, "Konfiguration gespeichert", client);
+   return replyResult(success, client, "Konfiguration gespeichert");
 }
 
 //***************************************************************************
@@ -800,7 +800,7 @@ int HomeCtl::haspSendPages()
 
    tableHaspPages->clear();
 
-   for (int f = selectHaspPages->find(); f && (int)pages.size() < maxPages; f = selectHaspPages->fetch())
+   for (bool f = selectHaspPages->find(); f && (int)pages.size() < maxPages; f = selectHaspPages->fetch())
    {
       Page page;
 
@@ -812,7 +812,7 @@ int HomeCtl::haspSendPages()
       tableHaspPageWidgets->clear();
       tableHaspPageWidgets->setValue("PAGEID", page.id);
 
-      for (int w = selectHaspPageWidgetsFor->find(); w; w = selectHaspPageWidgetsFor->fetch())
+      for (bool w = selectHaspPageWidgetsFor->find(); w; w = selectHaspPageWidgetsFor->fetch())
       {
          json_t* oWidget {jsonLoad(tableHaspPageWidgets->getStrValue("WIDGETOPTS"), 0, true)};
 

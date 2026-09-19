@@ -3,6 +3,7 @@
 // PART 1
 
 #include <WiFi.h>
+#include <ArduinoOTA.h>
 #include <PubSubClient.h>
 #include <NimBLEDevice.h>
 #include <ArduinoJson.h>
@@ -85,6 +86,7 @@ public:
 
       tell(eloAlways, "[BOOT] Verbinde mit WLAN ...");
       ConnectToWiFi();
+      SetupOta();
 
       MqttClient.setServer(mqttServer, mqttPort);
       MqttClient.setCallback([this](char* topic, byte* payload, unsigned int length) {
@@ -111,6 +113,7 @@ public:
    void Loop()
    {
       ConnectToWiFi();
+      ArduinoOTA.handle();
 
       if (!MqttClient.connected())
       {
@@ -289,6 +292,25 @@ private:
 
       PublishValue(6, "Current", ampere, "A");
       PublishStatus(7, "Cooling", ampere > 0.5, 2);
+   }
+
+   //***************************************************************************
+   // OTA (Firmware Update ueber WLAN, siehe 'make upload-ota')
+   //***************************************************************************
+
+   void SetupOta()
+   {
+      ArduinoOTA.setHostname(OtaHostname);
+
+      if (OtaPassword && *OtaPassword)
+         ArduinoOTA.setPassword(OtaPassword);
+
+      ArduinoOTA.onStart([this]() { tell(eloAlways, "OTA: Update startet ..."); });
+      ArduinoOTA.onEnd([this]() { tell(eloAlways, "OTA: Update fertig, Neustart"); });
+      ArduinoOTA.onError([this](ota_error_t error) { tell(eloAlways, "OTA: Fehler %u", error); });
+
+      ArduinoOTA.begin();
+      tell(eloAlways, "[BOOT] OTA bereit als '%s' auf %s", OtaHostname, WiFi.localIP().toString().c_str());
    }
 
    void UpdateLedBlink()

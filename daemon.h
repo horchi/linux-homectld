@@ -402,8 +402,8 @@ class HomeCtl : public cWebInterface, public Service
       bool doShutDown() { return shutdown; }
 
       void publishVictronInit(const char* type);
-      void requestAlpicoolInit(const char* type);
-      void publishAlpicoolInit(const char* type, const char* name);
+      void requestSensorInit(const char* type);
+      void publishSensorInit(const char* type, const char* name);
       void publishI2CSensorConfig(const char* type, uint pin, json_t* jParameters);
       void publishPin(const char* type, uint pin);
       void gpioWrite(uint pin, bool state, bool saveIoState = true);
@@ -419,7 +419,7 @@ class HomeCtl : public cWebInterface, public Service
       std::queue<std::string> messagesIn;
       cMyMutex messagesInMutex;
 
-      int replyResult(int status, const char* message, long client);
+      int replyResult(int status, long client, const char* format, ...) __attribute__ ((format (printf, 4, 5)));
       virtual int performLogin(json_t* oObject);
       int performLogout(json_t* oObject);
       int performTokenRequest(json_t* oObject, long client);
@@ -809,6 +809,7 @@ class HomeCtl : public cWebInterface, public Service
       std::string htmlHeader;
 
       bool triggerProcess {false};
+      bool valueFactsChanged {false};   // new sensors added at runtime -> push valuefacts to WEBIF
       std::queue<int> triggerGpioPins;
       LmcCom* lmc {};
 

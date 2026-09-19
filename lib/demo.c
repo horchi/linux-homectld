@@ -116,7 +116,7 @@ int demoStatement()
    eventsDb->clear();     // alle values löschen
    eventsDb->setValue(eventsDb->getField("EventId"), 1000);
 
-   for (int f = selectByCompTitle->find(); f; f = selectByCompTitle->fetch())
+   for (bool f = selectByCompTitle->find(); f; f = selectByCompTitle->fetch())
    {
       tell(eloAlways, "id: %ld", eventsDb->getIntValue(eventsDb->getField("EventId")));
       tell(eloAlways, "channel: %s", eventsDb->getStrValue(eventsDb->getField("ChannelId")));
@@ -248,7 +248,7 @@ int joinDemo()
    imageRefDb->setValue(imageRefDb->getField("UpdSp"), since);
    imageUpdSp.setValue(since);
 
-   for (int res = selectAllImages->find(); res; res = selectAllImages->fetch())
+   for (bool res = selectAllImages->find(); res; res = selectAllImages->fetch())
    {
       // so kommst du an die Werte der unterschiedlichen Tabellen
 

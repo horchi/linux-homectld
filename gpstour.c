@@ -119,7 +119,7 @@ int HomeCtl::gpsTourInit()
    gpsTour = GpsTour();
    tableGpsTours->clear();
 
-   for (int f = selectGpsTours->find(); f; f = selectGpsTours->fetch())
+   for (bool f = selectGpsTours->find(); f; f = selectGpsTours->fetch())
    {
       if (tableGpsTours->getValue("STOP")->isNull())
          openTours.push_back(tableGpsTours->getIntValue("ID"));
@@ -174,7 +174,7 @@ int HomeCtl::gpsTourInit()
    gpsTourFrom.setValue((long)gpsTour.start);
    gpsTourTo.setValue((long)now);
 
-   for (int f = selectGpsTourSamples->find(); f; f = selectGpsTourSamples->fetch())
+   for (bool f = selectGpsTourSamples->find(); f; f = selectGpsTourSamples->fetch())
    {
       GpsCoordinate c;
 
@@ -277,7 +277,7 @@ int HomeCtl::gpsTourArrival(time_t& arrival, double& toleranceUsed)
    gpsTourFrom.setValue((long)gpsTour.start);
    gpsTourTo.setValue((long)time(0));
 
-   for (int f = selectGpsTourSamples->find(); f; f = selectGpsTourSamples->fetch())
+   for (bool f = selectGpsTourSamples->find(); f; f = selectGpsTourSamples->fetch())
    {
       GpsCoordinate c;
 
@@ -624,7 +624,7 @@ int HomeCtl::gpsTours2Json(json_t* obj)
    json_t* oTours {json_array()};
    tableGpsTours->clear();
 
-   for (int f = selectGpsTours->find(); f; f = selectGpsTours->fetch())
+   for (bool f = selectGpsTours->find(); f; f = selectGpsTours->fetch())
    {
       json_t* oTour {json_object()};
       long id {tableGpsTours->getIntValue("ID")};
@@ -710,7 +710,7 @@ int HomeCtl::gpsTourPoints2Json(json_t* obj, long id)
    gpsTourFrom.setValue((long)start);
    gpsTourTo.setValue((long)stop);
 
-   for (int f = selectGpsTourSamples->find(); f; f = selectGpsTourSamples->fetch())
+   for (bool f = selectGpsTourSamples->find(); f; f = selectGpsTourSamples->fetch())
    {
       GpsCoordinate c;
 
@@ -871,7 +871,7 @@ int HomeCtl::gpsTourEvents2Json(json_t* obj, long tourId, long odometerStart, lo
    tableGpsTourEvents->clear();
    tableGpsTourEvents->setValue("TOURID", tourId);
 
-   for (int f = selectGpsTourEvents->find(); f; f = selectGpsTourEvents->fetch())
+   for (bool f = selectGpsTourEvents->find(); f; f = selectGpsTourEvents->fetch())
    {
       std::string type {tableGpsTourEvents->getStrValue("TYPE")};
       long odometer {tableGpsTourEvents->getIntValue("ODOMETER")};
@@ -1010,7 +1010,7 @@ int HomeCtl::performGpsTour(json_t* obj, long client)
       if (gpsTourPoints2Json(oJson, getLongFromJson(obj, "id", 0)) != success)
       {
          json_decref(oJson);
-         return replyResult(fail, "Tour nicht gefunden", client);
+         return replyResult(fail, client, "Tour nicht gefunden");
       }
 
       return pushOutMessage(oJson, "gpstourpoints", client, false, 10);   // coordinates
@@ -1026,7 +1026,7 @@ int HomeCtl::performGpsTour(json_t* obj, long client)
       if (!tableGpsTours->find())
       {
          tableGpsTours->reset();
-         return replyResult(fail, "Tour nicht gefunden", client);
+         return replyResult(fail, client, "Tour nicht gefunden");
       }
 
       long odometer {tableGpsTours->getIntValue("ODOMETER")};
@@ -1045,16 +1045,16 @@ int HomeCtl::performGpsTour(json_t* obj, long client)
    auto itClient {wsClients.find((void*)client)};
 
    if (itClient == wsClients.end() || !(itClient->second.rights & urControl))
-      return replyResult(fail, "Keine Berechtigung", client);
+      return replyResult(fail, client, "Keine Berechtigung");
 
    if (action == "start")
    {
       int status {gpsTourStart(getStringFromJson(obj, "name", ""), getLongFromJson(obj, "odometer", 0))};
 
       if (status == success)
-         return replyResult(success, "Tour Aufzeichnung gestartet", client);
+         return replyResult(success, client, "Tour Aufzeichnung gestartet");
 
-      return replyResult(fail, status == ignore ? "GPS Sensor (GPS:0x0a 'Coordinate') ist nicht aktiv" : "Es ist bereits eine Tour aktiv", client);
+      return replyResult(fail, client, "%s", status == ignore ? "GPS Sensor (GPS:0x0a 'Coordinate') ist nicht aktiv" : "Es ist bereits eine Tour aktiv");
    }
 
    if (action == "stopinfo")
@@ -1062,7 +1062,7 @@ int HomeCtl::performGpsTour(json_t* obj, long client)
       // the WEBIF asks before stopping: now or the arrival at the final position?
 
       if (!gpsTour.id)
-         return replyResult(fail, "Keine Tour aktiv", client);
+         return replyResult(fail, client, "Keine Tour aktiv");
 
       json_t* oJson {json_object()};
       time_t arrival {0};
@@ -1081,25 +1081,25 @@ int HomeCtl::performGpsTour(json_t* obj, long client)
    if (action == "stop")
    {
       if (gpsTourStop(getLongFromJson(obj, "stop", 0), getLongFromJson(obj, "odometer", 0)) == success)
-         return replyResult(success, "Tour Aufzeichnung beendet", client);
+         return replyResult(success, client, "Tour Aufzeichnung beendet");
 
-      return replyResult(fail, "Keine Tour aktiv", client);
+      return replyResult(fail, client, "Keine Tour aktiv");
    }
 
    if (action == "delete")
    {
       if (gpsTourDelete(getLongFromJson(obj, "id", 0)) == success)
-         return replyResult(success, "Tour gelöscht", client);
+         return replyResult(success, client, "Tour gelöscht");
 
-      return replyResult(fail, "Tour kann nicht gelöscht werden (aktiv oder nicht gefunden)", client);
+      return replyResult(fail, client, "Tour kann nicht gelöscht werden (aktiv oder nicht gefunden)");
    }
 
    if (action == "rename")
    {
       if (gpsTourRename(getLongFromJson(obj, "id", 0), getStringFromJson(obj, "name", ""), obj) == success)
-         return replyResult(success, "Tour gespeichert", client);
+         return replyResult(success, client, "Tour gespeichert");
 
-      return replyResult(fail, "Tour nicht gefunden", client);
+      return replyResult(fail, client, "Tour nicht gefunden");
    }
 
    if (action == "event")
@@ -1107,20 +1107,20 @@ int HomeCtl::performGpsTour(json_t* obj, long client)
       std::string error;
 
       if (gpsTourEventStore(obj, error) != success)
-         return replyResult(fail, error.c_str(), client);
+         return replyResult(fail, client, "%s", error.c_str());
 
       gpsTourPushState();
-      return replyResult(success, "Ereignis gespeichert", client);
+      return replyResult(success, client, "Ereignis gespeichert");
    }
 
    if (action == "eventdelete")
    {
       if (gpsTourEventDelete(getLongFromJson(obj, "id", 0)) != success)
-         return replyResult(fail, "Ereignis nicht gefunden", client);
+         return replyResult(fail, client, "Ereignis nicht gefunden");
 
       gpsTourPushState();
-      return replyResult(success, "Ereignis gelöscht", client);
+      return replyResult(success, client, "Ereignis gelöscht");
    }
 
-   return replyResult(fail, "Unbekannte Aktion", client);
+   return replyResult(fail, client, "Unbekannte Aktion");
 }

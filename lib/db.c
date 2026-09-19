@@ -186,12 +186,9 @@ bool cDbStatement::find()
    return getAffected() > 0;
 }
 
-int cDbStatement::fetch()
+bool cDbStatement::fetch()
 {
-   if (!mysql_stmt_fetch(stmt))
-      return yes;
-
-   return no;
+   return mysql_stmt_fetch(stmt) == 0;
 }
 
 int cDbStatement::freeResult()
@@ -1629,46 +1626,46 @@ int cDbTable::update(time_t updsp)
 // Find
 //***************************************************************************
 
-int cDbTable::find()
+bool cDbTable::find()
 {
    if (!stmtSelect)
-      return no;
+      return false;
 
    if (stmtSelect->execute() != success)
    {
       connection->errorSql(connection, "find()");
-      return no;
+      return false;
    }
 
-   return stmtSelect->getAffected() == 1 ? yes : no;
+   return stmtSelect->getAffected() == 1;
 }
 
 //***************************************************************************
 // Find via Statement
 //***************************************************************************
 
-int cDbTable::find(cDbStatement* stmt)
+bool cDbTable::find(cDbStatement* stmt)
 {
    if (!stmt)
-      return no;
+      return false;
 
    if (stmt->execute() != success)
    {
       connection->errorSql(connection, "find(stmt)");
-      return no;
+      return false;
    }
 
-   return stmt->getAffected() > 0 ? yes : no;
+   return stmt->getAffected() > 0;
 }
 
 //***************************************************************************
 // Fetch
 //***************************************************************************
 
-int cDbTable::fetch(cDbStatement* stmt)
+bool cDbTable::fetch(cDbStatement* stmt)
 {
    if (!stmt)
-      return no;
+      return false;
 
    return stmt->fetch();
 }

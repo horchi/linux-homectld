@@ -73,8 +73,7 @@ $('document').ready(function() {
    daemonState.state = -1;
    s3200State.state = -1;
 
-   const urlParams = new URLSearchParams(window.location.href);
-   // #TODO korrekt ist: const urlParams = new URLSearchParams(window.location.search);
+   const urlParams = new URLSearchParams(window.location.search);
    kioskMode = urlParams.get('kiosk');
    heightFactor = urlParams.get('heightFactor');
    dashboardGroup = urlParams.get('group') != null ? urlParams.get('group') : 0;
@@ -647,6 +646,7 @@ function dispatchMessage(message)
       localStorage.setItem(storagePrefix + 'Rights', jMessage.object.rights);
 
       if (jMessage.object.state == "confirm") {
+         localStorage.setItem(storagePrefix + 'startPage', 'dashboard');   // after a login always start at the dashboard
          window.location.replace("index.html");
       }
       else {
@@ -1010,7 +1010,9 @@ function mainMenuSel(what, action = null, recoverSetupPage = true)
 
    currentPage = what;
    storeSetupPage(currentPage, action);
-   localStorage.setItem(storagePrefix + 'startPage', currentPage);
+
+   if (currentPage != 'login')     // never come back to the login page after a reload
+      localStorage.setItem(storagePrefix + 'startPage', currentPage);
    hideAllContainer();
    schemaEditActive = false;
 
@@ -1152,20 +1154,25 @@ function initLogin()
 {
    $('#container').removeClass('hidden');
 
+   // a form: enter in one of the fields submits (the button is the default button),
+   // and the browser's password manager recognises the fields
+
    document.getElementById("container").innerHTML =
-      '<div id="loginContainer" class="rounded-border inputTableConfig">' +
+      '<form id="loginContainer" class="rounded-border inputTableConfig" onsubmit="doLogin(); return false;">' +
       '  <table>' +
       '    <tr>' +
       '      <td>User:</td>' +
-      '      <td><input id="user" class="rounded-border input" type="text" value=""></input></td>' +
+      '      <td><input id="user" name="username" class="rounded-border input" type="text" autocomplete="username" value=""></input></td>' +
       '    </tr>' +
       '    <tr>' +
       '      <td>Passwort:</td>' +
-      '      <td><input id="password" class="rounded-border input" type="password" value=""></input></td>' +
+      '      <td><input id="password" name="password" class="rounded-border input" type="password" autocomplete="current-password" value=""></input></td>' +
       '    </tr>' +
       '  </table>' +
-      '  <button class="rounded-border button1" onclick="doLogin()">Anmelden</button>' +
-      '</div>';
+      '  <button class="rounded-border button1" type="submit">Anmelden</button>' +
+      '</form>';
+
+   document.getElementById("user").focus();
 }
 
 function showSyslog(log)

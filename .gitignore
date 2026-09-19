@@ -33,7 +33,12 @@ gpiotst
 alpicool/config.h
 alpicool/build
 kenwood/config.h
+kenwood/config.h.new
 kenwood/build
+alpicool/config.h.new
+kenwood/kenwood-remote/config.h
+kenwood/kenwood-remote/config.h.new
+kenwood/kenwood-remote/build
 
 .aider*
 

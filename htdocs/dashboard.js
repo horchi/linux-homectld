@@ -79,6 +79,12 @@ function initDashboard(update = false)
    }
    jDashboards.sort();
 
+   // no (valid) dashboard remembered (fresh storage after a login, deleted dashboard,
+   // storage of another instance) -> the first one gets active
+
+   if (actDashboard == null || actDashboard < 0 || dashboards[actDashboard] == null)
+      actDashboard = -1;
+
    for (let i = 0; i < jDashboards.length; i++) {
       let did = jDashboards[i][1];
       if (actDashboard < 0)
@@ -2249,14 +2255,44 @@ function addWidget()
                                   .on('input', function() {updateSelection();})
                              )))
       .append($('<div></div>')
+              .css('margin-top', '10px')
               .append($('<span></span>')
                       .addClass('labelB2')
+                      .css('vertical-align', 'top')
                       .html('Widget'))
               .append($('<span></span>')
                       .append($('<select></select>')
                               .addClass('rounded-border input')
                               .attr('id', 'widgetKey')
-                             )));
+                              .attr('multiple', 'multiple')
+                              .attr('size', 15)
+                              .css({'height': 'auto', 'min-width': '22em', 'vertical-align': 'top'})   // .input fixes height to 32px
+                              .on('change', function() { rememberSelection(); })
+                             )))
+      .append($('<div></div>')
+              .css('margin-top', '10px')
+              .append($('<span></span>')
+                      .addClass('labelB2')
+                      .html('Ausgewählt'))
+              .append($('<span></span>')
+                      .attr('id', 'widgetSelected')
+                      .css({'margin-left': '8px', 'font-size': '16px', 'font-weight': 'bold'})
+                      .html('0')));
+
+   // selection survives filter changes: keys selected under one filter stay
+   // selected while the user narrows down the list with another filter
+
+   let selectedKeys = new Set();
+
+   function rememberSelection() {
+      $('#widgetKey option').each(function() {
+         if ($(this).is(':selected'))
+            selectedKeys.add($(this).val());
+         else
+            selectedKeys.delete($(this).val());
+      });
+      $('#widgetSelected').html(selectedKeys.size);
+   }
 
    $(form).dialog({
       modal: true,
@@ -2280,21 +2316,25 @@ function addWidget()
                json[key] = dashboards[actDashboard].widgets[key];
             });
 
-            if ($("#widgetKey").val() == 'ALL') {
-               for (let key in valueFacts) {
-                  if (!valueFacts[key].state)   // use only active facts
-                     continue;
-                  if (filterExpression && !filterExpression.test(valueFacts[key].title) &&
-                      !filterExpression.test(valueFacts[key].usrtitle) &&
-                      !filterExpression.test(valueFacts[key].type))
-                     continue;
-                  if (dashboards[actDashboard].widgets[key] != null)
-                     continue;
-                  json[key] = "";
+            rememberSelection();
+
+            for (let selected of selectedKeys) {
+               if (selected == 'ALL') {
+                  for (let key in valueFacts) {
+                     if (!valueFacts[key].state)   // use only active facts
+                        continue;
+                     if (filterExpression && !filterExpression.test(valueFacts[key].title) &&
+                         !filterExpression.test(valueFacts[key].usrtitle) &&
+                         !filterExpression.test(valueFacts[key].type))
+                        continue;
+                     if (dashboards[actDashboard].widgets[key] != null)
+                        continue;
+                     json[key] = "";
+                  }
                }
+               else
+                  json[selected] = "";
             }
-            else
-               json[$("#widgetKey").val()] = "";
 
             socket.send({ "event" : "storedashboards", "object" : { [actDashboard] : { 'title' : dashboards[actDashboard].title, 'widgets' : json } } });
             socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'dashboards' } });
@@ -2362,8 +2402,11 @@ function addWidget()
 
          $('#widgetKey').append($('<option></option>')
                                 .val(jArray[i][0])
+                                .prop('selected', selectedKeys.has(jArray[i][0]))
                                 .html(title));
       }
+
+      $('#widgetSelected').html(selectedKeys.size);
    }
 }
 

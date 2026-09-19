@@ -45,14 +45,18 @@ make install-deps
 Vor dem compilieren müssen im übergeordneten Ordner in Make.user
 die Einstellungen für WLAN, MQTT Broker IP und die MAC der Kühlbox eingestellt werden.
 
+Die ALPI_MAC ist nicht die MAC des ESP sondern die des Bluetooth Interface der Kühlbox!
+
 Beispiel:
 ```
 WIFI_SSID = foo
 WIFI_PWD = foobar
 MQTT_HOST = 192.168.220.10
 ALPI_MAC = FC:E4:97:72:E9:83
+ALPICOOL_PORT = /dev/ttyACM0
+ALPICOOL_OTA_HOST = 192.168.220.178
+ALPICOOL_OTA_PWD =
 ```
-
 ---
 
 ## Makefile Bedienung
@@ -69,7 +73,16 @@ ALPI_MAC = FC:E4:97:72:E9:83
   ```bash
   make upload
   ```
-  *Überträgt die Firmware über den im Makefile definierten Port (Standard: `/dev/ttyUSB0`) auf den ESP32.*
+  *Überträgt die Firmware per USB über den Port `ALPICOOL_PORT` aus Make.user (Standard: `/dev/ttyACM0`).*
+
+* **Firmware per WLAN flashen (OTA):**
+  ```bash
+  make upload-ota
+  ```
+  *Schickt die Firmware an `ALPICOOL_OTA_HOST` (IP des ESP, Make.user), optional mit Passwort
+  `ALPICOOL_OTA_PWD`. Der ESP meldet sich als `alpicool-bridge` auf Port 3232. Der erste Upload
+  muss per USB erfolgen, ebenso nach dem Wechsel auf die Partitionstabelle `min_spiffs` (siehe
+  Makefile), die sich nicht per OTA ändern lässt.*
 
 * **Build-Verzeichnis bereinigen:**
   ```bash

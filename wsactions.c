@@ -203,27 +203,10 @@ bool HomeCtl::checkRights(long client, Event event, json_t* oObject)
 // Reply Result
 //***************************************************************************
 
-int HomeCtl::replyResult(int status, const char* message, long client)
-{
-   if (status != success)
-      tell(eloAlways, "Error: Web request failed with '%s' (%d)", message, status);
-
-   json_t* oJson {json_object()};
-   json_object_set_new(oJson, "status", json_integer(status));
-   json_object_set_new(oJson, "message", json_string(message));
-   pushOutMessage(oJson, "result", client);
-
-   return status;
-}
-
-//***************************************************************************
-// Reply Result - the new version!!!
-//***************************************************************************
-/*
 int HomeCtl::replyResult(int status, long client, const char* format, ...)
 {
    if (!client)
-      return done;
+      return status;
 
    char* message {};
    va_list ap;
@@ -238,13 +221,13 @@ int HomeCtl::replyResult(int status, long client, const char* format, ...)
    json_t* oJson {json_object()};
    json_object_set_new(oJson, "status", json_integer(status));
    json_object_set_new(oJson, "message", json_string(message));
-   pushOutObject(job, oJson, "result", client);
+   pushOutMessage(oJson, "result", client);
 
    free(message);
 
    return status;
 }
-*/
+
 //***************************************************************************
 // Perform WS Client Login / Logout
 //***************************************************************************
@@ -264,7 +247,9 @@ int HomeCtl::performLogin(json_t* oObject)
 
    tell(eloDebugWebSock, "Now %zu clients in list", wsClients.size());
 
-   if (tableUsers->find() && tableUsers->hasValue("TOKEN", token))
+   bool userExist {(bool)tableUsers->find()};
+
+   if (userExist && tableUsers->hasValue("TOKEN", token))
    {
       wsClients[(void*)client].type = ctWithLogin;
       wsClients[(void*)client].rights = tableUsers->getIntValue("RIGHTS");
@@ -273,7 +258,11 @@ int HomeCtl::performLogin(json_t* oObject)
    {
       wsClients[(void*)client].type = ctActive;
       wsClients[(void*)client].rights = 0;  // allow view without login
-      tell(eloAlways, "Warning: Unknown user '%s' or token mismatch connected!", user);
+
+      if (!userExist)
+         tell(eloAlways, "Warning: Unknown user '%s' connected!", user);
+      else
+         tell(eloAlways, "Warning: Token mismatch for user '%s' at login!", user);
 
       json_t* oJson {json_object()};
       json_object_set_new(oJson, "user", json_string(user));
@@ -548,10 +537,10 @@ int HomeCtl::performAlertTestMail(int id, long client)
    tell(eloDetail, "Test mail for alert (%d) requested", id);
 
    if (mailScript.empty())
-      return replyResult(fail, "missing mail script", client);
+      return replyResult(fail, client, "missing mail script");
 
    if (!fileExists(mailScript.c_str()))
-      return replyResult(fail, "mail script not found", client);
+      return replyResult(fail, client, "mail script not found");
 
    if (!selectMaxTime->find())
       tell(eloAlways, "Warning: Got no result by 'select max(time) from samples'");
@@ -563,17 +552,17 @@ int HomeCtl::performAlertTestMail(int id, long client)
    tableSensorAlert->setValue("ID", id);
 
    if (!tableSensorAlert->find())
-      return replyResult(fail, "requested alert ID not found", client);
+      return replyResult(fail, client, "requested alert ID not found");
 
    alertMailBody = "";
    alertMailSubject = "";
 
    if (!performAlertCheck(tableSensorAlert->getRow(), last, 0, yes/*force*/))
-      return replyResult(fail, "send failed", client);
+      return replyResult(fail, client, "send failed");
 
    tableSensorAlert->reset();
 
-   return replyResult(success, "mail sended", client);
+   return replyResult(success, client, "mail sended");
 }
 
 //***************************************************************************
@@ -586,7 +575,7 @@ int HomeCtl::performAlerts(json_t* oObject, long client)
 
    tableSensorAlert->clear();
 
-   for (int f = selectAllSensorAlerts->find(); f; f = selectAllSensorAlerts->fetch())
+   for (bool f = selectAllSensorAlerts->find(); f; f = selectAllSensorAlerts->fetch())
    {
       json_t* oData {json_object()};
       json_array_append_new(oArray, oData);
@@ -631,7 +620,7 @@ int HomeCtl::storeAlerts(json_t* oObject, long client)
       tableSensorAlert->deleteWhere("id = %d", alertid);
 
       performAlerts(0, client);
-      replyResult(success, "Sensor Alert gelöscht", client);
+      replyResult(success, client, "Sensor Alert gelöscht");
    }
 
    else if (strcmp(action, "store") == 0)
@@ -679,7 +668,7 @@ int HomeCtl::storeAlerts(json_t* oObject, long client)
       }
 
       performAlerts(0, client);
-      replyResult(success, "Konfiguration gespeichert", client);
+      replyResult(success, client, "Konfiguration gespeichert");
    }
 
    return success;
@@ -723,13 +712,13 @@ int HomeCtl::performSystem(json_t* oObject, long client)
       if (wsClients[(void*)client].rights & urAdmin)
          return performWifiCommand(oObject, client);
 
-      return replyResult(fail, "Insufficient rights for network action", client);
+      return replyResult(fail, client, "Insufficient rights for network action");
    }
 
    if (action.starts_with("sys-service-"))
    {
       if (!(wsClients[(void*)client].rights & urAdmin))
-         return replyResult(fail, "Insufficient rights for system service action", client);
+         return replyResult(fail, client, "Insufficient rights for system service action");
 
       const char* service = getStringFromJson(oObject, "service");
       SysCtl ctl;
@@ -738,12 +727,12 @@ int HomeCtl::performSystem(json_t* oObject, long client)
       split(action, '-', &tuples);
 
       if (tuples.size() != 3)
-         return replyResult(fail, "Unexpected action", client);
+         return replyResult(fail, client, "Unexpected action");
 
       if (ctl.unitAction(tuples[2].c_str(), service) == success)
-         replyResult(success, "success", client);
+         replyResult(success, client, "success");
       else
-         replyResult(fail, "failed", client);
+         replyResult(fail, client, "failed");
 
       sleep(1);
       json_t* oJson {json_array()};
@@ -761,33 +750,33 @@ int HomeCtl::performSystem(json_t* oObject, long client)
    if (action == "sys-default-read" || action == "sys-default-write")
    {
       if (!(wsClients[(void*)client].rights & urAdmin))
-         return replyResult(fail, "Insufficient rights for system service action", client);
+         return replyResult(fail, client, "Insufficient rights for system service action");
 
       const char* service {getStringFromJson(oObject, "service")};
       std::string path {serviceDefaultFile(service)};
 
       if (path.empty())
-         return replyResult(fail, "Service has no /etc/default file", client);
+         return replyResult(fail, client, "Service has no /etc/default file");
 
       if (action == "sys-default-write")
       {
          const char* content {getStringFromJson(oObject, "content", "")};
 
          if (storeToFile(path.c_str(), content) != success)
-            return replyResult(fail, ("Writing '" + path + "' failed").c_str(), client);
+            return replyResult(fail, client, "Writing '%s' failed", path.c_str());
 
-         return replyResult(success, path.c_str(), client);
+         return replyResult(success, client, "%s", path.c_str());
       }
 
       MemoryStruct data;
 
       if (loadFromFile(path.c_str(), &data) != success)
-         return replyResult(fail, ("Reading '" + path + "' failed").c_str(), client);
+         return replyResult(fail, client, "Reading '%s' failed", path.c_str());
 
       json_t* oContent {json_stringn(data.memory, data.size)};
 
       if (!oContent)
-         return replyResult(fail, ("'" + path + "' is not valid UTF-8, can't be edited here").c_str(), client);
+         return replyResult(fail, client, "'%s' is not valid UTF-8, can't be edited here", path.c_str());
 
       json_t* oJson {json_object()};
       json_object_set_new(oJson, "service", json_string(service));
@@ -797,7 +786,7 @@ int HomeCtl::performSystem(json_t* oObject, long client)
       return pushOutMessage(oJson, "system-default", client);
    }
 
-   return replyResult(fail, "Unexpected action", client);
+   return replyResult(fail, client, "Unexpected action");
 }
 
 //***************************************************************************
@@ -813,7 +802,7 @@ int HomeCtl::performWifi(json_t* oObject, long client)
    json_t* oWifis {jsonLoad(result.c_str())};
 
    if (!oWifis)
-      return replyResult(fail, "Error: Got invalid JSON from script 'nmcli.asjson.sh wifi-list'", client);
+      return replyResult(fail, client, "Error: Got invalid JSON from script 'nmcli.asjson.sh wifi-list'");
 
    result = executeCommand("nmcli.asjson.sh wifi-dev");
    json_t* oDevices {jsonLoad(result.c_str())};
@@ -853,7 +842,7 @@ int HomeCtl::performWifiCommand(json_t* oObject, long client)
 
       performWifi(oObject, client);
 
-      return replyResult(done, result.c_str(), client);
+      return replyResult(done, client, "%s", result.c_str());
    }
 
    if (action == "wifi-forget")
@@ -868,7 +857,7 @@ int HomeCtl::performWifiCommand(json_t* oObject, long client)
 
       performWifi(oObject, client);
 
-      return replyResult(done, result.c_str(), client);
+      return replyResult(done, client, "%s", result.c_str());
    }
 
    if (action == "wifi-connect")
@@ -883,7 +872,7 @@ int HomeCtl::performWifiCommand(json_t* oObject, long client)
 
       performWifi(oObject, client);
 
-      return replyResult(done, result.c_str(), client);
+      return replyResult(done, client, "%s", result.c_str());
 
       // if (!isEmpty(pwd))
       // {
@@ -913,7 +902,7 @@ int HomeCtl::performDatabaseStatistic(json_t* oObject, long client)
    json_t* jArray {json_array()};
    json_object_set_new(jObject, "tables", jArray);
 
-   for (int f = selectTableStatistic->find(); f; f = selectTableStatistic->fetch())
+   for (bool f = selectTableStatistic->find(); f; f = selectTableStatistic->fetch())
    {
       json_t* jItem {json_object()};
       json_array_append_new(jArray, jItem);
@@ -1059,19 +1048,19 @@ int HomeCtl::performTestMail(json_t* oObject, long client)
    tell(eloDebugWebSock, "Test mail requested with: '%s/%s'", subject, body);
 
    if (mailScript.empty())
-      return replyResult(fail, "Missing mail script", client);
+      return replyResult(fail, client, "Missing mail script");
 
    if (!fileExists(mailScript.c_str()))
    {
       char* buf {};
       asprintf(&buf, "Mail script '%s' not found", mailScript.c_str());
-      replyResult(fail, buf, client);
+      replyResult(fail, client, "%s", buf);
       free(buf);
       return fail;
    }
 
    if (stateMailTo.empty())
-      return replyResult(fail, "Missing receiver", client);
+      return replyResult(fail, client, "Missing receiver");
 
    if (sendMail(stateMailTo.c_str(), subject, body, "text/plain") != success)
    {
@@ -1095,10 +1084,10 @@ int HomeCtl::performTestMail(json_t* oObject, long client)
          "# Default\n"
          "account default : myaccount\n";
 
-      return replyResult(fail, message, client);
+      return replyResult(fail, client, "%s", message);
    }
 
-   return replyResult(success, "mail sended", client);
+   return replyResult(success, client, "mail sended");
 }
 
 //***************************************************************************
@@ -1160,7 +1149,7 @@ int HomeCtl::performChartData(json_t* oObject, long client)
    if (!widget)
       aAvailableSensors = json_array();
 
-   for (int f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
+   for (bool f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
       if (!tableValueFacts->hasValue("RECORD", "A"))
          continue;
@@ -1235,7 +1224,7 @@ int HomeCtl::performChartData(json_t* oObject, long client)
 
       uint count {0};
 
-      for (int f = select->find(); f; f = select->fetch())
+      for (bool f = select->find(); f; f = select->fetch())
       {
          // tell(eloDebugWebSock, "0x%x: '%s' : %0.2f", (uint)tableSamples->getStrValue("ADDRESS"),
          //      xmlTime.getStrValue(), tableSamples->getFloatValue("VALUE"));
@@ -1286,7 +1275,7 @@ int HomeCtl::storeChartbookmarks(json_t* array, long client)
 
    performChartbookmarks(client);
 
-   return done; // replyResult(success, "Bookmarks gespeichert", client);
+   return done; // replyResult(success, client, "Bookmarks gespeichert");
 }
 
 int HomeCtl::performChartbookmarks(long client)
@@ -1317,12 +1306,12 @@ int HomeCtl::storeUserConfig(json_t* oObject, long client)
 
    tableUsers->clear();
    tableUsers->setValue("USER", user);
-   int exists = tableUsers->find();
+   bool exists {tableUsers->find()};
 
    if (strcmp(action, "add") == 0)
    {
       if (exists)
-         replyResult(fail, "User alredy exists, ignoring 'add' request", client);
+         replyResult(fail, client, "User alredy exists, ignoring 'add' request");
       else
       {
          char* token {};
@@ -1339,7 +1328,7 @@ int HomeCtl::storeUserConfig(json_t* oObject, long client)
    else if (strcmp(action, "store") == 0)
    {
       if (!exists)
-         replyResult(fail, "User not exists, ignoring 'store' request", client);
+         replyResult(fail, client, "User not exists, ignoring 'store' request");
       else
       {
          tell(eloWebSock, "Store settings for user '%s'", user);
@@ -1351,7 +1340,7 @@ int HomeCtl::storeUserConfig(json_t* oObject, long client)
    else if (strcmp(action, "del") == 0)
    {
       if (!exists)
-         replyResult(fail, "User not exists, ignoring 'del' request", client);
+         replyResult(fail, client, "User not exists, ignoring 'del' request");
       else
       {
          tell(eloWebSock, "Delete user '%s'", user);
@@ -1362,20 +1351,20 @@ int HomeCtl::storeUserConfig(json_t* oObject, long client)
    else if (strcmp(action, "resetpwd") == 0)
    {
       if (!exists)
-         replyResult(fail, "User not exists, ignoring 'resetpwd' request", client);
+         replyResult(fail, client, "User not exists, ignoring 'resetpwd' request");
       else
       {
          tell(eloWebSock, "Reset password of user '%s'", user);
          tableUsers->setValue("PASSWD", passwd);
          tableUsers->store();
-         replyResult(success, "Passwort gespeichert", client);
+         replyResult(success, client, "Passwort gespeichert");
          count++;
       }
    }
    else if (strcmp(action, "resettoken") == 0)
    {
       if (!exists)
-         replyResult(fail, "User not exists, ignoring 'resettoken' request", client);
+         replyResult(fail, client, "User not exists, ignoring 'resettoken' request");
       else
       {
          char* token {};
@@ -1389,7 +1378,7 @@ int HomeCtl::storeUserConfig(json_t* oObject, long client)
    }
 
    if (count)
-      replyResult(success, "Gespeichert", client);
+      replyResult(success, client, "Gespeichert");
 
    tableUsers->reset();
 
@@ -1427,7 +1416,7 @@ int HomeCtl::performPasswChange(json_t* oObject, long client)
       tell(eloWebSock, "User '%s' changed password", user);
       tableUsers->setValue("PASSWD", passwd);
       tableUsers->store();
-      replyResult(success, "Passwort gespeichert", client);
+      replyResult(success, client, "Passwort gespeichert");
    }
 
    tableUsers->reset();
@@ -1448,7 +1437,7 @@ int HomeCtl::performSchema(json_t* oObject, long client)
 
    tableSchemaConf->clear();
 
-   for (int f = selectAllSchemaConf->find(); f; f = selectAllSchemaConf->fetch())
+   for (bool f = selectAllSchemaConf->find(); f; f = selectAllSchemaConf->fetch())
    {
       tableValueFacts->clear();
       tableValueFacts->setValue("ADDRESS", tableSchemaConf->getIntValue("ADDRESS"));
@@ -1541,7 +1530,7 @@ int HomeCtl::storeSchema(json_t* oObject, long client)
    }
 
    tableSchemaConf->reset();
-   replyResult(success, "Konfiguration gespeichert", client);
+   replyResult(success, client, "Konfiguration gespeichert");
 
    return done;
 }
@@ -1560,10 +1549,10 @@ int HomeCtl::storeConfig(json_t* obj, long client)
       const char* value {getStringFromJson(obj, "value", "")};
 
       if (isEmpty(key))
-         return replyResult(success, "Hinzufügen fehlgeschlagen, Name fehlt", client);
+         return replyResult(success, client, "Hinzufügen fehlgeschlagen, Name fehlt");
 
       if (action == "add" && configItemExists(key))
-         return replyResult(success, "Option bereits vorhanden", client);
+         return replyResult(success, client, "Option bereits vorhanden");
 
       addConfigItem(key,
                     (ConfigItemType)getIntFromJson(obj, "type"),
@@ -1642,11 +1631,11 @@ int HomeCtl::storeConfig(json_t* obj, long client)
       pushOutMessage(oJson, "config", client);
 
       if (oldWebPort != webPort)
-         replyResult(success, "Konfiguration gespeichert. Web Port geändert, bitte " TARGET " neu Starten!", client);
+         replyResult(success, client, "Konfiguration gespeichert. Web Port geändert, bitte " TARGET " neu Starten!");
       else if (!isEmpty(name) && name != oldStyle)
-         replyResult(success, "Konfiguration gespeichert. Das Farbschema wurde geändert, mit STRG-Umschalt-r neu laden!", client);
+         replyResult(success, client, "Konfiguration gespeichert. Das Farbschema wurde geändert, mit STRG-Umschalt-r neu laden!");
       else if (count > 1)  // on drag&drop its only one parameter
-         replyResult(success, "Konfiguration gespeichert", client);
+         replyResult(success, client, "Konfiguration gespeichert");
    }
 
    return done;
@@ -1725,7 +1714,7 @@ int HomeCtl::storeSensorSetup(json_t* obj, long client)
    else if (type == "SC")
       status = storeIoSettings(obj, client);
    else
-      return replyResult(fail, "Ignoring config request, only supported for 'AI', 'DO', 'GPIO', 'W1', 'SC' and 'CV' sensors", client);
+      return replyResult(fail, client, "Ignoring config request, only supported for 'AI', 'DO', 'GPIO', 'W1', 'SC' and 'CV' sensors");
 
    if (status == success)
    {
@@ -1735,7 +1724,7 @@ int HomeCtl::storeSensorSetup(json_t* obj, long client)
       valueFacts2Json(oJson, false);
       pushOutMessage(oJson, "valuefacts");
 
-      return replyResult(success, "success", client);
+      return replyResult(success, client, "success");
    }
 
    return done;
@@ -1779,7 +1768,7 @@ int HomeCtl::storeIoSettings(json_t* obj, long client)
       tableValueFacts->setValue("TYPE", type);
 
       if (!selectMaxValueFactsByType->find() && tableValueFacts->getValue("ADDRESS")->isNull())
-         return replyResult(fail, "Cloning sensor failed", client);
+         return replyResult(fail, client, "Cloning sensor failed");
 
       int newAddress {(int)tableValueFacts->getIntValue("ADDRESS") + 1};
       tell(eloAlways, "Cloning sensor '%s:0x%02x' '%s' with address %d", type, address, sensors[type][address].name.c_str(), newAddress);
@@ -1797,7 +1786,7 @@ int HomeCtl::storeIoSettings(json_t* obj, long client)
       if (!settings)
       {
          tell(eloAlways, "Error: Storing of config for %s:0x%x failed, missing 'settings'", type, address);
-         return replyResult(fail, "Storing of config failed, missing 'settings'", client);
+         return replyResult(fail, client, "Storing of config failed, missing 'settings'");
       }
 
       tableValueFacts->clear();
@@ -1831,7 +1820,7 @@ int HomeCtl::storeAiSettings(json_t* obj, long client)
    if (!settings)
    {
       tell(eloAlways, "Error: Storing of config for %s:0x%lx failed, missing 'settings'", type.c_str(), address);
-      return replyResult(fail, "Storing of config failed, missing 'settings'", client);
+      return replyResult(fail, client, "Storing of config failed, missing 'settings'");
    }
 
    tell(eloAlways, "Storing calibration settings of %s:0x%lx", type.c_str(), address);
@@ -2161,7 +2150,7 @@ int HomeCtl::storeIoSetup(json_t* array, long client)
    pushOutMessage(oJson, "valuefacts", client);
    updateSchemaConfTable();
 
-   return replyResult(success, "Konfiguration gespeichert", client);
+   return replyResult(success, client, "Konfiguration gespeichert");
 }
 
 //***************************************************************************
@@ -2233,7 +2222,7 @@ int HomeCtl::storeGroups(json_t* oObject, long client)
 
    performGroups(client);
 
-   return replyResult(success, "Konfiguration gespeichert", client);
+   return replyResult(success, client, "Konfiguration gespeichert");
 }
 
 //***************************************************************************
@@ -2319,7 +2308,7 @@ int HomeCtl::config2Json(json_t* obj)
    tableConfig->clear();
    tableConfig->setValue("OWNER", myName());
 
-   for (int f = selectAllConfig->find(); f; f = selectAllConfig->fetch())
+   for (bool f = selectAllConfig->find(); f; f = selectAllConfig->fetch())
       json_object_set_new(obj, tableConfig->getStrValue("NAME"), json_string(tableConfig->getStrValue("VALUE")));
 
    selectAllConfig->freeResult();
@@ -2355,7 +2344,7 @@ int HomeCtl::configDetails2Json(json_t* obj)
    tableConfig->clear();
    tableConfig->setValue("OWNER", myName());
 
-   for (int f = selectAllConfig->find(); f; f = selectAllConfig->fetch())
+   for (bool f = selectAllConfig->find(); f; f = selectAllConfig->fetch())
    {
       if (tableConfig->hasValue("INTERNAL", "Y"))
          continue;
@@ -2669,7 +2658,7 @@ int HomeCtl::configChoice2json(json_t* obj, const char* name)
 
 int HomeCtl::userDetails2Json(json_t* obj)
 {
-   for (int f = selectAllUser->find(); f; f = selectAllUser->fetch())
+   for (bool f = selectAllUser->find(); f; f = selectAllUser->fetch())
    {
       json_t* oDetail {json_object()};
       json_array_append_new(obj, oDetail);
@@ -2691,7 +2680,7 @@ int HomeCtl::valueTypes2Json(json_t* obj)
 {
    tableValueTypes->clear();
 
-   for (int f = selectAllValueTypes->find(); f; f = selectAllValueTypes->fetch())
+   for (bool f = selectAllValueTypes->find(); f; f = selectAllValueTypes->fetch())
    {
       json_t* oData {json_object()};
       json_array_append_new(obj, oData);
@@ -2713,7 +2702,7 @@ int HomeCtl::valueFacts2Json(json_t* obj, bool filterActive)
 {
    tableValueFacts->clear();
 
-   for (int f = selectAllValueFacts->find(); f; f = selectAllValueFacts->fetch())
+   for (bool f = selectAllValueFacts->find(); f; f = selectAllValueFacts->fetch())
    {
       if (filterActive && !tableValueFacts->hasValue("STATE", "A"))
          continue;
@@ -2816,7 +2805,7 @@ int HomeCtl::dashboards2Json(json_t* obj)
 {
    tableDashboards->clear();
 
-   for (int f = selectDashboards->find(); f; f = selectDashboards->fetch())
+   for (bool f = selectDashboards->find(); f; f = selectDashboards->fetch())
    {
       json_t* oDashboard {json_object()};
       char* tmp {};
@@ -2841,7 +2830,7 @@ int HomeCtl::dashboards2Json(json_t* obj)
       tableDashboardWidgets->clear();
       tableDashboardWidgets->setValue("DASHBOARDID", tableDashboards->getIntValue("ID"));
 
-      for (int w = selectDashboardWidgetsFor->find(); w; w = selectDashboardWidgetsFor->fetch())
+      for (bool w = selectDashboardWidgetsFor->find(); w; w = selectDashboardWidgetsFor->fetch())
       {
          char* key {};
          asprintf(&key, "%s:0x%02lx", tableDashboardWidgets->getStrValue("TYPE"), tableDashboardWidgets->getIntValue("ADDRESS"));
@@ -2865,7 +2854,7 @@ int HomeCtl::groups2Json(json_t* obj)
 {
    tableGroups->clear();
 
-   for (int f = selectAllGroups->find(); f; f = selectAllGroups->fetch())
+   for (bool f = selectAllGroups->find(); f; f = selectAllGroups->fetch())
    {
       json_t* oData {json_object()};
       json_array_append_new(obj, oData);
@@ -2972,7 +2961,7 @@ int HomeCtl::performCommand(json_t* obj, long client)
    else
       return fail;
 
-   return replyResult(success, "success", client);
+   return replyResult(success, client, "success");
 }
 
 //***************************************************************************
@@ -3134,7 +3123,7 @@ int HomeCtl::images2Json(json_t* obj)
 int HomeCtl::performGpioData(json_t* /*oObject*/, long client)
 {
    if (!gpio)
-      return replyResult(fail, "GPIO not available", client);
+      return replyResult(fail, client, "GPIO not available");
 
    std::map<int,PinInfo> pinList;
    gpio->getPinList(pinList);

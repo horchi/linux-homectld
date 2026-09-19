@@ -108,7 +108,7 @@ int HomeCtl::activityStore(json_t* jAct)
 
    tableActivities->clear();
    tableActivities->setBigintValue("GARMINID", id);
-   bool exists {tableActivities->find() != 0};
+   bool exists {tableActivities->find()};
 
    tableActivities->setValue("START", getLongFromJson(jAct, "start", 0));
    tableActivities->setValue("TYPE", getStringFromJson(jAct, "type", "other"));
@@ -250,7 +250,7 @@ int HomeCtl::activitiesSync(const char* since, std::string& message)
       std::vector<long> gone;
       tableActivities->clear();
 
-      for (int f = selectActivities->find(); f; f = selectActivities->fetch())
+      for (bool f = selectActivities->find(); f; f = selectActivities->fetch())
       {
          long id {(long)tableActivities->getBigintValue("GARMINID")};
 
@@ -294,14 +294,14 @@ int HomeCtl::activities2Json(json_t* obj)
    std::set<long> withTrack;
    tableActivityTracks->clear();
 
-   for (int f = selectActivityTrackIds->find(); f; f = selectActivityTrackIds->fetch())
+   for (bool f = selectActivityTrackIds->find(); f; f = selectActivityTrackIds->fetch())
       withTrack.insert((long)tableActivityTracks->getBigintValue("GARMINID"));
 
    selectActivityTrackIds->freeResult();
    activitiesFillTrackDistance(withTrack);
    tableActivities->clear();
 
-   for (int f = selectActivities->find(); f; f = selectActivities->fetch())
+   for (bool f = selectActivities->find(); f; f = selectActivities->fetch())
    {
       json_t* oAct {json_object()};
       long start {tableActivities->getTimeValue("START")};
@@ -458,7 +458,7 @@ json_t* HomeCtl::activityTrack(long id, bool force, std::string& error)
 
    tableActivityTracks->clear();
    tableActivityTracks->setBigintValue("GARMINID", id);
-   bool exists {tableActivityTracks->find() != 0};
+   bool exists {tableActivityTracks->find()};
    bool cached {exists && !isEmpty(tableActivityTracks->getStrValue("TRACK"))};
    json_t* jTrack {};
 
@@ -772,7 +772,7 @@ int HomeCtl::performActivities(json_t* obj, long client)
       json_t* jDetails {activityDetails(getLongFromJson(obj, "id", 0), getBoolFromJson(obj, "force", false), error)};
 
       if (!jDetails)
-         return replyResult(fail, error.c_str(), client);
+         return replyResult(fail, client, "%s", error.c_str());
 
       return pushOutMessage(jDetails, "activitydetails", client, false, 8);
    }
@@ -783,7 +783,7 @@ int HomeCtl::performActivities(json_t* obj, long client)
       json_t* jTrack {activityTrack(getLongFromJson(obj, "id", 0), getBoolFromJson(obj, "force", false), error)};
 
       if (!jTrack)
-         return replyResult(fail, error.c_str(), client);
+         return replyResult(fail, client, "%s", error.c_str());
 
       return pushOutMessage(jTrack, "activitytrack", client, false, 10);   // coordinates
    }
@@ -794,7 +794,7 @@ int HomeCtl::performActivities(json_t* obj, long client)
       json_t* jResult {garminCall("types", 60, error)};
 
       if (!jResult)
-         return replyResult(fail, error.c_str(), client);
+         return replyResult(fail, client, "%s", error.c_str());
 
       return pushOutMessage(jResult, "activitytypes", client);
    }
@@ -804,7 +804,7 @@ int HomeCtl::performActivities(json_t* obj, long client)
    auto itClient {wsClients.find((void*)client)};
 
    if (itClient == wsClients.end() || !(itClient->second.rights & urControl))
-      return replyResult(fail, "Keine Berechtigung", client);
+      return replyResult(fail, client, "Keine Berechtigung");
 
    if (action == "sync")
    {
@@ -814,7 +814,7 @@ int HomeCtl::performActivities(json_t* obj, long client)
       if (status == success)
          activitiesPush(0);      // all clients
 
-      return replyResult(status, message.c_str(), client);
+      return replyResult(status, client, "%s", message.c_str());
    }
 
    if (action == "delete")
@@ -827,7 +827,7 @@ int HomeCtl::performActivities(json_t* obj, long client)
       json_t* jResult {garminCall(args.c_str(), 60, error)};
 
       if (!jResult)
-         return replyResult(fail, error.c_str(), client);
+         return replyResult(fail, client, "%s", error.c_str());
 
       json_decref(jResult);
       tableActivities->deleteWhere("garminid = %ld", id);
@@ -835,7 +835,7 @@ int HomeCtl::performActivities(json_t* obj, long client)
       tell(eloAlways, "Info: Garmin: deleted activity %ld", id);
       activitiesPush(0);
 
-      return replyResult(success, "Aktivität gelöscht", client);
+      return replyResult(success, client, "Aktivität gelöscht");
    }
 
    if (action == "edit")
@@ -866,7 +866,7 @@ int HomeCtl::performActivities(json_t* obj, long client)
          {
             tableActivities->reset();
             if (jOwnIds) json_decref(jOwnIds);
-            return replyResult(fail, "Aktivität nicht gefunden", client);
+            return replyResult(fail, client, "Aktivität nicht gefunden");
          }
 
          if (strcmp(type, tableActivities->getStrValue("TYPE")) == 0)         type = "";
@@ -884,8 +884,8 @@ int HomeCtl::performActivities(json_t* obj, long client)
       if (status == success)
          activitiesPush(0);
 
-      return replyResult(status, message.c_str(), client);
+      return replyResult(status, client, "%s", message.c_str());
    }
 
-   return replyResult(fail, "Unbekannte Aktion", client);
+   return replyResult(fail, client, "Unbekannte Aktion");
 }

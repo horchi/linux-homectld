@@ -22,6 +22,11 @@ constexpr const char* TopicLog {"homectld2mqtt/alpicool/log"};
 constexpr const char* mqttServer {<MQTT_SERVER>};
 constexpr int mqttPort {1883};
 
+// --- OTA (Firmware Update ueber WLAN, Passwort leer = ohne Passwort) ---
+
+constexpr const char* OtaHostname {"alpicool-bridge"};
+constexpr const char* OtaPassword {<OTA_PWD>};
+
 constexpr const char* TempChoices {"-3,-2,-1,0,1,2,3,4,5,6,7,8,9,10"};
 
 constexpr const char* BleMacStr {<ALPI_MAC>};

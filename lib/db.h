@@ -462,7 +462,7 @@ class cDbStatement : public cDbService
 
       int execute(int noResult = no);
       bool find();
-      int fetch();
+      bool fetch();
       int freeResult();
       void clear();
 
@@ -1107,11 +1107,11 @@ class cDbTable : public cDbService
       virtual int detach();
       int isAttached()     { return attached; }
 
-      virtual int find();
+      virtual bool find();
       virtual void reset() { reset(stmtSelect); }
 
-      virtual int find(cDbStatement* stmt);
-      virtual int fetch(cDbStatement* stmt);
+      virtual bool find(cDbStatement* stmt);
+      virtual bool fetch(cDbStatement* stmt);
       virtual void reset(cDbStatement* stmt);
 
       virtual int insert(time_t inssp = 0);

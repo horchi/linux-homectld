@@ -1091,7 +1091,7 @@ int HomeCtl::initScripts()
       if (!valid)
          sensors["SC"][addr].invalidate();    // the script may report invalid data
 
-      sensors["SC"][addr].clearDirty();       // the init result is only provisional (some scripts report 0 at init),
+      sensors["SC"][addr].markStored();       // the init result is only provisional (some scripts report 0 at init),
                                               //  stored is the first 'status' result (updateScriptSensors)
 
       auto tuple {split(name, '.')};
@@ -2447,7 +2447,6 @@ int HomeCtl::storeSamples()
 {
    int count {0};
    int skipped {0};
-   int peaks {0};
 
    lastSampleTime = time(0);
    tell(eloDebug, "Debug: Store samples ..");
@@ -2478,26 +2477,24 @@ int HomeCtl::storeSamples()
             continue;
          }
 
+         // the IO state (restore of the last data at start) and the peaks are maintained
+         // for all sensors, the sample only with recording
+
+         storeIoState(sensor->type.c_str(), sensor->address);
+         storePeaks(lastSampleTime, sensor);
+
          if (sensor->record)
          {
             store(lastSampleTime, sensor);
             count++;
          }
-         else
-         {
-            // peaks and the IO state (restore of the last data at start) are maintained also without recording
 
-            storePeaks(lastSampleTime, sensor);
-            storeIoState(sensor->type.c_str(), sensor->address);
-            peaks++;
-         }
-
-         sensor->clearDirty();
+         sensor->markStored();
       }
    }
 
    connection->commit();
-   tell(eloInfo, "Stored %d samples, skipped %d, peaks only %d", count, skipped, peaks);
+   tell(eloInfo, "Stored %d samples, skipped %d", count, skipped);
 
    return success;
 }
@@ -2536,7 +2533,7 @@ int HomeCtl::storable(const SensorData* sensor)
       return ignore;
    }
 
-   if (!sensor->dirty())
+   if (!sensor->unstored())
    {
       tell(eloDebug, "Debug: No new data for '%s:0x%02x' (%s) since the last store, skipping store (%s)",
            sensor->type.c_str(), sensor->address, sensor->name.c_str(), l2pTime(sensor->last()).c_str());
@@ -2554,12 +2551,11 @@ int HomeCtl::storable(const SensorData* sensor)
 }
 
 //***************************************************************************
-// Store - sample, IO state and peaks (check storable() before)
+// Store - the sample (check storable() before, IO state and peaks are stored by the caller)
 //***************************************************************************
 
 int HomeCtl::store(time_t now, const SensorData* sensor)
 {
-   storeIoState(sensor->type.c_str(), sensor->address);
    tableSamples->clear();
 
    tableSamples->setValue("TIME", now);
@@ -2580,7 +2576,7 @@ int HomeCtl::store(time_t now, const SensorData* sensor)
 
    tableSamples->store();
 
-   return storePeaks(now, sensor);
+   return success;
 }
 
 //***************************************************************************
@@ -5593,6 +5589,7 @@ int HomeCtl::storeIoState(const char* type, uint address)
 
    tableIoStates->setValue("TIME", sensors[type][address].changedAt());
    tableIoStates->setValue("LAST", sensors[type][address].last());
+   tableIoStates->setValue("KIND", sensors[type][address].kind.c_str());
    tableIoStates->setValue("STATE", sensors[type][address].state);
    tableIoStates->setValue("VALUE", sensors[type][address].value);
    tableIoStates->setValue("TEXT", sensors[type][address].text.c_str());
@@ -5642,7 +5639,7 @@ int HomeCtl::loadIoStates()
 
       // the row exists for every stored sensor (store() -> storeIoState()) - restore the last
       // stored value only for sensors without current data, data received during the init
-      // (MQTT, script init, ..) must not be overwritten (it's 'dirty' and would be stored as 0)
+      // (MQTT, script init, ..) must not be overwritten (it counts as unstored and would be stored as 0)
 
       if (!sensors[type][address].valid())
       {
@@ -5651,10 +5648,16 @@ int HomeCtl::loadIoStates()
          sensors[type][address].state = state;
 
          // the restored data is valid (the WEBIF shows invalid sensors dimmed until new data
-         // arrives) but not 'dirty', store() won't write it as a new sample
+         // arrives) but not unstored, store() won't write it as a new sample
 
          if (time_t last {tableIoStates->getTimeValue("LAST")}; last)
             sensors[type][address].restoreLast(last);
+
+         // the kind (status / value / text) is only known from the sensor's data, without it a
+         // restored status sensor is published as 'value' (e.g. -1 -> shown as 'on' by the WEBIF)
+
+         if (!isEmpty(tableIoStates->getStrValue("KIND")))
+            sensors[type][address].kind = tableIoStates->getStrValue("KIND");
 
          sensors[type][address].markValid();
       }
@@ -5704,7 +5707,7 @@ int HomeCtl::loadIoStates()
 
    selectAllValueFacts->freeResult();
 
-   // nothing is 'dirty' at start - store() writes a sensor only after it got
+   // nothing is unstored at start - store() writes a sensor only after it got
    // new data (before: the first store wrote 0 for all sensors not reported yet)
 
    return done;

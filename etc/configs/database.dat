@@ -352,6 +352,7 @@ Table iostates
 
    TIME       "Changed At"  time                 DateTime     0 Data,
    LAST       "Last Data"   last                 DateTime     0 Data,
+   KIND       ""            kind                 Ascii       10 Data,
 
    VALUE      ""            value                Float      122 Data,
    TEXT       ""            text                 Ascii       50 Data,

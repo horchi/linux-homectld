@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.26"
-#define VERSION_DATE "19.09.2026"
+#define _VERSION     "0.1.27"
+#define VERSION_DATE "20.09.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,11 @@
 
 /*
  * ------------------------------------
+
+2026-09-20: version 0.1.27
+    - bugfix: restored status sensors of MQTT devices (e.g. TASMOTA via mqtt.d) showed 'on' after a start
+              until their first message: the kind was unknown and the value (-1) was published instead of
+              the state; the kind is stored and restored with the IO state (new column iostates.kind)
 
 2026-09-19: version 0.1.26
     - added: kenwood: receiver for the steering wheel remote (ESP-NOW, enabled by KENWOOD_REMOTE_MAC),

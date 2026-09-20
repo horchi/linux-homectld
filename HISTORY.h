@@ -26,6 +26,10 @@
               MQTT init message; the stored state is passed now, TASMOTA gets ON/OFF instead of TOGGLE
     - bugfix: switching TASMOTA devices sent JSON instead of ON/OFF/TOGGLE (since 05/2026), devices are
               recognised by their command topic (cmnd/...) independent of the type set by the converter script
+    - bugfix: sensors restored from iostates at start were shown dimmed (invalid) in the WEBIF until the
+              first new data arrived (since 0.1.17); restored data is marked valid, 'last' is stored and
+              restored too (new column iostates.last, added automatically); the IO state is now stored
+              for sensors without recording as well, so all sensors show their last data after a start
 
 2026-09-19: version 0.1.25
     - added:  kenwood: OTA firmware update for the ESP32 sketches (make upload-ota, also alpicool),

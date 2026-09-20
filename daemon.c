@@ -2485,7 +2485,10 @@ int HomeCtl::storeSamples()
          }
          else
          {
-            storePeaks(lastSampleTime, sensor);  // the peaks are maintained also without recording
+            // peaks and the IO state (restore of the last data at start) are maintained also without recording
+
+            storePeaks(lastSampleTime, sensor);
+            storeIoState(sensor->type.c_str(), sensor->address);
             peaks++;
          }
 
@@ -5589,6 +5592,7 @@ int HomeCtl::storeIoState(const char* type, uint address)
    tableIoStates->setValue("ADDRESS", (int)address);
 
    tableIoStates->setValue("TIME", sensors[type][address].changedAt());
+   tableIoStates->setValue("LAST", sensors[type][address].last());
    tableIoStates->setValue("STATE", sensors[type][address].state);
    tableIoStates->setValue("VALUE", sensors[type][address].value);
    tableIoStates->setValue("TEXT", sensors[type][address].text.c_str());
@@ -5645,6 +5649,14 @@ int HomeCtl::loadIoStates()
          sensors[type][address].value = tableIoStates->getFloatValue("VALUE");   // VALUE is a float column, getIntValue() returned 0
          sensors[type][address].text = tableIoStates->getStrValue("TEXT");
          sensors[type][address].state = state;
+
+         // the restored data is valid (the WEBIF shows invalid sensors dimmed until new data
+         // arrives) but not 'dirty', store() won't write it as a new sample
+
+         if (time_t last {tableIoStates->getTimeValue("LAST")}; last)
+            sensors[type][address].restoreLast(last);
+
+         sensors[type][address].markValid();
       }
 
       if (sensors[type][address].outputModes & ooAuto)
@@ -5684,7 +5696,9 @@ int HomeCtl::loadIoStates()
       if (!selectSensorMaxTime->find())
          continue;
 
-      sensors[type][address].restoreLast(tableSamples->getTimeValue("TIME"));
+      if (tableSamples->getTimeValue("TIME") > sensors[type][address].last())   // iostates LAST may be newer
+         sensors[type][address].restoreLast(tableSamples->getTimeValue("TIME"));
+
       tell(eloAlways, "Debug: Init 'last' of '%s:0x%02lx' to '%s'", type, address, l2pTime(sensors[type][address].last()).c_str());
    }
 

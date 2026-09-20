@@ -351,6 +351,7 @@ Table iostates
    ADDRESS    ""            address              UInt         4 Primary,
 
    TIME       "Changed At"  time                 DateTime     0 Data,
+   LAST       "Last Data"   last                 DateTime     0 Data,
 
    VALUE      ""            value                Float      122 Data,
    TEXT       ""            text                 Ascii       50 Data,

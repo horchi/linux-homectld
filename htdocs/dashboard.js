@@ -82,7 +82,8 @@ function initDashboard(update = false)
    // no (valid) dashboard remembered (fresh storage after a login, deleted dashboard,
    // storage of another instance) -> the first one gets active
 
-   if (actDashboard == null || actDashboard < 0 || dashboards[actDashboard] == null)
+   if (actDashboard == null || actDashboard < 0 ||
+       (Object.keys(dashboards).length && dashboards[actDashboard] == null))
       actDashboard = -1;
 
    for (let i = 0; i < jDashboards.length; i++) {

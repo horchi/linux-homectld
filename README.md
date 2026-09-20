@@ -127,6 +127,19 @@ if the database is running remote, or you like to have remote access to the data
 
 ### install the build dependencies
 
+The short way, after `Make.user` is set up:
+```
+make install-dependencies
+```
+It installs the packages below via apt, only the missing ones, installed packages are never upgraded.
+libgpiod (version 2 needed) and libwebsockets (4.3.0 needed) are built from source if the versions of
+the distribution are too old (e.g. Ubuntu 24.04 / Armbian noble ship libgpiod 1.6), the sources go to
+`SRC_DIR` from `Make.user` (default `/usr/src`). The optional parts follow the switches of `Make.user`:
+WOMO adds mariadb-server, mosquitto and the network tools (dnsmasq, NetworkManager, chrony, LTE modem,
+iptables, openvpn), MOPEKA the python BLE modules, THETFORD paho-mqtt and usblini, GARMIN the python venv.
+Always call it via make, the script `contrib/install-dependencies.sh` gets the switches from there.
+`DRYRUN=1 make install-dependencies` only shows the commands. The manual way:
+
 ```
 apt -y install build-essential libssl-dev libcurl4-openssl-dev uuid-dev libcap-dev libsystemd-dev cmake pkg-config net-tools nodejs
 apt -y install libjansson-dev libmariadb-dev liblua5.3-dev mosquitto-clients jq jo bc aptitude util-linux-extra libgpiod2 libgpiod-dev

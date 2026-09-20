@@ -1156,6 +1156,28 @@ void showUsage(const char* bin)
    printf("               <ina-address>[:<shunt-ohm>]\n");
    printf("            <shunt-ohm> defaults to 0.1 (the value of most breakout boards)\n");
    printf("     Note: tca is a TCA9548A i2c bus multiplexer\n");
+   printf("\n");
+   printf("  supported chips / sensors:\n");
+   printf("     ADS1115  (--ads)  analog inputs: 4 channels AI0..AI3 against GND, 16 bit, range 0..4.096 V\n");
+   printf("                       (input must not exceed the supply), published in mV as ADS<addr>:0..3;\n");
+   printf("                       typical use: voltage dividers, 0..10 V / 4..20 mA sensors, potentiometers;\n");
+   printf("                       address 0x48..0x4B (ADDR pin)\n");
+   printf("     MCP23017 (--mcp)  16 digital I/Os, 3.3 V logic: port A = 8 outputs MCPO<addr>:0..7 (switched via MQTT,\n");
+   printf("                       e.g. relay boards), port B = 8 inputs MCPI<addr>:0..7 (switches, contacts) with\n");
+   printf("                       interrupt on change (INT wired to GPIO 16); address 0x20..0x27 (A0..A2)\n");
+   printf("     DHT20    (--dht)  temperature (°C, DHT<addr>:0) and humidity (%%, DHT<addr>:1), fixed address 0x38,\n");
+   printf("                       several DHT20 therefore only via TCA9548A channels\n");
+   printf("     DS2484   (--ds)   1-Wire bridge for DS18B20 temperature sensors (°C, 12 bit, up to 750 ms per\n");
+   printf("                       conversion), one value per ROM as DS<addr>:<w1-address>, other 1-Wire devices are\n");
+   printf("                       skipped; long cables, many sensors on one bus; bridge address 0x18 (fixed, no\n");
+   printf("                       address pins - several bridges only via TCA9548A)\n");
+   printf("     INA219   (--ina)  current / power monitor on the high side: bus voltage (V, 0..26 V, INA<addr>:0),\n");
+   printf("                       current (A, INA<addr>:1) and power (W, INA<addr>:2); shunt 0.1 Ohm = +-3.2 A,\n");
+   printf("                       smaller shunt for more current (e.g. 0.01 Ohm = 32 A); address 0x40..0x4F (A0/A1)\n");
+   printf("     TCA9548A (tca:)   8 channel i2c multiplexer, address 0x70..0x77; puts chips with the same address\n");
+   printf("                       (DHT20, several INA219 / DS2484) on separate channels\n");
+   printf("\n");
+   printf("     -S scans the bus and lists the addresses found, -s shows the values of the configured sensors\n");
 }
 
 //***************************************************************************

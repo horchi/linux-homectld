@@ -13,6 +13,10 @@ WOMO = 1
 # personalization
 
 INIT_AFTER = mysql.service
+
+# directory for sources built by 'make install-dependencies' (libgpiod, libwebsockets)
+
+SRC_DIR = /usr/src
 ETH_IFACE = eth0
 SUBNET = 192.168.100
 STATIC_IP = 192.168.100.10

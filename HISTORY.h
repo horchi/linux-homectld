@@ -21,6 +21,10 @@
     - bugfix: restored status sensors of MQTT devices (e.g. TASMOTA via mqtt.d) showed 'on' after a start
               until their first message: the kind was unknown and the value (-1) was published instead of
               the state; the kind is stored and restored with the IO state (new column iostates.kind)
+    - change: i2cmqtt -h describes the supported chips (purpose, channels, ranges, addresses)
+    - added: make install-dependencies (contrib/install-dependencies.sh): installs the build / runtime dependencies for
+             Armbian and Ubuntu, libgpiod 2 and libwebsockets from source if needed, optional parts
+             (WOMO incl. mariadb-server and mosquitto, MOPEKA, THETFORD, GARMIN) according to Make.user
 
 2026-09-19: version 0.1.26
     - added: kenwood: receiver for the steering wheel remote (ESP-NOW, enabled by KENWOOD_REMOTE_MAC),

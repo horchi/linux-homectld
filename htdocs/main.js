@@ -526,15 +526,7 @@ function dispatchMessage(message)
    let event = jMessage.event;
 
    if (currentPage == "vdr") {
-      if (event == 'actual') {
-         let actual = jMessage.object;
-         // console.log("VDR: Got", event, JSON.stringify(actual, undefined, 4));
-         const actualStart = new Date(actual.present.starttime * 1000)
-         $('#vdrChannel').html(actual.channel.channelname);
-         $('#vdrStartTime').html(actualStart.toTimeLocal());
-         $('#vdrTitle').html(actual.present.title);
-         $('#vdrShorttext').html(actual.present.shorttext);
-      }
+      dispatchVdrMessage(event, jMessage);
       return ;
    }
 

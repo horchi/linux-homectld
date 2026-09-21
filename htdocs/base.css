@@ -1258,8 +1258,23 @@ table.tableMultiCol td
 
 .vdrPresent
 {
+    display: flex;
     padding: var(--containerPadding);
     background-color: var(--background);
+}
+
+.vdrChannel
+{
+    padding: 0px 30px 0px 0px;
+    font-weight:bold;
+    color:#ede800;
+    align-content: center;
+}
+
+.vdrTime
+{
+    font-weight:bold;
+    color:#ede800;
 }
 
 .vdrFbContainer
@@ -2212,7 +2227,7 @@ table.tableMultiCol td
         'main peak'
         'main value';
     grid-template-rows: 15% auto 1fr;    /* peak row grows to one or two lines (min / max) */
-    grid-template-columns: 58% 42%;
+    grid-template-columns: 55% 45%;
     grid-gap: 1px;
     box-shadow: 1px 1px 1px 0px var(--shadow);
 }

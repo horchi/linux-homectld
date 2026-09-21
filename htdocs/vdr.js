@@ -18,10 +18,16 @@ function initVdr()
    document.getElementById("container").innerHTML =
       '<div class="vdrContent">' +
       '  <div class="vdrPresent rounded-border">' +
-      '    <div id="vdrChannel"></div>' +
-      '    <span id="vdrStartTime" style="font-weight:bold;"></span>' +
-      '    <span id="vdrTitle"></span>' +
-      '    <div id="vdrShorttext"></div>' +
+      '    <div id="vdrChannel"class="vdrChannel">' +
+      '    </div>' +
+      '    <div>' +
+      '      <span id="vdrStartTime" class="vdrTime"></span>' +
+      '      <span id="vdrTitle"></span>' +
+      '      <div id="vdrShorttext"></div>' +
+      '      <span id="vdrStartTimeNext" class="vdrTime"></span>' +
+      '      <span id="vdrTitleNext"></span>' +
+      '      <div id="vdrShorttextNext"></div>' +
+      '    </div>' +
       '  </div>' +
       '  <div id="vdrFbContainer" class="vdrFbContainer">' +
       '    <div>' +
@@ -74,12 +80,35 @@ function initVdr()
       '  </div>' +  // vdrFbContainer
       '</div>';
 
-      // calc container size
+   // calc container size
 
    $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('dashboardMenu') - getTotalHeightOf('footer') - sab - 15);
    window.onresize = function() {
       $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('dashboardMenu') - getTotalHeightOf('footer') - sab - 15);
    };
+}
+
+function dispatchVdrMessage(event, jMessage)
+{
+   console.log("VDR: Event", event);
+
+   if (event == 'actual') {
+      let actual = jMessage.object;
+      const start = new Date(actual.present.starttime * 1000)
+      const startNext = new Date(actual.following.starttime * 1000)
+      console.log("VDR: Got", event, JSON.stringify(actual, undefined, 4));
+
+      $('#vdrChannel').html(actual.channel.channelname);
+
+      $('#vdrStartTime').html(start.toTimeLocal());
+      $('#vdrTitle').html(actual.present.title);
+      $('#vdrShorttext').html(actual.present.shorttext);
+
+      $('#vdrStartTimeNext').html(startNext.toTimeLocal());
+      $('#vdrTitleNext').html(actual.following.title);
+      $('#vdrShorttextNext').html(actual.following.shorttext);
+
+   }
 }
 
 function vdrKeyPress(key)

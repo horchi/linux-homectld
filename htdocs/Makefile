@@ -27,7 +27,7 @@ check:
 install: check index.html
 	make linstall
 
-linstall:
+linstall: index.html
 	if ! test -L $(WEBDEST); then \
 		if ! test -d $(WEBDEST); then \
 			mkdir -p "$(WEBDEST)"; \

@@ -1,15 +1,18 @@
 
-# specials
+# =========================
+# specials / kind
 
-WOMO = 1
+#WOMO = 1
 
+# =========================
 # services to build/use
 
 #MOPEKA = 1
-#THETFORD = 1
 #GARMIN = 1
 #VDR = 1
+#THETFORD = 1
 
+# =========================
 # personalization
 
 INIT_AFTER = mysql.service
@@ -28,26 +31,38 @@ DOMAIN = womo.lan
 #WIFI_SSID = xxxx
 #WIFI_PWD = yyyy
 
+# =========================
 # ESP32 sketches
 
-# Parameter for kenwood / ESP32
-
-#KENWOOD_PORT = /dev/ttyACM0
-#KENWOOD_OTA_HOST = 192.168.220.33
-#KENWOOD_OTA_PWD =
-
-# Parameter for kenwood-remote / XIAO ESP32C3 (steering wheel remote, ESP-NOW)
-# KENWOOD_MAC: WLAN MAC of the kenwood ESP, WIFI_CHANNEL: fixed channel of the router
-
-#KENWOOD_REMOTE_PORT = /dev/ttyACM0
-#KENWOOD_MAC = b0:cb:d8:98:6b:40
-#KENWOOD_REMOTE_MAC = aa:bb:cc:dd:ee:ff   # WLAN MAC of the remote (Super Mini), empty/unset = receiver off
-#WIFI_CHANNEL = 6
-
+# -------------------------
 # parameter for alpicool ESP32 (see kenwood above for PORT / OTA)
+
 # ALPI_MAC is the mac of the bluetooth interface frim the cooling box!
 
 #ALPI_MAC = FC:E4:97:72:E9:83
 #ALPICOOL_PORT = /dev/ttyACM0
 #ALPICOOL_OTA_HOST = 192.168.220.34
 #ALPICOOL_OTA_PWD =
+
+# -------------------------
+# Parameter for kenwood / ESP32
+
+#KENWOOD_PORT = /dev/ttyACM0
+#KENWOOD_OTA_HOST = 192.168.220.33
+#KENWOOD_OTA_PWD =
+
+# WLAN MAC of the remote (Super Mini)
+#  empty/unset = receiver off
+#  ALL accept all connections
+#KENWOOD_REMOTE_MAC = ALL
+
+# -------------------------
+# Parameter for kenwood-remote / XIAO ESP32C3 (steering wheel remote, ESP-NOW)
+
+# the WIFI_CHANNEL of the access point must be set to a fixed value!
+#WIFI_CHANNEL = 6
+
+#KENWOOD_REMOTE_PORT = /dev/ttyACM0
+
+# KENWOOD_MAC: WLAN MAC of the kenwood ESP, WIFI_CHANNEL: fixed channel of the router
+#KENWOOD_MAC = b0:cb:d8:98:6b:40

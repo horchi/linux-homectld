@@ -2172,6 +2172,35 @@ table.tableMultiCol td
     color: orange;
 }
 
+.widget-orphaned
+{
+    border: 2px dashed var(--red);
+    opacity: 0.6;
+}
+
+.widget-orphaned-main
+{
+    grid-area: main;
+    display: flex;
+    cursor: pointer;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: var(--red);
+    font-size: 1.1em;
+}
+
+.widget-orphaned-main > .mdi
+{
+    font-size: 2.2em;
+}
+
+.widget-orphaned-key
+{
+    font-size: 0.8em;
+    color: var(--fontColor);
+}
+
 .widget-edit:hover
 {
     font-weight: bold;
@@ -2353,6 +2382,57 @@ table.tableMultiCol td
 {
     opacity: 0.8;
     background-color: #335656a1;
+}
+
+/* choice widget with option 'buttons': the choices as a wrapping button field */
+
+.widget-choice.widget-choice-buttons
+{
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-content: stretch;      /* rows grow to fill the height */
+    align-items: stretch;        /* buttons fill their row */
+    gap: 6px;
+    padding: 6px;
+    box-sizing: border-box;
+    font-size: large;
+}
+
+.widget-choice.widget-choice-buttons-column
+{
+    flex-direction: column;      /* few choices: one button per row */
+    flex-wrap: nowrap;
+}
+
+.widget-choice.widget-choice-buttons-measure > .widget-choice-button
+{
+    flex: none;                  /* natural width, only used to measure the widest button */
+}
+
+.widget-choice.widget-choice-buttons-grid
+{
+    display: grid;               /* columns set by script: repeat(auto-fit, minmax(<widest>, 1fr)) */
+    grid-auto-rows: 1fr;
+    justify-content: stretch;
+}
+
+.widget-choice-button
+{
+    flex: 1 1 auto;              /* buttons grow to fill the row */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 12px;
+    border: 1px solid var(--borderColor);
+    background-color: var(--buttonAction);
+    white-space: nowrap;
+}
+
+.widget-choice-button-active
+{
+    background-color: var(--blue);
+    color: white;
 }
 
 .widget-text

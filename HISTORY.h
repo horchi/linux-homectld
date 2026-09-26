@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.27"
-#define VERSION_DATE "20.09.2026"
+#define _VERSION     "0.1.28"
+#define VERSION_DATE "25.09.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,14 @@
 
 /*
  * ------------------------------------
+
+2026-09-25: version 0.1.28
+    - added: widget dialog: button 'Reset' resets the widget's settings to the defaults of the
+             valuefact, as if it was just added to the dashboard
+    - added: dashboard widgets whose sensor (valuefact) no longer exists or is inactive are shown
+             marked (dashed red frame, 'Sensor fehlt' / 'Sensor inaktiv') instead of hidden / empty
+    - added: choice widget: option 'Buttons' shows the choices as a wrapping button field instead of a list
+    - change: symbol widget: a stale sensor (e.g. ALPICOOL offline) is displayed as 'off' (symbol, color, no animation)
 
 2026-09-20: version 0.1.27
     - bugfix: restored status sensors of MQTT devices (e.g. TASMOTA via mqtt.d) showed 'on' after a start

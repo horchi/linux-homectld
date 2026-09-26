@@ -133,7 +133,8 @@ private:
    // ESP-NOW Empfang (Lenkrad-Fernbedienung), aktiv wenn RemoteMacStr gesetzt ist
 
    bool remoteEnabled {false};
-   uint8_t remoteMac[6] {};
+   uint8_t remoteMac[6] {0};
+   bool acceptAllRemoteMac {false};
    volatile bool remotePending {false};
    RemotePacket remotePacket;
    int remoteLastSeq {-1};
@@ -678,8 +679,20 @@ private:
 
    void remoteReceived(const uint8_t* src, const uint8_t* data, int len)
    {
-      if (len != (int)sizeof(RemotePacket) || memcmp(src, remoteMac, 6) != 0)
-         return;
+      static bool first {true};
+
+      if (first)
+      {
+         tell(eloAlways, "Got message from mac %02X:%02X:%02X:%02X:%02X:%02X",
+              src[0], src[1], src[2], src[3], src[4], src[5]);
+         first = false;
+      }
+
+      if (!acceptAllRemoteMac)
+      {
+         if (len != (int)sizeof(RemotePacket) || memcmp(src, remoteMac, 6) != 0)
+            return;
+      }
 
       const RemotePacket* packet {(const RemotePacket*)data};
 
@@ -692,13 +705,15 @@ private:
 
    void SetupRemote()
    {
+      acceptAllRemoteMac = strcmp(RemoteMacStr, "ALL") == 0;
+
       if (isEmptyStr(RemoteMacStr))
       {
          tell(eloAlways, "[BOOT] Lenkrad-Fernbedienung nicht konfiguriert (KENWOOD_REMOTE_MAC)");
          return;
       }
 
-      if (!parseMac(RemoteMacStr, remoteMac))
+      if (!acceptAllRemoteMac && !parseMac(RemoteMacStr, remoteMac))
       {
          tell(eloAlways, "Error: Ungueltige MAC der Fernbedienung '%s'", RemoteMacStr);
          return;

@@ -2,7 +2,7 @@
 include ../../Make.config
 
 TARGET = kenwood-remote
-ARDUINO_CLI = /usr/local/bin/arduino-cli
+ARDUINO_CLI = arduino-cli
 
 # ESP32-C3 Super Mini (Rueckfallebene Seeed XIAO ESP32C3: esp32:esp32:XIAO_ESP32C3, Pins in config-tmpl.h anpassen)
 BOARD_TAG = esp32:esp32:nologo_esp32c3_super_mini

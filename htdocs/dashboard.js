@@ -447,14 +447,24 @@ function initWidget(key, widget, fact)
    if (fact == null)
       fact = valueFacts[key];
 
-   if (fact == null && widget.widgettype != 10 && widget.widgettype != 11) {
-      console.log("Fact '" + key + "' not found, ignoring");
-      return;
-   }
-
    if (widget == null) {
       console.log("Missing widget for '" + key + "'  ignoring");
       return;
+   }
+
+   // widgets without usable sensor are shown marked as placeholder (see below):
+   //   orphaned - the sensor (valuefact) does not exist (anymore)
+   //   inactive - the sensor exists but is not active
+
+   let placeholder = null;
+
+   if (widget.widgettype != 10 && widget.widgettype != 11) {
+      if (fact == null) {
+         console.log("Fact '" + key + "' not found, showing widget as orphaned");
+         placeholder = { text: 'Sensor fehlt', hint: 'Sensor ' + key + ' existiert nicht (mehr)' };
+      }
+      else if (!fact.state)
+         placeholder = { text: 'Sensor inaktiv', hint: 'Sensor ' + key + ' ist nicht aktiv' };
    }
 
    // console.log("Widget " + key + ': '+ JSON.stringify(widget));
@@ -549,6 +559,25 @@ function initWidget(key, widget, fact)
 
    if (!widget.color)
       widget.color = 'white';
+
+   if (placeholder) {
+      $(elem)
+         .addClass("widget widgetDropZone widget-orphaned")
+         .append($('<div></div>')
+                 .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
+                 .css('user-select', 'none')
+                 .attr('title', placeholder.hint)
+                 .click(function(event) {titleClick(event.ctrlKey, key);})
+                 .html(title.trim() != '' ? title : ' ' + key))
+         .append($('<div></div>')
+                 .addClass('widget-orphaned-main')
+                 .css('user-select', 'none')
+                 .click(function(event) {titleClick(event.ctrlKey, key);})
+                 .append($('<span></span>').addClass('mdi mdi-link-variant-off'))
+                 .append($('<div></div>').html(placeholder.text))
+                 .append($('<div></div>').addClass('widget-orphaned-key').html(key)));
+      return;
+   }
 
    $(document).on({'mouseup touchend' : function(e) {
       if (!mouseDownOn.object)
@@ -830,15 +859,35 @@ function initWidget(key, widget, fact)
                     .addClass('widget-choice rounded-border')
                     .css('color', widget.color))
          let choices = fact.choices.split(",");
+
+         // option 'buttons': less than 5 choices stacked, otherwise a grid of equally wide buttons
+
+         if (widget.buttons)
+            $('#choice' + fact.type + fact.address)
+               .addClass('widget-choice-buttons ' + (choices.length < 5 ? 'widget-choice-buttons-column' : 'widget-choice-buttons-measure'));
+
          for (c = 0; c < choices.length; ++c) {
             $('#choice' + fact.type + fact.address)
                .append($('<div></div>')
                        .attr('id', 'widget' + fact.type + fact.address + '_' + c)
-                       .addClass('rounded-border')
+                       .addClass('rounded-border' + (widget.buttons ? ' widget-choice-button' : ''))
                        .html(choices[c])
                        .click({ "value" : choices[c] }, function(event) {
                           socket.send({'event': 'toggleio', 'object': {'address': fact.address, 'type': fact.type, 'value': event.data.value, 'action': 'switch'}});
                        }));
+         }
+
+         if (widget.buttons && choices.length >= 5) {
+            // measure the widest button (natural width), then switch to a grid whose columns
+            // are all that wide -> as many equal columns as fit, the rest wraps
+
+            let container = $('#choice' + fact.type + fact.address);
+            let maxWidth = 0;
+            container.children().each(function() { maxWidth = Math.max(maxWidth, $(this).outerWidth()); });
+            container
+               .removeClass('widget-choice-buttons-measure')
+               .addClass('widget-choice-buttons-grid')
+               .css('grid-template-columns', 'repeat(auto-fit, minmax(' + Math.ceil(maxWidth) + 'px, 1fr))');
          }
 
          break;
@@ -1563,6 +1612,10 @@ function titleClick(ctrlKey, key)
    }
    else {
       let sensor = allSensors[key];
+
+      if (sensor == null)
+         return;
+
       let now = new Date();
       let lastUpd = new Date(sensor.last * 1000);
       let updBefore = prettyDuration(Math.round((now - daemonState.timeOffset - lastUpd)/1000));
@@ -1897,7 +1950,9 @@ function updateWidget(sensor, refresh, widget)
    if (widget.widgettype == 0 || widget.widgettype == 9 || widget.widgettype == 12)         // Symbol, Symbol-Value, Symbol-Text
    {
       // console.log("sensor: ", JSON.stringify(sensor));
-      let state = fact.type != 'HMB' ? sensor.value != 0 : sensor.value == 100;
+      // a stale sensor (e.g. device offline) is displayed as 'off': symbol, color and no animation
+
+      let state = sensor.valid && (fact.type != 'HMB' ? sensor.value != 0 : sensor.value == 100);
       let image = '';
       let classes = '';
 
@@ -2013,7 +2068,11 @@ function updateWidget(sensor, refresh, widget)
       for (let c = 0; c < choices.length; ++c) {
          let $element = $("#widget" + fact.type + fact.address + '_' + c);
          let isSelected = (sensor.text == choices[c]);
-         $element.css('background-color', isSelected ? 'gray' : "");
+
+         if (widget.buttons)
+            $element.toggleClass('widget-choice-button-active', isSelected);
+         else
+            $element.css('background-color', isSelected ? 'gray' : "");
 
          if (isSelected && $element.length) {
             // Findet das spezifische, scrollbare DIV dieses Widgets

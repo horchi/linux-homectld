@@ -55,21 +55,29 @@ direkt an ihrem Weckpin gegen Masse, ohne Dioden. Nach dem Aufwachen liest der S
 gedrückt ist.
 
 ```
-                             ESP32-C3 Super Mini
-                             +-----------------+
-             Taste 1         |                 |
-        GND --o  o-----------| GPIO 0          |  oben,   Volume +
-             Taste 2         |                 |
-        GND --o  o-----------| GPIO 1          |  unten,  Volume -
-             Taste 3         |                 |
-        GND --o  o-----------| GPIO 3          |  rechts, Track +
-             Taste 4         |                 |
-        GND --o  o-----------| GPIO 4          |  links,  Track -
-             Taste 5         |                 |
-        GND --o  o-----------| GPIO 5          |  Mitte,  ATT
-                             |                 |
-                             +-----------------+
+                            ESP32-C3 Super Mini
+                             +-----------+
+             Taste 1         |           |
+        GND --o  o-----------| 0         | Volume +
+             Taste 2         |           |
+        GND --o  o-----------| 1         | Volume -
+             Taste 3         |           |
+        GND --o  o-----------| 3         | Track +
+             Taste 4         |           |
+        GND --o  o-----------| 4         | Track -
+             Taste 5         |           |
+        GND --o  o-----------| 5         | ATT
+                             |           |
+        3,3 V     -----------| 3.3       |
+        GND       -----------| G         |
+                             +-----------+
+                        (Pins entspr. Aufdruck)
 ```
+
+Lage der Pads wie auf dem Foto der Unterseite (Beschriftungsseite), USB-C oben, eine Reihe je
+Seite. Der Aufdruck nennt die GPIO-Nummern, G ist Masse, 3.3 die 3,3 V:
+
+![ESP32-C3 Super Mini, Unterseite](ESP32-C3-Super-Mini.jpg)
 
 Jeder Tasten-GPIO mit internem Pull-up, low = gedrückt. Alle fünf sind als Weckquelle eingetragen
 (Maske über GPIO 0, 1, 3, 4, 5), der Pull-up bleibt im Deep Sleep aktiv.
@@ -94,18 +102,18 @@ Das Bedienteil darf also nur einen Bruchteil davon ziehen, und zwar so begrenzt,
 in der Elektronik die Hupe nicht auslösen kann.
 
 ```
-                                          Schottky
-                          1k / 0,6 W       1N5819
- Hupenleitung  o---------[========]---------|>|--------+-----------+-----------------+
- 13 V                   (oder 2x 2k)                   |           |              In |
-                        (0,25W parallel)               |          _|_          +-----+-----+ OUT
-                                              100 µF -----        /_\ ZF 15    |  LP2950   |--------+------------+------o  3V3  Super Mini
-                                              25 V   -----         |  15 V     |   3,3 V   |        |            |
-                                                       |           |           +-----+-----+      -----          |
-                                                       |           |                 | GND        ----- Supercap |
-                                                       |           |                 |              |  1,5 F     |
-                                                       |           |                 |              |  5,5 V     |
- Masse         o---------------------------------------+-----------+-----------------+--------------+------------+------o  GND  Super Mini
+                                     Schottky
+                    1k / 0,6 W        1N5819
+ Hupenleitung  o----[========]---------|>|--------+------+---------------+
+ 12-14 V           (oder 2x 2k)                   |      |            In |
+                   (0,25W parallel)               |     _|_         +----+---+ OUT
+                                         100 µF -----   /_\ ZF 15   | LP2950 |--------+-------------o  3V3  Super Mini
+                                         25 V   -----    |  15 V    |  3,3 V |        |
+                                                  |      |          +----+---+      -----
+                                                  |      |              | GND       ----- Supercap
+                                                  |      |              |             |  1,5 F
+                                                  |      |              |             |  5,5 V
+ Masse         o----------------------------------+------+--------------+-------------+-------------o  GND  Super Mini
 ```
 
 * **1 kOhm**: begrenzt den Strom hart, im Kurzschlussfall bei 14,4 V auf 13 mA, ein Fünftel der

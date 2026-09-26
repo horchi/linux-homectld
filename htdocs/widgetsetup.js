@@ -321,6 +321,21 @@ function widgetSetup(key, hasp)
                                          )))
 
                   .append($('<div></div>')
+                          .attr('id', 'divButtons')
+                          .append($('<span></span>')
+                                  .html('Buttons'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'buttons')
+                                          .attr('type', 'checkbox')
+                                          .attr('title', 'Auswahl als Button-Feld statt als Liste anzeigen')
+                                          .prop('checked', widget.buttons == true))
+                                  .append($('<label></label>')
+                                          .prop('for', 'buttons')
+                                         )))
+
+                  .append($('<div></div>')
                           .attr('id', 'divLinefeed')
                           .append($('<span></span>')
                                   .html('Zeilenumbruch'))
@@ -388,6 +403,7 @@ function widgetSetup(key, hasp)
       $("#divColor").css("display", [0,1,2,3,4,6,7,8,9,10,11,12,13,14].includes(wType) ? 'flex' : 'none');
       $("#divColorCondition").css("display", [0,2,3,6,7,8,9,10,11,12].includes(wType) ? 'flex' : 'none');
       $("#divLinefeed").css("display", [10].includes(wType) ? 'flex' : 'none');
+      $("#divButtons").css("display", [8].includes(wType) && !hasp ? 'flex' : 'none');
       $("#divRange").css("display", [1,5,6,13].includes(wType) ? 'flex' : 'none');
 
       if ([0,9,12].includes(wType) && $('#symbol').val() == '' && $('#symbolOn').val() == '')
@@ -407,7 +423,7 @@ function widgetSetup(key, hasp)
          // settings without meaning for the HASP panel
 
          ['#divRescale', '#divScalestep', '#divBarWidth', '#divImgon', '#divImgoff', '#divPeak', '#divPeakMin', '#divShowValue',
-          '#divLinefeed', '#divRange', '#divColorCondition'].forEach(function(id) { $(id).css('display', 'none'); });
+          '#divLinefeed', '#divButtons', '#divRange', '#divColorCondition'].forEach(function(id) { $(id).css('display', 'none'); });
          $('#widthfactor, #heightfactor').parent().parent().css('display', 'none');   // the rows 'Breite' and 'Höhe'
       }
    }
@@ -514,11 +530,30 @@ function widgetSetup(key, hasp)
 
          widgetTypeChanged();
 
-         if (hasp)
+         if (hasp) {
             $(".ui-dialog-buttonpane button:contains('Vorschau')").hide();
+            $(".ui-dialog-buttonpane button:contains('Reset')").hide();
+         }
          $(".ui-dialog-buttonpane button:contains('Widget löschen')").attr('style','color:#ff5757');
+         $(".ui-dialog-buttonpane button:contains('Reset')").attr('style','color:#ffa500');
+         $(".ui-dialog-buttonpane button:contains('Reset')").attr('title', 'Alle Einstellungen dieses Widgets verwerfen und auf die Vorgaben des Sensors zurücksetzen, so als wäre es gerade neu zum Dashboard hinzugefügt worden');
       },
       buttons: {
+         'Reset': function () {
+            // reset the widget to its defaults: stored without options the daemon treats
+            // it like a newly added widget and derives the options from the valuefacts
+
+            var json = {};
+            $('#widgetContainer > div').each(function () {
+               var k = $(this).attr('id').substring($(this).attr('id').indexOf("_") + 1);
+               json[k] = k == key ? "" : dashboards[actDashboard].widgets[k];
+            });
+
+            socket.send({ "event" : "storedashboards", "object" : { [actDashboard] : { 'title' : dashboards[actDashboard].title, 'widgets' : json } } });
+            socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'dashboards' } });
+            $(this).dialog('close');
+         },
+
          'Widget löschen': function () {
             if (hasp) {
                hasp.onDelete();
@@ -583,6 +618,7 @@ function widgetSetup(key, hasp)
             widget.showpeak = $("#peak").is(':checked');
             widget.showpeakmin = $("#peakmin").is(':checked');
             widget.showvalue = $("#showvalue").is(':checked');
+            widget.buttons = $("#buttons").is(':checked');
             widget.linefeed = $("#linefeed").is(':checked');
             widget.widthfactor = $("#widthfactor").val();
             widget.heightfactor = $("#heightfactor").val();
@@ -615,6 +651,7 @@ function widgetSetup(key, hasp)
             widget.showpeak = $("#peak").is(':checked');
             widget.showpeakmin = $("#peakmin").is(':checked');
             widget.showvalue = $("#showvalue").is(':checked');
+            widget.buttons = $("#buttons").is(':checked');
             widget.linefeed = $("#linefeed").is(':checked');
             widget.widthfactor = $("#widthfactor").val();
             widget.heightfactor = $("#heightfactor").val();
@@ -671,6 +708,7 @@ function widgetSetup(key, hasp)
             json[key]["showpeak"] = $("#peak").is(':checked');
             json[key]["showpeakmin"] = $("#peakmin").is(':checked');
             json[key]["showvalue"] = $("#showvalue").is(':checked');
+            json[key]["buttons"] = $("#buttons").is(':checked');
             json[key]["linefeed"] = $("#linefeed").is(':checked');
             json[key]["color"] = $("#color").spectrum("get").toRgbString();
             json[key]["colorOn"] = $("#colorOn").spectrum("get").toRgbString();

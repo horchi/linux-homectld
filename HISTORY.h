@@ -24,6 +24,7 @@
              marked (dashed red frame, 'Sensor fehlt' / 'Sensor inaktiv') instead of hidden / empty
     - added: choice widget: option 'Buttons' shows the choices as a wrapping button field instead of a list
     - change: symbol widget: a stale sensor (e.g. ALPICOOL offline) is displayed as 'off' (symbol, color, no animation)
+    - added: config option 'Große Dashboard Symbole' (WEB Interface), the URL parameter 'kiosk' has priority
 
 2026-09-20: version 0.1.27
     - bugfix: restored status sensors of MQTT devices (e.g. TASMOTA via mqtt.d) showed 'on' after a start

@@ -36,6 +36,16 @@ function applyMarquee(el) {
    }
 }
 
+// big dashboard symbols: the URL parameter 'kiosk' has priority, otherwise the config option
+
+function bigDashSymbols()
+{
+   if (kioskMode != null)
+      return parseInt(kioskMode) != 0;
+
+   return config.bigDashSymbols == '1';
+}
+
 function initDashboard(update = false)
 {
    // console.log("initDashboard " + JSON.stringify(allSensors, undefined, 4));
@@ -123,7 +133,7 @@ function initDashboard(update = false)
                                     initDashboard();
                                  }));
 
-      if (kioskMode) {
+      if (bigDashSymbols()) {
          $('#dash'+did).css('font-size', '-webkit-xxx-large');
          $('#dash'+did).css('font-size', 'xxx-large');
       }

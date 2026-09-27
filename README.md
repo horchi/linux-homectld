@@ -499,6 +499,9 @@ kiosk   - start in kiosk mode:
 // 2 - with menu,    big dash symbols,    use kiosk-widget-height-factor
 // 3 - with menu,    big dash symbols,    use normal-widget-height-factor
 
+The big dash symbols can also be enabled permanently by the config option
+'Große Dashboard Symbole' (Setup -> Konfiguration -> WEB Interface), the URL parameter kiosk has priority.
+
 heightFactor
 group
 backTime

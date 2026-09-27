@@ -596,6 +596,8 @@ function dispatchMessage(message)
       prepareMenu();
       if (currentPage == 'setup')
          initConfig();
+      else if (currentPage == 'dashboard' && dashboards[actDashboard] != null)
+         initDashboard();                       // e.g. 'bigDashSymbols' changed
    }
    else if (event == "configdetails" && currentPage == 'setup') {
       initConfig(jMessage.object)

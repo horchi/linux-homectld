@@ -63,6 +63,7 @@ std::list<HomeCtl::ConfigItemDef> HomeCtl::configuration
    { "chartRange",                ctNum,     "1.5",          "N", true,  "WEB Interface", "Chart Range", "" },
    { "chartSensors",              ctNum,     "VA:0x0",       "N", true,  "WEB Interface", "Chart Sensors", "" },
    { "showList",                  ctBool,    "0",            "N", false, "WEB Interface", "Liste anzeigen", "" },
+   { "bigDashSymbols",            ctBool,    "0",            "N", false, "WEB Interface", "Große Dashboard Symbole", "Dashboard-Menü mit großen Symbolen wie im Kiosk-Modus, der URL-Parameter 'kiosk' hat Vorrang" },
    { "windyAppSpotID",            ctComboChoice,   "5247411",      "N", false, "WEB Interface", "Windy App Spot ID", "Spot-ID eingeben oder einen der bisher gespeicherten Spots aus den Vorschlägen wählen (die Namen holt die Oberfläche von Windy), Anleitung zum Ermitteln der Spot-ID siehe README" },
    { "windyAppID",                ctString,  "",             "N", false, "WEB Interface", "Windy App ID", "App-ID einrichten, siehe README" },
 

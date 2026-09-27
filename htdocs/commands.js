@@ -40,8 +40,8 @@ function initCommands()
                                    );
    }
 
-   $("#container").height($(window).height() - $("#menu").height() - 8);
+   $("#container").height($(window).height() - getTotalHeightOf('menu') - 8);
    window.onresize = function() {
-      $("#container").height($(window).height() - $("#menu").height() - 8);
+      $("#container").height($(window).height() - getTotalHeightOf('menu') - 8);
    };
 }

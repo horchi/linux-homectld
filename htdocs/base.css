@@ -57,6 +57,40 @@ button:focus {
     overflow: hidden;
 }
 
+/* iOS home screen app (black-translucent, no viewport-fit=cover): the area behind the status bar
+   is painted with the html background -> menu colour, so it merges with the menu row below */
+
+html
+{
+    background-color: var(--menu);   /* visible behind the iOS status bar only (see index.html.in) ... */
+    height: 100%;
+}
+
+body
+{
+    min-height: 100%;                /* ... the body background covers the whole viewport, also the gap above the footer */
+    box-sizing: border-box;
+}
+
+body.standalone .footer
+{
+    padding-bottom: 7px;             /* clear of the rounded display corners at the very bottom (iOS app) */
+}
+
+/* iOS 27 home screen app: WebKit blurs the scrolling content below the status bar (Liquid Glass edge
+   effect), a fixed element is not affected (verified with a test page, the epgd WEBIF works the same way).
+   So the menu row is fixed at the top, the body gets a top padding of its height (see initFixedMenu()) */
+
+body.standalone .menu
+{
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+}
+
+
 .menu
 {
     display: grid;
@@ -209,17 +243,17 @@ button:focus {
 
 .footer
 {
-    height: 30px;
     position: fixed;
     bottom: 0;
     width: -webkit-fill-available;
     width: -moz-available;
-    padding: 3px;
+    padding: 3px;            /* height by content, same space above and below the text */
     margin: 2px 5px env(safe-area-inset-bottom) 5px;
     background-color: var(--menu);
     display: flex;
     color: white;
     font-size: 12px;
+    line-height: 1;          /* line boxes hug the glyphs, otherwise the font's leading shows up as space above the text (iOS) */
     align-items: center;
 }
 
@@ -233,6 +267,12 @@ button:focus {
 {
     width: -webkit-fill-available;
     width: -moz-available;
+    min-width: 0;            /* may shrink below the text width ... */
+    white-space: nowrap;     /* ... which is then cut with an ellipsis instead of wrapping (keeps the footer height) */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 8px;
+    box-sizing: border-box;
     color: #4d9143;
     font-weight: bold;
     text-align: center;
@@ -242,10 +282,10 @@ button:focus {
 
 .footer :nth-child(4)
 {
-    width: 125px;
+    min-width: 125px;
+    white-space: nowrap;
     text-align: end;
-    padding-right: 5px;
-    padding-top: 3px;
+    padding-right: 12px;     /* clear of the rounded display corner (iOS app) */
 }
 
 .ui-dialog .ui-button-primary {
@@ -1074,6 +1114,11 @@ div.greenCircle
     min-width: 15px !important;
     height: 15px !important;
     align-self: center;
+}
+
+.footer .socketState
+{
+    margin-left: 10px;       /* clear of the rounded display corner (iOS app); overrides the 4px of .greenCircle / .redCircle */
 }
 
 .greenCircle
@@ -3157,7 +3202,7 @@ iPhones
 @media only screen and (max-width:395px)
 {
     .daemonState               { width: 88%; }
-    .menu                      { padding: 0px; margin: 0px; }
+    .menu                      { padding: 0px 0px 3px 0px; margin: 0px; }
     .button1                   { margin-right: 1px; }
     .tabButton                 { padding: 6px 6px 0px 6px; }
     .inputTableConfig > div    { width: 90%; }
@@ -3186,7 +3231,7 @@ iPhones
 @media only screen and (min-width:396px) and (max-width:1080px)
 {
     .daemonState               { width: 88%; }
-    .menu                      { padding: 0px; margin: 0px; }
+    .menu                      { padding: 0px 0px 3px 0px; margin: 0px; }
     .button1                   { margin-right: 1px; }
     .tabButton                 { padding: 6px 6px 0px 6px; }
     .inputTableConfig > div > span:nth-child(3) { width: 25%; }

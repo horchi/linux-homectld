@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.28"
-#define VERSION_DATE "25.09.2026"
+#define _VERSION     "0.1.29"
+#define VERSION_DATE "27.09.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,11 @@
 
 /*
  * ------------------------------------
+
+2026-09-27: version 0.1.29
+    - change: iOS home screen app: status bar 'black-translucent' without viewport-fit=cover / theme-color and the
+              menu fixed at the top (like the epgd WEBIF), which avoids the iOS 27 status bar blur over the menu
+    - change: footer: height by content, single-line status message, clear of the rounded display corners in the iOS app
 
 2026-09-25: version 0.1.28
     - added: widget dialog: button 'Reset' resets the widget's settings to the defaults of the

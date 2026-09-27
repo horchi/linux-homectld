@@ -73,6 +73,8 @@ $('document').ready(function() {
    daemonState.state = -1;
    s3200State.state = -1;
 
+   initFixedMenu();
+
    const urlParams = new URLSearchParams(window.location.search);
    kioskMode = urlParams.get('kiosk');
    heightFactor = urlParams.get('heightFactor');
@@ -2363,6 +2365,25 @@ function fileExist(url)
 function getTotalHeightOf(id)
 {
    return $('#' + id).outerHeight();
+}
+
+// iOS home screen app: the menu is fixed (see base.css), the body padding follows its height
+//  (infoBox, header, rebuilds); the container height calculations subtract the menu height anyway
+
+function initFixedMenu()
+{
+   // navigator.standalone is the iOS specific flag, the media query the standard one
+
+   if (!(navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches))
+      return;
+
+   document.body.classList.add('standalone');
+
+   let menu = document.getElementById('menu');
+   let apply = function() { document.body.style.paddingTop = $(menu).outerHeight(true) + 'px'; };
+
+   new ResizeObserver(apply).observe(menu);
+   apply();
 }
 
 function lNow()

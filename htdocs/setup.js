@@ -400,9 +400,9 @@ function initConfig(configdetails = null)
          setAutoCompleteValues($(this), $(this).data('value').trim().split(','));
    });
 
-   $("#container").height($(window).height() - $("#menu").height() - getTotalHeightOf('footer') - sab - 8);
+   $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('footer') - sab - 8);
    window.onresize = function() {
-      $("#container").height($(window).height() - $("#menu").height() - getTotalHeightOf('footer') - sab - 8);
+      $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('footer') - sab - 8);
    };
 }
 

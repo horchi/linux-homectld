@@ -512,6 +512,13 @@ For example to start in kiosk mode 2
 
 http://your-ip:61109/index.html&kiosk=2
 
+### iOS home screen app
+
+The WEB interface can be added to the iOS home screen (Safari -> share -> 'Add to Home Screen') and runs
+as a standalone app then. The status bar is transparent, the menu row is fixed at the top (since iOS 27
+the status bar blurs scrolling content below it, a fixed element stays sharp). Note: iOS caches the
+page settings per icon, after an update of homectld delete and re-add the icon if the layout looks odd.
+
 ## Fist steps with the WEB interface
 
 ### To enable some sensors

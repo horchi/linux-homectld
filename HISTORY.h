@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.30"
-#define VERSION_DATE "03.10.2026"
+#define _VERSION     "0.1.31"
+#define VERSION_DATE "04.10.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,15 @@
 
 /*
  * ------------------------------------
+
+2026-10-04: version 0.1.31
+    - added: HASP: widget type 'Balance' - horizontal bar with zero in the middle for bipolar values
+             (battery current, grid power): negative to the left (red), positive to the right (green),
+             symmetric scale from 'Skala Max' or asymmetric with a negative 'Skala Min', option 'Richtung tauschen'
+    - added: HASP: widget type 'Timer' (pseudo sensor TIMER:0x01) - countdown of 1..60 minutes running in the
+             panel firmware with the board buzzer as alarm, step buttons (option 'Schritte', default -1 / +1 / +5)
+             and Start-Stop act locally, time display and buttons grow with the card height;
+             needs the firmware 0.7.0.2 (commands custom/timer and custom/beep, update over WLAN with openHASP/ota.sh)
 
 2026-10-03: version 0.1.30
     - change: GPS tours: the tab bar shows only the recording state symbol, the details

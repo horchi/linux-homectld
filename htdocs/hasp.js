@@ -29,6 +29,9 @@ function haspSeedOpts(key)
    if (key.startsWith('TIME:'))
       return { 'widgettype': 11, 'title': 'Uhrzeit' };
 
+   if (key.startsWith('TIMER:'))
+      return { 'widgettype': 17, 'title': 'Timer', 'minutes': 10, 'steps': '-1,1,5' };
+
    for (let did in dashboards) {
       let w = dashboards[did].widgets ? dashboards[did].widgets[key] : null;
       if (w) {
@@ -65,6 +68,8 @@ function haspReducedType(wt)
       case 9: case 12:                  return 9;    // SymbolValue, SymbolText
       case 11:                          return 11;   // Time
       case 15:                          return 15;   // Level
+      case 16:                          return 16;   // Balance
+      case 17:                          return 17;   // Timer
       default:                          return 3;    // Value, Chart, Space, ...
    }
 }
@@ -360,6 +365,7 @@ function haspFillSensorSelect(sel, selected)
    sel.empty();
    sel.append($('<option></option>').val('').html('- leer -'));
    sel.append($('<option></option>').val('TIME:0x01').html('Uhrzeit').attr('selected', selected == 'TIME:0x01'));
+   sel.append($('<option></option>').val('TIMER:0x01').html('Timer').attr('selected', selected == 'TIMER:0x01'));
 
    let jArray = [];
 
@@ -392,7 +398,7 @@ function haspFillSensorSelect(sel, selected)
 
    // keep a configured sensor even if it is not active (anymore)
 
-   if (selected != '' && valueFacts[selected] == null && !selected.startsWith('TIME:'))
+   if (selected != '' && valueFacts[selected] == null && !selected.startsWith('TIME:') && !selected.startsWith('TIMER:'))
       sel.append($('<option></option>').val(selected).html(selected + ' (inaktiv)').attr('selected', true));
 }
 

@@ -51,6 +51,8 @@ namespace
    const int maxCols {3};
    const int maxLineLength {1900};       // MQTT_MAX_PACKET_SIZE of the firmware is 2048
    const int wtHaspLevel {15};           // widget type id of 'Level' (HASP only, see hasp.js / widgetsetup.js)
+   const int wtHaspBalance {16};         // widget type id of 'Balance' (HASP only)
+   const int wtHaspTimer {17};           // widget type id of 'Timer' (HASP only, runs in the panel firmware)
    const int maxGlyphSize {120};         // FreeType sbit cache stores the advance in 8 bit, glyphs >= 128px vanish
 
    const char* colorPage {"#000000"};
@@ -63,6 +65,7 @@ namespace
    const char* colorNeedle {"#f08080"};
    const char* colorCritical {"#ff5757"};
    const char* colorBarBg {"#333333"};
+   const char* colorPositive {"#4caf50"};
 
    // openHASP accepts '#rrggbb' and a few color names; the WEBIF stores
    // also 'rgb(...)' values which the panel can't parse
@@ -197,6 +200,8 @@ const char* HomeCtl::haspWidgetTypeNames[] =
    "Time",
    "Level",
    "Choice",
+   "Balance",
+   "Timer",
    nullptr
 };
 
@@ -214,6 +219,8 @@ int HomeCtl::haspWidgetTypes2Json(json_t* obj)
    json_object_set_new(obj, "Time", json_integer(wtTime));
    json_object_set_new(obj, "Level", json_integer(wtHaspLevel));
    json_object_set_new(obj, "Choice", json_integer(wtChoice));
+   json_object_set_new(obj, "Balance", json_integer(wtHaspBalance));
+   json_object_set_new(obj, "Timer", json_integer(wtHaspTimer));
 
    return done;
 }
@@ -238,6 +245,8 @@ HomeCtl::HaspWidgetType HomeCtl::haspTypeOfDashboardType(int dashboardWidgetType
       case wtSymbolValue:   return hwtSymbolValue;
       case wtSymbolText:    return hwtSymbolValue;
       case wtHaspLevel:     return hwtLevel;
+      case wtHaspBalance:   return hwtBalance;
+      case wtHaspTimer:     return hwtTimer;
       default:              return hwtValue;
    }
 }
@@ -640,6 +649,14 @@ json_t* HomeCtl::haspWidgetDefaults(const char* type, long address)
       {
          json_object_set_new(jDefaults, "title", json_string("Uhrzeit"));
          json_object_set_new(jDefaults, "widgettype", json_integer(wtTime));
+         return jDefaults;
+      }
+
+      if (strcmp(type, "TIMER") == 0)
+      {
+         json_object_set_new(jDefaults, "title", json_string("Timer"));
+         json_object_set_new(jDefaults, "widgettype", json_integer(wtHaspTimer));
+         json_object_set_new(jDefaults, "minutes", json_integer(10));
          return jDefaults;
       }
 
@@ -1274,7 +1291,7 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
       if (tableValueFacts->find())
          titleStr = !tableValueFacts->getValue("USRTITLE")->isEmpty() ? tableValueFacts->getStrValue("USRTITLE") : tableValueFacts->getStrValue("TITLE");
       else
-         titleStr = key;
+         titleStr = tuple[0] == "TIMER" ? "Timer" : tuple[0] == "TIME" ? "Uhrzeit" : key;
 
       tableValueFacts->reset();
    }
@@ -1287,6 +1304,15 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
 
    if (scaleMax <= scaleMin)
       scaleMax = scaleMin + 100;
+
+   if (widgetType == hwtBalance)        // zero must be inside the range, default symmetric
+   {
+      if (scaleMax <= 0)
+         scaleMax = 100;
+
+      if (scaleMin >= 0)
+         scaleMin = -scaleMax;
+   }
 
    std::string valueText {"--"};
 
@@ -1646,6 +1672,191 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
          break;
       }
 
+      case hwtBalance:
+      {
+         // horizontal trough with zero inside (centered for a symmetric scale), the fill grows
+         // from zero to the left (negative, red) or to the right (positive, green); value above,
+         // 5 scale marks below (min, min/2, 0, max/2, max) colored by side
+
+         bool invert {getBoolFromJson(jOpts, "invert", false)};
+         std::string colorNeg {haspColor(getStringFromJson(jOpts, "color", ""), colorCritical)};
+         std::string colorPos {haspColor(getStringFromJson(jOpts, "colorOn", ""), colorPositive)};
+         int troughH {small ? 16 : 22};
+         int labelW {small ? 40 : 56};
+         int labelH {smallFont + 4};
+         int gap {std::clamp((ih - (valueFont + 6) - troughH - labelH) / 2, 0, 6)};   // 4 rows: no room for gaps
+         int total {valueFont + 6 + gap + troughH + gap + labelH};
+         int top {iy + std::max(0, (ih - total) / 2)};
+         int troughX {ix + labelW / 2};
+         int troughW {iw - labelW};
+         int troughY {top + valueFont + 6 + gap};
+         int innerX {2};
+         int innerW {troughW - 4};
+         double range {(double)scaleMax - scaleMin};
+
+         auto xOf = [&](double v) { return innerX + (int)lround((v - scaleMin) / range * innerW); };
+         int zeroX {xOf(0)};
+
+         auto rect = [&](int id, int parent, int x, int y, int w, int h, const char* color, int radius)
+         {
+            json_t* j {haspObj(pageNo, id, "obj", parent, x, y, w, h)};
+            json_object_set_new(j, "bg_color", json_string(color));
+            json_object_set_new(j, "bg_grad_color", json_string(color));
+            json_object_set_new(j, "bg_grad_dir", json_integer(0));
+            json_object_set_new(j, "radius", json_integer(radius));
+            json_object_set_new(j, "border_width", json_integer(0));
+            json_object_set_new(j, "click", json_false());
+            return j;
+         };
+
+         haspPublishJsonl(haspLabel(pageNo, base+3, base, ix, top, iw, valueFont + 6, valueText.c_str(), valueFont, colorText, "center"));
+
+         json_t* jTrough {rect(base+2, base, troughX, troughY, troughW, troughH, colorBarBg, troughH / 2)};
+         json_object_set_new(jTrough, "border_width", json_integer(2));
+         json_object_set_new(jTrough, "border_color", json_string("#545454"));
+         json_object_set_new(jTrough, "clip_corner", json_integer(1));   // style attributes are parsed with atoi, 'true' would be 0
+         haspPublishJsonl(jTrough);
+
+         // the fill is a pill (own radius, the panel does not clip children to the rounded trough),
+         // a square patch of the same color covers its rounding at the zero end
+
+         int fillR {(troughH - 4) / 2};
+         haspPublishJsonl(rect(base+4, base+2, zeroX, innerX, 1, troughH - 4, colorPos.c_str(), fillR));               // fill
+         haspPublishJsonl(rect(base+16, base+2, zeroX, innerX, 1, troughH - 4, colorPos.c_str(), 0));                  // patch
+         haspPublishJsonl(rect(base+5, base, troughX + zeroX - 1, troughY - 3, 2, troughH + 6, colorScale, 0));       // zero mark
+
+         int marks[5] {scaleMin, scaleMin / 2, 0, scaleMax / 2, scaleMax};
+
+         for (int i = 0; i < 5; i++)
+         {
+            int xMark {troughX + xOf(marks[i])};
+            const char* color {marks[i] < 0 ? colorNeg.c_str() : marks[i] > 0 ? colorPos.c_str() : colorScale};
+            char text[30];
+
+            haspPublishJsonl(rect(base+6+i, base, xMark - 1, troughY + troughH + 1, 2, 4, color, 0));
+            snprintf(text, sizeof(text), "%d", marks[i]);
+            haspPublishJsonl(haspLabel(pageNo, base+11+i, base, xMark - labelW / 2, troughY + troughH + gap, labelW, labelH, text, smallFont, color, "center"));
+         }
+
+         ref.valueId = base + 3;
+         ref.extraId = base + 4;
+         ref.patchId = base + 16;
+         ref.fillRadius = fillR;
+         ref.innerX = innerX;
+         ref.innerW = innerW;
+         ref.zeroX = zeroX;
+         ref.invert = invert;
+         ref.colorNeg = colorNeg;
+         ref.colorPos = colorPos;
+         break;
+      }
+
+      case hwtTimer:
+      {
+         // countdown running on the panel itself (firmware command custom/timer, see openHASP/README.md):
+         // mm:ss label (touch = start/stop, long press = reset), progress bar and the buttons
+         // -1 / +1 / +5 minutes / Start-Stop; the buttons call the firmware locally via 'action',
+         // the firmware updates label, bar and button text and beeps when the time is up
+
+         int minutes {std::clamp(getIntFromJson(jOpts, "minutes", 10), 1, 60)};
+         int labelFont {small ? 24 : std::clamp(ih / 3, 40, 72)};       // grows with the card (2 rows)
+         int labelH {labelFont + 8};
+         int barH {small ? 8 : 10};
+         int btnH {std::clamp(ih - labelH - barH - 12, small ? 24 : 36, 80)};
+         int btnFont {small ? smallFont : btnH >= 60 ? 32 : titleFont};
+         int gap {std::clamp((ih - labelH - barH - btnH) / 2, 0, 6)};
+         int total {labelH + gap + barH + gap + btnH};
+         int top {iy + std::max(0, (ih - total) / 2)};
+
+         // the step buttons: option 'steps' ("-1,1,5"), minutes or seconds with suffix 's' ("-30s,30s,5"),
+         // plus the Start/Stop button
+
+         std::vector<int> steps;      // seconds
+
+         for (const auto& s : split(getStringFromJson(jOpts, "steps", "-1,1,5"), ','))
+         {
+            double v {atof(s.c_str())};
+            int sec {(int)lround(s.find('s') != std::string::npos ? v : v * 60)};
+
+            if (sec != 0 && steps.size() < 6)
+               steps.push_back(sec);
+         }
+
+         json_t* jLabel {haspLabel(pageNo, base+2, base, ix, top, iw, labelH, "--:--", labelFont, colorDim, "center")};
+         json_object_set_new(jLabel, "click", json_true());
+         json_object_set_new(jLabel, "action", json_string("{\"up\":\"custom/timer toggle\",\"long\":\"custom/timer reset\"}"));
+         haspPublishJsonl(jLabel);
+
+         json_t* jBar {haspObj(pageNo, base+3, "bar", base, ix, top + labelH + gap, iw, barH)};
+         json_object_set_new(jBar, "min", json_integer(0));
+         json_object_set_new(jBar, "max", json_integer(minutes * 60));
+         json_object_set_new(jBar, "val", json_integer(0));
+         json_object_set_new(jBar, "anim_time", json_integer(300));
+         json_object_set_new(jBar, "click", json_false());
+         json_object_set_new(jBar, "bg_color", json_string(colorBarBg));
+         json_object_set_new(jBar, "bg_grad_color", json_string(colorBarBg));
+         json_object_set_new(jBar, "bg_grad_dir", json_integer(0));
+         json_object_set_new(jBar, "border_width", json_integer(0));
+         json_object_set_new(jBar, "radius", json_integer(barH / 2));
+         json_object_set_new(jBar, "pad_top", json_integer(0));        // the theme padding would leave no room for the indicator
+         json_object_set_new(jBar, "pad_bottom", json_integer(0));
+         json_object_set_new(jBar, "pad_left", json_integer(0));
+         json_object_set_new(jBar, "pad_right", json_integer(0));
+         json_object_set_new(jBar, "bg_color10", json_string(colorFill));
+         json_object_set_new(jBar, "bg_grad_color10", json_string(colorFill));
+         json_object_set_new(jBar, "bg_grad_dir10", json_integer(0));
+         json_object_set_new(jBar, "radius10", json_integer(barH / 2));
+         haspPublishJsonl(jBar);
+
+         int count {(int)steps.size() + 1};
+         int btnW {(iw - (count - 1) * 6) / count};
+         int btnY {top + labelH + gap + barH + gap};
+         int startId {base + 4 + (int)steps.size()};
+
+         for (int i = 0; i < count; i++)
+         {
+            char text[20];
+            char action[60];
+
+            if (i < (int)steps.size())
+            {
+               if (steps[i] % 60 == 0)
+                  snprintf(text, sizeof(text), "%+d", steps[i] / 60);
+               else
+                  snprintf(text, sizeof(text), "%+ds", steps[i]);
+
+               snprintf(action, sizeof(action), "{\"down\":\"custom/timer add %d\"}", steps[i]);
+            }
+            else
+            {
+               strcpy(text, "Start");
+               strcpy(action, "{\"down\":\"custom/timer toggle\"}");
+            }
+
+            json_t* jBtn {haspObj(pageNo, base+4+i, "btn", base, ix + i * (btnW + 6), btnY, btnW, btnH)};
+            json_object_set_new(jBtn, "text", json_string(text));
+            json_object_set_new(jBtn, "text_font", json_integer(btnFont));
+            json_object_set_new(jBtn, "text_color", json_string(colorText));
+            json_object_set_new(jBtn, "bg_color", json_string("#3a3a3a"));
+            json_object_set_new(jBtn, "bg_grad_color", json_string("#3a3a3a"));
+            json_object_set_new(jBtn, "bg_grad_dir", json_integer(0));
+            json_object_set_new(jBtn, "radius", json_integer(4));
+            json_object_set_new(jBtn, "border_width", json_integer(0));
+            json_object_set_new(jBtn, "outline_width", json_integer(0));
+            json_object_set_new(jBtn, "shadow_width", json_integer(0));
+            json_object_set_new(jBtn, "action", json_string(action));
+            haspPublishJsonl(jBtn);
+         }
+
+         // bind the firmware timer to the objects; arrives before the objects (the jsonl messages
+         // are paused), the firmware retries the display until they exist
+
+         char cfg[80];
+         snprintf(cfg, sizeof(cfg), "config %d %d %d %d %d", pageNo, base+2, base+3, startId, minutes * 60);
+         haspPublish("custom/timer", cfg);
+         break;
+      }
+
       case hwtChoice:
       {
          // the choices of the valuefact as button matrix, the current value is the checked
@@ -1867,6 +2078,38 @@ int HomeCtl::haspPublishSensor(const SensorData& sensor)
             haspQueueCommand(obj, withUnit);
             snprintf(obj, sizeof(obj), "p%db%d.text", ref.page, ref.extraId);
             haspQueueCommand(obj, std::to_string((int)lround(pct * 100)) + " %");
+            break;
+         }
+
+         case hwtBalance:
+         {
+            // the fill grows from zero to the position of the value, color by side
+
+            double v {ref.invert ? -sensor.value : sensor.value};
+            double range {ref.scaleMax - ref.scaleMin};
+            int xVal {ref.innerX + (int)lround((std::clamp(v, ref.scaleMin, ref.scaleMax) - ref.scaleMin) / range * ref.innerW)};
+            const std::string& color {v < 0 ? ref.colorNeg : ref.colorPos};
+            int fillX {std::min(xVal, ref.zeroX)};
+            int fillW {std::max(std::abs(xVal - ref.zeroX), 1)};
+            int patchW {std::min(fillW, ref.fillRadius)};
+            int patchX {xVal < ref.zeroX ? ref.zeroX - patchW : ref.zeroX};
+
+            snprintf(obj, sizeof(obj), "p%db%d.x", ref.page, ref.extraId);
+            haspQueueCommand(obj, std::to_string(fillX));
+            snprintf(obj, sizeof(obj), "p%db%d.w", ref.page, ref.extraId);
+            haspQueueCommand(obj, std::to_string(fillW));
+            snprintf(obj, sizeof(obj), "p%db%d.bg_color", ref.page, ref.extraId);
+            haspQueueCommand(obj, color);
+            snprintf(obj, sizeof(obj), "p%db%d.x", ref.page, ref.patchId);
+            haspQueueCommand(obj, std::to_string(patchX));
+            snprintf(obj, sizeof(obj), "p%db%d.w", ref.page, ref.patchId);
+            haspQueueCommand(obj, std::to_string(patchW));
+            snprintf(obj, sizeof(obj), "p%db%d.bg_color", ref.page, ref.patchId);
+            haspQueueCommand(obj, color);
+            snprintf(obj, sizeof(obj), "p%db%d.text", ref.page, ref.valueId);
+            haspQueueCommand(obj, withUnit);
+            snprintf(obj, sizeof(obj), "p%db%d.text_color", ref.page, ref.valueId);
+            haspQueueCommand(obj, sensor.value == 0.0 ? colorText : color);
             break;
          }
 

@@ -1,0 +1,200 @@
+diff --git a/platformio.ini b/platformio.ini
+index d1d6683e..62a0c68d 100644
+--- a/platformio.ini
++++ b/platformio.ini
+@@ -75,7 +75,7 @@ build_flags =
+     ; -- Hasp build options ----------------------------
+     -D HASP_VER_MAJ=0
+     -D HASP_VER_MIN=7
+-    -D HASP_VER_REV=0.1
++    -D HASP_VER_REV=0.2
+     ;-D HASP_VER_REV=0-rc15
+     ;-D HASP_VER_REV=4-rc1
+     ${override.build_flags}
+diff --git a/src/dev/device.h b/src/dev/device.h
+index c6ec426f..579b94ce 100644
+--- a/src/dev/device.h
++++ b/src/dev/device.h
+@@ -98,6 +98,8 @@ class BaseDevice {
+     {
+         return true;
+     }
++    virtual void set_buzzer(bool on) // board buzzer, if any
++    {}
+     virtual size_t get_free_max_block()
+     {
+         return 0;
+diff --git a/src/dev/esp32/esp32.cpp b/src/dev/esp32/esp32.cpp
+index ca0c7ee4..e8ad1aa8 100644
+--- a/src/dev/esp32/esp32.cpp
++++ b/src/dev/esp32/esp32.cpp
+@@ -19,6 +19,42 @@
+ 
+ #include "../../drv/tft/tft_driver.h" // for haspTft
+ 
++/* Backlight controlled by a board MCU / IO expander over I2C instead of a PWM pin
++ * (e.g. Elecrow CrowPanel Advance: STC8H1K28 at 0x30, 0 = brightest .. 245 = off) */
++#if defined(HASP_BACKLIGHT_I2C_ADDR)
++#include <LovyanGFX.hpp>
++#ifndef HASP_BACKLIGHT_I2C_PORT
++#define HASP_BACKLIGHT_I2C_PORT 0
++#endif
++#ifndef HASP_BACKLIGHT_I2C_SDA
++#define HASP_BACKLIGHT_I2C_SDA TOUCH_SDA
++#endif
++#ifndef HASP_BACKLIGHT_I2C_SCL
++#define HASP_BACKLIGHT_I2C_SCL TOUCH_SCL
++#endif
++#ifndef HASP_BACKLIGHT_I2C_FREQUENCY
++#define HASP_BACKLIGHT_I2C_FREQUENCY 100000
++#endif
++#ifndef HASP_BACKLIGHT_I2C_OFF_VALUE
++#define HASP_BACKLIGHT_I2C_OFF_VALUE 245 // value for backlight off, 0 = brightest
++#endif
++#ifndef HASP_BACKLIGHT_I2C_WAKE_CMD
++#define HASP_BACKLIGHT_I2C_WAKE_CMD 250 // "activate touch screen" command of the board MCU
++#endif
++#ifndef HASP_BACKLIGHT_I2C_WAKE_PIN
++#define HASP_BACKLIGHT_I2C_WAKE_PIN 1 // pulsed LOW when the board MCU / touch does not answer
++#endif
++#ifndef HASP_BUZZER_I2C_ON_CMD
++#define HASP_BUZZER_I2C_ON_CMD 246 // buzzer on / off commands of the board MCU (CrowPanel Advance V1.2: 246/247, V1.1: 0x15/0x16)
++#endif
++#ifndef HASP_BUZZER_I2C_OFF_CMD
++#define HASP_BUZZER_I2C_OFF_CMD 247
++#endif
++#ifndef HASP_BACKLIGHT_I2C_TOUCH_ADDR
++#define HASP_BACKLIGHT_I2C_TOUCH_ADDR I2C_TOUCH_ADDRESS
++#endif
++#endif
++
+ #define BACKLIGHT_CHANNEL 0
+ 
+ #if defined(CONFIG_IDF_TARGET_ESP32)
+@@ -109,6 +145,7 @@ Esp32Device::Esp32Device()
+     _backlight_power  = 1;
+     _backlight_level  = 255;
+     _backlight_pin    = 255; // not TFT_BCKL because it is unknown at this stage
++    _backlight_i2c_ready = false;
+ 
+     /* fill unique identifier with wifi mac */
+     byte mac[6];
+@@ -120,6 +157,72 @@ Esp32Device::Esp32Device()
+     }
+ }
+ 
++#if defined(HASP_BACKLIGHT_I2C_ADDR)
++static bool backlight_i2c_probe(uint8_t addr)
++{
++    return lgfx::i2c::transactionWrite(HASP_BACKLIGHT_I2C_PORT, addr, nullptr, 0, HASP_BACKLIGHT_I2C_FREQUENCY)
++        .has_value();
++}
++#endif
++
++void Esp32Device::init()
++{
++#if defined(HASP_BACKLIGHT_I2C_ADDR)
++    /* Same bus as the touch controller; LovyanGFX re-inits it later for the touch, that is harmless */
++    if(!lgfx::i2c::init(HASP_BACKLIGHT_I2C_PORT, HASP_BACKLIGHT_I2C_SDA, HASP_BACKLIGHT_I2C_SCL).has_value()) {
++        LOG_ERROR(TAG_GUI, F("Backlight  : I2C init failed (port %d, sda %d, scl %d)"), HASP_BACKLIGHT_I2C_PORT,
++                  HASP_BACKLIGHT_I2C_SDA, HASP_BACKLIGHT_I2C_SCL);
++        return;
++    }
++
++    /* Wake sequence as used by the vendor demo: retry until board MCU and touch controller answer */
++    for(uint8_t attempt = 0; attempt < 10; attempt++) {
++        if(backlight_i2c_probe(HASP_BACKLIGHT_I2C_ADDR) && backlight_i2c_probe(HASP_BACKLIGHT_I2C_TOUCH_ADDR)) {
++            LOG_VERBOSE(TAG_GUI, F("Backlight  : I2C controller 0x%02x and touch 0x%02x detected"),
++                        HASP_BACKLIGHT_I2C_ADDR, HASP_BACKLIGHT_I2C_TOUCH_ADDR);
++            break;
++        }
++        LOG_WARNING(TAG_GUI, F("Backlight  : I2C controller 0x%02x / touch 0x%02x not answering, waking (%d)"),
++                    HASP_BACKLIGHT_I2C_ADDR, HASP_BACKLIGHT_I2C_TOUCH_ADDR, attempt);
++        backlight_i2c_write(HASP_BACKLIGHT_I2C_WAKE_CMD);
++#if HASP_BACKLIGHT_I2C_WAKE_PIN >= 0
++        pinMode(HASP_BACKLIGHT_I2C_WAKE_PIN, OUTPUT);
++        digitalWrite(HASP_BACKLIGHT_I2C_WAKE_PIN, LOW);
++        delay(120);
++        pinMode(HASP_BACKLIGHT_I2C_WAKE_PIN, INPUT);
++#endif
++        delay(100);
++    }
++
++    _backlight_i2c_ready = true;
++    update_backlight(); // apply initial power/level
++#endif
++}
++
++#if defined(HASP_BACKLIGHT_I2C_ADDR)
++void Esp32Device::backlight_i2c_write(uint8_t value)
++{
++    auto res = lgfx::i2c::transactionWrite(HASP_BACKLIGHT_I2C_PORT, HASP_BACKLIGHT_I2C_ADDR, &value, 1,
++                                           HASP_BACKLIGHT_I2C_FREQUENCY);
++    if(res.has_value()) {
++        LOG_VERBOSE(TAG_GUI, F("Backlight  : I2C 0x%02x <- %d"), HASP_BACKLIGHT_I2C_ADDR, value);
++    } else {
++        LOG_WARNING(TAG_GUI, F("Backlight  : I2C write to 0x%02x failed"), HASP_BACKLIGHT_I2C_ADDR);
++    }
++}
++#else
++void Esp32Device::backlight_i2c_write(uint8_t value)
++{}
++#endif
++
++void Esp32Device::set_buzzer(bool on)
++{
++#if defined(HASP_BACKLIGHT_I2C_ADDR)
++    LOG_INFO(TAG_GUI, F("Buzzer     : %s"), on ? "on" : "off");
++    if(_backlight_i2c_ready) backlight_i2c_write(on ? HASP_BUZZER_I2C_ON_CMD : HASP_BUZZER_I2C_OFF_CMD);
++#endif
++}
++
+ void Esp32Device::reboot()
+ {
+     // esp_sleep_enable_timer_wakeup(50 * 1000);
+@@ -294,6 +397,14 @@ bool Esp32Device::get_backlight_power()
+ 
+ void Esp32Device::update_backlight()
+ {
++#if defined(HASP_BACKLIGHT_I2C_ADDR)
++    if(_backlight_i2c_ready) {
++        uint32_t level = _backlight_power ? _backlight_level : 0;
++        uint8_t value  = HASP_BACKLIGHT_I2C_OFF_VALUE - (level * HASP_BACKLIGHT_I2C_OFF_VALUE) / 255;
++        backlight_i2c_write(value);
++    }
++#endif
++
+     if(_backlight_pin < GPIO_NUM_MAX) {
+ #if !defined(CONFIG_IDF_TARGET_ESP32S2)
+         uint32_t duty = _backlight_power ? map(_backlight_level, 0, 255, 0, 1023) : 0;
+diff --git a/src/dev/esp32/esp32.h b/src/dev/esp32/esp32.h
+index 9fca83f2..a7a0e07a 100644
+--- a/src/dev/esp32/esp32.h
++++ b/src/dev/esp32/esp32.h
+@@ -36,6 +36,7 @@ class Esp32Device : public BaseDevice {
+     Esp32Device();
+ 
+     void reboot() override;
++    void init() override;
+     void show_info() override;
+ 
+     const char* get_core_version();
+@@ -49,6 +50,7 @@ class Esp32Device : public BaseDevice {
+     void set_backlight_power(bool power) override;
+     bool get_backlight_invert() override;
+     bool get_backlight_power() override;
++    void set_buzzer(bool on) override;
+ 
+     size_t get_free_max_block() override;
+     size_t get_free_heap() override;
+@@ -72,8 +74,10 @@ class Esp32Device : public BaseDevice {
+     bool _backlight_pending;
+     bool _backlight_fading;
+     bool _backlight_fade;
++    bool _backlight_i2c_ready;
+ 
+     void update_backlight();
++    void backlight_i2c_write(uint8_t value);
+     static bool cb_backlight(const ledc_cb_param_t *param, void *user_arg);
+     void end_backlight_fade();
+ };

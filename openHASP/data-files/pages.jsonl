@@ -1,0 +1,17 @@
+{"comment":"System-Informationen, eine Seite, keine Bedienelemente, kein MQTT.","skip":true}
+{"comment":"Uhr/Datum: template (strftime). Platzhalter %hostname% %ip% %ssid% %mac% %model% %version% ersetzt openHASP selbst; IP und SSID setzt online.cmd nach dem WLAN-Verbinden erneut (p1b21/p1b22).","skip":true}
+{"page":1,"id":1,"obj":"label","x":20,"y":20,"w":760,"h":40,"text":"System-Informationen","align":"center","text_font":32}
+{"page":1,"id":2,"obj":"label","x":20,"y":85,"w":760,"h":45,"template":"%H:%M:%S","text":"--:--:--","align":"center","text_font":32}
+{"page":1,"id":3,"obj":"label","x":20,"y":135,"w":760,"h":30,"template":"%A, %d. %B %Y","text":"","align":"center","text_font":24}
+{"page":1,"id":100,"obj":"label","x":60,"y":210,"w":240,"h":30,"text":"Hostname:","text_color":"#c0c0c0","text_font":24}
+{"page":1,"id":20,"obj":"label","x":300,"y":210,"w":480,"h":30,"text":"%hostname%","text_font":24}
+{"page":1,"id":101,"obj":"label","x":60,"y":250,"w":240,"h":30,"text":"IP-Adresse:","text_color":"#c0c0c0","text_font":24}
+{"page":1,"id":21,"obj":"label","x":300,"y":250,"w":480,"h":30,"text":"%ip%","text_font":24}
+{"page":1,"id":102,"obj":"label","x":60,"y":290,"w":240,"h":30,"text":"WLAN (SSID):","text_color":"#c0c0c0","text_font":24}
+{"page":1,"id":22,"obj":"label","x":300,"y":290,"w":480,"h":30,"text":"%ssid%","text_font":24}
+{"page":1,"id":103,"obj":"label","x":60,"y":330,"w":240,"h":30,"text":"Hardware-ID:","text_color":"#c0c0c0","text_font":24}
+{"page":1,"id":23,"obj":"label","x":300,"y":330,"w":480,"h":30,"text":"%mac%","text_font":24}
+{"page":1,"id":104,"obj":"label","x":60,"y":370,"w":240,"h":30,"text":"Modell:","text_color":"#c0c0c0","text_font":24}
+{"page":1,"id":24,"obj":"label","x":300,"y":370,"w":480,"h":30,"text":"%model%","text_font":24}
+{"page":1,"id":105,"obj":"label","x":60,"y":410,"w":240,"h":30,"text":"openHASP:","text_color":"#c0c0c0","text_font":24}
+{"page":1,"id":25,"obj":"label","x":300,"y":410,"w":480,"h":30,"text":"%version%","text_font":24}

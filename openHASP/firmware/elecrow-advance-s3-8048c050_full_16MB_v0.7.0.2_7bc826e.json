@@ -1,0 +1,19 @@
+{
+    "name": "openHASP",
+    "version": "v0.7.0.2",
+    "home_assistant_domain": "openhasp",
+    "funding_url": "https://ko-fi.com/openhasp",
+    "new_install_prompt_erase": true,
+    "builds": [
+        {
+            "chipFamily": "ESP32-S3",
+            "improv": false,
+            "parts": [
+                {
+                    "path": "elecrow-advance-s3-8048c050_full_16MB_v0.7.0.2_7bc826e.json",
+                    "offset": 0
+                }
+            ]
+        }
+    ]
+}

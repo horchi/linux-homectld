@@ -48,3 +48,7 @@ __pycache__/
 # generated from htdocs/index.html.in (make)
 htdocs/index.html
 *.gz
+
+# openHASP firmware: upstream clone and PlatformIO venv are created by openHASP/build.sh
+openHASP/src/
+openHASP/venv/

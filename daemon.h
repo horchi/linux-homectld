@@ -500,6 +500,8 @@ class HomeCtl : public cWebInterface, public Service
          hwtTime,           // clock (rendered by the panel itself)
          hwtLevel,          // MDI symbol filled by percentage (tank, gas bottle, battery, ...)
          hwtChoice,         // the choices of the valuefact as button matrix (btnmatrix), touch selects
+         hwtBalance,        // horizontal bar with zero in the middle (charge / discharge, feed in / consumption)
+         hwtTimer,          // countdown running on the panel (firmware custom/timer), alarm by the board buzzer
          hwtCount
       };
 
@@ -523,6 +525,14 @@ class HomeCtl : public cWebInterface, public Service
          double scaleMin {0};      // Level: value range for the percentage
          double scaleMax {100};
          std::vector<std::string> choices;   // Choice: the button texts (index = btnmatrix val)
+         int innerX {0};           // Balance: fill area inside the trough (x, width) and the x of zero
+         int innerW {0};
+         int zeroX {0};
+         int patchId {0};          // Balance: square patch covering the rounding of the fill at zero
+         int fillRadius {0};
+         bool invert {false};      // Balance: mirror the direction (positive values to the left)
+         std::string colorNeg;     // Balance: colors of the negative / positive side
+         std::string colorPos;
       };
 
       static const char* haspWidgetTypeNames[];

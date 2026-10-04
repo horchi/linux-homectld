@@ -277,6 +277,17 @@ small wall or vehicle display. The pages of the panel are configured in the WEBI
   and **Choice** (the choices of the sensor as button matrix, 2 per row up to 4 choices, otherwise 3;
   the current value is the highlighted button in the 'on' color, a touch sends the choice to the
   command topic of the sensor like the dashboard choice widget; without a command topic the selection is reverted)
+  and **Balance** (horizontal bar with zero in the middle for bipolar values like the battery current
+  or the grid power: negative values fill to the left in the first color (default red), positive to the
+  right in the second (default green); *Skala Max* is the full scale, the range is symmetric unless a
+  negative *Skala Min* is given; *Richtung tauschen* mirrors the bar for sensors reporting discharge positive)
+  and **Timer** (pseudo sensor *Timer* in the sensor list: countdown of 1..60 minutes with mm:ss, progress bar
+  and step buttons (*Schritte*, comma separated minutes or seconds with suffix `s`, e.g. `-30s,30s,5,30`,
+  default -1,1,5, up to 6) plus Start-Stop; it runs
+  in the panel firmware and keeps running without WLAN,
+  the board buzzer beeps for a minute when the time is up, any touch on the card stops it; a touch on the
+  time starts/stops, a long press resets to the configured minutes; needs the custom firmware >= 0.7.0.2,
+  see openHASP/README.md)
 - the pages are sent after saving, with the button *An Panel senden* and automatically whenever the panel
   comes online (openHASP forgets objects received via MQTT on reboot)
 - the idle times of the panel (*Leerlauf*, seconds) are set on the same page: after the short one the

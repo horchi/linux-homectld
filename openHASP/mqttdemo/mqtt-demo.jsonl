@@ -1,0 +1,29 @@
+{"comment":"Seite 3 im homectld-Look (dunkles Theme): 4 Karten wie die Dashboard-Widgets. Senden: mosquitto_pub -t hasp/plates/command/jsonl -f mqtt-demo.jsonl","skip":true}
+{"comment":"Farben aus stylesheet-dark.css/dashboard.js: Karte #272727 Radius 3, Text weiss, Ein-Farbe #2177AD, Skala #cccccc, Zeiger #f08080, kritisch #ff5757, Schalter aus #545454 / Knopf #d3d3d3","skip":true}
+{"comment":"--- Karte 1: Temperatur als Linienmesser (val in Zehntel Grad: 214 = 21.4 C, Bereich -20..50 C). Text separat: p3b22.text ---","skip":true}
+{"comment":"Seite selbst = id 0: schwarzer Hintergrund ohne Verlauf; click:false unterdrueckt die p3b0-Meldungen bei Tipp auf freie Flaechen (kostet Wischgesten auf dieser Seite)","skip":true}
+{"page":3,"id":0,"bg_color":"#000000","bg_grad_color":"#000000","bg_grad_dir":0,"click":false}
+{"page":3,"id":10,"obj":"obj","x":10,"y":10,"w":385,"h":225,"bg_color":"#272727","bg_grad_color":"#272727","bg_grad_dir":0,"radius":3,"border_width":0,"click":false}
+{"page":3,"id":11,"parentid":10,"obj":"label","x":10,"y":6,"w":300,"h":30,"text":"Temperatur","text_color":"#ffffff","text_font":24,"click":false}
+{"page":3,"id":21,"parentid":10,"obj":"linemeter","x":15,"y":40,"w":175,"h":175,"min":-200,"max":500,"val":214,"angle":240,"line_count":36,"line_width":6,"bg_opa":0,"border_width":0,"line_color":"#2177AD","scale_grad_color":"#059eeb","scale_end_color":"#545454","click":false}
+{"page":3,"id":22,"parentid":10,"obj":"label","x":200,"y":90,"w":175,"h":45,"text":"21.4 °C","align":"center","text_color":"#ffffff","text_font":32,"click":false}
+{"page":3,"id":23,"parentid":10,"obj":"label","x":200,"y":140,"w":175,"h":30,"text":"Wohnraum","align":"center","text_color":"#a3a3a3","text_font":16,"click":false}
+{"comment":"--- Karte 2: Spannung als Zeigerinstrument (val in Zehntel Volt: 126 = 12.6 V, Skala 10.0..15.0, format 1 = Beschriftung /10, ab 14.5 V rot) ---","skip":true}
+{"page":3,"id":30,"obj":"obj","x":405,"y":10,"w":385,"h":225,"bg_color":"#272727","bg_grad_color":"#272727","bg_grad_dir":0,"radius":3,"border_width":0,"click":false}
+{"page":3,"id":31,"parentid":30,"obj":"label","x":10,"y":6,"w":300,"h":30,"text":"Bordspannung","text_color":"#ffffff","text_font":24,"click":false}
+{"page":3,"id":32,"parentid":30,"obj":"gauge","x":15,"y":40,"w":175,"h":175,"min":100,"max":150,"val":126,"critical_value":145,"format":1,"angle":220,"line_count":26,"label_count":6,"bg_opa":0,"border_width":0,"line_color":"#cccccc","scale_grad_color":"#cccccc","scale_end_color":"#ff5757","line_color20":"#cccccc","scale_grad_color20":"#cccccc","scale_end_color20":"#ff5757","text_color20":"#ffffff","text_font20":12,"line_color10":"#f08080","line_width10":4,"bg_color10":"#f08080","size10":14,"click":false}
+{"page":3,"id":33,"parentid":30,"obj":"label","x":200,"y":90,"w":175,"h":45,"text":"12.6 V","align":"center","text_color":"#ffffff","text_font":32,"click":false}
+{"page":3,"id":34,"parentid":30,"obj":"label","x":200,"y":140,"w":175,"h":30,"text":"Batterie","align":"center","text_color":"#a3a3a3","text_font":16,"click":false}
+{"comment":"--- Karte 3: Frischwasser als Tank (bar) plus Wert als Text ---","skip":true}
+{"page":3,"id":40,"obj":"obj","x":10,"y":245,"w":385,"h":225,"bg_color":"#272727","bg_grad_color":"#272727","bg_grad_dir":0,"radius":3,"border_width":0,"click":false}
+{"page":3,"id":41,"parentid":40,"obj":"label","x":10,"y":6,"w":300,"h":30,"text":"Frischwasser","text_color":"#ffffff","text_font":24,"click":false}
+{"comment":"Tank: senkrechter bar (h > w = vertikal), Rahmen = Tankwand, Fuellung blau von unten, Stutzen als kleines obj. Fuellstand in %: p3b44.val 0..100","skip":true}
+{"page":3,"id":45,"parentid":40,"obj":"obj","x":70,"y":40,"w":40,"h":12,"bg_color":"#a3a3a3","bg_grad_color":"#a3a3a3","bg_grad_dir":0,"radius":3,"border_width":0,"click":false}
+{"page":3,"id":44,"parentid":40,"obj":"bar","x":40,"y":50,"w":100,"h":160,"min":0,"max":100,"val":64,"anim_time":600,"bg_color":"#333333","bg_grad_color":"#333333","bg_grad_dir":0,"border_width":3,"border_color":"#a3a3a3","radius":10,"pad_top":4,"pad_bottom":4,"pad_left":4,"pad_right":4,"bg_color10":"#2177AD","bg_grad_color10":"#059eeb","bg_grad_dir10":1,"radius10":6,"click":false}
+{"page":3,"id":42,"parentid":40,"obj":"label","x":160,"y":85,"w":215,"h":50,"text":"64 l","align":"center","text_color":"#ffffff","text_font":32,"click":false}
+{"page":3,"id":43,"parentid":40,"obj":"label","x":160,"y":140,"w":215,"h":30,"text":"64 % von 100 l","align":"center","text_color":"#a3a3a3","text_font":16,"click":false}
+{"comment":"--- Karte 4: Kuehlschrank. Das MDI-Symbol fridge-variant-outline (U+F15F9, raw UTF-8) ist selbst der Schalter: btn mit toggle, unsichtbarer Hintergrund, Farbe aus = weiss, an (checked, Suffix 01) = #059eeb. Schrift: mdi.ttf per FreeType, text_font mdi_<groesse>. Zustand: p3b52.val 1/0, Ereignis: state/p3b52 ---","skip":true}
+{"comment":"Ohne hochgeladene mdi.ttf stattdessen fridge-outline aus der eingebetteten Schrift: text \\uE28F und text_font 112 (Zahl > 32 = FreeType mit eingebauter TTF).","skip":true}
+{"page":3,"id":50,"click":false,"obj":"obj","x":405,"y":245,"w":385,"h":225,"bg_color":"#272727","bg_grad_color":"#272727","bg_grad_dir":0,"radius":3,"border_width":0,"click":false}
+{"page":3,"id":51,"click":false,"parentid":50,"obj":"label","x":10,"y":6,"w":300,"h":30,"text":"Kuehlschrank","text_color":"#ffffff","text_font":24}
+{"page":3,"id":52,"parentid":50,"obj":"btn","x":112,"y":42,"w":160,"h":175,"toggle":true,"val":1,"text":"󱗹","text_font":"mdi_112","text_color":"#ffffff","text_color01":"#059eeb","text_color02":"#a3a3a3","text_color03":"#2177AD","bg_opa":0,"bg_opa01":0,"bg_opa02":0,"bg_opa03":0,"border_width":0,"outline_width":0,"shadow_width":0,"radius":3}

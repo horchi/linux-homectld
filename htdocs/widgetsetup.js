@@ -45,7 +45,7 @@ function widgetSetup(key, hasp)
                                   .html('Widget'))
                           .append($('<span></span>')
                                   .append($('<select></select>')
-                                          .change(function() {widgetTypeChanged();})
+                                          .change(function() {widgetTypeChanged(true);})
                                           .addClass('rounded-border inputSetting')
                                           .attr('id', 'widgettype')
                                          )))
@@ -351,6 +351,50 @@ function widgetSetup(key, hasp)
                                          )))
 
                   .append($('<div></div>')
+                          .attr('id', 'divMinutes')
+                          .append($('<span></span>')
+                                  .html('Minuten'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'minutes')
+                                          .attr('type', 'number')
+                                          .attr('min', '1')
+                                          .attr('max', '60')
+                                          .attr('step', '1')
+                                          .attr('title', 'Vorgabe des Timers in Minuten (1..60), am Panel mit den Buttons änderbar')
+                                          .val(widget.minutes ? widget.minutes : 10)
+                                         )))
+
+                  .append($('<div></div>')
+                          .attr('id', 'divSteps')
+                          .append($('<span></span>')
+                                  .html('Schritte'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'steps')
+                                          .attr('type', 'search')
+                                          .attr('title', 'Buttons zum Verstellen der Zeit, durch Komma getrennt: Minuten oder Sekunden mit Suffix s, z.B. -30s,30s,5,30 (bis zu 6)')
+                                          .val(widget.steps ? widget.steps : '-1,1,5')
+                                         )))
+
+                  .append($('<div></div>')
+                          .attr('id', 'divInvert')
+                          .append($('<span></span>')
+                                  .html('Richtung tauschen'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'invert')
+                                          .attr('type', 'checkbox')
+                                          .attr('title', 'Positive Werte nach links (Farbe −), negative nach rechts (Farbe +) - für Sensoren, die das Entladen / den Bezug positiv melden. Der Wert selbst wird unverändert angezeigt')
+                                          .prop('checked', widget.invert == true))
+                                  .append($('<label></label>')
+                                          .prop('for', 'invert')
+                                         )))
+
+                  .append($('<div></div>')
                           .attr('id', 'divLinefeed')
                           .append($('<span></span>')
                                   .html('Zeilenumbruch'))
@@ -394,15 +438,15 @@ function widgetSetup(key, hasp)
                                          )))
                  );
 
-   function widgetTypeChanged()
+   function widgetTypeChanged(byUser)
    {
       var wType = parseInt($('#widgettype').val());
 
-      $("#divUnit").css("display", [1,3,4,5,6,9,13,14,15].includes(wType) ? 'flex' : 'none');
+      $("#divUnit").css("display", [1,3,4,5,6,9,13,14,15,16].includes(wType) ? 'flex' : 'none');
       // $("#divFactor").css("display", [1,3,4,6,9,13].includes(wType) ? 'flex' : 'none');
-      $("#divScalemax").css("display", [5,6,14,15].includes(wType) ? 'flex' : 'none');
+      $("#divScalemax").css("display", [5,6,14,15,16].includes(wType) ? 'flex' : 'none');
       $("#divRescale").css("display", [5,6].includes(wType) ? 'flex' : 'none');
-      $("#divScalemin").css("display", [5,6,15].includes(wType) ? 'flex' : 'none');
+      $("#divScalemin").css("display", [5,6,15,16].includes(wType) ? 'flex' : 'none');
       $("#divScalestep").css("display", [5,6].includes(wType) ? 'flex' : 'none');
       $("#divCritmin").css("display", [5,6].includes(wType) ? 'flex' : 'none');
       $("#divCritmax").css("display", [5,6].includes(wType) ? 'flex' : 'none');
@@ -415,17 +459,31 @@ function widgetSetup(key, hasp)
       $("#divImgoff").css("display", ([0,9].includes(wType) && $('#symbol').val() == '') ? 'flex' : 'none');
       $("#divPeak").css("display", [1,3,4,5,6,13].includes(wType) ? 'flex' : 'none');
       $("#divPeakMin").css("display", [1,3,4,5,6,13].includes(wType) ? 'flex' : 'none');
-      $("#divColor").css("display", [0,1,2,3,4,6,7,8,9,10,11,12,13,14].includes(wType) ? 'flex' : 'none');
+      $("#divColor").css("display", [0,1,2,3,4,6,7,8,9,10,11,12,13,14,16].includes(wType) ? 'flex' : 'none');
       $("#divColorCondition").css("display", [0,2,3,6,7,8,9,10,11,12].includes(wType) ? 'flex' : 'none');
       $("#divLinefeed").css("display", [10].includes(wType) ? 'flex' : 'none');
       $("#divButtons").css("display", [8].includes(wType) && !hasp ? 'flex' : 'none');
       $("#divFillRect").css("display", [15].includes(wType) ? 'flex' : 'none');
+      $("#divInvert").css("display", [16].includes(wType) ? 'flex' : 'none');
+      $("#divMinutes").css("display", [17].includes(wType) ? 'flex' : 'none');
+      $("#divSteps").css("display", [17].includes(wType) ? 'flex' : 'none');
       $("#divRange").css("display", [1,5,6,13].includes(wType) ? 'flex' : 'none');
 
       if ([0,9,12].includes(wType) && $('#symbol').val() == '' && $('#symbolOn').val() == '')
          $("#divColor").css("display", 'none');
 
-      if (![0,9,12].includes(wType) || $('#symbolOn').val() == '') {
+      if (wType == 16) {
+         // Balance: the two colors are the negative (left) / positive (right) side
+
+         if (byUser) {
+            $('#color').spectrum('set', '#ff5757');
+            $('#colorOn').spectrum('set', '#4caf50');
+         }
+         $('.spColorOn').css('display', 'flex');
+         $('#spanColor').html("Farbe −, +");
+         $('#colorSpan').css("margin-right", '5px');
+      }
+      else if (![0,9,12].includes(wType) || $('#symbolOn').val() == '') {
          $('.spColorOn').css('display', 'none');
          $('#spanColor').html("Farbe, condition");
       }
@@ -726,6 +784,11 @@ function widgetSetup(key, hasp)
             json[key]["showvalue"] = $("#showvalue").is(':checked');
             json[key]["buttons"] = $("#buttons").is(':checked');
             json[key]["fillrect"] = $("#fillrect").is(':checked');
+            json[key]["invert"] = $("#invert").is(':checked');
+            if ($("#minutes").length)
+               json[key]["minutes"] = parseInt($("#minutes").val()) || 10;
+            if ($("#steps").length)
+               json[key]["steps"] = $("#steps").val();
             json[key]["linefeed"] = $("#linefeed").is(':checked');
             json[key]["color"] = $("#color").spectrum("get").toRgbString();
             json[key]["colorOn"] = $("#colorOn").spectrum("get").toRgbString();

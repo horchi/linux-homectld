@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.29"
-#define VERSION_DATE "27.09.2026"
+#define _VERSION     "0.1.30"
+#define VERSION_DATE "03.10.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,45 @@
 
 /*
  * ------------------------------------
+
+2026-10-03: version 0.1.30
+    - change: GPS tours: the tab bar shows only the recording state symbol, the details
+              (distance, points) moved behind 'aktiv' / 'pausiert' in the head of the tour
+    - change: GPS tours: mdi icons for the 'Live' / 'Touren' buttons, the tool bar looks like the dashboard
+              menu (background, button size with the big dashboard symbols / kiosk) instead of its own style by display width
+    - added: GPS tours: each stored point is pushed to the WEBIF ('gpstourpoint' with distance and
+             points), the tour list / head / map update per point; the map of the tour being recorded
+             grows with the points and can optionally follow the position (button like the live view)
+    - change: GPS tours: the tour map no longer re-fetches all points on state changes, only the events
+    - added: WEBIF reloads itself after an update: index.html carries a build id (meta 'webif-build',
+             genindex.sh), the page compares it with the server's index.html on every socket connect;
+             iOS home screen apps kept the old start page from their own cache, even after a force quit
+    - change: index.html: home screen icon also as 'apple-touch-icon' (the 'precomposed' variant is deprecated),
+              switched with the instance icon like the favicon
+    - bugfix: HASP: the objects of a card are sent in one jsonl message with a pause between the messages;
+              one message per object overran the receive queue of the panel (64), cards were missing now and then
+    - bugfix: HASP: CSS color names of the widget settings (e.g. 'green', 'gray' of older dashboard widgets)
+              were not understood, the panel showed the default colors (blue for 'on')
+    - added: HASP: idle times of the panel (dim / display off) on the HASP setup page, sent with the pages
+    - bugfix: script sensors: a 'title' reported by a script replaced the script name in the valuefact,
+              the script could not be called any more ('scripts.d/<title>: not found')
+    - added: script sensor dvb-signal.sh: switch which monitors the DVB signal (dvb-fe-tool --femon) about
+             once per second for aligning the dish, lock / level / C/N as text of the widget
+    - change: setup: the sensor filter of the HASP page is kept for the session, the signal filter of the Wifi page permanently
+    - change: HASP: Level widget: the fill refers to the drawn height of the symbol (glyph bounds from the
+              MDI font; a drop looked full at 83 %), option 'Füllung als Fläche' fills a rectangle behind
+              frame symbols without a filled variant (e.g. mdi-crop-landscape as a tank)
+    - added: HASP: widget type 'Choice' (button matrix of the choices of the sensor, the current value is
+             highlighted, a touch sends the choice to the command topic like the dashboard choice widget)
+    - bugfix: HASP: touch on a symbol of a sensor with a MQTT command topic (e.g. KENWOOD, VICTRON) was
+              ignored as 'not controllable', it is switched via the topic now like from the WEBIF
+    - added: GPS: view 'Tankstopps' (gas station icon): all fuel stops of all tours, fuel stops can be
+             entered outside of a tour (with date / time), consumption from full tank to full tank
+             across the tours and the average over all fills
+    - change: GPS tours: the consumption chain of a tour starts at the last full tank before the tour
+              (any tour or standalone), the odometer of the tour start is used only without one ('ab Tour-Start');
+              the tour details show date and odometer of that full tank
+    - bugfix: GPS live map: following stopped itself after the first automatic pan
 
 2026-09-27: version 0.1.29
     - change: iOS home screen app: status bar 'black-translucent' without viewport-fit=cover / theme-color and the

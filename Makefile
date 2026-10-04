@@ -106,8 +106,8 @@ $(I2CTARGET): $(I2COBJS)
 # light install
 
 linstall: $(TARGET) $(W1TARGET) $(BMSTARGET) $(VOTROTARGET) $(VICTRONTARGET) $(I2CTARGET)
-	make install-daemon
-	make install-web
+	$(MAKE) install-daemon
+	$(MAKE) install-web
 
 # install the build / runtime dependencies (apt, libgpiod / libwebsockets from source if the
 # distribution's version is too old), the optional parts according to the switches in Make.user
@@ -123,12 +123,12 @@ config:
 # super light install - only the daemon itself
 
 slinstall: $(TARGET)
-	make install-daemon
+	$(MAKE) install-daemon
 
 # install all
 
 install:  linstall
-	make install-systemd
+	$(MAKE) install-systemd
    ifdef MOPEKA
 	   (cd mopeka; $(MAKE) install)
    endif

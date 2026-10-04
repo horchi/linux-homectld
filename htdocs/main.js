@@ -174,6 +174,7 @@ function connectWebSocket(useUrl, protocol)
          console.log("socket opened " + socket.protocol);
          if (isActive === null)     // wurde beim Schliessen auf null gesetzt
             onSocketConnect(protocol);
+         checkWebifUpdate('connect');
       }, onclose: function () {
          isActive = null;           // auf null setzen, damit ein neues login aufgerufen wird
       }, onmessage: function (msg) {
@@ -183,6 +184,84 @@ function connectWebSocket(useUrl, protocol)
 
    if (!socket)
       return !($el.innerHTML = "Your Browser will not support Websockets!");
+}
+
+//***************************************************************************
+// WEBIF update check
+//   index.html is delivered 'no-store' and references the assets by content hash,
+//   but iOS keeps the start page of a home screen app in its own cache: the old page
+//   with the old asset URLs comes up, even after a force quit. So the page compares
+//   its build (meta 'webif-build', set by htdocs/genindex.sh) with the current
+//   index.html on every socket connect (page load, reconnect after a daemon restart
+//   or a network change) and reloads itself on a difference. If the plain reload
+//   delivers the old page again, the second attempt navigates to a fresh URL
+//   (query 'r=<build>').
+//   Note: no check on 'visibilitychange' / 'pageshow' - a reload in the moment iOS
+//   reads the page for 'Add to Home Screen' left the icon without the logo.
+//***************************************************************************
+
+var webifBuild = $('meta[name="webif-build"]').attr('content') || '';
+var webifCheckedAt = 0;
+
+function checkWebifUpdate(reason)
+{
+   if (!webifBuild || !window.fetch)
+      return;
+
+   let now = Date.now();
+
+   if (now - webifCheckedAt < 30000)     // not more often than every 30 seconds
+      return;
+
+   webifCheckedAt = now;
+
+   fetch(window.location.pathname + '?_=' + now, { cache: 'no-store' })
+      .then(response => response.ok ? response.text() : '')
+      .then(html => {
+         let match = html.match(/name="webif-build" content="([0-9a-f]+)"/);
+
+         if (!match)
+            return;
+
+         if (match[1] != webifBuild)
+            reloadWebif(match[1], reason);
+         else {
+            localStorage.removeItem(storagePrefix + 'webifReload');   // up to date, forget the attempts
+
+            // drop the 'r' of a fallback reload from the URL (iOS stores the URL with a home screen icon)
+
+            let url = new URL(window.location.href);
+
+            if (url.searchParams.has('r')) {
+               url.searchParams.delete('r');
+               window.history.replaceState(null, '', url.toString());
+            }
+         }
+      })
+      .catch(() => {});
+}
+
+function reloadWebif(build, reason)
+{
+   let key = storagePrefix + 'webifReload';
+   let state = JSON.parse(localStorage.getItem(key) || '{}');
+   let attempts = state.build == build ? state.attempts : 0;
+
+   if (attempts >= 2) {
+      console.log("WEBIF update " + webifBuild + " -> " + build + " pending, the reload failed twice");
+      return;
+   }
+
+   console.log("WEBIF update " + webifBuild + " -> " + build + " (" + reason + "), reloading, attempt " + (attempts + 1));
+   localStorage.setItem(key, JSON.stringify({ build: build, attempts: attempts + 1 }));
+
+   if (attempts == 0)
+      window.location.reload();
+   else {
+      let url = new URL(window.location.href);
+      url.searchParams.set('r', build);
+      window.location.replace(url.toString());
+   }
 }
 
 function daemonStateDlg()
@@ -694,8 +773,14 @@ function dispatchMessage(message)
    else if (event == "gpstourpoints") {
       processGpsTourPoints(jMessage.object);
    }
+   else if (event == "gpstourpoint") {
+      processGpsTourPoint(jMessage.object);
+   }
    else if (event == "gpstourevents") {
       processGpsTourEvents(jMessage.object);
+   }
+   else if (event == "gpsfuellist") {
+      processGpsFuelList(jMessage.object);
    }
    else if (event == "gpstourstopinfo") {
       gpsStopDialog(jMessage.object);
@@ -868,12 +953,14 @@ function prepareMenu()
 
    addMainMenuButton('Dash', 'dashboard', true);
    addMainMenuButton('List', 'list', config.showList == '1');
-   addMainMenuButton('Charts', 'chart');
    addMainMenuButton('Map', 'gpslive', gpsAvailable());
    addMainMenuButton('Garmin', 'activities', config.garminAvailable == '1');
+
    addMainMenuButton('Schema', 'schema', config.schema);
    addMainMenuButton('Music', 'lmc', config.lmcHost != '');
    addMainMenuButton('VDR', 'vdr', config.vdr != '');
+   addMainMenuButton('Charts', 'chart');
+
    // addMainMenuButton('Service Menü', 'menu');
    // addMainMenuButton('Fehler', 'errors');
    // addMainMenuButton('Pellets', 'pellets', localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x02);
@@ -1289,7 +1376,7 @@ function showDatabaseStatistic(statistic)
       .addClass('setupContainer');
 }
 
-var lastWifiStrengthFilter = null;
+var lastWifiStrengthFilter = localStorage.getItem(storagePrefix + 'wifiBarsFilter');   // the level filter survives the session
 
 function showWifiList()
 {
@@ -1380,6 +1467,7 @@ function updateWifiList()
       let barCount = getBarCount(wifi.bars);
       // let selectedBars = $('#wifiBarsFilter').val();
       lastWifiStrengthFilter = $('#wifiBarsFilter').val();
+      localStorage.setItem(storagePrefix + 'wifiBarsFilter', lastWifiStrengthFilter);
 
       console.log("Check filter:", wifi.network, 'with', barCount, "by", lastWifiStrengthFilter, '::', wifi.bars);
 
@@ -2397,6 +2485,7 @@ function changeFavicon(src)
    src = 'img/' + src;
    $('link[rel="shortcut icon"]').attr('href', src)
    $('link[rel="icon"]').attr('href', src)
+   $('link[rel="apple-touch-icon"]').attr('href', src)
    $('link[rel="apple-touch-icon-precomposed"]').attr('href', src)
 }
 

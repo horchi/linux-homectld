@@ -67,6 +67,28 @@ namespace
    // openHASP accepts '#rrggbb' and a few color names; the WEBIF stores
    // also 'rgb(...)' values which the panel can't parse
 
+   // the widget colors come from the dashboard settings: '#rrggbb', 'rgb(r, g, b)', 'rgba(...)'
+   // or a CSS color name (older settings, e.g. 'green', 'gray'); the panel wants '#rrggbb'
+
+   const std::map<std::string,const char*> cssColors
+   {
+      { "white", "#ffffff" }, { "black", "#000000" }, { "gray", "#808080" }, { "grey", "#808080" },
+      { "silver", "#c0c0c0" }, { "lightgray", "#d3d3d3" }, { "lightgrey", "#d3d3d3" }, { "darkgray", "#a9a9a9" },
+      { "darkgrey", "#a9a9a9" }, { "dimgray", "#696969" }, { "dimgrey", "#696969" },
+      { "red", "#ff0000" }, { "darkred", "#8b0000" }, { "crimson", "#dc143c" }, { "tomato", "#ff6347" },
+      { "orangered", "#ff4500" }, { "coral", "#ff7f50" }, { "salmon", "#fa8072" }, { "pink", "#ffc0cb" },
+      { "hotpink", "#ff69b4" }, { "magenta", "#ff00ff" }, { "fuchsia", "#ff00ff" }, { "violet", "#ee82ee" },
+      { "purple", "#800080" }, { "indigo", "#4b0082" }, { "blue", "#0000ff" }, { "darkblue", "#00008b" },
+      { "navy", "#000080" }, { "royalblue", "#4169e1" }, { "dodgerblue", "#1e90ff" }, { "deepskyblue", "#00bfff" },
+      { "skyblue", "#87ceeb" }, { "lightblue", "#add8e6" }, { "steelblue", "#4682b4" }, { "cyan", "#00ffff" },
+      { "aqua", "#00ffff" }, { "turquoise", "#40e0d0" }, { "teal", "#008080" }, { "green", "#008000" },
+      { "darkgreen", "#006400" }, { "forestgreen", "#228b22" }, { "seagreen", "#2e8b57" }, { "limegreen", "#32cd32" },
+      { "lime", "#00ff00" }, { "lightgreen", "#90ee90" }, { "springgreen", "#00ff7f" }, { "olive", "#808000" },
+      { "yellow", "#ffff00" }, { "lightyellow", "#ffffe0" }, { "gold", "#ffd700" }, { "khaki", "#f0e68c" },
+      { "orange", "#ffa500" }, { "darkorange", "#ff8c00" }, { "brown", "#a52a2a" }, { "maroon", "#800000" },
+      { "chocolate", "#d2691e" }, { "tan", "#d2b48c" }, { "wheat", "#f5deb3" }, { "beige", "#f5f5dc" }
+   };
+
    std::string haspColor(const char* color, const char* def)
    {
       if (isEmpty(color))
@@ -76,13 +98,25 @@ namespace
          return color;
 
       int r {0}, g {0}, b {0};
+      float a {0};
 
-      if (sscanf(color, "rgb(%d, %d, %d)", &r, &g, &b) == 3 || sscanf(color, "rgb(%d,%d,%d)", &r, &g, &b) == 3)
+      if (sscanf(color, "rgb(%d, %d, %d)", &r, &g, &b) == 3 || sscanf(color, "rgb(%d,%d,%d)", &r, &g, &b) == 3
+          || sscanf(color, "rgba(%d, %d, %d, %f)", &r, &g, &b, &a) == 4 || sscanf(color, "rgba(%d,%d,%d,%f)", &r, &g, &b, &a) == 4)
       {
          char hex[10];
          snprintf(hex, sizeof(hex), "#%02x%02x%02x", r & 0xff, g & 0xff, b & 0xff);
          return hex;
       }
+
+      std::string name {color};
+      std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+
+      auto it = cssColors.find(name);
+
+      if (it != cssColors.end())
+         return it->second;
+
+      tell(eloDetail, "HASP: Unknown color '%s', using default", color);
 
       return def;
    }
@@ -162,6 +196,7 @@ const char* HomeCtl::haspWidgetTypeNames[] =
    "SymbolValue",
    "Time",
    "Level",
+   "Choice",
    nullptr
 };
 
@@ -178,6 +213,7 @@ int HomeCtl::haspWidgetTypes2Json(json_t* obj)
    json_object_set_new(obj, "MeterLevel", json_integer(wtMeterLevel));
    json_object_set_new(obj, "Time", json_integer(wtTime));
    json_object_set_new(obj, "Level", json_integer(wtHaspLevel));
+   json_object_set_new(obj, "Choice", json_integer(wtChoice));
 
    return done;
 }
@@ -197,7 +233,7 @@ HomeCtl::HaspWidgetType HomeCtl::haspTypeOfDashboardType(int dashboardWidgetType
       case wtChartBar:      return hwtMeterLevel;
       case wtText:          return hwtText;
       case wtPlainText:     return hwtText;
-      case wtChoice:        return hwtText;
+      case wtChoice:        return hwtChoice;
       case wtTime:          return hwtTime;
       case wtSymbolValue:   return hwtSymbolValue;
       case wtSymbolText:    return hwtSymbolValue;
@@ -306,6 +342,233 @@ int HomeCtl::haspLoadMdiCodepoints()
    free(path);
 
    return done;
+}
+
+//***************************************************************************
+// MDI Glyph Bounds
+//   the drawn area of a glyph (em units, y up from the baseline) from the glyf table of
+//   the MDI TTF, for the Level widget: the fill refers to the drawn height of the symbol,
+//   not to the glyph cell (a drop fills only ~75 % of its cell). All glyphs advance 1 em.
+//***************************************************************************
+
+namespace
+{
+   struct MdiBounds { double xMin {0}; double yMin {0}; double xMax {0}; double yMax {0}; };
+
+   std::map<uint32_t,MdiBounds> mdiBounds;
+   double mdiAscender {0.875};       // hhea ascender [em], the text top is this above the baseline
+   bool mdiBoundsLoaded {false};
+
+   uint16_t be16(const unsigned char* p) { return (p[0] << 8) | p[1]; }
+   uint32_t be32(const unsigned char* p) { return ((uint32_t)p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]; }
+
+   bool loadMdiBounds(const char* httpPath)
+   {
+      if (mdiBoundsLoaded)
+         return !mdiBounds.empty();
+
+      mdiBoundsLoaded = true;
+
+      char* path {};
+      asprintf(&path, "%s/mds/fonts/materialdesignicons-webfont.ttf", httpPath);
+      std::ifstream file(path, std::ios::binary);
+
+      if (!file.is_open())
+      {
+         tell(eloAlways, "Error: HASP: Can't open '%s' for the glyph bounds", path);
+         free(path);
+         return false;
+      }
+
+      std::string data {std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+      const unsigned char* d {(const unsigned char*)data.data()};
+      size_t len {data.size()};
+      std::map<std::string,std::pair<uint32_t,uint32_t>> tables;   // tag -> offset, length
+
+      if (len < 12)
+      {
+         free(path);
+         return false;
+      }
+
+      uint16_t numTables {be16(d + 4)};
+
+      for (uint16_t i = 0; i < numTables && 12 + 16 * (size_t)i + 16 <= len; i++)
+      {
+         const unsigned char* r {d + 12 + 16 * i};
+         tables[std::string((const char*)r, 4)] = { be32(r + 8), be32(r + 12) };
+      }
+
+      for (const char* tag : { "head", "hhea", "cmap", "loca", "glyf" })
+      {
+         if (!tables.count(tag) || tables[tag].first + tables[tag].second > len)
+         {
+            tell(eloAlways, "Error: HASP: Table '%s' missing in '%s'", tag, path);
+            free(path);
+            return false;
+         }
+      }
+
+      uint32_t head {tables["head"].first};
+      double unitsPerEm {(double)be16(d + head + 18)};
+      bool longLoca {(int16_t)be16(d + head + 50) != 0};
+      uint32_t hhea {tables["hhea"].first};
+      mdiAscender = (int16_t)be16(d + hhea + 4) / unitsPerEm;
+
+      uint32_t loca {tables["loca"].first};
+      uint32_t locaLen {tables["loca"].second};
+      uint32_t glyf {tables["glyf"].first};
+      uint32_t glyfLen {tables["glyf"].second};
+
+      auto boundsOf = [&](uint32_t gid, MdiBounds& b) -> bool
+      {
+         uint32_t a {0}, e {0};
+
+         if (longLoca)
+         {
+            if ((gid + 1) * 4 + 4 > locaLen) return false;
+            a = be32(d + loca + gid * 4);
+            e = be32(d + loca + gid * 4 + 4);
+         }
+         else
+         {
+            if ((gid + 1) * 2 + 2 > locaLen) return false;
+            a = be16(d + loca + gid * 2) * 2;
+            e = be16(d + loca + gid * 2 + 2) * 2;
+         }
+
+         if (e <= a || e - a < 10 || e > glyfLen)
+            return false;
+
+         const unsigned char* g {d + glyf + a};
+         const unsigned char* gEnd {d + glyf + e};
+         int16_t contours {(int16_t)be16(g)};
+
+         // the bbox of the glyph header is not reliable in this font (xMin 0 and the same xMax for
+         // many glyphs), so the extents are taken from the outline points of the simple glyphs;
+         // the header is the fallback for composite glyphs
+
+         b.xMin = (int16_t)be16(g + 2) / unitsPerEm;
+         b.yMin = (int16_t)be16(g + 4) / unitsPerEm;
+         b.xMax = (int16_t)be16(g + 6) / unitsPerEm;
+         b.yMax = (int16_t)be16(g + 8) / unitsPerEm;
+
+         if (contours <= 0)
+            return true;
+
+         const unsigned char* p {g + 10};
+
+         if (p + 2 * contours + 2 > gEnd)
+            return true;
+
+         uint16_t points {(uint16_t)(be16(p + 2 * (contours - 1)) + 1)};
+         p += 2 * contours;
+         p += 2 + be16(p);                          // instructions
+
+         std::vector<uint8_t> flags;
+
+         while (flags.size() < points && p < gEnd)
+         {
+            uint8_t f {*p++};
+            flags.push_back(f);
+
+            if ((f & 0x08) && p < gEnd)
+            {
+               uint8_t repeat {*p++};
+
+               for (uint8_t r = 0; r < repeat && flags.size() < points; r++)
+                  flags.push_back(f);
+            }
+         }
+
+         if (flags.size() < points)
+            return true;
+
+         int v {0};
+         int xMin {INT_MAX}, xMax {INT_MIN}, yMin {INT_MAX}, yMax {INT_MIN};
+
+         for (uint8_t f : flags)                    // x coordinates (deltas)
+         {
+            if (f & 0x02)
+            {
+               if (p >= gEnd) return true;
+               v += (f & 0x10) ? *p : -(int)*p;
+               p++;
+            }
+            else if (!(f & 0x10))
+            {
+               if (p + 2 > gEnd) return true;
+               v += (int16_t)be16(p);
+               p += 2;
+            }
+
+            xMin = std::min(xMin, v);
+            xMax = std::max(xMax, v);
+         }
+
+         v = 0;
+
+         for (uint8_t f : flags)                    // y coordinates (deltas)
+         {
+            if (f & 0x04)
+            {
+               if (p >= gEnd) return true;
+               v += (f & 0x20) ? *p : -(int)*p;
+               p++;
+            }
+            else if (!(f & 0x20))
+            {
+               if (p + 2 > gEnd) return true;
+               v += (int16_t)be16(p);
+               p += 2;
+            }
+
+            yMin = std::min(yMin, v);
+            yMax = std::max(yMax, v);
+         }
+
+         b.xMin = xMin / unitsPerEm;
+         b.yMin = yMin / unitsPerEm;
+         b.xMax = xMax / unitsPerEm;
+         b.yMax = yMax / unitsPerEm;
+
+         return true;
+      };
+
+      // cmap format 12 (the MDI codepoints are above U+FFFF)
+
+      uint32_t cmap {tables["cmap"].first};
+      uint16_t subTables {be16(d + cmap + 2)};
+
+      for (uint16_t i = 0; i < subTables; i++)
+      {
+         uint32_t sub {cmap + be32(d + cmap + 4 + 8 * i + 4)};
+
+         if (sub + 16 > len || be16(d + sub) != 12)
+            continue;
+
+         uint32_t groups {be32(d + sub + 12)};
+
+         for (uint32_t gr = 0; gr < groups && sub + 16 + 12 * (size_t)gr + 12 <= len; gr++)
+         {
+            const unsigned char* r {d + sub + 16 + 12 * gr};
+            uint32_t start {be32(r)}, end {be32(r + 4)}, gid {be32(r + 8)};
+
+            for (uint32_t cp = start; cp <= end && cp - start < 0x10000; cp++)
+            {
+               MdiBounds b;
+
+               if (boundsOf(gid + (cp - start), b))
+                  mdiBounds[cp] = b;
+            }
+         }
+      }
+
+      tell(eloDetail, "HASP: Loaded the bounds of %zu MDI glyphs from '%s' (ascender %.3f em)", mdiBounds.size(), path, mdiAscender);
+      free(path);
+
+      return !mdiBounds.empty();
+   }
 }
 
 //***************************************************************************
@@ -522,6 +785,14 @@ int HomeCtl::haspPages2Json(json_t* obj)
    json_object_set_new(obj, "widgettypes", oTypes);
    json_object_set_new(obj, "topic", json_string(haspMqttTopic.c_str()));
 
+   int idleShort {0};
+   int idleLong {0};
+
+   getConfigItem("haspIdleShort", idleShort, 0);
+   getConfigItem("haspIdleLong", idleLong, 0);
+   json_object_set_new(obj, "idleShort", json_integer(idleShort));
+   json_object_set_new(obj, "idleLong", json_integer(idleLong));
+
    return done;
 }
 
@@ -595,6 +866,13 @@ int HomeCtl::storeHaspPages(json_t* obj, long client)
       {
          if (!json_is_object(jPage))
             continue;
+
+         if (strcmp(pageIdStr, "config") == 0)      // the idle times of the panel (HASP setup page)
+         {
+            setConfigItem("haspIdleShort", (long)std::max(getIntFromJson(jPage, "idleShort", 0), 0));
+            setConfigItem("haspIdleLong", (long)std::max(getIntFromJson(jPage, "idleLong", 0), 0));
+            continue;
+         }
 
          long pageId {atol(pageIdStr)};
          const char* pageAction {getStringFromJson(jPage, "action", "store")};
@@ -744,7 +1022,7 @@ int HomeCtl::storeHaspPages(json_t* obj, long client)
    if (status == fail)
       return replyResult(fail, client, "Konfiguration gespeichert, Senden an das Panel fehlgeschlagen (MQTT nicht verbunden?)");
 
-   return replyResult(success, client, "Konfiguration gespeichert");
+   return replyResult(success, client, status == ignore ? "Konfiguration gespeichert (kein Panel konfiguriert)" : "Konfiguration gespeichert und an das Panel gesendet");
 }
 
 //***************************************************************************
@@ -769,18 +1047,44 @@ int HomeCtl::haspPublish(const char* command, const char* payload)
    return mqttWriter->write(topic.c_str(), payload);
 }
 
+// the objects are collected into jsonl messages of up to maxLineLength bytes (the firmware
+//  takes several lines per message) and sent with a pause: the panel queues incoming
+//  messages (64) and drops them when the queue is full for 500 ms - with one message
+//  per object a page set of ~100 objects lost cards now and then. jObj nullptr -> flush
+
+namespace
+{
+   std::string haspJsonlBatch;
+}
+
 int HomeCtl::haspPublishJsonl(json_t* jObj)
 {
-   char* line {json_dumps(jObj, JSON_COMPACT | JSON_REAL_PRECISION(2))};
-   json_decref(jObj);
+   int status {success};
 
-   if ((int)strlen(line) > maxLineLength)
-      tell(eloAlways, "Warning: HASP: jsonl line exceeds %d bytes, the panel will truncate it [%s]", maxLineLength, line);
+   if (jObj)
+   {
+      char* line {json_dumps(jObj, JSON_COMPACT | JSON_REAL_PRECISION(2))};
+      json_decref(jObj);
 
-   int status {haspPublish("jsonl", line)};
-   free(line);
+      if ((int)strlen(line) > maxLineLength)
+         tell(eloAlways, "Warning: HASP: jsonl line exceeds %d bytes, the panel will truncate it [%s]", maxLineLength, line);
 
-   usleep(3000);   // be gentle with the panel, it handles one message per loop
+      if (!haspJsonlBatch.empty() && (int)(haspJsonlBatch.size() + strlen(line) + 1) > maxLineLength)
+         status = haspPublishJsonl(nullptr);     // full -> send what we have
+
+      haspJsonlBatch += line;
+      haspJsonlBatch += "\n";
+      free(line);
+
+      return status;
+   }
+
+   if (haspJsonlBatch.empty())
+      return success;
+
+   status = haspPublish("jsonl", haspJsonlBatch.c_str());
+   haspJsonlBatch.clear();
+   usleep(25000);   // be gentle with the panel, it handles one message per loop
 
    return status;
 }
@@ -863,8 +1167,26 @@ int HomeCtl::haspSendPages()
       json_decref(pages[i].widgets);
    }
 
+   haspPublishJsonl(nullptr);
+
    if (count)
       haspPublish("page", "1");
+
+   // the idle times (config 'haspIdleShort' / 'haspIdleLong'): short -> the panel dims (its
+   // script idle_short.cmd), long -> display off (idle_long.cmd); both 0 -> the panel keeps its own
+
+   int idleShort {0};
+   int idleLong {0};
+
+   getConfigItem("haspIdleShort", idleShort, 0);
+   getConfigItem("haspIdleLong", idleLong, 0);
+
+   if (idleShort > 0 || idleLong > 0)
+   {
+      char payload[60];
+      snprintf(payload, sizeof(payload), "{\"idle1\":%d,\"idle2\":%d}", idleShort, idleLong);
+      haspPublish("config/gui", payload);
+   }
 
    tell(eloAlways, "HASP: Sent %d pages with %zu sensor widgets to '%s'", count, haspObjects.size(), haspMqttTopic.c_str());
 
@@ -1230,27 +1552,81 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
 
          int size {std::min({ih, iw / 2, maxGlyphSize + 4})};
          int top {iy + (ih - size) / 2};
+         int fontPx {size - 4};
          char font[20];
 
-         snprintf(font, sizeof(font), "mdi_%d", size - 4);
+         snprintf(font, sizeof(font), "mdi_%d", fontPx);
 
-         json_t* jBody {haspLabel(pageNo, base+4, base, ix, top, size, size, solidChar.c_str(), 0, "#3a3a3a", "center")};
-         json_object_set_new(jBody, "text_font", json_string(font));
-         haspPublishJsonl(jBody);
+         // the drawn area of the glyph: the fill refers to its height (not to the cell), with the
+         // option 'fillrect' a rectangle behind the symbol is filled (frame symbols like
+         // mdi-crop-landscape, which have no filled variant)
 
-         json_t* jClip {haspObj(pageNo, base+2, "obj", base, ix, top + size, size, 1)};
+         bool rectFill {getBoolFromJson(jOpts, "fillrect", false)};
+         const std::string& boundsName {rectFill ? name : solid};
+         int inkTop {top};
+         int inkBottom {top + size};
+         int inkLeft {ix};
+         int inkRight {ix + size};
+
+         if (loadMdiBounds(httpPath) && mdiCodepoints.count(boundsName) && mdiBounds.count(mdiCodepoints[boundsName]))
+         {
+            const MdiBounds& b {mdiBounds[mdiCodepoints[boundsName]]};
+            int glyphLeft {ix + (size - fontPx) / 2};                       // 1 em advance, centered in the label
+            inkTop = top + (int)lround((mdiAscender - b.yMax) * fontPx);
+            inkBottom = top + (int)lround((mdiAscender - b.yMin) * fontPx);
+            inkLeft = glyphLeft + (int)lround(b.xMin * fontPx);
+            inkRight = glyphLeft + (int)lround(b.xMax * fontPx);
+         }
+
+         std::string levelColor {haspColor(getStringFromJson(jOpts, "barcolor", ""), ref.colorOn.c_str())};
+
+         auto rect = [&](int id, int parent, int x, int y, int w, int h, const char* color)
+         {
+            json_t* j {haspObj(pageNo, id, "obj", parent, x, y, w, h)};
+            json_object_set_new(j, "bg_color", json_string(color));
+            json_object_set_new(j, "bg_grad_color", json_string(color));
+            json_object_set_new(j, "bg_grad_dir", json_integer(0));
+            json_object_set_new(j, "radius", json_integer(0));
+            json_object_set_new(j, "border_width", json_integer(0));
+            json_object_set_new(j, "click", json_false());
+            return j;
+         };
+
+         if (rectFill)
+            haspPublishJsonl(rect(base+4, base, inkLeft, inkTop, inkRight - inkLeft, inkBottom - inkTop, "#3a3a3a"));   // body
+         else
+         {
+            json_t* jBody {haspLabel(pageNo, base+4, base, ix, top, size, size, solidChar.c_str(), 0, "#3a3a3a", "center")};
+            json_object_set_new(jBody, "text_font", json_string(font));
+            haspPublishJsonl(jBody);
+         }
+
+         // the clip container grows from the bottom of the drawn area, the fill layer inside it
+         // stays aligned with the body (its y is adjusted with every value)
+
+         json_t* jClip {haspObj(pageNo, base+2, "obj", base, rectFill ? inkLeft : ix, inkBottom, rectFill ? inkRight - inkLeft : size, 1)};
          json_object_set_new(jClip, "bg_opa", json_integer(0));
          json_object_set_new(jClip, "border_width", json_integer(0));
          json_object_set_new(jClip, "radius", json_integer(0));
          json_object_set_new(jClip, "click", json_false());
          haspPublishJsonl(jClip);
 
-         std::string levelColor {haspColor(getStringFromJson(jOpts, "barcolor", ""), ref.colorOn.c_str())};
-         json_t* jFill {haspLabel(pageNo, base+5, base+2, 0, -size, size, size, solidChar.c_str(), 0, levelColor.c_str(), "center")};
-         json_object_set_new(jFill, "text_font", json_string(font));
-         haspPublishJsonl(jFill);
+         if (rectFill)
+            haspPublishJsonl(rect(base+5, base+2, 0, inkTop - inkBottom, inkRight - inkLeft, inkBottom - inkTop, levelColor.c_str()));   // fill
+         else
+         {
+            json_t* jFill {haspLabel(pageNo, base+5, base+2, 0, top - inkBottom, size, size, solidChar.c_str(), 0, levelColor.c_str(), "center")};
+            json_object_set_new(jFill, "text_font", json_string(font));
+            haspPublishJsonl(jFill);
+         }
 
-         if (!outlineChar.empty())
+         if (rectFill)
+         {
+            json_t* jFrame {haspLabel(pageNo, base+7, base, ix, top, size, size, haspMdiChar(name.c_str()).c_str(), 0, ref.colorOff.c_str(), "center")};
+            json_object_set_new(jFrame, "text_font", json_string(font));
+            haspPublishJsonl(jFrame);
+         }
+         else if (!outlineChar.empty())
          {
             json_t* jFrame {haspLabel(pageNo, base+7, base, ix, top, size, size, outlineChar.c_str(), 0, "#707070", "center")};
             json_object_set_new(jFrame, "text_font", json_string(font));
@@ -1264,6 +1640,67 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
          ref.extraId = base + 6;
          ref.size = size;
          ref.top = top;
+         ref.inkTop = inkTop;
+         ref.inkBottom = inkBottom;
+         ref.rectFill = rectFill;
+         break;
+      }
+
+      case hwtChoice:
+      {
+         // the choices of the valuefact as button matrix, the current value is the checked
+         // button (one_check), a touch sends the choice like the dashboard choice widget
+
+         auto tuple = split(key, ':');
+         std::string type {tuple[0]};
+         uint address {tuple.size() > 1 ? (uint)strtoul(tuple[1].c_str(), nullptr, 0) : 0};
+
+         if (sensors.count(type) && sensors[type].count(address))
+            for (const auto& choice : split(sensors[type][address].choices, ','))
+               if (!choice.empty())
+                  ref.choices.push_back(choice);
+
+         if (ref.choices.empty())
+         {
+            haspPublishJsonl(haspLabel(pageNo, base+2, base, ix, iy + 4, iw, ih - 8, "keine Auswahl", smallFont, colorDim, "center"));
+            break;
+         }
+
+         int perRow {ref.choices.size() <= 4 ? 2 : 3};
+         int rows {((int)ref.choices.size() + perRow - 1) / perRow};
+         json_t* jOptions {json_array()};
+
+         for (size_t i = 0; i < ref.choices.size(); i++)
+         {
+            if (i && i % perRow == 0)
+               json_array_append_new(jOptions, json_string("\n"));
+
+            json_array_append_new(jOptions, json_string(ref.choices[i].c_str()));
+         }
+
+         json_array_append_new(jOptions, json_string(""));     // terminator of the LVGL map
+
+         json_t* jMatrix {haspObj(pageNo, base+2, "btnmatrix", base, ix, iy, iw, ih)};
+
+         json_object_set_new(jMatrix, "options", jOptions);
+         json_object_set_new(jMatrix, "toggle", json_true());
+         json_object_set_new(jMatrix, "one_check", json_true());
+         json_object_set_new(jMatrix, "val", json_integer(-1));
+         json_object_set_new(jMatrix, "text_font", json_integer(rows > 2 || small ? smallFont : titleFont));
+         json_object_set_new(jMatrix, "bg_opa", json_integer(0));
+         json_object_set_new(jMatrix, "border_width", json_integer(0));
+         json_object_set_new(jMatrix, "pad_inner", json_integer(4));
+         json_object_set_new(jMatrix, "pad_left", json_integer(0));
+         json_object_set_new(jMatrix, "pad_right", json_integer(0));
+         json_object_set_new(jMatrix, "pad_top", json_integer(0));
+         json_object_set_new(jMatrix, "pad_bottom", json_integer(0));
+         json_object_set_new(jMatrix, "radius40", json_integer(4));              // the buttons (part 'items')
+         json_object_set_new(jMatrix, "border_width40", json_integer(0));
+         json_object_set_new(jMatrix, "bg_color40", json_string("#3a3a3a"));
+         json_object_set_new(jMatrix, "bg_color41", json_string(ref.colorOn.c_str()));   // checked = current value
+         json_object_set_new(jMatrix, "text_color40", json_string(ref.colorOff.c_str()));
+         json_object_set_new(jMatrix, "text_color41", json_string(colorText));
+         haspPublishJsonl(jMatrix);
          break;
       }
 
@@ -1280,6 +1717,8 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
 
    if (widgetType != hwtTime)
       haspObjects[key].push_back(ref);
+
+   haspPublishJsonl(nullptr);     // one message per card
 
    return done;
 }
@@ -1414,18 +1853,35 @@ int HomeCtl::haspPublishSensor(const SensorData& sensor)
             double range {ref.scaleMax - ref.scaleMin};
             double pct {range > 0 ? (sensor.value - ref.scaleMin) / range : 0};
             pct = std::clamp(pct, 0.0, 1.0);
-            int fill {(int)lround(ref.size * pct)};
+            int inkHeight {ref.inkBottom - ref.inkTop};
+            int fill {(int)lround(inkHeight * pct)};
+            int clipY {ref.inkBottom - fill};
 
             snprintf(obj, sizeof(obj), "p%db%d.y", ref.page, ref.objId);
-            haspQueueCommand(obj, std::to_string(ref.top + ref.size - fill));
+            haspQueueCommand(obj, std::to_string(clipY));
             snprintf(obj, sizeof(obj), "p%db%d.h", ref.page, ref.objId);
             haspQueueCommand(obj, std::to_string(std::max(fill, 1)));
-            snprintf(obj, sizeof(obj), "p%db%d.y", ref.page, ref.objId + 3);      // the fill glyph inside the clip container
-            haspQueueCommand(obj, std::to_string(-(ref.size - fill)));
+            snprintf(obj, sizeof(obj), "p%db%d.y", ref.page, ref.objId + 3);      // the fill layer inside the clip container, aligned with the body
+            haspQueueCommand(obj, std::to_string((ref.rectFill ? ref.inkTop : ref.top) - clipY));
             snprintf(obj, sizeof(obj), "p%db%d.text", ref.page, ref.valueId);
             haspQueueCommand(obj, withUnit);
             snprintf(obj, sizeof(obj), "p%db%d.text", ref.page, ref.extraId);
             haspQueueCommand(obj, std::to_string((int)lround(pct * 100)) + " %");
+            break;
+         }
+
+         case hwtChoice:
+         {
+            // the checked button is the one with the sensor text, -1 = none
+
+            int index {-1};
+
+            for (size_t i = 0; i < ref.choices.size(); i++)
+               if (ref.choices[i] == sensor.text)
+                  index = i;
+
+            snprintf(obj, sizeof(obj), "p%db%d.val", ref.page, ref.objId);
+            haspQueueCommand(obj, std::to_string(index));
             break;
          }
 
@@ -1513,8 +1969,9 @@ int HomeCtl::haspPublishAllValues()
 // Dispatch State (touch events of the panel)
 //   topic:   hasp/<hostname>/state/p<page>b<id>
 //   payload: {"event":"up","val":1}  (toggle buttons deliver the new value with 'up')
-//   Only the Symbol widgets are buttons; controllable sensors are switched via toggleIo(),
-//   for all others the button state is reverted to the sensor state.
+//   Only the Symbol widgets are buttons; controllable sensors are switched like by the
+//   WEBIF (MQTT command topic or toggleIo()), for all others the button state is reverted
+//   to the sensor state.
 //***************************************************************************
 
 int HomeCtl::haspDispatchState(const char* topic, const char* message)
@@ -1532,6 +1989,7 @@ int HomeCtl::haspDispatchState(const char* topic, const char* message)
       return ignore;
 
    std::string event {getStringFromJson(jData, "event", "")};
+   std::string text {getStringFromJson(jData, "text", "")};   // btnmatrix: the text of the pressed button
    int val {getIntFromJson(jData, "val", na)};
    json_decref(jData);
 
@@ -1542,7 +2000,7 @@ int HomeCtl::haspDispatchState(const char* topic, const char* message)
    {
       for (const auto& ref : it.second)
       {
-         if (ref.page != page || ref.objId != id || ref.widgetType != hwtSymbol)
+         if (ref.page != page || ref.objId != id || (ref.widgetType != hwtSymbol && ref.widgetType != hwtChoice))
             continue;
 
          auto tuple = split(it.first, ':');
@@ -1553,13 +2011,51 @@ int HomeCtl::haspDispatchState(const char* topic, const char* message)
          std::string type {tuple[0]};
          uint address {(uint)strtoul(tuple[1].c_str(), nullptr, 0)};
 
-         bool controllable {type == "DO" || type == "SC" || type == "DZL" || type == "DZLG" || type == "HMB" ||
+         // Choice: the selected text to the command topic (like the dashboard choice widget sends
+         // 'toggleio' with action 'switch' and the value), without a topic the selection is reverted
+
+         if (ref.widgetType == hwtChoice)
+         {
+            const char* choiceTopic {lookupCommandTopic(type.c_str(), address)};
+
+            if (text.empty() && val >= 0 && val < (int)ref.choices.size())
+               text = ref.choices[val];
+
+            if (!isEmpty(choiceTopic) && !text.empty())
+            {
+               tell(eloAlways, "HASP: Choice on '%s' (p%db%d) -> '%s'", it.first.c_str(), page, id, text.c_str());
+               switchCommand(type, address, "switch", choiceTopic, text.c_str());
+            }
+            else
+            {
+               tell(eloDetail, "HASP: Choice on '%s' (p%db%d) ignored, %s", it.first.c_str(), page, id, text.empty() ? "no text" : "no command topic");
+
+               char attr[30];
+               snprintf(attr, sizeof(attr), "p%db%d.val", page, id);
+               haspLastSent.erase(attr);
+
+               if (sensors.count(type) && sensors[type].count(address))
+                  haspPublishSensor(sensors[type][address]);
+            }
+
+            return done;
+         }
+
+         // the same ways as 'toggleio' of the WEBIF (performToggleIo): sensors with a MQTT command
+         // topic (e.g. KENWOOD, VICTRON, TASMOTA) are switched via the topic, the others via toggleIo()
+
+         const char* cmdTopic {lookupCommandTopic(type.c_str(), address)};
+         bool controllable {!isEmpty(cmdTopic) || type == "DO" || type == "SC" || type == "DZL" || type == "DZLG" || type == "HMB" ||
                             (type == "GPIO" && sensors.count(type) && sensors[type].count(address) && sensors[type][address].fct == "out")};
 
          if (controllable && val != na)
          {
-            tell(eloAlways, "HASP: Touch on '%s' (p%db%d) -> switch to %d", it.first.c_str(), page, id, val);
-            toggleIo(address, type.c_str(), val);
+            tell(eloAlways, "HASP: Touch on '%s' (p%db%d) -> switch to %d%s", it.first.c_str(), page, id, val, !isEmpty(cmdTopic) ? " (command topic)" : "");
+
+            if (!isEmpty(cmdTopic))
+               switchCommand(type, address, "toggle", cmdTopic, val ? "1" : "0");
+            else
+               toggleIo(address, type.c_str(), val);
          }
          else
          {

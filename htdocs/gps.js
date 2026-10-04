@@ -6,7 +6,7 @@
  * This code is distributed under the terms and conditions of the
  * GNU GENERAL PUBLIC LICENSE. See the file COPYING for details.
  *
- *  Page 'Map': live position of the GPS sensor, recording of tours
+ *  Page 'Map': live position of the GPS sensor, recording of tours, fuel stops
  *  and display of recorded tours.
  *
  *  Views:  'live'  - the map follows the live position
@@ -23,6 +23,7 @@
 var gpsView = localStorage.getItem(storagePrefix + 'gpsView') || 'live';   // 'live' | 'tours' | 'tour' - the tab survives a reload
 var gpsTours = null;         // event 'gpstours': { active, tours, minDistance, pauseAfter }
 var gpsShownTour = null;     // event 'gpstourpoints' of the displayed tour
+var gpsFuelList = null;      // event 'gpsfuellist' - all fuel stops (tours and standalone) with the consumption chain
 var gpsLivePoints = [];      // live positions received in this session (L.LatLng)
 var gpsLiveMinDistance = 10; // [m] a live point is added when moved at least this distance
 var gpsSelectedTour = parseInt(localStorage.getItem(storagePrefix + 'gpsSelectedTour')) || null;   // tour shown in the 'tours' view (details / events)
@@ -46,7 +47,9 @@ mapManager = {
    eventsLayer: null,          // the events of the shown tour (fuel, toll, ...)
    eventMarkers: {},           // their markers by event id
    currentLocationMarker: null,
-   isTrackingActive: true,     // the map follows the live position
+   isTrackingActive: true,     // live view: the map follows the live position
+   isTourTrackingActive: localStorage.getItem(storagePrefix + 'gpsTourFollow') == '1',   // tour view of the active tour: follow the live position
+   autoMove: false,            // a programmatic pan is running (not a user interaction)
    buttonControl: null,
 
    init() {
@@ -70,12 +73,14 @@ mapManager = {
       this.pointsLayer = L.layerGroup().addTo(this.map);
       this.eventsLayer = L.layerGroup().addTo(this.map);
 
+      // a user interaction (drag, zoom) stops following; the own pans are excluded by 'autoMove'
+
       this.map.on('movestart', (e) => {
-         if (e.target._mainviewchange || (this.map._panAnim && this.map._panAnim.isPlaying)) return;
-         if (gpsView == 'live' && this.isTrackingActive) {
-            this.isTrackingActive = false;
-            this.updateButtonUI();
-         }
+         if (this.autoMove || e.target._mainviewchange || (this.map._panAnim && this.map._panAnim.isPlaying)) return;
+         if (gpsView == 'live' && this.isTrackingActive)
+            this.setFollow(false);
+         else if (this.isTourLive() && this.isTourTrackingActive)
+            this.setFollow(false);
       });
 
       this.createTrackingButton();
@@ -100,13 +105,14 @@ mapManager = {
             L.DomEvent.on(btn, 'click', (e) => {
                L.DomEvent.stopPropagation(e); // Verhindert Klick-Event auf der Karte
 
-               this.isTrackingActive = true;
-               this.updateButtonUI();
+               // live view: start following, tour view: toggle
+
+               this.setFollow(gpsView == 'live' ? true : !this.isTourTrackingActive);
 
                // Sofort zum letzten bekannten Punkt springen, falls vorhanden
-               const points = this.routeLine.getLatLngs();
-               if (points.length > 0)
-                  this.map.setView(points[points.length - 1], this.map.getZoom());
+
+               if (this.following())
+                  this.followLast();
             });
             return btn;
          }
@@ -127,21 +133,69 @@ mapManager = {
          this.map.setView(points[0], Math.max(this.map.getZoom(), 15));
    },
 
+   // following the live position: live view, or the map of the tour being recorded
+
+   isTourLive() {
+      return gpsView == 'tour' && gpsShownTour && gpsTours && gpsTours.active && gpsTours.active.id == gpsShownTour.id;
+   },
+
+   following() {
+      if (gpsView == 'live')
+         return this.isTrackingActive;
+
+      return this.isTourLive() && this.isTourTrackingActive;
+   },
+
+   setFollow(on) {
+      if (gpsView == 'live')
+         this.isTrackingActive = on;
+      else {
+         this.isTourTrackingActive = on;
+         localStorage.setItem(storagePrefix + 'gpsTourFollow', on ? '1' : '0');
+      }
+
+      this.updateButtonUI();
+   },
+
+   // pan to a position without stopping the following by the own 'movestart'
+
+   follow(latLng, zoom) {
+      this.autoMove = true;
+
+      if (zoom != null)
+         this.map.setView(latLng, zoom, { animate: false });
+      else
+         this.map.panTo(latLng, { animate: false });
+
+      this.autoMove = false;
+   },
+
+   followLast() {
+      const points = this.routeLine.getLatLngs();
+
+      if (this.currentLocationMarker)
+         this.follow(this.currentLocationMarker.getLatLng(), Math.max(this.map.getZoom(), 15));
+      else if (points.length > 0)
+         this.follow(points[points.length - 1], Math.max(this.map.getZoom(), 15));
+   },
+
    updateButtonUI() {
       if (!this.buttonControl) return;
 
-      // the follow button belongs to the live view only (the 'Live' tab switches the view)
+      // the follow button belongs to the live view and to the map of the tour being recorded
 
-      this.buttonControl.style.display = gpsView == 'live' ? '' : 'none';
+      let visible = gpsView == 'live' || this.isTourLive();
 
-      if (gpsView != 'live')
+      this.buttonControl.style.display = visible ? '' : 'none';
+
+      if (!visible)
          return;
 
-      if (this.isTrackingActive) {
-         this.buttonControl.innerHTML = '● Live-Tracking aktiv';
+      if (this.following()) {
+         this.buttonControl.innerHTML = gpsView == 'live' ? '● Live-Tracking aktiv' : '● Live-Verfolgung aktiv';
          this.buttonControl.classList.add('live-tracking-active');
       } else {
-         this.buttonControl.innerHTML = '🔄 Tracking pausiert (Klicken zum Folgen)';
+         this.buttonControl.innerHTML = gpsView == 'live' ? '🔄 Tracking pausiert (Klicken zum Folgen)' : '🔄 Live-Verfolgung (Klicken zum Folgen)';
          this.buttonControl.classList.remove('live-tracking-active');
       }
    },
@@ -198,14 +252,14 @@ mapManager = {
 
       this.routeLine.setLatLngs(points.length == 1 ? [points[0], points[0]] : points);
       this.setCurrentLocation(points[points.length - 1]);
-      this.map.setView(points[points.length - 1], Math.max(this.map.getZoom(), 15), { animate: false });
+      this.follow(points[points.length - 1], Math.max(this.map.getZoom(), 15));
       this.updateButtonUI();
    },
 
    addLivePoint(latLng, first) {
       if (first) {
          this.routeLine.setLatLngs([latLng, latLng]);
-         this.map.setView(latLng, 15, { animate: false });
+         this.follow(latLng, 15);
          this.setCurrentLocation(latLng);
          return;
       }
@@ -219,12 +273,13 @@ mapManager = {
       this.setCurrentLocation(latLng);
 
       if (this.isTrackingActive)
-         this.map.panTo(latLng, { animate: false });
+         this.follow(latLng);
    },
 
-   // a recorded tour: points [[lat, lng, time], ...]
+   // a recorded tour: points [[lat, lng, time], ...]; 'active' - the tour is being recorded,
+   // the last point is the current position (live marker instead of the 'Ende' marker)
 
-   showTour(points) {
+   showTour(points, active = false) {
       this.clear();
       this.routeLine.setStyle({ color: '#d32f2f' });
 
@@ -241,15 +296,40 @@ mapManager = {
          radius: 7, fillColor: '#2e7d32', fillOpacity: 1, color: '#ffffff', weight: 3
       }).bindTooltip('Start ' + gpsFmtTime(points[0][2])).addTo(this.pointsLayer);
 
-      if (latLngs.length > 1) {
+      if (active)
+         this.setCurrentLocation(latLngs[latLngs.length - 1]);
+      else if (latLngs.length > 1) {
          let last = points[points.length - 1];
          L.circleMarker(latLngs[latLngs.length - 1], {
             radius: 7, fillColor: '#d32f2f', fillOpacity: 1, color: '#ffffff', weight: 3
          }).bindTooltip('Ende ' + gpsFmtTime(last[2])).addTo(this.pointsLayer);
       }
 
+      this.autoMove = true;
       this.map.fitBounds(this.routeLine.getBounds(), { padding: [30, 30], animate: false });
+      this.autoMove = false;
+
+      if (active && this.isTourTrackingActive)
+         this.followLast();
+
       this.updateButtonUI();
+   },
+
+   // tour being recorded: a stored point (event 'gpstourpoint') extends the route on the map,
+   // optionally the map follows
+
+   addTourLivePoint(latLng) {
+      let points = this.routeLine.getLatLngs();
+
+      if (points.length == 2 && points[0].equals(points[1]))
+         this.routeLine.setLatLngs([points[0], latLng]);
+      else
+         this.routeLine.addLatLng(latLng);
+
+      this.setCurrentLocation(latLng);
+
+      if (this.isTourTrackingActive)
+         this.follow(latLng);
    },
 
    // the events of a tour as markers, the popup shows the details (edit / delete with control rights)
@@ -311,6 +391,8 @@ function initGpsPage()
       gpsShowTours();
    else if (gpsView == 'tour')
       gpsShowTour(gpsShownTour.id);
+   else if (gpsView == 'fuel')
+      gpsShowFuel();
    else
       gpsShowLive();
 
@@ -324,20 +406,26 @@ function gpsHasControlRights()
 
 function gpsBuildToolbar()
 {
-   $('#dashboardMenu').removeClass('hidden').addClass('gpsToolbar');   // opaque background (dashboard.js removes the class)
+   $('#dashboardMenu').removeClass('hidden').addClass('gpsToolbar')    // opaque background (dashboard.js removes the classes)
+      .toggleClass('gpsToolbarBig', bigDashSymbols());                 // higher bar like the big dashboard symbols (kiosk URL parameter, else config)
    $('#dashboardMenu').empty();
 
    $('#dashboardMenu')
       .append($('<button></button>')
               .attr('id', 'gpsBtnLive')
-              .addClass('rounded-border buttonDashboard gpsViewButton')
-              .html('Live')
+              .addClass('rounded-border buttonDashboard gpsViewButton mdi mdi-crosshairs-gps')
+              .attr('title', 'Live-Position')
               .click(function() { gpsShowLive(); }))
       .append($('<button></button>')
               .attr('id', 'gpsBtnTours')
-              .addClass('rounded-border buttonDashboard gpsViewButton')
-              .html('Touren')
+              .addClass('rounded-border buttonDashboard gpsViewButton mdi mdi-routes')
+              .attr('title', 'Touren')
               .click(function() { gpsShowTours(); }))
+      .append($('<button></button>')
+              .attr('id', 'gpsBtnFuel')
+              .addClass('rounded-border buttonDashboard gpsViewButton mdi mdi-gas-station')
+              .attr('title', 'Tankstopps und Verbrauch')
+              .click(function() { gpsShowFuel(); }))
       .append($('<span></span>')
               .attr('id', 'gpsRecordState')
               .addClass('gpsRecordState'))
@@ -373,20 +461,24 @@ function gpsUpdateToolbar()
 
    if (gpsView == 'live')
       $('#gpsBtnLive').addClass('buttonDashboardActive');
+   else if (gpsView == 'fuel')
+      $('#gpsBtnFuel').addClass('buttonDashboardActive');
    else
       $('#gpsBtnTours').addClass('buttonDashboardActive');
 
    let active = gpsTours ? gpsTours.active : null;
 
+   // only the state symbol here, the details are shown in the head of the tour
+
    if (active) {
-      let state = active.paused ? 'pausiert' : 'Aufzeichnung';
       $('#gpsRecordState')
          .removeClass('gpsRecording gpsPaused')
          .addClass(active.paused ? 'gpsPaused' : 'gpsRecording')
-         .html((active.paused ? '❚❚ ' : '● ') + state + ": '" + gpsEscape(active.name) + "' · " + gpsFmtDistance(active.distance) + ' · ' + active.points + ' Punkte');
+         .attr('title', (active.paused ? 'pausiert' : 'Aufzeichnung') + ": '" + active.name + "'")
+         .html(active.paused ? '❚❚' : '●');
    }
    else
-      $('#gpsRecordState').removeClass('gpsRecording gpsPaused').html('');
+      $('#gpsRecordState').removeClass('gpsRecording gpsPaused').removeAttr('title').html('');
 
    gpsUpdateEventButtons();
 }
@@ -422,9 +514,10 @@ function gpsBuildControlPanel()
 
          list.append($('<button></button>')
                      .addClass('rounded-border tool-button gpsTourBtn' + (tour.id == gpsSelectedTour ? ' active' : ''))
+                     .attr('data-id', tour.id)
                      .attr('title', tour.name)
                      .html((isActive ? '<span class="' + (gpsTours.active.paused ? 'gpsPaused' : 'gpsRecording') + '">● </span>' : '') + gpsEscape(tour.name)
-                           + '<br/><span class="gpsTourBtnSub">' + gpsFmtDate(tour.start) + ' · ' + gpsFmtDistance(tour.distance) + '</span>')
+                           + '<br/><span class="gpsTourBtnSub">' + gpsTourBtnSub(tour) + '</span>')
                      .click(function() { gpsSelectTour(tour.id); }));
       }
 
@@ -492,7 +585,7 @@ function gpsShowTour(id)
    gpsShowMap();
 
    if (gpsShownTour && gpsShownTour.id == id)
-      mapManager.showTour(gpsShownTour.points);
+      mapManager.showTour(gpsShownTour.points, gpsShownTour.stop == null);
    else
       mapManager.clear();
 
@@ -524,10 +617,11 @@ function processLiveGpsMessage(coordinate)
 
    gpsLivePoints.push(latLng);
 
-   if (currentPage != 'gpslive' || gpsView != 'live' || !mapManager.map)
+   if (currentPage != 'gpslive' || !mapManager.map)
       return;
 
-   mapManager.addLivePoint(latLng, first);
+   if (gpsView == 'live')
+      mapManager.addLivePoint(latLng, first);
 }
 
 //***************************************************************************
@@ -548,8 +642,29 @@ function processGpsTours(tours)
          socket.send({ "event" : "gpstour", "object" : { "action" : "events", "id" : gpsSelectedTour } });   // events may have changed
       gpsShowTours();
    }
-   else if (gpsView == 'tour' && gpsShownTour)
-      socket.send({ "event" : "gpstour", "object" : { "action" : "points", "id" : gpsShownTour.id } });
+   else if (gpsView == 'fuel')
+      socket.send({ "event" : "gpstour", "object" : { "action" : "fuellist" } });   // a fuel stop may have changed
+   else if (gpsView == 'tour' && gpsShownTour) {
+      let entry = gpsTours.tours.find(t => t.id == gpsShownTour.id);
+      let isActive = gpsTours.active && gpsTours.active.id == gpsShownTour.id;
+
+      if (gpsShownTour.stop == null && !isActive) {
+         // the shown tour ended: the final state and the 'Ende' marker, the points once more
+         socket.send({ "event" : "gpstour", "object" : { "action" : "points", "id" : gpsShownTour.id } });
+      }
+      else {
+         // the points are already there (per 'gpstourpoint'), only name / events may have changed
+         if (entry) {
+            gpsShownTour.name = entry.name;
+            gpsShownTour.distance = entry.distance;
+            gpsShownTour.pausetime = entry.pausetime;
+         }
+
+         socket.send({ "event" : "gpstour", "object" : { "action" : "events", "id" : gpsShownTour.id } });
+         $('#gpsTourInfo').html(gpsTourInfoHtml(gpsShownTour));
+         mapManager.updateButtonUI();
+      }
+   }
 }
 
 function gpsShowTours()
@@ -606,8 +721,205 @@ function processGpsTourEvents(obj)
 {
    gpsTourEvents[obj.id] = obj;
 
-   if (currentPage == 'gpslive' && gpsView == 'tours' && gpsSelectedTour == obj.id)
+   if (gpsShownTour && gpsShownTour.id == obj.id) {
+      gpsShownTour.events = obj.events;
+      gpsShownTour.totals = obj.totals;
+   }
+
+   if (currentPage != 'gpslive')
+      return;
+
+   if (gpsView == 'tours' && gpsSelectedTour == obj.id)
       $('#gpsTourEvents').html(gpsTourEventsHtml(obj));
+   else if (gpsView == 'tour' && gpsShownTour && gpsShownTour.id == obj.id && mapManager.map) {
+      mapManager.showEvents(obj.events);
+      $('#gpsTourInfo').html(gpsTourInfoHtml(gpsShownTour));
+   }
+}
+
+// event 'gpstourpoint' - a stored point of the tour being recorded with the totals
+
+function processGpsTourPoint(obj)
+{
+   if (gpsTours && gpsTours.active && gpsTours.active.id == obj.id) {
+      gpsTours.active.distance = obj.distance;
+      gpsTours.active.points = obj.points;
+
+      let entry = gpsTours.tours.find(t => t.id == obj.id);
+
+      if (entry) {
+         entry.distance = obj.distance;
+         entry.points = obj.points;
+      }
+   }
+
+   if (gpsShownTour && gpsShownTour.id == obj.id) {
+      gpsShownTour.points.push(obj.point);
+      gpsShownTour.distance = obj.distance;
+   }
+
+   if (currentPage != 'gpslive')
+      return;
+
+   gpsUpdateToolbar();
+
+   if (gpsView == 'tours') {
+      // targeted updates, no rebuild of the panel and the details
+      $('.gpsTourBtn[data-id="' + obj.id + '"] .gpsTourBtnSub').html(gpsTourBtnSub(gpsTours.tours.find(t => t.id == obj.id)));
+
+      if (gpsSelectedTour == obj.id) {
+         $('#gpsTourState').html(gpsTourStateHtml());
+         $('#gpsTourDistance').html(gpsFmtDistance(obj.distance));
+         $('#gpsTourPoints').html(obj.points);
+      }
+   }
+   else if (gpsView == 'tour' && gpsShownTour && gpsShownTour.id == obj.id && mapManager.map) {
+      mapManager.addTourLivePoint(L.latLng(obj.point[0], obj.point[1]));
+      $('#gpsTourInfo').html(gpsTourInfoHtml(gpsShownTour));
+   }
+}
+
+//***************************************************************************
+// Fuel stops - view 'fuel', event 'gpsfuellist'
+//   all fuel stops of all tours plus the ones entered outside of a tour, with the
+//   consumption from full tank to full tank by the odometer readings
+//***************************************************************************
+
+function gpsShowFuel()
+{
+   gpsView = 'fuel';
+   localStorage.setItem(storagePrefix + 'gpsView', 'fuel');
+   gpsUpdateToolbar();
+
+   $('#mapcontainer').addClass('hidden');
+   showControlContainer();
+   $('#container').removeClass('hidden');
+   gpsResizeContainer('container');
+
+   gpsBuildFuelPanel();
+   document.getElementById("container").innerHTML = gpsFuelListHtml(gpsFuelList);
+
+   socket.send({ "event" : "gpstour", "object" : { "action" : "fuellist" } });
+}
+
+function gpsBuildFuelPanel()
+{
+   $("#controlContainer").empty();
+
+   if (gpsHasControlRights()) {
+      $("#controlContainer")
+         .append($('<div></div>')
+                 .append($('<button></button>')
+                         .addClass('rounded-border tool-button mdi mdi-gas-station')
+                         .html(' Tankstopp eintragen')
+                         .attr('title', 'Tankstopp außerhalb einer Tour eintragen (mit Datum und km-Stand)')
+                         .click(function() { gpsEventDialog('fuel', null, true); })))
+         .append($('<div></div>').addClass('button-group-spacing'));
+   }
+
+   $("#controlContainer")
+      .append($('<button></button>')
+              .addClass('rounded-border tool-button')
+              .html('Hilfe')
+              .attr('title', 'Beschreibung im README')
+              .click(function() { showHelp('gps-fuel'); }));
+}
+
+function processGpsFuelList(obj)
+{
+   gpsFuelList = obj;
+
+   if (currentPage == 'gpslive' && gpsView == 'fuel')
+      document.getElementById("container").innerHTML = gpsFuelListHtml(obj);
+}
+
+function gpsFuelListHtml(data)
+{
+   if (!data)
+      return '<div class="rounded-border seperatorFold">Tankstopps werden geladen ...</div>';
+
+   let t = data.totals || {};
+   let control = gpsHasControlRights();
+   let html = '<div class="gpsTourDetails">';
+
+   html += ' <div class="rounded-border seperatorFold gpsTourHead"><span>Tankstopps' + (t.stops ? ' (' + t.stops + ')' : '') + '</span></div>';
+
+   if (!data.stops.length) {
+      html += ' <div class="rounded-border gpsTourBody"><div class="gpsTourSub">Noch keine Tankstopps. Sie werden während einer Tour über den Button in der Leiste eingetragen';
+      if (control)
+         html += " oder hier mit 'Tankstopp eintragen' auch außerhalb einer Tour";
+      return html + '.</div></div></div>';
+   }
+
+   // the totals: average consumption over the counted fills, liters, costs, price per liter
+
+   let parts = [];
+
+   if (t.consumption != null)
+      parts.push('<b>Ø ' + gpsFmtConsumption(t.consumption) + '</b> <span class="gpsTourSub">über ' + t.consumptionKm.toLocaleString('de-DE') + ' km, ' + t.counted + (t.counted == 1 ? ' Tankfüllung' : ' Tankfüllungen') + '</span>');
+   parts.push(gpsFmtLiters(t.liters) + ' gesamt');
+   if (t.costs)
+      parts.push(gpsFmtMoney(t.costs) + ' gesamt');
+   if (t.pricePerLiter != null && t.costs)
+      parts.push('Ø ' + gpsFmtMoney(t.pricePerLiter, 3) + '/l');
+
+   html += ' <div class="rounded-border gpsTourBody">' + parts.join(' · ') + '</div>';
+
+   // the list, newest first
+
+   html += ' <div class="rounded-border seperatorFold gpsTourHead">Liste</div>';
+   html += ' <div class="rounded-border gpsTourBody"><table class="gpsEventTable">';
+   html += '<thead><tr><td>Zeit</td><td>Tour</td><td class="gpsNum">km-Stand</td><td class="gpsNum">Menge</td><td class="gpsNum">Preis</td><td class="gpsNum">Verbrauch</td><td>Notiz</td><td></td></tr></thead><tbody>';
+
+   for (let i = data.stops.length - 1; i >= 0; i--) {
+      let ev = data.stops[i];
+      let consumption = '';
+
+      if (ev.consumption != null)
+         consumption = gpsFmtConsumption(ev.consumption) + '<br/><span class="gpsTourSub">' + ev.km.toLocaleString('de-DE') + ' km' + (ev.pendingLiters ? ', mit ' + gpsFmtLiters(ev.pendingLiters) + ' Teilbetankung' : '') + '</span>';
+      else if (ev.full === false)
+         consumption = '<span class="gpsTourSub">Teilbetankung</span>';
+      else if (!ev.odometer)
+         consumption = '<span class="gpsTourSub">kein km-Stand</span>';
+
+      html += '<tr>';
+      html += '<td>' + gpsFmtTime(ev.time) + '</td>';
+      html += '<td>' + (ev.tourid ? '<a class="gpsLink" title="Tour anzeigen" onclick="gpsSelectTour(' + ev.tourid + ')">' + gpsEscape(ev.tour || ('Tour ' + ev.tourid)) + '</a>' : '<span class="gpsTourSub">-</span>') + '</td>';
+      html += '<td class="gpsNum">' + (ev.odometer ? ev.odometer.toLocaleString('de-DE') + ' km' : '') + '</td>';
+      html += '<td class="gpsNum">' + (ev.amount ? gpsFmtLiters(ev.amount) + (ev.full === false ? '<br/><span class="gpsTourSub">nicht voll</span>' : '') : '') + '</td>';
+      html += '<td class="gpsNum">' + (ev.price ? gpsFmtMoney(ev.price) + (ev.amount ? '<br/><span class="gpsTourSub">' + gpsFmtMoney(ev.price / ev.amount, 3) + '/l</span>' : '') : '') + '</td>';
+      html += '<td class="gpsNum">' + consumption + '</td>';
+      html += '<td class="gpsWrap">' + gpsEscape(ev.note) + '</td>';
+      html += '<td class="gpsTourActions">';
+
+      if (control)
+         html += '<button class="rounded-border tool-button mdi mdi-lead-pencil" type="button" title="ändern" onclick="gpsEventDialog(\'fuel\', ' + ev.id + ')"></button>'
+               + '<button class="rounded-border tool-button mdi mdi-delete actDelete" type="button" title="löschen" onclick="gpsEventDelete(' + ev.id + ')"></button>';
+
+      html += '</td></tr>';
+   }
+
+   html += '</tbody></table></div></div>';
+
+   return html;
+}
+
+function gpsTourBtnSub(tour)
+{
+   return tour ? gpsFmtDate(tour.start) + ' · ' + gpsFmtDistance(tour.distance) : '';
+}
+
+// the state of the active tour behind its name (head of the tour, updated per point)
+
+function gpsTourStateHtml()
+{
+   let a = gpsTours ? gpsTours.active : null;
+
+   if (!a)
+      return '';
+
+   return '<span class="' + (a.paused ? 'gpsPaused' : 'gpsRecording') + '">' + (a.paused ? '❚❚ pausiert' : '● aktiv')
+      + ' · ' + gpsFmtDistance(a.distance) + ' · ' + a.points + ' Punkte</span>';
 }
 
 // details and the event list of a tour (right side of the 'tours' view)
@@ -625,7 +937,7 @@ function gpsTourDetailsHtml(tour)
 
    html += '<div class="gpsTourDetails">';
    html += ' <div class="rounded-border seperatorFold gpsTourHead"><span>' + gpsEscape(tour.name)
-         + (isActive ? (gpsTours.active.paused ? ' <span class="gpsPaused">❚❚ pausiert</span>' : ' <span class="gpsRecording">● aktiv</span>') : '') + '</span>';
+         + ' <span id="gpsTourState">' + (isActive ? gpsTourStateHtml() : '') + '</span></span>';
    html += '  <span class="gpsTourActions">';
    html += '   <button class="rounded-border tool-button mdi mdi-map-marker-path" type="button" title="auf der Karte anzeigen" onclick="gpsShowTour(' + tour.id + ')"> Karte</button>';
 
@@ -643,8 +955,8 @@ function gpsTourDetailsHtml(tour)
                ['Ende', tour.stop != null ? gpsFmtTime(tour.stop) : '-'],
                ['Dauer', gpsFmtDuration(stop - tour.start)],
                ['Pause', gpsFmtDuration(tour.pausetime)],
-               ['Distanz (GPS)', gpsFmtDistance(tour.distance)],
-               ['Punkte', tour.points]];
+               ['Distanz (GPS)', gpsFmtDistance(tour.distance), 'gpsTourDistance'],
+               ['Punkte', tour.points, 'gpsTourPoints']];
 
    if (tour.odometer)
       rows.push(['km-Stand Start', tour.odometer.toLocaleString('de-DE') + ' km']);
@@ -660,8 +972,10 @@ function gpsTourDetailsHtml(tour)
       rows.push(['Sonstiges', gpsFmtMoney(t.otherCosts)]);
    if (t.totalCosts)
       rows.push(['Kosten gesamt', '<b>' + gpsFmtMoney(t.totalCosts) + '</b>']);
+   if (t.previousFullAt)
+      rows.push(['Volltanken vor Tour', gpsFmtDate(t.previousFullAt) + ' <span class="gpsTourSub">bei ' + t.previousFullOdometer.toLocaleString('de-DE') + ' km</span>']);
    if (t.consumption != null)
-      rows.push(['Ø Verbrauch (Tacho)', gpsFmtConsumption(t.consumption) + ' <span class="gpsTourSub">auf ' + t.consumptionKm + ' km</span>']);
+      rows.push(['Ø Verbrauch (Tacho)', gpsFmtConsumption(t.consumption) + ' <span class="gpsTourSub">auf ' + t.consumptionKm + ' km' + (t.sinceStart ? ', ab Tour-Start' : '') + '</span>']);
    if (t.consumptionGps != null)
       rows.push(['Ø Verbrauch (GPS)', gpsFmtConsumption(t.consumptionGps) + ' <span class="gpsTourSub">auf ' + Math.round(t.consumptionGpsKm) + ' km</span>']);
 
@@ -673,9 +987,9 @@ function gpsTourDetailsHtml(tour)
    for (let i = 0; i < half; i++) {
       let l = rows[i];
       let r = narrow ? null : rows[i + half];
-      html += '<tr><td>' + l[0] + '</td><td class="gpsNum">' + l[1] + '</td>';
+      html += '<tr><td>' + l[0] + '</td><td class="gpsNum"' + (l[2] ? ' id="' + l[2] + '"' : '') + '>' + l[1] + '</td>';
       if (!narrow)
-         html += r ? '<td class="gpsDetailsCol2">' + r[0] + '</td><td class="gpsNum">' + r[1] + '</td>' : '<td></td><td></td>';
+         html += r ? '<td class="gpsDetailsCol2">' + r[0] + '</td><td class="gpsNum"' + (r[2] ? ' id="' + r[2] + '"' : '') + '>' + r[1] + '</td>' : '<td></td><td></td>';
       html += '</tr>';
    }
 
@@ -749,7 +1063,7 @@ function processGpsTourPoints(tour)
    if (currentPage != 'gpslive' || gpsView != 'tour' || !mapManager.map)
       return;
 
-   mapManager.showTour(tour.points);
+   mapManager.showTour(tour.points, tour.stop == null);
    mapManager.showEvents(tour.events);
 
    if (gpsFocusEvent) {
@@ -757,6 +1071,16 @@ function processGpsTourPoints(tour)
       gpsFocusEvent = null;
    }
 
+   if (!$('#gpsTourInfo').length)
+      $('#mapcontainer').append($('<div></div>').attr('id', 'gpsTourInfo').addClass('rounded-border gpsTourInfo'));
+
+   $('#gpsTourInfo').html(gpsTourInfoHtml(tour)).removeClass('hidden');
+}
+
+// the info box at the bottom of the tour map
+
+function gpsTourInfoHtml(tour)
+{
    let info = "'" + gpsEscape(tour.name) + "' · " + gpsFmtTime(tour.start)
        + (tour.stop != null ? ' - ' + gpsFmtTime(tour.stop) : ' (aktiv)')
        + ' · ' + gpsFmtDistance(tour.distance) + ' · ' + tour.points.length + ' Punkte';
@@ -764,10 +1088,7 @@ function processGpsTourPoints(tour)
    if (tour.totals && tour.totals.events)
       info += '<div class="gpsTourInfoTotals">' + gpsFmtTotals(tour.totals, ' · ') + '</div>';
 
-   if (!$('#gpsTourInfo').length)
-      $('#mapcontainer').append($('<div></div>').attr('id', 'gpsTourInfo').addClass('rounded-border gpsTourInfo'));
-
-   $('#gpsTourInfo').html(info).removeClass('hidden');
+   return info;
 }
 
 //***************************************************************************
@@ -933,7 +1254,9 @@ function gpsNameDialog(title, value, okLabel, onOk, withOdometer = false, tour =
 // Tour events - dialog (new with the current position, or edit), delete
 //***************************************************************************
 
-function gpsEventDialog(typeKey, id = null)
+// standalone: a fuel stop outside of a tour (view 'fuel'), with date / time instead of 'now'
+
+function gpsEventDialog(typeKey, id = null, standalone = false)
 {
    let type = gpsEventTypes[typeKey];
 
@@ -947,6 +1270,8 @@ function gpsEventDialog(typeKey, id = null)
 
       if (gpsShownTour)
          lists.unshift(gpsShownTour.events || []);
+      if (gpsFuelList)
+         lists.unshift(gpsFuelList.stops || []);
 
       for (let list of lists)
          if (!ev)
@@ -956,10 +1281,19 @@ function gpsEventDialog(typeKey, id = null)
    if (id && !ev)
       return;
 
+   if (ev && ev.tourid === 0)        // the fuel list carries the tour id, 0 -> entered outside of a tour
+      standalone = true;
+
    let labels = { 'amount': 'Menge [l]', 'price': typeKey == 'fuel' || typeKey == 'toll' ? 'Preis gesamt [€]' : 'Kosten [€] (optional)', 'odometer': 'km-Stand', 'note': 'Notiz' };
    let form = $('<div></div>').addClass('dialog-content gpsEventDialog')
        .append($('<div></div>').addClass('actDetailsHead').html('<span class="mdi ' + type.icon + '" style="color:' + type.color + '"></span> ' + type.label
-                                                                + (ev ? ' · ' + gpsFmtTime(ev.time) : ' · jetzt, mit der aktuellen Position')));
+                                                                + (standalone ? ' · außerhalb einer Tour' : ev ? ' · ' + gpsFmtTime(ev.time) : ' · jetzt, mit der aktuellen Position')));
+
+   if (standalone) {
+      form.append($('<div></div>').addClass('labelB1').html('Datum / Zeit'));
+      form.append($('<input></input>').attr('id', 'gpsEv_time').attr('type', 'datetime-local').addClass('rounded-border input').css('width', '100%')
+                  .val(gpsToLocalInput(ev ? ev.time : Math.floor(Date.now() / 1000))));
+   }
 
    for (let field of type.fields) {
       if (field == 'full') {      // switch 'voll getankt' (checkbox.css styles input + label as a switch)
@@ -990,6 +1324,15 @@ function gpsEventDialog(typeKey, id = null)
       if (ev)
          obj.id = ev.id;
 
+      if (standalone) {
+         let time = Math.floor(new Date($('#gpsEv_time').val()).getTime() / 1000);
+
+         if (!ev)
+            obj.tourid = 0;
+         if (time > 0)
+            obj.time = time;
+      }
+
       for (let field of type.fields) {
          if (field == 'full')
             obj.full = $('#gpsEv_full').is(':checked');
@@ -1007,7 +1350,7 @@ function gpsEventDialog(typeKey, id = null)
       modal: true,
       width: Math.min(400, window.innerWidth - 20),
       title: ev ? 'Ereignis ändern' : type.label + ' eintragen',
-      open: function() { $('#gpsEv_' + type.fields[0]).focus(); },
+      open: function() { $('#gpsEv_' + (standalone ? 'odometer' : type.fields[0])).focus(); },
       buttons: buttons,
       close: function() { $(this).dialog('destroy').remove(); }
    });
@@ -1050,7 +1393,8 @@ function gpsFmtEventConsumption(ev, sep)
    let parts = [];
 
    if (ev.consumption != null)
-      parts.push(gpsFmtConsumption(ev.consumption) + ' <span class="gpsTourSub">Tacho ' + ev.km + ' km</span>');
+      parts.push(gpsFmtConsumption(ev.consumption) + ' <span class="gpsTourSub">Tacho ' + ev.km + ' km'
+                 + (ev.since == 'start' ? ' ab Tour-Start' : ev.since ? ' seit Volltanken ' + gpsFmtDate(ev.since) : '') + '</span>');
    if (ev.consumptionGps != null)
       parts.push(gpsFmtConsumption(ev.consumptionGps) + ' <span class="gpsTourSub">GPS ' + Math.round(ev.kmGps) + ' km</span>');
    if (parts.length && ev.pendingLiters)
@@ -1149,6 +1493,16 @@ function gpsFmtTime(ts)
       return '-';
 
    return new Date(ts * 1000).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+// value of an <input type="datetime-local"> (local time, 'YYYY-MM-DDTHH:MM')
+
+function gpsToLocalInput(ts)
+{
+   let d = new Date(ts * 1000);
+   let p = n => String(n).padStart(2, '0');
+
+   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
 }
 
 function gpsFmtDate(ts)

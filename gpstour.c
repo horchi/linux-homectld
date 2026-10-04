@@ -537,6 +537,21 @@ int HomeCtl::gpsTourStorePoint(time_t now, const GpsCoordinate& c, double distan
    tell(eloDetail, "GPS: Tour '%s' point %ld stored (%s, +%.0f m)", gpsTour.name.c_str(), gpsTour.points,
         gpsCoordinateText(c).c_str(), distance);
 
+   // the point and the totals to the WEBIF, the tour list ('gpstours') only on state changes
+
+   json_t* oJson {json_object()};
+   json_t* oPoint {json_array()};
+
+   json_array_append_new(oPoint, json_real(c.latitude));
+   json_array_append_new(oPoint, json_real(c.longitude));
+   json_array_append_new(oPoint, json_integer(now));
+
+   json_object_set_new(oJson, "id", json_integer(gpsTour.id));
+   json_object_set_new(oJson, "distance", json_real(gpsTour.distance));
+   json_object_set_new(oJson, "points", json_integer(gpsTour.points));
+   json_object_set_new(oJson, "point", oPoint);
+   pushOutMessage(oJson, "gpstourpoint", 0, false, 10);   // coordinates
+
    return gpsTourStoreState();
 }
 
@@ -769,8 +784,9 @@ int HomeCtl::gpsTourEventStore(json_t* obj, std::string& error)
    else
    {
       long tourId {getLongFromJson(obj, "tourid", gpsTour.id)};
+      bool standalone {json_object_get(obj, "tourid") && !tourId && type == "fuel"};   // fuel stop outside of a tour ('tourid': 0)
 
-      if (!tourId)
+      if (!tourId && !standalone)
       {
          error = "Keine Tour aktiv";
          return fail;
@@ -798,7 +814,7 @@ int HomeCtl::gpsTourEventStore(json_t* obj, std::string& error)
 
       tableGpsTourEvents->setValue("LAT", lat);
       tableGpsTourEvents->setValue("LON", lon);
-      tableGpsTourEvents->setValue("DISTANCE", tourId == gpsTour.id ? gpsTour.distance : 0.0);   // GPS distance so far
+      tableGpsTourEvents->setValue("DISTANCE", tourId && tourId == gpsTour.id ? gpsTour.distance : 0.0);   // GPS distance so far
    }
 
    tableGpsTourEvents->setValue("TYPE", type.c_str());
@@ -847,8 +863,10 @@ int HomeCtl::gpsTourEventDelete(long id)
 }
 
 // 'events' (in time order) and 'totals': costs by kind, liters, odometer km and the fuel
-//  consumption - per fuel stop (liters since the previous odometer reading, the tour start
-//  or the previous fuel stop) and the average
+//  consumption - per full fuel stop the liters (plus the partial fills before) by the km since
+//  the previous full tank, and the average. The chain starts at the last full tank before the
+//  tour (of any tour or standalone, by time), only without one at the odometer of the tour
+//  start ('sinceStart', assumes a full tank at the start). The GPS variant is tour-bound.
 
 int HomeCtl::gpsTourEvents2Json(json_t* obj, long tourId, long odometerStart, long odometerEnd)
 {
@@ -864,9 +882,61 @@ int HomeCtl::gpsTourEvents2Json(json_t* obj, long tourId, long odometerStart, lo
    double pendingLiters {0.0};      // partial fills since the last full tank
    long kmCounted {0};
    double kmCountedGps {0.0};
-   long previousOdometer {odometerStart};
+   long previousOdometer {0};       // odometer at the last full tank
+   time_t previousFullAt {0};       // .. and its time (0 -> the tour start)
    double previousDistance {0.0};   // GPS distance at the last full tank (0 = tour start)
    int fuelStops {0};
+   bool firstFull {true};
+
+   // the last full tank before the tour and the partial fills since then
+
+   time_t tourStart {tourId == gpsTour.id ? gpsTour.start : 0};
+
+   if (!tourStart)
+   {
+      tableGpsTours->clear();
+      tableGpsTours->setValue("ID", tourId);
+
+      if (tableGpsTours->find())
+         tourStart = tableGpsTours->getTimeValue("START");
+
+      tableGpsTours->reset();
+   }
+
+   tableGpsTourEvents->clear();
+
+   for (bool f = selectGpsFuelEvents->find(); f; f = selectGpsFuelEvents->fetch())
+   {
+      if (tableGpsTourEvents->getIntValue("TOURID") == tourId || tableGpsTourEvents->getTimeValue("TIME") >= tourStart)
+         continue;
+
+      bool full {tableGpsTourEvents->getValue("FULL")->isNull() || tableGpsTourEvents->getIntValue("FULL") != 0};
+
+      if (!full)
+      {
+         pendingLiters += tableGpsTourEvents->getFloatValue("AMOUNT");
+         continue;
+      }
+
+      pendingLiters = 0.0;
+
+      if (tableGpsTourEvents->getIntValue("ODOMETER") > 0)
+      {
+         previousOdometer = tableGpsTourEvents->getIntValue("ODOMETER");
+         previousFullAt = tableGpsTourEvents->getTimeValue("TIME");
+      }
+   }
+
+   selectGpsFuelEvents->freeResult();
+
+   bool sinceStart {!previousOdometer};   // no earlier full tank known -> from the tour start
+   long previousFullOdometer {previousOdometer};
+
+   if (sinceStart)
+   {
+      previousOdometer = odometerStart;
+      pendingLiters = 0.0;
+   }
 
    tableGpsTourEvents->clear();
    tableGpsTourEvents->setValue("TOURID", tourId);
@@ -917,9 +987,14 @@ int HomeCtl::gpsTourEvents2Json(json_t* obj, long tourId, long odometerStart, lo
             if (pendingLiters > 0)
                json_object_set_new(oEvent, "pendingLiters", json_real(pendingLiters));
 
+            if (firstFull)      // where the first segment starts: the tour start or a full tank before the tour
+               json_object_set_new(oEvent, "since", sinceStart ? json_string("start") : json_integer(previousFullAt));
+
             litersCounted += amount + pendingLiters;
             kmCounted += km;
          }
+
+         firstFull = false;
 
          // the same by the GPS distance of the tour
 
@@ -963,10 +1038,115 @@ int HomeCtl::gpsTourEvents2Json(json_t* obj, long tourId, long odometerStart, lo
    json_object_set_new(oTotals, "odometerKm", odometerStart && odometerEnd > odometerStart ? json_integer(odometerEnd - odometerStart) : json_null());
    json_object_set_new(oTotals, "consumption", kmCounted ? json_real(litersCounted / kmCounted * 100.0) : json_null());
    json_object_set_new(oTotals, "consumptionKm", json_integer(kmCounted));
+   json_object_set_new(oTotals, "sinceStart", json_boolean(sinceStart));
+   json_object_set_new(oTotals, "previousFullAt", sinceStart ? json_null() : json_integer(previousFullAt));          // the full tank before the tour ..
+   json_object_set_new(oTotals, "previousFullOdometer", sinceStart ? json_null() : json_integer(previousFullOdometer));  // .. where the chain starts
    json_object_set_new(oTotals, "consumptionGps", kmCountedGps > 0 ? json_real(litersCountedGps / kmCountedGps * 100.0) : json_null());
    json_object_set_new(oTotals, "consumptionGpsKm", json_real(kmCountedGps));
 
    json_object_set_new(obj, "events", oEvents);
+   json_object_set_new(obj, "totals", oTotals);
+
+   return success;
+}
+
+// all fuel stops (of all tours and the standalone ones) in time order as 'stops' with the
+//  consumption from full tank to full tank by the odometer readings - across the tours - and
+//  'totals' with the average
+
+int HomeCtl::gpsFuel2Json(json_t* obj)
+{
+   json_t* oStops {json_array()};
+   json_t* oTotals {json_object()};
+   std::map<long,std::string> tourNames;
+
+   double liters {0.0};
+   double costs {0.0};
+   double litersCounted {0.0};
+   double pendingLiters {0.0};
+   long kmCounted {0};
+   long previousOdometer {0};
+   int stops {0};
+   int counted {0};
+
+   tableGpsTourEvents->clear();
+
+   for (bool f = selectGpsFuelEvents->find(); f; f = selectGpsFuelEvents->fetch())
+   {
+      long tourId {tableGpsTourEvents->getIntValue("TOURID")};
+      long odometer {tableGpsTourEvents->getIntValue("ODOMETER")};
+      double amount {tableGpsTourEvents->getFloatValue("AMOUNT")};
+      double price {tableGpsTourEvents->getFloatValue("PRICE")};
+      bool full {tableGpsTourEvents->getValue("FULL")->isNull() || tableGpsTourEvents->getIntValue("FULL") != 0};
+      json_t* oStop {json_object()};
+
+      if (tourId && !tourNames.count(tourId))
+      {
+         tableGpsTours->clear();
+         tableGpsTours->setValue("ID", tourId);
+         tourNames[tourId] = tableGpsTours->find() ? tableGpsTours->getStrValue("NAME") : "";
+         tableGpsTours->reset();
+      }
+
+      json_object_set_new(oStop, "id", json_integer(tableGpsTourEvents->getIntValue("ID")));
+      json_object_set_new(oStop, "type", json_string("fuel"));
+      json_object_set_new(oStop, "time", json_integer(tableGpsTourEvents->getTimeValue("TIME")));
+      json_object_set_new(oStop, "tourid", json_integer(tourId));
+      json_object_set_new(oStop, "tour", tourId ? json_string(tourNames[tourId].c_str()) : json_null());
+      json_object_set_new(oStop, "lat", json_real(tableGpsTourEvents->getFloatValue("LAT")));
+      json_object_set_new(oStop, "lon", json_real(tableGpsTourEvents->getFloatValue("LON")));
+      json_object_set_new(oStop, "odometer", json_integer(odometer));
+      json_object_set_new(oStop, "amount", json_real(amount));
+      json_object_set_new(oStop, "full", json_boolean(full));
+      json_object_set_new(oStop, "price", json_real(price));
+      json_object_set_new(oStop, "note", json_string(tableGpsTourEvents->getStrValue("NOTE")));
+
+      stops++;
+      liters += amount;
+      costs += price;
+
+      if (!full)
+      {
+         pendingLiters += amount;
+         json_array_append_new(oStops, oStop);
+         continue;
+      }
+
+      if (odometer > 0 && previousOdometer > 0 && odometer > previousOdometer && amount + pendingLiters > 0)
+      {
+         long km {odometer - previousOdometer};
+
+         json_object_set_new(oStop, "km", json_integer(km));
+         json_object_set_new(oStop, "consumption", json_real((amount + pendingLiters) / km * 100.0));
+
+         if (pendingLiters > 0)
+            json_object_set_new(oStop, "pendingLiters", json_real(pendingLiters));
+
+         litersCounted += amount + pendingLiters;
+         kmCounted += km;
+         counted++;
+      }
+
+      pendingLiters = 0.0;
+
+      if (odometer > 0)
+         previousOdometer = odometer;
+
+      json_array_append_new(oStops, oStop);
+   }
+
+   selectGpsFuelEvents->freeResult();
+   tableGpsTourEvents->reset();
+
+   json_object_set_new(oTotals, "stops", json_integer(stops));
+   json_object_set_new(oTotals, "counted", json_integer(counted));
+   json_object_set_new(oTotals, "liters", json_real(liters));
+   json_object_set_new(oTotals, "costs", json_real(costs));
+   json_object_set_new(oTotals, "pricePerLiter", liters > 0 ? json_real(costs / liters) : json_null());
+   json_object_set_new(oTotals, "consumption", kmCounted ? json_real(litersCounted / kmCounted * 100.0) : json_null());
+   json_object_set_new(oTotals, "consumptionKm", json_integer(kmCounted));
+
+   json_object_set_new(obj, "stops", oStops);
    json_object_set_new(obj, "totals", oTotals);
 
    return success;
@@ -987,12 +1167,14 @@ int HomeCtl::gpsTourPushState(long client)
 //   { "action": "list" }                         -> 'gpstours'
 //   { "action": "points", "id": <id> }           -> 'gpstourpoints'
 //   { "action": "events", "id": <id> }           -> 'gpstourevents' (events and totals only, for the list)
+//   { "action": "fuellist" }                     -> 'gpsfuellist' (all fuel stops with the consumption chain)
 //   { "action": "start", "name": "<name>", "odometer": <km> }
 //   { "action": "stop", "stop": <time>, "odometer": <km> }
 //   { "action": "delete", "id": <id> }
 //   { "action": "rename", "id": <id>, "name": "<name>", "odometer": <km>, "odometerend": <km>, "comment": "<text>" }   (all but the name optional)
-//   { "action": "event", "id": <id>, "tourid": <id>, "type": "fuel|toll|pause|night|note",
+//   { "action": "event", "id": <id>, "tourid": <id>, "type": "fuel|toll|pause|night|note", "time": <time>,
 //                        "odometer": <km>, "amount": <l>, "full": true|false, "price": <EUR>, "note": "<text>" }   -> insert / update
+//                        ("tourid": 0 with type 'fuel' -> fuel stop outside of a tour, 'time' optional, default now)
 //   { "action": "eventdelete", "id": <id> }
 //***************************************************************************
 
@@ -1002,6 +1184,14 @@ int HomeCtl::performGpsTour(json_t* obj, long client)
 
    if (action == "list")
       return gpsTourPushState(client);
+
+   if (action == "fuellist")
+   {
+      json_t* oJson {json_object()};
+      gpsFuel2Json(oJson);
+
+      return pushOutMessage(oJson, "gpsfuellist", client);
+   }
 
    if (action == "points")
    {

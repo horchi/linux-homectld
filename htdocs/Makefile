@@ -24,8 +24,10 @@ check:
 		fi; \
 	done
 
-install: check index.html
-	make linstall
+# the JS syntax check is not part of the install any more, run it on demand: make -C htdocs check
+
+install:
+	$(MAKE) linstall
 
 linstall: index.html
 	if ! test -L $(WEBDEST); then \

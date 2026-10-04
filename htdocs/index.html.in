@@ -17,11 +17,13 @@
     <meta name="mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+    <meta name="webif-build" content="@BUILD@"/>  <!-- set by genindex.sh, the WEBIF reloads itself when it changes -->
     <!-- <meta name="theme-color" content="#171717" media="(prefers-color-scheme: dark)"> -->
     <!-- <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)"> -->
 
     <link rel="icon" href="img/home.png" type="image/png"/>
     <link rel="shortcut icon" href="img/home.png" type="image/png"/>
+    <link rel="apple-touch-icon" href="img/home.png"/>
     <link rel="apple-touch-icon-precomposed" sizes="144x144" href="img/home.png" type="image/png"/>
 
     <link rel="stylesheet" type="text/css" href="jquery/jquery-ui-1.12.1/jquery-ui.css">

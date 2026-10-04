@@ -270,10 +270,20 @@ small wall or vehicle display. The pages of the panel are configured in the WEBI
   otherwise the sensor defaults); afterwards the HASP settings are independent of the dashboard
 - widget types: **Symbol** (MDI symbol, color shows the state, acts as toggle button), **SymbolValue**,
   **Value**, **Text**, **Meter** (gauge), **MeterLinear** (vertical bar with scale, thermometer for °C),
-  **Time** (clock and date, rendered by the panel) and **Level** (MDI symbol filled by percentage in the
+  **Time** (clock and date, rendered by the panel), **Level** (MDI symbol filled by percentage in the
   bar color, e.g. `mdi-water`, `mdi-propane-tank`, `mdi-car-battery`; range from the scale of the widget)
+  (the fill refers to the drawn height of the symbol; the option *Füllung als Fläche* fills a rectangle
+  behind the symbol instead, for frame symbols without a filled variant, e.g. `mdi-crop-landscape` as a tank)
+  and **Choice** (the choices of the sensor as button matrix, 2 per row up to 4 choices, otherwise 3;
+  the current value is the highlighted button in the 'on' color, a touch sends the choice to the
+  command topic of the sensor like the dashboard choice widget; without a command topic the selection is reverted)
 - the pages are sent after saving, with the button *An Panel senden* and automatically whenever the panel
   comes online (openHASP forgets objects received via MQTT on reboot)
+- the idle times of the panel (*Leerlauf*, seconds) are set on the same page: after the short one the
+  panel dims, after the long one the display goes off (what exactly happens is defined by the scripts
+  `idle_short.cmd` / `idle_long.cmd` / `idle_off.cmd` on the panel). They are stored as the configuration
+  items *haspIdleShort* / *haspIdleLong* and sent with the pages (`config/gui`, `idle1` / `idle2`);
+  0 switches a stage off, both 0 leaves the panel's own setting untouched
 - values are pushed on every sensor change; openHASP has no chart object, so charts are not available
 
 
@@ -294,11 +304,15 @@ In addition trips can be recorded as tours and displayed later.
   and end are columns of `gpstours`, they can be corrected later together with the name (pencil
   button in the tour list)
 - costs and fuel consumption are calculated from the events: total costs (fuel + toll + other),
-  consumption per fuel stop = liters / km since the previous full tank (tour start or the previous
-  full fuel stop) and the average over all fuel stops with a known distance. The distance is taken
+  consumption per fuel stop = liters / km since the previous full tank and the average over all
+  fuel stops with a known distance. The chain starts at the last full fuel stop before the tour
+  (of any tour or entered outside of a tour, see below), so the first fill of a tour is not
+  charged to the tour's km only; without any earlier fuel stop the odometer of the tour start is
+  used (marked *ab Tour-Start*, assumes a full tank at the start). The distance is taken
   from the odometer readings (*Tacho*) and in parallel from the GPS distance of the tour at the
-  moment of the fuel stop (*GPS*, stored with the event), both values are shown. A fuel stop marked
-  *nicht voll* (partial fill) gets no value of its own, its liters are added to the next full one.
+  moment of the fuel stop (*GPS*, stored with the event, tour-bound by nature), both values are
+  shown. A fuel stop marked *nicht voll* (partial fill) gets no value of its own, its liters are
+  added to the next full one.
   They are shown in the tour list, in the info box of the displayed tour and in the control panel
   while recording
 - while a tour is active a point is stored whenever the position moved at least
@@ -338,6 +352,20 @@ In addition trips can be recorded as tours and displayed later.
   (control rights). The active tour can be displayed too but not deleted. Entering an event never
   changes the view.
 - *Zentrieren* (button on the map) brings the whole route into view
+
+<a id="gps-fuel"></a>
+## Fuel stops and consumption
+
+- *Map -> Tankstopps* (gas station icon) lists all fuel stops: the ones entered during tours (with a
+  link to the tour) and the ones entered here outside of a tour (*Tankstopp eintragen*, control rights)
+  with date / time, odometer, liters, total price, *voll getankt* and a note. The position is the
+  current GPS position if available
+- the consumption is calculated across the tours from full tank to full tank by the odometer readings:
+  liters / km since the previous full fuel stop, partial fills are added to the next full one. The head
+  shows the average over all counted fills, the total liters and costs and the average price per liter.
+  A fuel stop without odometer or the first one gets no value
+- the fuel stops are the events of type `fuel` in `gpstourevents`, standalone ones have `TOURID = 0`;
+  editing / deleting works from this list as well as from the tour
 
 
 <a id="garmin-activities"></a>
@@ -526,6 +554,13 @@ page settings per icon, after an update of homectld delete and re-add the icon i
 1. Log in to the web interface
 2. Go to Setup -> IO Setup
 3. Enable the desired sensors (for example, script sensors)
+
+Script sensors are the scripts in `/etc/homectld/scripts.d` (templates `example_sensor.sh` and
+`example_switch.sh`), one sensor per script. `dvb-signal.sh` is a switch for aligning a satellite
+dish: a click starts a monitor which reads `dvb-fe-tool --femon` (package `dvb-tools`) and shows
+lock, signal level and C/N about once per second as the text of the widget (type SymbolText), a
+second click or 30 minutes stop it. The adapter number is the argument of the sensor (IO setup,
+default 0); a lock and the C/N need a tuned frontend, e.g. a running stream of minisatip.
 
 Some sensor categories are only available once the corresponding interface service has been activated and is running.
 You can implement this interface service yourself using C/C++, Python, a shell script, and many other languages.

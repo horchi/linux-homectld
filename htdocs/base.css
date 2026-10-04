@@ -2944,6 +2944,11 @@ dialog::backdrop, #backdrop
     color: orange !important;
 }
 
+.gpsLink {
+    cursor: pointer;
+    text-decoration: underline dotted;
+}
+
 /* tour list in the control panel */
 
 .gpsTourList {
@@ -3105,12 +3110,35 @@ dialog::backdrop, #backdrop
     margin-top: 3px;
 }
 
-/* GPS page: the tool bar gets the container background (the translucent one is hard to read
-   with the state and the event buttons), the event buttons are aligned to the right */
+/* GPS page: the tool bar looks like the dashboard menu (same background, same button metrics),
+   the event buttons are aligned to the right */
 
-.menuDashboard.gpsToolbar {
-    background-color: var(--background);
-    --stripBg: var(--background);
+.gpsToolbar .gpsViewButton {
+    padding-left: 6px;           /* only horizontal, the vertical padding follows the common rules (media queries) */
+    padding-right: 6px;
+}
+
+/* text tabs and icon buttons get the same line height, so the dashboard menu and the GPS tool
+   bar are equally high with the same font size */
+
+.menuDashboard .buttonDashboard {
+    line-height: 1.15;
+}
+
+.gpsToolbar .buttonDashboard.mdi::before {
+    display: inline;             /* like text, not an inline-block on the baseline */
+    line-height: inherit;
+}
+
+/* with the big dashboard symbols (bigDashSymbols / kiosk) the buttons get the same font size as
+   the dashboard tabs - like there only the font, margins and paddings follow the same media queries */
+
+.gpsToolbar.gpsToolbarBig .buttonDashboard {
+    font-size: xxx-large;
+}
+
+.gpsToolbar.gpsToolbarBig .gpsRecordState {
+    font-size: x-large;
 }
 
 /* tour events: buttons in the tool bar, markers and popups on the map */
@@ -3124,7 +3152,8 @@ dialog::backdrop, #backdrop
 
 .gpsEventBtn {
     font-size: x-large;
-    padding: 0px 6px;
+    padding-left: 6px;
+    padding-right: 6px;
     color: var(--yellow);
 }
 

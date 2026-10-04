@@ -58,7 +58,8 @@ function haspReducedType(wt)
 {
    switch (parseInt(wt)) {
       case 0: case 14:                  return 0;    // Symbol, SpecialSymbol
-      case 2: case 7: case 8:           return 2;    // Text, PlainText, Choice
+      case 2: case 7:                   return 2;    // Text, PlainText
+      case 8:                           return 8;    // Choice (button matrix)
       case 4: case 5:                   return 5;    // Gauge, Meter -> Meter
       case 6: case 13:                  return 6;    // MeterLevel, ChartBar -> MeterLevel
       case 9: case 12:                  return 9;    // SymbolValue, SymbolText
@@ -118,10 +119,12 @@ function initHaspSetup()
               .append($('<button></button>')
                       .addClass('rounded-border tool-button')
                       .html('Speichern')
+                      .attr('title', 'Seiten speichern und an das Panel senden')
                       .click(function() { storeHaspPages(); }))
               .append($('<button></button>')
                       .addClass('rounded-border tool-button')
                       .html('An Panel senden')
+                      .attr('title', 'Den gespeicherten Stand erneut an das Panel senden (z.B. nach einem Neustart des Panels), speichert nicht')
                       .click(function() { socket.send({ "event": "hasppages", "object": { "action": "send" } }); })))
       .append($('<button></button>')
               .addClass('rounded-border tool-button')
@@ -129,6 +132,26 @@ function initHaspSetup()
               .click(function() { haspAddPage(); }))
       .append($('<div></div>')
               .addClass('button-group-spacing'))
+      .append($('<div></div>')
+              .css({ 'display': 'flex', 'gap': '6px', 'align-items': 'center', 'margin-bottom': '4px' })
+              .append($('<input></input>')
+                      .attr('id', 'haspIdleShort')
+                      .attr('type', 'number').attr('min', 0).attr('step', 1)
+                      .attr('title', 'kurz: nach dieser Zeit ohne Berührung dunkelt das Panel ab (Skript idle_short.cmd im Panel), 0 = aus')
+                      .addClass('rounded-border input')
+                      .css('width', '70px')
+                      .val(haspPages.idleShort != null ? haspPages.idleShort : 0))
+              .append($('<span></span>').html('abdunkeln [s]')))
+      .append($('<div></div>')
+              .css({ 'display': 'flex', 'gap': '6px', 'align-items': 'center', 'margin-bottom': '8px' })
+              .append($('<input></input>')
+                      .attr('id', 'haspIdleLong')
+                      .attr('type', 'number').attr('min', 0).attr('step', 1)
+                      .attr('title', 'lang: nach dieser Zeit ohne Berührung schaltet das Panel das Display aus (Skript idle_long.cmd im Panel), 0 = aus')
+                      .addClass('rounded-border input')
+                      .css('width', '70px')
+                      .val(haspPages.idleLong != null ? haspPages.idleLong : 0))
+              .append($('<span></span>').html('Display aus [s]')))
       .append($('<div></div>')
               .addClass('labelB1')
               .html('Filter'))
@@ -140,7 +163,8 @@ function initHaspSetup()
               .css('width', '-webkit-fill-available')
               .css('width', '-moz-available')
               .css('margin-bottom', '8px')
-              .on('input', function() { haspApplyFilter(); }))
+              .val(sessionStorage.getItem(storagePrefix + 'haspFilter') || '')     // kept for the browser session only
+              .on('input', function() { sessionStorage.setItem(storagePrefix + 'haspFilter', $(this).val()); haspApplyFilter(); }))
       .append($('<div></div>')
               .addClass('button-group-spacing'))
       .append($('<button></button>')
@@ -444,6 +468,8 @@ window.storeHaspPages = function()
          'widgets': widgets
       };
    });
+
+   jsonObj['config'] = { 'idleShort': parseInt($('#haspIdleShort').val()) || 0, 'idleLong': parseInt($('#haspIdleLong').val()) || 0 };
 
    for (let i = 0; i < haspDeletedPages.length; i++)
       jsonObj[haspDeletedPages[i]] = { 'action': 'delete' };

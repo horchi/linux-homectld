@@ -336,6 +336,21 @@ function widgetSetup(key, hasp)
                                          )))
 
                   .append($('<div></div>')
+                          .attr('id', 'divFillRect')
+                          .append($('<span></span>')
+                                  .html('Füllung als Fläche'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'fillrect')
+                                          .attr('type', 'checkbox')
+                                          .attr('title', 'Eine Fläche hinter dem Symbol wird gefüllt statt des Symbols selbst - für Rahmen-Symbole ohne gefüllte Variante (z.B. mdi-crop-landscape als Tank)')
+                                          .prop('checked', widget.fillrect == true))
+                                  .append($('<label></label>')
+                                          .prop('for', 'fillrect')
+                                         )))
+
+                  .append($('<div></div>')
                           .attr('id', 'divLinefeed')
                           .append($('<span></span>')
                                   .html('Zeilenumbruch'))
@@ -404,6 +419,7 @@ function widgetSetup(key, hasp)
       $("#divColorCondition").css("display", [0,2,3,6,7,8,9,10,11,12].includes(wType) ? 'flex' : 'none');
       $("#divLinefeed").css("display", [10].includes(wType) ? 'flex' : 'none');
       $("#divButtons").css("display", [8].includes(wType) && !hasp ? 'flex' : 'none');
+      $("#divFillRect").css("display", [15].includes(wType) ? 'flex' : 'none');
       $("#divRange").css("display", [1,5,6,13].includes(wType) ? 'flex' : 'none');
 
       if ([0,9,12].includes(wType) && $('#symbol').val() == '' && $('#symbolOn').val() == '')
@@ -709,6 +725,7 @@ function widgetSetup(key, hasp)
             json[key]["showpeakmin"] = $("#peakmin").is(':checked');
             json[key]["showvalue"] = $("#showvalue").is(':checked');
             json[key]["buttons"] = $("#buttons").is(':checked');
+            json[key]["fillrect"] = $("#fillrect").is(':checked');
             json[key]["linefeed"] = $("#linefeed").is(':checked');
             json[key]["color"] = $("#color").spectrum("get").toRgbString();
             json[key]["colorOn"] = $("#colorOn").spectrum("get").toRgbString();

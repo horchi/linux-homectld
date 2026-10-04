@@ -85,6 +85,8 @@ std::list<HomeCtl::ConfigItemDef> HomeCtl::configuration
    // openHASP panel
 
    { "haspMqttTopic",             ctString,  "hasp/plates", "N", false, "HASP Panel", "MQTT Basis-Topic des openHASP Panels", "Kommandos gehen an &lt;Topic&gt;/command/..., z.B. 'hasp/plates' (Gruppe) oder 'hasp/&lt;hostname&gt;'. Leer = Panel-Anbindung aus" },
+   { "haspIdleShort",             ctInteger, "0", "N", false, "HASP Panel", "Leerlauf kurz [s]", "Nach dieser Zeit ohne Berührung dunkelt das Panel ab (Skript idle_short.cmd im Panel), 0 = aus. Wird mit den Seiten an das Panel gesendet (config/gui), beide Zeiten 0 = die Einstellung des Panels bleibt unverändert" },
+   { "haspIdleLong",              ctInteger, "0", "N", false, "HASP Panel", "Leerlauf lang [s]", "Nach dieser Zeit ohne Berührung schaltet das Panel das Display aus (Skript idle_long.cmd im Panel), 0 = aus" },
 
    // mail
 

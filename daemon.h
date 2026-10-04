@@ -499,6 +499,7 @@ class HomeCtl : public cWebInterface, public Service
          hwtSymbolValue,    // MDI symbol plus value
          hwtTime,           // clock (rendered by the panel itself)
          hwtLevel,          // MDI symbol filled by percentage (tank, gas bottle, battery, ...)
+         hwtChoice,         // the choices of the valuefact as button matrix (btnmatrix), touch selects
          hwtCount
       };
 
@@ -516,8 +517,12 @@ class HomeCtl : public cWebInterface, public Service
          int extraId {0};          // additional label (Level: percent)
          int size {0};             // Level: glyph size
          int top {0};              // Level: glyph top (y inside the card)
+         int inkTop {0};           // Level: drawn area of the glyph (from the font), the fill refers to it
+         int inkBottom {0};
+         bool rectFill {false};    // Level: option 'fillrect' - a rectangle behind the symbol is filled
          double scaleMin {0};      // Level: value range for the percentage
          double scaleMax {100};
+         std::vector<std::string> choices;   // Choice: the button texts (index = btnmatrix val)
       };
 
       static const char* haspWidgetTypeNames[];
@@ -559,6 +564,7 @@ class HomeCtl : public cWebInterface, public Service
       int gpsTourEventStore(json_t* obj, std::string& error);   // insert / update from the WEBIF
       int gpsTourEventDelete(long id);
       int gpsTourEvents2Json(json_t* obj, long tourId, long odometerStart, long odometerEnd);   // 'events' and 'totals'
+      int gpsFuel2Json(json_t* obj);                          // all fuel stops (tours and standalone) with the consumption chain
 
       // Garmin activities (activities.c)
 
@@ -695,6 +701,7 @@ class HomeCtl : public cWebInterface, public Service
       cDbStatement* selectHaspPages {};
       cDbStatement* selectGpsTours {};
       cDbStatement* selectGpsTourEvents {};
+      cDbStatement* selectGpsFuelEvents {};
       cDbStatement* selectGpsTourSamples {};
       cDbStatement* selectActivities {};
       cDbStatement* selectActivityTrackIds {};

@@ -34,4 +34,11 @@ while IFS= read -r line; do
    printf '%s\n' "$line"
 done < "$IN" > "$OUT"
 
-echo "generated htdocs/$OUT (assets versioned by content hash)"
+# the build id of the page (meta 'webif-build'): hash of the generated content, so it
+# changes with any of the versioned files; main.js compares it with the current
+# index.html on every connect and reloads the page on a difference
+
+build=$(md5sum "$OUT" | cut -c1-10)
+sed -i "s/@BUILD@/${build}/" "$OUT"
+
+echo "generated htdocs/$OUT (assets versioned by content hash, build ${build})"

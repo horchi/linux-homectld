@@ -1094,8 +1094,11 @@ int HomeCtl::initScripts()
       sensors["SC"][addr].markStored();       // the init result is only provisional (some scripts report 0 at init),
                                               //  stored is the first 'status' result (updateScriptSensors)
 
+      // NAME is the script file (callScript() runs the script by it), TITLE the title reported
+      // by the script or the file name without extension
+
       auto tuple {split(name, '.')};
-      addValueFact(addr, "SC", 1, !isEmpty(title) ? title : name.c_str(), unit, tuple[0].c_str(), urControl, choices, soNone, sensors["SC"][addr].parameter.c_str());
+      addValueFact(addr, "SC", 1, name.c_str(), unit, !isEmpty(title) ? title : tuple[0].c_str(), urControl, choices, soNone, sensors["SC"][addr].parameter.c_str());
 
       tell(eloScript, "Script: Found script '%s' addr (%ld), unit '%s'; title '%s', name '%s' result was [%s]", scriptPath, addr, unit, title, name.c_str(), result.c_str());
       free(scriptPath);
@@ -1777,6 +1780,16 @@ int HomeCtl::initDb()
 
    status += selectGpsTourEvents->prepare();
 
+   // all fuel stops (of all tours and the standalone ones) in time order
+
+   selectGpsFuelEvents = new cDbStatement(tableGpsTourEvents);
+
+   selectGpsFuelEvents->build("select ");
+   selectGpsFuelEvents->bindAllOut();
+   selectGpsFuelEvents->build(" from %s where type = 'fuel' order by time", tableGpsTourEvents->TableName());
+
+   status += selectGpsFuelEvents->prepare();
+
    // ------------------
    // Garmin activities, newest first
 
@@ -2002,6 +2015,7 @@ int HomeCtl::exitDb()
    delete selectHaspPageWidgetsFor; selectHaspPageWidgetsFor = nullptr;
    delete selectGpsTours;          selectGpsTours = nullptr;
    delete selectGpsTourEvents;     selectGpsTourEvents = nullptr;
+   delete selectGpsFuelEvents;     selectGpsFuelEvents = nullptr;
    delete tableGpsTourEvents;      tableGpsTourEvents = nullptr;
    delete selectGpsTourSamples;    selectGpsTourSamples = nullptr;
    delete tableGpsTours;           tableGpsTours = nullptr;

@@ -268,7 +268,8 @@ small wall or vehicle display. The pages of the panel are configured in the WEBI
 - per slot a sensor is selected (filter and sorting by type / name), *Setup* opens the widget dialog
 - when a sensor is selected its settings are copied **once** from its dashboard widget (if it is on a dashboard,
   otherwise the sensor defaults); afterwards the HASP settings are independent of the dashboard
-- widget types: **Symbol** (MDI symbol, color shows the state, acts as toggle button), **SymbolValue**,
+- widget types: **Symbol** (MDI symbol, color shows the state, acts as toggle button; with the option
+  *Spin bei Aktivität* a ring turns around the symbol while the sensor is on, also for SymbolValue), **SymbolValue**,
   **Value**, **Text**, **Meter** (gauge), **MeterLinear** (vertical bar with scale, thermometer for °C),
   **Time** (clock and date, rendered by the panel), **Level** (MDI symbol filled by percentage in the
   bar color, e.g. `mdi-water`, `mdi-propane-tank`, `mdi-car-battery`; range from the scale of the widget)
@@ -289,7 +290,9 @@ small wall or vehicle display. The pages of the panel are configured in the WEBI
   time starts/stops, a long press resets to the configured minutes; needs the custom firmware >= 0.7.0.2,
   see openHASP/README.md)
 - the pages are sent after saving, with the button *An Panel senden* and automatically whenever the panel
-  comes online (openHASP forgets objects received via MQTT on reboot)
+  comes online (openHASP forgets objects received via MQTT on reboot); further buttons: *Panel wecken*
+  (display on, the idle cycle restarts), *Panel neu starten* and *Screenshot* (the screenshot page of the
+  panel's web server, the IP is taken from the panel's status report)
 - the idle times of the panel (*Leerlauf*, seconds) are set on the same page: after the short one the
   panel dims, after the long one the display goes off (what exactly happens is defined by the scripts
   `idle_short.cmd` / `idle_long.cmd` / `idle_off.cmd` on the panel). They are stored as the configuration
@@ -604,9 +607,14 @@ Scripts are entered in the sensor's settings in the web interface (Setup → IO 
 
 ## When a script is called
 
-A script is executed when **at least one sensor declared via `watch()` has changed its value** since the last run, or when a forced refresh occurs (e.g. on startup).
+A script is executed when **at least one sensor declared via `watch()` has changed its value** since the
+last run of the script, or when the interval requested via `every(seconds)` has elapsed.
 
-On the very first run the script is always executed so that the `watch()` calls can be collected. From then on the daemon tracks the declared sensors and only re-runs the script when one of them changes.
+The very first run (at startup and after the script was saved) is always executed so that the `watch()`
+and `every()` calls can be collected. From then on the daemon only re-runs the script when one of them is
+due. A script declaring neither `watch()` nor `every()` is run every 60 seconds. A script with `watch()`
+only runs on changes of the watched sensors, so a script that also depends on the passing of time (hold
+times, timeouts, runtime counters) has to add an `every()`.
 
 ## Available globals
 
@@ -642,6 +650,25 @@ sensors["DO"][0x02]    -- hex address 2  (both forms are equivalent)
 | `valid` | boolean | `true` if the sensor has delivered at least one valid reading |
 
 All fields are **read-only** — the script cannot modify sensor data directly.
+
+### `watch(type, address)` — run on change
+
+Declares a sensor the script depends on. The script is re-run as soon as that sensor has changed since
+the last run (within 0.5 s, GPIO inputs immediately when read).
+
+```lua
+watch("GPIO", 0x0c)
+```
+
+### `every(seconds)` — run periodically
+
+Requests a run in the given interval, in addition to the `watch()` dependencies and the forced run
+once per minute. Useful for scripts that accumulate time or poll something; the resolution is one second,
+the actual call happens within 0.5 s after the interval has elapsed.
+
+```lua
+every(10)         -- run at least every 10 seconds
+```
 
 ### `tell(level, message)` — logging
 

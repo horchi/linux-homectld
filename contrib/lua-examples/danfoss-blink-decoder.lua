@@ -10,6 +10,7 @@ blinkCode     = blinkCode     or 0
 lastValue     = lastValue     or false
 
 watch("GPIO", 0x0b)
+every(10)
 
 local SEQ_PAUSE_S = 2
 local RESET_PAUSE_S = 10

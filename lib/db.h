@@ -392,7 +392,22 @@ class cDbValue : public cDbService
       unsigned long getStrValueSize()      { return strValueSize; }
       const char* getStrValue()            { return !isNull() && strValue ? strValue : ""; }
       char getCharValue()                  { return !isNull() && strValue ? strValue[0] : 0; }
-      long getIntValue()                   { return !isNull() ? numValue : 0; }
+      long getIntValue()
+      {
+         if (isNull())
+            return 0;
+
+         // int columns are bound as MYSQL_TYPE_LONG (4 bytes) into the 8 byte numValue, a fetch leaves
+         // the upper bytes as they were (e.g. 0xffffffff after a -1) -> take only the 32 bits of the column
+
+         if (field->getFormat() == ffUInt)
+            return (long)(unsigned int)numValue;
+
+         if (field->getFormat() == ffInt)
+            return (long)(int)numValue;
+
+         return numValue;
+      }
 
       int64_t getBigintValue()
       {

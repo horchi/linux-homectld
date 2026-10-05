@@ -1806,6 +1806,15 @@ int HomeCtl::storeIoSettings(json_t* obj, long client)
       }
 
       initSensorByFact(type, address);
+
+      // a changed script runs again at once and re-collects its watch() / every()
+
+      char* key {};
+      asprintf(&key, "%s:0x%02x", type, address);
+      luaLastRun.erase(key);
+      luaDeps.erase(key);
+      luaEvery.erase(key);
+      free(key);
    }
 
    return success;

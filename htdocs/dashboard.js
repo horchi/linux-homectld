@@ -1977,8 +1977,6 @@ function updateWidget(sensor, refresh, widget)
       }
       else if (state && widget.symbolOn && widget.symbolOn != '') {  // MDI Icon ON
          classes = widget.symbolOn.replace(':', ' ');
-         if (classes.indexOf('mdi-snowflake') != -1)
-            classes += ' mdispin';
          $("#widget" + fact.type + fact.address).remove();
       }
       else if (!state && widget.symbol && widget.symbol != '') {     // MDI Icon OFF
@@ -1991,6 +1989,9 @@ function updateWidget(sensor, refresh, widget)
       }
       else                                                           // image by patch as <img> element
          image = state ? widget.imgon : widget.imgoff;
+
+      if (state && widget.spin && classes != '')                     // option 'Aktivität anzeigen': the symbol turns while on
+         classes += ' mdispin';
 
       if (image != '')
          $("#widget" + fact.type + fact.address).attr("src", image);

@@ -336,6 +336,21 @@ function widgetSetup(key, hasp)
                                          )))
 
                   .append($('<div></div>')
+                          .attr('id', 'divSpin')
+                          .append($('<span></span>')
+                                  .html('Spin bei Aktivität'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'spin')
+                                          .attr('type', 'checkbox')
+                                          .attr('title', 'Solange der Sensor an ist: das Symbol dreht sich (Dashboard) bzw. ein Ring dreht sich um das Symbol (HASP Panel)')
+                                          .prop('checked', widget.spin == true))
+                                  .append($('<label></label>')
+                                          .prop('for', 'spin')
+                                         )))
+
+                  .append($('<div></div>')
                           .attr('id', 'divFillRect')
                           .append($('<span></span>')
                                   .html('Füllung als Fläche'))
@@ -464,6 +479,7 @@ function widgetSetup(key, hasp)
       $("#divLinefeed").css("display", [10].includes(wType) ? 'flex' : 'none');
       $("#divButtons").css("display", [8].includes(wType) && !hasp ? 'flex' : 'none');
       $("#divFillRect").css("display", [15].includes(wType) ? 'flex' : 'none');
+      $("#divSpin").css("display", [0,9,12].includes(wType) ? 'flex' : 'none');
       $("#divInvert").css("display", [16].includes(wType) ? 'flex' : 'none');
       $("#divMinutes").css("display", [17].includes(wType) ? 'flex' : 'none');
       $("#divSteps").css("display", [17].includes(wType) ? 'flex' : 'none');
@@ -694,6 +710,7 @@ function widgetSetup(key, hasp)
             widget.showvalue = $("#showvalue").is(':checked');
             widget.buttons = $("#buttons").is(':checked');
             widget.linefeed = $("#linefeed").is(':checked');
+            widget.spin = $("#spin").is(':checked');
             widget.widthfactor = $("#widthfactor").val();
             widget.heightfactor = $("#heightfactor").val();
             widget.range = $("#range").val();
@@ -727,6 +744,7 @@ function widgetSetup(key, hasp)
             widget.showvalue = $("#showvalue").is(':checked');
             widget.buttons = $("#buttons").is(':checked');
             widget.linefeed = $("#linefeed").is(':checked');
+            widget.spin = $("#spin").is(':checked');
             widget.widthfactor = $("#widthfactor").val();
             widget.heightfactor = $("#heightfactor").val();
             widget.range = $("#range").val();
@@ -784,6 +802,7 @@ function widgetSetup(key, hasp)
             json[key]["showvalue"] = $("#showvalue").is(':checked');
             json[key]["buttons"] = $("#buttons").is(':checked');
             json[key]["fillrect"] = $("#fillrect").is(':checked');
+            json[key]["spin"] = $("#spin").is(':checked');
             json[key]["invert"] = $("#invert").is(':checked');
             if ($("#minutes").length)
                json[key]["minutes"] = parseInt($("#minutes").val()) || 10;

@@ -570,6 +570,10 @@ int HomeCtl::init()
          luaDeps[luaCurrentKey].insert({wType, wAddr});
       });
 
+      s.set_function("every", [this](int seconds) {          // periodic run in the own interval of the script
+         luaEvery[luaCurrentKey] = std::max(seconds, 1);
+      });
+
       s.set_function("tell", [](int level, const std::string& msg) {
          tell(static_cast<Eloquence>(level), "%s", msg.c_str());
       });
@@ -654,6 +658,7 @@ int HomeCtl::init()
    });
 
    initialized = true;
+   triggerProcess = true;    // first evaluation of the LUA scripts (collects their watch() / every())
 
    return success;
 }
@@ -2306,7 +2311,7 @@ int HomeCtl::meanwhile()
       pushOutMessage(oJson, "valuefacts");
    }
 
-   if (triggerProcess && nextProcessMs <= cTimeMs::Now())
+   if ((triggerProcess || luaEveryDue()) && nextProcessMs <= cTimeMs::Now())
    {
       process();
       nextProcessMs = cTimeMs::Now() + 500;
@@ -2387,7 +2392,7 @@ int HomeCtl::loop()
 
          {
             LogDuration ld("process", eloLoopTimings);
-            process(true /*force*/);
+            process();     // time ranges of the DO sensors; the LUA scripts run by their watch() / every()
          }
 
          {
@@ -2719,9 +2724,23 @@ int HomeCtl::process(bool force, bool signal)
 // Process LUA
 //***************************************************************************
 
+// is a periodic run requested by every() of a script due? (the main loop calls process() then)
+
+bool HomeCtl::luaEveryDue()
+{
+   for (const auto& [key, seconds] : luaEvery)
+      if (time(0) - luaLastRun[key] >= seconds)
+         return true;
+
+   return false;
+}
+
 int HomeCtl::processLua(bool force, bool signal)
 {
    // calculate CV and DO/GPIO(out) sensors by LUA
+
+   if (!initialized)         // the GPIO setup triggers process() before the LUA bindings (watch, every, sensors) exist
+      return done;
 
    for (bool f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
@@ -2771,25 +2790,45 @@ int HomeCtl::processLua(bool force, bool signal)
 
       bool update {false};
 
+      // the first run collects the watch() / every() declarations
+
+      if (!luaLastRun.count(key))
+      {
+         tell(eloLua, "LUA: '%s' first run, collecting watch() / every()", key);
+         update = true;
+      }
+
       // if deps is set check it
 
-      if (!luaDeps[luaCurrentKey].empty())
+      if (!update && !luaDeps[luaCurrentKey].empty())
       {
          for (const auto& [wType, wAddr] : luaDeps[luaCurrentKey])
          {
             if (!sensors.count(wType) || !sensors.at(wType).count(wAddr))
                continue;
 
-            if (sensors.at(wType).at(wAddr).changedAt() > sensors[type][address].changedAt())
+            // compare with the last run of the script, not with the last change of the result: a result
+            // that does not change (e.g. a runtime counter in whole minutes) kept the script running on
+            // every process() call (each MQTT value), which starved scripts accumulating time between calls
+
+            if (sensors.at(wType).at(wAddr).changedAt() >= luaLastRun[luaCurrentKey])
             {
-               tell(eloLua, "LUA: '%s:0x%02x' (%s) changed later than '%s:0x%02lx' (%s)",
+               tell(eloLua, "LUA: '%s:0x%02x' (%s) changed since the last run of '%s:0x%02lx' (%s)",
                     wType.c_str(), wAddr, l2pTime(sensors.at(wType).at(wAddr).changedAt()).c_str(),
-                    type.c_str(), address, l2pTime(sensors[type][address].changedAt()).c_str());
+                    type.c_str(), address, l2pTime(luaLastRun[luaCurrentKey]).c_str());
 
                update = true;
                break;
             }
          }
+      }
+
+      // every(seconds) of the script due?
+
+      if (!update && luaEvery.count(key) && time(0) - luaLastRun[key] >= luaEvery[key])
+      {
+         tell(eloLua, "LUA: '%s' every(%d) is due", key, luaEvery[key]);
+         update = true;
       }
 
       if (!update && !force)
@@ -2811,7 +2850,15 @@ int HomeCtl::processLua(bool force, bool signal)
       if (lua.executeExpression(expression.c_str(), arguments, res, luaRef) != success)
       {
          free(key);
-         continue;
+         continue;                   // not counted as a run, the next call tries again (first run collects the declarations)
+      }
+
+      luaLastRun[key] = time(0);
+
+      if (luaDeps[key].empty() && !luaEvery.count(key))        // nothing declared -> once a minute
+      {
+         tell(eloLua, "LUA: '%s' declares neither watch() nor every(), running it every 60 seconds", key);
+         luaEvery[key] = 60;
       }
 
       if (res.type == Lua::tDouble)
@@ -4638,7 +4685,10 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
    {
       bool changed {updateAnalogInput(address, type.c_str(), getDoubleFromJson(jData, "value"), newTime, unit)};
       json_decref(jData);
-      triggerProcess = changed;  // ADS Sensor
+
+      if (changed)
+         triggerProcess = true;  // ADS Sensor (an unchanged value must not clear a trigger of another sensor)
+
       return success;
    }
 

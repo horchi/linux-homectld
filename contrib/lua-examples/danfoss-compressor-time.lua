@@ -1,58 +1,56 @@
--- Calculates and increments the compressor's daily runtime live in minutes during execution.
+-- Daily runtime of the compressor (Danfoss / Secop F-signal on a GPIO input) in minutes.
+--
+-- Sensor: CV (calculated value), unit 'min'. The seconds are counted in the script itself
+-- (globals survive between the runs), only the result is rounded to minutes. The runtime is
+-- also persisted by the daemon as the sensor value, so after a restart of the daemon the
+-- stored minutes are taken over as the starting point of the day.
+-- Note: all scripts share one Lua state, so the globals (runtimeSeconds, dayOfCount,
+-- lastCheckTime) must not be used by another script - give them unique names if in doubt.
 
--- It's important to persist the sensor data (in database)!
+local gpioType, gpioAddr = "GPIO", 0x0c          -- the F-signal input (true = compressor running)
+local myType, myAddr     = "CV", 0x06            -- this sensor
 
--- 1. Register sensor subscription event listeners
+watch(gpioType, gpioAddr)                        -- run at once on every change of the input
+every(10)                                        -- and at least every 10 seconds while it runs
 
-watch("GPIO", 0x0c)
-
--- 2. Global state initialization
-
-local compressor = sensors["GPIO"][0x0c]    -- Danfoss F-Signal
-local lastRuntime = sensors["CV"][0x06]     -- #TODO set a valiable like myAddress prior calling the script
+local compressor = sensors[gpioType][gpioAddr]
+local me         = sensors[myType][myAddr]
 
 if not compressor then
-   tell(eloDetail, "Comp-Time: GPIO:0x0c not initialized")
+   tell(eloDetail, "Comp-Time: " .. gpioType .. ":" .. gpioAddr .. " not initialized")
    return 0
 end
 
-if not lastRuntime then
-   tell(eloDetail, "Comp-Time: CV:0x06 not initialized")
-   return 0
+local now   = os.time()
+local today = os.date("*t", now).yday
+
+-- first run after a start of the daemon: continue with the stored minutes of today
+
+if runtimeSeconds == nil then
+   runtimeSeconds = (me and me.value or 0) * 60
+   dayOfCount     = today
+   lastCheckTime  = nil
 end
 
-local dailyRuntimeSeconds = lastRuntime.value * 60
-local nowMin = os.date("*t", os.time()).hour * 60 + os.date("*t", os.time()).min
+-- a new day starts at 0
 
--- 2. Daily reset execution between 00:00 and 01:00 AM
-
-if nowMin < 1 * 60 then
-   dailyRuntimeSeconds = 0
-   lastCheckTime = nil
-   return 0.00
+if dayOfCount ~= today then
+   runtimeSeconds = 0
+   dayOfCount     = today
+   lastCheckTime  = nil
 end
 
-local currentTime = os.time()
-local isRunning = compressor.state
+-- add the time since the last run while the compressor is running
 
--- 4. Dynamic time delta calculation for both live cycles and edge interrupts
-
-if isRunning then
-   if lastCheckTime and lastCheckTime < currentTime then
-      -- Calculate and add elapsed seconds since last cycle/edge immediately
-      local deltaSeconds = currentTime - lastCheckTime
-      dailyRuntimeSeconds = dailyRuntimeSeconds + deltaSeconds
-      tell(eloDebug, "Comp-Time: Compressor is running " .. dailyRuntimeSeconds .. "seconds now")
+if compressor.state then
+   if lastCheckTime then
+      runtimeSeconds = runtimeSeconds + (now - lastCheckTime)
    end
-   -- Store current timestamp to continue tracking from this point
-   lastCheckTime = currentTime
+   lastCheckTime = now
 else
-   -- Reset tracking anchor when compressor is idle to prevent cross-cycle math errors
    lastCheckTime = nil
 end
 
--- 5. Return live accumulated daily runtime formatted into minutes
+tell(eloDebug, string.format("Comp-Time: %d seconds today, compressor %s", runtimeSeconds, compressor.state and "running" or "off"))
 
-tell(eloDebug, "Comp-Time: Compressor time today now " .. math.floor((dailyRuntimeSeconds / 60.0) * 100 + 0.5) / 100 .. " minutes")
-
-return math.floor((dailyRuntimeSeconds / 60.0) * 100 + 0.5) / 100
+return math.floor(runtimeSeconds / 60 + 0.5)

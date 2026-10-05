@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.31"
+#define _VERSION     "0.1.32"
 #define VERSION_DATE "04.10.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,36 @@
 
 /*
  * ------------------------------------
+
+2026-10-04: version 0.1.32
+    - added: widget option 'Spin bei Aktivität' for symbol widgets: while the sensor is on the dashboard symbol
+             turns (formerly hard coded for mdi-snowflake) and the HASP Symbol / SymbolValue widgets show a
+             turning ring (spinner) around the symbol; existing snowflake widgets need the option set once
+    - bugfix: LUA sensors (CV / DO) with watch() dependencies were re-evaluated on every process() call (each
+              incoming MQTT value) as long as the result did not change, since the check compared the change
+              time of the dependency with the change time of the result; now compared with the last run of the
+              script. Scripts accumulating time between the calls (e.g. the compressor runtime of the day)
+              saw only 1-5 s per call and lost them by rounding - broken since the end of July
+    - added: LUA: every(seconds) requests a periodic run of the script in its own interval, in addition
+             to the watch() dependencies
+    - change: LUA: no forced run of all scripts once per minute any more, a script runs on its watch()
+              changes and its every() interval; without both declarations it runs every 60 seconds (as before);
+              a saved script runs again at once. Scripts with watch() only that depend on the passing of
+              time (hold times, timeouts) need an every() now
+    - change: contrib/lua-examples/danfoss-compressor-time.lua: counts seconds in the script (every(10)),
+              only the result is rounded to minutes; takes the stored minutes over after a daemon restart
+    - bugfix: HASP: a stale sensor (device offline, e.g. ALPICOOL) kept its last state on the panel,
+              it is shown as 'off' now like on the dashboard
+    - bugfix: int columns read from the database could carry stale upper bytes (bound as 4 byte MYSQL_TYPE_LONG
+              into the 8 byte value): the periodic evaluation built sensor keys like 'CV:0xffffffff00000003',
+              the LUA bookkeeping (watch / every / last run) was split between two keys per sensor
+    - bugfix: LUA scripts were run during the initialization (GPIO setup) before the bindings existed, the
+              failed first run ('watch' nil) counted as done and the script never collected its watch() / every()
+    - bugfix: an unchanged ADS (i2c analog) value cleared the pending evaluation of the LUA sensors triggered by
+              another sensor; CV results (e.g. 'Strom (Verbraucher)' from BMS:0x02) lagged behind by minutes
+    - added: HASP setup: buttons 'Panel wecken' (sends 'idle off': display on, idle cycle restarts),
+             'Panel neu starten' (reboot, with confirmation) and 'Screenshot' (opens the screenshot page of
+             the panel's web server; the IP comes from the panel's statusupdate, requested with every page send)
 
 2026-10-04: version 0.1.31
     - added: HASP: widget type 'Balance' - horizontal bar with zero in the middle for bipolar values

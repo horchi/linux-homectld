@@ -528,6 +528,7 @@ class HomeCtl : public cWebInterface, public Service
          int innerX {0};           // Balance: fill area inside the trough (x, width) and the x of zero
          int innerW {0};
          int zeroX {0};
+         int spinnerId {0};        // Symbol: activity ring (spinner) around the symbol, visible while 'on'
          int patchId {0};          // Balance: square patch covering the rounding of the fill at zero
          int fillRadius {0};
          bool invert {false};      // Balance: mirror the direction (positive values to the left)
@@ -535,6 +536,7 @@ class HomeCtl : public cWebInterface, public Service
          std::string colorPos;
       };
 
+      std::string haspPanelIp;     // from the panel's statusupdate (WEBIF: screenshot link)
       static const char* haspWidgetTypeNames[];
       int haspWidgetTypes2Json(json_t* obj);
       int haspSendPages();
@@ -888,6 +890,9 @@ class HomeCtl : public cWebInterface, public Service
 
       LuaSol lua;
       std::map<std::string, std::set<std::pair<std::string,int>>> luaDeps;
+      std::map<std::string, time_t> luaLastRun;   // last run of the script per sensor, the dependency check compares against it
+      std::map<std::string, int> luaEvery;        // every(seconds) of the script: periodic run in its own interval
+      bool luaEveryDue();
       std::string luaCurrentKey;
 
       // GPIO

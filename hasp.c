@@ -159,6 +159,27 @@ namespace
       return j;
    }
 
+   // activity ring: spinner (arc turning once per 2 s) in a square box, hidden until the sensor is 'on'
+
+   json_t* haspSpinner(int page, int id, int parentId, int x, int y, int size, bool small, const char* color)
+   {
+      json_t* j {haspObj(page, id, "spinner", parentId, x, y, size, size)};
+
+      json_object_set_new(j, "speed", json_integer(2000));          // ms per turn
+      json_object_set_new(j, "angle", json_integer(90));            // arc length in degrees
+      json_object_set_new(j, "line_width", json_integer(small ? 3 : 4));
+      json_object_set_new(j, "line_color", json_string("#3a3a3a"));  // the background ring
+      json_object_set_new(j, "line_width10", json_integer(small ? 3 : 4));
+      json_object_set_new(j, "line_color10", json_string(color));
+      json_object_set_new(j, "line_rounded10", json_integer(1));
+      json_object_set_new(j, "bg_opa", json_integer(0));
+      json_object_set_new(j, "border_width", json_integer(0));
+      json_object_set_new(j, "click", json_false());
+      json_object_set_new(j, "hidden", json_integer(1));
+
+      return j;
+   }
+
    void utf8Append(std::string& out, uint32_t cp)
    {
       if (cp < 0x80)
@@ -747,6 +768,7 @@ int HomeCtl::haspPages2Json(json_t* obj)
 {
    json_t* oPages {json_object()};
    json_object_set_new(obj, "pages", oPages);
+   json_object_set_new(obj, "ip", json_string(haspPanelIp.c_str()));
 
    tableHaspPages->clear();
 
@@ -829,6 +851,25 @@ int HomeCtl::performHaspPages(json_t* obj, long client)
 
       if (status == success)
          return replyResult(success, client, "Seiten an das Panel gesendet");
+
+      return replyResult(fail, client, "%s", status == ignore ? "HASP Panel nicht konfiguriert (haspMqttTopic)" : "Senden fehlgeschlagen, MQTT nicht verbunden?");
+   }
+
+   if (action == "status")      // the WEBIF needs the IP of the panel (screenshot) and it is not known yet
+   {
+      haspPublish("statusupdate", "");
+      return replyResult(success, client, "Status beim Panel angefordert, bitte die Seite neu laden und erneut versuchen");
+   }
+
+   if (action == "wake" || action == "reboot")
+   {
+      // 'idle off': wakes the panel and restarts its idle cycle (dim / off); 'reboot' restarts the
+      // panel, it reports online afterwards and the pages are sent again automatically
+
+      int status {action == "wake" ? haspPublish("idle", "off") : haspPublish("reboot", "")};
+
+      if (status == success)
+         return replyResult(success, client, "%s", action == "wake" ? "Panel geweckt" : "Neustart an das Panel gesendet, die Seiten werden nach dem Start automatisch neu gesendet");
 
       return replyResult(fail, client, "%s", status == ignore ? "HASP Panel nicht konfiguriert (haspMqttTopic)" : "Senden fehlgeschlagen, MQTT nicht verbunden?");
    }
@@ -1207,6 +1248,8 @@ int HomeCtl::haspSendPages()
 
    tell(eloAlways, "HASP: Sent %d pages with %zu sensor widgets to '%s'", count, haspObjects.size(), haspMqttTopic.c_str());
 
+   haspPublish("statusupdate", "");       // the panel answers with its IP, version, ... (statusupdate on its state topic)
+
    haspPublishAllValues();
 
    return success;
@@ -1497,7 +1540,12 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
          json_t* jBtn {haspObj(pageNo, base+2, "btn", base, (w - size) / 2, iy + (ih - size) / 2, size, size)};
          char font[20];
 
-         snprintf(font, sizeof(font), "mdi_%d", std::min(size - 16, maxGlyphSize));
+         // option 'spin' (Spin bei Aktivität): a spinner (arc turning once per 2 s, like the dashboard
+         // symbol turning with 'mdispin') around the symbol while 'on'
+
+         bool ring {getBoolFromJson(jOpts, "spin", false)};
+
+         snprintf(font, sizeof(font), "mdi_%d", std::min(size - (ring ? 28 : 16), maxGlyphSize));
 
          json_object_set_new(jBtn, "toggle", json_true());
          json_object_set_new(jBtn, "val", json_integer(0));
@@ -1515,15 +1563,28 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
          json_object_set_new(jBtn, "outline_width", json_integer(0));
          json_object_set_new(jBtn, "shadow_width", json_integer(0));
          haspPublishJsonl(jBtn);
+
+         if (ring)
+         {
+            haspPublishJsonl(haspSpinner(pageNo, base+3, base, (w - size) / 2, iy + (ih - size) / 2, size, small, ref.colorOn.c_str()));
+            ref.spinnerId = base + 3;
+         }
          break;
       }
 
       case hwtSymbolValue:
       {
          int size {std::min(ih, iw / 2)};
+         bool ring {getBoolFromJson(jOpts, "spin", false)};       // option 'Spin bei Aktivität': ring around the symbol
          char font[20];
 
-         snprintf(font, sizeof(font), "mdi_%d", std::min(size - 8, maxGlyphSize));
+         snprintf(font, sizeof(font), "mdi_%d", std::min(size - (ring ? 20 : 8), maxGlyphSize));
+
+         if (ring)
+         {
+            haspPublishJsonl(haspSpinner(pageNo, base+4, base, ix, iy + (ih - size) / 2, size, small, ref.colorOn.c_str()));
+            ref.spinnerId = base + 4;
+         }
 
          json_t* jSym {haspLabel(pageNo, base+2, base, ix, iy + (ih - size) / 2, size, size, ref.symbolOff.c_str(), 0, ref.colorOff.c_str(), "center")};
          json_object_set_new(jSym, "text_font", json_string(font));
@@ -2020,7 +2081,7 @@ int HomeCtl::haspPublishSensor(const SensorData& sensor)
       return ignore;
 
    bool isStatus {sensor.kind == "status"};
-   bool on {isStatus ? sensor.state : sensor.value != 0.0};
+   bool on {sensor.valid() && (isStatus ? sensor.state : sensor.value != 0.0)};   // a stale sensor (device offline) is 'off', like on the dashboard
    std::string number {haspFormatValue(isStatus ? (double)sensor.state : sensor.value)};
    char obj[30];
 
@@ -2056,6 +2117,12 @@ int HomeCtl::haspPublishSensor(const SensorData& sensor)
             {
                snprintf(obj, sizeof(obj), "p%db%d.text", ref.page, ref.objId);
                haspQueueCommand(obj, on ? ref.symbolOn : ref.symbolOff);
+            }
+
+            if (ref.spinnerId)
+            {
+               snprintf(obj, sizeof(obj), "p%db%d.hidden", ref.page, ref.spinnerId);
+               haspQueueCommand(obj, on ? "0" : "1");
             }
             break;
 
@@ -2131,6 +2198,12 @@ int HomeCtl::haspPublishSensor(const SensorData& sensor)
          case hwtSymbolValue:
             snprintf(obj, sizeof(obj), "p%db%d.text", ref.page, ref.valueId);
             haspQueueCommand(obj, isStatus ? std::string(on ? "An" : "Aus") : withUnit);
+
+            if (ref.spinnerId)
+            {
+               snprintf(obj, sizeof(obj), "p%db%d.hidden", ref.page, ref.spinnerId);
+               haspQueueCommand(obj, on ? "0" : "1");
+            }
 
             if (isStatus)
             {
@@ -2223,8 +2296,28 @@ int HomeCtl::haspDispatchState(const char* topic, const char* message)
    int page {0};
    int id {0};
 
+   if (obj && strcmp(obj, "/statusupdate") == 0)     // remember the IP of the panel (screenshot link of the WEBIF)
+   {
+      json_t* jStatus {jsonLoad(message, 0, true)};
+
+      if (jStatus)
+      {
+         std::string ip {getStringFromJson(jStatus, "ip", "")};
+
+         if (!ip.empty() && ip != haspPanelIp)
+         {
+            tell(eloInfo, "HASP: Panel '%s' (%s) reachable at %s", getStringFromJson(jStatus, "node", ""), getStringFromJson(jStatus, "version", ""), ip.c_str());
+            haspPanelIp = ip;
+         }
+
+         json_decref(jStatus);
+      }
+
+      return done;
+   }
+
    if (!obj || sscanf(obj+1, "p%db%d", &page, &id) != 2)
-      return ignore;                       // statusupdate, sensors, idle, ...
+      return ignore;                       // sensors, idle, ...
 
    json_t* jData {jsonLoad(message, 0, true)};
 

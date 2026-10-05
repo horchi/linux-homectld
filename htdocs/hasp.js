@@ -118,19 +118,34 @@ function initHaspSetup()
 
    // tool panel on the left like the sensor setup
 
+   // one button per row, icon plus text (the tool panel stays narrow)
+
+   let toolButton = function(icon, text, title, onClick) {
+      return $('<div></div>').append($('<button></button>')
+                                     .addClass('rounded-border tool-button mdi mdi-' + icon)
+                                     .html(' ' + text)
+                                     .attr('title', title)
+                                     .css('width', '100%')
+                                     .click(onClick));
+   };
+
    $("#controlContainer")
       .empty()
+      .append(toolButton('content-save', 'Speichern', 'Seiten speichern und an das Panel senden',
+                         function() { storeHaspPages(); }))
       .append($('<div></div>')
-              .append($('<button></button>')
-                      .addClass('rounded-border tool-button')
-                      .html('Speichern')
-                      .attr('title', 'Seiten speichern und an das Panel senden')
-                      .click(function() { storeHaspPages(); }))
-              .append($('<button></button>')
-                      .addClass('rounded-border tool-button')
-                      .html('An Panel senden')
-                      .attr('title', 'Den gespeicherten Stand erneut an das Panel senden (z.B. nach einem Neustart des Panels), speichert nicht')
-                      .click(function() { socket.send({ "event": "hasppages", "object": { "action": "send" } }); })))
+              .addClass('button-group-spacing'))
+      .append(toolButton('send', 'An Panel senden', 'Den gespeicherten Stand erneut an das Panel senden (z.B. nach einem Neustart des Panels), speichert nicht',
+                         function() { socket.send({ "event": "hasppages", "object": { "action": "send" } }); }))
+      .append(toolButton('lightbulb-on-outline', 'Panel wecken', 'Display einschalten und den Leerlauf-Zyklus (Dimmen / Aus) neu starten (sendet idle off)',
+                         function() { socket.send({ "event": "hasppages", "object": { "action": "wake" } }); }))
+      .append(toolButton('camera', 'Screenshot', 'Aktuelles Bild des Panels anzeigen (vom Web-Server des Panels)',
+                         function() { haspScreenshot(); }))
+      .append(toolButton('restart', 'Panel booten', 'Das Panel rebooten, die Seiten werden danach automatisch neu gesendet',
+                         function() { if (confirm('Das Panel jetzt neu starten?')) socket.send({ "event": "hasppages", "object": { "action": "reboot" } }); }))
+
+      .append($('<div></div>')
+              .addClass('button-group-spacing'))
       .append($('<button></button>')
               .addClass('rounded-border tool-button')
               .html('+ Seite')
@@ -423,6 +438,48 @@ function haspSelect(elementId, options, selected, onChange)
       sel.change(onChange);
 
    return sel;
+}
+
+// screenshot of the panel in a dialog: the image comes from the web server of the panel
+//  (/screenshot?q=<n>, q only defeats the cache; a=prev / a=next switch the page on the panel
+//  before the shot, like the panel's own screenshot page), the IP from its statusupdate
+
+function haspScreenshot()
+{
+   if (!haspPages.ip || haspPages.ip == '') {
+      socket.send({ "event": "hasppages", "object": { "action": "status" } });
+      return;
+   }
+
+   let url = 'http://' + haspPages.ip + '/screenshot?';
+   let img = $('<img></img>')
+       .css({ 'width': '100%', 'display': 'block', 'background': '#000' })
+       .attr('alt', 'Screenshot')
+       .on('error', function() { note.html('Kein Bild vom Panel (' + haspPages.ip + ' nicht erreichbar' + (window.location.href.startsWith('https') ? ', oder die Seite läuft über https und das Panel nur über http' : '') + ')'); })
+       .on('load', function() { note.html(''); });
+   let note = $('<div></div>').css({ 'color': 'var(--neutral4)', 'margin-top': '4px', 'min-height': '1.2em' });
+   let form = $('<div></div>').append(img).append(note);
+   let load = function(action) {               // action 'prev' / 'next' switches the page on the panel itself
+      note.html('lade ...');
+      img.attr('src', url + (action ? 'a=' + action + '&' : '') + 'q=' + Date.now());
+   };
+
+   form.dialog({
+      modal: true,
+      resizable: false,
+      closeOnEscape: true,
+      hide: 'fade',
+      width: Math.min(840, window.innerWidth - 20),
+      title: 'Panel ' + haspPages.ip,
+      open: function() { load(); },
+      buttons: {
+         '◀ Seite': function() { load('prev'); },
+         'Aktualisieren': function() { load(); },
+         'Seite ▶': function() { load('next'); },
+         'Schließen': function() { $(this).dialog('close'); }
+      },
+      close: function() { $(this).dialog('destroy').remove(); }
+   });
 }
 
 // widgets of one row: col -> { key, widgettype, symbol }

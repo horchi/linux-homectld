@@ -37,8 +37,11 @@ std::list<HomeCtl::ConfigItemDef> HomeCtl::configuration
    // GPS tour recording
 
    { "gpsTourMinDistance",        ctInteger, "25",           "N", false, "GPS", "Tour: Mindestbewegung [m]", "Ein Punkt wird aufgezeichnet wenn die Position sich mindestens um diese Distanz geändert hat" },
-   { "gpsTourPauseAfter",         ctInteger, "5",            "N", false, "GPS", "Tour: Pause nach Stillstand [min]", "Ohne Bewegung für diese Zeit gilt die Tour als pausiert, bei erneuter Bewegung wird automatisch fortgesetzt" },
+   { "gpsTourPauseAfter",         ctInteger, "5",            "N", false, "GPS", "Tour: Pause nach Stillstand [min]", "Ohne Bewegung für diese Zeit gilt die Tour als pausiert, bei erneuter Bewegung wird automatisch fortgesetzt; die Pausen werden als Ereignis 'Stillstand' mit Beginn und Ende festgehalten" },
+   { "gpsTourPauseRadius",        ctInteger, "200",          "N", false, "GPS", "Tour: Radius Stillstand [m]", "Als Bewegung für die Pause zählt erst das Verlassen dieses Radius um die letzte Position - im Stand streut das GPS um 100-200 m, diese Sprünge sollen die Pause nicht unterbrechen" },
    { "gpsTourEndTolerance",       ctInteger, "200",          "N", false, "GPS", "Tour: Toleranz Ankunft [m]", "Beim Beenden einer Tour wird als Ende der Zeitpunkt vorgeschlagen, ab dem die Position innerhalb dieser Distanz um den Endpunkt blieb (z.B. Anmeldung am Campingplatz)" },
+   { "gpsUbloxStaticHold",        ctInteger, "0",            "N", false, "GPS", "Empfänger: Static Hold [km/h]", "u-blox Empfänger (gpsmqtt.py): unter dieser Geschwindigkeit friert der Empfänger die Position ein, kein Drift im Stand (0 = aus, max 9 km/h, Empfehlung 2-3); wird beim Start und bei Änderung an den Empfänger gesendet" },
+   { "gpsUbloxAutomotive",        ctBool,    "",             "N", false, "GPS", "Empfänger: Dynamikmodell Automotive", "u-blox Empfänger (gpsmqtt.py): Plattformmodell 'automotive' statt 'portable', die Positionsfilterung ist auf Fahrzeuge abgestimmt; aus = 'portable' (Werkseinstellung)" },
 
    // Garmin activities
 

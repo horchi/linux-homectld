@@ -40,6 +40,9 @@ class Service
          wtSymbolText,    // == 12
          wtChartBar,      // == 13
          wtSpecialSymbol, // == 14
+         wtLevel,         // == 15  MDI symbol filled by percentage
+         wtBalance,       // == 16  horizontal bar with zero in the middle for bipolar values
+         wtTimer,         // == 17  HASP only (countdown running in the panel firmware)
          wtCount
       };
 };

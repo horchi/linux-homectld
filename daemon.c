@@ -43,6 +43,9 @@ const char* HomeCtl::widgetTypes[] =
    "SymbolText",
    "BarChart",
    "SpecialSymbol",
+   "Level",
+   "Balance",
+   "Timer",
    0
 };
 
@@ -464,6 +467,7 @@ int HomeCtl::init()
    initConfigTable();
    readConfiguration(true);
    mqttCheckConnection();
+   gpsReceiverPublishConfig();   // the GPS script may run already
 
    // ---------------------------------
    // setup GPIO
@@ -2097,8 +2101,20 @@ int HomeCtl::readConfiguration(bool initial)
 
    getConfigItem("gpsTourMinDistance", gpsTourMinDistance, 25);
    getConfigItem("gpsTourPauseAfter", gpsTourPauseAfter, 5);
+   getConfigItem("gpsTourPauseRadius", gpsTourPauseRadius, 200);
    getConfigItem("gpsTourEndTolerance", gpsTourEndTolerance, 200);
    getConfigItem("garminTrackDeviation", garminTrackDeviation, 50);
+
+   {
+      int staticHold {gpsUbloxStaticHold};
+      bool automotive {gpsUbloxAutomotive};
+
+      getConfigItem("gpsUbloxStaticHold", gpsUbloxStaticHold, 0);
+      getConfigItem("gpsUbloxAutomotive", gpsUbloxAutomotive, false);
+
+      if (!initial && (staticHold != gpsUbloxStaticHold || automotive != gpsUbloxAutomotive))
+         gpsReceiverPublishConfig();
+   }
 
    // DECONZ
 
@@ -2953,9 +2969,9 @@ void HomeCtl::updateScriptSensors()
    //       pthread_join(cmdThreadCtl.second.pThread, 0);
    // }
 
-   for (auto it = commandThreads.begin(), it_next = it; it != commandThreads.end(); it = it_next)
+   for (auto it = commandThreads.begin(), itNext = it; it != commandThreads.end(); it = itNext)
    {
-      ++it_next;
+      ++itNext;
 
       if (!it->second.active)
       {
@@ -4552,6 +4568,9 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
       tell(eloAlways, "Info: Sensor '%s' %sexpect config, sensor topic is '%s'",
            type.c_str(), config ? "" : "don't ", cmdTopic);
 
+      if (type == "GPS")
+         gpsReceiverPublishConfig();   // the receiver settings to gpsmqtt.py
+
       if (config)
       {
          // store 'parameters' (with deviceId' as key) send from the device
@@ -4761,7 +4780,9 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
       {
          GpsCoordinate c;
 
-         if (parseGpsText(sensors[type][address].text.c_str(), c))
+         // 0/0 comes from a receiver without fix (e.g. right after the start of gpsmqtt.py), no position
+
+         if (parseGpsText(sensors[type][address].text.c_str(), c) && (c.latitude != 0.0 || c.longitude != 0.0))
          {
             gpsCoordinate = c;
             gpsLive(nullptr, 0);
@@ -5766,7 +5787,7 @@ int HomeCtl::loadIoStates()
       if (tableSamples->getTimeValue("TIME") > sensors[type][address].last())   // iostates LAST may be newer
          sensors[type][address].restoreLast(tableSamples->getTimeValue("TIME"));
 
-      tell(eloAlways, "Debug: Init 'last' of '%s:0x%02lx' to '%s'", type, address, l2pTime(sensors[type][address].last()).c_str());
+      tell(eloDebug, "Debug: Init 'last' of '%s:0x%02lx' to '%s'", type, address, l2pTime(sensors[type][address].last()).c_str());
    }
 
    selectAllValueFacts->freeResult();
@@ -6386,9 +6407,9 @@ void HomeCtl::tidyWifiProfileName(const char* ssid)
 int HomeCtl::executeNmcli(const std::vector<std::string>& cmdArgs, std::string& result)
 {
    result.clear();
-   int pipe_fd[2] {};
+   int pipeFd[2] {};
 
-   if (pipe(pipe_fd) == -1)
+   if (pipe(pipeFd) == -1)
    {
       tell(eloAlways, "Error: Creating pipe failed");
       return fail;
@@ -6398,8 +6419,8 @@ int HomeCtl::executeNmcli(const std::vector<std::string>& cmdArgs, std::string& 
 
    if (pid < 0)
    {
-      close(pipe_fd[0]);
-      close(pipe_fd[1]);
+      close(pipeFd[0]);
+      close(pipeFd[1]);
       tell(eloAlways, "Error: fork(I) failed");
       return fail;
    }
@@ -6408,10 +6429,10 @@ int HomeCtl::executeNmcli(const std::vector<std::string>& cmdArgs, std::string& 
    {
       // Child
 
-      close(pipe_fd[0]);
-      dup2(pipe_fd[1], STDOUT_FILENO);
-      dup2(pipe_fd[1], STDERR_FILENO);
-      close(pipe_fd[1]);
+      close(pipeFd[0]);
+      dup2(pipeFd[1], STDOUT_FILENO);
+      dup2(pipeFd[1], STDERR_FILENO);
+      close(pipeFd[1]);
 
       // Vektor von std::string in das von execvp erwartete char* Array konvertieren
 
@@ -6430,17 +6451,17 @@ int HomeCtl::executeNmcli(const std::vector<std::string>& cmdArgs, std::string& 
    }
    else
    {
-      close(pipe_fd[1]);
+      close(pipeFd[1]);
 
       // read error text from pipe (is any)
 
-      ssize_t bytes_read {0};
+      ssize_t bytesRead {0};
       char buffer[256];
 
-      while ((bytes_read = read(pipe_fd[0], buffer, sizeof(buffer))) > 0)
-         result.append(buffer, bytes_read);
+      while ((bytesRead = read(pipeFd[0], buffer, sizeof(buffer))) > 0)
+         result.append(buffer, bytesRead);
 
-      close(pipe_fd[0]);
+      close(pipeFd[0]);
 
       int status {0};
 

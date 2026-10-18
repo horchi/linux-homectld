@@ -2313,6 +2313,171 @@ table.tableMultiCol td
     margin-top: 5px;
 }
 
+/* Level widget: symbol canvas left, value and percentage right of it */
+
+.widgetLevel
+{
+    display: grid;
+    grid-template-areas:
+        'title'
+        'main';
+    grid-template-rows: 15% 85%;
+    grid-template-columns: 100%;
+    grid-gap: 1px;
+    box-shadow: 1px 1px 1px 0px var(--shadow);
+}
+
+.widget-main-level
+{
+    grid-area: main;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.widget-main-level > canvas
+{
+    flex-shrink: 0;
+}
+
+.level-texts
+{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+}
+
+.level-value
+{
+    font-size: 1.5em;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.level-pct
+{
+    font-size: 0.9em;
+    color: var(--neutral4);
+}
+
+/* Balance widget: value, trough with the fill growing from zero, scale marks */
+
+.widgetBalance
+{
+    display: grid;
+    grid-template-areas:
+        'title'
+        'main';
+    grid-template-rows: 15% 85%;
+    grid-template-columns: 100%;        /* the container centers the grid tracks, they would shrink to the value text */
+    grid-gap: 1px;
+    box-shadow: 1px 1px 1px 0px var(--shadow);
+}
+
+.widget-main-balance
+{
+    grid-area: main;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0px 24px;                  /* room for the outer scale labels */
+    min-height: 0;
+    overflow: hidden;
+}
+
+.balance-value
+{
+    text-align: center;
+    font-size: 1.5em;
+    font-weight: bold;
+    white-space: nowrap;
+    margin-bottom: 6px;
+}
+
+.balance-bar
+{
+    position: relative;
+    height: 22px;
+    flex-shrink: 0;
+}
+
+.balance-trough
+{
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: 11px;
+    background-color: #333333;
+}
+
+.balance-trough::after                  /* the border above the fill */
+{
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 2px solid #545454;
+    border-radius: inherit;
+    pointer-events: none;
+}
+
+.balance-fill
+{
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    width: 0%;
+    min-width: 2px;
+    border-radius: 0px 9px 9px 0px;
+    transition: left 0.3s, width 0.3s;
+}
+
+.balance-fill.neg
+{
+    border-radius: 9px 0px 0px 9px;
+}
+
+.balance-zero
+{
+    position: absolute;
+    top: -3px;
+    bottom: -3px;
+    width: 2px;
+    margin-left: -1px;
+    background-color: #cccccc;
+}
+
+.balance-scale
+{
+    position: relative;
+    height: 1.6em;
+    font-size: 0.8em;
+    color: #cccccc;
+}
+
+.balance-mark
+{
+    position: absolute;
+    top: 0px;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    line-height: 1;
+}
+
+.balance-mark::before                   /* the tick above the number */
+{
+    content: '';
+    display: block;
+    width: 2px;
+    height: 4px;
+    margin: 1px auto 2px auto;
+    background-color: currentColor;
+}
+
 .widget-main-value-lin
 {
     grid-area: value;
@@ -2922,26 +3087,26 @@ dialog::backdrop, #backdrop
     position: relative;
 }
 
-.gpsRecordState {
-    align-self: center;
-    margin: 0px 10px;
-    font-size: medium;
+/* the 'Map' tab of the main menu and the 'Touren' button of the tool bar while a tour is recorded / paused */
+
+.tabButton.tabRecording,
+.buttonDashboard.tabRecording {
+    color: var(--red);
+    opacity: 1.0;
 }
 
-.gpsRecordState.gpsRecording,
-.gpsRecordState.gpsPaused {
-    background: rgba(0, 0, 0, 0.55);    /* readable on the translucent tool bar */
-    padding: 2px 10px;
-    border-radius: 6px;
-    white-space: nowrap;
+.tabButton.tabPaused,
+.buttonDashboard.tabPaused {
+    color: var(--orange);
+    opacity: 1.0;
 }
 
 .gpsRecording {
-    color: #ff7070 !important;   /* light red, readable on the dark backgrounds; !important: also inside .labelB1 */
+    color: var(--red) !important;      /* !important: also inside .labelB1 */
 }
 
 .gpsPaused {
-    color: orange !important;
+    color: var(--orange) !important;
 }
 
 .gpsLink {
@@ -3137,9 +3302,6 @@ dialog::backdrop, #backdrop
     font-size: xxx-large;
 }
 
-.gpsToolbar.gpsToolbarBig .gpsRecordState {
-    font-size: x-large;
-}
 
 /* tour events: buttons in the tool bar, markers and popups on the map */
 

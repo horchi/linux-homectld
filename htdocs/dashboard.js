@@ -87,7 +87,7 @@ function initDashboard(update = false)
       if (!dashboardGroup || dashboards[did].group == dashboardGroup)
          jDashboards.push([dashboards[did].order, did]);
    }
-   jDashboards.sort();
+   jDashboards.sort((a, b) => a[0] - b[0]);   // sort() without comparator compares as strings ('10,..' < '2,..')
 
    // no (valid) dashboard remembered (fresh storage after a login, deleted dashboard,
    // storage of another instance) -> the first one gets active
@@ -986,6 +986,16 @@ function initWidget(key, widget, fact)
          break;
       }
 
+      case 15: {      // Level
+         initLevel(key, widget, fact);
+         break;
+      }
+
+      case 16: {      // Balance
+         initBalance(key, widget, fact);
+         break;
+      }
+
       case 14: {      // Special Symbol
          $(elem)
             .addClass("widget widgetDropZone")
@@ -1193,6 +1203,315 @@ function peakHtml(widget, sensor, separator, withUnit)
 //***************************************************************************
 // Init Meter Widget
 //***************************************************************************
+
+// Level - MDI symbol filled by percentage from the bottom (tank, battery, drop), drawn on a canvas
+// in three layers like the HASP 'Level' widget (hasp.c): solid glyph as dark body, solid glyph in the
+// bar color clipped to the fill height, outline glyph as frame; MDI has most symbols as pair
+// 'name' / 'name-outline'. The fill refers to the drawn height of the glyph (ink bounds measured
+// on the canvas), with the option 'fillrect' a rectangle behind the symbol is filled instead
+// (frame symbols without a filled variant, e.g. mdi-crop-landscape as a tank)
+
+var mdiGlyphCache = {};
+const mdiFontFamily = '"Material Design Icons"';
+
+function mdiName(symbol)
+{
+   return (symbol || '').replace(/^mdi:/, '').replace(/^mdi-/, '');
+}
+
+function mdiGlyph(name)   // the character of the MDI symbol or null if unknown (the ::before content of its css class)
+{
+   if (!name)
+      return null;
+
+   if (name in mdiGlyphCache)
+      return mdiGlyphCache[name];
+
+   let probe = $('<span></span>').addClass('mdi mdi-' + name).css('position', 'absolute').css('visibility', 'hidden').appendTo(document.body);
+   let content = getComputedStyle(probe[0], '::before').content;
+   probe.remove();
+
+   let glyph = (!content || content == 'none' || content == 'normal') ? null : content.replace(/^["']|["']$/g, '');
+   mdiGlyphCache[name] = glyph;
+
+   return glyph;
+}
+
+function initLevel(key, widget, fact)
+{
+   let elem = document.getElementById('div_' + key);
+   let titleClass = getWidgetTitleClass(widget, fact);
+   let title = getWidgetTitle(widget, fact);
+   let id = fact.type + fact.address;
+   let name = mdiName(widget.symbol);
+   let solid = name;
+   let outline = '';
+
+   if (name.endsWith('-outline')) {
+      outline = name;
+      solid = name.slice(0, -8);
+      if (!mdiGlyph(solid))
+         solid = name;
+   }
+   else if (mdiGlyph(name + '-outline'))
+      outline = name + '-outline';
+
+   let rectFill = widget.fillrect == true;
+   let scaleMax = parseFloat(widget.scalemax) || 0;
+   let scaleMin = parseFloat(widget.scalemin) || 0;
+
+   if (scaleMax <= scaleMin)
+      scaleMax = scaleMin + 100;
+
+   $(elem)
+      .addClass('widgetLevel widgetDropZone')
+      .append($('<div></div>')
+              .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
+              .addClass(titleClass)
+              .css('user-select', 'none')
+              .click(function(event) {titleClick(event.ctrlKey, key);})
+              .html(title));
+
+   let cFact = fact;
+   let main = $('<div></div>')
+       .addClass('widget-main-level')
+       .css('user-select', 'none')
+       .css('cursor', !setupMode && fact.record ? 'pointer' : '')
+       .click(function() { if (!setupMode && cFact.record) toggleChartDialog(cFact.type, cFact.address, key); });
+
+   $(elem).append(main);
+
+   // the symbol takes the height of the main area, at most half of the width; texts right of it
+
+   let size = Math.max(Math.floor(Math.min(main.height() - 4, main.width() / 2)), 24);
+   let dpr = window.devicePixelRatio || 1;
+   let canvas = document.createElement('canvas');
+
+   canvas.setAttribute('id', 'widget' + id);
+   canvas.width = canvas.height = Math.round(size * dpr);
+   canvas.style.width = canvas.style.height = size + 'px';
+
+   main.append(canvas)
+      .append($('<div></div>')
+              .addClass('level-texts')
+              .append($('<div></div>')
+                      .attr('id', 'widgetValue' + id)
+                      .addClass('level-value')
+                      .html('--' + (widget.unit ? ' ' + widget.unit : '')))
+              .append($('<div></div>')
+                      .attr('id', 'widgetPct' + id)
+                      .addClass('level-pct')
+                      .html('-- %')));
+
+   $(elem).data('level', {
+      'glyphSolid' : mdiGlyph(solid) || mdiGlyph('help-circle-outline'),
+      'glyphFrame' : rectFill ? (mdiGlyph(name) || mdiGlyph('help-circle-outline')) : (outline && outline != solid ? mdiGlyph(outline) : null),
+      'rectFill' : rectFill,
+      'min' : scaleMin, 'max' : scaleMax,
+      'size' : Math.round(size * dpr),
+      'fontPx' : Math.round((size - 4) * dpr),
+      'colorFill' : widget.barcolor ? widget.barcolor : '#059eeb',
+      'colorFrame' : widget.color && widget.color != 'white' ? widget.color : 'var(--fontColor)',
+      'ink' : null,
+      'pct' : null
+   });
+
+   document.fonts.load('10px ' + mdiFontFamily).then(function() { drawLevel(key, fact); });
+}
+
+function levelInkBounds(ctx, glyph, size, fontPx)   // the drawn area of the glyph (alpha scan), the glyph is centered in the square
+{
+   ctx.clearRect(0, 0, size, size);
+   ctx.font = fontPx + 'px ' + mdiFontFamily;
+   ctx.textAlign = 'center';
+   ctx.textBaseline = 'middle';
+   ctx.fillStyle = '#000';
+   ctx.fillText(glyph, size / 2, size / 2);
+
+   let data = ctx.getImageData(0, 0, size, size).data;
+   let b = { 'top' : size, 'bottom' : 0, 'left' : size, 'right' : 0 };
+
+   for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++)
+         if (data[(y * size + x) * 4 + 3] > 40) {
+            if (y < b.top) b.top = y;
+            if (y + 1 > b.bottom) b.bottom = y + 1;
+            if (x < b.left) b.left = x;
+            if (x + 1 > b.right) b.right = x + 1;
+         }
+
+   if (b.bottom <= b.top)
+      b = { 'top' : 0, 'bottom' : size, 'left' : 0, 'right' : size };
+
+   return b;
+}
+
+function drawLevel(key, fact)
+{
+   let l = $('#div_' + key.replace(':', '\\:')).data('level');
+   let canvas = document.getElementById('widget' + fact.type + fact.address);
+
+   if (l == null || canvas == null)
+      return;
+
+   let ctx = canvas.getContext('2d', { willReadFrequently: true });
+   let size = l.size;
+
+   if (l.ink == null)
+      l.ink = levelInkBounds(ctx, l.rectFill ? l.glyphFrame : l.glyphSolid, size, l.fontPx);
+
+   let ink = l.ink;
+   let fill = Math.round((ink.bottom - ink.top) * (l.pct == null ? 0 : l.pct));
+   let bodyColor = 'rgba(128,128,128,0.35)';
+   let frameColor = l.colorFrame.startsWith('var(') ? getComputedStyle(document.documentElement).getPropertyValue('--fontColor') || '#fff' : l.colorFrame;
+
+   ctx.clearRect(0, 0, size, size);
+   ctx.font = l.fontPx + 'px ' + mdiFontFamily;
+   ctx.textAlign = 'center';
+   ctx.textBaseline = 'middle';
+
+   if (l.rectFill) {
+      ctx.fillStyle = bodyColor;
+      ctx.fillRect(ink.left, ink.top, ink.right - ink.left, ink.bottom - ink.top);
+      ctx.fillStyle = l.colorFill;
+      ctx.fillRect(ink.left, ink.bottom - fill, ink.right - ink.left, fill);
+      ctx.fillStyle = frameColor;
+      ctx.fillText(l.glyphFrame, size / 2, size / 2);
+   }
+   else {
+      ctx.fillStyle = bodyColor;
+      ctx.fillText(l.glyphSolid, size / 2, size / 2);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, ink.bottom - fill, size, fill);
+      ctx.clip();
+      ctx.fillStyle = l.colorFill;
+      ctx.fillText(l.glyphSolid, size / 2, size / 2);
+      ctx.restore();
+
+      if (l.glyphFrame) {
+         ctx.fillStyle = '#707070';
+         ctx.fillText(l.glyphFrame, size / 2, size / 2);
+      }
+   }
+}
+
+function updateLevel(sensor, widget, fact)
+{
+   let id = fact.type + fact.address;
+   let key = toKey(fact.type, fact.address);
+   let l = $('#div_' + key.replace(':', '\\:')).data('level');
+
+   if (l == null || sensor.value == null)
+      return;
+
+   let pct = Math.min(Math.max((sensor.value - l.min) / (l.max - l.min), 0), 1);
+
+   l.pct = pct;
+   $('#widgetValue' + id).html(balanceFormat(sensor.value) + (widget.unit ? ' ' + widget.unit : ''));
+   $('#widgetPct' + id).html(Math.round(pct * 100) + ' %');
+
+   document.fonts.load('10px ' + mdiFontFamily).then(function() { drawLevel(key, fact); });
+}
+
+// Balance - horizontal bar with zero inside for bipolar values (battery current, grid power),
+// negative values fill from zero to the left in widget.color, positive to the right in widget.colorOn;
+// same options and look as the HASP 'Balance' widget (hasp.c): value above the bar, 5 scale marks below
+
+function balanceFormat(value)
+{
+   return (Math.abs(value - Math.round(value)) < 0.05 || Math.abs(value) >= 1000) ? value.toFixed(0) : value.toFixed(1);
+}
+
+function initBalance(key, widget, fact)
+{
+   let elem = document.getElementById('div_' + key);
+   let titleClass = getWidgetTitleClass(widget, fact);
+   let title = getWidgetTitle(widget, fact);
+   let id = fact.type + fact.address;
+   let scaleMax = parseFloat(widget.scalemax) || 0;
+   let scaleMin = parseFloat(widget.scalemin) || 0;
+
+   if (scaleMax <= 0)                   // zero must be inside the range, default symmetric
+      scaleMax = 100;
+
+   if (scaleMin >= 0)
+      scaleMin = -scaleMax;
+
+   // the dashboard defaults an unset color to 'white' (initWidget), the dialog sets red / green on choosing the type
+
+   let colorNeg = widget.color && widget.color != 'white' ? widget.color : '#ff5757';
+   let colorPos = widget.colorOn ? widget.colorOn : '#4caf50';
+   let pctOf = function(v) { return (v - scaleMin) / (scaleMax - scaleMin) * 100; };
+
+   let eScale = $('<div></div>').addClass('balance-scale');
+   let marks = [scaleMin, scaleMin / 2, 0, scaleMax / 2, scaleMax];
+
+   for (let i = 0; i < marks.length; i++)
+      eScale.append($('<span></span>')
+                    .addClass('balance-mark')
+                    .css('left', pctOf(marks[i]) + '%')
+                    .css('color', marks[i] < 0 ? colorNeg : marks[i] > 0 ? colorPos : '')
+                    .html(balanceFormat(marks[i])));
+
+   let cFact = fact;
+   let chart = function() { if (!setupMode && cFact.record) toggleChartDialog(cFact.type, cFact.address, key); };
+
+   $(elem)
+      .addClass('widgetBalance widgetDropZone')
+      .data('balance', { 'min' : scaleMin, 'max' : scaleMax, 'zero' : pctOf(0),
+                         'colorNeg' : colorNeg, 'colorPos' : colorPos, 'invert' : widget.invert == true })
+      .append($('<div></div>')
+              .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
+              .addClass(titleClass)
+              .css('user-select', 'none')
+              .click(function(event) {titleClick(event.ctrlKey, key);})
+              .html(title))
+      .append($('<div></div>')
+              .addClass('widget-main-balance')
+              .css('user-select', 'none')
+              .css('cursor', !setupMode && fact.record ? 'pointer' : '')
+              .click(chart)
+              .append($('<div></div>')
+                      .attr('id', 'widgetValue' + id)
+                      .addClass('balance-value')
+                      .html('--' + (widget.unit ? ' ' + widget.unit : '')))
+              .append($('<div></div>')
+                      .addClass('balance-bar')
+                      .append($('<div></div>')
+                              .addClass('balance-trough')
+                              .append($('<div></div>')
+                                      .attr('id', 'widget' + id)
+                                      .addClass('balance-fill')
+                                      .css('left', pctOf(0) + '%')))
+                      .append($('<div></div>')
+                              .addClass('balance-zero')
+                              .css('left', pctOf(0) + '%')))
+              .append(eScale));
+}
+
+function updateBalance(sensor, widget, fact)
+{
+   let id = fact.type + fact.address;
+   let b = $('#div_' + toKey(fact.type, fact.address).replace(':', '\\:')).data('balance');
+
+   if (b == null || sensor.value == null)
+      return;
+
+   let v = b.invert ? -sensor.value : sensor.value;
+   let pct = (Math.min(Math.max(v, b.min), b.max) - b.min) / (b.max - b.min) * 100;
+   let color = v < 0 ? b.colorNeg : b.colorPos;
+
+   $('#widget' + id)
+      .toggleClass('neg', v < 0)
+      .css('left', Math.min(pct, b.zero) + '%')
+      .css('width', Math.abs(pct - b.zero) + '%')
+      .css('background-color', color);
+
+   $('#widgetValue' + id)
+      .html(balanceFormat(sensor.value) + (widget.unit ? ' ' + widget.unit : ''))
+      .css('color', sensor.value == 0 ? '' : color);
+}
 
 function initMeter(key, widget, fact, neededScaleMax, value)
 {
@@ -2278,6 +2597,14 @@ function updateWidget(sensor, refresh, widget)
       else
          console.log("Missing value for " + '#widget' + fact.type + fact.address);
    }
+   else if (widget.widgettype == 15)    // Level
+   {
+      updateLevel(sensor, widget, fact);
+   }
+   else if (widget.widgettype == 16)    // Balance
+   {
+      updateBalance(sensor, widget, fact);
+   }
    else if (widget.widgettype == 14) {  // Special Symbol
       let div = document.getElementById('widget' + key);
       let l = document.getElementById('svg' + key);
@@ -2650,7 +2977,12 @@ function dropDashboard(ev)
       return;
    }
 
-   target.after(source);
+   // dragged from the left -> behind the target, from the right -> in front of it
+
+   if (source.compareDocumentPosition(target) & Node.DOCUMENT_POSITION_FOLLOWING)
+      target.after(source);
+   else
+      target.before(source);
 
    // -> The order for json objects follows a certain set of rules since ES2015,
    //    but it does not (always) follow the insertion order. Simply,
@@ -2724,7 +3056,12 @@ function dropWidget(ev)
    }
 
    console.log("drop element: " + source.getAttribute('id') + ' on ' + target.getAttribute('id'));
-   target.after(source);
+   // dragged from the left -> behind the target, from the right -> in front of it
+
+   if (source.compareDocumentPosition(target) & Node.DOCUMENT_POSITION_FOLLOWING)
+      target.after(source);
+   else
+      target.before(source);
 
    let json = {};
    $('#widgetContainer > div').each(function () {

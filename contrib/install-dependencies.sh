@@ -3,7 +3,7 @@
 # install-dependencies.sh - install the build and runtime dependencies of homectld
 #
 # contrib/install-dependencies.sh, called by 'make install-dependencies', the feature switches of Make.user are passed
-# as environment variables (WOMO, MOPEKA, THETFORD, GARMIN, VDR).
+# as environment variables (WOMO, MOPEKA, THETFORD, GARMIN, GPS, VDR).
 #
 # Supports Armbian (Debian / Ubuntu based) and Ubuntu (24.04, 26.04).
 # The ESP / Arduino sketches (kenwood, alpicool, arduino) are not covered,
@@ -40,7 +40,7 @@ if [ -f /etc/armbian-release ]; then
 fi
 
 echo "Distribution: ${PRETTY_NAME} (${DIST} ${DIST_VERSION}${ARMBIAN:+, Armbian})"
-echo "Switches:     WOMO=${WOMO:-0} MOPEKA=${MOPEKA:-0} THETFORD=${THETFORD:-0} GARMIN=${GARMIN:-0} VDR=${VDR:-0}"
+echo "Switches:     WOMO=${WOMO:-0} MOPEKA=${MOPEKA:-0} THETFORD=${THETFORD:-0} GARMIN=${GARMIN:-0} GPS=${GPS:-0} VDR=${VDR:-0}"
 echo "Source dir:   ${SRC_DIR} (for libraries built from source)"
 echo
 
@@ -163,6 +163,12 @@ if [ "${GARMIN}" = "1" ]; then
    echo
    echo "GARMIN: python venv (garminconnect is installed into the venv by 'make install')"
    aptInstall python3 python3-venv python3-pip
+fi
+
+if [ "${GPS}" = "1" ]; then
+   echo
+   echo "GPS: python with pyserial, pynmea2, paho-mqtt and geopy (gps.u-blox/gpsmqtt.py)"
+   aptInstall python3 python3-serial python3-nmea2 python3-paho-mqtt python3-geopy
 fi
 
 # VDR: the SVDRP connection needs no additional packages

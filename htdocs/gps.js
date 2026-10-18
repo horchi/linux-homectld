@@ -15,7 +15,8 @@
  *          'tour'  - a recorded tour on the map
  *
  *  Events of a tour (fuel stops, toll, pauses, night stops, notes) are entered while the tour
- *  is active (buttons in the tool bar), each with the current position. Together with the
+ *  is active (buttons in the tool bar), each with the current position. The automatic pauses
+ *  (standstill) are recorded by the daemon as 'halt' with begin and end. Together with the
  *  odometer at start / end (asked on start / stop, editable with the name) the costs and the
  *  fuel consumption are calculated by the daemon.
  */
@@ -37,7 +38,8 @@ var gpsEventTypes = {
    'toll':  { label: 'Maut',       icon: 'mdi-boom-gate',     color: '#f57c00', fields: ['price', 'note'] },
    'pause': { label: 'Pause',      icon: 'mdi-coffee',        color: '#1976d2', fields: ['price', 'note'] },
    'night': { label: 'Nachtstopp', icon: 'mdi-weather-night', color: '#512da8', fields: ['price', 'note'] },
-   'note':  { label: 'Hinweis',    icon: 'mdi-note-text',     color: '#455a64', fields: ['note'] }
+   'note':  { label: 'Hinweis',    icon: 'mdi-note-text',     color: '#455a64', fields: ['note'] },
+   'halt':  { label: 'Stillstand', icon: 'mdi-pause-circle-outline', color: '#78909c', fields: ['note'] }   // by the daemon (automatic pause), only the note is editable
 };
 
 mapManager = {
@@ -55,12 +57,14 @@ mapManager = {
    init() {
       this.map = L.map('map', {
          fadeAnimation: false,
+         zoomControl: false,           // own zoom buttons in the button column on the right (gpsZoomButtons)
          attributionControl: false     // deaktiviert das leaflet element unten rechts
       }).setView([50.1109, 8.6821], 2);
 
       if (navigator.onLine) {
          L.tileLayer('https://tile.openstreetmap.de/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap'
+            attribution: '© OpenStreetMap',
+            maxZoom: 19                // the tile server serves 19, Leaflet's default is 18
          }).addTo(this.map);
       }
 
@@ -73,19 +77,23 @@ mapManager = {
       this.pointsLayer = L.layerGroup().addTo(this.map);
       this.eventsLayer = L.layerGroup().addTo(this.map);
 
-      // a user interaction (drag, zoom) stops following; the own pans are excluded by 'autoMove'
+      // dragging the map stops following, zooming (buttons, wheel, pinch) does not: after a zoom the
+      // position is centered again (a pinch zooms around the fingers and shifts the view)
 
-      this.map.on('movestart', (e) => {
-         if (this.autoMove || e.target._mainviewchange || (this.map._panAnim && this.map._panAnim.isPlaying)) return;
-         if (gpsView == 'live' && this.isTrackingActive)
+      this.map.on('dragstart', () => {
+         if (this.following())
             this.setFollow(false);
-         else if (this.isTourLive() && this.isTourTrackingActive)
-            this.setFollow(false);
+      });
+
+      this.map.on('zoomend', () => {
+         if (this.following() && !this.autoMove)
+            this.followCurrent();
       });
 
       this.createTrackingButton();
       gpsCenterControl(this.map, () => this.centerView());
       gpsMapButton(this.map, 'mdi-format-list-bulleted', 'zurück zur Tourenliste', () => gpsShowTours());
+      gpsZoomButtons(this.map);
 
       // CSS Maße des DIVs sofort neu berechnen
 
@@ -126,7 +134,7 @@ mapManager = {
       let points = this.routeLine.getLatLngs();
 
       if (points.length >= 2)
-         this.map.fitBounds(this.routeLine.getBounds(), { padding: [30, 30] });
+         this.map.fitBounds(this.routeLine.getBounds(), { padding: [30, 30], maxZoom: 17 });
       else if (this.currentLocationMarker)
          this.map.setView(this.currentLocationMarker.getLatLng(), Math.max(this.map.getZoom(), 15));
       else if (points.length)
@@ -177,6 +185,17 @@ mapManager = {
          this.follow(this.currentLocationMarker.getLatLng(), Math.max(this.map.getZoom(), 15));
       else if (points.length > 0)
          this.follow(points[points.length - 1], Math.max(this.map.getZoom(), 15));
+   },
+
+   // center the position at the current zoom (after a zoom by the user)
+
+   followCurrent() {
+      const points = this.routeLine.getLatLngs();
+
+      if (this.currentLocationMarker)
+         this.follow(this.currentLocationMarker.getLatLng());
+      else if (points.length > 0)
+         this.follow(points[points.length - 1]);
    },
 
    updateButtonUI() {
@@ -305,8 +324,10 @@ mapManager = {
          }).bindTooltip('Ende ' + gpsFmtTime(last[2])).addTo(this.pointsLayer);
       }
 
+      // maxZoom: a short tour (or one at standstill) would otherwise open at the maximum zoom
+
       this.autoMove = true;
-      this.map.fitBounds(this.routeLine.getBounds(), { padding: [30, 30], animate: false });
+      this.map.fitBounds(this.routeLine.getBounds(), { padding: [30, 30], animate: false, maxZoom: 17 });
       this.autoMove = false;
 
       if (active && this.isTourTrackingActive)
@@ -427,9 +448,6 @@ function gpsBuildToolbar()
               .attr('title', 'Tankstopps und Verbrauch')
               .click(function() { gpsShowFuel(); }))
       .append($('<span></span>')
-              .attr('id', 'gpsRecordState')
-              .addClass('gpsRecordState'))
-      .append($('<span></span>')
               .attr('id', 'gpsEventButtons')
               .addClass('gpsEventButtons'));
 
@@ -466,21 +484,31 @@ function gpsUpdateToolbar()
    else
       $('#gpsBtnTours').addClass('buttonDashboardActive');
 
+   // the recording state colors the 'Touren' button (like the 'Map' tab)
+
    let active = gpsTours ? gpsTours.active : null;
 
-   // only the state symbol here, the details are shown in the head of the tour
+   $('#gpsBtnTours').removeClass('tabRecording tabPaused');
 
-   if (active) {
-      $('#gpsRecordState')
-         .removeClass('gpsRecording gpsPaused')
-         .addClass(active.paused ? 'gpsPaused' : 'gpsRecording')
-         .attr('title', (active.paused ? 'pausiert' : 'Aufzeichnung') + ": '" + active.name + "'")
-         .html(active.paused ? '❚❚' : '●');
-   }
-   else
-      $('#gpsRecordState').removeClass('gpsRecording gpsPaused').removeAttr('title').html('');
+   if (active)
+      $('#gpsBtnTours').addClass(active.paused ? 'tabPaused' : 'tabRecording');
 
    gpsUpdateEventButtons();
+}
+
+// the recording state is shown by the color of the 'Map' tab (red: recording, orange: paused),
+//  on every page; called with each 'gpstours' event and after the menu was rebuilt
+
+function gpsUpdateTabState()
+{
+   let active = gpsTours ? gpsTours.active : null;
+   let tab = $('#mainmenu_gpslive').removeClass('tabRecording tabPaused');
+
+   if (active)
+      tab.addClass(active.paused ? 'tabPaused' : 'tabRecording')
+         .attr('title', (active.paused ? 'Tour pausiert' : 'Tour wird aufgezeichnet') + ": '" + active.name + "'");
+   else
+      tab.removeAttr('title');
 }
 
 // tool panel on the left of the tour list (like the setup pages)
@@ -631,6 +659,7 @@ function processLiveGpsMessage(coordinate)
 function processGpsTours(tours)
 {
    gpsTours = tours;
+   gpsUpdateTabState();
 
    if (currentPage != 'gpslive')
       return;
@@ -954,8 +983,9 @@ function gpsTourDetailsHtml(tour)
    let rows = [['Start', gpsFmtTime(tour.start)],
                ['Ende', tour.stop != null ? gpsFmtTime(tour.stop) : '-'],
                ['Dauer', gpsFmtDuration(stop - tour.start)],
-               ['Pause', gpsFmtDuration(tour.pausetime)],
-               ['Distanz (GPS)', gpsFmtDistance(tour.distance), 'gpsTourDistance'],
+               ['Pause', gpsFmtDuration(tour.pausetime) + (t.halts ? ' <span class="gpsTourSub">' + t.halts + 'x</span>' : '')],
+               ['Fahrzeit', gpsFmtDuration(stop - tour.start - (tour.pausetime || 0))],
+               ['Strecke (GPS)', gpsFmtDistance(tour.distance), 'gpsTourDistance'],
                ['Punkte', tour.points, 'gpsTourPoints']];
 
    if (tour.odometer)
@@ -1033,7 +1063,7 @@ function gpsTourEventsHtml(data)
       let hasPosition = ev.lat || ev.lon;
 
       html += '<tr class="gpsEventLine' + (hasPosition ? ' gpsEventClickable' : '') + '"' + (hasPosition ? ' title="auf der Karte zeigen" onclick="gpsShowEventOnMap(' + data.id + ', ' + ev.id + ')"' : '') + '>';
-      html += '<td>' + gpsFmtTime(ev.time) + '</td>';
+      html += '<td>' + gpsFmtTime(ev.time) + (ev.duration != null ? '<br/><span class="gpsTourSub">' + gpsFmtHaltEnd(ev) + '</span>' : '') + '</td>';
       html += '<td><span class="mdi ' + type.icon + '" style="color:' + type.color + '"></span> ' + type.label + '</td>';
       html += '<td class="gpsNum">' + (ev.amount ? gpsFmtLiters(ev.amount) + (ev.full === false ? '<br/><span class="gpsTourSub">nicht voll</span>' : '') : '') + '</td>';
       html += '<td class="gpsNum">' + (ev.price ? gpsFmtMoney(ev.price) + (ev.amount ? '<br/><span class="gpsTourSub">' + gpsFmtMoney(ev.price / ev.amount, 3) + '/l</span>' : '') : '') + '</td>';
@@ -1372,6 +1402,8 @@ function gpsEventDetails(ev, sep)
 {
    let parts = [];
 
+   if (ev.duration != null)
+      parts.push(gpsFmtHaltEnd(ev));
    if (ev.amount)
       parts.push(gpsFmtLiters(ev.amount) + (ev.full === false ? ' (nicht voll)' : '') + (ev.price ? ' · ' + gpsFmtMoney(ev.price / ev.amount, 3) + '/l' : ''));
    if (ev.price)
@@ -1384,6 +1416,32 @@ function gpsEventDetails(ev, sep)
       parts.push(gpsEscape(ev.note));
 
    return parts.join(sep);
+}
+
+// end and duration of a standstill ('halt'), a running one counts from its begin; a pause / night
+//  stop entered during a halt carries the halt's begin as 'halttime' (the halt is not listed itself)
+
+function gpsFmtHaltEnd(ev)
+{
+   let begin = ev.halttime || ev.time;
+   let prefix = ev.halttime ? 'Stillstand ' + gpsFmtClock(ev.halttime, ev.time) + ' ' : '';
+
+   if (ev.endtime)
+      return prefix + 'bis ' + gpsFmtClock(ev.endtime, ev.time) + ' · ' + gpsFmtDuration(ev.duration);
+
+   return prefix + '<span class="gpsPaused">läuft</span> · ' + gpsFmtDuration(Math.floor(Date.now() / 1000) - begin);
+}
+
+// time of day, with the date only on another day than 'ref'
+
+function gpsFmtClock(ts, ref)
+{
+   let d = new Date(ts * 1000);
+
+   if (ref && d.toDateString() == new Date(ref * 1000).toDateString())
+      return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+   return gpsFmtTime(ts);
 }
 
 // consumption of a fuel stop: by odometer and by GPS distance (whatever is known)
@@ -1454,6 +1512,14 @@ function gpsCenterControl(map, onClick, title = 'Zentrieren')
 }
 
 // a button on the map (top right), Leaflet control
+
+// zoom in / out in the style of the other map buttons (the following of the position stays on)
+
+function gpsZoomButtons(map)
+{
+   gpsMapButton(map, 'mdi-plus', 'Vergrößern', () => map.zoomIn());
+   gpsMapButton(map, 'mdi-minus', 'Verkleinern', () => map.zoomOut());
+}
 
 function gpsMapButton(map, iconClass, title, onClick)
 {

@@ -559,6 +559,7 @@ class HomeCtl : public cWebInterface, public Service
          double longitude {};
       };
 
+      int gpsReceiverPublishConfig();                        // u-blox settings to gpsmqtt.py (command topic of type GPS)
       int gpsTourInit();                                     // resume an open tour after restart
       int gpsTourStart(const char* name, long odometer = 0);
       int gpsTourStop(time_t stopAt = 0, long odometer = 0);  // stopAt 0 -> now
@@ -567,6 +568,8 @@ class HomeCtl : public cWebInterface, public Service
       int gpsTourRename(long id, const char* name, json_t* obj = nullptr);   // obj: optional 'odometer' / 'odometerend'
       int gpsTourUpdate(time_t now);                         // called on every new GPS coordinate
       int gpsTourCheckPause(time_t now);                     // called from the main loop
+      int gpsTourPauseStart(time_t at);                      // stores a 'halt' event
+      int gpsTourPauseEnd(time_t at);                        // sums the pause time, closes the 'halt' event
       int gpsTourStorePoint(time_t now, const GpsCoordinate& c, double distance = 0.0);
       int gpsTourStoreState();
       int gpsTourSetRecordFlag(bool on);
@@ -867,8 +870,10 @@ class HomeCtl : public cWebInterface, public Service
          bool paused {false};
          bool hasLastPoint {false};
          GpsCoordinate lastPoint;        // last recorded point
-         time_t lastMoveAt {0};          // time of the last recorded point
+         GpsCoordinate anchor;           // position of the last real movement (reference of the pause radius)
+         time_t lastMoveAt {0};          // time of the last real movement (position left the pause radius around 'anchor')
          time_t pausedAt {0};
+         long pauseEventId {0};          // the 'halt' event of the running pause
          double distance {0.0};          // [m]
          long points {0};
          long pauseTime {0};             // [s]
@@ -878,7 +883,10 @@ class HomeCtl : public cWebInterface, public Service
       GpsTour gpsTour;
       int gpsTourMinDistance {25};       // [m] record a point if moved at least this distance
       int gpsTourPauseAfter {5};         // [min] pause the tour after this time without movement
+      int gpsTourPauseRadius {200};      // [m] movement for the pause: the position left this radius (the GPS drifts at standstill)
       int gpsTourEndTolerance {200};     // [m] on stop: the arrival within this distance of the final position is proposed as end
+      int gpsUbloxStaticHold {0};        // [km/h] u-blox receiver: freeze the position below this speed (0 = off)
+      bool gpsUbloxAutomotive {false};   // u-blox receiver: dynamic platform model 'automotive'
       int garminTrackDeviation {50};     // [%] Garmin's distance deviates more than this from the track -> the track's distance is shown (0 = never)
 
       static std::list<ConfigItemDef> configuration;   // config.c

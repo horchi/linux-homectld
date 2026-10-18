@@ -113,7 +113,7 @@ linstall: $(TARGET) $(W1TARGET) $(BMSTARGET) $(VOTROTARGET) $(VICTRONTARGET) $(I
 # distribution's version is too old), the optional parts according to the switches in Make.user
 
 install-dependencies:
-	@WOMO=$(WOMO) MOPEKA=$(MOPEKA) THETFORD=$(THETFORD) GARMIN=$(GARMIN) VDR=$(VDR) SRC_DIR=$(SRC_DIR) bash contrib/install-dependencies.sh
+	@WOMO=$(WOMO) MOPEKA=$(MOPEKA) THETFORD=$(THETFORD) GARMIN=$(GARMIN) GPS=$(GPS) VDR=$(VDR) SRC_DIR=$(SRC_DIR) bash contrib/install-dependencies.sh
 
 # interactive configuration of Make.user (needs 'dialog')
 
@@ -138,6 +138,9 @@ install:  linstall
    ifdef GARMIN
 	   (cd garmin; $(MAKE) install)
    endif
+   ifdef GPS
+	   (cd gps.u-blox; $(MAKE) install)
+   endif
    ifdef WOMO
 	   (cd contrib/womo; $(MAKE) install)
    endif
@@ -159,9 +162,27 @@ install-daemon: install-config install-scripts
 	mkdir -p $(DESTDIR)$(PREFIX)/share/$(TARGET)/
 #	install --mode=644 -D arduino/build-nano-atmega328/ioctrl.hex $(DESTDIR)$(PREFIX)/share/$(TARGET)/nano-atmega328-ioctrl.hex
 
-restart: $(TARGET) linstall
+# the services of this repository (restarted by 'make restart' if they are running)
+
+SERVICES = w1mqtt bmsmqtt votromqtt i2cmqtt victronmqtt
+ifdef MOPEKA
+   SERVICES += mopeka
+endif
+ifdef THETFORD
+   SERVICES += thetford
+endif
+ifdef GPS
+   SERVICES += gpsmqtt
+endif
+
+# full install and restart of the daemon and all running services
+
+restart: $(TARGET) install
 	systemctl restart $(TARGET)
 	@echo restarted $(TARGET)
+	@for s in $(SERVICES); do \
+	   if systemctl is-active -q $$s.service; then systemctl restart $$s.service; echo "restarted $$s"; fi; \
+	done
 
 # light restart - onlx buld the deamon
 

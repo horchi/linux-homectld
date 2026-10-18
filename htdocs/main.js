@@ -956,6 +956,13 @@ function prepareMenu()
    addMainMenuButton('Map', 'gpslive', gpsAvailable());
    addMainMenuButton('Garmin', 'activities', config.garminAvailable == '1');
 
+   if (gpsAvailable()) {              // the recording state colors the 'Map' tab
+      if (gpsTours)
+         gpsUpdateTabState();
+      else
+         socket.send({ "event" : "gpstour", "object" : { "action" : "list" } });
+   }
+
    addMainMenuButton('Schema', 'schema', config.schema);
    addMainMenuButton('Music', 'lmc', config.lmcHost != '');
    addMainMenuButton('VDR', 'vdr', config.vdr != '');

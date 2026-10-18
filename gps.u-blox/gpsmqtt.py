@@ -17,7 +17,7 @@ from geopy.exc import GeocoderServiceError
 
 syslog.openlog(ident="gpsmqtt", logoption=syslog.LOG_PID)
 
-# Hardware Config
+# Hardware Config (defaults, options -d / -b)
 SERIAL_PORT = "/dev/ttyGps"
 BAUDRATE = 9600
 
@@ -25,6 +25,11 @@ BAUDRATE = 9600
 initial = True
 parameters = {}
 args = None
+
+# receiver settings requested by homectld (Setup -> Konfiguration -> GPS), applied on every
+#  port open and on every 'config' message: { "action": "config", "staticHold": <cm/s>, "dynModel": 0|4 }
+ubloxConfig = None
+ubloxConfigPending = False
 
 # ── homectld widget parameters ────────────────────────────────────────────────
 # address → parameter JSON appended on initial publish
@@ -162,6 +167,89 @@ def getAddress(lat, lng):
 
     return "Unknown"
 
+# ── u-blox receiver settings (UBX protocol) ───────────────────────────────────
+# CFG-NAV5: dynamic platform model (0 portable, 4 automotive) and static hold threshold [cm/s]
+#  (below this speed the receiver freezes the position - no drift at standstill)
+
+def ubxFrame(cls, mid, payload=b''):
+    body = bytes([cls, mid, len(payload) & 0xff, len(payload) >> 8]) + payload
+    a = b = 0
+    for x in body:
+        a = (a + x) & 0xff
+        b = (b + a) & 0xff
+    return b'\xb5\x62' + body + bytes([a, b])
+
+def ubxRead(ser, cls, mid, wait=1.5):
+    # the answer (or the ACK) of a request within the NMEA stream; the pending NMEA line is lost
+    buf = b''
+    t0 = time.time()
+    while time.time() - t0 < wait:
+        buf += ser.read(256)
+        i = buf.find(b'\xb5\x62' + bytes([cls, mid]))
+        if i < 0:
+            continue
+        if len(buf) < i + 6:
+            continue
+        n = buf[i+4] | (buf[i+5] << 8)
+        if len(buf) >= i + 6 + n + 2:
+            return buf[i+6:i+6+n]
+    return None
+
+def ubloxApplyConfig(ser):
+    global ubloxConfigPending
+    ubloxConfigPending = False
+
+    if ubloxConfig is None or ser is None or not ser.is_open:
+        return
+
+    dynModel = int(ubloxConfig.get('dynModel', 0))
+    staticHold = max(0, min(255, int(ubloxConfig.get('staticHold', 0))))
+
+    payload = bytearray(36)
+    payload[0:2] = (0x0041).to_bytes(2, 'little')   # mask: dyn (bit 0) and staticHoldMask (bit 6)
+    payload[2] = dynModel
+    payload[22] = staticHold
+
+    try:
+        ack = None
+        for attempt in range(2):
+            ser.write(ubxFrame(0x06, 0x24, bytes(payload)))
+            ack = ubxRead(ser, 0x05, 0x01)
+            if ack is not None and ack[0:2] == b'\x06\x24':
+                break
+        else:
+            tell(0, f"u-blox: CFG-NAV5 not acknowledged (dynModel {dynModel}, staticHold {staticHold} cm/s)")
+            return
+
+        # read back for the log
+        ser.write(ubxFrame(0x06, 0x24))
+        nav5 = ubxRead(ser, 0x06, 0x24)
+        if nav5 and len(nav5) >= 23:
+            tell(0, f"u-blox: CFG-NAV5 set, dynModel {nav5[2]}, staticHold {nav5[22]} cm/s ({nav5[22] * 0.036:.1f} km/h)")
+        else:
+            tell(0, f"u-blox: CFG-NAV5 set (dynModel {dynModel}, staticHold {staticHold} cm/s)")
+    except (serial.SerialException, OSError) as e:
+        tell(0, f"u-blox: setting CFG-NAV5 failed: {e}")
+
+def onMqttMessage(client, userdata, msg):
+    global ubloxConfig, ubloxConfigPending
+    try:
+        data = json.loads(msg.payload.decode('utf-8', errors='replace'))
+    except Exception as e:
+        tell(0, f"Ignoring invalid JSON on {msg.topic}: {e}")
+        return
+
+    if data.get('action') == 'config':
+        ubloxConfig = data
+        ubloxConfigPending = True    # applied by the main loop (it owns the serial port)
+        tell(1, f"Received receiver settings: {data}")
+
+def onMqttConnect(client, userdata, flags, rc):
+    # (re)subscribe and register the command topic at homectld, it answers with the receiver settings
+    tell(1, f"MQTT connected (rc={rc}), subscribing {args.c.strip()}")
+    client.subscribe(args.c.strip())
+    client.publish(args.T.strip(), json.dumps({"action": "init", "type": args.t, "topic": args.c.strip()}))
+
 def mqttConnect():
     try:
         tell(0, f"Connecting to MQTT broker at {args.m.strip()}:{args.p}...")
@@ -192,22 +280,33 @@ def publishMqtt(sensor):
             tell(0, "  {}: {} {}".format(sensor['title'], wert, sensor.get('unit', '')))
 
 def main():
-    global args, mqtt_client, initial
+    global args, mqtt_client, initial, SERIAL_PORT, BAUDRATE
     initial_start_time = time.time()
     prog_name = "gpsmqtt"
     parser = argparse.ArgumentParser(prog_name)
     parser.add_argument('-i', type=int, nargs='?', help='Interval [seconds] (default 30)', default=30)
+    parser.add_argument('-d',           nargs='?', help='Serial device (default /dev/ttyGps)', default=SERIAL_PORT)
+    parser.add_argument('-b', type=int, nargs='?', help='Baud rate (default 9600, ignored by USB receivers)', default=BAUDRATE)
     parser.add_argument('-m',           nargs='?', help='MQTT host', default="localhost")
     parser.add_argument('-p', type=int, nargs='?', help='MQTT port', default=1883)
     parser.add_argument('-v', type=int, nargs='?', help='Verbosity level (0-3) (default 0)', default=0)
     parser.add_argument('-l', action='store_true', help='Log to syslog (default console)')
     parser.add_argument('-T',           nargs='?', help='MQTT topic', default="homectld2mqtt/gps")
+    parser.add_argument('-c',           nargs='?', help='MQTT command topic (receiver settings from homectld, default <topic>/in)', default=None)
     parser.add_argument('-t',           nargs='?', help='Sensor type string', default="GPS")
     parser.add_argument('-s', action='store_true', help='Show current status and exit')
 
     args = parser.parse_args()
 
+    SERIAL_PORT = args.d
+    BAUDRATE = args.b
+
+    if not args.c:
+        args.c = args.T.strip() + "/in"
+
     mqtt_client = mqtt.Client()
+    mqtt_client.on_connect = onMqttConnect
+    mqtt_client.on_message = onMqttMessage
     if not args.s and args.m.strip() != '':
         mqttConnect()
         mqtt_client.loop_start()
@@ -227,6 +326,7 @@ def main():
                     tell(2, f"Attempting hardware connection to {SERIAL_PORT}...")
                     ser = serial.Serial(SERIAL_PORT, BAUDRATE, timeout=1)
                     tell(2, f"Opened serial interface link {SERIAL_PORT} successfully.")
+                    ubloxApplyConfig(ser)
                 except (serial.SerialException, OSError) as e:
                     if args.s:
                         tell(0, f"Hardware execution check failed: {e}")
@@ -235,6 +335,9 @@ def main():
                     raw_data['status'] = "No Fix"
                     time.sleep(5)
                     continue
+
+            if ubloxConfigPending:
+                ubloxApplyConfig(ser)
 
             try:
                 line = ser.readline().decode('ascii', errors='replace').strip()
@@ -252,7 +355,9 @@ def main():
 
             tell(3, f"Raw NMEA: {line}")
 
-            if line.startswith(('$GPRMC', '$GNGRM', '$GPGGA', '$GNGGA')):
+            # RMC and GGA of any talker: GP (GPS only), GN (combined), GL / GA / GB (single systems)
+
+            if len(line) > 6 and line[0] == '$' and line[3:6] in ('RMC', 'GGA'):
                 try:
                     msg = pynmea2.parse(line)
 
@@ -299,23 +404,32 @@ def main():
                     ts = int(current_time)
                     is_fixed = True if raw_data.get('status') == 'Fix' else False
                     satellites = raw_data.get('satellites', 0)
-                    town = getTown(raw_data.get('latitude', 0.0), raw_data.get('longitude', 0.0))
-                    address = getAddress(raw_data.get('latitude', 0.0), raw_data.get('longitude', 0.0))
+                    town = address = ""
+
+                    if 'latitude' in raw_data:
+                        town = getTown(raw_data['latitude'], raw_data['longitude'])
+                        address = getAddress(raw_data['latitude'], raw_data['longitude'])
                     coordinate = f"{raw_data.get('latitude', 0.0)}/{raw_data.get('longitude', 0.0)}"
 
                     sensors_to_publish = [
                         {"type": args.t, "address":  0, "kind": "status", "title": "Sat State",  "state": is_fixed},
-                        {"type": args.t, "address":  1, "kind": "value",  "title": "Latitude",   "value": raw_data.get('latitude', 0.0), "unit": "°"},
-                        {"type": args.t, "address":  2, "kind": "value",  "title": "Longitude",  "value": raw_data.get('longitude', 0.0), "unit": "°"},
-                        {"type": args.t, "address":  3, "kind": "value",  "title": "Speed",      "value": raw_data.get('speed', 0.0), "unit": "km/h"},
                         {"type": args.t, "address":  4, "kind": "value",  "title": "Satellites", "value": satellites},
-                        {"type": args.t, "address":  5, "kind": "value",  "title": "Altitude",   "value": raw_data.get('altitude', 0.0), "unit": "m"},
                         {"type": args.t, "address":  6, "kind": "text",   "title": "Time UTC",    "text": raw_data.get('time_utc', "")},
-                        {"type": args.t, "address":  7, "kind": "text",   "title": "Date UTC",    "text": raw_data.get('date_utc', "")},
-                        {"type": args.t, "address":  8, "kind": "text",   "title": "Town",        "text": splitText(town)},
-                        {"type": args.t, "address":  9, "kind": "text",   "title": "Address",     "text": address},
-                        {"type": args.t, "address": 10, "kind": "text",   "title": "Coordinate",  "text": coordinate}
+                        {"type": args.t, "address":  7, "kind": "text",   "title": "Date UTC",    "text": raw_data.get('date_utc', "")}
                     ]
+
+                    # the position only once the receiver delivered one (no 0/0 after the start)
+
+                    if 'latitude' in raw_data:
+                        sensors_to_publish += [
+                            {"type": args.t, "address":  1, "kind": "value",  "title": "Latitude",   "value": raw_data.get('latitude', 0.0), "unit": "°"},
+                            {"type": args.t, "address":  2, "kind": "value",  "title": "Longitude",  "value": raw_data.get('longitude', 0.0), "unit": "°"},
+                            {"type": args.t, "address":  3, "kind": "value",  "title": "Speed",      "value": raw_data.get('speed', 0.0), "unit": "km/h"},
+                            {"type": args.t, "address":  5, "kind": "value",  "title": "Altitude",   "value": raw_data.get('altitude', 0.0), "unit": "m"},
+                            {"type": args.t, "address":  8, "kind": "text",   "title": "Town",        "text": splitText(town)},
+                            {"type": args.t, "address":  9, "kind": "text",   "title": "Address",     "text": address},
+                            {"type": args.t, "address": 10, "kind": "text",   "title": "Coordinate",  "text": coordinate}
+                        ]
 
                     if not args.s:
                         tell(2, f"Executing serialized interval loop publish event for {len(sensors_to_publish)} sensors...")

@@ -135,6 +135,7 @@ enum Eloquence
    eloScript         = 0x100000,
    eloLoopTimings    = 0x200000,
    eloDurations      = 0x400000,
+   eloGps            = 0x800000,   // GPS positions (live, at most every 10 seconds)
 
    eloAlways         = 0x000000
 };

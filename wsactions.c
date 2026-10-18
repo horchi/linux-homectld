@@ -1667,20 +1667,30 @@ int HomeCtl::checkLuaScript(json_t* obj, long client)
 
 int HomeCtl::gpsLive(json_t* obj, long client)
 {
-   tell(eloAlways, "GPS: %f / %f", gpsCoordinate.latitude, gpsCoordinate.longitude);
-
    if (!gpsCoordinate.latitude || !gpsCoordinate.longitude)
       return done;
 
-   char lat_buf[32];
-   char lng_buf[32];
+   // log the position on movement only, at most every 10 seconds
+
+   static GpsCoordinate lastLogged;
+   static time_t lastLoggedAt {0};
+
+   if (time(0) - lastLoggedAt >= 10 && (gpsCoordinate.latitude != lastLogged.latitude || gpsCoordinate.longitude != lastLogged.longitude))
+   {
+      tell(eloGps, "GPS: %.6f / %.6f", gpsCoordinate.latitude, gpsCoordinate.longitude);
+      lastLogged = gpsCoordinate;
+      lastLoggedAt = time(0);
+   }
+
+   char latBuf[32];
+   char lngBuf[32];
    char* oldLocale {setlocale(LC_NUMERIC, nullptr)};
    std::string savedLocale {oldLocale ? oldLocale : "C"};
 
    setlocale(LC_NUMERIC, "C");
-   snprintf(lat_buf, sizeof(lat_buf), "%.8f", gpsCoordinate.latitude);
-   snprintf(lng_buf, sizeof(lng_buf), "%.8f", gpsCoordinate.longitude);
-   json_t* oArray {json_pack("[s, s]", lat_buf, lng_buf)};
+   snprintf(latBuf, sizeof(latBuf), "%.8f", gpsCoordinate.latitude);
+   snprintf(lngBuf, sizeof(lngBuf), "%.8f", gpsCoordinate.longitude);
+   json_t* oArray {json_pack("[s, s]", latBuf, lngBuf)};
    setlocale(LC_NUMERIC, savedLocale.c_str());
 
    return pushOutMessage(oArray, "gpslive", 0);
@@ -2980,7 +2990,12 @@ int HomeCtl::performCommand(json_t* obj, long client)
 int HomeCtl::widgetTypes2Json(json_t* obj)
 {
    for (int type = wtUnknown+1; type < wtCount; type++)
+   {
+      if (type == wtTimer)                          // HASP only, see haspWidgetTypes2Json()
+         continue;
+
       json_object_set_new(obj, toName((WidgetType)type), json_integer(type));
+   }
 
    return done;
 }

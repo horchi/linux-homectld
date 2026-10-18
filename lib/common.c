@@ -77,6 +77,7 @@ const char* Elo::eloquences[] =
 
    "LoopTimings",
    "Durations",
+   "Gps",
 
    nullptr
 };

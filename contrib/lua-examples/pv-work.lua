@@ -8,10 +8,10 @@ if nowMin < 1 * 60 then
    return 0.00
 end
 
-watch("AI", 0x08)
+watch("VOTRO1a", 0x02)
 
-local cv1 = sensors["CV"][0x01]   -- old value of PV work
-local ai8 = sensors["AI"][0x08]   -- actual PV current
+local cv1 = sensors["CV"][0x01]        -- old value of PV work
+local ai8 = sensors["VOTRO1a"][0x02]   -- actual PV current
 
 tell(eloDebug, "PV-Work: Calculating ..")
 
@@ -37,3 +37,4 @@ end
 tell(eloDebug, "PV-Work: was " .. sensors["CV"][0x01].value .. " now " .. lastWork + (ai8.value * ((os.time()-lastCalc) / 3600.0)))
 
 return lastWork + (ai8.value * ((os.time()-lastCalc) / 3600.0))
+

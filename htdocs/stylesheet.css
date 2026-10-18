@@ -1,1 +1,84 @@
-/var/lib/homectld/stylesheet-dark.css
+
+/* normalize.css, checkbox.css, dialog.css and base.css are linked in index.html (versioned URLs) */
+
+:root
+{
+    --widgetWidthBase: 110;
+    --widgetHeightBase: 110;
+
+    /* colors */
+
+    --menu: #272727;
+
+    --light1: #272727;
+    --light2: lightgray;
+    --light3: #403d3d;
+    --light4: white;
+    --neutral0: #333333;
+    --neutral1: #454545;
+    --neutral2: #545454;
+    --neutral3: #696969;
+    --neutral4: #a3a3a3;
+
+    --listFontColor: white;
+    --fontColor: white;
+    --blue: #2177AD;
+    --blueshade: #495b67;
+    --yellow: #fad600;
+    --yellow2: #fffcab;
+    --info: #f9f9ef;
+    --red: #ff5757;
+    --orange: #f0a04b;
+    --containerPadding: 10px;
+    --widgetBackground: #272727cc;
+    --dashboardMenuBackground: #7080907a;
+    --caption1: #292929;
+    --caption2: #565353;
+    --edit: #f9f9ef;
+    --editadd: #fffcab;
+
+    --peakColor: #ff5757;
+    --peakMinColor: #4fb0ff;
+    --background: #000000d1;
+    --shadow: black;
+
+    --borderColor: black;
+    --borderRadius: 3px;
+
+    --borderColorSchemaValue: white;
+    --borderRadiusSchemaValue: 3px;
+    --borderStyleSchemaValue: solid;
+
+    --buttonAction: #818382;
+    --buttonFont: white;
+
+    --dialogColor: black;
+    --dialogBackground: lightgray;
+    --dialogColorDark: lightgray;
+    --dialogBackgroundDark: #272727;
+    --scaleText: white;
+    --scale: #ccc;
+
+    --sat: env(safe-area-inset-top);
+    --sar: env(safe-area-inset-right);
+    --sab: env(safe-area-inset-bottom);
+    --sal: env(safe-area-inset-left);
+}
+
+@media only screen and (max-width: 500px)
+{
+    :root { --containerPadding: 5px; }
+}
+
+@media only screen and (max-width:900px)
+{
+    :root { --widgetWidthBase: 90; --widgetHeightBase:80; }
+}
+
+Body
+{
+    font-family: Helvetica,Arial,sans-serif;
+    font-size: 1.0em;
+    color: white;
+    background-color: black;
+}

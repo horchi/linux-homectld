@@ -50,9 +50,6 @@ namespace
    const int maxRows {4};
    const int maxCols {3};
    const int maxLineLength {1900};       // MQTT_MAX_PACKET_SIZE of the firmware is 2048
-   const int wtHaspLevel {15};           // widget type id of 'Level' (HASP only, see hasp.js / widgetsetup.js)
-   const int wtHaspBalance {16};         // widget type id of 'Balance' (HASP only)
-   const int wtHaspTimer {17};           // widget type id of 'Timer' (HASP only, runs in the panel firmware)
    const int maxGlyphSize {120};         // FreeType sbit cache stores the advance in 8 bit, glyphs >= 128px vanish
 
    const char* colorPage {"#000000"};
@@ -229,7 +226,7 @@ const char* HomeCtl::haspWidgetTypeNames[] =
 int HomeCtl::haspWidgetTypes2Json(json_t* obj)
 {
    // the options use the dashboard widget type ids (the WEBIF dialog depends on them),
-   // 15 is the HASP only type 'Level'; mapped to HaspWidgetType by haspTypeOfDashboardType()
+   // 'Timer' exists only here; mapped to HaspWidgetType by haspTypeOfDashboardType()
 
    json_object_set_new(obj, "Symbol", json_integer(wtSymbol));
    json_object_set_new(obj, "SymbolValue", json_integer(wtSymbolValue));
@@ -238,10 +235,10 @@ int HomeCtl::haspWidgetTypes2Json(json_t* obj)
    json_object_set_new(obj, "Meter", json_integer(wtMeter));          // same names and ids as the dashboard
    json_object_set_new(obj, "MeterLevel", json_integer(wtMeterLevel));
    json_object_set_new(obj, "Time", json_integer(wtTime));
-   json_object_set_new(obj, "Level", json_integer(wtHaspLevel));
+   json_object_set_new(obj, "Level", json_integer(wtLevel));
    json_object_set_new(obj, "Choice", json_integer(wtChoice));
-   json_object_set_new(obj, "Balance", json_integer(wtHaspBalance));
-   json_object_set_new(obj, "Timer", json_integer(wtHaspTimer));
+   json_object_set_new(obj, "Balance", json_integer(wtBalance));
+   json_object_set_new(obj, "Timer", json_integer(wtTimer));
 
    return done;
 }
@@ -265,9 +262,9 @@ HomeCtl::HaspWidgetType HomeCtl::haspTypeOfDashboardType(int dashboardWidgetType
       case wtTime:          return hwtTime;
       case wtSymbolValue:   return hwtSymbolValue;
       case wtSymbolText:    return hwtSymbolValue;
-      case wtHaspLevel:     return hwtLevel;
-      case wtHaspBalance:   return hwtBalance;
-      case wtHaspTimer:     return hwtTimer;
+      case wtLevel:     return hwtLevel;
+      case wtBalance:   return hwtBalance;
+      case wtTimer:     return hwtTimer;
       default:              return hwtValue;
    }
 }
@@ -676,7 +673,7 @@ json_t* HomeCtl::haspWidgetDefaults(const char* type, long address)
       if (strcmp(type, "TIMER") == 0)
       {
          json_object_set_new(jDefaults, "title", json_string("Timer"));
-         json_object_set_new(jDefaults, "widgettype", json_integer(wtHaspTimer));
+         json_object_set_new(jDefaults, "widgettype", json_integer(wtTimer));
          json_object_set_new(jDefaults, "minutes", json_integer(10));
          return jDefaults;
       }

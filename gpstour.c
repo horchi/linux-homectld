@@ -12,7 +12,11 @@
  *  active the coordinate of the GPS sensor (GPS:0x0a, text 'lat/lng') is stored
  *  into 'samples' whenever the position moved at least 'gpsTourMinDistance' meters
  *  since the last stored point. Without movement for 'gpsTourPauseAfter' minutes
- *  the tour is paused, on the next movement it continues automatically.
+ *  the tour is paused, on the next movement it continues automatically. For the pause
+ *  'movement' means leaving the radius 'gpsTourPauseRadius' around the position of the
+ *  last movement ('anchor'): a GPS receiver drifts by 100-200 m at standstill, these jumps
+ *  must not interrupt (or prevent) the pause. While paused no points are stored. Each pause
+ *  is kept as event 'halt' with begin and end ('endtime') in 'gpstourevents'.
  *
  *  Only the tour itself (name, start, stop, distance, ...) is stored in table
  *  'gpstours', the points are the GPS samples between start and stop. With each
@@ -109,6 +113,39 @@ double HomeCtl::gpsDistance(const GpsCoordinate& a, const GpsCoordinate& b)
 }
 
 //***************************************************************************
+// Receiver settings - to gpsmqtt.py which owns the serial port of the u-blox
+//   receiver: { "action": "config", "staticHold": <cm/s>, "dynModel": 0|4 }
+//   sent at start, on change of the settings and when the script registers (init)
+//***************************************************************************
+
+int HomeCtl::gpsReceiverPublishConfig()
+{
+   const char* topic {lookupCommandTopic("GPS", na)};
+
+   if (isEmpty(topic))
+      return done;                 // no GPS script registered (yet)
+
+   mqttCheckConnection();
+
+   if (!mqttWriter)
+      return fail;
+
+   json_t* oConfig {json_object()};
+
+   json_object_set_new(oConfig, "action", json_string("config"));
+   json_object_set_new(oConfig, "staticHold", json_integer(std::min(255, (int)std::lround(gpsUbloxStaticHold / 3.6 * 100.0))));   // km/h -> cm/s
+   json_object_set_new(oConfig, "dynModel", json_integer(gpsUbloxAutomotive ? 4 : 0));   // 4 = automotive, 0 = portable
+
+   char* message {json_dumps(oConfig, JSON_REAL_PRECISION(8))};
+   json_decref(oConfig);
+   tell(eloAlways, "GPS: Sending receiver settings to '%s' [%s]", topic, message);
+   mqttWriter->write(topic, message);
+   free(message);
+
+   return success;
+}
+
+//***************************************************************************
 // Init - resume the tour which was active at the last shutdown
 //***************************************************************************
 
@@ -181,6 +218,7 @@ int HomeCtl::gpsTourInit()
       if (parseGpsText(tableSamples->getStrValue("TEXT"), c))
       {
          gpsTour.lastPoint = c;
+         gpsTour.anchor = c;
          gpsTour.hasLastPoint = true;
          gpsTour.lastMoveAt = tableSamples->getTimeValue("TIME");
       }
@@ -189,10 +227,30 @@ int HomeCtl::gpsTourInit()
    selectGpsTourSamples->freeResult();
    tableSamples->reset();
 
+   // a pause running at the shutdown: its 'halt' event has no end yet
+
+   tableGpsTourEvents->clear();
+   tableGpsTourEvents->setValue("TOURID", gpsTour.id);
+
+   for (bool f = selectGpsTourEvents->find(); f; f = selectGpsTourEvents->fetch())
+   {
+      if (!tableGpsTourEvents->hasValue("TYPE", "halt") || !tableGpsTourEvents->getValue("ENDTIME")->isNull())
+         continue;
+
+      gpsTour.paused = true;
+      gpsTour.pausedAt = tableGpsTourEvents->getTimeValue("TIME");
+      gpsTour.pauseEventId = tableGpsTourEvents->getIntValue("ID");
+      gpsTour.anchor.latitude = tableGpsTourEvents->getFloatValue("LAT");
+      gpsTour.anchor.longitude = tableGpsTourEvents->getFloatValue("LON");
+   }
+
+   selectGpsTourEvents->freeResult();
+   tableGpsTourEvents->reset();
+
    gpsTourSetRecordFlag(true);
 
-   tell(eloAlways, "GPS: Resuming tour %ld '%s' (started %s, %ld points, %.1f km)", gpsTour.id, gpsTour.name.c_str(),
-        l2pTime(gpsTour.start).c_str(), gpsTour.points, gpsTour.distance / 1000.0);
+   tell(eloAlways, "GPS: Resuming tour %ld '%s' (started %s, %ld points, %.1f km%s)", gpsTour.id, gpsTour.name.c_str(),
+        l2pTime(gpsTour.start).c_str(), gpsTour.points, gpsTour.distance / 1000.0, gpsTour.paused ? ", paused" : "");
 
    gpsTourCheckPause(now);
 
@@ -321,12 +379,7 @@ int HomeCtl::gpsTourStop(time_t stopAt, long odometer)
 
 
    if (gpsTour.paused)
-   {
-      if (stopAt > gpsTour.pausedAt)
-         gpsTour.pauseTime += stopAt - gpsTour.pausedAt;
-
-      gpsTour.paused = false;
-   }
+      gpsTourPauseEnd(stopAt);     // a 'stopAt' before the pause (arrival) removes the halt event
 
    tableGpsTours->clear();
    tableGpsTours->setValue("ID", gpsTour.id);
@@ -452,19 +505,27 @@ int HomeCtl::gpsTourUpdate(time_t now)
 
    double distance {gpsDistance(gpsTour.lastPoint, gpsCoordinate)};
 
+   // real movement: the position left the pause radius around the anchor (the GPS drifts at standstill)
+
+   if (gpsDistance(gpsTour.anchor, gpsCoordinate) >= gpsTourPauseRadius)
+   {
+      gpsTour.anchor = gpsCoordinate;
+      gpsTour.lastMoveAt = now;
+
+      if (gpsTour.paused)
+      {
+         gpsTourPauseEnd(now);
+         gpsTourStorePoint(now, gpsCoordinate, distance);
+         gpsTourPushState();
+
+         return success;
+      }
+   }
+   else if (gpsTour.paused)
+      return done;                  // drift during the pause, no point
+
    if (distance < gpsTourMinDistance)
       return gpsTourCheckPause(now);
-
-   if (gpsTour.paused)
-   {
-      gpsTour.pauseTime += now - gpsTour.pausedAt;
-      gpsTour.paused = false;
-      tell(eloAlways, "GPS: Tour '%s' continued after %ld minutes pause", gpsTour.name.c_str(), (long)(now - gpsTour.pausedAt) / 60);
-      gpsTourStorePoint(now, gpsCoordinate, distance);
-      gpsTourPushState();
-
-      return success;
-   }
 
    return gpsTourStorePoint(now, gpsCoordinate, distance);
 }
@@ -479,10 +540,75 @@ int HomeCtl::gpsTourCheckPause(time_t now)
    if (now - gpsTour.lastMoveAt < gpsTourPauseAfter * tmeSecondsPerMinute)
       return done;
 
-   gpsTour.paused = true;
-   gpsTour.pausedAt = gpsTour.lastMoveAt;
-   tell(eloAlways, "GPS: Tour '%s' paused, no movement since %s", gpsTour.name.c_str(), l2pTime(gpsTour.lastMoveAt).c_str());
+   gpsTourPauseStart(gpsTour.lastMoveAt);
    gpsTourPushState();
+
+   return success;
+}
+
+// the pause begins with the last movement, stored as event 'halt' (its end is set on continuation)
+
+int HomeCtl::gpsTourPauseStart(time_t at)
+{
+   gpsTour.paused = true;
+   gpsTour.pausedAt = at;
+   gpsTour.pauseEventId = 0;
+
+   tableGpsTourEvents->clear();
+   tableGpsTourEvents->setValue("TOURID", gpsTour.id);
+   tableGpsTourEvents->setValue("TIME", (long)at);
+   tableGpsTourEvents->setValue("TYPE", "halt");
+   tableGpsTourEvents->setValue("LAT", gpsTour.anchor.latitude);
+   tableGpsTourEvents->setValue("LON", gpsTour.anchor.longitude);
+   tableGpsTourEvents->setValue("DISTANCE", gpsTour.distance);
+   tableGpsTourEvents->setValue("ODOMETER", 0L);
+   tableGpsTourEvents->setValue("AMOUNT", 0.0);
+   tableGpsTourEvents->setValue("FULL", 1L);
+   tableGpsTourEvents->setValue("PRICE", 0.0);
+   tableGpsTourEvents->setValue("NOTE", "");
+   tableGpsTourEvents->store();
+   gpsTour.pauseEventId = tableGpsTourEvents->getLastInsertId();
+   tableGpsTourEvents->reset();
+
+   tell(eloAlways, "GPS: Tour '%s' paused, no movement since %s", gpsTour.name.c_str(), l2pTime(at).c_str());
+
+   return success;
+}
+
+int HomeCtl::gpsTourPauseEnd(time_t at)
+{
+   if (!gpsTour.paused)
+      return done;
+
+   gpsTour.paused = false;
+
+   if (at > gpsTour.pausedAt)
+      gpsTour.pauseTime += at - gpsTour.pausedAt;
+
+   if (gpsTour.pauseEventId)
+   {
+      tableGpsTourEvents->clear();
+      tableGpsTourEvents->setValue("ID", gpsTour.pauseEventId);
+
+      if (tableGpsTourEvents->find())
+      {
+         if (at > gpsTour.pausedAt)
+         {
+            tableGpsTourEvents->setValue("ENDTIME", (long)at);
+            tableGpsTourEvents->store();
+         }
+         else
+         {
+            tableGpsTourEvents->reset();
+            tableGpsTourEvents->deleteWhere("id = %ld", gpsTour.pauseEventId);
+         }
+      }
+
+      tableGpsTourEvents->reset();
+      gpsTour.pauseEventId = 0;
+   }
+
+   tell(eloAlways, "GPS: Tour '%s' continued after %ld minutes pause", gpsTour.name.c_str(), (long)(at - gpsTour.pausedAt) / 60);
 
    return success;
 }
@@ -528,9 +654,14 @@ int HomeCtl::gpsTourStorePoint(time_t now, const GpsCoordinate& c, double distan
       }
    }
 
+   if (!gpsTour.hasLastPoint)       // the first point is the reference of the pause radius
+   {
+      gpsTour.anchor = c;
+      gpsTour.lastMoveAt = now;
+   }
+
    gpsTour.lastPoint = c;
    gpsTour.hasLastPoint = true;
-   gpsTour.lastMoveAt = now;
    gpsTour.distance += distance;
    gpsTour.points++;
 
@@ -762,7 +893,7 @@ int HomeCtl::gpsTourEventStore(json_t* obj, std::string& error)
    long id {getLongFromJson(obj, "id", 0)};
    std::string type {getStringFromJson(obj, "type", "")};
 
-   if (!types.count(type))
+   if (!types.count(type) && !(type == "halt" && id))    // 'halt' is recorded by the daemon, only its note is editable
    {
       error = "Unbekannter Ereignistyp '" + type + "'";
       return fail;
@@ -886,6 +1017,8 @@ int HomeCtl::gpsTourEvents2Json(json_t* obj, long tourId, long odometerStart, lo
    time_t previousFullAt {0};       // .. and its time (0 -> the tour start)
    double previousDistance {0.0};   // GPS distance at the last full tank (0 = tour start)
    int fuelStops {0};
+   int halts {0};                   // automatic pauses (events 'halt') ..
+   long haltTime {0};               // .. and their time [s]
    bool firstFull {true};
 
    // the last full tank before the tour and the partial fills since then
@@ -963,6 +1096,21 @@ int HomeCtl::gpsTourEvents2Json(json_t* obj, long tourId, long odometerStart, lo
       json_object_set_new(oEvent, "price", json_real(price));
       json_object_set_new(oEvent, "note", json_string(tableGpsTourEvents->getStrValue("NOTE")));
 
+      if (type == "halt")
+      {
+         // a running pause of the active tour has no end yet, the WEBIF counts from 'time'
+
+         bool open {tableGpsTourEvents->getValue("ENDTIME")->isNull() != 0};
+         time_t end {open ? (tourId == gpsTour.id && gpsTour.paused ? 0 : tableGpsTourEvents->getTimeValue("TIME")) : tableGpsTourEvents->getTimeValue("ENDTIME")};
+
+         json_object_set_new(oEvent, "endtime", end ? json_integer(end) : json_null());
+         json_object_set_new(oEvent, "duration", json_integer(end ? end - tableGpsTourEvents->getTimeValue("TIME") : time(0) - tableGpsTourEvents->getTimeValue("TIME")));
+         halts++;
+         haltTime += end ? end - tableGpsTourEvents->getTimeValue("TIME") : time(0) - tableGpsTourEvents->getTimeValue("TIME");
+         json_array_append_new(oEvents, oEvent);
+         continue;
+      }
+
       if (type == "fuel")
       {
          fuelStops++;
@@ -1026,8 +1174,46 @@ int HomeCtl::gpsTourEvents2Json(json_t* obj, long tourId, long odometerStart, lo
    selectGpsTourEvents->freeResult();
    tableGpsTourEvents->reset();
 
+   // a pause / night stop entered by the user during an automatic halt describes the same stop:
+   //  the halt's begin, end and duration go to the user's event, the halt itself is not listed
+
+   for (size_t i = json_array_size(oEvents); i > 0; i--)
+   {
+      json_t* oHalt {json_array_get(oEvents, i-1)};
+
+      if (strcmp(getStringFromJson(oHalt, "type", ""), "halt") != 0)
+         continue;
+
+      time_t begin {(time_t)getLongFromJson(oHalt, "time", 0)};
+      time_t end {(time_t)getLongFromJson(oHalt, "endtime", 0)};
+      json_t* oUser {nullptr};
+      size_t k {0};
+
+      json_array_foreach(oEvents, k, oUser)
+      {
+         std::string t {getStringFromJson(oUser, "type", "")};
+         time_t at {(time_t)getLongFromJson(oUser, "time", 0)};
+
+         if ((t == "pause" || t == "night") && !json_object_get(oUser, "halttime") &&
+             at >= begin - gpsTourPauseAfter * tmeSecondsPerMinute && (!end || at <= end))
+            break;
+
+         oUser = nullptr;
+      }
+
+      if (!oUser)
+         continue;
+
+      json_object_set_new(oUser, "halttime", json_integer(begin));
+      json_object_set(oUser, "endtime", json_object_get(oHalt, "endtime"));
+      json_object_set(oUser, "duration", json_object_get(oHalt, "duration"));
+      json_array_remove(oEvents, i-1);
+   }
+
    json_object_set_new(oTotals, "events", json_integer(json_array_size(oEvents)));
    json_object_set_new(oTotals, "fuelStops", json_integer(fuelStops));
+   json_object_set_new(oTotals, "halts", json_integer(halts));
+   json_object_set_new(oTotals, "haltTime", json_integer(haltTime));
    json_object_set_new(oTotals, "fuelCosts", json_real(fuelCosts));
    json_object_set_new(oTotals, "tollCosts", json_real(tollCosts));
    json_object_set_new(oTotals, "otherCosts", json_real(otherCosts));
@@ -1172,7 +1358,7 @@ int HomeCtl::gpsTourPushState(long client)
 //   { "action": "stop", "stop": <time>, "odometer": <km> }
 //   { "action": "delete", "id": <id> }
 //   { "action": "rename", "id": <id>, "name": "<name>", "odometer": <km>, "odometerend": <km>, "comment": "<text>" }   (all but the name optional)
-//   { "action": "event", "id": <id>, "tourid": <id>, "type": "fuel|toll|pause|night|note", "time": <time>,
+//   { "action": "event", "id": <id>, "tourid": <id>, "type": "fuel|toll|pause|night|note", "time": <time>,   ('halt' only with id: note)
 //                        "odometer": <km>, "amount": <l>, "full": true|false, "price": <EUR>, "note": "<text>" }   -> insert / update
 //                        ("tourid": 0 with type 'fuel' -> fuel stop outside of a tour, 'time' optional, default now)
 //   { "action": "eventdelete", "id": <id> }

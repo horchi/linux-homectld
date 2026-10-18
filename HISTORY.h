@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.32"
-#define VERSION_DATE "04.10.2026"
+#define _VERSION     "0.1.33"
+#define VERSION_DATE "06.10.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,49 @@
 
 /*
  * ------------------------------------
+
+2026-10-06: version 0.1.33
+    - bugfix: dashboard menu: the buttons were sorted as strings (order 10 before 2), with more than 10 dashboards
+              the order looked random and every drag & drop scrambled it further
+    - change: drag & drop of dashboard buttons and widgets: dragged to the left the element is placed in front
+              of the drop target instead of behind it
+    - added: dashboard widget type 'Balance' like the HASP one: horizontal bar with zero in the middle for
+             bipolar values (negative to the left in the first color, positive to the right in the second),
+             scale from 'Skala Max' (symmetric) or a negative 'Skala Min', option 'Richtung tauschen'
+    - added: dashboard widget type 'Level' like the HASP one: MDI symbol filled by percentage in the bar
+             color (range from the scale), the outline variant of the symbol as frame, option 'Füllung als Fläche'
+    - bugfix: GPS tours: the GPS drift at standstill (100-200 m, 2-24 km/h shown) kept storing points and
+              interrupted the pause every few minutes, a night stop of 9.5 h counted as 4.9 h pause and 10 km;
+              movement for the pause now means leaving the radius 'gpsTourPauseRadius' (default 200 m) around
+              the position of the last movement, no points are stored while paused
+    - added: GPS tours: each automatic pause is stored as event 'Stillstand' (type 'halt', new column
+             gpstourevents.endtime, added automatically) and listed with begin, end and duration; a pause /
+             night stop entered during the halt takes over its begin, end and duration, the halt is not listed twice;
+             the tour head shows the driving time (duration minus pauses)
+    - added: GPS: u-blox receiver settings 'Static Hold' [km/h] and dynamic model 'Automotive' (Setup -> GPS), sent
+             via MQTT to gpsmqtt.py (registers its command topic with 'init', default <topic>/in) which writes
+             them into the receiver (UBX CFG-NAV5) on every port open; the u-blox 7 keeps them in RAM only
+    - added: Make.user switch GPS: 'make install' installs the GPS service (gps.u-blox),
+             'make install-dependencies' installs its python modules
+    - bugfix: GPS map: zooming (buttons, wheel, pinch) stopped the following of the position in the live view and
+              in the map of the tour being recorded, only dragging stops it now; after a zoom the position is centered again
+    - added: GPS map: zoom buttons (+ / -) in the button column on the right, in the style of the other map buttons
+    - change: GPS tours: the recording state symbol of the tool bar is replaced by the color of the 'Touren' button
+              and of the 'Map' tab of the main menu (visible on every page): red while recording, orange while paused;
+              new theme color --orange, --red added to the light / blue / yellow themes
+    - bugfix: GPS map: a tour with a tiny extent (recorded at standstill) opened at the maximum zoom, nothing to
+              zoom in any more; the tour and 'Zentrieren' fit to zoom 17 at most, the tiles go to zoom 19 now (was 18)
+    - change: the live position is logged with the new eloquence flag 'Gps' (formerly always), on movement
+              only and at most every 10 seconds
+    - bugfix: gpsmqtt.py: only the talkers GP / GN were read, the RMC sentence of combined receivers ('$GNRMC',
+              u-blox 8 and newer) was missed by a typo (speed stayed 0, no date / fix state); RMC and GGA of any
+              talker are used now; options -d (device) and -b (baud rate) for other receivers; receiver notes in the README
+    - bugfix: GPS: gpsmqtt.py published the position 0/0 (and the geocoding of it) before the first fix after its
+              start; the position sensors are published only with a position now, the daemon ignores 0/0 for
+              the live map and the tour
+    - change: 'make restart' does the full install (optional parts included) and restarts, besides the daemon,
+              the running services of the repository (w1mqtt, bmsmqtt, votromqtt, i2cmqtt, victronmqtt, mopeka,
+              thetford, gpsmqtt); 'make lrestart' stays daemon only
 
 2026-10-04: version 0.1.32
     - added: widget option 'Spin bei Aktivität' for symbol widgets: while the sensor is on the dashboard symbol

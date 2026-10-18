@@ -1,14 +1,17 @@
 # Usage:
-#  gpsmqtt [-h] [-i [I]] [-m [M]] [-p [P]] [-v [V]] [-l] [-T [T]] [-t [T]] [-s]
+#  gpsmqtt [-h] [-i [I]] [-d [D]] [-b [B]] [-m [M]] [-p [P]] [-v [V]] [-l] [-T [T]] [-t [T]] [-s]
 #
 # optional arguments:
 #   -h, --help  show this help message and exit
 #   -i [I]      interval [seconds] (default 30)
+#   -d [D]      serial device (default /dev/ttyGps)
+#   -b [B]      baud rate (default 9600, ignored by USB receivers)
 #   -m [M]      MQTT host
 #   -p [P]      MQTT port
 #   -v [V]      Verbosity Level (0-3) (default 0)
 #   -l          Log to Syslog (default console)
 #   -T [T]      MQTT topic
+#   -c [C]      MQTT command topic (receiver settings from homectld, default <topic>/in)
 #   -t [T]      Sensor type string
 #   -s          Show current status and exit
 

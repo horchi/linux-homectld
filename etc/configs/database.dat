@@ -222,7 +222,8 @@ Table gpstourevents
 
    TOURID               ""  tourid               UInt        10 Data,
    TIME                 ""  time                 DateTime     0 Data,
-   TYPE                 ""  type                 Ascii       10 Data,   // fuel, toll, pause, night, note
+   TYPE                 ""  type                 Ascii       10 Data,   // fuel, toll, pause, night, note, halt (automatic, standstill)
+   ENDTIME              ""  endtime              DateTime     0 Data,   // halt: end of the standstill
    LAT                  ""  lat                  Float      126 Data,
    LON                  ""  lon                  Float      126 Data,
    ODOMETER             ""  odometer             Int         10 Data,   // [km]

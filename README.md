@@ -136,7 +136,8 @@ libgpiod (version 2 needed) and libwebsockets (4.3.0 needed) are built from sour
 the distribution are too old (e.g. Ubuntu 24.04 / Armbian noble ship libgpiod 1.6), the sources go to
 `SRC_DIR` from `Make.user` (default `/usr/src`). The optional parts follow the switches of `Make.user`:
 WOMO adds mariadb-server, mosquitto and the network tools (dnsmasq, NetworkManager, chrony, LTE modem,
-iptables, openvpn), MOPEKA the python BLE modules, THETFORD paho-mqtt and usblini, GARMIN the python venv.
+iptables, openvpn), MOPEKA the python BLE modules, THETFORD paho-mqtt and usblini, GARMIN the python venv,
+GPS the python modules of the u-blox GPS service (`gps.u-blox`, installed with `make install` like the others).
 Always call it via make, the script `contrib/install-dependencies.sh` gets the switches from there.
 `DRYRUN=1 make install-dependencies` only shows the commands. The manual way:
 
@@ -281,7 +282,8 @@ small wall or vehicle display. The pages of the panel are configured in the WEBI
   and **Balance** (horizontal bar with zero in the middle for bipolar values like the battery current
   or the grid power: negative values fill to the left in the first color (default red), positive to the
   right in the second (default green); *Skala Max* is the full scale, the range is symmetric unless a
-  negative *Skala Min* is given; *Richtung tauschen* mirrors the bar for sensors reporting discharge positive)
+  negative *Skala Min* is given; *Richtung tauschen* mirrors the bar for sensors reporting discharge positive;
+  Level and Balance exist as dashboard widgets too)
   and **Timer** (pseudo sensor *Timer* in the sensor list: countdown of 1..60 minutes with mm:ss, progress bar
   and step buttons (*Schritte*, comma separated minutes or seconds with suffix `s`, e.g. `-30s,30s,5,30`,
   default -1,1,5, up to 6) plus Start-Stop; it runs
@@ -305,7 +307,12 @@ small wall or vehicle display. The pages of the panel are configured in the WEBI
 # GPS Tours (recording of trips)
 
 With a GPS receiver (see `gps.u-blox`, sensor type `GPS`) the page *Map* of the WEBIF shows the live position.
-In addition trips can be recorded as tours and displayed later.
+In addition trips can be recorded as tours and displayed later. Any receiver delivering NMEA 0183 on a
+serial port works (USB pucks, modules on a UART), see the receiver notes in `gps.u-blox/README.md`; the
+receiver settings of the GPS configuration are u-blox specific. While a tour is recorded the *Map* tab
+of the main menu and the *Touren* button of the tool bar are colored (red, orange while paused), the tour
+head shows the driving time (duration minus pauses); a pause / night stop entered during an automatic
+pause takes over its begin, end and duration.
 
 ## Recording
 
@@ -334,10 +341,18 @@ In addition trips can be recorded as tours and displayed later.
   Standing still therefore does not produce data.
 - without movement for *gpsTourPauseAfter* minutes (default 5) the tour is *paused*, on the next
   movement it continues automatically. The pause time is summed up and shown in the tour list.
+  A GPS receiver drifts by 100-200 m at standstill, therefore 'movement' for the pause means
+  leaving the radius *gpsTourPauseRadius* (default 200 m) around the position of the last movement;
+  while paused no points are stored. Each pause is kept as event *Stillstand* with begin, end and
+  duration in the event list of the tour (only its note is editable).
 - the active tour survives a restart of the daemon: it is continued automatically, including the
   distance and the point count.
 - the recording is bound to the sensor `GPS:0x0a` (*Coordinate*), it has to be active. While a tour is
   active its *Record* flag in *Setup -> IO Setup* is set by the daemon, when the tour is stopped it is cleared.
+- u-blox receivers can suppress the drift themselves: *Empfänger: Static Hold* (Setup -> Configuration -> GPS,
+  km/h, 0 = off) freezes the position below that speed, *Dynamikmodell Automotive* selects the vehicle
+  platform model. The daemon sends both to `gpsmqtt.py` (which owns the serial port) at its start, on change
+  and when the script registers, the script writes them into the receiver on every port open (see `gps.u-blox/README.md`).
 
 ## Storage
 

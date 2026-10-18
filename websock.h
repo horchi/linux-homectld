@@ -79,6 +79,7 @@ class cWebSock : public cWebService
          size_t msgBufferSize {0};
          size_t msgBufferPayloadSize {0};
          size_t msgBufferSendOffset {0};
+         uint64_t chokedUntilMs {0};       // the pipe was choked, retry not before this time (ms)
          bool msgBufferDataPending() { return msgBufferSendOffset < msgBufferPayloadSize; }
 
          // push next message

@@ -12,7 +12,7 @@
 #   -l          Log to Syslog (default console)
 #   -T [T]      MQTT topic
 #   -c [C]      MQTT command topic (receiver settings from homectld, default <topic>/in)
-#   -t [T]      Sensor type string
+#   -t [T]      Sensor type string (default GPS)
 #   -s          Show current status and exit
 #
 # The service starts gpsmqtt.py with the variables below (gpsmqtt.service):

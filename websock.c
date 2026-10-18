@@ -270,14 +270,18 @@ int cWebSock::service(ThreadControl* threadCtl)
 int cWebSock::performData(MsgType type)
 {
    int count {0};
+   uint64_t now {cTimeMs::Now()};
 
    cMyMutexLock lock(&clientsMutex);
 
    msgType = type;
 
+   // arm the writable callback only when a client has data and is not in the choke back-off;
+   //  a client whose pipe stays choked would otherwise keep the service loop spinning
+
    for (auto it = clients.begin(); it != clients.end(); ++it)
    {
-      if (!it->second.messagesOut.empty())
+      if ((it->second.msgBufferDataPending() || !it->second.messagesOut.empty()) && now >= it->second.chokedUntilMs)
       {
          count++;
          break;
@@ -433,8 +437,12 @@ int cWebSock::callbackHttp(lws* wsi, lws_callback_reasons reason, void* user, vo
 
       case LWS_CALLBACK_CLOSED:
       {
-         tell(eloDebugWebSock, "DEBUG: Got unecpected LWS_CALLBACK_CLOSED for client '%s' (%p)",
-              clientInfo.c_str(), (void*)wsi);
+         // a connection closed without the close handshake (reset, timeout, mobile client vanished):
+         //  remove the client, else its queue would grow with every broadcast and performData() would
+         //  arm the writable callback on every service loop forever (100 % CPU of the service thread)
+
+         tell(eloDebugWebSock, "DEBUG: Got LWS_CALLBACK_CLOSED for client '%s' (%p)", clientInfo.c_str(), (void*)wsi);
+         atLogout(wsi, "Client connection closed", clientInfo.c_str());
          break;
       }
 
@@ -658,7 +666,10 @@ int cWebSock::callbackWs(lws* wsi, lws_callback_reasons reason, void* user, void
                return 0;
 
             if (lws_send_pipe_choked(wsi))
+            {
+               clients[wsi].chokedUntilMs = cTimeMs::Now() + 200;   // retry in 200 ms, not with the next loop
                return 0;
+            }
 
             if (!clients[wsi].msgBufferDataPending() && !clients[wsi].messagesOut.empty())
             {

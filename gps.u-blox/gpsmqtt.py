@@ -337,7 +337,7 @@ def main():
     parser.add_argument('-l', action='store_true', help='Log to syslog (default console)')
     parser.add_argument('-T',           nargs='?', help='MQTT topic', default="homectld2mqtt/gps")
     parser.add_argument('-c',           nargs='?', help='MQTT command topic (receiver settings from homectld, default <topic>/in)', default=None)
-    parser.add_argument('-t',           nargs='?', help='Sensor type string', default="GPS")
+    parser.add_argument('-t',           nargs='?', help='Sensor type string (default GPS)', default="GPS")
     parser.add_argument('-s', action='store_true', help='Show current status and exit')
 
     args = parser.parse_args()

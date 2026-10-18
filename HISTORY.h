@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.34"
+#define _VERSION     "0.1.35"
 #define VERSION_DATE "18.10.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,12 @@
 
 /*
  * ------------------------------------
+
+2026-10-18: version 0.1.35
+    - bugfix: WEBIF: a websocket connection closed without the close handshake (page reload, mobile client vanished)
+              kept its entry in the client list; its queue grew with every broadcast and the service thread armed the
+              writable callback on every loop, 100 % CPU of one core until the restart; the client is removed now,
+              a choked connection is retried every 200 ms instead of every loop
 
 2026-10-18: version 0.1.34
     - added: GPS: view 'Sat' on the map page for aligning the dish: bearing line to the TV satellite (config

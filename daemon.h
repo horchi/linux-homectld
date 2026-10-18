@@ -887,6 +887,7 @@ class HomeCtl : public cWebInterface, public Service
       int gpsTourEndTolerance {200};     // [m] on stop: the arrival within this distance of the final position is proposed as end
       int gpsUbloxStaticHold {0};        // [km/h] u-blox receiver: freeze the position below this speed (0 = off)
       bool gpsUbloxAutomotive {false};   // u-blox receiver: dynamic platform model 'automotive'
+      bool gpsUbloxGalileo {false};      // u-blox 8 receiver: enable Galileo (GPS + Galileo + GLONASS)
       int garminTrackDeviation {50};     // [%] Garmin's distance deviates more than this from the track -> the track's distance is shown (0 = never)
 
       static std::list<ConfigItemDef> configuration;   // config.c

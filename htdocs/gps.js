@@ -10,6 +10,10 @@
  *  and display of recorded tours.
  *
  *  Views:  'live'  - the map follows the live position
+ *          'sat'   - dish alignment: the map with the live position, the bearing to the TV satellite
+ *                    (config 'gpsSatLongitude') and the vehicle axis (sensor GPS:0x0b 'Heading', the
+ *                    course of the last movement), azimuth / elevation / skew, the angle relative to
+ *                    the vehicle and the text of the DVB signal monitor (script sensor dvb-signal.sh)
  *          'tours' - the recorded tours: names in the control panel (left), details and the
  *                    event list of the selected tour on the right (show on map, edit, delete)
  *          'tour'  - a recorded tour on the map
@@ -26,6 +30,8 @@ var gpsTours = null;         // event 'gpstours': { active, tours, minDistance, 
 var gpsShownTour = null;     // event 'gpstourpoints' of the displayed tour
 var gpsFuelList = null;      // event 'gpsfuellist' - all fuel stops (tours and standalone) with the consumption chain
 var gpsLivePoints = [];      // live positions received in this session (L.LatLng)
+var gpsLastPosition = null;  // the last live position (also below the live min distance)
+var gpsSatReverse = localStorage.getItem(storagePrefix + 'gpsSatReverse') == '1';   // parked in reverse: vehicle axis + 180°
 var gpsLiveMinDistance = 10; // [m] a live point is added when moved at least this distance
 var gpsSelectedTour = parseInt(localStorage.getItem(storagePrefix + 'gpsSelectedTour')) || null;   // tour shown in the 'tours' view (details / events)
 var gpsFocusEvent = null;    // event id to center on the map once the tour points arrived (click in the event list)
@@ -76,6 +82,7 @@ mapManager = {
 
       this.pointsLayer = L.layerGroup().addTo(this.map);
       this.eventsLayer = L.layerGroup().addTo(this.map);
+      this.satLayer = L.layerGroup().addTo(this.map);      // bearing lines of the 'sat' view
 
       // dragging the map stops following, zooming (buttons, wheel, pinch) does not: after a zoom the
       // position is centered again (a pinch zooms around the fingers and shifts the view)
@@ -89,6 +96,8 @@ mapManager = {
          if (this.following() && !this.autoMove)
             this.followCurrent();
       });
+
+      L.control.scale({ metric: true, imperial: false, position: 'bottomright' }).addTo(this.map);   // scale bar
 
       this.createTrackingButton();
       gpsCenterControl(this.map, () => this.centerView());
@@ -132,6 +141,11 @@ mapManager = {
 
    centerView() {
       let points = this.routeLine.getLatLngs();
+
+      if (gpsView == 'sat' && gpsLastPosition) {
+         this.map.setView(gpsLastPosition, Math.max(this.map.getZoom(), 17));
+         return;
+      }
 
       if (points.length >= 2)
          this.map.fitBounds(this.routeLine.getBounds(), { padding: [30, 30], maxZoom: 17 });
@@ -203,7 +217,7 @@ mapManager = {
 
       // the follow button belongs to the live view and to the map of the tour being recorded
 
-      let visible = gpsView == 'live' || this.isTourLive();
+      let visible = gpsView == 'live' || this.isTourLive();   // not in the 'sat' view: the vehicle stands
 
       this.buttonControl.style.display = visible ? '' : 'none';
 
@@ -223,6 +237,7 @@ mapManager = {
       this.routeLine.setLatLngs([]);
       this.pointsLayer.clearLayers();
       this.eventsLayer.clearLayers();
+      this.satLayer.clearLayers();
       if (this.currentLocationMarker) {
          this.map.removeLayer(this.currentLocationMarker);
          this.currentLocationMarker = null;
@@ -240,19 +255,24 @@ mapManager = {
       }).addTo(this.pointsLayer);
    },
 
+   // the current position as motorhome symbol (mdi-rv-truck in a pulsing ring)
+
    setCurrentLocation(latLng) {
       if (!this.currentLocationMarker) {
-         this.currentLocationMarker = L.circleMarker(latLng, {
-            radius: 7,
-            fillColor: '#0052cc', // Solid deep blue center
-            fillOpacity: 1,
-            color: '#ffffff',     // Sharp white border
-            weight: 3,
-            className: 'map-point current-location'
-         }).addTo(this.map);
+         let icon = L.divIcon({ className: 'gpsVehicleMarker', html: '<span class="mdi mdi-rv-truck current-location"></span>',
+                                iconSize: [32, 32], iconAnchor: [16, 16] });
+
+         this.currentLocationMarker = L.marker(latLng, { icon: icon, zIndexOffset: 1000, interactive: false, opacity: gpsView == 'sat' ? 0 : 1 }).addTo(this.map);
       }
       else
          this.currentLocationMarker.setLatLng(latLng);
+   },
+
+   // the 'sat' view shows the vehicle as outline instead (the symbol would hide its orientation)
+
+   showVehicleMarker(visible) {
+      if (this.currentLocationMarker)
+         this.currentLocationMarker.setOpacity(visible ? 1 : 0);
    },
 
    // live view: redraw all live points of this session
@@ -291,8 +311,42 @@ mapManager = {
       this.routeLine.addLatLng(latLng);
       this.setCurrentLocation(latLng);
 
-      if (this.isTrackingActive)
+      if (gpsView == 'live' && this.isTrackingActive)
          this.follow(latLng);
+   },
+
+   // 'sat' view: the bearing to the satellite (75 m, dashed, arrow with the azimuth at its end) and the
+   //  vehicle axis (solid, the heading of the last movement)
+
+   showSatLines(pos, azimuth, heading) {
+      this.satLayer.clearLayers();
+
+      let end = gpsDestination(pos, azimuth, 75);
+      let line = { color: '#2177AD', weight: 2, opacity: 0.9, dashArray: '6 6' };
+      let head = { color: '#2177AD', weight: 2, opacity: 0.9 };
+
+      L.polyline([pos, end], line).addTo(this.satLayer);
+      L.polyline([gpsDestination(end, azimuth + 155, 5), end, gpsDestination(end, azimuth - 155, 5)], head).addTo(this.satLayer);
+      L.tooltip({ permanent: true, direction: 'right', className: 'gpsSatLabel' })
+         .setLatLng(end).setContent('Satellit ' + Math.round(azimuth) + '°').addTo(this.satLayer);
+
+      if (heading != null) {
+         L.polyline([gpsDestination(pos, heading + 180, 20), gpsDestination(pos, heading, 60)], { color: '#2177AD', weight: 2, opacity: 0.8 })
+            .bindTooltip('Fahrzeug ' + Math.round(heading) + '°', { permanent: true, direction: 'top', className: 'gpsSatLabel' })
+            .addTo(this.satLayer);
+      }
+
+      // the motorhome as outline (7 x 2.3 m, nose forward), the GPS position as its center;
+      //  blue with a known heading, gray (pointing north) without one
+
+      let known = heading != null;
+      let color = known ? '#2177AD' : '#888888';
+      let outline = [[-1.15, -3.5], [1.15, -3.5], [1.15, 2.4], [0.7, 3.5], [-0.7, 3.5], [-1.15, 2.4]];   // [right, forward] in m
+      let corners = outline.map(([x, y]) => gpsDestination(pos, (known ? heading : 0) + Math.atan2(x, y) * 180 / Math.PI, Math.sqrt(x * x + y * y)));
+
+      L.polygon(corners, { color: color, weight: 2, fillColor: color, fillOpacity: 0.35 })
+         .bindTooltip(known ? 'Fahrzeug' : 'Fahrzeug, Ausrichtung unbekannt (noch keine Fahrt)')
+         .addTo(this.satLayer);
    },
 
    // a recorded tour: points [[lat, lng, time], ...]; 'active' - the tour is being recorded,
@@ -403,7 +457,7 @@ mapManager = {
 
 function initGpsPage()
 {
-   if (gpsView == 'tour' && !gpsShownTour)
+   if ((gpsView == 'tour' && !gpsShownTour) || (gpsView == 'sat' && !gpsSatAvailable()))
       gpsView = 'live';
 
    gpsBuildToolbar();
@@ -414,10 +468,19 @@ function initGpsPage()
       gpsShowTour(gpsShownTour.id);
    else if (gpsView == 'fuel')
       gpsShowFuel();
+   else if (gpsView == 'sat')
+      gpsShowSat();
    else
       gpsShowLive();
 
    socket.send({ "event" : "gpstour", "object" : { "action" : "list" } });
+}
+
+// the views on the map which follow the live position
+
+function gpsIsLiveView()
+{
+   return gpsView == 'live' || gpsView == 'sat';
 }
 
 function gpsHasControlRights()
@@ -451,6 +514,13 @@ function gpsBuildToolbar()
               .attr('id', 'gpsEventButtons')
               .addClass('gpsEventButtons'));
 
+   if (gpsSatAvailable())            // the dish alignment needs the configured signal sensor
+      $('#gpsEventButtons').before($('<button></button>')
+                                   .attr('id', 'gpsBtnSat')
+                                   .addClass('rounded-border buttonDashboard gpsViewButton mdi mdi-satellite-uplink')
+                                   .attr('title', 'Sat-Schüssel ausrichten')
+                                   .click(function() { gpsShowSat(); }));
+
    gpsUpdateToolbar();
 }
 
@@ -481,6 +551,8 @@ function gpsUpdateToolbar()
       $('#gpsBtnLive').addClass('buttonDashboardActive');
    else if (gpsView == 'fuel')
       $('#gpsBtnFuel').addClass('buttonDashboardActive');
+   else if (gpsView == 'sat')
+      $('#gpsBtnSat').addClass('buttonDashboardActive');
    else
       $('#gpsBtnTours').addClass('buttonDashboardActive');
 
@@ -601,8 +673,223 @@ function gpsShowLive()
    gpsUpdateToolbar();
    gpsShowMap();
    $('#gpsTourInfo').addClass('hidden');
+   $('#gpsSatInfo').addClass('hidden');
    mapManager.isTrackingActive = true;
    mapManager.showLive(gpsLivePoints);
+   mapManager.showVehicleMarker(true);
+}
+
+//***************************************************************************
+// Dish alignment ('sat' view)
+//***************************************************************************
+
+function gpsShowSat()
+{
+   gpsView = 'sat';
+   localStorage.setItem(storagePrefix + 'gpsView', 'sat');
+   gpsUpdateToolbar();
+   gpsShowMap();
+   $('#gpsTourInfo').addClass('hidden');
+   mapManager.showLive(gpsLivePoints);
+   mapManager.showVehicleMarker(false);
+
+   if (!$('#gpsSatInfo').length)
+      $('#mapcontainer').append($('<div></div>').attr('id', 'gpsSatInfo').addClass('rounded-border gpsTourInfo gpsSatInfo'));
+
+   $('#gpsSatInfo').removeClass('hidden');
+
+   // the pitch at the maximum zoom, the bearing line leads out of the view anyway
+
+   let pos = gpsLastPosition || (gpsLivePoints.length ? gpsLivePoints[gpsLivePoints.length - 1] : null);
+
+   if (pos)
+      mapManager.follow(pos, mapManager.map.getMaxZoom());
+
+   gpsSatUpdate();
+}
+
+// look angles to a geostationary satellite (ECEF vectors): azimuth (true north, clockwise),
+//  elevation, LNB skew (northern hemisphere: positive = clockwise seen from behind the dish)
+
+function gpsSatLookAngles(lat, lng, satLng)
+{
+   const R = 6378.137, rs = 42164.0;
+   const f = lat * Math.PI / 180, l = lng * Math.PI / 180, s = satLng * Math.PI / 180;
+   const P = [R * Math.cos(f) * Math.cos(l), R * Math.cos(f) * Math.sin(l), R * Math.sin(f)];
+   const Q = [rs * Math.cos(s), rs * Math.sin(s), 0];
+   const d = [Q[0] - P[0], Q[1] - P[1], Q[2] - P[2]];
+   const e = [-Math.sin(l), Math.cos(l), 0];
+   const n = [-Math.sin(f) * Math.cos(l), -Math.sin(f) * Math.sin(l), Math.cos(f)];
+   const u = [Math.cos(f) * Math.cos(l), Math.cos(f) * Math.sin(l), Math.sin(f)];
+   const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+   const len = Math.sqrt(dot(d, d));
+
+   return {
+      azimuth: (Math.atan2(dot(d, e), dot(d, n)) * 180 / Math.PI + 360) % 360,
+      elevation: Math.asin(dot(d, u) / len) * 180 / Math.PI,
+      skew: Math.atan(Math.sin(s - l) / Math.tan(f)) * 180 / Math.PI
+   };
+}
+
+// point in 'bearing' degrees and 'meters' distance from 'pos'
+
+function gpsDestination(pos, bearing, meters)
+{
+   const R = 6371000;
+   const f = pos.lat * Math.PI / 180, l = pos.lng * Math.PI / 180, b = bearing * Math.PI / 180, dr = meters / R;
+   const f2 = Math.asin(Math.sin(f) * Math.cos(dr) + Math.cos(f) * Math.sin(dr) * Math.cos(b));
+   const l2 = l + Math.atan2(Math.sin(b) * Math.sin(dr) * Math.cos(f), Math.cos(dr) - Math.sin(f) * Math.sin(f2));
+
+   return L.latLng(f2 * 180 / Math.PI, l2 * 180 / Math.PI);
+}
+
+// the sensor of the DVB signal monitor (config 'gpsSatSignalSensor', e.g. 'SC:0x30' or 'SC:48'),
+//  null without a configured / existing one - then the 'sat' view is not offered
+
+function gpsSignalSensorKey()
+{
+   let m = (config.gpsSatSignalSensor || '').trim().match(/^([A-Za-z0-9]+):(0x[0-9a-fA-F]+|[0-9]+)$/);
+
+   if (!m)
+      return null;
+
+   let key = toKey(m[1].toUpperCase(), parseInt(m[2]));
+
+   return valueFacts && valueFacts[key] ? key : null;
+}
+
+function gpsSatAvailable()
+{
+   return gpsSignalSensorKey() != null;
+}
+
+function gpsFmtDeg(value, digits = 0)
+{
+   return value.toFixed(digits).replace('.', ',') + '°';
+}
+
+// the info box and the bearing lines: on every position, heading and signal update
+
+function gpsSatUpdate()
+{
+   if (gpsView != 'sat' || !$('#gpsSatInfo').length)
+      return;
+
+   let pos = gpsLastPosition || (gpsLivePoints.length ? gpsLivePoints[gpsLivePoints.length - 1] : null);
+   let satLng = parseFloat((config.gpsSatLongitude || '19.2').replace(',', '.'));   // the config UI stores a decimal comma
+   let satName = gpsFmtDeg(Math.abs(satLng), 1) + (satLng < 0 ? ' West' : ' Ost');
+   let html = '<div class="gpsSatHead">Satellit ' + satName + '</div>';
+
+   if (!pos) {
+      $('#gpsSatInfo').html(html + '<div class="gpsTourSub">Warte auf die GPS-Position ...</div>');
+      return;
+   }
+
+   let a = gpsSatLookAngles(pos.lat, pos.lng, satLng);
+   let headingKey = toKey('GPS', 0x0b);
+   let heading = allSensors[headingKey] && allSensors[headingKey].value != null ? parseFloat(allSensors[headingKey].value) : null;
+
+   if (heading != null && gpsSatReverse)
+      heading = (heading + 180) % 360;
+
+   html += '<table class="gpsSatTable">';
+   html += '<tr><td>Azimut</td><td class="gpsNum">' + gpsFmtDeg(a.azimuth) + '</td><td class="gpsTourSub">rechtweisend (Kompass: Missweisung dazu, in D etwa +3°)</td></tr>';
+   html += '<tr><td>Elevation</td><td class="gpsNum">' + gpsFmtDeg(a.elevation) + '</td><td class="gpsTourSub">' + (a.elevation < 5 ? 'Satellit (fast) unter dem Horizont' : 'Neigung über dem Horizont') + '</td></tr>';
+   html += '<tr><td>Skew</td><td class="gpsNum">' + (a.skew >= 0 ? '+' : '') + gpsFmtDeg(a.skew) + '</td><td class="gpsTourSub">LNB-Drehung, von hinter der Schüssel gesehen im Uhrzeigersinn</td></tr>';
+
+   // crank mast (Kathrein HDM 140: 12° per turn, the flat antenna lies horizontal at 0)
+
+   let crankDegrees = parseFloat((config.gpsSatCrankDegrees || '0').replace(',', '.'));
+
+   if (crankDegrees > 0 && a.elevation > 0) {
+      let tilt = 90 - a.elevation;
+      let turns = Math.floor(tilt / crankDegrees);
+      let rest = Math.round(tilt - turns * crankDegrees);
+
+      html += '<tr><td>Kurbel</td><td class="gpsNum"><b>' + (tilt / crankDegrees).toFixed(1).replace('.', ',') + ' U</b></td><td class="gpsTourSub">'
+            + turns + ' Umdrehungen + ' + rest + '° (' + gpsFmtDeg(crankDegrees) + ' je Umdrehung, Antenne waagerecht = 0)</td></tr>';
+   }
+
+   if (heading != null) {
+      let rel = (a.azimuth - heading + 360) % 360;
+      let relText = rel <= 180 ? gpsFmtDeg(rel) + ' rechts' : gpsFmtDeg(360 - rel) + ' links';
+
+      html += '<tr><td>Fahrzeug</td><td class="gpsNum">' + gpsFmtDeg(heading) + '</td><td class="gpsTourSub">Fahrtrichtung der letzten Bewegung'
+            + (gpsSatReverse ? ' + 180° (rückwärts eingeparkt)' : '') + '</td></tr>';
+      html += '<tr><td>Satellit</td><td class="gpsNum"><b>' + relText + '</b></td><td class="gpsTourSub">von der Fahrzeuglängsachse, in Fahrtrichtung gesehen</td></tr>';
+      html += '</table>';
+      html += gpsSatSvg(rel, a.elevation);
+      html += '<label class="gpsSatReverse"><input type="checkbox" ' + (gpsSatReverse ? 'checked' : '') + ' onchange="gpsSatToggleReverse(this.checked)"> rückwärts eingeparkt</label>';
+   }
+   else {
+      html += '</table>';
+      html += '<div class="gpsTourSub">Kein Kurs: der Sensor GPS:0x0b (Heading) fehlt oder ist nicht aktiv, oder es gab noch keine Fahrt (ab 5 km/h). Die Fahrzeugachse und der Winkel dazu erscheinen nach der nächsten Fahrt.</div>';
+   }
+
+   // the DVB signal monitor
+
+   let signalKey = gpsSignalSensorKey();
+
+   if (signalKey) {
+      let sensor = allSensors[signalKey];
+      let running = sensor && sensor.value;       // status sensors carry the state in 'value' (like the dashboard)
+      let fact = valueFacts[signalKey];
+
+      html += '<div class="gpsSatSignal' + (running ? ' gpsSatSignalOn' : '') + '">'
+            + '<span class="gpsSatSignalText"><span class="mdi ' + (running ? 'mdi-satellite-variant' : 'mdi-satellite-uplink') + '"></span> '
+            + (running && sensor.text ? gpsEscape(sensor.text) : 'Signalmonitor aus') + '</span>'
+            + (gpsHasControlRights() ? '<button class="rounded-border buttonOptions" type="button" onclick="gpsSatToggleSignal()">' + (running ? 'Stop' : 'Start') + '</button>' : '')
+            + '</div>';
+   }
+
+   $('#gpsSatInfo').html(html);
+
+   mapManager.showSatLines(pos, a.azimuth, heading);
+}
+
+// vehicle from above (nose up) with the direction to the satellite relative to it
+
+function gpsSatSvg(rel, elevation)
+{
+   let r = rel * Math.PI / 180;
+   let x = 70 + 55 * Math.sin(r), y = 70 - 55 * Math.cos(r);
+
+   return '<svg class="gpsSatSvg" viewBox="0 0 140 140" width="140" height="140">'
+        + '<circle cx="70" cy="70" r="62" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="3 3"/>'
+        + '<rect x="56" y="36" width="28" height="68" rx="6" fill="#2177AD" opacity="0.85"/>'
+        + '<rect x="58" y="40" width="24" height="12" rx="3" fill="#cfe3f2"/>'
+        + '<line x1="70" y1="70" x2="' + x.toFixed(1) + '" y2="' + y.toFixed(1) + '" stroke="#f0a04b" stroke-width="4" stroke-linecap="round"/>'
+        + '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="6" fill="#f0a04b"/>'
+        + '<text x="70" y="134" text-anchor="middle" font-size="11" fill="#333">Elevation ' + gpsFmtDeg(elevation) + '</text>'
+        + '</svg>';
+}
+
+function gpsSatToggleReverse(on)
+{
+   gpsSatReverse = on;
+   localStorage.setItem(storagePrefix + 'gpsSatReverse', on ? '1' : '0');
+   gpsSatUpdate();
+}
+
+function gpsSatToggleSignal()
+{
+   let key = gpsSignalSensorKey();
+
+   if (key)
+      socket.send({ "event" : "toggleio", "object" : { "action" : "toggle", "type" : valueFacts[key].type, "address" : valueFacts[key].address } });
+}
+
+// sensor updates (event 'update' / 'all') while the GPS page is shown
+
+function gpsSensorUpdate(sensors, all)
+{
+   if (gpsView != 'sat')
+      return;
+
+   let signalKey = gpsSignalSensorKey();
+
+   if (all || sensors[toKey('GPS', 0x0b)] || (signalKey && sensors[signalKey]))
+      gpsSatUpdate();
 }
 
 function gpsShowTour(id)
@@ -636,6 +923,8 @@ function processLiveGpsMessage(coordinate)
    if (isNaN(latLng.lat) || isNaN(latLng.lng))
       return;
 
+   gpsLastPosition = latLng;
+
    // nur bei Bewegung einen Punkt anhängen
 
    let first = !gpsLivePoints.length;
@@ -648,8 +937,15 @@ function processLiveGpsMessage(coordinate)
    if (currentPage != 'gpslive' || !mapManager.map)
       return;
 
-   if (gpsView == 'live')
-      mapManager.addLivePoint(latLng, first);
+   if (gpsIsLiveView())
+      mapManager.addLivePoint(latLng, first);      // 'sat': the marker moves, the map does not follow (the button is hidden there)
+
+   if (gpsView == 'sat') {
+      if (first)
+         mapManager.follow(latLng, mapManager.map.getMaxZoom());
+
+      gpsSatUpdate();
+   }
 }
 
 //***************************************************************************

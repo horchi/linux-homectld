@@ -27,14 +27,14 @@ parameters = {}
 args = None
 
 # receiver settings requested by homectld (Setup -> Konfiguration -> GPS), applied on every
-#  port open and on every 'config' message: { "action": "config", "staticHold": <cm/s>, "dynModel": 0|4 }
+#  port open and on every 'config' message: { "action": "config", "staticHold": <cm/s>, "dynModel": 0|4, "galileo": true|false }
 ubloxConfig = None
 ubloxConfigPending = False
 
 # ── homectld widget parameters ────────────────────────────────────────────────
 # address → parameter JSON appended on initial publish
 
-parameters = [None] * 11
+parameters = [None] * 12
 
 # 0: Sat State (Fix / No Fix Status)
 parameters[0] = '{"parameter": {"cloneable": false, "widgettype": 0, "symbol": "mdi:mdi-satellite-variant", "symbolOn": "mdi:mdi-satellite-variant"}}'
@@ -58,6 +58,8 @@ parameters[8] = '{"parameter": {"cloneable": false, "widgettype": 2}}'
 parameters[9] = '{"parameter": {"cloneable": false, "widgettype": 2}}'
 # 10: Coordinate (Latitude/Longitude)
 parameters[10] = '{"parameter": {"cloneable": false, "widgettype": 2}}'
+# 11: Heading - course over ground of the last movement (>= 5 km/h), kept while standing: the vehicle axis
+parameters[11] = '{"parameter": {"cloneable": false, "widgettype": 3}}'
 
 def tell(level, msg):
     if args.v >= level:
@@ -228,8 +230,50 @@ def ubloxApplyConfig(ser):
             tell(0, f"u-blox: CFG-NAV5 set, dynModel {nav5[2]}, staticHold {nav5[22]} cm/s ({nav5[22] * 0.036:.1f} km/h)")
         else:
             tell(0, f"u-blox: CFG-NAV5 set (dynModel {dynModel}, staticHold {staticHold} cm/s)")
+
+        if ubloxConfig.get('galileo'):
+            ubloxEnableGalileo(ser)
     except (serial.SerialException, OSError) as e:
         tell(0, f"u-blox: setting CFG-NAV5 failed: {e}")
+
+# CFG-GNSS (u-blox 8): GPS + Galileo + GLONASS (the M8 tracks three major systems at a time), SBAS and
+#  QZSS as augmentation, BeiDou off. The u-blox 7 knows no Galileo and answers with NAK; the receiver
+#  restarts its navigation after the change (the fix comes back after some seconds)
+
+GNSS_NAMES = {0: 'GPS', 1: 'SBAS', 2: 'Galileo', 3: 'BeiDou', 4: 'IMES', 5: 'QZSS', 6: 'GLONASS'}
+
+def ubloxEnableGalileo(ser):
+    def block(gnssId, resTrkCh, maxTrkCh, flags):
+        return bytes([gnssId, resTrkCh, maxTrkCh, 0]) + flags.to_bytes(4, 'little')
+
+    blocks = (block(0, 8, 16, 0x01010001) +    # GPS      L1C/A  on
+              block(1, 1, 3, 0x01010001) +     # SBAS     L1C/A  on
+              block(2, 4, 8, 0x01010001) +     # Galileo  E1     on
+              block(3, 8, 16, 0x01010000) +    # BeiDou   B1I    off
+              block(4, 0, 8, 0x03010000) +     # IMES            off
+              block(5, 0, 3, 0x05010001) +     # QZSS     L1C/A  on (u-blox: together with GPS)
+              block(6, 8, 14, 0x01010001))     # GLONASS  L1OF   on
+    payload = bytes([0, 0, 0xff, 7]) + blocks   # msgVer, numTrkChHw (read only), numTrkChUse (max), blocks
+
+    ser.write(ubxFrame(0x06, 0x3e, payload))
+    ack = ubxRead(ser, 0x05, 0x01)
+
+    if ack is None or ack[0:2] != b'\x06\x3e':
+        tell(0, "u-blox: CFG-GNSS (Galileo) not acknowledged - not supported by this receiver (u-blox 7 has no Galileo)")
+        return
+
+    ser.write(ubxFrame(0x06, 0x3e))
+    cfg = ubxRead(ser, 0x06, 0x3e)
+
+    if cfg and len(cfg) >= 4:
+        enabled = []
+        for i in range(cfg[3]):
+            b = cfg[4 + i*8: 12 + i*8]
+            if len(b) == 8 and int.from_bytes(b[4:8], 'little') & 1:
+                enabled.append(GNSS_NAMES.get(b[0], str(b[0])))
+        tell(0, "u-blox: CFG-GNSS set, enabled: " + ", ".join(enabled))
+    else:
+        tell(0, "u-blox: CFG-GNSS set (GPS, Galileo, GLONASS)")
 
 def onMqttMessage(client, userdata, msg):
     global ubloxConfig, ubloxConfigPending
@@ -375,6 +419,10 @@ def main():
                     if hasattr(msg, 'spd_over_grnd') and msg.spd_over_grnd is not None:
                         raw_data['speed'] = round(msg.spd_over_grnd * 1.852, 1)
 
+                        # the course is valid while moving, kept while standing (the vehicle axis for the dish alignment)
+                        if raw_data['speed'] >= 5.0 and getattr(msg, 'true_course', None) is not None:
+                            raw_data['heading'] = round(msg.true_course, 1)
+
                     if hasattr(msg, 'num_sats'):
                         raw_data['satellites'] = int(msg.num_sats)
                     if hasattr(msg, 'altitude') and msg.altitude is not None:
@@ -430,6 +478,9 @@ def main():
                             {"type": args.t, "address":  9, "kind": "text",   "title": "Address",     "text": address},
                             {"type": args.t, "address": 10, "kind": "text",   "title": "Coordinate",  "text": coordinate}
                         ]
+
+                    if 'heading' in raw_data:
+                        sensors_to_publish.append({"type": args.t, "address": 11, "kind": "value", "title": "Heading", "value": raw_data['heading'], "unit": "°"})
 
                     if not args.s:
                         tell(2, f"Executing serialized interval loop publish event for {len(sensors_to_publish)} sensors...")

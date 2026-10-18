@@ -650,6 +650,8 @@ function dispatchMessage(message)
          updateList();
       else if (currentPage == 'sensorsetup')
          updateSensorSetupValue();
+      else if (currentPage == 'gpslive')
+         gpsSensorUpdate(jMessage.object, event == "all");
    }
    else if (event == "schema") {
       initSchema(jMessage.object);

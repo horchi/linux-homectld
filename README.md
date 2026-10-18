@@ -351,8 +351,26 @@ pause takes over its begin, end and duration.
   active its *Record* flag in *Setup -> IO Setup* is set by the daemon, when the tour is stopped it is cleared.
 - u-blox receivers can suppress the drift themselves: *Empfänger: Static Hold* (Setup -> Configuration -> GPS,
   km/h, 0 = off) freezes the position below that speed, *Dynamikmodell Automotive* selects the vehicle
-  platform model. The daemon sends both to `gpsmqtt.py` (which owns the serial port) at its start, on change
+  platform model, *Galileo aktivieren* switches a u-blox 8 to GPS + Galileo + GLONASS (the u-blox 7 has no
+  Galileo). The daemon sends them to `gpsmqtt.py` (which owns the serial port) at its start, on change
   and when the script registers, the script writes them into the receiver on every port open (see `gps.u-blox/README.md`).
+
+## Dish alignment
+
+The view *Sat* (satellite button of the tool bar) helps aligning the TV dish: from the live position it
+calculates azimuth (true north), elevation and LNB skew to the satellite of *TV-Satellit: Orbitposition*
+(Setup -> Configuration -> GPS, default 19.2 = Astra 19.2 E, west negative) and draws the bearing on the map
+(dashed blue arrow of 75 m with the azimuth), so that a landmark in that direction can be picked. The vehicle axis is the course of the
+last movement (sensor `GPS:0x0b` *Heading* of `gpsmqtt.py`, kept while standing, has to be active), drawn
+in blue with the outline of the motorhome (7 x 2.3 m, the GPS position as its center; orange and pointing
+north, gray, as long as the heading is unknown); the box shows the
+angle to the satellite relative to it ('44° links') with the vehicle from above,
+the switch *rückwärts eingeparkt* adds 180° when the vehicle was reversed into the pitch. For a crank mast
+(*TV-Satellit: Kurbel*, degrees per turn, default 12 for the Kathrein HDM 140, flat antenna horizontal at 0)
+the box shows the crank turns for the elevation, (90° − elevation) / degrees per turn. With the script
+sensor `dvb-signal.sh` the box also shows the signal monitor (lock, level, C/N about once per second) with
+start / stop. The sensor is configured as *TV-Satellit: Signal-Sensor* (e.g. `SC:0x30`), without it the
+view is not offered.
 
 ## Storage
 

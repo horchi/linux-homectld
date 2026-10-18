@@ -2108,11 +2108,13 @@ int HomeCtl::readConfiguration(bool initial)
    {
       int staticHold {gpsUbloxStaticHold};
       bool automotive {gpsUbloxAutomotive};
+      bool galileo {gpsUbloxGalileo};
 
       getConfigItem("gpsUbloxStaticHold", gpsUbloxStaticHold, 0);
       getConfigItem("gpsUbloxAutomotive", gpsUbloxAutomotive, false);
+      getConfigItem("gpsUbloxGalileo", gpsUbloxGalileo, false);
 
-      if (!initial && (staticHold != gpsUbloxStaticHold || automotive != gpsUbloxAutomotive))
+      if (!initial && (staticHold != gpsUbloxStaticHold || automotive != gpsUbloxAutomotive || galileo != gpsUbloxGalileo))
          gpsReceiverPublishConfig();
    }
 
@@ -4775,16 +4777,24 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
       //      type.c_str(), address, sensors[type][address].value, sensors[type][address].kind.c_str());
 
       triggerProcess = true; // dispatchOther
+   }
 
-      if (type == "GPS" && address == gpsCoordinateAddress)
+   // the live position: also an unchanged one is taken over (after a restart the receiver may stand
+   //  still for hours with 'static hold', the WEBIF asks for the position when the map page is opened);
+   //  0/0 comes from a receiver without fix (e.g. right after the start of gpsmqtt.py), no position
+
+   if (type == "GPS" && address == gpsCoordinateAddress)
+   {
+      GpsCoordinate c;
+
+      if (parseGpsText(sensors[type][address].text.c_str(), c) && (c.latitude != 0.0 || c.longitude != 0.0))
       {
-         GpsCoordinate c;
+         bool first {!gpsCoordinate.latitude && !gpsCoordinate.longitude};
 
-         // 0/0 comes from a receiver without fix (e.g. right after the start of gpsmqtt.py), no position
+         gpsCoordinate = c;
 
-         if (parseGpsText(sensors[type][address].text.c_str(), c) && (c.latitude != 0.0 || c.longitude != 0.0))
+         if (changed || first)
          {
-            gpsCoordinate = c;
             gpsLive(nullptr, 0);
             gpsTourUpdate(time(0));
          }

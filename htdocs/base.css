@@ -3275,6 +3275,64 @@ dialog::backdrop, #backdrop
     margin-top: 3px;
 }
 
+/* dish alignment ('sat' view): info box (bottom left like the tour info), bearing labels on the map */
+
+.gpsSatInfo {
+    font-weight: normal;
+    font-size: 13px;
+    max-width: 420px;
+}
+
+.gpsSatHead {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.gpsSatTable td {
+    padding: 1px 6px 1px 0px;
+    vertical-align: top;
+}
+
+.gpsSatTable td.gpsNum {
+    white-space: nowrap;
+    text-align: right;
+}
+
+.gpsSatSvg {
+    display: block;
+    margin: 4px auto;
+}
+
+.gpsSatReverse {
+    display: block;
+    margin: 2px 0px;
+}
+
+.gpsSatSignal {
+    display: flex;
+    justify-content: space-between;  /* text left, the start / stop button right */
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: #eee;
+    font-size: 15px;
+}
+
+.gpsSatSignalText {
+    white-space: pre-line;          /* the monitor text has line breaks */
+}
+
+.gpsSatSignal.gpsSatSignalOn {
+    background: #e3f2e1;
+    font-weight: bold;
+}
+
+.gpsSatLabel {
+    font-weight: bold;
+}
+
 /* GPS page: the tool bar looks like the dashboard menu (same background, same button metrics),
    the event buttons are aligned to the right */
 
@@ -3359,6 +3417,22 @@ dialog::backdrop, #backdrop
 .map-point.current-location {
     animation: gpsPulseMarker 2s infinite ease-out;
     transform-origin: center;
+}
+
+/* the current position: motorhome symbol in a white disc with the pulsing ring */
+
+.gpsVehicleMarker span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid #0052cc;
+    box-sizing: border-box;
+    color: #0052cc;
+    font-size: 22px;
 }
 
 /* Generates a smooth, expanding glow ring around your actual live coordinates */

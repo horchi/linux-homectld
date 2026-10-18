@@ -1,5 +1,5 @@
 # Usage:
-#  gpsmqtt [-h] [-i [I]] [-d [D]] [-b [B]] [-m [M]] [-p [P]] [-v [V]] [-l] [-T [T]] [-t [T]] [-s]
+#  gpsmqtt [-h] [-i [I]] [-d [D]] [-b [B]] [-m [M]] [-p [P]] [-v [V]] [-l] [-T [T]] [-c [C]] [-t [T]] [-s]
 #
 # optional arguments:
 #   -h, --help  show this help message and exit
@@ -14,9 +14,30 @@
 #   -c [C]      MQTT command topic (receiver settings from homectld, default <topic>/in)
 #   -t [T]      Sensor type string
 #   -s          Show current status and exit
+#
+# The service starts gpsmqtt.py with the variables below (gpsmqtt.service):
+#   gpsmqtt.py $GPS_DEVICE $GPS_MQTT $GPS_TOPIC $GPS_OPTS $GPS_LOG_LEVEL $GPS_INTERVAL
 
+# serial device and baud rate (USB receivers ignore the baud rate)
+GPS_DEVICE="-d /dev/ttyGps -b 9600"
+#GPS_DEVICE="-d /dev/ttyACM0 -b 9600"          # USB puck (u-blox 7 / 8) without the udev rule for ttyGps
+#GPS_DEVICE="-d /dev/ttyUSB0 -b 9600"          # module on a USB-serial adapter (CP2102 / FTDI)
+#GPS_DEVICE="-d /dev/ttyS1 -b 38400"           # module on UART1 of the ODROID M1 header (e.g. Radiolink SE100 / TS100)
+
+# MQTT broker (host and port)
 GPS_MQTT="-m localhost"
+#GPS_MQTT="-m 192.168.220.10 -p 1883"
+
+# MQTT topic of the sensor data; the receiver settings of homectld arrive on <topic>/in (option -c)
 GPS_TOPIC="-T homectld2mqtt/gps"
+#GPS_TOPIC="-T homectld2mqtt/gps -c homectld2mqtt/gps/in"
+
+# further options: -l log to syslog (without it to the console), -t sensor type (default GPS)
 GPS_OPTS="-l"
+#GPS_OPTS="-l -t GPS"
+
+# log level 0-3 (1 shows the receiver settings and the u-blox answers, 3 every NMEA sentence)
 GPS_LOG_LEVEL="-v 1"
-GPS_INTERVAL="-i 30"
+
+# publish interval [seconds]
+GPS_INTERVAL="-i 10"

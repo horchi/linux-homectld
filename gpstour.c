@@ -114,7 +114,7 @@ double HomeCtl::gpsDistance(const GpsCoordinate& a, const GpsCoordinate& b)
 
 //***************************************************************************
 // Receiver settings - to gpsmqtt.py which owns the serial port of the u-blox
-//   receiver: { "action": "config", "staticHold": <cm/s>, "dynModel": 0|4 }
+//   receiver: { "action": "config", "staticHold": <cm/s>, "dynModel": 0|4, "galileo": true|false }
 //   sent at start, on change of the settings and when the script registers (init)
 //***************************************************************************
 
@@ -135,6 +135,7 @@ int HomeCtl::gpsReceiverPublishConfig()
    json_object_set_new(oConfig, "action", json_string("config"));
    json_object_set_new(oConfig, "staticHold", json_integer(std::min(255, (int)std::lround(gpsUbloxStaticHold / 3.6 * 100.0))));   // km/h -> cm/s
    json_object_set_new(oConfig, "dynModel", json_integer(gpsUbloxAutomotive ? 4 : 0));   // 4 = automotive, 0 = portable
+   json_object_set_new(oConfig, "galileo", json_boolean(gpsUbloxGalileo));
 
    char* message {json_dumps(oConfig, JSON_REAL_PRECISION(8))};
    json_decref(oConfig);

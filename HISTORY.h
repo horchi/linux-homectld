@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.33"
-#define VERSION_DATE "06.10.2026"
+#define _VERSION     "0.1.34"
+#define VERSION_DATE "18.10.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,26 @@
 
 /*
  * ------------------------------------
+
+2026-10-18: version 0.1.34
+    - added: GPS: view 'Sat' on the map page for aligning the dish: bearing line to the TV satellite (config
+             'TV-Satellit: Orbitposition', default Astra 19.2 E), the vehicle axis and the outline of the motorhome on
+             the map, azimuth, elevation,
+             LNB skew and the angle relative to the vehicle (vehicle from above), the vehicle axis is the course of
+             the last movement (new sensor GPS:0x0b 'Heading' of gpsmqtt.py, kept while standing, switch 'rückwärts
+             eingeparkt' for + 180°); the text of the DVB signal monitor with start / stop, its sensor is configured
+             as 'TV-Satellit: Signal-Sensor' (e.g. SC:0x30 of dvb-signal.sh), without it the view is not offered;
+             the view opens at the maximum zoom; for a crank mast the turns for the elevation ('TV-Satellit: Kurbel',
+             degrees per turn, default 12 = Kathrein HDM 140)
+    - change: GPS map: the current position is shown as motorhome symbol (mdi-rv-truck) instead of the blue dot
+    - added: GPS: receiver option 'Galileo aktivieren' (u-blox 8: GPS + Galileo + GLONASS via UBX CFG-GNSS, the
+             u-blox 7 answers with NAK), sent with the other receiver settings
+    - bugfix: GPS: after a daemon restart the live map stayed empty (world map) as long as the position did not
+              change (receiver with static hold at standstill), the unchanged position is taken over now
+    - added: contrib/armbian/enable-header-dtd.sh: option --uart1 enables UART1 of the ODROID M1 header (/dev/ttyS1,
+             e.g. for a GPS module), documented in contrib/armbian/README.md
+    - change: make git: the commit message is taken from the HISTORY block via a file, line feeds and '$' in the
+              text stay intact (were lost by the shell quoting)
 
 2026-10-06: version 0.1.33
     - bugfix: dashboard menu: the buttons were sorted as strings (order 10 before 2), with more than 10 dashboards

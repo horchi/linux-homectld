@@ -5,11 +5,26 @@
 #   ODROID N2+  — DTB-Patch: i2c@1d000 (GPIOX_17/18) aktivieren
 #   ODROID M1   — Armbian-Overlay aktivieren (i2c0 in armbianEnv.txt)
 #               — GPIO Pull-Up Overlay kompilieren und installieren
+#               — Option --uart1: UART1 der Stiftleiste (Pins 8 TXD / 10 RXD, 3.3 V) als /dev/ttyS1,
+#                 z.B. für ein GPS-Modul (Armbian-Overlay 'uart1', wird nur eingetragen)
 #
 # Benötigt: device-tree-compiler (apt install device-tree-compiler)
-# Ausführen: sudo bash armbian-enable-header-i2c.sh
+# Ausführen: sudo bash enable-header-dtd.sh [--uart1]
 
 set -euo pipefail
+
+WITH_UART1=0
+
+for arg in "$@"; do
+    case "$arg" in
+        --uart1) WITH_UART1=1 ;;
+        -h|--help)
+            echo "Aufruf: sudo bash $0 [--uart1]"
+            echo "  --uart1   zusätzlich UART1 der Stiftleiste aktivieren (nur ODROID M1)"
+            exit 0 ;;
+        *) echo "FEHLER: unbekannte Option '$arg' (siehe --help)"; exit 1 ;;
+    esac
+done
 
 [[ $EUID -eq 0 ]] || { echo "FEHLER: als root ausführen (sudo bash $0)"; exit 1; }
 
@@ -77,9 +92,10 @@ fix_n2plus() {
 }
 
 # ── ODROID M1 ────────────────────────────────────────────────────────────────
-fix_m1() {
+# ein von Armbian mitgeliefertes Overlay in armbianEnv.txt eintragen (i2c0, uart1, ...)
+fix_m1_overlay() {
     local ENV="/boot/armbianEnv.txt"
-    local OVERLAY="i2c0"
+    local OVERLAY="$1"
 
     [[ -f "$ENV" ]] || { echo "FEHLER: $ENV nicht gefunden"; exit 1; }
 
@@ -97,6 +113,23 @@ fix_m1() {
     echo "Overlay '${OVERLAY}' zu $ENV hinzugefügt."
     echo ""
     grep "overlays=" "$ENV"
+}
+
+fix_m1() {
+    fix_m1_overlay "i2c0"
+}
+
+# UART1 der Stiftleiste (Overlay-Datei <prefix>-uart1.dtbo liegt Armbian bei), nach dem Reboot /dev/ttyS1
+fix_m1_uart1() {
+    local ENV="/boot/armbianEnv.txt"
+    local PREFIX
+    PREFIX=$(grep "^overlay_prefix=" "$ENV" | cut -d= -f2 | tr -d '[:space:]')
+
+    local DTBO
+    DTBO=$(find /boot -type f -name "${PREFIX}-uart1.dtbo" -path "*/rockchip/*" 2>/dev/null | head -1)
+    [[ -n "$DTBO" ]] || { echo "FEHLER: Overlay-Datei ${PREFIX}-uart1.dtbo nicht gefunden"; exit 1; }
+
+    fix_m1_overlay "uart1"
 }
 
 # ── ODROID M1: GPIO Pull-Up Overlay ─────────────────────────────────────────
@@ -370,6 +403,11 @@ elif echo "$board" | grep -qiE "M1"; then
     echo ""
     echo "── 1-Wire Overlay (phys pin 15) ─────────────────────────────────────────"
     fix_m1_onewire
+    if [[ $WITH_UART1 -eq 1 ]]; then
+        echo ""
+        echo "── UART1 (phys pins 8 TXD / 10 RXD) ─────────────────────────────────────"
+        fix_m1_uart1
+    fi
 else
     echo "FEHLER: Board nicht unterstützt ('$board')"
     echo "Unterstützt: ODROID N2+, ODROID M1"
@@ -380,6 +418,9 @@ echo ""
 echo "Nach dem Reboot: i2cdetect -l  (Busnummer ermitteln), dann i2cdetect -y <N>  (DHT20 bei 0x38 erwartet)"
 echo "                 gpioget -c gpiochip3 --bias=pull-up 24  (Pin 12 offen → sollte '1' liefern)"
 echo "                 ls /sys/bus/w1/devices/  (1-Wire Sensoren erwartet)"
+if [[ $WITH_UART1 -eq 1 ]]; then
+echo "                 dmesg | grep ttyS1  (UART1 der Stiftleiste, Konsole bleibt auf ttyS2)"
+fi
 echo "Hinweis:"
 echo "  altes   gpioget: --bias=pull-up"
 echo "  neueres gpioget: -B pull-up"

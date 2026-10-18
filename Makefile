@@ -15,7 +15,14 @@ DEB_BASE_DIR = /root/debs
 DEB_DEST     = $(DEB_BASE_DIR)/$(TARGET)-$(VERSION)
 
 LASTHIST     = $(shell grep '^20[0-3][0-9]' $(HISTFILE) | head -1)
-LASTCOMMENT  = $(subst |,\n,$(shell sed -n '/$(LASTHIST)/,/^ *$$/p' $(HISTFILE) | tr '\n' '|'))
+
+# the top block of the HISTORY as commit message - via a file, a 'git commit -m "$(..)"' loses the
+#  line feeds and lets the shell expand '$' in the text (e.g. NMEA sentences like '$GNRMC')
+
+define historyBlock
+sed -n '/$(LASTHIST)/,/^ *$$/p' $(HISTFILE)
+endef
+
 LASTTAG      = $(shell git describe --tags --abbrev=0)
 BRANCH       = $(shell git rev-parse --abbrev-ref HEAD)
 GIT_REV      = $(shell git describe --always 2>/dev/null)
@@ -342,7 +349,7 @@ push: vcheck
 	git push
 
 commit: vcheck
-	git commit -m "$(LASTCOMMENT)" -a
+	@tmp=$$(mktemp); $(historyBlock) > $$tmp; git commit -F $$tmp -a; rm -f $$tmp
 
 git: commit push
 
@@ -351,4 +358,4 @@ showv:
 	@echo "Local:"
 	@echo "  Version: $(VERSION)"
 	@echo "  Change:"
-	@echo -n "   $(LASTCOMMENT)"
+	@$(historyBlock) | sed -e 's/^/   /'

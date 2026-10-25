@@ -374,6 +374,32 @@ function sunTimes() {
    return sensor && sensor.sun && sensor.sun.sunrise != null ? sensor.sun : null;
 }
 
+// position of the sun now (like sunPosition() of the daemon) at the position of the sun times -> { azimuth, elevation }
+
+function sunPositionNow() {
+   let sun = sunTimes();
+
+   if (!sun)
+      return null;
+
+   const toRad = Math.PI / 180, toDeg = 180 / Math.PI;
+   let n = Date.now() / 86400000 + 2440587.5 - 2451545.0;
+   let L = (280.460 + 0.9856474 * n) % 360;
+   let g = ((357.528 + 0.9856003 * n) % 360) * toRad;
+   let lambda = (L + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * toRad;
+   let eps = (23.439 - 0.0000004 * n) * toRad;
+   let ra = Math.atan2(Math.cos(eps) * Math.sin(lambda), Math.cos(lambda));
+   let dec = Math.asin(Math.sin(eps) * Math.sin(lambda));
+   let gmst = (18.697374558 + 24.06570982441908 * n) % 24;
+   let H = (gmst * 15 + sun.longitude) * toRad - ra;
+   let phi = sun.latitude * toRad;
+
+   return {
+      'elevation': Math.asin(Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.cos(H)) * toDeg,
+      'azimuth': ((Math.atan2(-Math.sin(H), Math.tan(dec) * Math.cos(phi) - Math.sin(phi) * Math.cos(H)) * toDeg) + 360) % 360
+   };
+}
+
 // start / end of a time range ('HH:MM' or dawn|sunrise|sunset|dusk) plus offset [min] -> 'HH:MM',
 //   like sunResolve() of the daemon; null if the sun times are not known (yet)
 
@@ -443,6 +469,19 @@ function lightRulesFor(key) {         // rules of a sensor, or the rules switchi
    if (!fact)
       return texts;
 
+   if (fact.type == 'HMB' && fact.settings && fact.settings.shade && fact.settings.shade.enabled) {
+      let sh = fact.settings.shade;
+      let text = 'Beschattung: ' + sh.level + ' % bei Sonne ' + sh.azFrom + '°–' + sh.azTo + '° (ab ' + sh.minElevation + '° Höhe)';
+
+      if (sh.luxSensor)
+         text += ', ' + factTitle(sh.luxSensor) + ' ≥ ' + sh.luxMin;
+      if (sh.tempSensor)
+         text += ', ' + factTitle(sh.tempSensor) + ' ≥ ' + sh.tempMin + ' °C';
+
+      text += ', Verzögerung ' + sh.delayOn + ' / ' + sh.delayOff + ' min';
+      texts.push(text);
+   }
+
    if (fact.type == 'DZS')
       return (fact.settings && Array.isArray(fact.settings.rules) ? fact.settings.rules : []).map(r => lightRuleText(r));
 
@@ -458,6 +497,15 @@ function lightRulesFor(key) {         // rules of a sensor, or the rules switchi
    }
 
    return texts;
+}
+
+function timeRangeText(t) {             // 'Sonnenuntergang -30 (16:44) - 06:30 (01.05.–30.09.)'
+   let text = timeRefText(t.start, t.startOffset) + ' - ' + timeRefText(t.end, t.endOffset);
+
+   if (t.dateFrom && t.dateTo)
+      text += ' (' + t.dateFrom + '.–' + t.dateTo + '.)';
+
+   return text;
 }
 
 function timeRefText(ref, offset) {       // 'Sonnenuntergang -30 (17:12)', '06:30'

@@ -1963,10 +1963,10 @@ function titleClick(ctrlKey, key)
       let form = document.createElement("div");
 
       let timersString = (fact.settings && Array.isArray(fact.settings.times))
-          ? fact.settings.times.map(t => timeRefText(t.start, t.startOffset) + ' - ' + timeRefText(t.end, t.endOffset)).join(', ') : '';
+          ? fact.settings.times.map(t => timeRangeText(t)).join(', ') : '';
 
       let rules = lightRulesFor(key);     // light rules of the sensor / switching this light (tab 'Regeln')
-      let hasRules = rules.length > 0 || sensor.offAt;
+      let hasRules = rules.length > 0 || sensor.offAt || sensor.shade;
 
       let value = sensor.value + ' ' + widget.unit;
 
@@ -2007,6 +2007,9 @@ function titleClick(ctrlKey, key)
          if (sensor.offAt)
             rulesTab.append($('<div></div>').addClass('sensorRulesTimer')
                             .text('Aus-Timer läuft bis ' + new Date(sensor.offAt * 1000).toLocaleTimeString(dateLocale)));
+
+         if (sensor.shade)
+            rulesTab.append($('<div></div>').addClass('sensorRulesTimer').text('Beschattung: ' + sensor.shade));
 
          let list = $('<ul></ul>');
 

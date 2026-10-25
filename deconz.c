@@ -312,6 +312,9 @@ int Deconz::processDevices(json_t* jData, std::string kind)
             if (getObjectByPath(jItem, "state/humidity"))
                json_object_set_new(jsData, "value", json_real(getIntByPath(jItem, "state/humidity")/100.0));
 
+            if (getObjectByPath(jItem, "state/lux"))
+               json_object_set_new(jsData, "value", json_real((double)getIntByPath(jItem, "state/lux")));
+
             // if (getObjectByPath(jItem, "state/buttonevent"))
             //    json_object_set_new(jsData, "btnevent", json_integer(getIntByPath(jItem, "state/buttonevent")));
 
@@ -816,6 +819,9 @@ int Deconz::atInMessage(const char* data, size_t size)
 
       if (getObjectByPath(obj, "state/humidity"))
          json_object_set_new(jData, "value", json_real(getIntByPath(obj, "state/humidity")/100.0));
+
+      if (getObjectByPath(obj, "state/lux"))
+         json_object_set_new(jData, "value", json_real((double)getIntByPath(obj, "state/lux")));
 
       if (getObjectByPath(obj, "state/presence"))
          json_object_set_new(jData, "presence", json_boolean(getBoolByPath(obj, "state/presence")));

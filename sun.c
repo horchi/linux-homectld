@@ -22,6 +22,14 @@
  *
  *    { "start": "sunset", "startOffset": -30, "end": "06:30", "endOffset": 0 }
  *
+ *  Optional a range is valid only on some days of the year ("DD.MM", also over the turn
+ *  of the year), e.g. later in summer:
+ *
+ *    { "start": "dusk", "startOffset": 60, "end": "sunrise", "dateFrom": "01.05", "dateTo": "30.09" }
+ *
+ *  The day of a range is the day of its start, the end of a range over midnight
+ *  belongs to the day before.
+ *
  *  Without dawn / dusk (summer in the north) sunrise / sunset are used instead.
  *  If even these are missing the sun is up (midnight sun) or down (polar night)
  *  the whole day: sunrise / dawn resolve to 00:00 (sun up) or 24:00 (sun down),
@@ -94,6 +102,34 @@ static bool sunEvent(time_t day, double lat, double lng, double zenith, bool ris
       at -= tmeSecondsPerDay;
 
    return true;
+}
+
+//***************************************************************************
+// Sun Position
+//   azimuth (0° north, 90° east, 180° south, 270° west) and elevation above the
+//   horizon [°] at time t (low precision formulas of the Astronomical Almanac, ~0.1°)
+//***************************************************************************
+
+void HomeCtl::sunPosition(time_t t, double lat, double lng, double& azimuth, double& elevation)
+{
+   constexpr double toRad {M_PI / 180.0};
+   constexpr double toDeg {180.0 / M_PI};
+
+   double n {t / 86400.0 + 2440587.5 - 2451545.0};             // days since J2000.0
+   double L {fmod(280.460 + 0.9856474 * n, 360.0)};             // mean longitude
+   double g {fmod(357.528 + 0.9856003 * n, 360.0) * toRad};     // mean anomaly
+   double lambda {(L + 1.915 * sin(g) + 0.020 * sin(2 * g)) * toRad};
+   double eps {(23.439 - 0.0000004 * n) * toRad};
+
+   double ra {atan2(cos(eps) * sin(lambda), cos(lambda))};
+   double dec {asin(sin(eps) * sin(lambda))};
+
+   double gmst {fmod(18.697374558 + 24.06570982441908 * n, 24.0)};
+   double H {(gmst * 15.0 + lng) * toRad - ra};                 // hour angle
+   double phi {lat * toRad};
+
+   elevation = asin(sin(phi) * sin(dec) + cos(phi) * cos(dec) * cos(H)) * toDeg;
+   azimuth = fmod(atan2(-sin(H), tan(dec) * cos(phi) - sin(phi) * cos(H)) * toDeg + 360.0, 360.0);
 }
 
 //***************************************************************************
@@ -237,6 +273,11 @@ int HomeCtl::sun2Json(json_t* obj)
    json_object_set_new(jSun, "longitude", json_real(sunTimes.position.longitude));
    json_object_set_new(jSun, "gps", json_boolean(sunTimes.gps));
 
+   double azimuth {0}, elevation {0};
+   sunPosition(time(0), sunTimes.position.latitude, sunTimes.position.longitude, azimuth, elevation);
+   json_object_set_new(jSun, "azimuth", json_real(round(azimuth * 10) / 10));
+   json_object_set_new(jSun, "elevation", json_real(round(elevation * 10) / 10));
+
    json_object_set_new(obj, "sun", jSun);
 
    return done;
@@ -322,6 +363,37 @@ static time_t localTimeOf(time_t day, uint hhmm)
    return mktime(&tm);
 }
 
+//***************************************************************************
+// Range Date Valid
+//   is the time range valid on the day of 't' ("dateFrom" / "dateTo" as "DD.MM",
+//   without both all year)
+//***************************************************************************
+
+static int mmddOf(const char* date)      // "DD.MM" -> MMDD, -1 if not set or invalid
+{
+   int d {0}, m {0};
+
+   if (isEmpty(date) || sscanf(date, "%d.%d", &d, &m) != 2 || d < 1 || d > 31 || m < 1 || m > 12)
+      return -1;
+
+   return m * 100 + d;
+}
+
+bool HomeCtl::rangeDateValid(json_t* jRange, time_t t)
+{
+   int from {mmddOf(getStringFromJson(jRange, "dateFrom"))};
+   int to {mmddOf(getStringFromJson(jRange, "dateTo"))};
+
+   if (from < 0 || to < 0)
+      return true;
+
+   struct tm tm {};
+   localtime_r(&t, &tm);
+   int mmdd {(tm.tm_mon + 1) * 100 + tm.tm_mday};
+
+   return from <= to ? mmdd >= from && mmdd <= to : mmdd >= from || mmdd <= to;
+}
+
 int HomeCtl::actorTimesDue(const char* type, uint address, json_t* oSettings, time_t from, time_t to,
                            std::vector<ActorTimeAction>& actions)
 {
@@ -337,24 +409,32 @@ int HomeCtl::actorTimesDue(const char* type, uint address, json_t* oSettings, ti
 
    json_array_foreach(jTimes, index, jRange)
    {
+      // the limits, false if empty or not occurring this day (sun times at polar night / midnight sun)
+
+      auto limitOf = [&](bool in, uint& hhmm) {
+         const char* ref {getStringFromJson(jRange, in ? "start" : "end")};
+         return !isEmpty(ref) && sunResolve(ref, getIntFromJson(jRange, in ? "startOffset" : "endOffset", 0), hhmm) == success && hhmm < 2400;
+      };
+
+      uint hhmmStart {0}, hhmmEnd {0};
+      bool hasStart {limitOf(true, hhmmStart)};
+      bool hasEnd {limitOf(false, hhmmEnd)};
+      bool overnight {hasStart && hasEnd && hhmmEnd <= hhmmStart};    // the end belongs to the day before
+
       for (bool in : { true, false })
       {
-         const char* ref {getStringFromJson(jRange, in ? "start" : "end")};
-         uint hhmm {0};
-
-         if (isEmpty(ref) || sunResolve(ref, getIntFromJson(jRange, in ? "startOffset" : "endOffset", 0), hhmm) != success)
+         if (!(in ? hasStart : hasEnd))
             continue;
 
-         if (hhmm >= 2400)
-            continue;                // the limit doesn't occur this day (sun times at polar night / midnight sun)
-
+         uint hhmm {in ? hhmmStart : hhmmEnd};
          bool due {false};
 
          for (time_t day : { yesterday, today })
          {
             time_t at {localTimeOf(day, hhmm)};
+            time_t dayOfRange {in || !overnight ? day : midnightOf(day - 1)};
 
-            if (at > from && at <= to)
+            if (at > from && at <= to && rangeDateValid(jRange, dayOfRange))
                due = true;
          }
 
@@ -388,6 +468,9 @@ int HomeCtl::actorTimeAction(const ActorTimeAction& action)
 
    if (action.type == "HMB")
    {
+      shadeEnd(action.address);      // the time control has priority
+
+
       // LEVEL also if the blind is moving (toggleIo() would send STOP then)
 
       if (!valueFactRowOf(type, action.address))

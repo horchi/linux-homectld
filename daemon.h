@@ -604,6 +604,32 @@ class HomeCtl : public cWebInterface, public Service
       int sunUpdate(bool force = false);                      // sunCalc() and the sensor SUN:0x01
       int sun2Json(json_t* obj);
       int sunResolve(const char* ref, int offset, uint& hhmm);   // "HH:MM" or dawn|sunrise|sunset|dusk + offset -> HHMM
+      bool rangeDateValid(json_t* jRange, time_t t);          // time range valid on this day ("dateFrom" / "dateTo")
+
+      static void sunPosition(time_t t, double lat, double lng, double& azimuth, double& elevation);
+
+      // shading of the blinds (shade.c)
+
+      enum ShadePhase { spIdle, spActive };
+
+      struct ShadeState
+      {
+         ShadePhase phase {spIdle};
+         time_t condSince {0};           // conditions met since (idle)
+         time_t lostSince {0};           // conditions lost since (active)
+         time_t movedAt {0};             // moved to the shading position
+         int levelBefore {100};          // position before the shading
+         time_t suspendedDay {0};        // moved by hand - no shading on this day
+         std::string text;               // state for the info dialog
+      };
+
+      std::map<uint,ShadeState> shadeStates;   // HMB address -> state
+
+      SensorData* sensorOfKey(const char* key);
+      bool shadeConditions(json_t* jShade, std::string& text);
+      int shadeMove(uint address, int level, const char* why);
+      int shadeUpdate();
+      void shadeEnd(uint address);
 
       // time control of actors (sun.c) - DZL, DZLG, HMB switch at the limits of their time ranges
 

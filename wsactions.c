@@ -3081,6 +3081,11 @@ int HomeCtl::sensor2Json(json_t* obj, const char* type, uint address)
 
    json_object_set_new(obj, "valid", json_boolean(sensors[type][address].valid()));
 
+   // state of the shading of a blind (shade.c)
+
+   if (strcmp(type, "HMB") == 0 && shadeStates.count(address) && !shadeStates[address].text.empty())
+      json_object_set_new(obj, "shade", json_string(shadeStates[address].text.c_str()));
+
    // running off timer of a light rule (lightrules.c) switching this sensor
 
    if (!lightRuleTimers.empty())

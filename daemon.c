@@ -2423,6 +2423,8 @@ int HomeCtl::loop()
             process();     // time ranges of the DO sensors; the LUA scripts run by their watch() / every()
          }
 
+         shadeUpdate();    // shading of the blinds
+
          {
             LogDuration ld("storeSamples", eloLoopTimings);
             storeSamples();
@@ -2747,7 +2749,12 @@ int HomeCtl::process(bool force, bool signal)
                if (sunResolve(getStringFromJson(value, "start"), getIntFromJson(value, "startOffset", 0), r.from) == success &&
                    sunResolve(getStringFromJson(value, "end"), getIntFromJson(value, "endOffset", 0), r.to) == success)
                {
-                  currentRanges.push_back(r);
+                  // optional valid on some days only, the morning part of a range over midnight belongs to the day before
+
+                  bool morningPart {r.from > r.to && (uint)l2hhmm(now) < r.to};
+
+                  if (rangeDateValid(value, morningPart ? midnightOf(now) - 1 : now))
+                     currentRanges.push_back(r);
                }
             }
 

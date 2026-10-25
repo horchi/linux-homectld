@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.36"
+#define _VERSION     "0.1.37"
 #define VERSION_DATE "25.10.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,22 @@
 
 /*
  * ------------------------------------
+
+2026-10-25: version 0.1.37
+    - added: shading of the blinds (shade.c), section 'Beschattung' of the dialog 'Zeitsteuerung' of a blind (HMB):
+             while the sun shines on the window (azimuth range, minimal elevation) and optional the brightness
+             (lux sensor) and the outside temperature reach their thresholds for 'Verzögerung Beschatten' minutes
+             the blind moves to the shading position, after the conditions are gone for 'Verzögerung Ende' minutes
+             back to the position before; it moves only down (a lower blind stays), moves back only if it still
+             stands at the shading position, moved by hand no shading for this blind until the next day, the time
+             control has priority; the state is shown in the tab 'Regeln' of the info dialog, kept in memory only
+    - added: sun position (azimuth / elevation) of the sun times, shown in the dialog 'Zeitsteuerung' ('Sonne jetzt')
+    - added: deCONZ: the brightness 'state/lux' of light sensors (ZHALightLevel) is taken as value
+    - added: time ranges (outputs, deCONZ lights / groups, blinds) optional valid on some days of the year only
+             ('Gültig' day / month from - to, also over the turn of the year), e.g. to close a blind later in
+             summer; a range over midnight belongs to the day of its start; shown in the info dialog
+    - change: dialog 'Zeitsteuerung': the time ranges are shown one below the other (were side by side and ran out
+              of the dialog), the button '+' below the last one, the dialog scrolls vertically
 
 2026-10-25: version 0.1.36
     - added: sun times (sun.c): dawn, sunrise, sunset and dusk of the day (civil twilight -6°, sunrise / sunset

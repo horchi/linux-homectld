@@ -847,6 +847,21 @@ span > select
    color: #999;
 }
 
+.settingsDialogContent > div.do-timer-list {
+   flex-direction: column;       /* the time ranges one below the other */
+}
+
+.do-timer-list .do-timer-row {
+   border-bottom: 1px solid #555;
+   padding-bottom: 8px;
+}
+
+.do-timer-row span.do-timer-date {
+   margin: 0;
+   display: inline-flex;
+   gap: 4px;
+}
+
 .sensorRules {
    max-width: 60vw;
 }

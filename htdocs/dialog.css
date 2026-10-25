@@ -54,8 +54,8 @@
 }
 
 .ui-dialog .ui-dialog-content {
-    padding: 0px;
-    margin: 20px;
+    padding: 0px 20px 0px 0px;         /* right space inside, left of the scrollbar */
+    margin: 20px 0px 20px 20px;
 }
 
 /* field labels (labelB1) inside dialogs: the gray of the side panels is too pale on the dialog background */

@@ -685,16 +685,52 @@ function createTimeSide(label, cls, ref, offset, allowEmpty = false) {
       .append($resolved);
 }
 
+// optional date range of a time range ('DD.MM', also over the turn of the year), selected by day and month
+
+const monthNames = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+
+function createDateSide(t) {
+   let $date = (cls, value) => {
+      let [d, m] = (value || '').split('.');
+      let $day = $('<select></select>').addClass('rounded-border do-timer-ref ' + cls + '-day').append($('<option></option>').val('').text('--'));
+      let $month = $('<select></select>').addClass('rounded-border do-timer-ref ' + cls + '-month').append($('<option></option>').val('').text('--'));
+
+      for (let i = 1; i <= 31; i++)
+         $day.append($('<option></option>').val(String(i).padStart(2, '0')).text(i + '.'));
+      for (let i = 1; i <= 12; i++)
+         $month.append($('<option></option>').val(String(i).padStart(2, '0')).text(monthNames[i-1]));
+
+      $day.val(d || '');
+      $month.val(m || '');
+
+      return $('<span></span>').addClass('do-timer-date').append($day).append($month);
+   };
+
+   return $('<div></div>').addClass('do-timer-side').attr('title', 'leer = ganzjährig')
+      .append($('<span></span>').text('Gültig').addClass('do-timer-label'))
+      .append($date('timer-date-from', t.dateFrom))
+      .append($('<span>–</span>'))
+      .append($date('timer-date-to', t.dateTo));
+}
+
+function dateSideValue($row, cls) {      // 'DD.MM' or '' (day and month both needed)
+   let d = $row.find('.' + cls + '-day').val();
+   let m = $row.find('.' + cls + '-month').val();
+
+   return d && m ? d + '.' + m : '';
+}
+
 function createTimeRow(t = { 'start': '08:00', 'end': '17:00' }, labels = ['Von', 'Bis'], allowEmpty = false) {
    let $row = $('<div></div>').addClass('do-timer-row');
    $row.append($('<div></div>').addClass('do-timer-sides')
                .append(createTimeSide(labels[0], 'timer-start', t.start, t.startOffset, allowEmpty))
-               .append(createTimeSide(labels[1], 'timer-end', t.end, t.endOffset, allowEmpty)))
+               .append(createTimeSide(labels[1], 'timer-end', t.end, t.endOffset, allowEmpty))
+               .append(createDateSide(t)))
        .append($('<button></button>').text('X').addClass('do-timer-delete').on('click', function() { $row.remove(); }));
    return $row;
 }
 
-// the rows of a container -> [{ start, startOffset, end, endOffset }]
+// the rows of a container -> [{ start, startOffset, end, endOffset [, dateFrom, dateTo] }]
 
 function collectTimeRows($container, allowEmpty = false) {
    let timesArray = [];
@@ -707,9 +743,19 @@ function collectTimeRows($container, allowEmpty = false) {
       let start = side('timer-start');
       let end = side('timer-end');
 
-      if (allowEmpty ? (start || end) : (start && end))
-         timesArray.push({ 'start': start, 'startOffset': parseInt($(this).find('.timer-start-offset').val()) || 0,
-                           'end': end, 'endOffset': parseInt($(this).find('.timer-end-offset').val()) || 0 });
+      if (allowEmpty ? (start || end) : (start && end)) {
+         let range = { 'start': start, 'startOffset': parseInt($(this).find('.timer-start-offset').val()) || 0,
+                       'end': end, 'endOffset': parseInt($(this).find('.timer-end-offset').val()) || 0 };
+         let dateFrom = dateSideValue($(this), 'timer-date-from');
+         let dateTo = dateSideValue($(this), 'timer-date-to');
+
+         if (dateFrom && dateTo) {         // both or none
+            range.dateFrom = dateFrom;
+            range.dateTo = dateTo;
+         }
+
+         timesArray.push(range);
+      }
    });
 
    return timesArray;
@@ -1011,15 +1057,75 @@ function sensorActorSetup(type, address)
 
    dlgContent
       .append($('<div></div>')
-              .append($('<span></span>').html('Zeiten'))
-              .append($('<span></span>')
-                      .append($('<button></button>').text('+').addClass('rounded-border button2')
-                              .on('click', function() { $('#actorTimerListContainer').append(createTimeRow({ 'start': '', 'end': '' }, labels, true)); }))))
+              .append($('<span></span>').html('Zeiten')))
       .append($('<div></div>').attr('id', 'actorTimerListContainer').addClass('do-timer-list'))
+      .append($('<div></div>')
+              .append($('<button></button>').text('+').attr('title', 'Zeit hinzufügen').addClass('rounded-border button2')
+                      .on('click', function() { $('#actorTimerListContainer').append(createTimeRow({ 'start': '', 'end': '' }, labels, true)); })))
       .append($('<div></div>')
               .css('font-size', 'smaller').css('color', '#999').css('margin-top', '8px')
               .html('Geschaltet wird nur zu den eingestellten Zeiten, von Hand geschaltet bleibt es bis zur nächsten Zeit. ' +
-                    'Eine der beiden Zeiten darf \'keine\' sein.'));
+                    'Eine der beiden Zeiten darf \'keine\' sein. Gültig (Tag / Monat, leer = ganzjährig): nur an diesen Tagen, ' +
+                    'auch über den Jahreswechsel, das Ende über Mitternacht gehört zum Vortag.'));
+
+   // shading of the blinds (see shade.c)
+
+   if (blind) {
+      let shade = settings.shade || {};
+      let num = (id, label, value, min, max, title) => $('<div></div>')
+          .append($('<span></span>').html(label))
+          .append($('<span></span>')
+                  .append($('<input></input>').attr('id', id).attr('type', 'number')
+                          .attr('min', min).attr('max', max).attr('step', '1').attr('title', title || '')
+                          .addClass('rounded-border inputSetting').val(value)));
+      let sensorSelect = (id, label, selected, units) => {
+         let $sel = $('<select></select>').attr('id', id).addClass('rounded-border inputSetting')
+             .append($('<option></option>').val('').text('– keiner –'));
+         let opts = [];
+
+         for (const k in valueFacts) {
+            let f = valueFacts[k];
+            if (f.state && units.includes(f.unit))
+               opts.push({ 'key': k, 'title': (f.usrtitle ? f.usrtitle : f.title) + ' (' + k + ')' });
+         }
+
+         opts.sort((a, b) => a.title.localeCompare(b.title));
+
+         for (const o of opts)
+            $sel.append($('<option></option>').val(o.key).text(o.title));
+
+         return $('<div></div>').append($('<span></span>').html(label)).append($('<span></span>').append($sel.val(selected || '')));
+      };
+
+      let sun = sunPositionNow();
+
+      dlgContent
+         .append($('<div></div>').css('margin-top', '14px').css('font-weight', 'bold').html('Beschattung'))
+         .append($('<div></div>')
+                 .append($('<span></span>').html('Beschattung aktiv'))
+                 .append($('<span></span>')
+                         .append($('<input></input>').attr('id', 'shadeEnabled').attr('type', 'checkbox')
+                                 .addClass('rounded-border inputSetting').prop('checked', shade.enabled == true))
+                         .append($('<label></label>').prop('for', 'shadeEnabled'))))
+         .append(num('shadeLevel', 'Position bei Beschattung [%]', shade.level != null ? shade.level : 30, 0, 100, '100 = ganz auf'))
+         .append(num('shadeAzFrom', 'Sonne auf dem Fenster ab Azimut [°]', shade.azFrom != null ? shade.azFrom : 180, 0, 360, '0 = Nord, 90 = Ost, 180 = Süd, 270 = West'))
+         .append(num('shadeAzTo', '... bis Azimut [°]', shade.azTo != null ? shade.azTo : 290, 0, 360))
+         .append(num('shadeMinEl', 'Mindesthöhe der Sonne [°]', shade.minElevation != null ? shade.minElevation : 10, 0, 90))
+         .append($('<div></div>')
+                 .append($('<span></span>').html('Sonne jetzt'))
+                 .append($('<span></span>').addClass('do-timer-resolved')
+                         .text(sun ? 'Azimut ' + sun.azimuth.toFixed(0) + '°, Höhe ' + sun.elevation.toFixed(0) + '°' : 'unbekannt')))
+         .append(sensorSelect('shadeLuxSensor', 'Helligkeits-Sensor', shade.luxSensor, ['lx', 'W', 'W/m²']))
+         .append(num('shadeLuxMin', 'ab Helligkeit', shade.luxMin != null ? shade.luxMin : '', 0, 200000, 'Schwelle in der Einheit des Sensors (lx)'))
+         .append(sensorSelect('shadeTempSensor', 'Außentemperatur-Sensor', shade.tempSensor, ['°C']))
+         .append(num('shadeTempMin', 'ab Temperatur [°C]', shade.tempMin != null ? shade.tempMin : 22, -30, 50))
+         .append(num('shadeDelayOn', 'Verzögerung Beschatten [min]', shade.delayOn != null ? shade.delayOn : 10, 0, 120, 'so lange müssen die Bedingungen erfüllt sein'))
+         .append(num('shadeDelayOff', 'Verzögerung Ende [min]', shade.delayOff != null ? shade.delayOff : 20, 0, 120, 'so lange müssen die Bedingungen weg sein'))
+         .append($('<div></div>')
+                 .css('font-size', 'smaller').css('color', '#999').css('margin-top', '8px')
+                 .html('Fährt nur nach unten auf die Beschattungsposition und danach zurück, wenn er noch dort steht. ' +
+                       'Von Hand gefahren: Beschattung bis morgen aus. Die Zeitsteuerung hat Vorrang.'));
+   }
 
    $(form).append(dlgContent);
 
@@ -1035,6 +1141,7 @@ function sensorActorSetup(type, address)
       closeOnEscape: true,
       hide: "fade",
       width: Math.min(Math.round($(window).width() * 0.9), 700),
+      maxHeight: Math.round($(window).height() * 0.9),
       title: "Zeitsteuerung '" + title + "'",
       open: function() {
          calSensorType = type;
@@ -1053,6 +1160,22 @@ function sensorActorSetup(type, address)
             if (blind) {
                newSettings.levelIn = parseInt($('#levelIn').val()) || 0;
                newSettings.levelOut = $('#levelOut').val() != '' ? parseInt($('#levelOut').val()) : 100;
+
+               let int = (id, def) => { let v = parseInt($('#' + id).val()); return isNaN(v) ? def : v; };
+
+               newSettings.shade = {
+                  'enabled': $('#shadeEnabled').is(':checked'),
+                  'level': int('shadeLevel', 30),
+                  'azFrom': int('shadeAzFrom', 180),
+                  'azTo': int('shadeAzTo', 290),
+                  'minElevation': int('shadeMinEl', 10),
+                  'luxSensor': $('#shadeLuxSensor').val(),
+                  'luxMin': int('shadeLuxMin', 0),
+                  'tempSensor': $('#shadeTempSensor').val(),
+                  'tempMin': int('shadeTempMin', 22),
+                  'delayOn': int('shadeDelayOn', 10),
+                  'delayOff': int('shadeDelayOff', 20)
+               };
             }
             else
                newSettings.bri = parseInt($('#timesBri').val()) || 0;

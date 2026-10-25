@@ -341,6 +341,9 @@ class HomeCtl : public cWebInterface, public Service
       virtual int dispatchDeconz();
       virtual int dispatchHomematicRpcResult(const char* message);
       virtual int dispatchHomematicEvents(const char* message);
+      int homeMaticRequestNext();                            // getParamset() of the next blind
+      int homeMaticCheckRequests();                          // timeout of an unanswered request
+      int homeMaticParamset(const char* uuid, json_t* jValues);
       virtual int dispatchGrowattEvents(const char* message);
       virtual int dispatchRtl433(const char* message);
       virtual int dispatchOther(const char* topic, const char* message);
@@ -370,7 +373,7 @@ class HomeCtl : public cWebInterface, public Service
       int mqttHaPublish(SensorData& sensor, bool forceConfig = false);
       int mqttHaPublishSensor(SensorData& sensor, bool forceConfig = false);
       int mqttNodeRedPublishSensor(SensorData& sensor);
-      int mqttNodeRedPublishAction(SensorData& sensor, double value, bool publishOnly = false);
+      int mqttNodeRedPublishAction(SensorData& sensor, double value, bool publishOnly = false, bool noStop = false);
       int mqttHaWrite(json_t* obj, uint groupid);
       int jsonAddValue(json_t* obj, SensorData& sensor, bool forceConfig = false);
       int updateSchemaConfTable();
@@ -580,6 +583,68 @@ class HomeCtl : public cWebInterface, public Service
       int gpsTourEventDelete(long id);
       int gpsTourEvents2Json(json_t* obj, long tourId, long odometerStart, long odometerEnd);   // 'events' and 'totals'
       int gpsFuel2Json(json_t* obj);                          // all fuel stops (tours and standalone) with the consumption chain
+
+      // sun times (sun.c)
+
+      struct SunTimes
+      {
+         time_t day {0};                 // midnight of the calculated day
+         GpsCoordinate position;         // position of the calculation
+         bool gps {false};               // position of the GPS receiver
+         time_t dawn {0};                // 0 -> no such event this day
+         time_t sunrise {0};
+         time_t sunset {0};
+         time_t dusk {0};
+         bool sunUp {false};             // without sunrise / sunset: midnight sun (true) or polar night (false)
+         bool published {false};         // sensor SUN:0x01 updated with these times
+      };
+
+      GpsCoordinate location(bool* fromGps = nullptr);        // position for sun times and weather (config or GPS)
+      bool sunCalc(bool force = false);                       // recalculate on a new day / moved position
+      int sunUpdate(bool force = false);                      // sunCalc() and the sensor SUN:0x01
+      int sun2Json(json_t* obj);
+      int sunResolve(const char* ref, int offset, uint& hhmm);   // "HH:MM" or dawn|sunrise|sunset|dusk + offset -> HHMM
+
+      // time control of actors (sun.c) - DZL, DZLG, HMB switch at the limits of their time ranges
+
+      struct ActorTimeAction
+      {
+         std::string type;
+         uint address {0};
+         bool in {false};                // start of the range (on / close), else end (off / open)
+         int bri {na};                   // DZL / DZLG: brightness [%] on switch on
+         int level {na};                 // HMB: position [%]
+      };
+
+      // light rules (lightrules.c) - switches / motion sensors (DZS) switch lights, optional off timer
+
+      struct LightRuleEvent
+      {
+         std::string type;
+         uint address {0};
+         int button {na};                // button event (e.g. 1002), na for motion
+         int presence {na};              // motion 1/0, na for buttons
+      };
+
+      struct LightRuleTimer
+      {
+         time_t offAt {0};
+         std::map<std::string,bool> switchedOn;   // targets switched on by the rule -> seen 'on' since then
+         int transition {na};
+      };
+
+      std::vector<LightRuleEvent> lightRuleEvents;
+      std::map<std::string,LightRuleTimer> lightRuleTimers;   // "DZS:0x21#0" (sensor # rule index)
+
+      int performLightRules();
+      int lightRuleApply(const char* key, json_t* jRule, const LightRuleEvent& event);
+      int lightRuleCheckTimers();
+      int lightTargetSwitch(const std::string& target, bool on, int bri, int transition);
+      bool lightTargetState(const std::string& target);
+
+      int actorTimesDue(const char* type, uint address, json_t* oSettings, time_t from, time_t to, std::vector<ActorTimeAction>& actions);
+      int actorTimeAction(const ActorTimeAction& action);
+      time_t actorTimesCheckedAt {0};
 
       // Garmin activities (activities.c)
 
@@ -838,6 +903,8 @@ class HomeCtl : public cWebInterface, public Service
       Deconz deconz;
       bool homeMaticInterface {false};
       std::map<uint,std::string> homeMaticUuids;
+      std::deque<std::string> homeMaticValueRequests;        // uuids of the blinds waiting for getParamset()
+      time_t homeMaticRequestAt {0};                         // request sent (0 -> none pending)
 
       std::string lmcHost {};
       int lmcPort {9090};
@@ -857,6 +924,8 @@ class HomeCtl : public cWebInterface, public Service
       std::map<std::string,std::map<int,SensorData>> sensors;
 
       GpsCoordinate gpsCoordinate;
+      bool gpsLocation {false};                             // config: position for sun times / weather from GPS
+      SunTimes sunTimes;
       static constexpr uint gpsCoordinateAddress {0x0a};    // GPS sensor 'Coordinate' (text 'lat/lng')
       static constexpr uint gpsSpeedAddress {0x03};         // GPS sensor 'Speed' [km/h]
       static constexpr uint gpsAltitudeAddress {0x05};      // GPS sensor 'Altitude' [m]

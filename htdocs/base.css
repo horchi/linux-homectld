@@ -816,6 +816,90 @@ span > select
    border-radius: 4px;
 }
 
+.do-timer-sides {
+   display: flex;
+   flex-direction: column;
+   gap: 6px;
+}
+
+.do-timer-side {
+   display: flex;
+   flex-wrap: wrap;
+   align-items: center;
+   gap: 4px;
+}
+
+.do-timer-row .do-timer-label {
+   min-width: 30px;
+}
+
+.do-timer-ref {
+   padding: 4px 6px;
+   font-size: 14px;
+}
+
+.do-timer-input.do-timer-offset {
+   max-width: 70px;
+   min-width: 55px;
+}
+
+.do-timer-resolved {
+   color: #999;
+}
+
+.sensorRules {
+   max-width: 60vw;
+}
+
+.sensorRules ul {
+   margin: 4px 0;
+   padding-left: 18px;
+}
+
+.sensorRules li {
+   margin-bottom: 6px;
+}
+
+.sensorRulesTimer {
+   color: orange;
+   margin-bottom: 6px;
+}
+
+.rule-block {
+   border: 1px solid #555;
+   padding: 8px;
+   margin: 8px 0;
+}
+
+.rule-row {
+   display: flex;
+   flex-wrap: wrap;
+   align-items: flex-start;
+   gap: 6px;
+   margin-bottom: 6px;
+}
+
+.rule-label {
+   min-width: 140px;
+}
+
+.rule-value {
+   display: flex;
+   flex-wrap: wrap;
+   align-items: center;
+   gap: 6px;
+   flex: 1;
+}
+
+.rule-targets {
+   min-width: 260px;
+   flex: 1;
+}
+
+.rule-number, .rule-button {
+   max-width: 90px;
+}
+
 .do-timer-delete {
    color: #cc0000;
    cursor: pointer;

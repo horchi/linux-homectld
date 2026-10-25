@@ -365,6 +365,115 @@ function fmtHour(date) {                  // '15:00'
    return String(date.getHours()).padStart(2, '0') + ':00';
 }
 
+// sun times of the daemon (sensor SUN:0x01, see sun.c)
+
+const sunRefs = { 'dawn': 'Morgendämmerung', 'sunrise': 'Sonnenaufgang', 'sunset': 'Sonnenuntergang', 'dusk': 'Abenddämmerung' };
+
+function sunTimes() {
+   let sensor = allSensors['SUN:0x01'];
+   return sensor && sensor.sun && sensor.sun.sunrise != null ? sensor.sun : null;
+}
+
+// start / end of a time range ('HH:MM' or dawn|sunrise|sunset|dusk) plus offset [min] -> 'HH:MM',
+//   like sunResolve() of the daemon; null if the sun times are not known (yet)
+
+function resolveTimeRef(ref, offset) {
+   offset = parseInt(offset) || 0;
+   let minutes = 0;
+
+   if (!ref)
+      return null;
+
+   if (!sunRefs[ref]) {
+      let [h, m] = ref.split(':').map(Number);
+      minutes = h * 60 + m;
+   }
+   else {
+      let sun = sunTimes();
+
+      if (!sun)
+         return null;
+
+      let t = ref == 'dawn' ? (sun.dawn || sun.sunrise) : ref == 'dusk' ? (sun.dusk || sun.sunset) : sun[ref];
+
+      if (!t)    // midnight sun / polar night, offset ignored
+         return ((ref == 'dawn' || ref == 'sunrise') == sun.sunUp) ? '00:00' : '24:00';
+
+      let d = new Date(t * 1000);
+      minutes = d.getHours() * 60 + d.getMinutes();
+   }
+
+   minutes = ((minutes + offset) % 1440 + 1440) % 1440;
+   return String(Math.floor(minutes / 60)).padStart(2, '0') + ':' + String(minutes % 60).padStart(2, '0');
+}
+
+// light rules of the switches / motion sensors (DZS, see lightrules.c) as text
+
+function factTitle(key) {
+   let f = valueFacts[key];
+   return f ? (f.usrtitle ? f.usrtitle : f.title) : key;
+}
+
+function lightRuleText(rule) {        // 'Bewegung → Folgen: Flur, Flur (5 %, 15 s), aus nach 3 min, nur Sonnenuntergang -30 (16:44) - ...'
+   const actions = { 'toggle': 'Umschalten', 'on': 'An', 'off': 'Aus', 'follow': 'Folgen' };
+   let text = (rule.trigger == 'button' ? 'Taste ' + rule.button : 'Bewegung') + ' → ' + (actions[rule.action] || rule.action) + ': ';
+   let opts = [];
+
+   text += (rule.targets || []).map(t => factTitle(t)).join(', ');
+
+   if (rule.bri)
+      opts.push(rule.bri + ' %');
+   if (rule.transition)
+      opts.push(rule.transition + ' s');
+   if (opts.length)
+      text += ' (' + opts.join(', ') + ')';
+   if (rule.offAfter)
+      text += ', aus nach ' + prettyDuration(rule.offAfter);
+   if (rule.condition)
+      text += ', nur ' + timeRefText(rule.condition.start, rule.condition.startOffset) + ' - ' +
+         timeRefText(rule.condition.end, rule.condition.endOffset);
+
+   return text;
+}
+
+function lightRulesFor(key) {         // rules of a sensor, or the rules switching a light / output -> [ text ]
+   let fact = valueFacts[key];
+   let texts = [];
+
+   if (!fact)
+      return texts;
+
+   if (fact.type == 'DZS')
+      return (fact.settings && Array.isArray(fact.settings.rules) ? fact.settings.rules : []).map(r => lightRuleText(r));
+
+   for (const k in valueFacts) {
+      let f = valueFacts[k];
+
+      if (f.type != 'DZS' || !f.settings || !Array.isArray(f.settings.rules))
+         continue;
+
+      for (const r of f.settings.rules)
+         if (Array.isArray(r.targets) && r.targets.includes(key))
+            texts.push(factTitle(k) + ': ' + lightRuleText(r));
+   }
+
+   return texts;
+}
+
+function timeRefText(ref, offset) {       // 'Sonnenuntergang -30 (17:12)', '06:30'
+   if (!ref)
+      return '–';
+
+   offset = parseInt(offset) || 0;
+   let offsetText = offset ? ' ' + (offset > 0 ? '+' : '') + offset : '';
+
+   if (!sunRefs[ref])
+      return offset ? ref + offsetText + ' (' + resolveTimeRef(ref, offset) + ')' : ref;
+
+   let resolved = resolveTimeRef(ref, offset);
+   return sunRefs[ref] + offsetText + (resolved ? ' (' + resolved + ')' : '');
+}
+
 function prettyDuration(seconds, short = true)
 {
    if (typeof seconds !== 'number' || isNaN(seconds) || seconds <= 0)

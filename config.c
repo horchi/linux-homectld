@@ -21,6 +21,7 @@ std::list<HomeCtl::ConfigItemDef> HomeCtl::configuration
    { "instanceIcon",              ctChoice,  "home.png",     "N", false, "Daemon", "Application Icon", "" },
    { "latitude",                  ctNum,     "50.3",         "N", false, "Daemon", "Breitengrad", "" },
    { "longitude",                 ctNum,     "8.79",         "N", false, "Daemon", "Längengrad", "" },
+   { "gpsLocation",               ctBool,    "",             "N", false, "Daemon", "Standort aus GPS", "Position für die Sonnenzeiten (Sensor 'Sonne', Zeitfenster der Ausgänge) und das Wetter vom GPS-Empfänger statt Breiten- / Längengrad der Konfiguration; liefert der Empfänger nichts mehr, gilt die letzte bekannte Position" },
 
    { "interval",                  ctInteger, "60",           "N", false, "Daemon", "Intervall der Aufzeichung", "Datenbank Aufzeichung [s]" },
 

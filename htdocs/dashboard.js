@@ -1820,9 +1820,17 @@ function getTimeHtml()
 
    if (!daytimeCalcAt || now.getTime() >= daytimeCalcAt.getTime()+60000){
       daytimeCalcAt = now;
-      let sunset = new Date().sunset(config.latitude.replace(',', '.'), config.longitude.replace(',', '.'));
-      let sunrise = new Date().sunrise(config.latitude.replace(',', '.'), config.longitude.replace(',', '.'));
-      isDaytime = daytimeCalcAt > sunrise && daytimeCalcAt < sunset;
+      let sun = sunTimes();     // of the daemon (position of the config or the GPS)
+
+      if (sun) {
+         let t = now.getTime() / 1000;
+         isDaytime = sun.sunrise && sun.sunset ? t > sun.sunrise && t < sun.sunset : sun.sunUp;
+      }
+      else {
+         let sunset = new Date().sunset(config.latitude.replace(',', '.'), config.longitude.replace(',', '.'));
+         let sunrise = new Date().sunrise(config.latitude.replace(',', '.'), config.longitude.replace(',', '.'));
+         isDaytime = daytimeCalcAt > sunrise && daytimeCalcAt < sunset;
+      }
       // console.log("isDaytime: " + isDaytime + ' : ' + sunrise + ' : '+ sunset);
    }
 
@@ -1955,7 +1963,10 @@ function titleClick(ctrlKey, key)
       let form = document.createElement("div");
 
       let timersString = (fact.settings && Array.isArray(fact.settings.times))
-          ? fact.settings.times.map(t => `${t.start}-${t.end}`).join(',') : '';
+          ? fact.settings.times.map(t => timeRefText(t.start, t.startOffset) + ' - ' + timeRefText(t.end, t.endOffset)).join(', ') : '';
+
+      let rules = lightRulesFor(key);     // light rules of the sensor / switching this light (tab 'Regeln')
+      let hasRules = rules.length > 0 || sensor.offAt;
 
       let value = sensor.value + ' ' + widget.unit;
 
@@ -1968,18 +1979,42 @@ function titleClick(ctrlKey, key)
       // console.log(sensor);
       // console.log(fact);
 
-      // two tabs when the daemon holds the raw message (JSON) of the sensor: data / JSON
+      // tabs: data, optional rules (light rules of the sensor / switching this light, see lightrules.c),
+      //   optional JSON (the daemon holds the raw message of the sensor)
 
       let tabs = $('<div></div>').attr('id', 'sensorInfoTabs');
       let dataTab = $('<div></div>').attr('id', 'sensorInfoData');
+      let withTabs = sensor.hasjson || hasRules;
 
-      if (sensor.hasjson) {
-         tabs.append($('<ul></ul>')
-                     .append($('<li></li>').append($('<a></a>').attr('href', '#sensorInfoData').html('Daten')))
-                     .append($('<li></li>').append($('<a></a>').attr('href', '#sensorInfoJson').html('JSON'))));
+      if (withTabs) {
+         let ul = $('<ul></ul>')
+             .append($('<li></li>').append($('<a></a>').attr('href', '#sensorInfoData').html('Daten')));
+
+         if (hasRules)
+            ul.append($('<li></li>').append($('<a></a>').attr('href', '#sensorInfoRules').html('Regeln')));
+
+         if (sensor.hasjson)
+            ul.append($('<li></li>').append($('<a></a>').attr('href', '#sensorInfoJson').html('JSON')));
+
+         tabs.append(ul);
       }
 
       tabs.append(dataTab);
+
+      if (hasRules) {
+         let rulesTab = $('<div></div>').attr('id', 'sensorInfoRules').addClass('sensorRules');
+
+         if (sensor.offAt)
+            rulesTab.append($('<div></div>').addClass('sensorRulesTimer')
+                            .text('Aus-Timer läuft bis ' + new Date(sensor.offAt * 1000).toLocaleTimeString(dateLocale)));
+
+         let list = $('<ul></ul>');
+
+         for (const text of rules)
+            list.append($('<li></li>').text(text));
+
+         tabs.append(rulesTab.append(list));
+      }
 
       if (sensor.hasjson)
          tabs.append($('<div></div>').attr('id', 'sensorInfoJson')
@@ -2125,12 +2160,13 @@ function titleClick(ctrlKey, key)
                                      .css('width', '30%')
                                      .css('text-align', 'end')
                                      .css('margin-right', '10px')
-                                     .html('Timers'))
+                                     .html('Zeitsteuerung'))
                              .append($('<span></span>')
                                      .append($('<div></div>')
                                              .addClass('rounded-border')
                                              .html(timersString)
                                             )))
+
                      .append($('<div></div>')
                              .css('display', sensor.battery ? 'flex' : 'none')
                              .css('margin-bottom', '4px')
@@ -2177,7 +2213,7 @@ function titleClick(ctrlKey, key)
          title: "Info - " + key + ' (' + parseInt(key.split(":")[1]) + ')',
          buttons: btns,
          open: function() {
-            if (sensor.hasjson) {
+            if (withTabs) {
                $('#sensorInfoTabs').tabs({
                   active: 0,                       // always start with 'Daten' (else jQuery UI picks the tab matching location.hash)
                   activate: function(event, ui) {
@@ -2193,7 +2229,8 @@ function titleClick(ctrlKey, key)
 
                // fetch the JSON right away (small), so it is there when the tab is opened
 
-               socket.send({ "event" : "command", "object" : { "what" : 'sensorjson', "type": fact.type, "address": fact.address } });
+               if (sensor.hasjson)
+                  socket.send({ "event" : "command", "object" : { "what" : 'sensorjson', "type": fact.type, "address": fact.address } });
             }
          },
          close: function() { $(this).dialog('destroy').remove();}

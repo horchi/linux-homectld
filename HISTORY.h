@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.35"
-#define VERSION_DATE "18.10.2026"
+#define _VERSION     "0.1.36"
+#define VERSION_DATE "25.10.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,33 @@
 
 /*
  * ------------------------------------
+
+2026-10-25: version 0.1.36
+    - added: sun times (sun.c): dawn, sunrise, sunset and dusk of the day (civil twilight -6°, sunrise / sunset
+             -0.833°), new text sensor SUN:0x01 'Sonne' with all four times (Plain Text widget shows them as table,
+             on the HASP panel the tabs are replaced by blanks); recalculated once a day, on a change of the
+             configuration and if the position moved more than 10 km; midnight sun / polar night are handled
+             (without dawn / dusk sunrise / sunset are used, without these the sun is up / down all day)
+    - added: config 'Standort aus GPS' (Daemon, default off): position for the sun times and the weather from the
+             GPS receiver (GPS:0x0a), also the last known one, else latitude / longitude of the configuration
+    - added: time ranges of the outputs (tab 'Zeiten'): start and end either a fixed time or a sun event
+             (Morgendämmerung, Sonnenaufgang, Sonnenuntergang, Abenddämmerung), each with an offset in minutes;
+             the resolved time of today is shown next to it; existing ranges stay valid
+    - added: time control of deCONZ lights / groups (DZL, DZLG) and HomeMatic blinds (HMB), dialog 'Zeitsteuerung'
+             (Sensor Setup -> Setup): switched only at the limits of the ranges (unlike DO / GPIO), switching by
+             hand stays until the next limit; on / off (brightness optional) resp. position at 'Zu' / 'Auf';
+             a limit may be 'keine'; limits missed by a restart are not caught up; a moving blind gets LEVEL, not STOP
+    - added: light rules without LUA (lightrules.c), dialog 'Regeln' of the deCONZ switches / motion sensors (DZS):
+             trigger button code or motion, action Umschalten / An / Aus / Folgen, targets (lights, groups, outputs),
+             brightness, transition, optional time range for switching on, off timer retriggered by each event
+             which switches off only what the rule switched on; each button event / motion is an event, also the
+             same value again; the timers are kept in memory only
+    - added: info dialog of the dashboard: tab 'Regeln' with the rules of a sensor resp. the rules switching a
+             light and a running off timer; the time ranges are shown resolved ('Sonnenuntergang -30 (16:44)')
+    - change: dashboard: day / night of the clock by the sun times of the daemon (also with the GPS position)
+    - change: deCONZ groups are switched with an explicit state by the time control and the light rules
+             (toggling by the WEBIF as before)
+    - change: openweathermap: requested for the position of 'Standort aus GPS'
 
 2026-10-18: version 0.1.35
     - bugfix: WEBIF: a websocket connection closed without the close handshake (page reload, mobile client vanished)

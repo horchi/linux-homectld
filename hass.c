@@ -414,7 +414,7 @@ int HomeCtl::mqttNodeRedPublishSensor(SensorData& sensor)
    return mqttNodeRedPublishAction(sensor, sensor.value, true);
 }
 
-int HomeCtl::mqttNodeRedPublishAction(SensorData& sensor, double value, bool publishOnly)
+int HomeCtl::mqttNodeRedPublishAction(SensorData& sensor, double value, bool publishOnly, bool noStop)
 {
    if (!mqttWriter || !mqttWriter->isConnected())
        return done;
@@ -437,7 +437,7 @@ int HomeCtl::mqttNodeRedPublishAction(SensorData& sensor, double value, bool pub
 
       if (sensor.type == "HMB")
       {
-         json_object_set_new(oJson, "action", json_string(sensor.working ? "STOP" : "LEVEL"));
+         json_object_set_new(oJson, "action", json_string(sensor.working && !noStop ? "STOP" : "LEVEL"));
          json_object_set_new(oJson, "uuid", json_string(homeMaticUuids[sensor.address].c_str()));
       }
       else

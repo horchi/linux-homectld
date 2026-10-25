@@ -367,7 +367,7 @@ int Deconz::processDevices(json_t* jData, std::string kind)
 // Toggle
 //***************************************************************************
 
-int Deconz::toggle(const char* type, uint address, bool state, int bri, int transitiontime)
+int Deconz::toggle(const char* type, uint address, bool state, int bri, int transitiontime, bool explicitState)
 {
    json_t* jArray {};
    std::string uuid;
@@ -390,7 +390,7 @@ int Deconz::toggle(const char* type, uint address, bool state, int bri, int tran
 
    json_t* jObj = json_object();
 
-   if (std::string(type) == "DZL")
+   if (std::string(type) == "DZL" || explicitState)   // a group is toggled unless the state is explicit
       json_object_set_new(jObj, "on", json_boolean(state));
    else
       json_object_set_new(jObj, "toggle", json_boolean(true));

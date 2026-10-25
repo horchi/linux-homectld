@@ -381,6 +381,7 @@ function showTable(section)
           item.type == 'DI' || item.type.startsWith('MCPI') ||
           item.type == 'SC' || item.type == 'GPIO' ||
           item.type == 'CV' || item.type == 'AI' ||
+          item.type == 'DZL' || item.type == 'DZLG' || item.type == 'HMB' || item.type == 'DZS' ||
           item.type.startsWith('ADS')) {
          tr.append($('<td>').append($('<button>')
                                     .attr('id', 'btnSensorSetup_' + id)
@@ -435,6 +436,10 @@ function sensorSetupDialog(type, address)
          sensorDiSetup(type, address);
       else if (type == 'SC')
          sensorScSetup(type, address);
+      else if (type == 'DZL' || type == 'DZLG' || type == 'HMB')
+         sensorActorSetup(type, address);
+      else if (type == 'DZS')
+         sensorRulesSetup(type, address);
    }
 
    if (changes)
@@ -630,6 +635,86 @@ function deleteValueFact(type, address)
    confirmDialog(doDelete, 'Delete Sensor?', 'Delete', 'Cancel');
 }
 
+//***************************************************************************
+// Time ranges (tab 'Zeiten' of the outputs, time control of the actors)
+//   start / end: fixed time 'HH:MM' or sun event (sunRefs), each with an offset [min];
+//   with allowEmpty a side can be 'keine' (actors switch only at the limits)
+//***************************************************************************
+
+function createTimeSide(label, cls, ref, offset, allowEmpty = false) {
+   let isSun = sunRefs[ref] != null;
+   let isEmpty = allowEmpty && !ref;
+   let $select = $('<select></select>').addClass('rounded-border do-timer-ref ' + cls + '-ref');
+
+   if (allowEmpty)
+      $select.append($('<option></option>').val('').text('keine'));
+
+   $select.append($('<option></option>').val('time').text('Uhrzeit'));
+
+   for (const [key, title] of Object.entries(sunRefs))
+      $select.append($('<option></option>').val(key).text(title));
+
+   $select.val(isEmpty ? '' : isSun ? ref : 'time');
+
+   let $time = $('<input></input>').attr('type', 'time').addClass('do-timer-input ' + cls).val(isSun || isEmpty ? '' : ref);
+   let $offset = $('<input></input>').attr('type', 'number').attr('step', '1').attr('title', 'Offset [min]')
+       .addClass('do-timer-input do-timer-offset ' + cls + '-offset').val(offset ? offset : 0);
+   let $unit = $('<span>min</span>');
+   let $resolved = $('<span></span>').addClass('do-timer-resolved');
+
+   let update = function() {
+      let sel = $select.val();
+      $time.toggle(sel == 'time');
+      $offset.toggle(sel != '');
+      $unit.toggle(sel != '');
+      let resolved = sel != '' ? resolveTimeRef(sel != 'time' ? sel : $time.val(), $offset.val()) : null;
+      $resolved.text(resolved ? '(' + resolved + ')' : '');
+   };
+
+   $select.on('change', update);
+   $time.on('change', update);
+   $offset.on('input', update);
+   update();
+
+   return $('<div></div>').addClass('do-timer-side')
+      .append($('<span></span>').text(label).addClass('do-timer-label'))
+      .append($select)
+      .append($time)
+      .append($offset)
+      .append($unit)
+      .append($resolved);
+}
+
+function createTimeRow(t = { 'start': '08:00', 'end': '17:00' }, labels = ['Von', 'Bis'], allowEmpty = false) {
+   let $row = $('<div></div>').addClass('do-timer-row');
+   $row.append($('<div></div>').addClass('do-timer-sides')
+               .append(createTimeSide(labels[0], 'timer-start', t.start, t.startOffset, allowEmpty))
+               .append(createTimeSide(labels[1], 'timer-end', t.end, t.endOffset, allowEmpty)))
+       .append($('<button></button>').text('X').addClass('do-timer-delete').on('click', function() { $row.remove(); }));
+   return $row;
+}
+
+// the rows of a container -> [{ start, startOffset, end, endOffset }]
+
+function collectTimeRows($container, allowEmpty = false) {
+   let timesArray = [];
+
+   $container.find('.do-timer-row').each(function() {
+      let side = (cls) => {
+         let ref = $(this).find('.' + cls + '-ref').val();
+         return ref == '' ? '' : ref != 'time' ? ref : $(this).find('input.' + cls).val();
+      };
+      let start = side('timer-start');
+      let end = side('timer-end');
+
+      if (allowEmpty ? (start || end) : (start && end))
+         timesArray.push({ 'start': start, 'startOffset': parseInt($(this).find('.timer-start-offset').val()) || 0,
+                           'end': end, 'endOffset': parseInt($(this).find('.timer-end-offset').val()) || 0 });
+   });
+
+   return timesArray;
+}
+
 function sensorGpioSetup(type, address)
 {
    let key = toKey(type, parseInt(address));
@@ -755,17 +840,7 @@ async function sensorDoSetup(type, address)
 
    let existingTimes = (valueFacts[key].settings && Array.isArray(valueFacts[key].settings.times)) ? valueFacts[key].settings.times : [];
 
-   function createTimeRow(startVal = '08:00', endVal = '17:00') {
-      let $row = $('<div></div>').addClass('do-timer-row');
-      $row.append($('<span>Von</span>'))
-          .append($('<input></input>').attr('type', 'time').addClass('do-timer-input timer-start').val(startVal))
-          .append($('<span>Bis</span>'))
-          .append($('<input></input>').attr('type', 'time').addClass('do-timer-input timer-end').val(endVal))
-          .append($('<button></button>').text('X').addClass('do-timer-delete').on('click', function() { $row.remove(); }));
-      return $row;
-   }
-
-   existingTimes.forEach(t => { $(form).find('#doTimerListContainer').append(createTimeRow(t.start, t.end)); });
+   existingTimes.forEach(t => { $(form).find('#doTimerListContainer').append(createTimeRow(t)); });
    let doScript = valueFacts[key].settings && valueFacts[key].settings.script ? valueFacts[key].settings.script : '';
    let title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
 
@@ -852,12 +927,7 @@ async function sensorDoSetup(type, address)
                return;
             }
 
-            let timesArray = [];
-            $(form).find('.do-timer-row').each(function() {
-               let start = $(this).find('.timer-start').val();
-               let end = $(this).find('.timer-end').val();
-               if (start && end) timesArray.push({ 'start': start, 'end': end });
-            });
+            let timesArray = collectTimeRows($(form));
 
             let splitVal = $('#feedbackIo').val().split(":");
             let fbType = splitVal ? splitVal : '';
@@ -885,6 +955,304 @@ async function sensorDoSetup(type, address)
          doEditor = null;
          calSensorType = '';
          calSensorAddress = -1;
+         $(this).dialog('destroy').remove();
+      }
+   });
+}
+
+//***************************************************************************
+// Time control of the actors (DZL, DZLG, HMB)
+//   switched only at the limits of the ranges (see sun.c), a limit may be empty
+//***************************************************************************
+
+function sensorActorSetup(type, address)
+{
+   let key = toKey(type, parseInt(address));
+
+   if (valueFacts[key] == null) {
+      console.log("Sensor ", key, "undefined");
+      return;
+   }
+
+   let settings = valueFacts[key].settings ? valueFacts[key].settings : {};
+   let blind = type == 'HMB';
+   let labels = blind ? ['Zu', 'Auf'] : ['An', 'Aus'];
+   let form = document.createElement("div");
+
+   let numberRow = (id, label, value, title) => $('<div></div>')
+       .append($('<span></span>').html(label))
+       .append($('<span></span>')
+               .append($('<input></input>')
+                       .attr('id', id)
+                       .attr('type', 'number').attr('min', '0').attr('max', '100').attr('step', '1')
+                       .attr('title', title)
+                       .addClass('rounded-border inputSetting')
+                       .val(value)));
+
+   let dlgContent = $('<div></div>')
+       .addClass('settingsDialogContent')
+       .append($('<div></div>')
+               .append($('<span></span>').html('Zeitsteuerung aktiv'))
+               .append($('<span></span>')
+                       .append($('<input></input>')
+                               .attr('id', 'timesEnabled')
+                               .attr('type', 'checkbox')
+                               .addClass('rounded-border inputSetting')
+                               .prop('checked', settings.timesEnabled != null ? settings.timesEnabled : true))
+                       .append($('<label></label>').prop('for', 'timesEnabled'))));
+
+   if (blind)
+      dlgContent
+         .append(numberRow('levelIn', 'Position bei \'Zu\' [%]', settings.levelIn != null ? settings.levelIn : 0, '0 = ganz zu'))
+         .append(numberRow('levelOut', 'Position bei \'Auf\' [%]', settings.levelOut != null ? settings.levelOut : 100, '100 = ganz auf'));
+   else
+      dlgContent
+         .append(numberRow('timesBri', 'Helligkeit bei \'An\' [%]', settings.bri != null && settings.bri > 0 ? settings.bri : '', 'leer = unverändert'));
+
+   dlgContent
+      .append($('<div></div>')
+              .append($('<span></span>').html('Zeiten'))
+              .append($('<span></span>')
+                      .append($('<button></button>').text('+').addClass('rounded-border button2')
+                              .on('click', function() { $('#actorTimerListContainer').append(createTimeRow({ 'start': '', 'end': '' }, labels, true)); }))))
+      .append($('<div></div>').attr('id', 'actorTimerListContainer').addClass('do-timer-list'))
+      .append($('<div></div>')
+              .css('font-size', 'smaller').css('color', '#999').css('margin-top', '8px')
+              .html('Geschaltet wird nur zu den eingestellten Zeiten, von Hand geschaltet bleibt es bis zur nächsten Zeit. ' +
+                    'Eine der beiden Zeiten darf \'keine\' sein.'));
+
+   $(form).append(dlgContent);
+
+   (Array.isArray(settings.times) ? settings.times : []).forEach(t => {
+      $(form).find('#actorTimerListContainer').append(createTimeRow(t, labels, true));
+   });
+
+   let title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
+
+   $(form).dialog({
+      modal: true,
+      resizable: true,
+      closeOnEscape: true,
+      hide: "fade",
+      width: Math.min(Math.round($(window).width() * 0.9), 700),
+      title: "Zeitsteuerung '" + title + "'",
+      open: function() {
+         calSensorType = type;
+         calSensorAddress = address;
+      },
+      buttons: {
+         'Abbrechen': function () {
+            $(this).dialog('close');
+         },
+         'Speichern': function () {
+            let newSettings = Object.assign({}, settings);   // keep other settings of the sensor
+
+            newSettings.timesEnabled = $('#timesEnabled').is(':checked');
+            newSettings.times = collectTimeRows($(form), true);
+
+            if (blind) {
+               newSettings.levelIn = parseInt($('#levelIn').val()) || 0;
+               newSettings.levelOut = $('#levelOut').val() != '' ? parseInt($('#levelOut').val()) : 100;
+            }
+            else
+               newSettings.bri = parseInt($('#timesBri').val()) || 0;
+
+            socket.send({ "event" : "storesensorsetup", "object" : {
+               'type' : type,
+               'address' : parseInt(address),
+               'settings' : newSettings
+            }});
+
+            $(this).dialog('close');
+         }
+      },
+      close: function() {
+         calSensorType = '';
+         calSensorAddress = -1;
+         $(this).dialog('destroy').remove();
+      }
+   });
+}
+
+//***************************************************************************
+// Light rules of switches / motion sensors (DZS, see lightrules.c)
+//***************************************************************************
+
+function createRuleBlock(rule, targetOptions, lastButton)
+{
+   let $block = $('<div></div>').addClass('rule-block rounded-border');
+   let row = (label, ...content) => $('<div></div>').addClass('rule-row')
+       .append($('<span></span>').addClass('rule-label').html(label))
+       .append($('<span></span>').addClass('rule-value').append(...content));
+
+   let $trigger = $('<select></select>').addClass('rounded-border rule-trigger')
+       .append($('<option></option>').val('button').text('Taste'))
+       .append($('<option></option>').val('motion').text('Bewegung'))
+       .val(rule.trigger || 'button');
+   let $button = $('<input></input>').attr('type', 'number').addClass('rounded-border rule-button')
+       .attr('title', 'Tastencode, z.B. 1002 kurz, 1004 doppelt')
+       .val(rule.button != null ? rule.button : (lastButton || 1002));
+   let $buttonHint = $('<span></span>').addClass('do-timer-resolved')
+       .text(lastButton ? '(zuletzt: ' + lastButton + ')' : '');
+
+   let $action = $('<select></select>').addClass('rounded-border rule-action')
+       .append($('<option></option>').val('toggle').text('Umschalten'))
+       .append($('<option></option>').val('on').text('An'))
+       .append($('<option></option>').val('off').text('Aus'))
+       .append($('<option></option>').val('follow').text('Folgen (an bei Bewegung, aus ohne)'))
+       .val(rule.action || 'toggle');
+
+   let $targets = $('<select></select>').attr('multiple', true).attr('size', 8).addClass('rounded-border rule-targets');
+
+   for (const opt of targetOptions)
+      $targets.append($('<option></option>').val(opt.key).text(opt.title)
+                      .prop('selected', Array.isArray(rule.targets) && rule.targets.includes(opt.key)));
+
+   let num = (cls, value, title) => $('<input></input>').attr('type', 'number').attr('min', '0')
+       .attr('title', title).addClass('rounded-border rule-number ' + cls).val(value ? value : '');
+
+   let cond = rule.condition || {};
+   let $condOn = $('<input></input>').attr('type', 'checkbox').addClass('rule-cond-on').prop('checked', rule.condition != null);
+   let $condSides = $('<div></div>').addClass('do-timer-sides rule-cond')
+       .append(createTimeSide('Von', 'timer-start', cond.start || 'dusk', cond.startOffset))
+       .append(createTimeSide('Bis', 'timer-end', cond.end || 'sunrise', cond.endOffset));
+
+   let update = () => {
+      let button = $trigger.val() == 'button';
+      $button.toggle(button);
+      $buttonHint.toggle(button);
+      $condSides.toggle($condOn.is(':checked'));
+   };
+
+   $trigger.on('change', update);
+   $condOn.on('change', update);
+
+   $block
+      .append(row('Auslöser', $trigger, $button, $buttonHint))
+      .append(row('Aktion', $action))
+      .append(row('Ziele', $targets))
+      .append(row('Helligkeit [%]', num('rule-bri', rule.bri, 'leer = unverändert')))
+      .append(row('Übergang [s]', num('rule-transition', rule.transition, 'leer = Standard')))
+      .append(row('Aus nach [s]', num('rule-offafter', rule.offAfter, 'leer = kein Timer; jede weitere Bewegung / Tastendruck startet ihn neu')))
+      .append(row('Nur im Zeitfenster', $condOn, $condSides))
+      .append($('<div></div>').css('text-align', 'right')
+              .append($('<button></button>').text('Regel löschen').addClass('rounded-border do-timer-delete')
+                      .on('click', () => $block.remove())));
+
+   update();
+   return $block;
+}
+
+function collectRuleBlocks($container)
+{
+   let rules = [];
+
+   $container.find('.rule-block').each(function() {
+      let $b = $(this);
+      let rule = {
+         'trigger': $b.find('.rule-trigger').val(),
+         'action': $b.find('.rule-action').val(),
+         'targets': $b.find('.rule-targets').val() || []
+      };
+
+      if (rule.trigger == 'button')
+         rule.button = parseInt($b.find('.rule-button').val()) || 0;
+
+      for (const [cls, name] of [['rule-bri', 'bri'], ['rule-transition', 'transition'], ['rule-offafter', 'offAfter']]) {
+         let v = parseInt($b.find('.' + cls).val());
+         if (v > 0)
+            rule[name] = v;
+      }
+
+      if ($b.find('.rule-cond-on').is(':checked')) {
+         let side = (cls) => {
+            let ref = $b.find('.' + cls + '-ref').val();
+            return ref != 'time' ? ref : $b.find('input.' + cls).val();
+         };
+         rule.condition = { 'start': side('timer-start'), 'startOffset': parseInt($b.find('.timer-start-offset').val()) || 0,
+                            'end': side('timer-end'), 'endOffset': parseInt($b.find('.timer-end-offset').val()) || 0 };
+      }
+
+      if (rule.targets.length)
+         rules.push(rule);
+   });
+
+   return rules;
+}
+
+function sensorRulesSetup(type, address)
+{
+   let key = toKey(type, parseInt(address));
+
+   if (valueFacts[key] == null) {
+      console.log("Sensor ", key, "undefined");
+      return;
+   }
+
+   let settings = valueFacts[key].settings ? valueFacts[key].settings : {};
+   let sensor = allSensors[key];
+   let lastButton = sensor && sensor.value > 1000 ? sensor.value : null;
+   let form = document.createElement("div");
+
+   // targets: active lights, light groups and outputs
+
+   let targetOptions = [];
+
+   for (const k in valueFacts) {
+      let f = valueFacts[k];
+
+      if (!f.state || !(f.type == 'DZL' || f.type == 'DZLG' || f.type == 'DO' || f.type.startsWith('MCPO') ||
+                        (f.type == 'GPIO' && f.settings && f.settings.fct == 'out')))
+         continue;
+
+      targetOptions.push({ 'key': k, 'title': (f.usrtitle ? f.usrtitle : f.title) + ' (' + k + ')' });
+   }
+
+   targetOptions.sort((a, b) => a.title.localeCompare(b.title));
+
+   let $list = $('<div></div>').attr('id', 'ruleListContainer');
+
+   (Array.isArray(settings.rules) ? settings.rules : []).forEach(r => $list.append(createRuleBlock(r, targetOptions, lastButton)));
+
+   $(form)
+      .append($('<div></div>')
+              .append($('<button></button>').text('+ Regel').addClass('rounded-border button2')
+                      .on('click', () => $list.append(createRuleBlock({}, targetOptions, lastButton)))))
+      .append($list)
+      .append($('<div></div>')
+              .css('font-size', 'smaller').css('color', '#999').css('margin-top', '8px')
+              .html('Jeder Tastendruck und jede Bewegung löst aus. \'Umschalten\': ist eines der Ziele an, gehen alle aus, sonst alle an. ' +
+                    'Der Aus-Timer schaltet nur aus, was die Regel selbst eingeschaltet hat. ' +
+                    'Das Zeitfenster gilt nur für das Einschalten.'));
+
+   let title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
+
+   $(form).dialog({
+      modal: true,
+      resizable: true,
+      closeOnEscape: true,
+      hide: "fade",
+      width: Math.min(Math.round($(window).width() * 0.95), 800),
+      maxHeight: Math.round($(window).height() * 0.9),
+      title: "Regeln '" + title + "'",
+      buttons: {
+         'Abbrechen': function () {
+            $(this).dialog('close');
+         },
+         'Speichern': function () {
+            let newSettings = Object.assign({}, settings);   // keep other settings of the sensor
+            newSettings.rules = collectRuleBlocks($list);
+
+            socket.send({ "event" : "storesensorsetup", "object" : {
+               'type' : type,
+               'address' : parseInt(address),
+               'settings' : newSettings
+            }});
+
+            $(this).dialog('close');
+         }
+      },
+      close: function() {
          $(this).dialog('destroy').remove();
       }
    });

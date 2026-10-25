@@ -96,6 +96,7 @@ HomeCtl::ValueTypes HomeCtl::defaultValueTypes[] =
    { "^HM.*",     "Home Matic" },
    { "^P4.*",     "P4 Daemon" },
    { "^WEA",      "Wetter" },
+   { "^SUN",      "Sonne" },
    { "^DHT",      "Wetter" },
    { "^CV",       "Calculated Values" },
    { "^PA",       "Parameter" },
@@ -160,6 +161,7 @@ HomeCtl::DefaultWidgetProperty HomeCtl::defaultWidgetProperties[] =
    { "DZS",      na,  "lx",      wtChart,        0,         0,       0, true },
    { "DZS",      na,   "*",      wtMeter,        0,        45,      12, true },
    { "WEA",      na,   "*",  wtPlainText,        0,         0,       0, true },
+   { "SUN",      na,   "*",  wtPlainText,        0,         0,       0, false },
    { "N4000",    na,   "*",      wtValue,        0,         0,       0, false },
    { "T2090",    na,   "*",      wtValue,        0,         0,       0, true },
    { "CV",       na, "txt",       wtText,        0,         0,       0, true },
@@ -2139,6 +2141,10 @@ int HomeCtl::readConfiguration(bool initial)
 
    getConfigItem("latitude", latitude);
    getConfigItem("longitude", longitude);
+   getConfigItem("gpsLocation", gpsLocation, false);
+
+   if (!initial)
+      sunUpdate(true);
 
    // OpenWeatherMap
 
@@ -2316,6 +2322,8 @@ int HomeCtl::meanwhile()
 
    dispatchClientRequest();
    dispatchDeconz();
+   performLightRules();
+   homeMaticCheckRequests();
    performMqttRequests();
    performJobs();
    performLmcUpdates();
@@ -2393,6 +2401,8 @@ int HomeCtl::loop()
             LogDuration ld("updateWeather", eloLoopTimings);
             updateWeather();
          }
+
+         sunUpdate();
 
          {
             LogDuration ld("updateSensors", eloLoopTimings);
@@ -2666,11 +2676,39 @@ int HomeCtl::process(bool force, bool signal)
 {
    // Zeitschaltuhr
 
+   // actors (deCONZ lights, HomeMatic blinds) switch only at the limits of their time ranges,
+   //  the actions are collected and done after the loop (toggleIo() uses tableValueFacts)
+
+   time_t now {time(0)};
+   time_t checkedAt {actorTimesCheckedAt};
+   std::vector<ActorTimeAction> actorActions;
+
+   actorTimesCheckedAt = now;
+
+   if (now - checkedAt > 15 * tmeSecondsPerMinute)
+      checkedAt = now;           // start or stalled for a long time - limits in the past are not caught up
+
    for (bool f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
       std::string type {tableValueFacts->getStrValue("TYPE")};
       ulong address {(ulong)tableValueFacts->getIntValue("ADDRESS")};
       bool gpioOut {type == "GPIO" && sensors[type][address].fct == "out"};
+
+      if (type == "DZL" || type == "DZLG" || type == "HMB")
+      {
+         if (sensors[type][address].active && checkedAt < now && !tableValueFacts->getValue("SETTINGS")->isEmpty())
+         {
+            json_t* o {jsonLoad(tableValueFacts->getStrValue("SETTINGS"), 0, true)};
+
+            if (o)
+            {
+               actorTimesDue(type.c_str(), address, o, checkedAt, now, actorActions);
+               json_decref(o);
+            }
+         }
+
+         continue;
+      }
 
       if (!sensors[type][address].active || sensors[type][address].mode != omAuto)
          continue;
@@ -2702,14 +2740,13 @@ int HomeCtl::process(bool force, bool signal)
 
             json_array_foreach(jTimes, index, value)
             {
-               json_t* jStart {getObjectFromJson(value, "start")};
-               json_t* jEnd {getObjectFromJson(value, "end")};
+               // start / end: "HH:MM" or dawn|sunrise|sunset|dusk, each with an optional offset [minutes]
 
-               if (json_is_string(jStart) && json_is_string(jEnd))
+               Range r;
+
+               if (sunResolve(getStringFromJson(value, "start"), getIntFromJson(value, "startOffset", 0), r.from) == success &&
+                   sunResolve(getStringFromJson(value, "end"), getIntFromJson(value, "endOffset", 0), r.to) == success)
                {
-                  Range r;
-                  r.from = hh_mm2int(json_string_value(jStart));
-                  r.to = hh_mm2int(json_string_value(jEnd));
                   currentRanges.push_back(r);
                }
             }
@@ -2734,6 +2771,9 @@ int HomeCtl::process(bool force, bool signal)
       if (sensors[type][address].state != activate)
          gpioWrite(address, activate);
    }
+
+   for (const auto& action : actorActions)
+      actorTimeAction(action);
 
    return processLua(force, signal);
 }
@@ -3781,8 +3821,10 @@ int HomeCtl::updateWeather()
    int size {0};
    char* url {};
 
+   GpsCoordinate pos {location()};
+
    asprintf(&url, "http://api.openweathermap.org/data/2.5/forecast?appid=%s&units=metric&lang=de&lat=%f&lon=%f",
-            openWeatherApiKey.c_str(), latitude, longitude);
+            openWeatherApiKey.c_str(), pos.latitude, pos.longitude);
 
    tell(eloWeather, "-> (openweathermap) [%s]", url);
    int status {curl.downloadFile(url, size, &data, 2)};
@@ -3931,6 +3973,14 @@ int HomeCtl::dispatchDeconz()
       else if (getObjectFromJson(oData, "presence"))
          sensor->setState(getBoolFromJson(oData, "presence"));
 
+      // switches and motion sensors are events for the light rules - also the same value again
+      //  (processed by performLightRules() outside of the lock)
+
+      if (getObjectFromJson(oData, "btnevent"))
+         lightRuleEvents.push_back({ type, (uint)address, getIntFromJson(oData, "btnevent"), na });
+      else if (getObjectFromJson(oData, "presence"))
+         lightRuleEvents.push_back({ type, (uint)address, na, getBoolFromJson(oData, "presence") });
+
       if (getObjectFromJson(oData, "bri"))
          sensor->setValue(bri);
 
@@ -4006,8 +4056,24 @@ int HomeCtl::dispatchHomematicRpcResult(const char* message)
    if (!json_is_array(jData))
       tell(eloHomeMatic, "<- (home-matic) '%s'", message);
 
+   // the answer of getParamset(uuid, "VALUES") - without the uuid, the requests are sent one by one
+
+   if (json_is_object(jData))
+   {
+      if (!homeMaticValueRequests.empty())
+      {
+         homeMaticParamset(homeMaticValueRequests.front().c_str(), jData);
+         homeMaticValueRequests.pop_front();
+         homeMaticRequestNext();
+      }
+
+      json_decref(jData);
+      return done;
+   }
+
    size_t index {0};
    json_t* jItem {};
+   bool blinds {false};
 
    json_array_foreach(jData, index, jItem)
    {
@@ -4057,10 +4123,101 @@ int HomeCtl::dispatchHomematicRpcResult(const char* message)
 
       addValueFact(address, "HMB", 1, uuid, "%", "", urControl);
       sensors["HMB"][address].lastDir = getIntFromJson(jItem, "DIRECTION") == 2 ? dirClose : dirOpen;
-      sensors["HMB"][address].setValue(100);   // #TODO: request the actual value/position !
+
+      // the position: last known one (restored from iostates) until the CCU answers getParamset()
+
+      if (!sensors["HMB"][address].valid())
+         sensors["HMB"][address].setValue(100);
+
+      homeMaticValueRequests.push_back(uuid);
+      blinds = true;
    }
 
    json_decref(jData);
+
+   if (blinds)
+      homeMaticRequestNext();
+
+   return done;
+}
+
+//***************************************************************************
+// HomeMatic - actual values of the blinds
+//   getParamset(uuid, "VALUES") via the NR bridge (rpccall -> rpcresult), the answer carries
+//   no uuid - therefore one request after the other, an unanswered one is dropped after 10 s
+//***************************************************************************
+
+int HomeCtl::homeMaticRequestNext()
+{
+   homeMaticRequestAt = 0;
+
+   if (homeMaticValueRequests.empty() || mqttCheckConnection() != success)
+      return done;
+
+   char* request {};
+   asprintf(&request, "{ \"method\" : \"getParamset\", \"parameters\" : [\"%s\", \"VALUES\"] }",
+            homeMaticValueRequests.front().c_str());
+   mqttWriter->write(INSTANCE "2mqtt/homematic/rpccall", request);
+   tell(eloHomeMatic, "-> (home-matic) '%s' to '%s'", INSTANCE "2mqtt/homematic/rpccall", request);
+   free(request);
+
+   homeMaticRequestAt = time(0);
+
+   return done;
+}
+
+int HomeCtl::homeMaticCheckRequests()
+{
+   if (homeMaticRequestAt && homeMaticRequestAt + 10 < time(0))
+   {
+      tell(eloAlways, "Warning: (home-matic) No answer for the values of '%s', skipping",
+           homeMaticValueRequests.front().c_str());
+
+      homeMaticValueRequests.pop_front();
+      homeMaticRequestNext();
+   }
+
+   return done;
+}
+
+int HomeCtl::homeMaticParamset(const char* uuid, json_t* jValues)
+{
+   long address {na};
+
+   for (const auto& [addr, u] : homeMaticUuids)
+      if (u == uuid)
+         address = addr;
+
+   if (address == na || !getObjectFromJson(jValues, "LEVEL"))
+      return fail;
+
+   SensorData& sensor {sensors["HMB"][address]};
+   double value {getDoubleFromJson(jValues, "LEVEL") * 100};    // to [%]
+
+   tell(eloHomeMatic, "<- (home-matic) '%s' level %.0f%%", uuid, value);
+
+   sensor.setState(value == 100);                               // on if completely open
+   sensor.setValue(value);
+   sensor.working = getBoolFromJson(jValues, "WORKING", false);
+
+   if (getIntFromJson(jValues, "DIRECTION", 0) != 0)
+      sensor.lastDir = getIntFromJson(jValues, "DIRECTION") == 2 ? dirClose : dirOpen;
+
+   {
+      json_t* ojData {json_object()};
+      sensor2Json(ojData, "HMB", address);
+      json_object_set_new(ojData, "value", json_real(value));
+
+      char* tuple {};
+      asprintf(&tuple, "%s:0x%02lx", "HMB", address);
+      jsonSensorList[tuple] = ojData;
+      free(tuple);
+
+      pushDataUpdate("update", 0L);
+   }
+
+   mqttHaPublish(sensor);
+
    return done;
 }
 

@@ -2102,9 +2102,15 @@ int HomeCtl::haspPublishSensor(const SensorData& sensor)
             break;
 
          case hwtText:
+         {
+            // the panel knows no tabs (e.g. the table of the sun times SUN:0x01)
+
+            std::string text {!sensor.text.empty() ? sensor.text : withUnit};
+            std::replace(text.begin(), text.end(), '\t', ' ');
             snprintf(obj, sizeof(obj), "p%db%d.text", ref.page, ref.valueId);
-            haspQueueCommand(obj, !sensor.text.empty() ? sensor.text : withUnit);
+            haspQueueCommand(obj, text);
             break;
+         }
 
          case hwtSymbol:
             snprintf(obj, sizeof(obj), "p%db%d.val", ref.page, ref.objId);

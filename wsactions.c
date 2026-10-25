@@ -183,7 +183,7 @@ bool HomeCtl::checkRights(long client, Event event, json_t* oObject)
       const char* type {getStringFromJson(oObject, "type")};
       int addr {getIntFromJson(oObject, "address")};
 
-      tell(eloAlways, "Check evToggleIo rights for '%s:0x%x'", type, addr);
+      tell(eloDebug, "Debug: Check evToggleIo rights for '%s:0x%x'", type, addr);
 
       tableValueFacts->clear();
       tableValueFacts->setValue("ADDRESS", addr);
@@ -1723,8 +1723,12 @@ int HomeCtl::storeSensorSetup(json_t* obj, long client)
       status = storeIoSettings(obj, client);
    else if (type == "SC")
       status = storeIoSettings(obj, client);
+   else if (type == "DZL" || type == "DZLG" || type == "HMB")     // time control
+      status = storeIoSettings(obj, client);
+   else if (type == "DZS")                                          // light rules
+      status = storeIoSettings(obj, client);
    else
-      return replyResult(fail, client, "Ignoring config request, only supported for 'AI', 'DO', 'GPIO', 'W1', 'SC' and 'CV' sensors");
+      return replyResult(fail, client, "Ignoring config request, only supported for 'AI', 'DO', 'GPIO', 'W1', 'SC', 'CV', 'DZL', 'DZLG', 'DZS' and 'HMB' sensors");
 
    if (status == success)
    {
@@ -3061,6 +3065,8 @@ int HomeCtl::sensor2Json(json_t* obj, const char* type, uint address)
       ;
    else if (strcmp(type, "WEA") == 0)
       ; // valid ist bereits korrekt gesetzt
+   else if (strcmp(type, "SUN") == 0)
+      sun2Json(obj);   // updated only once a day
    else if (strcmp(type, "HMB") == 0)
       ;
    else if (strcmp(type, "DZS") == 0 || strncmp(type, "DZL", 3) == 0)
@@ -3074,6 +3080,24 @@ int HomeCtl::sensor2Json(json_t* obj, const char* type, uint address)
       sensors[type][address].invalidate();
 
    json_object_set_new(obj, "valid", json_boolean(sensors[type][address].valid()));
+
+   // running off timer of a light rule (lightrules.c) switching this sensor
+
+   if (!lightRuleTimers.empty())
+   {
+      char* key {};
+      asprintf(&key, "%s:0x%02x", type, address);
+      time_t offAt {0};
+
+      for (const auto& timer : lightRuleTimers)
+         if (timer.second.switchedOn.count(key) && (!offAt || timer.second.offAt < offAt))
+            offAt = timer.second.offAt;
+
+      if (offAt)
+         json_object_set_new(obj, "offAt", json_integer(offAt));
+
+      free(key);
+   }
 
    if (!sensors[type][address].color.empty())
       json_object_set_new(obj, "color", json_string(sensors[type][address].color.c_str()));

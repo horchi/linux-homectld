@@ -344,6 +344,16 @@ class HomeCtl : public cWebInterface, public Service
       int homeMaticRequestNext();                            // getParamset() of the next blind
       int homeMaticCheckRequests();                          // timeout of an unanswered request
       int homeMaticParamset(const char* uuid, json_t* jValues);
+
+      // HomeMatic via the service hmmqtt (hmservice.c)
+
+      int homeMaticAddBlind(const char* uuid, int direction);
+      int homeMaticBlindUpdate(uint address, double value, bool working, int direction, const char* jsonTopic, const char* message);
+      int dispatchHmMqtt(const char* topic, const char* message);
+      int homeMaticServiceAction(SensorData& sensor, double value, bool noStop);
+      int homeMatic2Json(json_t* obj);
+      int performHomeMatic(json_t* obj, long client);
+      bool homeMaticViaService() { return homeMaticInterface && homeMaticBridge == "hmmqtt"; }
       virtual int dispatchGrowattEvents(const char* message);
       virtual int dispatchRtl433(const char* message);
       virtual int dispatchOther(const char* topic, const char* message);
@@ -662,6 +672,23 @@ class HomeCtl : public cWebInterface, public Service
       std::vector<LightRuleEvent> lightRuleEvents;
       std::map<std::string,LightRuleTimer> lightRuleTimers;   // "DZS:0x21#0" (sensor # rule index)
 
+      // switching of the deCONZ lights by the rules / the time control, checked and repeated (lightrules.c)
+
+      struct LightCommand
+      {
+         bool on {false};
+         int bri {na};
+         int transition {na};            // [1/10 s]
+         time_t sentAt {0};
+         int retries {0};
+      };
+
+      std::map<std::string,LightCommand> lightCommands;      // "DZL:0x1b" -> last command, until confirmed
+
+      static std::string lightKey(const char* type, uint address);   // "DZL:0x1b"
+      int lightCommand(const char* type, uint address, bool on, int bri, int transition);
+      int lightCheckCommands();
+
       int performLightRules();
       int lightRuleApply(const char* key, json_t* jRule, const LightRuleEvent& event);
       int lightRuleCheckTimers();
@@ -928,6 +955,12 @@ class HomeCtl : public cWebInterface, public Service
 
       Deconz deconz;
       bool homeMaticInterface {false};
+      std::string homeMaticBridge {"Node-RED"};             // Node-RED (CCU) | hmmqtt (CUL)
+      std::string homeMaticTopic {"homematic"};             // MQTT base topic of hmmqtt
+      json_t* homeMaticServiceStatus {};                    // last messages of hmmqtt (WEBIF page 'HomeMatic')
+      json_t* homeMaticServiceDevices {};
+      json_t* homeMaticServicePairing {};
+      json_t* homeMaticServiceEvent {};
       std::map<uint,std::string> homeMaticUuids;
       std::deque<std::string> homeMaticValueRequests;        // uuids of the blinds waiting for getParamset()
       time_t homeMaticRequestAt {0};                         // request sent (0 -> none pending)

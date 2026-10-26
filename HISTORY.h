@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.37"
-#define VERSION_DATE "25.10.2026"
+#define _VERSION     "0.1.38"
+#define VERSION_DATE "26.10.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,41 @@
 
 /*
  * ------------------------------------
+
+2026-10-26: version 0.1.38
+    - added: HomeMatic without CCU and Node-RED: new service hmmqtt (homematic/, built / installed with 'HOMEMATIC = 1'
+             in Make.user) talks BidCos-RF via a CUL stick (CC1101 868 MHz, culfw) and is controlled by MQTT
+             (base topic 'homematic': status, devices, state/<channel>, pairing, event/paired|removed retained / events,
+             set/<channel>, get/<channel>, pair, remove); it takes the address (hmId) of the former CCU, the paired
+             devices keep working; BidCos frames with counter, ACK and 3 repeats, status requests at the start, pairing
+             (writes itself as central into the device) and removing, own device list (/var/lib/hmmqtt/devices.json),
+             sniff mode -s (only log the received frames, e.g. beside the CCU); device types so far: blind actuators
+             HM-LC-Bl1PBU-FM, HM-LC-Bl1-FM, HM-LC-Bl1-SM, HM-LC-Bl1-PB-FM (level, stop, position / direction)
+    - added: config HomeMatic 'Anbindung' (Node-RED | hmmqtt) and 'MQTT Topic des Dienstes hmmqtt' (category renamed
+             'HomeMatic'); with hmmqtt the blinds are taken from the devices of the service (same addresses HMB:0xNN via
+             the table 'homematic'), their position / moving / direction from its states, the commands (by hand, time
+             control, shading) go to the service instead of Node-RED; a change of the settings reconnects MQTT
+    - added: WEBIF setup page 'HomeMatic' (with hmmqtt only): state of the service, pairing (60 s with the remaining
+             time), status request of all devices, device list (name, type, serial, rf address, firmware, position,
+             last heard, RSSI) with 'Abmelden'
+    - bugfix: deCONZ: lights of the type 'Color temperature light' were taken as color lights (the long press opened
+              the color wheel, a change switched the light on with an error 'hue not available'); they are dimmable
+              only now, the capabilities of the deCONZ lights are updated on every start
+    - added: deCONZ lights switched by the light rules or the time control are checked: a command lost on the air
+             (APSDE-DATA.confirm 0xA7 / 0xE9, the light stayed on / off) is repeated if the state of the light
+             differs 5 s to 80 s after it, twice at most ('repeating' / 'giving up' in the log); the same command
+             to the same light within 2 s is sent once (off timer and 'follow' at the same time); switching by
+             the WEBIF ends the check; groups are not checked
+    - added: dashboard: long press on a dimmable light without color opens a brightness dialog (slider 1 - 100 %,
+             sent on release)
+    - change: dashboard: the long press of a light is cancelled by moving the finger / mouse (scrolling the
+              dashboard opened the color wheel, a touch on it switched the light on); the color and the brightness
+              dialog close by ESC and by a click / touch beside them
+    - bugfix: dialog 'Regeln' (DZS): the checkbox 'Nur im Zeitfenster' was invisible (missing label), the option
+              could not be switched on for a rule without a time window
+    - change: info dialog of the dashboard: the time control is shown in the tab 'Regeln' (was in the tab 'Daten'),
+              with the position resp. brightness and the date range
+    - change: dialogs: the right margin is inside the scroll area, the scrollbar at the right edge
 
 2026-10-25: version 0.1.37
     - added: shading of the blinds (shade.c), section 'Beschattung' of the dialog 'Zeitsteuerung' of a blind (HMB):

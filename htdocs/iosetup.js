@@ -1201,6 +1201,8 @@ function sensorActorSetup(type, address)
 // Light rules of switches / motion sensors (DZS, see lightrules.c)
 //***************************************************************************
 
+let ruleBlockCount = 0;
+
 function createRuleBlock(rule, targetOptions, lastButton)
 {
    let $block = $('<div></div>').addClass('rule-block rounded-border');
@@ -1235,7 +1237,11 @@ function createRuleBlock(rule, targetOptions, lastButton)
        .attr('title', title).addClass('rounded-border rule-number ' + cls).val(value ? value : '');
 
    let cond = rule.condition || {};
-   let $condOn = $('<input></input>').attr('type', 'checkbox').addClass('rule-cond-on').prop('checked', rule.condition != null);
+   // the checkbox is drawn by its label (checkbox.css), needs a unique id
+
+   let condId = 'ruleCondOn' + (++ruleBlockCount);
+   let $condOn = $('<input></input>').attr('type', 'checkbox').attr('id', condId).addClass('rule-cond-on').prop('checked', rule.condition != null);
+   let $condLabel = $('<label></label>').prop('for', condId);
    let $condSides = $('<div></div>').addClass('do-timer-sides rule-cond')
        .append(createTimeSide('Von', 'timer-start', cond.start || 'dusk', cond.startOffset))
        .append(createTimeSide('Bis', 'timer-end', cond.end || 'sunrise', cond.endOffset));
@@ -1257,7 +1263,7 @@ function createRuleBlock(rule, targetOptions, lastButton)
       .append(row('Helligkeit [%]', num('rule-bri', rule.bri, 'leer = unverändert')))
       .append(row('Übergang [s]', num('rule-transition', rule.transition, 'leer = Standard')))
       .append(row('Aus nach [s]', num('rule-offafter', rule.offAfter, 'leer = kein Timer; jede weitere Bewegung / Tastendruck startet ihn neu')))
-      .append(row('Nur im Zeitfenster', $condOn, $condSides))
+      .append(row('Nur im Zeitfenster', $condOn, $condLabel, $condSides))
       .append($('<div></div>').css('text-align', 'right')
               .append($('<button></button>').text('Regel löschen').addClass('rounded-border do-timer-delete')
                       .on('click', () => $block.remove())));

@@ -96,6 +96,7 @@ int HomeCtl::dispatchClientRequest()
             case evGpsTour:             status = performGpsTour(oObject, client);        break;
             case evActivities:          status = performActivities(oObject, client);     break;
             case evHaspPages:           status = performHaspPages(oObject, client);      break;
+            case evHomeMatic:           status = performHomeMatic(oObject, client);      break;
             case evStoreHaspPages:      status = storeHaspPages(oObject, client);        break;
             default:
             {
@@ -158,6 +159,7 @@ bool HomeCtl::checkRights(long client, Event event, json_t* oObject)
       case evStoreAlerts:         return rights & urSettings;
       case evStoreDashboards:     return rights & urFullControl;
       case evHaspPages:           return rights & urSettings;
+      case evHomeMatic:           return rights & urSettings;
       case evStoreHaspPages:      return rights & urFullControl;
       case evGroups:              return rights & urSettings;
       case evImageConfig:         return rights & urSettings;
@@ -2548,6 +2550,13 @@ int HomeCtl::configChoice2json(json_t* obj, const char* name)
       for (int i = 0; Elo::eloquences[i]; i++)
          json_array_append_new(oArray, json_string(Elo::eloquences[i]));
 
+      json_object_set_new(obj, "options", oArray);
+   }
+   else if (strcmp(name, "homeMaticBridge") == 0)
+   {
+      json_t* oArray {json_array()};
+      json_array_append_new(oArray, json_string("Node-RED"));
+      json_array_append_new(oArray, json_string("hmmqtt"));
       json_object_set_new(obj, "options", oArray);
    }
    else if (strcmp(name, "style") == 0)

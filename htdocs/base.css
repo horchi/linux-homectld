@@ -38,6 +38,37 @@ button:focus {
     box-sizing: border-box;
 }
 
+.lightDimDiv
+{
+    min-width: 260px;
+    padding: 10px;
+}
+
+.lightDimTitle
+{
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+.lightDimRow
+{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.lightDim
+{
+    flex: 1;
+}
+
+.lightDimValue
+{
+    min-width: 45px;
+    text-align: right;
+}
+
 .lightColorDiv
 {
     position: fixed;
@@ -4162,4 +4193,41 @@ iPhones
 
 .gpsStopDialog div {
     margin: 6px 0px;
+}
+
+/* setup page 'HomeMatic' (homematic.js) */
+
+.homeMaticPage {
+   padding: 10px;
+}
+
+.homeMaticState, .homeMaticActions, .homeMaticEvent, .homeMaticNote {
+   margin: 6px 0 10px 0;
+}
+
+.homeMaticActions {
+   display: flex;
+   flex-wrap: wrap;
+   align-items: center;
+   gap: 8px;
+}
+
+.homeMaticPairing {
+   background-color: orange !important;
+}
+
+.homeMaticHint {
+   color: orange;
+}
+
+.homeMaticEvent.ok {
+   color: var(--green, #4caf50);
+}
+
+.homeMaticEvent.failed {
+   color: var(--red, #e53935);
+}
+
+.homeMaticDevices td {
+   padding: 4px 8px;
 }

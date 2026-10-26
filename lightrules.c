@@ -33,6 +33,13 @@
  *  targets switched on by the rule are switched off (a light which was already on stays on),
  *  a target switched off by hand meanwhile is dropped. The timers are kept in memory only,
  *  they are lost on a restart.
+ *
+ *  Commands to deCONZ lights (DZL) of the rules and the time control are checked: a command
+ *  lost on the air (APSDE-DATA.confirm 0xA7 / 0xE9) leaves the light in its state, deCONZ
+ *  reports the real state (latest after its next poll). Differs the state of the light 5 s
+ *  (plus transition) to 80 s after the command, it is repeated, twice at most. The same
+ *  command to the same light within 2 s is sent once (off timer and 'follow' at the same time).
+ *  Switching by the WEBIF ends the check.
  */
 
 #include "daemon.h"
@@ -65,6 +72,105 @@ bool HomeCtl::lightTargetState(const std::string& target)
    return sensors[type][address].state;
 }
 
+std::string HomeCtl::lightKey(const char* type, uint address)
+{
+   char key[50];
+   snprintf(key, sizeof(key), "%s:0x%02x", type, address);
+   return key;
+}
+
+//***************************************************************************
+// Light Command (deCONZ, explicit state, transition in 1/10 s)
+//***************************************************************************
+
+int HomeCtl::lightCommand(const char* type, uint address, bool on, int bri, int transition)
+{
+   time_t now {time(0)};
+   std::string key {lightKey(type, address)};
+
+   if (strcmp(type, "DZL") == 0)
+   {
+      auto it {lightCommands.find(key)};
+
+      if (it != lightCommands.end() && it->second.on == on && it->second.retries == 0 && now - it->second.sentAt < 2)
+      {
+         tell(eloDetail, "Light: '%s' %s just sent, skipping", key.c_str(), on ? "on" : "off");
+         return done;
+      }
+   }
+
+   int status {deconz.toggle(type, address, on, on ? bri : na, transition, true)};
+
+   // only lights have a reliable state (a group is 'on' if any of its lights is on)
+
+   if (strcmp(type, "DZL") == 0)
+   {
+      if (status == success)
+         lightCommands[key] = { on, bri, transition, now, 0 };
+      else
+         lightCommands.erase(key);      // e.g. not reachable
+   }
+
+   return status;
+}
+
+//***************************************************************************
+// Light Check Commands
+//***************************************************************************
+
+int HomeCtl::lightCheckCommands()
+{
+   time_t now {time(0)};
+
+   for (auto it = lightCommands.begin(); it != lightCommands.end(); )
+   {
+      LightCommand& cmd {it->second};
+      uint address {(uint)strtoul(it->first.c_str() + 4, nullptr, 0)};
+      SensorData& sensor {sensors["DZL"][address]};
+      time_t elapsed {now - cmd.sentAt};
+
+      if (sensor.state == cmd.on)
+      {
+         if (elapsed >= 80)
+            it = lightCommands.erase(it);        // confirmed
+         else
+            it++;
+
+         continue;
+      }
+
+      if (elapsed < 5 + (cmd.transition > 0 ? cmd.transition / 10 : 0))
+      {
+         it++;
+         continue;
+      }
+
+      if (cmd.retries >= 2)
+      {
+         tell(eloAlways, "Warning: Light '%s' (%s) did not switch %s, giving up", it->first.c_str(),
+              sensor.title.c_str(), cmd.on ? "on" : "off");
+         it = lightCommands.erase(it);
+         continue;
+      }
+
+      cmd.retries++;
+      cmd.sentAt = now;
+
+      tell(eloAlways, "Light '%s' (%s) is still %s, repeating '%s' (%d)", it->first.c_str(), sensor.title.c_str(),
+           sensor.state ? "on" : "off", cmd.on ? "on" : "off", cmd.retries);
+
+      if (deconz.toggle("DZL", address, cmd.on, cmd.on ? cmd.bri : na, cmd.transition, true) != success)
+      {
+         it = lightCommands.erase(it);
+         continue;
+      }
+
+      it++;
+   }
+
+   return done;
+}
+
 int HomeCtl::lightTargetSwitch(const std::string& target, bool on, int bri, int transition)
 {
    std::string type;
@@ -78,8 +184,8 @@ int HomeCtl::lightTargetSwitch(const std::string& target, bool on, int bri, int 
    // deCONZ with explicit state (a group would be toggled by toggleIo()), transition in 1/10 s
 
    if (type == "DZL" || type == "DZLG")
-      return deconz.toggle(type.c_str(), address, on, on && bri > 0 ? std::min(bri, 100) : na,
-                           transition > 0 ? transition * 10 : na, true);
+      return lightCommand(type.c_str(), address, on, bri > 0 ? std::min(bri, 100) : na,
+                          transition > 0 ? transition * 10 : na);
 
    return toggleIo(address, type.c_str(), on);
 }
@@ -130,6 +236,7 @@ int HomeCtl::performLightRules()
    if (lastCheckAt != time(0))
    {
       lastCheckAt = time(0);
+      lightCheckCommands();
       lightRuleCheckTimers();
    }
 
@@ -262,7 +369,7 @@ int HomeCtl::lightRuleCheckTimers()
       {
          if (lightTargetState(t->first))
             t->second = true;
-         else if (t->second)
+         else if (t->second && !(lightCommands.count(t->first) && lightCommands[t->first].on))   // not while repeating 'on'
          {
             tell(eloDetail, "Light rule '%s': '%s' switched off meanwhile", it->first.c_str(), t->first.c_str());
             t = timer.switchedOn.erase(t);

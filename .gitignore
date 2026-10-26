@@ -52,3 +52,5 @@ htdocs/index.html
 # openHASP firmware: upstream clone and PlatformIO venv are created by openHASP/build.sh
 openHASP/src/
 openHASP/venv/
+
+homematic/hmmqtt

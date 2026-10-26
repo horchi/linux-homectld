@@ -483,5 +483,5 @@ int HomeCtl::actorTimeAction(const ActorTimeAction& action)
    // DZL / DZLG - explicit state, a group would be toggled by toggleIo()
 
    int bri {action.bri > 0 ? std::min(action.bri, 100) : na};
-   return deconz.toggle(type, action.address, action.in, action.in ? bri : na, na, true);
+   return lightCommand(type, action.address, action.in, bri, na);
 }

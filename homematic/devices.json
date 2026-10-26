@@ -1,0 +1,8 @@
+[
+   { "serial": "NEQ1564714", "type": "HM-LC-Bl1PBU-FM", "model": "006A", "rfAddress": "5212B9", "firmware": "2.8" },
+   { "serial": "OEQ0266330", "type": "HM-LC-Bl1PBU-FM", "model": "006A", "rfAddress": "570873", "firmware": "2.11" },
+   { "serial": "OEQ1853240", "type": "HM-LC-Bl1PBU-FM", "model": "006A", "rfAddress": "62B37C", "firmware": "2.11" },
+   { "serial": "OEQ1853521", "type": "HM-LC-Bl1PBU-FM", "model": "006A", "rfAddress": "62B361", "firmware": "2.11" },
+   { "serial": "OEQ1853556", "type": "HM-LC-Bl1PBU-FM", "model": "006A", "rfAddress": "636D48", "firmware": "2.11" },
+   { "serial": "PEQ1443499", "type": "HM-LC-Bl1PBU-FM", "model": "006A", "rfAddress": "6A3E9B", "firmware": "2.11" }
+]

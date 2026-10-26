@@ -67,7 +67,7 @@ var sab = 0;             // env(safe-area-inset-bottom)
 var controlContainerCollapsed = false;
 var lastSetupPage = null;
 var lastSetupAction = null;
-var setupPages = ['setup', 'sensorsetup', 'userdetails', 'alerts', 'images', 'groups', 'syslog', 'system', 'commands', 'readme', 'hasp'];
+var setupPages = ['setup', 'sensorsetup', 'userdetails', 'alerts', 'images', 'groups', 'syslog', 'system', 'commands', 'readme', 'hasp', 'homematic'];
 
 $('document').ready(function() {
    daemonState.state = -1;
@@ -900,6 +900,12 @@ function dispatchMessage(message)
       // console.log("valueTypes " + JSON.stringify(valueTypes, undefined, 4));
    }
 
+   else if (event == "homematic") {
+      homeMatic = jMessage.object;
+
+      if (currentPage == "homematic")
+         initHomeMatic();
+   }
    else if (event == "hasppages") {
       haspPages = jMessage.object;
 
@@ -1183,6 +1189,9 @@ function prepareSetupMenu()
          addSetupMenuButton('Alerts', 'alerts');
          addSetupMenuButton('Images', 'images');
          addSetupMenuButton('HASP Panel', 'hasp');
+
+         if (config.homeMaticInterface == '1' && config.homeMaticBridge == 'hmmqtt')
+            addSetupMenuButton('HomeMatic', 'homematic');
          // addSetupMenuButton('Baugruppen', 'groups');
          addSetupMenuButton('Syslog', 'syslog');
          addSetupMenuButton('Database', 'system', 'database');
@@ -1324,6 +1333,8 @@ function mainMenuSel(what, action = null, recoverSetupPage = true)
       initImages();
    else if (currentPage == "hasp")
       event = "hasppages";
+   else if (currentPage == "homematic")
+      event = "homematic";
    else if (currentPage == "syslog") {
       updateSyslog();
       return;

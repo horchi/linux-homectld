@@ -252,6 +252,8 @@ int HomeCtl::performMqttRequests()
 
       if (strstr(tp.c_str(), "2mqtt/ping"))
          ;
+      else if (homeMaticViaService() && tp.rfind(homeMaticTopic + "/", 0) == 0)
+         dispatchHmMqtt(tp.c_str(), message.memory);
       else if (strstr(tp.c_str(), "2mqtt/w1"))
          dispatchW1Msg(message.memory);
       else if (strstr(tp.c_str(), "2mqtt/arduino/out"))
@@ -418,6 +420,11 @@ int HomeCtl::mqttNodeRedPublishAction(SensorData& sensor, double value, bool pub
 {
    if (!mqttWriter || !mqttWriter->isConnected())
        return done;
+
+   // blinds via the service hmmqtt (no CCU, no Node-RED)
+
+   if (!publishOnly && sensor.type == "HMB" && homeMaticViaService())
+      return homeMaticServiceAction(sensor, value, noStop);
 
    json_t* oJson = json_object();
    char* key {};

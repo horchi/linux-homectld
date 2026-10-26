@@ -498,7 +498,7 @@ int HomeCtl::init()
 
    // homeMaticInterface
 
-   if (homeMaticInterface)
+   if (homeMaticInterface && !homeMaticViaService())      // the service hmmqtt publishes its devices retained
    {
       if (mqttCheckConnection() == success && !mqttUrl.empty())
       {
@@ -2156,7 +2156,11 @@ int HomeCtl::readConfiguration(bool initial)
    if (!openWeatherApiKey.empty() && openWeatherApiKey != apiKey)
       updateWeather();
 
+   bool hmInterface {homeMaticInterface};
+   std::string hmBridge {homeMaticBridge}, hmTopic {homeMaticTopic};
    getConfigItem("homeMaticInterface", homeMaticInterface, false);
+   getConfigItem("homeMaticBridge", homeMaticBridge, "Node-RED");
+   getConfigItem("homeMaticTopic", homeMaticTopic, "homematic");
 
    // MQTT
 
@@ -2186,14 +2190,22 @@ int HomeCtl::readConfiguration(bool initial)
       mqttSensorTopics.push_back("hasp/+/state/+");   // touch events of the panel objects
    }
 
-   if (homeMaticInterface)
+   if (homeMaticViaService())
+   {
+      tell(eloAlways, "Adding homematic topics of the service hmmqtt ('%s')", homeMaticTopic.c_str());
+
+      for (const char* sub : { "/status", "/devices", "/state/#", "/pairing", "/event/#" })
+         mqttSensorTopics.push_back(homeMaticTopic + sub);
+   }
+   else if (homeMaticInterface)
    {
       tell(eloAlways, "Adding homematic topics");
       mqttSensorTopics.push_back(INSTANCE "2mqtt/homematic/rpcresult");
       mqttSensorTopics.push_back(INSTANCE "2mqtt/homematic/events");
    }
 
-   if (url != mqttUrl || sTopics != sensorTopics || hTopic != haspMqttTopic)
+   if (url != mqttUrl || sTopics != sensorTopics || hTopic != haspMqttTopic ||
+       hmInterface != homeMaticInterface || hmBridge != homeMaticBridge || hmTopic != homeMaticTopic)
    {
       tell(eloAlways, "Config of MQTT url or subscribtions changed, reconnect");
       mqttDisconnect();
@@ -3663,6 +3675,11 @@ int HomeCtl::addValueFact(int addr, const char* type, int factor, const char* na
    if (!isEmpty(choices))
       tableValueFacts->setValue("CHOICES", choices);
 
+   // the capabilities of the deCONZ lights (switch / dim / color) are taken from deCONZ on every start
+
+   if (strcmp(type, "DZL") == 0)
+      tableValueFacts->setValue("OPTIONS", options);
+
    if (strcmp(type, "SC") != 0)
    {
       if (tableValueFacts->getChanges())
@@ -4100,41 +4117,9 @@ int HomeCtl::dispatchHomematicRpcResult(const char* message)
       tell(eloHomeMatic, "%zu) '%s', type '%s', direction %d", index, uuid, hmType.c_str(),
            getIntFromJson(jItem, "DIRECTION", na));
 
-      // create value fact for home-matic sensors/actors
+      // value fact HMB for the blind (table 'homematic': uuid -> address)
 
-      tableHomeMatic->clear();
-      tableHomeMatic->setValue("UUID", uuid);
-
-      if (!selectHomeMaticByUuid->find())
-      {
-         tableHomeMatic->setValue("TYPE", "HMB");
-         tableHomeMatic->insert();
-
-         tell(eloDebugHomeMatic, "HomeMatic: Added new '%s', uuid '%s'", hmType.c_str(), uuid);
-
-         tableHomeMatic->clear();
-         tableHomeMatic->setValue("UUID", uuid);
-         selectHomeMaticByUuid->find();
-      }
-
-      int address {tableHomeMatic->getIntValueAsInt("ADDRESS")};
-
-      tableHomeMatic->setValue("KIND", hmType.c_str());
-      tableHomeMatic->setValue("NAME", uuid);
-      tableHomeMatic->store();
-      selectHomeMaticByUuid->freeResult();
-
-      homeMaticUuids[address] = uuid;
-
-      // HMB -> Home-Matic-Blind
-
-      addValueFact(address, "HMB", 1, uuid, "%", "", urControl);
-      sensors["HMB"][address].lastDir = getIntFromJson(jItem, "DIRECTION") == 2 ? dirClose : dirOpen;
-
-      // the position: last known one (restored from iostates) until the CCU answers getParamset()
-
-      if (!sensors["HMB"][address].valid())
-         sensors["HMB"][address].setValue(100);
+      homeMaticAddBlind(uuid, getIntFromJson(jItem, "DIRECTION", 0) == 2 ? 2 : 1);
 
       homeMaticValueRequests.push_back(uuid);
       blinds = true;
@@ -5395,7 +5380,10 @@ int HomeCtl::toggleIo(uint addr, const char* type, int state, int bri, int trans
    else if (strcmp(type, "SC") == 0)
       callScript(addr, "toggle");
    else if (strcmp(type, "DZL") == 0 || strcmp(type, "DZLG") == 0)
+   {
+      lightCommands.erase(lightKey(type, addr));   // by hand, no check
       deconz.toggle(type, addr, newState, bri, transitiontime);
+   }
    else if (strcmp(type, "HMB") == 0)
    {
       double value = sensors[type][addr].value;

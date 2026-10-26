@@ -272,6 +272,7 @@ function initDashboard(update = false)
    }
 
    initLightColorDialog();
+   initLightDimDialog();
 
    resizeDashboard();
    window.onresize = function() { resizeDashboard(); };
@@ -652,17 +653,33 @@ function initWidget(key, widget, fact)
                      lightClickPosY = e.clientY;
                   }
                   // e.preventDefault();
-                  if ((e.which != 0 && e.which != 1) || $('#lightColorDiv').css('display') != 'none')
+                  if ((e.which != 0 && e.which != 1) || lightDialogOpen())
                      return;
-                  if (fact.options & 0x04) {
+                  // long press: color (color lights) resp. brightness (dimmable lights) dialog
+                  if (fact.options & 0x06) {
                      lightClickTimeout = setTimeout(function(event) {
                         lightClickTimeout = lightClickPosX = lightClickPosY = null;
-                        showLightColorDialog(key);
+                        if (fact.options & 0x04)
+                           showLightColorDialog(key);
+                        else
+                           showLightDimDialog(key);
                      }, 400);
                   }
                })
+               .on('mousemove touchmove', {"fact" : fact}, function(e) {
+                  // moved (e.g. scrolling the dashboard) -> no long press and no toggle
+                  if (lightClickPosX == null || lightClickPosY == null)
+                     return;
+                  let x = e.touches != null ? e.touches[0].pageX : e.clientX;
+                  let y = e.touches != null ? e.touches[0].pageY : e.clientY;
+                  if (Math.abs(lightClickPosX - x) >= 15 || Math.abs(lightClickPosY - y) >= 15) {
+                     if (lightClickTimeout)
+                        clearTimeout(lightClickTimeout);
+                     lightClickTimeout = lightClickPosX = lightClickPosY = null;
+                  }
+               })
                .on('mouseup mouseleave touchend', {"fact" : fact}, function(e) {
-                  if ($('#lightColorDiv').css('display') != 'none')
+                  if (lightDialogOpen())
                      return;
                   if (e.changedTouches != null) {
                      posX = e.changedTouches[0].pageX;
@@ -1799,6 +1816,87 @@ function initLightColorDialog()
    }); */
 }
 
+// brightness dialog of the dimmable lights without color
+
+function initLightDimDialog()
+{
+   $("#container").append($('<div></div>')
+                          .attr('id', 'lightDimDiv')
+                          .addClass('rounded-border lightColorDiv lightDimDiv')
+                          .append($('<div></div>').attr('id', 'lightDimTitle').addClass('lightDimTitle'))
+                          .append($('<div></div>').addClass('lightDimRow')
+                                  .append($('<input></input>')
+                                          .attr('id', 'lightDim')
+                                          .attr('type', 'range').attr('min', '1').attr('max', '100').attr('step', '1')
+                                          .addClass('lightDim'))
+                                  .append($('<span></span>').attr('id', 'lightDimValue').addClass('lightDimValue')))
+                          .append($('<button></button>')
+                                  .html('Ok')
+                                  .click(function() { $('#lightDimDiv').css('display', 'none'); }))
+                         );
+
+   $('#lightDimDiv').css('display', 'none');
+
+   // ESC or a click / touch beside it closes the color / brightness dialog; only while it is open
+   //   (a general handler disturbed other inputs, e.g. the range of the chart view), not just after
+   //   the opening (the emulated mouse events following the long press of a touch)
+
+   $(document).on('keydown', function(e) {
+      if (e.key == 'Escape' && lightDialogOpen())
+         closeLightDialogs();
+   });
+
+   $(document).on('mousedown touchstart', function(e) {
+      if (!lightDialogOpen() || Date.now() - lightDialogOpenedAt < 600)
+         return;
+      if ($(e.target).closest('#lightColorDiv, #lightDimDiv').length)
+         return;
+      closeLightDialogs();
+   });
+
+   $('#lightDim').on('input', function() {
+      $('#lightDimValue').text($(this).val() + ' %');
+   });
+
+   $('#lightDim').on('change', function() {      // on release of the slider
+      let fact = valueFacts[$(this).data('key')];
+
+      if (fact)
+         toggleIo(fact.address, fact.type, parseInt($(this).val()));
+   });
+}
+
+function showLightDimDialog(key)
+{
+   let sensor = allSensors[key] || {};
+   let bri = sensor.bri != null ? sensor.bri : sensor.score != null ? sensor.score : 100;
+
+   $('#lightDim').data('key', key).val(bri);
+   $('#lightDimValue').text(bri + ' %');
+   $('#lightDimTitle').text(factTitle(key));
+   $('#lightDimDiv').css('display', 'block');
+   lightDialogOpenedAt = Date.now();
+
+   let posX = ($('#container').innerWidth() - $('#lightDimDiv').outerWidth()) / 2;
+   let posY = ($('#container').innerHeight() - $('#lightDimDiv').outerHeight()) / 2;
+
+   $('#lightDimDiv').css('left', posX + 'px');
+   $('#lightDimDiv').css('top', posY + 'px');
+}
+
+var lightDialogOpenedAt = 0;
+
+function closeLightDialogs()
+{
+   $('#lightColorDiv').css('display', 'none');
+   $('#lightDimDiv').css('display', 'none');
+}
+
+function lightDialogOpen()
+{
+   return $('#lightColorDiv').css('display') != 'none' || $('#lightDimDiv').css('display') != 'none';
+}
+
 function showLightColorDialog(key)
 {
    let posX = ($('#container').innerWidth() - $('#lightColorDiv').outerWidth()) / 2;
@@ -1809,6 +1907,7 @@ function showLightColorDialog(key)
    $('#lightColorDiv').css('left', posX + 'px');
    $('#lightColorDiv').css('top', posY + 'px');
    $('#lightColorDiv').css('display', 'block');
+   lightDialogOpenedAt = Date.now();
    $('#lightColor').wheelColorPicker('setColor', { 'h': sensor.hue/360.0, 's': sensor.sat/100.0, 'v': sensor.score/100.0 });
 }
 
@@ -1962,10 +2061,26 @@ function titleClick(ctrlKey, key)
       let peakMinTime = new Date(sensor.peakmintime * 1000);
       let form = document.createElement("div");
 
-      let timersString = (fact.settings && Array.isArray(fact.settings.times))
-          ? fact.settings.times.map(t => timeRangeText(t)).join(', ') : '';
+      // time control (ranges of the outputs / actors) -> tab 'Regeln'
 
-      let rules = lightRulesFor(key);     // light rules of the sensor / switching this light (tab 'Regeln')
+      let timeTexts = [];
+
+      if (fact.settings && Array.isArray(fact.settings.times) && fact.settings.times.length) {
+         let st = fact.settings;
+         let what = '';
+
+         if (fact.type == 'HMB')
+            what = ' (Zu ' + (st.levelIn != null ? st.levelIn : 0) + ' % / Auf ' + (st.levelOut != null ? st.levelOut : 100) + ' %)';
+         else if ((fact.type == 'DZL' || fact.type == 'DZLG') && st.bri)
+            what = ' (Helligkeit ' + st.bri + ' %)';
+
+         let off = st.timesEnabled === false ? ' – ausgeschaltet' : '';
+
+         for (const t of st.times)
+            timeTexts.push('Zeitsteuerung: ' + timeRangeText(t) + what + off);
+      }
+
+      let rules = timeTexts.concat(lightRulesFor(key));     // time control, light rules of the sensor / switching this light (tab 'Regeln')
       let hasRules = rules.length > 0 || sensor.offAt || sensor.shade;
 
       let value = sensor.value + ' ' + widget.unit;
@@ -2154,20 +2269,6 @@ function titleClick(ctrlKey, key)
                                                      .css('font-size', 'smaller')
                                                      .css('color', '#3d3737')
                                                      .html(chgBefore))
-                                            )))
-
-                     .append($('<div></div>')
-                             .css('display', timersString != '' ? 'flex' : 'none')
-                             .css('margin-bottom', '4px')
-                             .append($('<span></span>')
-                                     .css('width', '30%')
-                                     .css('text-align', 'end')
-                                     .css('margin-right', '10px')
-                                     .html('Zeitsteuerung'))
-                             .append($('<span></span>')
-                                     .append($('<div></div>')
-                                             .addClass('rounded-border')
-                                             .html(timersString)
                                             )))
 
                      .append($('<div></div>')

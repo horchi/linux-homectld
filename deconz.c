@@ -279,9 +279,14 @@ int Deconz::processDevices(json_t* jData, std::string kind)
       {
          so = HomeCtl::soSwitch;
 
-         if (strcasestr(dzType.c_str(), "color"))
+         // 'Color light', 'Extended color light' -> color (dimmable too), 'Color temperature light'
+         //  has no hue / sat -> dimmable only
+
+         if (strcasestr(dzType.c_str(), "color temperature"))
+            so += HomeCtl::soDim;
+         else if (strcasestr(dzType.c_str(), "color"))
             so += HomeCtl::soColor + HomeCtl::soDim; // assume all color lights are dimmable
-         if (strcasestr(dzType.c_str(), "dim"))
+         else if (strcasestr(dzType.c_str(), "dim"))
             so += HomeCtl::soDim;
       }
 

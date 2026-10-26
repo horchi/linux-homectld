@@ -1,0 +1,9 @@
+# hmmqtt - HomeMatic (BidCos-RF via CUL) to MQTT
+#
+#  -d <device>   CUL, use the fixed name in /dev/serial/by-id/
+#  -i <hmId>     address of the central, take the one of the former CCU (/etc/config/ids 'BidCoS-Address')
+#  -u <url>      MQTT url
+#  -T <topic>    MQTT base topic
+#  -l <level>    eloquence (log level)
+
+HMMQTT_OPTS="-d /dev/serial/by-id/usb-busware.de_CUL868-if00 -i 4F5EE7 -u tcp://localhost:1883 -T homematic"

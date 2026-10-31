@@ -46,6 +46,7 @@ const char* HomeCtl::widgetTypes[] =
    "Level",
    "Balance",
    "Timer",
+   "HTML",
    0
 };
 
@@ -104,6 +105,7 @@ HomeCtl::ValueTypes HomeCtl::defaultValueTypes[] =
    { "^VIC",      "Victron" },
    { "^VOTRO",    "Votronic" },
    { "^MOPEKA.*", "Mopeka" },
+   { "^TPMS",     "Reifendruck" },
 
    { "",          "" }
 };
@@ -133,6 +135,7 @@ HomeCtl::DefaultWidgetProperty HomeCtl::defaultWidgetProperties[] =
    { "-",        na,   "*",      wtMeter,        0,        45,      10, false },
    { "SPACER",   na,   "*",      wtSpace,        0,         0,       0, false },
    { "TIME",     na, "txt",  wtPlainText,        0,         0,       0, true },
+   { "HTML",     na,   "*",       wtHtml,        0,         0,       0, false },
    { "DO",       na,   "*",     wtSymbol,        0,         0,       0, false },
    { "DI",       na,   "*",     wtSymbol,        0,         0,       0, false },
    { "GPIO",     na,   "*",     wtSymbol,        0,         0,       0, false },
@@ -530,6 +533,7 @@ int HomeCtl::init()
    publishVictronInit("VIC");
    requestSensorInit("ALPICOOL");
    requestSensorInit("KENWOOD");
+   requestSensorInit("TPMS");
 
    // init web socket ...
 
@@ -1401,6 +1405,9 @@ int HomeCtl::initDb()
    tableHaspPageWidgets = new cDbTable(connection, "hasppagewidgets");
    if (tableHaspPageWidgets->open() != success) return fail;
 
+   tableHtmlWidgets = new cDbTable(connection, "htmlwidgets");
+   if (tableHtmlWidgets->open() != success) return fail;
+
    tableGpsTours = new cDbTable(connection, "gpstours");
    if (tableGpsTours->open() != success) return fail;
 
@@ -1784,6 +1791,16 @@ int HomeCtl::initDb()
    status += selectHaspPages->prepare();
 
    // ------------------
+
+   selectAllHtmlWidgets = new cDbStatement(tableHtmlWidgets);
+
+   selectAllHtmlWidgets->build("select ");
+   selectAllHtmlWidgets->bindAllOut();
+   selectAllHtmlWidgets->build(" from %s order by name", tableHtmlWidgets->TableName());
+
+   status += selectAllHtmlWidgets->prepare();
+
+   // ------------------
    // all GPS tours, newest first
 
    selectGpsTours = new cDbStatement(tableGpsTours);
@@ -2014,6 +2031,7 @@ int HomeCtl::exitDb()
    delete tableSensorAlert;        tableSensorAlert = nullptr;
    delete tableDashboards;         tableDashboards = nullptr;
    delete tableDashboardWidgets;   tableDashboardWidgets = nullptr;
+   delete tableHtmlWidgets;        tableHtmlWidgets = nullptr;
    delete tableSchemaConf;         tableSchemaConf = nullptr;
    delete tableHomeMatic;          tableHomeMatic = nullptr;
    delete tableIoStates;           tableIoStates = nullptr;
@@ -2047,6 +2065,7 @@ int HomeCtl::exitDb()
    delete selectAllHomeMatic;      selectAllHomeMatic = nullptr;
    delete selectDashboardWidgetsFor; selectDashboardWidgetsFor = nullptr;
    delete selectHaspPages;         selectHaspPages = nullptr;
+   delete selectAllHtmlWidgets;    selectAllHtmlWidgets = nullptr;
    delete selectHaspPageWidgetsFor; selectHaspPageWidgetsFor = nullptr;
    delete selectGpsTours;          selectGpsTours = nullptr;
    delete selectGpsTourEvents;     selectGpsTourEvents = nullptr;
@@ -4836,15 +4855,32 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
             {
                char* tmp {json_dumps(jParameters, JSON_REAL_PRECISION(4))};
                std::string parameters {tmp};
+               bool changed {false};
                free(tmp);
 
-               // read to avoid override
+               // read to avoid override, only parameters missing in the stored
+               //  config (new firmware, caps learned by tpms) are added
 
                std::string p;
                getConfigItem(name.c_str(), p);
 
                if (!p.empty())
-                  parameters = p;
+               {
+                  json_t* jStored {jsonLoad(p.c_str())};
+
+                  if (jStored && jsonAddMissing(jStored, jParameters))
+                  {
+                     char* tmp {json_dumps(jStored, JSON_REAL_PRECISION(4))};
+                     tell(eloAlways, "Info: Added new parameters of '%s' to its config", name.c_str());
+                     parameters = tmp;
+                     changed = true;
+                     free(tmp);
+                  }
+                  else
+                     parameters = p;
+
+                  json_decref(jStored);
+               }
 
                // check if the config item is already known
 
@@ -4861,7 +4897,9 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
                              name.c_str(),         // title
                              "after changing this setting restart homectld");  // description
 
-               if (!exist)
+               setConfigItem(name.c_str(), parameters.c_str(), "S");   // store
+
+               if (!exist || changed)
                {
                   readConfiguration(false);
 
@@ -4873,9 +4911,6 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
                   configDetails2Json(oJson);
                   pushOutMessage(oJson, "configdetails");
                }
-
-               setConfigItem(name.c_str(), parameters.c_str(), "S");   // store
-
             }
 
             publishSensorInit(type.c_str(), name.c_str());

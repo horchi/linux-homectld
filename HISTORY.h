@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.39"
-#define VERSION_DATE "29.10.2026"
+#define _VERSION     "0.1.40"
+#define VERSION_DATE "31.10.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,66 @@
 
 /*
  * ------------------------------------
+
+2026-10-31: version 0.1.40
+    - added: dashboard widget 'HTML' (widgettype 18, 'HTML:0xNN' like spacer / time, 'Widget hinzufügen' -> HTML):
+             shows a snippet of the new table 'htmlwidgets' (name, kind, code, css, parameters), the widget
+             references it by its options {"snippet": <id>, "params": {...}}, so one snippet serves several widgets
+             with other sensors (e.g. 'Raumklima' for each room); kind 'html' is a template with placeholders
+             {{W1:0x01}}, {{W1:0x01|1}} (decimals), {{W1:0x01.unit}} (value, text, unit, title, valid, battery, last,
+             peakmax, peakmin), {{DZL:0x03 ? an : aus}} and parameters {{p.<name>}} (a sensor key as parameter
+             works like the key), actions by the attributes data-toggle, data-set / data-value and data-chart;
+             kind 'iframe' is a URL; the CSS of a snippet applies to its widgets only (nested into '.htmlw-<id>');
+             a widget is rendered again only if a sensor it uses changed and the result differs; {{w.id}} is a
+             unique id of the widget for own ids (id="{{w.id}}-temp"); CSS with unbalanced braces (would leave the
+             nesting and apply to the whole WEBIF) is not stored and not applied
+    - added: WEBIF setup page 'HTML Widgets' (admin only, storing is checked by the daemon too): list of the snippets,
+             editor (name, kind, code, CSS, default parameters as JSON; CodeMirror with own modes for the template
+             with its placeholders / actions, CSS and JSON, Ctrl-S stores, example texts in empty fields by the
+             CodeMirror addon placeholder.js, now in lib/codemirror) with live preview of the current values
+             and warnings for constructs affecting the WEBIF (<style>, <link>, <script>, on...= handlers, ids
+             without {{w.id}}),
+             new / store / duplicate / delete; the widget setup of the dashboard selects the snippet and sets
+             its parameters (empty -> default of the snippet)
+    - added: HTML widgets: expressions in the placeholders (own parser, no eval): calculations + - * / and
+             ( ) with numbers and refs ({{p.vl - p.rl|1}}), comparisons > < >= <= == != in conditions
+             ({{p.temp > 25 ? warm : ok}}, text in '...'), fields age / changed (seconds since the last update /
+             change) and the format |ago ('vor 3 min'), widgets using them are rendered again every 30 s;
+             a calculated number without |digits is rounded to 2 decimals
+    - added: setup page 'HTML Widgets': export of all snippets resp. of the selected one as JSON file
+             ('homectld-htmlwidgets', name, kind, code, CSS, parameters, no ids) and import of such a file;
+             existing names are asked for: overwrite (the widgets show the new state at once) or as copy
+             ('<name> (2)'); the daemon stores the import in one go (storehtmlwidgets action 'import')
+    - change: widget setup: height factor up to 4 (was 2)
+    - added: the sensor data to the WEBIF contain the state ('state') of each sensor, e.g. the presence of a deCONZ
+             motion sensor (its 'value' stays 0), usable in HTML widgets as {{DZS:0x23.state ? ja : nein}}
+    - added: dashboard option 'Layout' Fließend | Raster (dialog of the dashboard, default Fließend as before):
+             'Raster' places the widgets by a CSS grid of half widget units, a higher widget spans rows and the
+             widgets beside fill them (e.g. one of height 2 beside two rows of height 1); the widgets keep their
+             sizes, the order stays, the columns follow the window width, a spacer with linefeed spans the row
+    - added: dashboard: Ctrl+click on the title of a widget opens the widget setup without the setup mode ('full
+             control' needed, outputs with modes keep Ctrl+click for the mode), on an HTML widget on the whole widget
+    - added: dialog 'Add Widget': double click on an entry adds only this one at once
+    - change: backup.sh: table 'htmlwidgets' added
+    - added: ESP32 sketch tpms (tpms/, like alpicool): tire pressure of BLE valve caps (LYTPMS app, manufacturer
+             id 172) by a passive scan, published per wheel n as TPMS:0x1n pressure [bar], 0x2n temperature [°C],
+             0x3n battery [%], 0x4n battery [V]; the caps are mapped to the wheels by the ID printed on them
+             (config 'TPMS:<deviceid>', "wheels": {"318F01": 1, ...}, 0 = not active), with "learn" each new cap
+             is added with 0 by itself; published at once on new data (the caps repeat each packet ~10 times)
+             and every 'interval' s, older than 'maxAge' s as invalid; the scan runs without WLAN / MQTT too
+             (values on the serial console); sensor type title 'Reifendruck', init requested at the start
+    - added: MQTT sensors with config (ESP32 sketches): parameters of the init message missing in the stored config
+             (e.g. after a firmware update, caps learned by tpms) are added, the stored values are kept (before
+             only the very first init was taken)
+    - added: configuration: storing a changed config of an MQTT sensor (category 'Sensors') sends it to the sensor
+             at once (was only at its next init / restart of the daemon), JSON compared by content
+    - added: configuration: the JSON of the category 'Sensors' is shown indented in a higher box with fixed font,
+             invalid JSON is not stored (marked red, message with the error)
+    - bugfix: configuration: storing a category with only one item (e.g. 'Sensors') wasn't confirmed
+              ('Konfiguration gespeichert')
+    - bugfix: configuration: a category with only one item was shown very narrow (the table shrinks to its content)
+    - bugfix: alpicool, kenwood: a '$' in the WLAN password was replaced by make / the shell ('&' and ':' broke sed),
+              the ESP got a wrong password; the values go unchanged into config.h now (perl)
 
 2026-10-29: version 0.1.39
     - added: hmmqtt: the position of a running blind is shown, the actuator reports only the start and the end of

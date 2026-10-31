@@ -43,6 +43,7 @@ class Service
          wtLevel,         // == 15  MDI symbol filled by percentage
          wtBalance,       // == 16  horizontal bar with zero in the middle for bipolar values
          wtTimer,         // == 17  HASP only (countdown running in the panel firmware)
+         wtHtml,          // == 18  snippet of the table 'htmlwidgets' (template or iframe)
          wtCount
       };
 };

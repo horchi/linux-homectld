@@ -8,7 +8,11 @@
  *
  */
 
-// var layout = 'grid';
+// layout of the widgets of the actual dashboard (option 'layout' of the dashboard, set by initDashboard()):
+//   'flex' - row by row (flex-wrap), a higher widget makes its whole row higher
+//   'grid' - grid of half widget units, a higher widget spans rows, the widgets beside fill them
+//            (the widgets keep the sizes of 'flex', the grid only places them)
+
 var layout = 'flex';
 
 var weatherData = null;
@@ -82,6 +86,8 @@ function initDashboard(update = false)
    }
 
    jDashboards = [];
+
+   htmlWidgetDeps = {};
 
    for (let did in dashboards) {
       if (!dashboardGroup || dashboards[did].group == dashboardGroup)
@@ -190,6 +196,9 @@ function initDashboard(update = false)
               .attr('id', 'widgetContainer')
               .addClass('widgetContainer'));
 
+   let dashOptions = dashboards[actDashboard] ? dashboards[actDashboard].options : null;
+   layout = dashOptions && dashOptions.layout == 'grid' ? 'grid' : 'flex';
+
    if (layout == 'flex') {
       $('#widgetContainer').css('display', 'flex');
       $('#widgetContainer').css('flex-wrap', 'wrap');
@@ -197,6 +206,9 @@ function initDashboard(update = false)
    else {
       $('#widgetContainer').css('display', 'grid');
       $('#widgetContainer').css('gap', '0px');
+      $('#widgetContainer').css('grid-auto-flow', 'row');        // keeps the order of the widgets
+      $('#widgetContainer').css('align-content', 'start');
+      $('#widgetContainer').css('align-items', 'start');
    }
 
    // swipe/slide dashboard page
@@ -319,18 +331,37 @@ function resizeDashboard()
 
    $("#container").height($(window).outerHeight() - getTotalHeightOf('menu') - getTotalHeightOf('dashboardMenu') - getTotalHeightOf('footer') - sab - space);
 
-   if (layout != 'flex') {
-      let style = getComputedStyle(document.documentElement);
-      let widgetWidthBase = style.getPropertyValue('--widgetWidthBase');
-      let widgetHeightBase = style.getPropertyValue('--widgetHeightBase');
+   if (layout == 'grid') {
+      // a column is half a widget of width 1 incl. its margin (see initWidget()), the
+      // rows size by the widgets (fixed heights like 'flex'), a linefeed spacer is a thin row
 
-      let colCount = parseInt($('#container').innerWidth() / widgetWidthBase);
-      let colWidthPercent = parseInt(100 / colCount);
-      let rep = 'repeat(' + colCount + ',' + colWidthPercent + '%)';
+      let colWidth = gridColumnWidth();
+      let colCount = Math.max(1, Math.floor($('#container').innerWidth() / colWidth));
 
-      $('#widgetContainer').css('grid-template-columns', rep);
-      $('#widgetContainer').css('grid-auto-rows', widgetHeightBase + 'px');
+      $('#widgetContainer').css('grid-template-columns', 'repeat(' + colCount + ', ' + colWidth + 'px)');
+
+      // widgets wider than the grid would add columns
+
+      $('#widgetContainer > div[data-colspan]').each(function() {
+         $(this).css('grid-column', 'span ' + Math.min(parseInt(this.dataset.colspan), colCount));
+      });
    }
+}
+
+// width of a grid column (layout 'grid'): half of a widget of width 1 incl. its margin
+
+function gridColumnWidth()
+{
+   const marginWidth = 3 *2;
+   const useKioskHeight = kioskMode == 1 || kioskMode == 2;
+   let style = getComputedStyle(document.documentElement);
+   let widgetWidthBase = parseFloat(style.getPropertyValue('--widgetWidthBase'));
+   let kioskFactor = 1;
+
+   if (useKioskHeight && dashboards[actDashboard] && dashboards[actDashboard].options && dashboards[actDashboard].options.widthfactorKiosk)
+      kioskFactor = parseFloat(dashboards[actDashboard].options.widthfactorKiosk) || 1;
+
+   return kioskFactor * (widgetWidthBase + marginWidth / 2);
 }
 
 function newDashboard()
@@ -485,7 +516,7 @@ function initWidget(key, widget, fact)
 
    let placeholder = null;
 
-   if (widget.widgettype != 10 && widget.widgettype != 11) {
+   if (widget.widgettype != 10 && widget.widgettype != 11 && widget.widgettype != 18) {
       if (fact == null) {
          console.log("Fact '" + key + "' not found, showing widget as orphaned");
          placeholder = { text: 'Sensor fehlt', hint: 'Sensor ' + key + ' existiert nicht (mehr)' };
@@ -513,49 +544,54 @@ function initWidget(key, widget, fact)
       elem = document.createElement("div");
       root.appendChild(elem);
       elem.setAttribute('id', id);
+   }
 
-      if (layout == 'flex') {
-         let style = getComputedStyle(document.documentElement);
-         let widgetHeightBase = style.getPropertyValue('--widgetHeightBase') * 2;
+   {
+      // the height (also for 'grid', there the rows size by the widgets), on each
+      // init - the 'Vorschau' of the widget setup re-inits the existing element
 
-         eHeight = widgetHeightBase;
+      let style = getComputedStyle(document.documentElement);
+      let widgetHeightBase = style.getPropertyValue('--widgetHeightBase') * 2;
 
-         // verschiedene heightfactor für verscheidene dashboards und / kiosk mode
+      eHeight = widgetHeightBase;
 
-         if (heightFactor && heightFactor != 1)
-            eHeight = widgetHeightBase * heightFactor;
-         else if (!useKioskHeight && dashboards[actDashboard].options && dashboards[actDashboard].options.heightfactor)
-            eHeight = widgetHeightBase * dashboards[actDashboard].options.heightfactor;
-         else if (useKioskHeight && dashboards[actDashboard].options && dashboards[actDashboard].options.heightfactorKiosk) {
-            eHeight = widgetHeightBase * dashboards[actDashboard].options.heightfactorKiosk;
-            // console.log("eHeight", eHeight, "dashboards[actDashboard].options.heightfactorKiosk", dashboards[actDashboard].options.heightfactorKiosk);
-         }
+      // verschiedene heightfactor für verscheidene dashboards und / kiosk mode
 
-         // widget.heightfactor für widget spezifische Höhen -> to be implemented (nur vorbereitet)
-
-         if (widget.heightfactor != null && widget.heightfactor != 1)
-            eHeight = eHeight * widget.heightfactor + ((widget.heightfactor-1) * marginWidth);
-
-         elem.style.height = eHeight + 'px';
+      if (heightFactor && heightFactor != 1)
+         eHeight = widgetHeightBase * heightFactor;
+      else if (!useKioskHeight && dashboards[actDashboard].options && dashboards[actDashboard].options.heightfactor)
+         eHeight = widgetHeightBase * dashboards[actDashboard].options.heightfactor;
+      else if (useKioskHeight && dashboards[actDashboard].options && dashboards[actDashboard].options.heightfactorKiosk) {
+         eHeight = widgetHeightBase * dashboards[actDashboard].options.heightfactorKiosk;
+         // console.log("eHeight", eHeight, "dashboards[actDashboard].options.heightfactorKiosk", dashboards[actDashboard].options.heightfactorKiosk);
       }
-      else  // grid layout
-      {
-         if (widget.widthfactor != null)
-            $(elem).css('grid-column', 'span ' + widget.widthfactor * 2);
-         else
-            $(elem).css('grid-column', 'span 2');
 
-         if (widget.heightfactor != null)
-            $(elem).css('grid-row', 'span ' + widget.heightfactor * 2);
-         else
-            $(elem).css('grid-row', 'span 2');
-      }
+      if (widget.heightfactor != null && widget.heightfactor != 1)
+         eHeight = eHeight * widget.heightfactor + ((widget.heightfactor-1) * marginWidth);
+
+      elem.style.height = eHeight + 'px';
+
+      // reset what a linefeed spacer sets (the widget type may have changed)
+
+      $(elem).css({ 'flex-basis': '', 'padding': '', 'margin': '', 'align-content': '' });
    }
 
    elem.innerHTML = '';
 
-   if (layout == 'flex')
+   if (layout == 'grid') {
+      // spans in half widget units, the columns get limited by resizeDashboard()
+
+      let widthFactor = widget.widthfactor != null ? parseFloat(widget.widthfactor) : 1;
+      let heightFactor = widget.heightfactor != null ? parseFloat(widget.heightfactor) : 1;
+
+      elem.dataset.colspan = Math.max(1, Math.round(widthFactor * 2));
+      $(elem).css('grid-column', 'span ' + elem.dataset.colspan);
+      $(elem).css('grid-row', 'span ' + Math.max(1, Math.round(heightFactor * 2)));
+   }
+
    {
+      // the width (also for 'grid', the widget fills its columns exactly)
+
       let style = getComputedStyle(document.documentElement);
       let widgetWidthBase = style.getPropertyValue('--widgetWidthBase') * 2;
       let widthFactor = widget.widthfactor != null ? widget.widthfactor : 1;
@@ -988,13 +1024,21 @@ function initWidget(key, widget, fact)
             $(elem).css('background-color', 'transparent');
 
          if (widget.linefeed) {
+            elem.removeAttribute('data-colspan');   // whole row, not limited by resizeDashboard()
             $(elem)
+               .css('grid-column', '1 / -1')
+               .css('grid-row', 'span 1')
                .css('flex-basis', '100%')
                .css('height', setupMode || (!isEmpty(title) && title != ' ') ? '40px' : '0px')
                .css('padding', '0px')
                .css('align-content', 'center')
                .css('margin', '0px');
          }
+         break;
+      }
+
+      case 18: {   // HTML (snippet of the table 'htmlwidgets', htmlwidgets.js)
+         initHtmlWidget(key, widget, elem, title, titleClass);
          break;
       }
 
@@ -2064,6 +2108,11 @@ function titleClick(ctrlKey, key)
          // console.log("toggleMode(", fact.address, fact.type, ')');
          toggleMode(fact.address, fact.type);
    }
+   else if (ctrlKey) {
+      // widget setup without the setup mode (storing the dashboard needs 'full control')
+      if (localStorage.getItem(storagePrefix + 'Rights') & 0x04)
+         widgetSetup(key);
+   }
    else {
       let sensor = allSensors[key];
 
@@ -2404,6 +2453,8 @@ function updateDashboard(widgets, refresh)
 
          updateWidget(widgets[key], refresh, dashboards[actDashboard].widgets[key]);
       }
+
+      updateHtmlWidgets(widgets);
    }
 }
 
@@ -2837,6 +2888,16 @@ function addWidget()
                               .attr('size', 15)
                               .css({'height': 'auto', 'min-width': '22em', 'vertical-align': 'top'})   // .input fixes height to 32px
                               .on('change', function() { rememberSelection(); })
+                              .on('dblclick', function(event) {
+                                 // double click: only this entry, added at once
+                                 let $option = $(event.target).closest('option');
+                                 if (!$option.length)
+                                    return;
+                                 selectedKeys.clear();
+                                 $('#widgetKey option').prop('selected', false);
+                                 $option.prop('selected', true);
+                                 $(form).parent().find(".ui-dialog-buttonpane button:contains('Ok')").click();
+                              })
                              )))
       .append($('<div></div>')
               .css('margin-top', '10px')
@@ -2916,6 +2977,7 @@ function addWidget()
    function updateSelection() {
       let addrSpacer = -1;
       let addrTime = -1;
+      let addrHtml = -1;
       $('#widgetKey').empty();
       // console.log("update selection: " + $('#incFilter').val());
       for (let key in dashboards[actDashboard].widgets) {
@@ -2924,6 +2986,8 @@ function addWidget()
             addrSpacer = n;
          if (key.split(":")[0] == 'TIME' && n > addrTime)
             addrTime = n;
+         if (key.split(":")[0] == 'HTML' && n > addrHtml)
+            addrHtml = n;
       }
       $('#widgetKey').append($('<option></option>')
                              .val('SPACER:0x' + (addrSpacer + 1).toString(16))
@@ -2931,6 +2995,9 @@ function addWidget()
       $('#widgetKey').append($('<option></option>')
                              .val('TIME:0x' + (addrTime + 1).toString(16))
                              .html('Time'));
+      $('#widgetKey').append($('<option></option>')
+                             .val('HTML:0x' + (addrHtml + 1).toString(16))
+                             .html('HTML'));
 
       let jArray = [];
       filterExpression = null;

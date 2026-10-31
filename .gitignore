@@ -39,6 +39,9 @@ alpicool/config.h.new
 kenwood/kenwood-remote/config.h
 kenwood/kenwood-remote/config.h.new
 kenwood/kenwood-remote/build
+tpms/config.h
+tpms/config.h.new
+tpms/build
 
 .aider*
 

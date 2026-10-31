@@ -192,6 +192,25 @@ Table hasppagewidgets
 }
 
 // ----------------------------------------------------------------
+// Table HtmlWidgets (snippets of the dashboard widget 'HTML',
+//   referenced by the widget options {"snippet": <id>, "params": {...}})
+// ----------------------------------------------------------------
+
+Table htmlwidgets
+{
+   ID                   ""  id                   UInt         4 Primary|Autoinc,
+
+   INSSP                ""  inssp                Int          0 Meta,
+   UPDSP                ""  updsp                Int          0 Meta,
+
+   NAME                 ""  name                 Ascii      100 Data,
+   KIND                 ""  kind                 Ascii       10 Data,   // 'html' | 'iframe'
+   CODE                 ""  code                 MText   200000 Data,   // template resp. URL
+   CSS                  ""  css                  Text     10000 Data,   // scoped to the widget
+   PARAMETERS           ""  parameters           Text      2000 Data,   // JSON {"<name>": "<default>", ...}
+}
+
+// ----------------------------------------------------------------
 // Table GpsTours (recorded GPS tours, the points are in 'samples' GPS:0x0a)
 // ----------------------------------------------------------------
 

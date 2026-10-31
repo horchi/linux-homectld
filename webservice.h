@@ -62,6 +62,7 @@ class cWebService
          evHaspPages,
          evStoreHaspPages,
          evHomeMatic,
+         evStoreHtmlWidgets,
 
          evCount
       };

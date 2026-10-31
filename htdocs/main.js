@@ -67,7 +67,7 @@ var sab = 0;             // env(safe-area-inset-bottom)
 var controlContainerCollapsed = false;
 var lastSetupPage = null;
 var lastSetupAction = null;
-var setupPages = ['setup', 'sensorsetup', 'userdetails', 'alerts', 'images', 'groups', 'syslog', 'system', 'commands', 'readme', 'hasp', 'homematic'];
+var setupPages = ['setup', 'sensorsetup', 'userdetails', 'alerts', 'images', 'groups', 'syslog', 'system', 'commands', 'readme', 'hasp', 'homematic', 'htmlwidgets'];
 
 $('document').ready(function() {
    daemonState.state = -1;
@@ -823,6 +823,8 @@ function dispatchMessage(message)
          updateSchema();
       else if (currentPage == 'list')
          updateList();
+      else if (currentPage == 'htmlwidgets')
+         htmlWidgetPreview();
       else if (currentPage == 'sensorsetup')
          updateSensorSetupValue();
       else if (currentPage == 'gpslive')
@@ -923,6 +925,9 @@ function dispatchMessage(message)
 
       if (currentPage == "homematic")
          initHomeMatic();
+   }
+   else if (event == "htmlwidgets") {
+      htmlWidgetsReceived(jMessage.object);
    }
    else if (event == "hasppages") {
       haspPages = jMessage.object;
@@ -1208,6 +1213,9 @@ function prepareSetupMenu()
          addSetupMenuButton('Images', 'images');
          addSetupMenuButton('HASP Panel', 'hasp');
 
+         if (localStorage.getItem(storagePrefix + 'Rights') & 0x10)
+            addSetupMenuButton('HTML Widgets', 'htmlwidgets');
+
          if (config.homeMaticBridge == 'hmmqtt')
             addSetupMenuButton('HomeMatic', 'homematic');
          // addSetupMenuButton('Baugruppen', 'groups');
@@ -1353,6 +1361,8 @@ function mainMenuSel(what, action = null, recoverSetupPage = true)
       event = "hasppages";
    else if (currentPage == "homematic")
       event = "homematic";
+   else if (currentPage == "htmlwidgets")
+      initHtmlWidgetsPage();
    else if (currentPage == "syslog") {
       updateSyslog();
       return;

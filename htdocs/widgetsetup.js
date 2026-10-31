@@ -51,6 +51,10 @@ function widgetSetup(key, hasp)
                                          )))
 
                   .append($('<div></div>')
+                          .attr('id', 'divHtml')
+                          .append(hasp ? null : htmlWidgetSetupRows(widget)))
+
+                  .append($('<div></div>')
                           .append($('<span></span>')
                                   .html('Titel'))
                           .append($('<span></span>')
@@ -484,6 +488,10 @@ function widgetSetup(key, hasp)
       $("#divMinutes").css("display", [17].includes(wType) ? 'flex' : 'none');
       $("#divSteps").css("display", [17].includes(wType) ? 'flex' : 'none');
       $("#divRange").css("display", [1,5,6,13].includes(wType) ? 'flex' : 'none');
+      $("#divHtml").css("display", [18].includes(wType) && !hasp ? 'contents' : 'none');
+
+      if (wType == 18 && !hasp)
+         htmlWidgetSetupParams(widget);
 
       if ([0,9,12].includes(wType) && $('#symbol').val() == '' && $('#symbolOn').val() == '')
          $("#divColor").css("display", 'none');
@@ -565,7 +573,7 @@ function widgetSetup(key, hasp)
          if (widget.heightfactor == null)
             widget.heightfactor = 1;
 
-         for (var h = 0.5; h <= 2.0; h += 0.5)
+         for (var h = 0.5; h <= 4.0; h += 0.5)
             $('#heightfactor').append($('<option></option>')
                                      .val(h)
                                       .html(h)
@@ -715,6 +723,9 @@ function widgetSetup(key, hasp)
             widget.heightfactor = $("#heightfactor").val();
             widget.range = $("#range").val();
 
+            if (widget.widgettype == 18)
+               htmlWidgetSetupStore(widget);
+
             initWidget(key, widget);
             if (allSensors[key] != null)
                updateWidget(allSensors[key], true, widget);
@@ -815,6 +826,9 @@ function widgetSetup(key, hasp)
 				json[key]["colorConditionBar"] = $("#colorConditionBar").val();
             json[key]["barcolor"] = $("#barcolor").spectrum("get").toRgbString();
 
+            if (json[key]["widgettype"] == 18 && !hasp)
+               htmlWidgetSetupStore(json[key]);
+
             if (hasp) {
                hasp.onSave(widget);
             }
@@ -861,6 +875,20 @@ function dashboardSetup(did)
                                           .attr('id', 'dashSymbol')
                                           .attr('type', 'search')
                                           .val(dashboards[dashboardId].symbol)
+                                         )))
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
+                                  .html('Layout'))
+                          .append($('<span></span>')
+                                  .append($('<select></select>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'dashLayout')
+                                          .attr('title', 'Fließend: Zeile für Zeile, ein höheres Widget macht seine ganze Zeile höher\n' +
+                                                'Raster: ein höheres Widget belegt mehrere Reihen, die Widgets daneben füllen sie auf')
+                                          .append($('<option></option>').val('flex').html('Fließend'))
+                                          .append($('<option></option>').val('grid').html('Raster'))
+                                          .val(dashboards[dashboardId].options.layout == 'grid' ? 'grid' : 'flex')
                                          )))
                   .append($('<div></div>')
                           .css('display', 'flex')
@@ -945,6 +973,7 @@ function dashboardSetup(did)
             dashboards[dashboardId].options.heightfactor = $("#heightfactor").val();
             dashboards[dashboardId].options.heightfactorKiosk = $("#heightfactorKiosk").val();
             dashboards[dashboardId].options.widthfactorKiosk = $("#widthfactorKiosk").val();
+            dashboards[dashboardId].options.layout = $("#dashLayout").val();
             console.log("set options: " + JSON.stringify(dashboards[dashboardId].options, undefined, 4));
             dashboards[dashboardId].title = $("#dashTitle").val();
             dashboards[dashboardId].symbol = $("#dashSymbol").val();

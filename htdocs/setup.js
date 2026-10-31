@@ -355,14 +355,24 @@ function initConfig(configdetails = null)
       }
 
       case 8:     // ctText
+      {
+         // the parameters of the MQTT sensors (category 'Sensors') are JSON, shown structured
+
+         let value = config[item.name];
+         let json = item.category == 'Sensors' ? configJsonPretty(value) : null;
+
          $(itemsDiv)
             .append($('<span></span>')
                     .append($('<textarea></textarea>')
                             .attr('id', 'input_' + item.name)
                             .attr('type', 'number')
                             .addClass('rounded-border input')
-                            .val(config[item.name])));
+                            .toggleClass('configJson', json != null)
+                            .attr('rows', json != null ? Math.min(json.split('\n').length + 1, 30) : null)
+                            .attr('spellcheck', json != null ? 'false' : null)
+                            .val(json != null ? json : value)));
          break;
+      }
       }
    }
 
@@ -629,12 +639,48 @@ function addConfigItem(name = null)
    });
 }
 
+// JSON object -> indented text, null if it's no JSON object
+
+function configJsonPretty(value)
+{
+   try {
+      let obj = JSON.parse(value);
+
+      if (obj && typeof obj === 'object' && !Array.isArray(obj))
+         return JSON.stringify(obj, null, 3);
+   }
+   catch (e) {}
+
+   return null;
+}
+
 function storeConfig()
 {
    var jsonObj = {};
    var rootConfig = document.getElementById("container");
 
    console.log("storeSettings");
+
+   // the JSON parameters of the sensors - check and store them compact
+
+   let jsonError = null;
+   let jsonValues = {};
+
+   $(rootConfig).find('textarea.configJson').each(function() {
+      try {
+         jsonValues[this.id.substring(this.id.indexOf('_') + 1)] = JSON.stringify(JSON.parse(this.value));
+         $(this).removeClass('configJsonError');
+      }
+      catch (e) {
+         $(this).addClass('configJsonError');
+         jsonError = jsonError || (this.id.substring(this.id.indexOf('_') + 1) + ': ' + e.message);
+      }
+   });
+
+   if (jsonError) {
+      showInfoDialog({ 'status': -1, 'message': 'Nicht gespeichert, ungültiges JSON in ' + jsonError });
+      return;
+   }
 
    // ctString, ctNumber, ctInteger, ctChoice, ctText
 
@@ -649,6 +695,8 @@ function storeConfig()
             jsonObj[name] = elements[i].value;
       }
    }
+
+   Object.assign(jsonObj, jsonValues);
 
    // ctBool
 
@@ -703,6 +751,7 @@ function storeConfig()
 
    // console.log(JSON.stringify(jsonObj, undefined, 4));
 
+   jsonObj['action'] = 'store';   // confirmed by homectld also for a page with only one item
    socket.send({ "event" : "storeconfig", "object" : jsonObj });
 }
 

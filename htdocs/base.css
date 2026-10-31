@@ -1821,6 +1821,15 @@ table.tableMultiCol td
     padding: var(--containerPadding);
 }
 
+/* configuration: full width beside the margin of 2 %, else a category with only one item
+   shrinks the table to it and the item gets 48 % of that */
+
+#setupContainer.inputTableConfig
+{
+    width: 96%;
+    box-sizing: border-box;
+}
+
 .inputTableConfig > div > span
 {
     min-width: 100px;
@@ -1866,6 +1875,20 @@ table.tableMultiCol td
 .inputTableConfig > div > span > select
 {
     width: 100%;
+}
+
+/* the JSON parameters of the MQTT sensors (category 'Sensors') */
+
+.inputTableConfig > div > span > textarea.configJson
+{
+    font-family: monospace;
+    min-height: 200px;
+    white-space: pre;
+}
+
+.inputTableConfig > div > span > textarea.configJsonError
+{
+    border-color: red;
 }
 
 /* ----------------------- */
@@ -4245,4 +4268,301 @@ iPhones
 
 .homeMaticDevices td {
    padding: 4px 8px;
+}
+
+/* dashboard widget 'HTML' and the setup page 'HTML Widgets' (htmlwidgets.js) */
+
+.widgetHtml {
+   display: flex;
+   flex-direction: column;
+   overflow: hidden;
+   box-shadow: 1px 1px 1px 0px var(--shadow);
+}
+
+.widget-html {
+   flex: 1;
+   min-height: 0;
+   overflow: auto;
+   position: relative;
+   color: var(--fontColor);
+}
+
+.widget-html [data-toggle], .widget-html [data-set], .widget-html [data-chart] {
+   cursor: pointer;
+}
+
+.widget-html-iframe {
+   border: 0;
+   width: 100%;
+   height: 100%;
+   display: block;
+}
+
+.widget-html-missing {
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+   justify-content: center;
+   height: 100%;
+   opacity: 0.6;
+}
+
+.widget-html-missing > .mdi {
+   font-size: 2.5em;
+}
+
+.htmlWidgetSetup {
+   display: flex;
+   flex-direction: column;
+}
+
+.htmlWidgetSetupRow {
+   display: flex;
+}
+
+.htmlWidgetSetupRow > span:nth-child(1) {
+   width: 40%;
+   text-align: end;
+   margin-right: 10px;
+   align-self: center;
+}
+
+.htmlWidgetSetupRow > span:nth-child(2) {
+   width: -webkit-fill-available;
+   width: -moz-available;
+   text-align: left;
+}
+
+.htmlWidgetPage {
+   display: flex;
+   gap: 12px;
+   padding: 10px;
+   align-items: flex-start;
+   width: 96%;                /* full width beside the margin of 2 %, '.inputTableConfig' shrinks to the content */
+   box-sizing: border-box;
+}
+
+.htmlWidgetList {
+   display: flex;
+   flex-direction: column;
+   gap: 4px;
+   min-width: 180px;
+}
+
+.htmlWidgetListTitle {
+   font-weight: bold;
+   padding: 0 2px;
+}
+
+.htmlWidgetListItems {
+   border: 1px solid var(--light3);
+   border-radius: var(--borderRadius);
+   background-color: var(--light1);
+   overflow: hidden;
+}
+
+.htmlWidgetListItem, .htmlWidgetListEmpty {
+   padding: 6px 8px;
+   border-left: 3px solid transparent;
+   border-bottom: 1px solid var(--light3);
+}
+
+.htmlWidgetListItem:last-child, .htmlWidgetListEmpty {
+   border-bottom: 0;
+}
+
+.htmlWidgetListItem {
+   cursor: pointer;
+}
+
+.htmlWidgetListItem:hover {
+   background-color: var(--light3);
+}
+
+.htmlWidgetListItem.active {
+   background-color: var(--light3);
+   border-left-color: #ffc107;
+   font-weight: bold;
+}
+
+.htmlWidgetListEmpty {
+   opacity: 0.6;
+   font-style: italic;
+}
+
+.htmlWidgetMain {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 12px;
+   flex: 1;
+   min-width: 0;
+}
+
+.htmlWidgetEditor {
+   flex: 1;
+   min-width: 320px;
+   display: flex;
+   flex-direction: column;
+   gap: 6px;
+}
+
+.htmlWidgetRow {
+   display: flex;
+   gap: 8px;
+}
+
+.htmlWidgetRow > span:nth-child(1) {
+   width: 80px;
+   flex-shrink: 0;
+   padding-top: 6px;
+}
+
+.htmlWidgetRow > input, .htmlWidgetRow > select, .htmlWidgetRow > textarea {
+   flex: 1;
+   min-width: 0;
+}
+
+.htmlWidgetCode {
+   font-family: monospace;
+   font-size: 13px;
+   height: 300px;
+   min-height: 60px;
+   resize: vertical;
+   white-space: pre;
+   tab-size: 3;
+   background-color: var(--light1);
+   color: var(--fontColor);
+   padding: 6px;
+   box-sizing: border-box;
+}
+
+.htmlWidgetCss {
+   height: 150px;
+}
+
+.htmlWidgetParams {
+   height: 100px;
+}
+
+.htmlWidgetError {
+   color: var(--red);
+}
+
+.htmlWidgetWarn {
+   color: orange;
+   font-size: 0.9em;
+}
+
+.htmlWidgetButtons {
+   display: flex;
+   gap: 8px;
+   margin-left: 88px;
+}
+
+.htmlWidgetDelete {
+   color: #ff5757 !important;
+}
+
+.htmlWidgetHelp {
+   margin-left: 88px;
+   font-size: 12px;
+   opacity: 0.8;
+   line-height: 1.6;
+}
+
+.htmlWidgetPreviewTitle {
+   margin-bottom: 6px;
+}
+
+.htmlWidgetPreviewContainer {
+   display: block;
+}
+
+.htmlWidgetPreviewWidget {
+   width: 100%;
+   max-width: 400px;
+   height: 220px;
+   box-sizing: border-box;
+   resize: both;
+   overflow: hidden;
+   background-color: var(--widgetBackground);
+}
+
+/* list 30 %, editor / preview 70 % (beats '.inputTableConfig > div' with its 48 %) */
+
+.htmlWidgetPage > .htmlWidgetSide {
+   display: flex;
+   flex-direction: column;
+   gap: 12px;
+   width: 30%;
+   box-sizing: border-box;
+}
+
+.htmlWidgetPage > .htmlWidgetMain {
+   display: flex;
+   width: 70%;
+   box-sizing: border-box;
+}
+
+@media (max-width: 700px) {
+   .htmlWidgetPage {
+      flex-direction: column;
+   }
+   .htmlWidgetPage > .htmlWidgetSide, .htmlWidgetPage > .htmlWidgetMain {
+      width: 100%;
+   }
+   .htmlWidgetButtons, .htmlWidgetHelp {
+      margin-left: 0;
+   }
+}
+
+.htmlWidgetMissing {
+   border: 2px solid var(--red) !important;
+}
+
+/* CodeMirror of the setup page 'HTML Widgets' (colors like the LUA editor) */
+
+.htmlWidgetRow > .htmlWidgetCm {
+   flex: 1;
+   min-width: 0;
+   font-size: 13px;
+   font-family: 'Courier New', monospace;
+   background: #1e1e1e;
+   color: #d4d4d4;
+   border-radius: var(--borderRadius);
+}
+
+/* resizable like a textarea, start height code 300, CSS 150, parameters 100 px */
+
+.htmlWidgetRow > .htmlWidgetCm        { height: 300px; min-height: 60px; resize: vertical; overflow: hidden; }
+.htmlWidgetRow > .hwCssCm             { height: 150px; }
+.htmlWidgetRow > .hwParamsCm          { height: 100px; }
+
+.htmlWidgetCm .CodeMirror-gutters     { background: #252526; border-right: 1px solid #3e3e42; }
+.htmlWidgetCm .CodeMirror-linenumber  { color: #858585; }
+.htmlWidgetCm .CodeMirror-cursor      { border-left: 2px solid #aeafad; }
+.htmlWidgetCm .CodeMirror-selected    { background: #264f78; }
+
+.htmlWidgetCm .cm-tag        { color: #569cd6; }
+.htmlWidgetCm .cm-attribute  { color: #9cdcfe; }
+.htmlWidgetCm .cm-property   { color: #9cdcfe; }
+.htmlWidgetCm .cm-atom       { color: #4ec9b0; }
+.htmlWidgetCm .cm-variable-2 { color: #dcdcaa; font-weight: bold; }
+.htmlWidgetCm .cm-keyword    { color: #c586c0; }
+
+.htmlWidgetListButtons {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 6px;
+}
+
+.htmlWidgetListButtons > button {
+   width: auto;
+   min-width: 0;
+   padding: 2px 12px;
+}
+
+.htmlWidgetCm .CodeMirror-placeholder {
+   color: #6a6a6a !important;
+   font-style: italic;
 }

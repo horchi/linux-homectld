@@ -40,6 +40,7 @@ double getDoubleFromJson(json_t* obj, const char* name, double def = na);
 json_t* getObjectFromJson(json_t* obj, const char* name, json_t* def = nullptr);
 
 json_t* getObjectByPath(json_t* jData, const char* aPath, json_t* def = nullptr);
+int jsonAddMissing(json_t* target, json_t* source);
 bool getBoolByPath(json_t* jData, const char* aPath, bool def = false);
 int getIntByPath(json_t* jData, const char* aPath, int def = na);
 double getDoubleByPath(json_t* jData, const char* aPath, double def = na);

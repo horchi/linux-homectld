@@ -98,6 +98,7 @@ int HomeCtl::dispatchClientRequest()
             case evHaspPages:           status = performHaspPages(oObject, client);      break;
             case evHomeMatic:           status = performHomeMatic(oObject, client);      break;
             case evStoreHaspPages:      status = storeHaspPages(oObject, client);        break;
+            case evStoreHtmlWidgets:    status = storeHtmlWidgets(oObject, client);      break;
             default:
             {
                if (dispatchSpecialRequest(event,oObject, client) == ignore)
@@ -161,6 +162,7 @@ bool HomeCtl::checkRights(long client, Event event, json_t* oObject)
       case evHaspPages:           return rights & urSettings;
       case evHomeMatic:           return rights & urSettings;
       case evStoreHaspPages:      return rights & urFullControl;
+      case evStoreHtmlWidgets:    return rights & urAdmin;     // the snippets run in the WEBIF of all users
       case evGroups:              return rights & urSettings;
       case evImageConfig:         return rights & urSettings;
 
@@ -306,6 +308,10 @@ int HomeCtl::performLogin(json_t* oObject)
    oJson = json_object();
    dashboards2Json(oJson);
    pushOutMessage(oJson, "dashboards", client);
+
+   oJson = json_object();
+   htmlWidgets2Json(oJson);
+   pushOutMessage(oJson, "htmlwidgets", client);
 
    oJson = json_array();
    images2Json(oJson);
@@ -1593,6 +1599,8 @@ int HomeCtl::storeConfig(json_t* obj, long client)
       int oldWebPort {webPort};
       std::string oldStyle;
       int count {0};
+      std::vector<std::string> sensorConfigs;   // changed configs of MQTT sensors (kind 'S', e.g. 'TPMS:<deviceid>')
+      bool confirm {isElementSet(obj, "action")};   // the config page sends 'action' explicit -> confirm also a single item
 
       const char* key {};
       json_t* jValue {};
@@ -1601,8 +1609,28 @@ int HomeCtl::storeConfig(json_t* obj, long client)
 
       json_object_foreach(obj, key, jValue)
       {
+         if (strcmp(key, "action") == 0)
+            continue;
+
          tell(eloDebugWebSock, "Debug: Storing config item '%s' with '%s'", key, json_string_value(jValue));
+         std::string oldValue;
+         getConfigItem(key, oldValue);
          setConfigItem(key, json_string_value(jValue));
+
+         if (json_is_string(jValue) && configItemKind(key) == "S")
+         {
+            // JSON compared by content, the WEBIF stores it compact, homectld with blanks
+
+            json_t* jOld {jsonLoad(oldValue.c_str(), 0, true)};
+            json_t* jNew {jsonLoad(json_string_value(jValue), 0, true)};
+            bool changed {jOld && jNew ? !json_equal(jOld, jNew) : oldValue != json_string_value(jValue)};
+
+            json_decref(jOld);
+            json_decref(jNew);
+
+            if (changed)
+               sensorConfigs.push_back(key);
+         }
 
          if (configItemType(key) == ctComboChoice)
             comboHistoryAdd(key, json_string_value(jValue));      // remember it as suggestion
@@ -1628,6 +1656,14 @@ int HomeCtl::storeConfig(json_t* obj, long client)
 
       readConfiguration(false);
 
+      // send the changed config to the sensor at once (else it gets it with its next init)
+
+      for (const auto& name : sensorConfigs)
+      {
+         tell(eloAlways, "Info: Sending changed config '%s' to the sensor", name.c_str());
+         publishSensorInit(getStringBefore(name, ":").c_str(), name.c_str());
+      }
+
       json_t* oJson {json_object()};
       config2Json(oJson);
       pushOutMessage(oJson, "config", client);
@@ -1636,7 +1672,7 @@ int HomeCtl::storeConfig(json_t* obj, long client)
          replyResult(success, client, "Konfiguration gespeichert. Web Port geändert, bitte " TARGET " neu Starten!");
       else if (!isEmpty(name) && name != oldStyle)
          replyResult(success, client, "Konfiguration gespeichert. Das Farbschema wurde geändert, mit STRG-Umschalt-r neu laden!");
-      else if (count > 1)  // on drag&drop its only one parameter
+      else if (count > 1 || confirm)  // on drag&drop its only one parameter
          replyResult(success, client, "Konfiguration gespeichert");
    }
 
@@ -2076,6 +2112,8 @@ int HomeCtl::storeDashboards(json_t* obj, long client)
                         opts = strdup("{ \"widgettype\": 10}");
                      else if (strstr(id, "TIME:"))
                         opts = strdup("{ \"widgettype\": 11}");
+                     else if (strstr(id, "HTML:"))
+                        opts = strdup("{ \"widgettype\": 18}");
                      else
                         opts = strdup("{}");
                      tell(eloDetail, "Info: No valuefact for '%s' adding default options [%s]", id, opts);
@@ -2093,6 +2131,127 @@ int HomeCtl::storeDashboards(json_t* obj, long client)
    }
 
    return done;
+}
+
+//***************************************************************************
+// Store HTML Widgets (snippets of the dashboard widget 'HTML')
+//   { "action": "store", "id": <id, -1 for a new one>, "name", "kind", "code", "css", "parameters" }
+//   { "action": "delete", "id": <id> }
+//   { "action": "import", "snippets": [ { "id": <id to overwrite, -1 for a new one>, "name", ... }, ... ] }
+//***************************************************************************
+
+int HomeCtl::storeHtmlWidgets(json_t* obj, long client)
+{
+   std::string action {getStringFromJson(obj, "action", "store")};
+   std::string message;
+
+   if (action == "delete")
+   {
+      long id {getLongFromJson(obj, "id", na)};
+
+      tell(eloDetail, "Deleting HTML widget (%ld)", id);
+      tableHtmlWidgets->deleteWhere("%s = %ld", tableHtmlWidgets->getField("ID")->getDbName(), id);
+      message = "HTML Widget gelöscht";
+   }
+   else if (action == "store")
+   {
+      if (storeHtmlWidget(obj, message) != success)
+         return replyResult(fail, client, "%s", message.c_str());
+
+      message = "HTML Widget gespeichert";
+   }
+   else if (action == "import")
+   {
+      json_t* jSnippets {getObjectFromJson(obj, "snippets")};
+      size_t index {0};
+      json_t* jSnippet {};
+      int count {0};
+      std::string errors;
+
+      json_array_foreach(jSnippets, index, jSnippet)
+      {
+         std::string error;
+
+         if (storeHtmlWidget(jSnippet, error) == success)
+            count++;
+         else
+            errors += std::string("\n'") + getStringFromJson(jSnippet, "name", "?") + "': " + error;
+      }
+
+      tell(eloAlways, "Imported %d HTML widget(s)", count);
+      message = std::to_string(count) + " HTML Widget(s) importiert" + (errors.empty() ? "" : ", Fehler:" + errors);
+   }
+
+   // all clients, the dashboards show the snippets
+
+   json_t* oJson {json_object()};
+   htmlWidgets2Json(oJson);
+   pushOutMessage(oJson, "htmlwidgets");
+
+   return replyResult(success, client, "%s", message.c_str());
+}
+
+//***************************************************************************
+// Store HTML Widget (one snippet, see storeHtmlWidgets())
+//***************************************************************************
+
+int HomeCtl::storeHtmlWidget(json_t* obj, std::string& error)
+{
+   long id {getLongFromJson(obj, "id", na)};
+   const char* name {getStringFromJson(obj, "name", "")};
+   std::string kind {getStringFromJson(obj, "kind", "html")};
+   const char* parameters {getStringFromJson(obj, "parameters", "")};
+
+   if (isEmpty(name))
+   {
+      error = "Der Name fehlt";
+      return fail;
+   }
+
+   if (kind != "html" && kind != "iframe")
+   {
+      error = "Unbekannte Art '" + kind + "'";
+      return fail;
+   }
+
+   if (!isEmpty(parameters))
+   {
+      json_t* jParameters {jsonLoad(parameters, 0, true)};
+      bool isObject {jParameters && json_is_object(jParameters)};
+
+      json_decref(jParameters);
+
+      if (!isObject)
+      {
+         error = "Die Parameter sind kein JSON Objekt";
+         return fail;
+      }
+   }
+
+   tableHtmlWidgets->clear();
+
+   if (id != na)
+   {
+      tableHtmlWidgets->setValue("ID", id);
+
+      if (!tableHtmlWidgets->find())
+      {
+         error = "HTML Widget (" + std::to_string(id) + ") nicht gefunden";
+         return fail;
+      }
+   }
+
+   tableHtmlWidgets->setValue("NAME", name);
+   tableHtmlWidgets->setValue("KIND", kind.c_str());
+   tableHtmlWidgets->setValue("CODE", getStringFromJson(obj, "code", ""));
+   tableHtmlWidgets->setValue("CSS", getStringFromJson(obj, "css", ""));
+   tableHtmlWidgets->setValue("PARAMETERS", parameters);
+   tableHtmlWidgets->store();
+   tableHtmlWidgets->reset();
+
+   tell(eloDetail, "Stored HTML widget '%s'", name);
+
+   return success;
 }
 
 //***************************************************************************
@@ -2424,6 +2583,18 @@ HomeCtl::ConfigItemType HomeCtl::configItemType(const char* name)
    tableConfig->reset();
 
    return type;
+}
+
+std::string HomeCtl::configItemKind(const char* name)
+{
+   tableConfig->clear();
+   tableConfig->setValue("OWNER", myName());
+   tableConfig->setValue("NAME", name);
+
+   std::string kind {tableConfig->find() ? tableConfig->getStrValue("KIND") : ""};
+   tableConfig->reset();
+
+   return kind;
 }
 
 json_t* HomeCtl::comboHistory(const char* name)
@@ -2888,6 +3059,41 @@ int HomeCtl::dashboards2Json(json_t* obj)
    return done;
 }
 //***************************************************************************
+// HTML Widgets 2 Json
+//   { "<id>": { "name", "kind", "code", "css", "parameters": {...} }, ... }
+//***************************************************************************
+
+int HomeCtl::htmlWidgets2Json(json_t* obj)
+{
+   tableHtmlWidgets->clear();
+
+   for (bool f = selectAllHtmlWidgets->find(); f; f = selectAllHtmlWidgets->fetch())
+   {
+      json_t* oSnippet {json_object()};
+      char* tmp {};
+
+      asprintf(&tmp, "%ld", tableHtmlWidgets->getIntValue("ID"));
+      json_object_set_new(obj, tmp, oSnippet);
+      free(tmp);
+
+      json_object_set_new(oSnippet, "name", json_string(tableHtmlWidgets->getStrValue("NAME")));
+      json_object_set_new(oSnippet, "kind", json_string(tableHtmlWidgets->getStrValue("KIND")));
+      json_object_set_new(oSnippet, "code", json_string(tableHtmlWidgets->getStrValue("CODE")));
+      json_object_set_new(oSnippet, "css", json_string(tableHtmlWidgets->getStrValue("CSS")));
+
+      json_t* oParameters {jsonLoad(tableHtmlWidgets->getStrValue("PARAMETERS"), 0, true)};
+      json_object_set_new(oSnippet, "parameters", json_is_object(oParameters) ? oParameters : json_object());
+
+      if (oParameters && !json_is_object(oParameters))
+         json_decref(oParameters);
+   }
+
+   selectAllHtmlWidgets->freeResult();
+
+   return done;
+}
+
+//***************************************************************************
 // Groups 2 Json
 //***************************************************************************
 
@@ -3057,6 +3263,7 @@ int HomeCtl::sensor2Json(json_t* obj, const char* type, uint address)
    json_object_set_new(obj, "last", json_integer(sensors[type][address].last()));
    json_object_set_new(obj, "changedAt", json_integer(sensors[type][address].changedAt()));
    json_object_set_new(obj, "hasjson", json_boolean(!sensors[type][address].lastJson.empty()));
+   json_object_set_new(obj, "state", json_boolean(sensors[type][address].state));   // e.g. the presence of a motion sensor (its 'value' stays)
 
    // optional peak
 

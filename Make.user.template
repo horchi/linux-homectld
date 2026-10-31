@@ -36,6 +36,11 @@ DOMAIN = womo.lan
 # =========================
 # ESP32 sketches
 
+# *_PORT: serial port (USB) of the ESP32 for 'make upload' / 'make monitor'
+# *_OTA_HOST / *_OTA_PWD: OTA (over the air) = flash the firmware via WLAN instead of USB
+#   ('make upload-ota'), IP of the ESP32 (fixed IP in the router) and optional password
+#   (empty = none); the first upload has to be done via USB ('make upload')
+
 # -------------------------
 # parameter for alpicool ESP32 (see kenwood above for PORT / OTA)
 
@@ -45,6 +50,15 @@ DOMAIN = womo.lan
 #ALPICOOL_PORT = /dev/ttyACM0
 #ALPICOOL_OTA_HOST = 192.168.220.34
 #ALPICOOL_OTA_PWD =
+
+# -------------------------
+# Parameter for tpms / ESP32 (tire pressure valve caps)
+
+# the caps are mapped to the wheels in the WEBIF config 'TPMS:<deviceid>' (see tpms/README.md)
+
+#TPMS_PORT = /dev/ttyACM0
+#TPMS_OTA_HOST = 192.168.220.35
+#TPMS_OTA_PWD =
 
 # -------------------------
 # Parameter for kenwood / ESP32

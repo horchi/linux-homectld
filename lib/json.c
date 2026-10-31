@@ -275,6 +275,48 @@ json_t* getObjectFromJson(json_t* obj, const char* name, json_t* def)
    return o;
 }
 
+//***************************************************************************
+// Add Missing
+//   adds the elements of 'source' missing in 'target' (recursive for objects),
+//   an element of an other type (format changed) is replaced, the rest of
+//   'target' is kept; returns the number of added / replaced elements
+//***************************************************************************
+
+static int jsonTypeGroup(json_t* o)
+{
+   if (json_is_boolean(o)) return 1;
+   if (json_is_number(o))  return 2;
+
+   return 10 + json_typeof(o);
+}
+
+int jsonAddMissing(json_t* target, json_t* source)
+{
+   const char* key {};
+   json_t* jSrc {};
+   int count {0};
+
+   if (!json_is_object(target) || !json_is_object(source))
+      return 0;
+
+   json_object_foreach(source, key, jSrc)
+   {
+      json_t* jTgt {json_object_get(target, key)};
+
+      if (!jTgt || jsonTypeGroup(jTgt) != jsonTypeGroup(jSrc))
+      {
+         json_object_set(target, key, jSrc);
+         count++;
+      }
+      else if (json_is_object(jTgt))
+      {
+         count += jsonAddMissing(jTgt, jSrc);
+      }
+   }
+
+   return count;
+}
+
 json_t* getObjectByPath(json_t* jData, const char* aPath, json_t* def)
 {
    json_t* jElement {jData};

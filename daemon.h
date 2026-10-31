@@ -463,6 +463,9 @@ class HomeCtl : public cWebInterface, public Service
       int storeDashboards(json_t* obj, long client);
       int performHaspPages(json_t* obj, long client);
       int storeHaspPages(json_t* obj, long client);
+      int htmlWidgets2Json(json_t* obj);
+      int storeHtmlWidgets(json_t* obj, long client);
+      int storeHtmlWidget(json_t* obj, std::string& error);
       virtual int storeIoSetup(json_t* array, long client);
       int storeGroups(json_t* array, long client);
       int performChartbookmarks(long client);
@@ -490,6 +493,7 @@ class HomeCtl : public cWebInterface, public Service
       int userDetails2Json(json_t* obj);
       virtual int configChoice2json(json_t* obj, const char* name);
       ConfigItemType configItemType(const char* name);
+      std::string configItemKind(const char* name);
       json_t* comboHistory(const char* name);
       int comboHistoryStore(const char* name, json_t* jHistory);
       int comboHistoryAdd(const char* name, const char* value);
@@ -800,6 +804,7 @@ class HomeCtl : public cWebInterface, public Service
       cDbTable* tableDashboardWidgets {};
       cDbTable* tableHaspPages {};
       cDbTable* tableHaspPageWidgets {};
+      cDbTable* tableHtmlWidgets {};
       cDbTable* tableGpsTours {};
       cDbTable* tableGpsTourEvents {};
       cDbTable* tableActivities {};
@@ -834,6 +839,7 @@ class HomeCtl : public cWebInterface, public Service
       cDbStatement* selectDashboardById {};
       cDbStatement* selectDashboardWidgetsFor {};
       cDbStatement* selectHaspPages {};
+      cDbStatement* selectAllHtmlWidgets {};
       cDbStatement* selectGpsTours {};
       cDbStatement* selectGpsTourEvents {};
       cDbStatement* selectGpsFuelEvents {};

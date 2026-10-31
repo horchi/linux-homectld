@@ -60,6 +60,7 @@ const char* cWebService::events[] =
    "hasppages",
    "storehasppages",
    "homematic",
+   "storehtmlwidgets",
 
    0
 };

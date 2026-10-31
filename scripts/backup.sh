@@ -10,7 +10,7 @@ DUMP_DIR="${BACKUP_DIR}/dumps"
 
 mkdir -p ${DUMP_DIR}
 
-TABLES="config dashboards dashboardwidgets deconzl deconzs groups homematic iostates peaks samples schemaconf sensoralert users valuefacts valuetypes"
+TABLES="config dashboards dashboardwidgets htmlwidgets deconzl deconzs groups homematic iostates peaks samples schemaconf sensoralert users valuefacts valuetypes"
 
 for table in ${TABLES}; do
    echo "backup table ${table}"

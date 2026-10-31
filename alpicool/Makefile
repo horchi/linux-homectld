@@ -37,13 +37,19 @@ $(BUILD_DIR)/$(TARGET).ino.bin: $(TARGET).ino config.h Makefile
 	mkdir -p $(BUILD_DIR)
 	$(ARDUINO_CLI) compile --fqbn $(BOARD_TAG) $(CXXFLAGS) --build-path $(BUILD_DIR) .
 
+# die Werte gehen unverändert ($(value ...), Umgebung, perl) in die config.h, ein '$' im
+# WLAN Passwort wird sonst von make / der Shell als Variable ersetzt
+
+patch-config: export CFG_MQTT_HOST = $(value MQTT_HOST)
+patch-config: export CFG_WIFI_SSID = $(value WIFI_SSID)
+patch-config: export CFG_WIFI_PWD = $(value WIFI_PWD)
+patch-config: export CFG_OTA_PWD = $(value ALPICOOL_OTA_PWD)
+patch-config: export CFG_ALPI_MAC = $(value ALPI_MAC)
+
 patch-config:
-	@cat config-tmpl.h | \
-	sed s:"<MQTT_SERVER>":"\"$(MQTT_HOST)\"":g | \
-	sed s/"<ALPI_MAC>"/"\"$(ALPI_MAC)\""/g   | \
-	sed s:"<WIFI_SSID>":"\"$(WIFI_SSID)\"":g   | \
-	sed s:"<WIFI_PWD>":"\"$(WIFI_PWD)\"":g   | \
-	sed s:"<OTA_PWD>":"\"$(ALPICOOL_OTA_PWD)\"":g > config.h.new
+	@perl -pe 's/<MQTT_SERVER>/"$$ENV{CFG_MQTT_HOST}"/g; s/<WIFI_SSID>/"$$ENV{CFG_WIFI_SSID}"/g; \
+	           s/<WIFI_PWD>/"$$ENV{CFG_WIFI_PWD}"/g; s/<OTA_PWD>/"$$ENV{CFG_OTA_PWD}"/g; \
+	           s/<ALPI_MAC>/"$$ENV{CFG_ALPI_MAC}"/g' config-tmpl.h > config.h.new
 	@if cmp -s config.h.new config.h; then rm config.h.new; else echo "Erzeuge config.h .."; mv config.h.new config.h; fi
 
 upload:

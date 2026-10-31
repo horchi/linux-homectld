@@ -40,7 +40,7 @@ If you like the project and want to support it
 - Display and filtering of rsyslog logs files integrated in the web interface
 - HomeMatic blind actuators directly via a CUL USB stick
             or by using NodeRed as bridge to the CCU (alternative to the CUL stick)
-- Light and blind control without NodeRed and without scripts: time control by fixed times or sun times,
+- Light and blind control by fixed times or sun times,
   rules for switches and motion sensors, shading of the blinds - details below
 
 # Some Screenshots

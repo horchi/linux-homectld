@@ -350,6 +350,8 @@ class HomeCtl : public cWebInterface, public Service
       int homeMaticAddBlind(const char* uuid, int direction);
       int homeMaticBlindUpdate(uint address, double value, bool working, int direction, const char* jsonTopic, const char* message);
       int dispatchHmMqtt(const char* topic, const char* message);
+      int deconzCheckOutdated();
+      static constexpr time_t deconzMaxAge {3 * 60 * 60};      // [s] measuring sensors without data that long are invalid
       int homeMaticServiceAction(SensorData& sensor, double value, bool noStop);
       int homeMatic2Json(json_t* obj);
       int performHomeMatic(json_t* obj, long client);
@@ -842,6 +844,7 @@ class HomeCtl : public cWebInterface, public Service
       cDbStatement* selectSchemaConfByState {};
       cDbStatement* selectAllSchemaConf {};
       cDbStatement* selectHomeMaticByUuid {};
+      cDbStatement* selectAllHomeMatic {};
 
       cDbValue xmlTime;
       cDbValue rangeFrom;
@@ -954,8 +957,8 @@ class HomeCtl : public cWebInterface, public Service
       LmcCom* lmc {};
 
       Deconz deconz;
-      bool homeMaticInterface {false};
-      std::string homeMaticBridge {"Node-RED"};             // Node-RED (CCU) | hmmqtt (CUL)
+      bool homeMaticInterface {false};                      // homeMaticBridge != 'Aus'
+      std::string homeMaticBridge {"Aus"};                  // Aus | Node-RED (CCU) | hmmqtt (CUL)
       std::string homeMaticTopic {"homematic"};             // MQTT base topic of hmmqtt
       json_t* homeMaticServiceStatus {};                    // last messages of hmmqtt (WEBIF page 'HomeMatic')
       json_t* homeMaticServiceDevices {};

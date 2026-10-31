@@ -440,50 +440,77 @@ function factTitle(key) {
    return f ? (f.usrtitle ? f.usrtitle : f.title) : key;
 }
 
-function lightRuleText(rule) {        // 'Bewegung → Folgen: Flur, Flur (5 %, 15 s), aus nach 3 min, nur Sonnenuntergang -30 (16:44) - ...'
-   const actions = { 'toggle': 'Umschalten', 'on': 'An', 'off': 'Aus', 'follow': 'Folgen' };
-   let text = (rule.trigger == 'button' ? 'Taste ' + rule.button : 'Bewegung') + ' → ' + (actions[rule.action] || rule.action) + ': ';
-   let opts = [];
+//   a rule as { title, rows: [ [label, value] ] }, shown as block in the tab 'Regeln' of the info dialog
 
-   text += (rule.targets || []).map(t => factTitle(t)).join(', ');
+function lightRuleItem(rule, source) {   // title 'Bewegung → Folgen', rows Geräte, Helligkeit, Übergang, Aus nach, Zeitraum
+   const actions = { 'toggle': 'Umschalten', 'on': 'An', 'off': 'Aus', 'follow': 'Folgen' };
+   let title = (rule.trigger == 'button' ? 'Taste ' + rule.button : 'Bewegung') + ' → ' + (actions[rule.action] || rule.action);
+   let rows = [];
+
+   if (source)
+      rows.push(['Auslöser', source]);
+
+   rows.push(['Geräte', (rule.targets || []).map(t => factTitle(t) + ' (' + t + ')').join(', ') || '–']);
 
    if (rule.bri)
-      opts.push(rule.bri + ' %');
+      rows.push(['Helligkeit', rule.bri + ' %']);
    if (rule.transition)
-      opts.push(rule.transition + ' s');
-   if (opts.length)
-      text += ' (' + opts.join(', ') + ')';
+      rows.push(['Übergang', rule.transition + ' s']);
    if (rule.offAfter)
-      text += ', aus nach ' + prettyDuration(rule.offAfter);
-   if (rule.condition)
-      text += ', nur ' + timeRefText(rule.condition.start, rule.condition.startOffset) + ' - ' +
-         timeRefText(rule.condition.end, rule.condition.endOffset);
+      rows.push(['Aus nach', prettyDuration(rule.offAfter)]);
+   if (rule.condition) {
+      rows.push(['Zeitraum', 'von ' + timeRefText(rule.condition.start, rule.condition.startOffset)]);
+      rows.push(['', 'bis ' + timeRefText(rule.condition.end, rule.condition.endOffset)]);
+   }
 
-   return text;
+   return { 'title': title, 'rows': rows };
 }
 
-function lightRulesFor(key) {         // rules of a sensor, or the rules switching a light / output -> [ text ]
+function timeRangeItem(t, fact) {        // time control: rows An / Aus (blind: Zu / Auf), Gültig, Helligkeit / Position
+   let st = fact.settings;
+   let blind = fact.type == 'HMB';
+   let rows = [];
+
+   rows.push([blind ? 'Zu' : 'An', timeRefText(t.start, t.startOffset)]);
+   rows.push([blind ? 'Auf' : 'Aus', timeRefText(t.end, t.endOffset)]);
+
+   if (t.dateFrom && t.dateTo)
+      rows.push(['Gültig', t.dateFrom + '. – ' + t.dateTo + '.']);
+
+   if (blind)
+      rows.push(['Position', 'Zu ' + (st.levelIn != null ? st.levelIn : 0) + ' % / Auf ' +
+                 (st.levelOut != null ? st.levelOut : 100) + ' %']);
+   else if ((fact.type == 'DZL' || fact.type == 'DZLG') && st.bri)
+      rows.push(['Helligkeit', st.bri + ' %']);
+
+   return { 'title': 'Zeitsteuerung' + (st.timesEnabled === false ? ' (ausgeschaltet)' : ''), 'rows': rows };
+}
+
+function lightRulesFor(key) {         // rules of a sensor, or the rules switching a light / output -> [ item ]
    let fact = valueFacts[key];
-   let texts = [];
+   let items = [];
 
    if (!fact)
-      return texts;
+      return items;
 
    if (fact.type == 'HMB' && fact.settings && fact.settings.shade && fact.settings.shade.enabled) {
       let sh = fact.settings.shade;
-      let text = 'Beschattung: ' + sh.level + ' % bei Sonne ' + sh.azFrom + '°–' + sh.azTo + '° (ab ' + sh.minElevation + '° Höhe)';
+      let rows = [];
+
+      rows.push(['Position', sh.level + ' %']);
+      rows.push(['Sonne', sh.azFrom + '° – ' + sh.azTo + '°, ab ' + sh.minElevation + '° Höhe']);
 
       if (sh.luxSensor)
-         text += ', ' + factTitle(sh.luxSensor) + ' ≥ ' + sh.luxMin;
+         rows.push(['Helligkeit', factTitle(sh.luxSensor) + ' ≥ ' + sh.luxMin]);
       if (sh.tempSensor)
-         text += ', ' + factTitle(sh.tempSensor) + ' ≥ ' + sh.tempMin + ' °C';
+         rows.push(['Temperatur', factTitle(sh.tempSensor) + ' ≥ ' + sh.tempMin + ' °C']);
 
-      text += ', Verzögerung ' + sh.delayOn + ' / ' + sh.delayOff + ' min';
-      texts.push(text);
+      rows.push(['Verzögerung', sh.delayOn + ' min / Ende ' + sh.delayOff + ' min']);
+      items.push({ 'title': 'Beschattung', 'rows': rows });
    }
 
    if (fact.type == 'DZS')
-      return (fact.settings && Array.isArray(fact.settings.rules) ? fact.settings.rules : []).map(r => lightRuleText(r));
+      return (fact.settings && Array.isArray(fact.settings.rules) ? fact.settings.rules : []).map(r => lightRuleItem(r));
 
    for (const k in valueFacts) {
       let f = valueFacts[k];
@@ -493,19 +520,10 @@ function lightRulesFor(key) {         // rules of a sensor, or the rules switchi
 
       for (const r of f.settings.rules)
          if (Array.isArray(r.targets) && r.targets.includes(key))
-            texts.push(factTitle(k) + ': ' + lightRuleText(r));
+            items.push(lightRuleItem(r, factTitle(k)));
    }
 
-   return texts;
-}
-
-function timeRangeText(t) {             // 'Sonnenuntergang -30 (16:44) - 06:30 (01.05.–30.09.)'
-   let text = timeRefText(t.start, t.startOffset) + ' - ' + timeRefText(t.end, t.endOffset);
-
-   if (t.dateFrom && t.dateTo)
-      text += ' (' + t.dateFrom + '.–' + t.dateTo + '.)';
-
-   return text;
+   return items;
 }
 
 function timeRefText(ref, offset) {       // 'Sonnenuntergang -30 (17:12)', '06:30'
@@ -1190,7 +1208,7 @@ function prepareSetupMenu()
          addSetupMenuButton('Images', 'images');
          addSetupMenuButton('HASP Panel', 'hasp');
 
-         if (config.homeMaticInterface == '1' && config.homeMaticBridge == 'hmmqtt')
+         if (config.homeMaticBridge == 'hmmqtt')
             addSetupMenuButton('HomeMatic', 'homematic');
          // addSetupMenuButton('Baugruppen', 'groups');
          addSetupMenuButton('Syslog', 'syslog');

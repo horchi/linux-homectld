@@ -147,6 +147,7 @@ class HmDevice
       virtual int statusRequest(uint channel, std::vector<BidCos::Frame>& frames);
 
       virtual json_t* state(uint channel) = 0;
+      virtual bool moving() { return false; }          // state changes by itself (blind running)
       json_t* toJson();                                // entry of 'devices'
 
       std::string channelId(uint channel) { return serial + ":" + std::to_string(channel); }
@@ -158,6 +159,7 @@ class HmDevice
       uint32_t rfAddress {0};
       time_t lastSeen {0};
       int rssi {0};
+      uint64_t pollAt {0};                             // next status request while moving [ms], 0 not moving
 };
 
 //***************************************************************************
@@ -176,6 +178,7 @@ class HmBlind : public HmDevice
       json_t* state(uint channel) override;
 
       bool working() { return direction != 0; }
+      bool moving() override { return working(); }
 
    protected:
 
@@ -225,6 +228,8 @@ class HmMqtt
       int enqueue(BidCos::Frame frame, PendingKind kind = pkCommand);
       int processQueue();
       int pendingDone(const Pending& pending, bool success, const BidCos::Frame* answer);
+      int trackMoving();
+      int statusAll();
 
       // pairing
 
@@ -263,6 +268,7 @@ class HmMqtt
 
       Cul cul;
       time_t culRetryAt {0};
+      uint64_t statusAllAt {0};                       // status request of all devices after the CUL opened [ms]
       uint8_t counter {0};
 
       std::map<uint32_t,HmDevice*> devices;          // rf address -> device

@@ -397,6 +397,22 @@ function getWidgetColor(widget, colorCondition, defaultColor, value)
    }
 }
 
+// battery symbol by the charge [%]: green, yellow (< 60 %), orange (< 30 %), red (< 15 %)
+
+function batterySymbol(percent)
+{
+   if (percent == null || percent < 0)
+      return $('<span></span>');
+
+   let level = Math.min(100, Math.max(0, Math.round(percent / 10) * 10));
+   let icon = level >= 100 ? 'mdi-battery' : level == 0 ? 'mdi-battery-outline' : 'mdi-battery-' + level;
+   let color = percent >= 60 ? 'var(--green)' : percent >= 30 ? 'var(--yellow)'
+       : percent >= 15 ? 'var(--orange)' : 'var(--red)';
+
+   return $('<span></span>').addClass('mdi ' + icon).css('color', color).css('font-size', 'larger')
+      .attr('title', percent + ' %');
+}
+
 function getWidgetTitle(widget, fact)
 {
    let title = ' ';
@@ -966,8 +982,10 @@ function initWidget(key, widget, fact)
                         .css('font-weight', 'bold')
                         .click(function(event) {titleClick(event.ctrlKey, key);})
                         .html(setupMode ? ' spacer' : title));
-         //if (!setupMode)
-         //   $(elem).css('background-color', widget.color);
+         // without title invisible outside of the setup mode
+
+         if (!setupMode && (isEmpty(title) || title.trim() == ''))
+            $(elem).css('background-color', 'transparent');
 
          if (widget.linefeed) {
             $(elem)
@@ -2063,24 +2081,13 @@ function titleClick(ctrlKey, key)
 
       // time control (ranges of the outputs / actors) -> tab 'Regeln'
 
-      let timeTexts = [];
+      let timeItems = [];
 
-      if (fact.settings && Array.isArray(fact.settings.times) && fact.settings.times.length) {
-         let st = fact.settings;
-         let what = '';
+      if (fact.settings && Array.isArray(fact.settings.times))
+         for (const t of fact.settings.times)
+            timeItems.push(timeRangeItem(t, fact));
 
-         if (fact.type == 'HMB')
-            what = ' (Zu ' + (st.levelIn != null ? st.levelIn : 0) + ' % / Auf ' + (st.levelOut != null ? st.levelOut : 100) + ' %)';
-         else if ((fact.type == 'DZL' || fact.type == 'DZLG') && st.bri)
-            what = ' (Helligkeit ' + st.bri + ' %)';
-
-         let off = st.timesEnabled === false ? ' – ausgeschaltet' : '';
-
-         for (const t of st.times)
-            timeTexts.push('Zeitsteuerung: ' + timeRangeText(t) + what + off);
-      }
-
-      let rules = timeTexts.concat(lightRulesFor(key));     // time control, light rules of the sensor / switching this light (tab 'Regeln')
+      let rules = timeItems.concat(lightRulesFor(key));     // time control, light rules of the sensor / switching this light (tab 'Regeln')
       let hasRules = rules.length > 0 || sensor.offAt || sensor.shade;
 
       let value = sensor.value + ' ' + widget.unit;
@@ -2126,12 +2133,19 @@ function titleClick(ctrlKey, key)
          if (sensor.shade)
             rulesTab.append($('<div></div>').addClass('sensorRulesTimer').text('Beschattung: ' + sensor.shade));
 
-         let list = $('<ul></ul>');
+         for (const rule of rules) {
+            let block = $('<div></div>').addClass('sensorRule')
+                .append($('<div></div>').addClass('sensorRuleTitle').text(rule.title));
 
-         for (const text of rules)
-            list.append($('<li></li>').text(text));
+            for (const [label, text] of rule.rows)
+               block.append($('<div></div>').addClass('sensorRuleRow')
+                            .append($('<span></span>').addClass('sensorRuleLabel').text(label))
+                            .append($('<span></span>').text(text)));
 
-         tabs.append(rulesTab.append(list));
+            rulesTab.append(block);
+         }
+
+         tabs.append(rulesTab);
       }
 
       if (sensor.hasjson)
@@ -2282,7 +2296,23 @@ function titleClick(ctrlKey, key)
                              .append($('<span></span>')
                                      .append($('<div></div>')
                                              .addClass('rounded-border')
-                                             .html(sensor.battery ? sensor.battery + ' %' :  '-')
+                                             .append(batterySymbol(sensor.battery))
+                                             .append($('<span></span>').html(sensor.battery ? ' ' + sensor.battery + ' %' :  '-'))
+                                            )))
+
+                     .append($('<div></div>')         // deCONZ: the MAC as the deCONZ log shows it
+                             .css('display', fact.mac ? 'flex' : 'none')
+                             .css('margin-bottom', '4px')
+                             .append($('<span></span>')
+                                     .css('width', '30%')
+                                     .css('text-align', 'end')
+                                     .css('margin-right', '10px')
+                                     .html('MAC'))
+                             .append($('<span></span>')
+                                     .append($('<div></div>')
+                                             .addClass('rounded-border')
+                                             .css('user-select', 'text')
+                                             .text(fact.mac || '')
                                             )))
                     );
 

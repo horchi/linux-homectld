@@ -309,7 +309,7 @@ int HomeCtl::performHomeMatic(json_t* obj, long client)
    if (!action.empty())
    {
       if (!homeMaticInterface || homeMaticBridge != "hmmqtt")
-         return replyResult(fail, client, "HomeMatic ist nicht über den Dienst hmmqtt angebunden (Konfiguration)");
+         return replyResult(fail, client, "HomeMatic ist nicht über den Dienst hmmqtt angebunden (Konfiguration -> HomeMatic -> Anbindung)");
 
       if (mqttCheckConnection() != success)
          return replyResult(fail, client, "MQTT nicht verbunden");

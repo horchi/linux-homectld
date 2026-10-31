@@ -26,6 +26,8 @@ install: $(HMTARGET)
 	@echo install $(HMTARGET)
 	install --mode=755 -D $(HMTARGET) $(BINDEST)/
 	@$(call installUnit,hmmqtt.service,hmmqtt.service)
+	install --mode=644 -D 77-cul-mm-ignore.rules $(DESTDIR)/etc/udev/rules.d/77-cul-mm-ignore.rules
+	-test -n "$(DESTDIR)" || udevadm control --reload-rules
 	mkdir -p $(DESTDIR)/var/lib/hmmqtt
 	if ! test -f $(DESTDIR)/var/lib/hmmqtt/devices.json; then \
 		install --mode=644 -D devices.json $(DESTDIR)/var/lib/hmmqtt/devices.json; \

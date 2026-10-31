@@ -27,7 +27,7 @@ function initHomeMatic()
    if (!viaService) {
       $page.append($('<div></div>').addClass('homeMaticNote')
                    .html('HomeMatic ist nicht über den Dienst <b>hmmqtt</b> angebunden.<br>' +
-                         'Konfiguration -> HomeMatic: \'HomeMatic Interface\' an und \'Anbindung\' = hmmqtt.'));
+                         'Konfiguration -> HomeMatic: \'Anbindung\' = hmmqtt.'));
       $('#container').empty().append($page);
       return;
    }
@@ -38,7 +38,7 @@ function initHomeMatic()
 
    $page.append($('<div></div>').addClass('homeMaticState')
                 .append($('<span></span>').addClass('mdi mdi-circle')
-                        .css('color', online ? 'var(--green, #4caf50)' : 'var(--red, #e53935)'))
+                        .css('color', online ? 'var(--green)' : 'var(--red)'))
                 .append($('<span></span>')
                         .text(' Dienst hmmqtt: ' + (status.state || 'keine Meldung') +
                               (status.cul ? ' – ' + status.cul : '') +

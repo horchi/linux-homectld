@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.38"
-#define VERSION_DATE "26.10.2026"
+#define _VERSION     "0.1.39"
+#define VERSION_DATE "29.10.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,39 @@
 
 /*
  * ------------------------------------
+
+2026-10-29: version 0.1.39
+    - added: hmmqtt: the position of a running blind is shown, the actuator reports only the start and the end of
+             a run; while it moves its status is requested every 2 s (no request while a command to it is pending,
+             none if it didn't answer for 60 s)
+    - bugfix: hmmqtt: a status request is answered by the actuator with INFO (its position) instead of an ACK,
+              the request was repeated three times and reported as failed ('No answer of ..., giving up');
+              an INFO with the counter of the request is taken as its answer now
+    - change: config HomeMatic 'Anbindung' (homeMaticBridge) Aus | Node-RED | hmmqtt replaces the switch
+              'HomeMatic Interface' (homeMaticInterface), taken over once at the start (on -> Node-RED resp. the
+              bridge set before, off -> Aus), the old item is removed
+    - bugfix: HomeMatic: the blinds weren't switched after a start of the daemon without answer of the CCU
+              (listDevices), the commands had no channel ('channel undefined' at Node-RED); the channels are
+              loaded from the table 'homematic' at the start now
+    - bugfix: deCONZ: the battery of the sensors was lost with each event without battery (motion, button, value),
+              the battery events of deCONZ were ignored, the battery of the switches wasn't taken at all;
+              the battery is kept now, taken from the battery events and for switches at the init (without
+              their last button event)
+    - bugfix: deCONZ: the init made the last data of a sensor fresh (valid, last update = now), also of a sensor
+              silent for a long time (empty battery); the time of the data at deCONZ (lastupdated) is taken
+              now, a measuring sensor with data older than 3 hours is invalid (faded); at runtime temperature,
+              humidity and pressure sensors without data for 3 hours get invalid (the Aqara ones report hourly)
+    - bugfix: deCONZ: devices renamed in Phoscon kept their old name / title in homectld, the name is taken
+              at each init now (an own title of the sensor setup stays)
+    - added: battery symbol in the color of the charge (green, yellow < 60 %, orange < 30 %, red < 15 %) in the
+             info dialog of the dashboard and as column 'Batterie' in the sensor setup
+    - added: deCONZ: the MAC of the lights / sensors as the deCONZ log shows it (e.g. 00158D0002310239), in the info
+             dialog of the dashboard (tab 'Daten') and below the ID in the sensor setup
+    - change: deCONZ: internal resources are skipped: 'Daylight', 'CLIPDaylightOffset' (day segments of Phoscon,
+              'Offset Ref ...') and 'Configuration tool' (the coordinator itself)
+    - bugfix: dashboard: spacers without title were shown as empty boxes (since 'title for spacer'), they are
+              invisible again outside of the setup mode, with title they show the widget background
+    - change: theme color --green added to all style sheets
 
 2026-10-26: version 0.1.38
     - added: HomeMatic without CCU and Node-RED: new service hmmqtt (homematic/, built / installed with 'HOMEMATIC = 1'

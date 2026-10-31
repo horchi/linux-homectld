@@ -15,7 +15,9 @@ HOMEMATIC = 1
 ```
 
 `make install` then builds and installs `hmmqtt`, the systemd unit `hmmqtt.service`,
-`/etc/default/hmmqtt` (options) and `/var/lib/hmmqtt/devices.json` (device list, only if missing).
+`/etc/default/hmmqtt` (options), `/var/lib/hmmqtt/devices.json` (device list, only if missing) and the udev rule
+`/etc/udev/rules.d/77-cul-mm-ignore.rules` (keeps ModemManager away from the CUL, it would probe it with
+AT commands). The service is enabled by `systemctl enable --now hmmqtt`.
 
 ## CUL firmware (culfw)
 
@@ -23,13 +25,19 @@ The busware CUL868 is delivered without firmware. Flash culfw (target `CUL_V3`, 
 
 ```
 apt install dfu-programmer
-# plug in the CUL with the HWB button pressed -> bootloader
-dfu-programmer atmega32u4 erase
-dfu-programmer atmega32u4 flash CUL_V3.hex
-dfu-programmer atmega32u4 reset
+curl -LO http://culfw.de/culfw-1.67.tar.gz && tar xzf culfw-1.67.tar.gz
+# a new CUL starts in the bootloader (lsusb: 03eb:2ff4 atmega32u4 DFU bootloader),
+# else plug it in with the HWB button pressed
+dfu-programmer atmega32u4 erase --force
+dfu-programmer atmega32u4 flash culfw-1.67/Devices/CUL/CUL_V3.hex
+dfu-programmer atmega32u4 launch
 ```
 
-Check: `screen /dev/ttyACM0` (or similar), `V` answers e.g. `V 1.67 CUL868`.
+Without `--force` the erase is skipped ('Chip already blank') and the flash fails with 'Memory write error'.
+After it the CUL is `03eb:204b` and `/dev/serial/by-id/usb-busware.de_CUL868-if00`.
+
+Check: `screen /dev/serial/by-id/usb-busware.de_CUL868-if00` (or similar), `V` answers `V 1.67 CUL868`,
+`VH` the target `CUL_V3`.
 
 ## Options (`/etc/default/hmmqtt`)
 

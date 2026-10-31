@@ -41,6 +41,8 @@ class Deconz
       int initDevices();
       int processDevices(json_t* jData, std::string kind);
 
+      std::string macOf(const char* type, uint address);   // MAC of a light / sensor (as in the deCONZ log)
+
       int toggle(const char* type, uint address, bool state, int bri = na, int transitiontime = na, bool explicitState = false);
       int color(const char* type, uint address, int hue, int saturation, int bri);
 

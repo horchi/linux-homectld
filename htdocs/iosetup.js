@@ -242,7 +242,8 @@ function showTable(section)
       .append($('<td>').css({width: '7%', 'min-width': '70px'}).text('Einheit'))
       .append($('<td>').css('width', '5%').text('Aktiv'))
       .append($('<td>').css('width', '5%').text('Aufz.'))
-      .append($('<td>').css('width', '12%').text('ID'));
+      .append($('<td>').css('width', '12%').text('ID'))
+      .append($('<td>').css('width', '7%').text('Batterie'));
 
    if (activeSection == 'ioGPIO')
       headRow.append($('<td>').css('width', '10%').text('Funktion'));
@@ -360,7 +361,13 @@ function showTable(section)
                           .prop('checked', !!item.record)
                           .addClass('rounded-border input'))
                   .append($('<label>').attr('for', 'record_' + id)))
-          .append($('<td>').text(key));
+          .append($('<td>')
+                  .append($('<div>').text(key))
+                  .append($('<div>').css({fontSize: 'smaller', color: 'darkgray'}).text(item.mac || '')))   // deCONZ MAC
+          .append($('<td>').css('white-space', 'nowrap')        // battery devices (deCONZ sensors, ...)
+                  .append(allSensors[key] && allSensors[key].battery != null && allSensors[key].battery >= 0
+                          ? [batterySymbol(allSensors[key].battery), $('<span></span>').text(' ' + allSensors[key].battery + ' %')]
+                          : []));
 
       let gpioFct = "deactivated";
 

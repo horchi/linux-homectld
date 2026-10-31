@@ -111,8 +111,7 @@ std::list<HomeCtl::ConfigItemDef> HomeCtl::configuration
 
    // homematic
 
-   { "homeMaticInterface",        ctBool,    "false",              "N", false, "HomeMatic", "HomeMatic Interface", "Rollläden (HMB) über HomeMatic BidCos-RF" },
-   { "homeMaticBridge",           ctChoice,  "Node-RED",           "N", false, "HomeMatic", "Anbindung", "Node-RED: Brücke zur HomeMatic CCU; hmmqtt: eigener Dienst mit CUL-Funkstick, ohne CCU und Node-RED (Seite Setup -> HomeMatic)" },
+   { "homeMaticBridge",           ctChoice,  "Aus",                "N", false, "HomeMatic", "Anbindung", "Rollläden (HMB) über HomeMatic BidCos-RF – Aus; Node-RED: Brücke zur HomeMatic CCU; hmmqtt: eigener Dienst mit CUL-Funkstick, ohne CCU und Node-RED (Seite Setup -> HomeMatic)" },
    { "homeMaticTopic",            ctString,  "homematic",          "N", false, "HomeMatic", "MQTT Topic des Dienstes hmmqtt", "Basis-Topic (hmmqtt Option -T)" },
 
    // VDR

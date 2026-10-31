@@ -897,13 +897,28 @@ span > select
    max-width: 60vw;
 }
 
-.sensorRules ul {
-   margin: 4px 0;
-   padding-left: 18px;
+.sensorRule {
+   border: 1px solid #555;
+   border-radius: 4px;
+   padding: 4px 8px;
+   margin-bottom: 8px;
 }
 
-.sensorRules li {
-   margin-bottom: 6px;
+.sensorRuleTitle {
+   font-weight: bold;
+   margin-bottom: 4px;
+}
+
+.sensorRuleRow {
+   display: flex;
+   gap: 10px;
+   margin-bottom: 2px;
+}
+
+.sensorRuleLabel {
+   flex: 0 0 90px;
+   text-align: end;
+   opacity: 0.7;
 }
 
 .sensorRulesTimer {
@@ -4221,11 +4236,11 @@ iPhones
 }
 
 .homeMaticEvent.ok {
-   color: var(--green, #4caf50);
+   color: var(--green);
 }
 
 .homeMaticEvent.failed {
-   color: var(--red, #e53935);
+   color: var(--red);
 }
 
 .homeMaticDevices td {

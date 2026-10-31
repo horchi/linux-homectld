@@ -496,7 +496,22 @@ int HomeCtl::init()
 
    gpsTourInit();
 
-   // homeMaticInterface
+   // homeMaticInterface - the channels of the blinds known from the last run (table 'homematic'),
+   //   the blinds can be switched even if the CCU / the service doesn't answer at the start
+
+   if (homeMaticInterface)
+   {
+      tableHomeMatic->clear();
+
+      for (bool f = selectAllHomeMatic->find(); f; f = selectAllHomeMatic->fetch())
+      {
+         if (tableHomeMatic->hasValue("TYPE", "HMB") && !tableHomeMatic->getValue("UUID")->isEmpty())
+            homeMaticUuids[tableHomeMatic->getIntValueAsInt("ADDRESS")] = tableHomeMatic->getStrValue("UUID");
+      }
+
+      selectAllHomeMatic->freeResult();
+      tell(eloAlways, "HomeMatic: %zu blind channel(s) known", homeMaticUuids.size());
+   }
 
    if (homeMaticInterface && !homeMaticViaService())      // the service hmmqtt publishes its devices retained
    {
@@ -1903,6 +1918,14 @@ int HomeCtl::initDb()
 
    status += selectHomeMaticByUuid->prepare();
 
+   selectAllHomeMatic = new cDbStatement(tableHomeMatic);
+
+   selectAllHomeMatic->build("select ");
+   selectAllHomeMatic->bindAllOut();
+   selectAllHomeMatic->build(" from %s", tableHomeMatic->TableName());
+
+   status += selectAllHomeMatic->prepare();
+
    /*
    // patch dashboars widget options to default (once)
    tableDashboardWidgets->clear();
@@ -2021,6 +2044,7 @@ int HomeCtl::exitDb()
    delete selectSchemaConfByState; selectSchemaConfByState = nullptr;
    delete selectAllSchemaConf;     selectAllSchemaConf = nullptr;
    delete selectHomeMaticByUuid;   selectHomeMaticByUuid = nullptr;
+   delete selectAllHomeMatic;      selectAllHomeMatic = nullptr;
    delete selectDashboardWidgetsFor; selectDashboardWidgetsFor = nullptr;
    delete selectHaspPages;         selectHaspPages = nullptr;
    delete selectHaspPageWidgetsFor; selectHaspPageWidgetsFor = nullptr;
@@ -2158,9 +2182,9 @@ int HomeCtl::readConfiguration(bool initial)
 
    bool hmInterface {homeMaticInterface};
    std::string hmBridge {homeMaticBridge}, hmTopic {homeMaticTopic};
-   getConfigItem("homeMaticInterface", homeMaticInterface, false);
-   getConfigItem("homeMaticBridge", homeMaticBridge, "Node-RED");
+   getConfigItem("homeMaticBridge", homeMaticBridge, "Aus");
    getConfigItem("homeMaticTopic", homeMaticTopic, "homematic");
+   homeMaticInterface = homeMaticBridge == "Node-RED" || homeMaticBridge == "hmmqtt";
 
    // MQTT
 
@@ -2686,6 +2710,41 @@ int HomeCtl::storePeaks(time_t now, const SensorData* sensor)
 // Process
 //***************************************************************************
 
+//***************************************************************************
+// deCONZ Check Outdated
+//   a measuring sensor (temperature, humidity, pressure) without data for deconzMaxAge is invalid
+//   (the Xiaomi sensors report at least once an hour)
+//***************************************************************************
+
+int HomeCtl::deconzCheckOutdated()
+{
+   time_t now {time(0)};
+
+   for (auto& [address, sensor] : sensors["DZS"])
+   {
+      // not the brightness - the motion sensors send it only with a motion
+
+      if (!sensor.valid() || sensor.unit.empty() || sensor.unit == "lx" || !sensor.last() || sensor.last() >= now - deconzMaxAge)
+         continue;
+
+      tell(eloAlways, "Info: deCONZ sensor 'DZS:0x%02x' (%s) without data since %s, invalid", address,
+           sensor.title.c_str(), l2pTime(sensor.last()).c_str());
+
+      sensor.invalidate();
+
+      json_t* ojData {json_object()};
+      sensor2Json(ojData, "DZS", address);
+
+      char tuple[50];
+      snprintf(tuple, sizeof(tuple), "DZS:0x%02x", address);
+      jsonSensorList[tuple] = ojData;
+
+      pushDataUpdate("update", 0L);
+   }
+
+   return done;
+}
+
 int HomeCtl::process(bool force, bool signal)
 {
    // Zeitschaltuhr
@@ -2695,6 +2754,8 @@ int HomeCtl::process(bool force, bool signal)
 
    time_t now {time(0)};
    time_t checkedAt {actorTimesCheckedAt};
+
+   deconzCheckOutdated();
    std::vector<ActorTimeAction> actorActions;
 
    actorTimesCheckedAt = now;
@@ -3680,11 +3741,28 @@ int HomeCtl::addValueFact(int addr, const char* type, int factor, const char* na
    if (strcmp(type, "DZL") == 0)
       tableValueFacts->setValue("OPTIONS", options);
 
+   // the names of the deCONZ devices (renamed in Phoscon) - the own title (usrtitle) stays
+
+   if (strncmp(type, "DZ", 2) == 0)
+   {
+      tableValueFacts->setValue("NAME", name);
+      tableValueFacts->setValue("TITLE", title);
+   }
+
    if (strcmp(type, "SC") != 0)
    {
       if (tableValueFacts->getChanges())
       {
          tableValueFacts->store();
+
+         if (strncmp(type, "DZ", 2) == 0)
+         {
+            initSensorByFact(type, addr);
+
+            if (initialized)
+               valueFactsChanged = true;         // update web clients
+         }
+
          return 2;                               // 2 for 'modified'
       }
 
@@ -3984,18 +4062,21 @@ int HomeCtl::dispatchDeconz()
 
       bool state {getBoolFromJson(oData, "state")};
       double value {getDoubleFromJson(oData, "value")};
+      time_t at {(time_t)getIntFromJson(oData, "lastupdated", 0)};   // init: last data at deCONZ
+      time_t now {at > 0 ? at : time(0)};
       int bri {getIntFromJson(oData, "bri", na)};
       int hue {getIntFromJson(oData, "hue", 0)};
       int sat {getIntFromJson(oData, "sat", 0)};
 
       if (getObjectFromJson(oData, "state"))
-         sensor->setState(state);
+         sensor->setState(state, now);
       else if (getObjectFromJson(oData, "value"))
-         sensor->setValue(value);
+         sensor->setValue(value, now);
       else if (getObjectFromJson(oData, "btnevent"))
-         sensor->setValue(getIntFromJson(oData, "btnevent"));
+         sensor->setValue(getIntFromJson(oData, "btnevent"), now);
       else if (getObjectFromJson(oData, "presence"))
-         sensor->setState(getBoolFromJson(oData, "presence"));
+         sensor->setState(getBoolFromJson(oData, "presence"), now);
+
 
       // switches and motion sensors are events for the light rules - also the same value again
       //  (processed by performLightRules() outside of the lock)
@@ -4020,9 +4101,26 @@ int HomeCtl::dispatchDeconz()
          sensor->markChanged();
       }
 
-      sensor->touch();                       // also for messages without one of the above
+      // also for messages without one of the above - not for a battery only (deCONZ reports it also
+      //  for sensors without data, e.g. at its start)
+
+      bool batteryOnly {getObjectFromJson(oData, "battery") && json_object_size(oData) == 3};   // type, address, battery
+
+      if (!batteryOnly)
+         sensor->touch(now);
+
       sensor->setLastJson("deconz", msg);
-      sensor->battery = getIntFromJson(oData, "battery", na);
+
+      // the battery comes with the init and its own events only, keep it for the other ones
+      //  (no touch - it says nothing about the data of the sensor, the WS update follows anyway)
+
+      if (getObjectFromJson(oData, "battery"))
+         sensor->battery = getIntFromJson(oData, "battery");
+
+      // data of a measuring sensor too old at the init -> invalid (e.g. empty battery)
+
+      if (at > 0 && !sensor->unit.empty() && at < time(0) - deconzMaxAge)
+         sensor->invalidate(at);
 
       // send update to WS
       {
@@ -4994,6 +5092,31 @@ int HomeCtl::initConfigTable()
 {
    std::set<std::string> known;
    int ord {0};
+
+   // migration: 'homeMaticInterface' (on / off) is replaced by 'homeMaticBridge' (Aus | Node-RED | hmmqtt)
+
+   tableConfig->clear();
+   tableConfig->setValue("OWNER", myName());
+   tableConfig->setValue("NAME", "homeMaticInterface");
+
+   if (tableConfig->find())
+   {
+      bool on {tableConfig->hasValue("VALUE", "1") || tableConfig->hasValue("VALUE", "true")};
+      tableConfig->reset();
+
+      std::string bridge;
+      getConfigItem("homeMaticBridge", bridge);
+
+      if (!on)
+         bridge = "Aus";
+      else if (bridge != "Node-RED" && bridge != "hmmqtt")
+         bridge = "Node-RED";
+
+      setConfigItem("homeMaticBridge", bridge.c_str());
+      tell(eloAlways, "Info: Config 'homeMaticInterface' (%s) taken over by 'homeMaticBridge' = '%s'", on ? "on" : "off", bridge.c_str());
+   }
+   else
+      tableConfig->reset();
 
    for (const auto& it : configuration)
    {

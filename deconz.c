@@ -193,6 +193,13 @@ int Deconz::processDevices(json_t* jData, std::string kind)
       const char* uuid {};
       char* type {};
 
+      // internal resources of deCONZ / Phoscon, no devices (the types are part of the REST API):
+      //   'Daylight' (virtual sensor of the sun times), 'CLIPDaylightOffset' (day segments of
+      //   Phoscon, 'Offset Ref P-SR' ...), 'Configuration tool' (the coordinator - ConBee / RaspBee)
+
+      if (dzType == "Daylight" || dzType == "CLIPDaylightOffset" || dzType == "Configuration tool")
+         continue;
+
       if (dzType == "LightGroup")
       {
          if (!isEmpty(getStringFromJson(jItem, "uniqueid")))
@@ -308,6 +315,14 @@ int Deconz::processDevices(json_t* jData, std::string kind)
 
          if (kind == "sensor")
          {
+            // time of the last data at deCONZ (UTC, 'none' if never) - the init must not make old data fresh
+
+            const char* lastUpdated {getStringByPath(jItem, "state/lastupdated")};
+            struct tm tm {};
+
+            if (!isEmpty(lastUpdated) && strptime(lastUpdated, "%Y-%m-%dT%H:%M:%S", &tm))
+               json_object_set_new(jsData, "lastupdated", json_integer(timegm(&tm)));
+
             if (getObjectByPath(jItem, "state/temperature"))
                json_object_set_new(jsData, "value", json_real(getIntByPath(jItem, "state/temperature")/100.0));
 
@@ -349,7 +364,16 @@ int Deconz::processDevices(json_t* jData, std::string kind)
             }
          }
 
-         if (dzType != "ZHASwitch")  // don't trigger switches !!!
+         // don't trigger switches (the last button event would be a new event for the light rules),
+         //  only their battery is taken
+
+         if (dzType == "ZHASwitch")
+         {
+            json_object_del(jsData, "btnevent");
+            json_object_del(jsData, "value");
+         }
+
+         if (dzType != "ZHASwitch" || battery != na)
          {
             char* p = json_dumps(jsData, JSON_REAL_PRECISION(4));
 
@@ -374,6 +398,38 @@ int Deconz::processDevices(json_t* jData, std::string kind)
 //***************************************************************************
 // Toggle
 //***************************************************************************
+
+//***************************************************************************
+// MAC Of
+//   the MAC of a light (DZL) or sensor (DZS) as the deCONZ log shows it, e.g. '00158D0002310239'
+//   (the uniqueid without endpoint / cluster and colons)
+//***************************************************************************
+
+std::string Deconz::macOf(const char* type, uint address)
+{
+   cMyMutexLock lock(&mapsMutex);
+
+   const std::map<std::string,uint>* map {strcmp(type, "DZL") == 0 ? &lights : strcmp(type, "DZS") == 0 ? &sensors : nullptr};
+
+   if (!map)
+      return "";
+
+   for (const auto& [uuid, addr] : *map)
+   {
+      if (addr != address)
+         continue;
+
+      std::string mac;
+
+      for (char c : uuid.substr(0, uuid.find('-')))
+         if (c != ':')
+            mac += toupper(c);
+
+      return mac;
+   }
+
+   return "";
+}
 
 int Deconz::toggle(const char* type, uint address, bool state, int bri, int transitiontime, bool explicitState)
 {
@@ -791,7 +847,11 @@ int Deconz::atInMessage(const char* data, size_t size)
       tell(eloDebugDeconz, "DECONZ: Got address %ld for uuid '%s'", address, uuid);
    }
 
-   if (!getObjectFromJson(obj, "state"))
+   // state changes, for sensors also changes of the battery ({"config":{"battery":..}})
+
+   bool hasBattery {resource == "sensors" && getObjectByPath(obj, "config/battery")};
+
+   if (!getObjectFromJson(obj, "state") && !hasBattery)
    {
       json_decref(obj);
       return done;
@@ -813,6 +873,9 @@ int Deconz::atInMessage(const char* data, size_t size)
 
    if (resource == "sensors")
    {
+      if (hasBattery)
+         json_object_set_new(jData, "battery", json_integer(getIntByPath(obj, "config/battery")));
+
       if (getObjectByPath(obj, "state/buttonevent"))
          json_object_set_new(jData, "btnevent", json_integer(getIntByPath(obj, "state/buttonevent")));
 

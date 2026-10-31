@@ -1,0 +1,2 @@
+# busware CUL (culfw, LUFA serial) - keep ModemManager away from it
+ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="204b", ENV{ID_MM_DEVICE_IGNORE}="1"

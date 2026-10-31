@@ -2555,6 +2555,7 @@ int HomeCtl::configChoice2json(json_t* obj, const char* name)
    else if (strcmp(name, "homeMaticBridge") == 0)
    {
       json_t* oArray {json_array()};
+      json_array_append_new(oArray, json_string("Aus"));
       json_array_append_new(oArray, json_string("Node-RED"));
       json_array_append_new(oArray, json_string("hmmqtt"));
       json_object_set_new(obj, "options", oArray);
@@ -2754,6 +2755,14 @@ int HomeCtl::valueFacts2Json(json_t* obj, bool filterActive)
       json_object_set_new(oData, "name", json_string(tableValueFacts->getStrValue("NAME")));
       json_object_set_new(oData, "title", json_string(tableValueFacts->getStrValue("TITLE")));
       json_object_set_new(oData, "usrtitle", json_string(tableValueFacts->getStrValue("USRTITLE")));
+
+      if (type == "DZL" || type == "DZS")
+      {
+         std::string mac {deconz.macOf(type.c_str(), address)};
+
+         if (!mac.empty())
+            json_object_set_new(oData, "mac", json_string(mac.c_str()));
+      }
       json_object_set_new(oData, "unit", json_string(tableValueFacts->getStrValue("UNIT")));
       json_object_set_new(oData, "rights", json_integer(tableValueFacts->getIntValue("RIGHTS")));
       json_object_set_new(oData, "options", json_integer(tableValueFacts->getIntValue("OPTIONS")));

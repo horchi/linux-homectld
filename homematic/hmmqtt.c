@@ -35,6 +35,8 @@ bool HmMqtt::shutdown {false};
 
 static constexpr int ackTimeoutMs {800};
 static constexpr int maxTries {3};
+static constexpr int movingPollMs {2000};             // status request interval while a device is moving
+static constexpr int movingSilentMax {60};            // [s] no polling if the device didn't answer this long
 
 //***************************************************************************
 // Object
@@ -109,7 +111,9 @@ int HmMqtt::loop()
 
       if (!sniff)
       {
+         statusAll();
          processQueue();
+         trackMoving();
          pairingCheck();
       }
    }
@@ -140,23 +144,38 @@ int HmMqtt::culConnection()
 
    publishStatus("online");
 
-   // the current state of all devices (the answers come one by one)
+   // the current state of all devices, a moment later - the first frames
+   //  of a CUL just plugged in got lost
 
    if (!sniff)
-   {
-      for (auto& d : devices)
-      {
-         std::vector<Frame> frames;
-
-         for (int c = 1; c <= d.second->channels(); c++)
-            d.second->statusRequest(c, frames);
-
-         for (auto& f : frames)
-            enqueue(f);
-      }
-   }
+      statusAllAt = cTimeMs::Now() + 2000;
 
    return success;
+}
+
+//***************************************************************************
+// Status All (the answers come one by one)
+//***************************************************************************
+
+int HmMqtt::statusAll()
+{
+   if (!statusAllAt || cTimeMs::Now() < statusAllAt)
+      return done;
+
+   statusAllAt = 0;
+
+   for (auto& d : devices)
+   {
+      std::vector<Frame> frames;
+
+      for (int c = 1; c <= d.second->channels(); c++)
+         d.second->statusRequest(c, frames);
+
+      for (auto& f : frames)
+         enqueue(f);
+   }
+
+   return done;
 }
 
 //***************************************************************************
@@ -224,9 +243,10 @@ int HmMqtt::dispatchFrame(const Frame& frame)
 
    HmDevice* d {deviceByAddress(frame.src)};
 
-   // answer to the frame in flight?
+   // answer to the frame in flight? a status request (CONFIG 0E) is answered
+   //  by an INFO with the same counter instead of an ACK
 
-   if (frame.type == mtAck && inFlight && !sendQueue.empty())
+   if ((frame.type == mtAck || frame.type == mtInfo) && inFlight && !sendQueue.empty())
    {
       Pending pending {sendQueue.front()};
 
@@ -324,6 +344,52 @@ int HmMqtt::processQueue()
         pending.tries > 1 ? (" (try " + std::to_string(pending.tries) + ")").c_str() : "");
 
    cul.send(pending.frame);
+
+   return done;
+}
+
+//***************************************************************************
+// Track Moving
+//   the blind reports only the start and the end of a run, ask for the
+//   position every movingPollMs while it is moving
+//***************************************************************************
+
+int HmMqtt::trackMoving()
+{
+   uint64_t now {cTimeMs::Now()};
+
+   for (const auto& [address, d] : devices)
+   {
+      if (!d->moving() || time(0) - d->lastSeen > movingSilentMax)
+      {
+         d->pollAt = 0;
+         continue;
+      }
+
+      if (!d->pollAt)                                 // started, first request after the interval
+         d->pollAt = now + movingPollMs;
+
+      if (now < d->pollAt)
+         continue;
+
+      d->pollAt = now + movingPollMs;
+
+      bool queued {false};
+
+      for (const auto& p : sendQueue)
+         queued = queued || p.frame.dst == address;
+
+      if (queued)                                     // a command is pending, its ACK has the position
+         continue;
+
+      std::vector<Frame> frames;
+
+      for (int c = 1; c <= d->channels(); c++)
+         d->statusRequest(c, frames);
+
+      for (auto& f : frames)
+         enqueue(f);
+   }
 
    return done;
 }

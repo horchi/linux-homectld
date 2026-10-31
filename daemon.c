@@ -170,6 +170,7 @@ HomeCtl::DefaultWidgetProperty HomeCtl::defaultWidgetProperties[] =
    { "CV",       na, "txt",       wtText,        0,         0,       0, true },
    { "CV",       na,  "°C",  wtMeterLevel,       0,         0,       0, true },
    { "CV",       na,   "*",      wtSymbol,       0,         0,       0, true },
+   { "TPMS",     na,   "*",       wtValue,       0,         0,       0, false },
    { "" }
 };
 

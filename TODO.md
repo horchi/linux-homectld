@@ -8,6 +8,9 @@
 # General
 
 - add write of victron registers to WEBIF
+- move the sensor default settings (defaultWidgetProperties in daemon.c: widget type, scale, peak per type / unit,
+  the colors in widgetDefaults2Json) out of the code into a JSON config on disk (e.g.
+  /etc/homectld/widget-defaults.json + a user file) or a table - to be decided
 
 ## HTML widgets - stage 2: JS snippets
 
@@ -85,10 +88,14 @@
   for weak reception) is useless for it: RSSI of all devices -96 dBm, only 4 packets
   of the sensor in 5 min, none at all in 3 later captures (also LE only, stick right at the sensor) while the
   iPhone got every update
-- software: tpms.py like mopeka/mopeka.py (bleak, MQTT TPMS:0xNN - pressure / temperature / battery per wheel),
-  service + switch in Make.user like MOPEKA
-- reception in the motorhome: Odroid (BlueZ / bleak), if too weak an additional BT USB stick in the double floor
-  above the rear axle via (active) USB extension; fallback ESP32 in the double floor powered by D+ / ignition
-  (WiFi / MQTT); problem: aluminium walls, steel rims; spring test: reception of the third axle
+- software (done 31.10.2026): ESP32 sketch tpms/ (not BlueZ / bleak on the Odroid), sensors per cap by the ID
+  printed on it: TPMS:0x<ID>1 pressure with battery %, TPMS:0x<ID>2 temperature; config 'wheels' (list of IDs)
+  + 'learn'; mapping to the wheels in the HTML widget 'Reifendruck Womo' (see tpms/README.md)
+- open: the 6th cap ID; mount the ESP32 in the double floor above the rear axle, powered by D+ / ignition;
+  spring test: reception of all axles (aluminium walls, steel rims), WLAN of the motorhome
+- spring in the motorhome: Make.user there (WLAN, MQTT_HOST, TPMS_PORT / TPMS_OTA_HOST), build and flash the ESP32
+  (make upload); homectld config 'Zusätzliche sensor Topics' + homectld2mqtt/tpms; 'learn' on until all 6 caps are
+  in 'wheels', then off; activate / name the sensors; export the HTML widget 'Reifendruck Womo' at gate, import it
+  there and set the IDs per wheel (vl, vl_t, ... h2r_t)
 - no 433 MHz SDR (gets very hot); lesson from the returned SYNJAUPO B0GYMYGJBC: solar display sets are 433 MHz
   (OOK, sync 9653, XOR scrambled), Bluetooth must be stated in the listing itself

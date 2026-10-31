@@ -25,17 +25,18 @@ Die Kappe sendet bei einer Druckänderung sofort (einige Sekunden), jedes Paket 
 
 ## Adressen in homectld
 
-Je Rad n (1-9) vier Sensoren vom Typ `TPMS`:
+Je Kappe zwei Sensoren vom Typ `TPMS`, die Adresse ist die **ID auf der Kappe** und eine Ziffer:
 
 | Adresse | Wert |
 | :--- | :--- |
-| `TPMS:0x1n` | Druck [bar] |
-| `TPMS:0x2n` | Temperatur [°C] |
-| `TPMS:0x3n` | Batterie [%] |
-| `TPMS:0x4n` | Batterie [V] |
+| `TPMS:0x<ID>1` | Druck [bar], mit der Batterie [%] (Spalte 'Batterie' im Sensor Setup, `{{p.vl.battery}}` im HTML Widget) |
+| `TPMS:0x<ID>2` | Temperatur [°C] |
 
-Womo: 1 vorne links, 2 vorne rechts, 3 / 4 erste Hinterachse links / rechts, 5 / 6 zweite Hinterachse
-links / rechts (passend zum HTML Widget 'Reifendruck Womo').
+z.B. Kappe `318C4B`: `TPMS:0x318C4B1` Druck, `TPMS:0x318C4B2` Temperatur.
+
+Die Sensoren werden von homectld inaktiv angelegt, im Sensor Setup aktivieren und benennen (z.B. 'Reifen VL').
+Die Zuordnung zu den Rädern erfolgt im HTML Widget 'Reifendruck Womo' (Parameter `vl`, `vl_t`, `vr`, ... `h2r_t`);
+wird ein Rad umgesetzt bleibt der Verlauf (Chart) bei seiner Kappe / seinem Reifen.
 
 Veröffentlicht wird sofort bei geänderten Daten und alle `interval` Sekunden die letzten Werte.
 Werte älter als `maxAge` Sekunden werden mit `"valid": false` gesendet.
@@ -54,21 +55,19 @@ TPMS_OTA_PWD =
 
 Ein `$` im WLAN Passwort ist erlaubt, die Werte gehen unverändert in die `config.h`.
 
-Die Zuordnung der Kappen zu den Rädern erfolgt in homectld. Der ESP meldet sich mit seinen Parametern an,
-sie stehen danach in der WEBIF Konfiguration (Kategorie 'Sensors', `TPMS:<deviceid>`):
+Der ESP meldet sich mit seinen Parametern an, sie stehen danach in der WEBIF Konfiguration
+(Kategorie 'Sensors', `TPMS:<deviceid>`), eine Änderung wird beim Speichern sofort an den ESP gesendet:
 ```json
-{"eloquence": 1, "interval": 60, "maxAge": 1800, "learn": true, "wheels": {"318F01": 1, "31953C": 2, "318C4B": 0}}
+{"eloquence": 1, "interval": 60, "maxAge": 1800, "learn": true, "wheels": ["318F01", "31953C", "318C4B"]}
 ```
 
-* `wheels` - ID auf der Kappe : Rad (1-9, siehe Adressen), 0 = nicht aktiv
-* `learn` - jede neu empfangene Kappe wird mit 0 in `wheels` eingetragen (der ESP meldet sich neu an,
-  homectld ergänzt die fehlenden Einträge in der gespeicherten Konfiguration, die eigenen Werte bleiben).
-  Sind alle Kappen drin auf `false` setzen, sonst sammelt er z.B. auf dem Campingplatz die Kappen der Nachbarn.
-  Zum Tausch einer Kappe kurz wieder einschalten.
+* `wheels` - die IDs der Kappen (wie aufgedruckt), nur diese werden gesendet
+* `learn` - jede neu empfangene Kappe wird in `wheels` eingetragen (der ESP meldet sich neu an, homectld ergänzt
+  die fehlenden Einträge in der gespeicherten Konfiguration). Sind alle Kappen drin auf `false` setzen, sonst sammelt
+  er z.B. auf dem Campingplatz die Kappen der Nachbarn. Zum Tausch einer Kappe kurz wieder einschalten.
+  Eine versehentlich gelernte Kappe aus `wheels` löschen (bei `learn` aus, sonst kommt sie wieder).
 * `interval` - Sekunden, die letzten Werte werden zyklisch gesendet
 * `maxAge` - Sekunden, ältere Werte werden als ungültig gesendet
-
-Also nur noch die Zahl hinter der ID ändern, speichern und homectld (oder den ESP) neu starten.
 
 homectld muss das Topic lesen: in der Konfiguration 'Zusätzliche sensor Topics' (`mqttSensorTopics`)
 `homectld2mqtt/tpms` eintragen.
@@ -82,12 +81,12 @@ homectld muss das Topic lesen: in der Konfiguration 'Zusätzliche sensor Topics'
 
 Der Scan läuft auch ohne WLAN / MQTT, die Werte stehen dann auf der seriellen Konsole:
 ```
-Rad 1 (318F01): 1.92 bar, 20 °C, 2.68 V (73 %), Alarm 0, -84 dBm
+Kappe 318F01: 1.92 bar, 20 °C, 2.68 V (73 %), Alarm 0, -84 dBm
 ```
 
 ## MQTT
 
-* Daten: `homectld2mqtt/tpms` - `{"type":"TPMS","address":17,"value":1.92,"kind":"value","title":"Rad 1 Druck","unit":"bar"}`
+* Daten: `homectld2mqtt/tpms` - `{"type":"TPMS","address":51954865,"value":1.92,"kind":"value","title":"Reifen 318C4B Druck","unit":"bar","battery":73}`
 * Konfiguration: `homectld2mqtt/tpms/in` - `{"type":"TPMS","action":"init","config":{...}}`, `{"action":"requestinit"}`
 * Log: `homectld2mqtt/tpms/log`
 

@@ -58,15 +58,16 @@
     - added: dialog 'Add Widget': double click on an entry adds only this one at once
     - change: backup.sh: table 'htmlwidgets' added
     - added: ESP32 sketch tpms (tpms/, like alpicool): tire pressure of BLE valve caps (LYTPMS app, manufacturer
-             id 172) by a passive scan, published per wheel n as TPMS:0x1n pressure [bar], 0x2n temperature [°C],
-             0x3n battery [%], 0x4n battery [V]; the caps are mapped to the wheels by the ID printed on them
-             (config 'TPMS:<deviceid>', "wheels": {"318F01": 1, ...}, 0 = not active), with "learn" each new cap
-             is added with 0 by itself; published at once on new data (the caps repeat each packet ~10 times)
+             id 172) by a passive scan, two sensors per cap by the ID printed on it: TPMS:0x<ID>1 pressure [bar]
+             with the battery [%] (column 'Batterie' of the sensor setup), TPMS:0x<ID>2 temperature [°C];
+             only the caps of the config 'TPMS:<deviceid>' "wheels": ["318C4B", ...] are sent, with "learn" each
+             new cap is added by itself; published at once on new data (the caps repeat each packet ~10 times)
              and every 'interval' s, older than 'maxAge' s as invalid; the scan runs without WLAN / MQTT too
-             (values on the serial console); sensor type title 'Reifendruck', init requested at the start
+             (values on the serial console); sensor type title 'Reifendruck', default widget 'value', init
+             requested at the start; the HTML widget 'Reifendruck Womo' maps the caps to the wheels
     - added: MQTT sensors with config (ESP32 sketches): parameters of the init message missing in the stored config
-             (e.g. after a firmware update, caps learned by tpms) are added, the stored values are kept (before
-             only the very first init was taken)
+             (e.g. after a firmware update) and new items of arrays (caps learned by tpms) are added, the stored
+             values are kept (before only the very first init was taken)
     - added: configuration: storing a changed config of an MQTT sensor (category 'Sensors') sends it to the sensor
              at once (was only at its next init / restart of the daemon), JSON compared by content
     - added: configuration: the JSON of the category 'Sensors' is shown indented in a higher box with fixed font,

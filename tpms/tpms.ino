@@ -2,10 +2,10 @@
 // TPMS BLE to MQTT Bridge
 //
 // Passive BLE scan for the tire pressure valve caps (LYTPMS app, company id 172),
-// published to homectld per wheel:
-//   TPMS:0x1n pressure [bar], 0x2n temperature [°C], 0x3n battery [%], 0x4n battery [V]
-//   (n = wheel 1-9, mapped by the ID printed on the cap, config 'wheels' {"<ID>": <wheel>, ...},
-//    0 = not active; with 'learn' each new cap is added with 0 and reported to homectld)
+// published to homectld per cap by the ID printed on it (e.g. 318C4B):
+//   TPMS:0x<ID>1 pressure [bar] (with the battery [%]), TPMS:0x<ID>2 temperature [°C]
+// Only the caps of the config 'wheels' ["318C4B", ...] are published, with 'learn'
+// each new cap is added and reported to homectld (init message).
 //***************************************************************************
 
 #include <WiFi.h>
@@ -32,16 +32,15 @@ String getUniqueDeviceId()
 // Cap
 //***************************************************************************
 
-constexpr int MaxWheels {9};
 constexpr int MaxCaps {16};
 constexpr uint16_t CompanyId {0x00ac};
 
 struct Cap
 {
    char id[7] {};              // ID printed on the cap, e.g. "318F01", empty = free entry
-   int wheel {0};              // 1 - MaxWheels, 0 = not active
    bool received {false};      // got a packet since the start
    bool fresh {false};         // new packet, not published yet
+   bool announced {false};     // published with the widget parameter
    unsigned long lastTime {0}; // millis of the last packet
    float pressure {0.0};
    int temperature {0};
@@ -65,6 +64,7 @@ private:
    Cap capList[MaxCaps];
    portMUX_TYPE capMux = portMUX_INITIALIZER_UNLOCKED;
    bool capsAdded {false};          // learned a new cap, report it to homectld (init message)
+   bool listFull {false};           // learning failed, the list is full
 
    unsigned long LastPublishTime {0};
    unsigned long LastLedToggleTime {0};
@@ -72,7 +72,6 @@ private:
    unsigned long LastWifiAttempt {0};
    unsigned long LastMqttAttempt {0};
    bool LedState {false};
-   bool initialRun {true};
    bool otaStarted {false};
 
 public:
@@ -152,13 +151,18 @@ public:
          capList[i].fresh = false;
          portEXIT_CRITICAL(&capMux);
 
-         if (!c.id[0])
-            continue;
+         if (c.id[0] && (c.fresh || (cyclic && c.received)))
+         {
+            if (publishCap(c))
+            {
+               portENTER_CRITICAL(&capMux);
 
-         if (c.fresh && !c.wheel)
-            tell(eloDetail, "Kappe %s (nicht aktiv): %.2f bar, %d °C, %d dBm", c.id, c.pressure, c.temperature, c.rssi);
-         else if (c.wheel && (c.fresh || (cyclic && c.received)))
-            publishWheel(c);
+               if (strcmp(capList[i].id, c.id) == 0)
+                  capList[i].announced = true;
+
+               portEXIT_CRITICAL(&capMux);
+            }
+         }
       }
 
       if (capsAdded && MqttClient.connected())
@@ -167,8 +171,11 @@ public:
          publishInitMessage();   // homectld adds the new caps to its config
       }
 
-      if (cyclic)
-         initialRun = false;
+      if (listFull)
+      {
+         listFull = false;
+         tell(eloAlways, "Error: Mehr als %d Kappen, keine weitere gelernt ('learn' ausschalten?)", MaxCaps);
+      }
 
       delay(10);
    }
@@ -233,7 +240,6 @@ public:
       int battery {(int)roundf((voltage - 1.95f) * 100.0f)};   // matches the LYTPMS app within 2-3 %
 
       battery = battery < 0 ? 0 : battery > 100 ? 100 : battery;
-      LastPacketTime = millis();
 
       portENTER_CRITICAL(&capMux);
 
@@ -241,7 +247,7 @@ public:
 
       if (i < 0 && learn)
       {
-         // learn the new cap, not active until a wheel is set in the config
+         // learn the new cap
 
          for (i = 0; i < MaxCaps && capList[i].id[0]; i++) ;
 
@@ -252,25 +258,29 @@ public:
             capsAdded = true;
          }
          else
-            i = -1;   // list full
+         {
+            i = -1;
+            listFull = true;
+         }
       }
 
       if (i >= 0)
       {
-         Cap& w {capList[i]};
+         Cap& c {capList[i]};
 
-         if (!w.received || memcmp(w.raw, d, sizeof(w.raw)) != 0)
-            w.fresh = true;
+         if (!c.received || memcmp(c.raw, d, sizeof(c.raw)) != 0)
+            c.fresh = true;
 
-         memcpy(w.raw, d, sizeof(w.raw));
-         w.received = true;
-         w.lastTime = millis();
-         w.pressure = roundf(pressure * 100.0f) / 100.0f;
-         w.temperature = d[2] - 55;
-         w.voltage = roundf(voltage * 100.0f) / 100.0f;
-         w.battery = battery;
-         w.alarm = d[3];
-         w.rssi = dev->getRSSI();
+         memcpy(c.raw, d, sizeof(c.raw));
+         c.received = true;
+         c.lastTime = millis();
+         c.pressure = roundf(pressure * 100.0f) / 100.0f;
+         c.temperature = d[2] - 55;
+         c.voltage = roundf(voltage * 100.0f) / 100.0f;
+         c.battery = battery;
+         c.alarm = d[3];
+         c.rssi = dev->getRSSI();
+         LastPacketTime = millis();
       }
 
       portEXIT_CRITICAL(&capMux);
@@ -295,33 +305,25 @@ private:
    }
 
    //***************************************************************************
-   // Parse Wheels - {"318F01": 1, "31953C": 0, ...}
+   // Parse Wheels - ["318F01", "31953C", ...]
    //   the received data of the caps is kept, caps missing in the config are dropped
    //***************************************************************************
 
-   void parseWheels(JsonObject wheels)
+   void parseWheels(JsonArray wheels)
    {
       Cap newList[MaxCaps];
-      int count {0}, active {0};
-      bool used[MaxWheels+1] {};
+      int count {0};
 
-      for (JsonPair kv : wheels)
+      for (JsonVariant v : wheels)
       {
-         String id {kv.key().c_str()};
-         int n {kv.value().as<int>()};
+         String id {v.as<const char*>() ? v.as<const char*>() : ""};
          id.trim();
          id.toUpperCase();
 
-         if (id.length() != 6 || n < 0 || n > MaxWheels)
+         if (id.length() != 6)
          {
-            tell(eloAlways, "Error: Ungueltiger Eintrag '%s: %d' in 'wheels' (ID 6-stellig, Rad 0-%d)", kv.key().c_str(), n, MaxWheels);
+            tell(eloAlways, "Error: Ungueltiger Eintrag '%s' in 'wheels' (ID 6-stellig wie auf der Kappe)", id.c_str());
             continue;
-         }
-
-         if (n && used[n])
-         {
-            tell(eloAlways, "Error: Rad %d in 'wheels' mehrfach vergeben, '%s' ignoriert", n, id.c_str());
-            n = 0;
          }
 
          if (count >= MaxCaps)
@@ -338,18 +340,8 @@ private:
 
          portEXIT_CRITICAL(&capMux);
 
-         // a new / changed wheel is published at once (not with the next packet / cycle)
-
-         if (newList[count].wheel != n && newList[count].received)
-            newList[count].fresh = true;
-
          strcpy(newList[count].id, id.c_str());
-         newList[count].wheel = n;
-         used[n] = true;
          count++;
-
-         if (n)
-            active++;
       }
 
       portENTER_CRITICAL(&capMux);
@@ -359,34 +351,36 @@ private:
 
       portEXIT_CRITICAL(&capMux);
 
-      tell(eloAlways, "Info: %d Kappe(n), %d Rad/Raeder aktiv", count, active);
+      tell(eloAlways, "Info: %d Kappe(n) konfiguriert", count);
    }
 
    //***************************************************************************
    // Publish
+   //   address = ID of the cap * 16 + 1 (pressure) / 2 (temperature)
    //***************************************************************************
 
-   void publishWheel(const Cap& w)
+   bool publishCap(const Cap& c)
    {
-      int n {w.wheel};
-      bool valid {millis() - w.lastTime < maxAge * 1000};
+      bool valid {c.received && millis() - c.lastTime < maxAge * 1000};
+      long address {strtol(c.id, nullptr, 16) << 4};
       char title[30];
 
-      snprintf(title, sizeof(title), "Rad %d Druck", n);
-      PublishValue(0x10 + n, title, w.pressure, "bar", valid);
-      snprintf(title, sizeof(title), "Rad %d Temperatur", n);
-      PublishValue(0x20 + n, title, w.temperature, "°C", valid);
-      snprintf(title, sizeof(title), "Rad %d Batterie", n);
-      PublishValue(0x30 + n, title, w.battery, "%", valid);
-      snprintf(title, sizeof(title), "Rad %d Batteriespannung", n);
-      PublishValue(0x40 + n, title, w.voltage, "V", valid);
+      if (!MqttClient.connected())
+         return false;
 
-      if (w.fresh)
-         tell(eloDetail, "Rad %d (%s): %.2f bar, %d °C, %.2f V (%d %%), Alarm %d, %d dBm",
-              n, w.id, w.pressure, w.temperature, w.voltage, w.battery, w.alarm, w.rssi);
+      snprintf(title, sizeof(title), "Reifen %s Druck", c.id);
+      PublishValue(address + 1, title, c.pressure, "bar", valid, c.announced, c.battery);
+      snprintf(title, sizeof(title), "Reifen %s Temperatur", c.id);
+      PublishValue(address + 2, title, c.temperature, "°C", valid, c.announced);
+
+      if (c.fresh)
+         tell(eloDetail, "Kappe %s: %.2f bar, %d °C, %.2f V (%d %%), Alarm %d, %d dBm",
+              c.id, c.pressure, c.temperature, c.voltage, c.battery, c.alarm, c.rssi);
+
+      return true;
    }
 
-   void PublishValue(int address, const char* title, float value, const char* unit, bool valid)
+   void PublishValue(long address, const char* title, float value, const char* unit, bool valid, bool announced, int battery = -1)
    {
       JsonDocument doc;
       doc["type"] = sensorType;
@@ -396,10 +390,16 @@ private:
       doc["title"] = title;
       doc["unit"] = unit;
 
+      if (battery >= 0)
+         doc["battery"] = battery;
+
       if (!valid)
          doc["valid"] = false;
 
-      if (initialRun)
+      // the first message of a cap since the start carries the widget default,
+      //  homectld takes it when it creates the sensor
+
+      if (!announced)
       {
          JsonObject param {doc["parameter"].to<JsonObject>()};
          param["widgettype"] = 3;
@@ -426,7 +426,7 @@ private:
       parameters["maxAge"] = maxAge;
       parameters["learn"] = learn;
 
-      JsonObject wheels {parameters["wheels"].to<JsonObject>()};
+      JsonArray wheels {parameters["wheels"].to<JsonArray>()};
 
       portENTER_CRITICAL(&capMux);
       Cap list[MaxCaps];
@@ -438,7 +438,7 @@ private:
 
       for (int i = 0; i < MaxCaps; i++)
          if (list[i].id[0])
-            wheels[list[i].id] = list[i].wheel;
+            wheels.add(list[i].id);
 
       String outputStr;
       serializeJson(doc, outputStr);
@@ -467,7 +467,7 @@ private:
 
    //***************************************************************************
    // LED
-   //   WLAN fehlt 1 s, MQTT fehlt 500 ms, verbunden: an, kurz aus bei jedem Paket eines Sensors
+   //   WLAN fehlt 1 s, MQTT fehlt 500 ms, verbunden: an, kurz aus bei jedem Paket einer Kappe
    //***************************************************************************
 
    void UpdateLedBlink()
@@ -540,14 +540,13 @@ private:
          {
             MqttClient.subscribe(TopicSubscribe);
             publishInitMessage();
-            initialRun = true;
          }
       }
    }
 
    void mqttCallback(char* topic, byte* payload, unsigned int length)
    {
-      // {"type": "TPMS", "action": "init", "config": {"eloquence": 1, "interval": 60, "maxAge": 1800, "learn": true, "wheels": {"318F01": 1}} }
+      // {"type": "TPMS", "action": "init", "config": {"eloquence": 1, "interval": 60, "maxAge": 1800, "learn": true, "wheels": ["318F01"]} }
       // {"type": "TPMS", "action": "requestinit"}
 
       JsonDocument doc;
@@ -574,8 +573,8 @@ private:
          if (config["learn"].is<bool>())
             learn = config["learn"].as<bool>();
 
-         if (config["wheels"].is<JsonObject>())
-            parseWheels(config["wheels"].as<JsonObject>());
+         if (config["wheels"].is<JsonArray>())
+            parseWheels(config["wheels"].as<JsonArray>());
 
          tell(eloInfo, "Info: INIT: Eloquence %d; Interval %lu s; MaxAge %lu s; Learn %s",
               eloquence, publishInterval, maxAge, learn ? "an" : "aus");

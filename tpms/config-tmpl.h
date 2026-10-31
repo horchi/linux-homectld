@@ -34,5 +34,5 @@ constexpr int LedBrightness {64};    // 64 entspricht etwa 25% Helligkeit
 int eloquence {eloInfo};
 unsigned long publishInterval {60};    // seconds, cyclic publish of the last values
 unsigned long maxAge {1800};           // seconds, older values are published as invalid
-bool learn {true};                     // add new caps (wheel 0) to 'wheels', the caps are mapped in the WEBIF config
+bool learn {true};                     // add each new cap to 'wheels' (switch off when all caps are known)
 const char* sensorType {"TPMS"};

@@ -277,9 +277,10 @@ json_t* getObjectFromJson(json_t* obj, const char* name, json_t* def)
 
 //***************************************************************************
 // Add Missing
-//   adds the elements of 'source' missing in 'target' (recursive for objects),
-//   an element of an other type (format changed) is replaced, the rest of
-//   'target' is kept; returns the number of added / replaced elements
+//   adds the elements of 'source' missing in 'target' (recursive for objects, for
+//   arrays the missing items, e.g. the caps learned by tpms), an element of an
+//   other type (format changed) is replaced, the rest of 'target' is kept;
+//   returns the number of added / replaced elements
 //***************************************************************************
 
 static int jsonTypeGroup(json_t* o)
@@ -311,6 +312,25 @@ int jsonAddMissing(json_t* target, json_t* source)
       else if (json_is_object(jTgt))
       {
          count += jsonAddMissing(jTgt, jSrc);
+      }
+      else if (json_is_array(jTgt))
+      {
+         size_t i {};
+         json_t* jItem {};
+
+         json_array_foreach(jSrc, i, jItem)
+         {
+            bool found {false};
+
+            for (size_t t = 0; t < json_array_size(jTgt) && !found; t++)
+               found = json_equal(json_array_get(jTgt, t), jItem);
+
+            if (!found)
+            {
+               json_array_append(jTgt, jItem);
+               count++;
+            }
+         }
       }
    }
 

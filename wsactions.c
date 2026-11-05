@@ -3301,6 +3301,8 @@ int HomeCtl::sensor2Json(json_t* obj, const char* type, uint address)
       if (sensors[type][address].last() < time(0) - 10*tmeSecondsPerMinute)
          sensors[type][address].invalidate();
    }
+   else if (sensors[type][address].maxAge > 0)
+      ;   // MQTT sensors with 'maxage' (e.g. tpms, the caps report every ~200 s) - mqttCheckOutdated()
    else if (sensors[type][address].last() < time(0)-2 * tmeSecondsPerMinute)
       sensors[type][address].invalidate();
 

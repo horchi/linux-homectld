@@ -296,6 +296,8 @@ int HomeCtl::performMqttRequests()
             json_decref(jData);
          }
       }
+      else if (tp.length() > 4 && tp.compare(tp.length()-4, 4, "/log") == 0)
+         dispatchEspLog(tp.c_str(), message.memory);
       else
       {
          dispatchOther(tp.c_str(), message.memory);

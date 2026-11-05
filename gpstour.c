@@ -34,6 +34,13 @@
  *  partial fills are added to the next full one and get no value of their own). The
  *  distance is taken from the odometer readings and, in parallel, from the GPS distance
  *  of the tour at the moment of the fuel stop (stored with the event).
+ *
+ *  Ferry (event 'ferry', begin 'time' / end 'endtime'): started and ended in the WEBIF. While on
+ *  the ferry the recording continues if the receiver has a fix (a point only on leaving the pause
+ *  radius, no automatic pause), the WEBIF draws this part in an own color. Without GPS (in the
+ *  hold, or homectld down) the WEBIF connects begin and end by a line; ended without fix the next
+ *  point gives the end position ('endlat' / 'endlon') and the distance of the crossing. The ferry
+ *  time and distance are not driving time / distance (consumption by GPS, 'Fahrzeit').
  */
 
 #include <cmath>
@@ -235,6 +242,26 @@ int HomeCtl::gpsTourInit()
 
    for (bool f = selectGpsTourEvents->find(); f; f = selectGpsTourEvents->fetch())
    {
+      if (tableGpsTourEvents->hasValue("TYPE", "ferry"))
+      {
+         // on the ferry at the shutdown, or ended without fix and no point since then
+
+         if (tableGpsTourEvents->getValue("ENDTIME")->isNull())
+         {
+            gpsTour.ferryEventId = tableGpsTourEvents->getIntValue("ID");
+            gpsTour.ferryStart = tableGpsTourEvents->getTimeValue("TIME");
+            gpsTour.ferryClosingId = 0;
+         }
+         else if (!tableGpsTourEvents->getFloatValue("ENDLAT") && !tableGpsTourEvents->getFloatValue("ENDLON") &&
+                  gpsTour.lastMoveAt < tableGpsTourEvents->getTimeValue("ENDTIME"))
+         {
+            gpsTour.ferryClosingId = tableGpsTourEvents->getIntValue("ID");
+            gpsTour.ferryEnd = tableGpsTourEvents->getTimeValue("ENDTIME");
+         }
+
+         continue;
+      }
+
       if (!tableGpsTourEvents->hasValue("TYPE", "halt") || !tableGpsTourEvents->getValue("ENDTIME")->isNull())
          continue;
 
@@ -251,7 +278,8 @@ int HomeCtl::gpsTourInit()
    gpsTourSetRecordFlag(true);
 
    tell(eloAlways, "GPS: Resuming tour %ld '%s' (started %s, %ld points, %.1f km%s)", gpsTour.id, gpsTour.name.c_str(),
-        l2pTime(gpsTour.start).c_str(), gpsTour.points, gpsTour.distance / 1000.0, gpsTour.paused ? ", paused" : "");
+        l2pTime(gpsTour.start).c_str(), gpsTour.points, gpsTour.distance / 1000.0,
+        gpsTour.ferryEventId ? ", on the ferry" : gpsTour.paused ? ", paused" : "");
 
    gpsTourCheckPause(now);
 
@@ -378,6 +406,9 @@ int HomeCtl::gpsTourStop(time_t stopAt, long odometer)
    if (stopAt <= gpsTour.start || stopAt > now)
       stopAt = now;
 
+
+   if (gpsTour.ferryEventId)
+      gpsTourFerryEnd(std::max(stopAt, gpsTour.ferryStart));
 
    if (gpsTour.paused)
       gpsTourPauseEnd(stopAt);     // a 'stopAt' before the pause (arrival) removes the halt event
@@ -506,6 +537,20 @@ int HomeCtl::gpsTourUpdate(time_t now)
 
    double distance {gpsDistance(gpsTour.lastPoint, gpsCoordinate)};
 
+   // on the ferry: only a position of a fix, a point on leaving the pause radius (no scribble of
+   //  a drifting receiver in the hold), no pause
+
+   if (gpsTour.ferryEventId)
+   {
+      if (!gpsHasFix() || gpsDistance(gpsTour.anchor, gpsCoordinate) < gpsTourPauseRadius)
+         return done;
+
+      gpsTour.anchor = gpsCoordinate;
+      gpsTour.lastMoveAt = now;
+
+      return gpsTourStorePoint(now, gpsCoordinate, distance);
+   }
+
    // real movement: the position left the pause radius around the anchor (the GPS drifts at standstill)
 
    if (gpsDistance(gpsTour.anchor, gpsCoordinate) >= gpsTourPauseRadius)
@@ -535,8 +580,8 @@ int HomeCtl::gpsTourUpdate(time_t now)
 
 int HomeCtl::gpsTourCheckPause(time_t now)
 {
-   if (!gpsTour.id || gpsTour.paused || !gpsTour.lastMoveAt)
-      return done;
+   if (!gpsTour.id || gpsTour.paused || !gpsTour.lastMoveAt || gpsTour.ferryEventId)
+      return done;                  // on the ferry no pause (no movement while there is no GPS in the hold)
 
    if (now - gpsTour.lastMoveAt < gpsTourPauseAfter * tmeSecondsPerMinute)
       return done;
@@ -615,6 +660,127 @@ int HomeCtl::gpsTourPauseEnd(time_t at)
 }
 
 //***************************************************************************
+// Ferry
+//***************************************************************************
+
+// fix: the coordinate is current and the receiver reports a fix (GPS:0x00 'Sat State', the
+//  script publishes the last position also without fix)
+
+bool HomeCtl::gpsHasFix()
+{
+   if (!gpsCoordinate.latitude && !gpsCoordinate.longitude)
+      return false;
+
+   auto itGps {sensors.find("GPS")};
+
+   if (itGps == sensors.end())
+      return false;
+
+   auto itCoordinate {itGps->second.find(gpsCoordinateAddress)};
+
+   if (itCoordinate == itGps->second.end() || !itCoordinate->second.valid() || time(0) - itCoordinate->second.last() > 120)
+      return false;
+
+   auto itFix {itGps->second.find(gpsFixAddress)};
+
+   if (itFix != itGps->second.end() && itFix->second.active && itFix->second.valid() && !itFix->second.state)
+      return false;
+
+   return true;
+}
+
+// the event 'ferry' is stored by gpsTourEventStore(), a running pause (waiting at the port) ends
+
+int HomeCtl::gpsTourFerryStart(long eventId, time_t at)
+{
+   if (gpsTour.paused)
+      gpsTourPauseEnd(at);
+
+   gpsTour.ferryEventId = eventId;
+   gpsTour.ferryStart = at;
+   gpsTour.ferryClosingId = 0;
+
+   tell(eloAlways, "GPS: Tour '%s' on the ferry since %s", gpsTour.name.c_str(), l2pTime(at).c_str());
+
+   return success;
+}
+
+// with fix the current position is the end (stored as point of the ferry), else the next point
+
+int HomeCtl::gpsTourFerryEnd(time_t at)
+{
+   if (!gpsTour.ferryEventId)
+      return done;
+
+   bool fix {gpsHasFix()};
+
+   if (fix)
+   {
+      double distance {gpsTour.hasLastPoint ? gpsDistance(gpsTour.lastPoint, gpsCoordinate) : 0.0};
+
+      if (!gpsTour.hasLastPoint || distance >= gpsTourMinDistance)
+         gpsTourStorePoint(at, gpsCoordinate, distance);
+
+      gpsTour.anchor = gpsCoordinate;
+   }
+
+   gpsTour.lastMoveAt = at;          // the pause counts from the end of the crossing
+
+   tableGpsTourEvents->clear();
+   tableGpsTourEvents->setValue("ID", gpsTour.ferryEventId);
+
+   if (tableGpsTourEvents->find())
+   {
+      tableGpsTourEvents->setValue("ENDTIME", (long)at);
+      tableGpsTourEvents->setValue("ENDDISTANCE", gpsTour.distance);
+
+      if (fix)
+      {
+         tableGpsTourEvents->setValue("ENDLAT", gpsCoordinate.latitude);
+         tableGpsTourEvents->setValue("ENDLON", gpsCoordinate.longitude);
+      }
+
+      tableGpsTourEvents->store();
+   }
+
+   tableGpsTourEvents->reset();
+
+   tell(eloAlways, "GPS: Tour '%s' off the ferry after %ld minutes%s", gpsTour.name.c_str(),
+        (long)(at - gpsTour.ferryStart) / 60, fix ? "" : ", no GPS fix, the next point is the end position");
+
+   gpsTour.ferryClosingId = fix ? 0 : gpsTour.ferryEventId;
+   gpsTour.ferryEnd = at;
+   gpsTour.ferryEventId = 0;
+   gpsTour.ferryStart = 0;
+
+   return success;
+}
+
+// the first point after a ferry ended without fix: its position and the distance up to it
+//  (the jump from the port of departure) belong to the ferry
+
+int HomeCtl::gpsTourFerryClose(const GpsCoordinate& c)
+{
+   tableGpsTourEvents->clear();
+   tableGpsTourEvents->setValue("ID", gpsTour.ferryClosingId);
+
+   if (tableGpsTourEvents->find())
+   {
+      tableGpsTourEvents->setValue("ENDLAT", c.latitude);
+      tableGpsTourEvents->setValue("ENDLON", c.longitude);
+      tableGpsTourEvents->setValue("ENDDISTANCE", gpsTour.distance);
+      tableGpsTourEvents->store();
+      tell(eloAlways, "GPS: Tour '%s' end position of the ferry %s", gpsTour.name.c_str(), gpsCoordinateText(c).c_str());
+   }
+
+   tableGpsTourEvents->reset();
+   gpsTour.ferryClosingId = 0;
+   gpsTourPushState();              // the distance of the ferry changed
+
+   return success;
+}
+
+//***************************************************************************
 // Store Point / State
 //***************************************************************************
 
@@ -665,6 +831,9 @@ int HomeCtl::gpsTourStorePoint(time_t now, const GpsCoordinate& c, double distan
    gpsTour.hasLastPoint = true;
    gpsTour.distance += distance;
    gpsTour.points++;
+
+   if (gpsTour.ferryClosingId && now >= gpsTour.ferryEnd)
+      gpsTourFerryClose(c);
 
    tell(eloDetail, "GPS: Tour '%s' point %ld stored (%s, +%.0f m)", gpsTour.name.c_str(), gpsTour.points,
         gpsCoordinateText(c).c_str(), distance);
@@ -761,6 +930,7 @@ int HomeCtl::gpsTours2Json(json_t* obj)
       json_object_set_new(oActive, "points", json_integer(gpsTour.points));
       json_object_set_new(oActive, "pausetime", json_integer(gpsTour.pauseTime + (gpsTour.paused ? time(0) - gpsTour.pausedAt : 0)));
       json_object_set_new(oActive, "odometer", json_integer(gpsTour.odometer));
+      json_object_set_new(oActive, "ferry", gpsTour.ferryEventId ? json_integer(gpsTour.ferryStart) : json_null());   // on the ferry since
       json_object_set_new(obj, "active", oActive);
    }
    else
@@ -889,7 +1059,7 @@ int HomeCtl::gpsTourPoints2Json(json_t* obj, long id)
 
 int HomeCtl::gpsTourEventStore(json_t* obj, std::string& error)
 {
-   static const std::set<std::string> types {"fuel", "toll", "pause", "night", "note"};
+   static const std::set<std::string> types {"fuel", "toll", "pause", "night", "note", "ferry"};
 
    long id {getLongFromJson(obj, "id", 0)};
    std::string type {getStringFromJson(obj, "type", "")};
@@ -921,6 +1091,12 @@ int HomeCtl::gpsTourEventStore(json_t* obj, std::string& error)
       if (!tourId && !standalone)
       {
          error = "Keine Tour aktiv";
+         return fail;
+      }
+
+      if (type == "ferry" && (tourId != gpsTour.id || gpsTour.ferryEventId))
+      {
+         error = gpsTour.ferryEventId ? "Die Fähre ist bereits aktiv" : "Eine Fähre nur in der aktiven Tour";
          return fail;
       }
 
@@ -971,7 +1147,13 @@ int HomeCtl::gpsTourEventStore(json_t* obj, std::string& error)
         id ? "updated" : "stored", tableGpsTourEvents->getIntValue("ODOMETER"), tableGpsTourEvents->getFloatValue("AMOUNT"),
         tableGpsTourEvents->getFloatValue("PRICE"));
 
+   long ferryId {!id && type == "ferry" ? (long)tableGpsTourEvents->getLastInsertId() : 0L};
+   time_t ferryAt {ferryId ? tableGpsTourEvents->getTimeValue("TIME") : 0};
+
    tableGpsTourEvents->reset();
+
+   if (ferryId)
+      gpsTourFerryStart(ferryId, ferryAt);
 
    return success;
 }
@@ -990,6 +1172,12 @@ int HomeCtl::gpsTourEventDelete(long id)
    tableGpsTourEvents->reset();
    tableGpsTourEvents->deleteWhere("id = %ld", id);
    tell(eloAlways, "GPS: Deleted tour event %ld", id);
+
+   if (id == gpsTour.ferryEventId)
+      gpsTour.ferryEventId = gpsTour.ferryStart = 0;
+
+   if (id == gpsTour.ferryClosingId)
+      gpsTour.ferryClosingId = 0;
 
    return success;
 }
@@ -1020,6 +1208,10 @@ int HomeCtl::gpsTourEvents2Json(json_t* obj, long tourId, long odometerStart, lo
    int fuelStops {0};
    int halts {0};                   // automatic pauses (events 'halt') ..
    long haltTime {0};               // .. and their time [s]
+   int ferries {0};                 // ferries ..
+   long ferryTime {0};              // .. their time [s] ..
+   double ferryDistance {0.0};      // .. their GPS distance so far [m] (not driven, out of the consumption by GPS)
+   double ferryCosts {0.0};
    bool firstFull {true};
 
    // the last full tank before the tour and the partial fills since then
@@ -1112,6 +1304,33 @@ int HomeCtl::gpsTourEvents2Json(json_t* obj, long tourId, long odometerStart, lo
          continue;
       }
 
+      if (type == "ferry")
+      {
+         // a running ferry of the active tour has no end yet, the WEBIF counts from 'time'
+
+         time_t begin {tableGpsTourEvents->getTimeValue("TIME")};
+         bool running {tourId == gpsTour.id && tableGpsTourEvents->getIntValue("ID") == gpsTour.ferryEventId};
+         bool open {tableGpsTourEvents->getValue("ENDTIME")->isNull() != 0};
+         time_t end {running ? 0 : open ? begin : tableGpsTourEvents->getTimeValue("ENDTIME")};
+         double endDistance {running ? gpsTour.distance : tableGpsTourEvents->getValue("ENDDISTANCE")->isNull() ? distance : tableGpsTourEvents->getFloatValue("ENDDISTANCE")};
+         double meters {std::max(0.0, endDistance - distance)};
+         double endLat {tableGpsTourEvents->getFloatValue("ENDLAT")};
+         double endLon {tableGpsTourEvents->getFloatValue("ENDLON")};
+
+         json_object_set_new(oEvent, "endtime", end ? json_integer(end) : json_null());
+         json_object_set_new(oEvent, "duration", json_integer((end ? end : time(0)) - begin));
+         json_object_set_new(oEvent, "endlat", endLat || endLon ? json_real(endLat) : json_null());
+         json_object_set_new(oEvent, "endlon", endLat || endLon ? json_real(endLon) : json_null());
+         json_object_set_new(oEvent, "ferrydistance", json_real(meters));
+
+         ferries++;
+         ferryTime += (end ? end : time(0)) - begin;
+         ferryDistance += meters;
+         ferryCosts += price;
+         json_array_append_new(oEvents, oEvent);
+         continue;
+      }
+
       if (type == "fuel")
       {
          fuelStops++;
@@ -1145,7 +1364,10 @@ int HomeCtl::gpsTourEvents2Json(json_t* obj, long tourId, long odometerStart, lo
 
          firstFull = false;
 
-         // the same by the GPS distance of the tour
+         // the same by the GPS distance of the tour (without the ferries)
+
+         if (distance > 0)
+            distance = std::max(0.0, distance - ferryDistance);
 
          if (distance > previousDistance + 1000.0 && amount + pendingLiters > 0)
          {
@@ -1218,7 +1440,12 @@ int HomeCtl::gpsTourEvents2Json(json_t* obj, long tourId, long odometerStart, lo
    json_object_set_new(oTotals, "fuelCosts", json_real(fuelCosts));
    json_object_set_new(oTotals, "tollCosts", json_real(tollCosts));
    json_object_set_new(oTotals, "otherCosts", json_real(otherCosts));
-   json_object_set_new(oTotals, "totalCosts", json_real(fuelCosts + tollCosts + otherCosts));
+   json_object_set_new(oTotals, "ferries", json_integer(ferries));
+   json_object_set_new(oTotals, "ferryTime", json_integer(ferryTime));
+   json_object_set_new(oTotals, "ferryDistance", json_real(ferryDistance));
+   json_object_set_new(oTotals, "ferryCosts", json_real(ferryCosts));
+   json_object_set_new(oTotals, "gpsDistance", tourId == gpsTour.id ? json_real(gpsTour.distance) : json_null());   // active tour: its distance at this moment (WEBIF, ferry growth)
+   json_object_set_new(oTotals, "totalCosts", json_real(fuelCosts + tollCosts + otherCosts + ferryCosts));
    json_object_set_new(oTotals, "liters", json_real(liters));
    json_object_set_new(oTotals, "odometerStart", json_integer(odometerStart));
    json_object_set_new(oTotals, "odometerEnd", json_integer(odometerEnd));
@@ -1359,10 +1586,11 @@ int HomeCtl::gpsTourPushState(long client)
 //   { "action": "stop", "stop": <time>, "odometer": <km> }
 //   { "action": "delete", "id": <id> }
 //   { "action": "rename", "id": <id>, "name": "<name>", "odometer": <km>, "odometerend": <km>, "comment": "<text>" }   (all but the name optional)
-//   { "action": "event", "id": <id>, "tourid": <id>, "type": "fuel|toll|pause|night|note", "time": <time>,   ('halt' only with id: note)
+//   { "action": "event", "id": <id>, "tourid": <id>, "type": "fuel|toll|pause|night|note|ferry", "time": <time>,   ('halt' only with id: note)
 //                        "odometer": <km>, "amount": <l>, "full": true|false, "price": <EUR>, "note": "<text>" }   -> insert / update
 //                        ("tourid": 0 with type 'fuel' -> fuel stop outside of a tour, 'time' optional, default now)
 //   { "action": "eventdelete", "id": <id> }
+//   { "action": "ferryend" }                     -> ends the ferry of the active tour (started by an event 'ferry')
 //***************************************************************************
 
 int HomeCtl::performGpsTour(json_t* obj, long client)
@@ -1488,6 +1716,17 @@ int HomeCtl::performGpsTour(json_t* obj, long client)
 
       gpsTourPushState();
       return replyResult(success, client, "Ereignis gespeichert");
+   }
+
+   if (action == "ferryend")
+   {
+      if (!gpsTour.ferryEventId)
+         return replyResult(fail, client, "Keine Fähre aktiv");
+
+      gpsTourFerryEnd(time(0));
+      gpsTourPushState();
+
+      return replyResult(success, client, "Fähre beendet");
    }
 
    if (action == "eventdelete")

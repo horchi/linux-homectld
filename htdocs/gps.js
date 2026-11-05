@@ -23,6 +23,10 @@
  *  (standstill) are recorded by the daemon as 'halt' with begin and end. Together with the
  *  odometer at start / end (asked on start / stop, editable with the name) the costs and the
  *  fuel consumption are calculated by the daemon.
+ *
+ *  Ferry: the button 'Fähre' starts it (event 'ferry'), the same button ends it. The part of the
+ *  route on the ferry is drawn in its own color, without recorded points (no GPS in the hold or
+ *  homectld down) begin and end are connected by a dashed line.
  */
 
 var gpsView = localStorage.getItem(storagePrefix + 'gpsView') || 'live';   // 'live' | 'tours' | 'tour' - the tab survives a reload
@@ -36,6 +40,7 @@ var gpsLiveMinDistance = 10; // [m] a live point is added when moved at least th
 var gpsSelectedTour = parseInt(localStorage.getItem(storagePrefix + 'gpsSelectedTour')) || null;   // tour shown in the 'tours' view (details / events)
 var gpsFocusEvent = null;    // event id to center on the map once the tour points arrived (click in the event list)
 var gpsTourEvents = {};      // event 'gpstourevents': events and totals by tour id
+var gpsFerryColor = '#00838f';   // the route on a ferry
 
 // event types: label, icon (mdi), which input fields the dialog offers
 
@@ -45,12 +50,14 @@ var gpsEventTypes = {
    'pause': { label: 'Pause',      icon: 'mdi-coffee',        color: '#1976d2', fields: ['price', 'note'] },
    'night': { label: 'Nachtstopp', icon: 'mdi-weather-night', color: '#512da8', fields: ['price', 'note'] },
    'note':  { label: 'Hinweis',    icon: 'mdi-note-text',     color: '#455a64', fields: ['note'] },
+   'ferry': { label: 'Fähre',      icon: 'mdi-ferry',         color: '#00838f', fields: ['price', 'note'] },   // begin by the button, end by the same button (action 'ferryend')
    'halt':  { label: 'Stillstand', icon: 'mdi-pause-circle-outline', color: '#78909c', fields: ['note'] }   // by the daemon (automatic pause), only the note is editable
 };
 
 mapManager = {
    map: null,
    routeLine: null,
+   ferryLayer: null,           // the parts of a tour on a ferry
    pointsLayer: null,          // historic points (circle markers)
    eventsLayer: null,          // the events of the shown tour (fuel, toll, ...)
    eventMarkers: {},           // their markers by event id
@@ -80,6 +87,7 @@ mapManager = {
          opacity: 0.85
       }).addTo(this.map);
 
+      this.ferryLayer = L.layerGroup().addTo(this.map);
       this.pointsLayer = L.layerGroup().addTo(this.map);
       this.eventsLayer = L.layerGroup().addTo(this.map);
       this.satLayer = L.layerGroup().addTo(this.map);      // bearing lines of the 'sat' view
@@ -235,6 +243,7 @@ mapManager = {
 
    clear() {
       this.routeLine.setLatLngs([]);
+      this.ferryLayer.clearLayers();
       this.pointsLayer.clearLayers();
       this.eventsLayer.clearLayers();
       this.satLayer.clearLayers();
@@ -352,7 +361,7 @@ mapManager = {
    // a recorded tour: points [[lat, lng, time], ...]; 'active' - the tour is being recorded,
    // the last point is the current position (live marker instead of the 'Ende' marker)
 
-   showTour(points, active = false) {
+   showTour(points, active = false, events = []) {
       this.clear();
       this.routeLine.setStyle({ color: '#d32f2f' });
 
@@ -363,7 +372,7 @@ mapManager = {
          return;
       }
 
-      this.routeLine.setLatLngs(latLngs.length == 1 ? [latLngs[0], latLngs[0]] : latLngs);
+      this.drawRoute(points, events);
 
       L.circleMarker(latLngs[0], {
          radius: 7, fillColor: '#2e7d32', fillOpacity: 1, color: '#ffffff', weight: 3
@@ -381,7 +390,7 @@ mapManager = {
       // maxZoom: a short tour (or one at standstill) would otherwise open at the maximum zoom
 
       this.autoMove = true;
-      this.map.fitBounds(this.routeLine.getBounds(), { padding: [30, 30], animate: false, maxZoom: 17 });
+      this.map.fitBounds(L.latLngBounds(latLngs), { padding: [30, 30], animate: false, maxZoom: 17 });
       this.autoMove = false;
 
       if (active && this.isTourTrackingActive)
@@ -393,18 +402,86 @@ mapManager = {
    // tour being recorded: a stored point (event 'gpstourpoint') extends the route on the map,
    // optionally the map follows
 
-   addTourLivePoint(latLng) {
-      let points = this.routeLine.getLatLngs();
-
-      if (points.length == 2 && points[0].equals(points[1]))
-         this.routeLine.setLatLngs([points[0], latLng]);
-      else
-         this.routeLine.addLatLng(latLng);
-
+   addTourLivePoint(latLng, points, events) {
+      this.drawRoute(points, events);
       this.setCurrentLocation(latLng);
 
       if (this.isTourTrackingActive)
          this.follow(latLng);
+   },
+
+   // the route of a tour: the parts on a ferry (events 'ferry', 'time' - 'endtime', open while on the
+   //  ferry) in their own color, each from the last point before to the first one after it (or its
+   //  begin / end position); without points on the ferry dashed - the straight line of begin and end
+
+   drawRoute(points, events) {
+      let ferries = (events || []).filter(ev => ev.type == 'ferry')
+          .map(ev => ({ ev: ev, from: ev.time, to: ev.endtime != null ? ev.endtime : Infinity }));
+      let onFerry = (t) => ferries.some(f => t >= f.from && t <= f.to);
+      let segments = [];
+      let segment = [];
+      let lastTime = null;
+
+      for (let p of points) {
+         if (onFerry(p[2]))
+            continue;
+
+         // a ferry between the previous point and this one interrupts the route
+
+         if (lastTime != null && ferries.some(f => f.from > lastTime && f.from <= p[2]) && segment.length) {
+            segments.push(segment);
+            segment = [];
+         }
+
+         segment.push(L.latLng(p[0], p[1]));
+         lastTime = p[2];
+      }
+
+      if (segment.length)
+         segments.push(segment);
+
+      if (segments.length == 1 && segments[0].length == 1)
+         segments[0].push(segments[0][0]);
+
+      this.routeLine.setLatLngs(segments);
+      this.ferryLayer.clearLayers();
+
+      for (let f of ferries) {
+         let before = null;
+         let after = null;
+         let inside = [];
+
+         for (let p of points) {
+            if (p[2] < f.from)
+               before = p;
+            else if (p[2] <= f.to)
+               inside.push(L.latLng(p[0], p[1]));
+            else if (!after)
+               after = p;
+         }
+
+         let line = [];
+
+         if (before)
+            line.push(L.latLng(before[0], before[1]));
+         if (f.ev.lat || f.ev.lon)
+            line.push(L.latLng(f.ev.lat, f.ev.lon));
+
+         line = line.concat(inside);
+
+         if (f.ev.endlat != null)
+            line.push(L.latLng(f.ev.endlat, f.ev.endlon));
+         if (after && f.to != Infinity)
+            line.push(L.latLng(after[0], after[1]));
+
+         if (line.length < 2)
+            continue;
+
+         L.polyline(line, { color: gpsFerryColor, weight: 5, opacity: 0.85, dashArray: inside.length ? null : '10 10' })
+            .bindTooltip('Fähre ' + gpsFmtTime(f.ev.time) + ' · ' + gpsFmtHaltEnd(f.ev) + (f.ev.ferrydistance ? ' · ' + gpsFmtDistance(f.ev.ferrydistance) : '')
+                         + (inside.length ? '' : ' · ohne GPS, Luftlinie'), { sticky: true })
+            .addTo(this.ferryLayer);
+      }
    },
 
    // the events of a tour as markers, the popup shows the details (edit / delete with control rights)
@@ -541,6 +618,31 @@ function gpsUpdateEventButtons()
                  .attr('title', type.label + ' eintragen (mit der aktuellen Position)')
                  .click(function() { gpsEventDialog(key); }));
    }
+
+   // ferry: begin (dialog like the other events) and end by the same button
+
+   bar.append($('<button></button>')
+              .addClass('rounded-border buttonDashboard gpsEventBtn mdi mdi-ferry')
+              .toggleClass('buttonDashboardActive', active.ferry != null)
+              .attr('title', active.ferry != null ? 'Fähre beenden (an Bord seit ' + gpsFmtClock(active.ferry, Math.floor(Date.now() / 1000)) + ')' : 'Fähre - Beginn der Überfahrt (mit der aktuellen Position)')
+              .click(function() { gpsFerryToggle(); }));
+}
+
+function gpsFerryToggle()
+{
+   let active = gpsTours ? gpsTours.active : null;
+
+   if (!active)
+      return;
+
+   if (active.ferry == null) {
+      gpsEventDialog('ferry');
+      return;
+   }
+
+   confirmDialog(function() {
+      socket.send({ "event" : "gpstour", "object" : { "action" : "ferryend" } });
+   }, 'Fähre beenden? (an Bord seit ' + gpsFmtClock(active.ferry, Math.floor(Date.now() / 1000)) + ')', 'Beenden');
 }
 
 function gpsUpdateToolbar()
@@ -900,7 +1002,7 @@ function gpsShowTour(id)
    gpsShowMap();
 
    if (gpsShownTour && gpsShownTour.id == id)
-      mapManager.showTour(gpsShownTour.points, gpsShownTour.stop == null);
+      mapManager.showTour(gpsShownTour.points, gpsShownTour.stop == null, gpsShownTour.events);
    else
       mapManager.clear();
 
@@ -1057,6 +1159,7 @@ function processGpsTourEvents(obj)
    if (gpsView == 'tours' && gpsSelectedTour == obj.id)
       $('#gpsTourEvents').html(gpsTourEventsHtml(obj));
    else if (gpsView == 'tour' && gpsShownTour && gpsShownTour.id == obj.id && mapManager.map) {
+      mapManager.drawRoute(gpsShownTour.points, obj.events);     // a ferry may have begun / ended
       mapManager.showEvents(obj.events);
       $('#gpsTourInfo').html(gpsTourInfoHtml(gpsShownTour));
    }
@@ -1094,12 +1197,12 @@ function processGpsTourPoint(obj)
 
       if (gpsSelectedTour == obj.id) {
          $('#gpsTourState').html(gpsTourStateHtml());
-         $('#gpsTourDistance').html(gpsFmtDistance(obj.distance));
+         $('#gpsTourDistance').html(gpsTourDistanceHtml(gpsTours.tours.find(t => t.id == obj.id), obj.distance));
          $('#gpsTourPoints').html(obj.points);
       }
    }
    else if (gpsView == 'tour' && gpsShownTour && gpsShownTour.id == obj.id && mapManager.map) {
-      mapManager.addTourLivePoint(L.latLng(obj.point[0], obj.point[1]));
+      mapManager.addTourLivePoint(L.latLng(obj.point[0], obj.point[1]), gpsShownTour.points, gpsShownTour.events);
       $('#gpsTourInfo').html(gpsTourInfoHtml(gpsShownTour));
    }
 }
@@ -1243,7 +1346,7 @@ function gpsTourStateHtml()
    if (!a)
       return '';
 
-   return '<span class="' + (a.paused ? 'gpsPaused' : 'gpsRecording') + '">' + (a.paused ? '❚❚ pausiert' : '● aktiv')
+   return '<span class="' + (a.paused ? 'gpsPaused' : 'gpsRecording') + '">' + (a.paused ? '❚❚ pausiert' : a.ferry != null ? '● auf der Fähre' : '● aktiv')
       + ' · ' + gpsFmtDistance(a.distance) + ' · ' + a.points + ' Punkte</span>';
 }
 
@@ -1280,8 +1383,8 @@ function gpsTourDetailsHtml(tour)
                ['Ende', tour.stop != null ? gpsFmtTime(tour.stop) : '-'],
                ['Dauer', gpsFmtDuration(stop - tour.start)],
                ['Pause', gpsFmtDuration(tour.pausetime) + (t.halts ? ' <span class="gpsTourSub">' + t.halts + 'x</span>' : '')],
-               ['Fahrzeit', gpsFmtDuration(stop - tour.start - (tour.pausetime || 0))],
-               ['Strecke (GPS)', gpsFmtDistance(tour.distance), 'gpsTourDistance'],
+               ['Fahrzeit', gpsFmtDuration(stop - tour.start - (tour.pausetime || 0) - (t.ferryTime || 0))],
+               ['Strecke (GPS)', gpsTourDistanceHtml(tour, tour.distance), 'gpsTourDistance'],
                ['Punkte', tour.points, 'gpsTourPoints']];
 
    if (tour.odometer)
@@ -1294,6 +1397,9 @@ function gpsTourDetailsHtml(tour)
       rows.push(['Getankt', t.fuelStops + 'x · ' + gpsFmtLiters(t.liters) + ' · ' + gpsFmtMoney(t.fuelCosts)]);
    if (t.tollCosts)
       rows.push(['Maut', gpsFmtMoney(t.tollCosts)]);
+   if (t.ferries)
+      rows.push(['Fähre', (t.ferries > 1 ? t.ferries + 'x · ' : '') + gpsFmtDuration(t.ferryTime) + ' · ' + gpsFmtDistance(t.ferryDistance)
+                 + (t.ferryCosts ? ' · ' + gpsFmtMoney(t.ferryCosts) : '')]);
    if (t.otherCosts)
       rows.push(['Sonstiges', gpsFmtMoney(t.otherCosts)]);
    if (t.totalCosts)
@@ -1347,7 +1453,7 @@ function gpsTourEventsHtml(data)
       return '<div class="gpsTourSub">Ereignisse werden geladen ...</div>';
 
    if (!data.events.length)
-      return '<div class="gpsTourSub">Keine Ereignisse. Tankstopps, Maut, Pausen, Nachtstopps und Hinweise werden während der Aufzeichnung über die Buttons in der Leiste eingetragen, jeweils mit der aktuellen Position.</div>';
+      return '<div class="gpsTourSub">Keine Ereignisse. Tankstopps, Maut, Pausen, Nachtstopps, Fähren und Hinweise werden während der Aufzeichnung über die Buttons in der Leiste eingetragen, jeweils mit der aktuellen Position.</div>';
 
    let control = gpsHasControlRights();
    let html = '<table class="gpsEventTable">';
@@ -1361,7 +1467,7 @@ function gpsTourEventsHtml(data)
       html += '<tr class="gpsEventLine' + (hasPosition ? ' gpsEventClickable' : '') + '"' + (hasPosition ? ' title="auf der Karte zeigen" onclick="gpsShowEventOnMap(' + data.id + ', ' + ev.id + ')"' : '') + '>';
       html += '<td>' + gpsFmtTime(ev.time) + (ev.duration != null ? '<br/><span class="gpsTourSub">' + gpsFmtHaltEnd(ev) + '</span>' : '') + '</td>';
       html += '<td><span class="mdi ' + type.icon + '" style="color:' + type.color + '"></span> ' + type.label + '</td>';
-      html += '<td class="gpsNum">' + (ev.amount ? gpsFmtLiters(ev.amount) + (ev.full === false ? '<br/><span class="gpsTourSub">nicht voll</span>' : '') : '') + '</td>';
+      html += '<td class="gpsNum">' + (ev.type == 'ferry' ? gpsFmtDistance(ev.ferrydistance || 0) : '') + (ev.amount ? gpsFmtLiters(ev.amount) + (ev.full === false ? '<br/><span class="gpsTourSub">nicht voll</span>' : '') : '') + '</td>';
       html += '<td class="gpsNum">' + (ev.price ? gpsFmtMoney(ev.price) + (ev.amount ? '<br/><span class="gpsTourSub">' + gpsFmtMoney(ev.price / ev.amount, 3) + '/l</span>' : '') : '') + '</td>';
       html += '<td class="gpsNum">' + (ev.odometer ? ev.odometer.toLocaleString('de-DE') + ' km' : '') + '</td>';
       html += '<td class="gpsNum">' + gpsFmtEventConsumption(ev, '<br/>') + '</td>';
@@ -1389,7 +1495,7 @@ function processGpsTourPoints(tour)
    if (currentPage != 'gpslive' || gpsView != 'tour' || !mapManager.map)
       return;
 
-   mapManager.showTour(tour.points, tour.stop == null);
+   mapManager.showTour(tour.points, tour.stop == null, tour.events);
    mapManager.showEvents(tour.events);
 
    if (gpsFocusEvent) {
@@ -1409,7 +1515,7 @@ function gpsTourInfoHtml(tour)
 {
    let info = "'" + gpsEscape(tour.name) + "' · " + gpsFmtTime(tour.start)
        + (tour.stop != null ? ' - ' + gpsFmtTime(tour.stop) : ' (aktiv)')
-       + ' · ' + gpsFmtDistance(tour.distance) + ' · ' + tour.points.length + ' Punkte';
+       + ' · ' + gpsTourDistanceHtml(tour, tour.distance) + ' · ' + tour.points.length + ' Punkte';
 
    if (tour.totals && tour.totals.events)
       info += '<div class="gpsTourInfoTotals">' + gpsFmtTotals(tour.totals, ' · ') + '</div>';
@@ -1610,7 +1716,7 @@ function gpsEventDialog(typeKey, id = null, standalone = false)
    if (ev && ev.tourid === 0)        // the fuel list carries the tour id, 0 -> entered outside of a tour
       standalone = true;
 
-   let labels = { 'amount': 'Menge [l]', 'price': typeKey == 'fuel' || typeKey == 'toll' ? 'Preis gesamt [€]' : 'Kosten [€] (optional)', 'odometer': 'km-Stand', 'note': 'Notiz' };
+   let labels = { 'amount': 'Menge [l]', 'price': ['fuel', 'toll', 'ferry'].includes(typeKey) ? 'Preis gesamt [€]' : 'Kosten [€] (optional)', 'odometer': 'km-Stand', 'note': 'Notiz' };
    let form = $('<div></div>').addClass('dialog-content gpsEventDialog')
        .append($('<div></div>').addClass('actDetailsHead').html('<span class="mdi ' + type.icon + '" style="color:' + type.color + '"></span> ' + type.label
                                                                 + (standalone ? ' · außerhalb einer Tour' : ev ? ' · ' + gpsFmtTime(ev.time) : ' · jetzt, mit der aktuellen Position')));
@@ -1700,6 +1806,8 @@ function gpsEventDetails(ev, sep)
 
    if (ev.duration != null)
       parts.push(gpsFmtHaltEnd(ev));
+   if (ev.type == 'ferry' && ev.ferrydistance)
+      parts.push(gpsFmtDistance(ev.ferrydistance));
    if (ev.amount)
       parts.push(gpsFmtLiters(ev.amount) + (ev.full === false ? ' (nicht voll)' : '') + (ev.price ? ' · ' + gpsFmtMoney(ev.price / ev.amount, 3) + '/l' : ''));
    if (ev.price)
@@ -1767,6 +1875,8 @@ function gpsFmtTotals(t, sep)
       parts.push(t.fuelStops + 'x getankt · ' + gpsFmtLiters(t.liters) + ' · ' + gpsFmtMoney(t.fuelCosts));
    if (t.tollCosts)
       parts.push('Maut ' + gpsFmtMoney(t.tollCosts));
+   if (t.ferryCosts)
+      parts.push('Fähre ' + gpsFmtMoney(t.ferryCosts));
    if (t.otherCosts)
       parts.push('Sonstiges ' + gpsFmtMoney(t.otherCosts));
    if (t.totalCosts)
@@ -1891,6 +2001,25 @@ function gpsFmtDuration(seconds)
       return h + ' h ' + m + ' min';
 
    return m + ' min';
+}
+
+// the GPS distance of a tour: driven and, separately, on the ferries ('distance' may be newer than
+//  the totals: while on the ferry the growth since then is ferry too, 'gpsDistance' is the distance
+//  of the active tour at the time of the totals)
+
+function gpsTourDistanceHtml(tour, distance)
+{
+   let t = (tour && tour.totals) || {};
+   let ferry = t.ferryDistance || 0;
+   let active = gpsTours ? gpsTours.active : null;
+
+   if (tour && active && active.id == tour.id && active.ferry != null && t.gpsDistance != null)
+      ferry += Math.max(0, distance - t.gpsDistance);
+
+   if (ferry < 1)
+      return gpsFmtDistance(distance);
+
+   return gpsFmtDistance(Math.max(0, distance - ferry)) + ' <span class="gpsTourSub">+ ' + gpsFmtDistance(ferry) + ' Fähre</span>';
 }
 
 function gpsFmtDistance(meters)

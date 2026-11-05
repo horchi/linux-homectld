@@ -27,12 +27,21 @@
  *
  *  toggle  if one of the targets is on, all off - else all on
  *  on      all on, off     all off
- *  follow  on with motion, off when the sensor reports no motion anymore
+ *  follow  on with motion, off 'offAfter' s (without: lightFollowGrace s) after the sensor
+ *          reports no motion anymore - a new motion meanwhile keeps the lights on
  *
  *  Off timer: started / restarted by each event which switches on, at the end only the
  *  targets switched on by the rule are switched off (a light which was already on stays on),
  *  a target switched off by hand meanwhile is dropped. The timers are kept in memory only,
- *  they are lost on a restart.
+ *  they are stored in lightRuleTimersFile (on a new / ended timer or target, complete at
+ *  the stop) and loaded at the start - lost, the lights switched on by the rule were
+ *  taken as switched on by hand and stayed on. A restart (offAt) is not stored at once,
+ *  after a crash the off time may be earlier.
+ *  Motion rules: the timer doesn't elapse while the sensor still reports motion, the end of
+ *  the motion restarts it - the lights go off 'offAfter' s after the last motion. The sensors
+ *  report a continuous motion not continuously (Aqara: once, deCONZ resets the presence after
+ *  its 'duration' of 60 s, the next motion is reported after the blind time of the sensor;
+ *  IKEA: once, presence for 180 s), the timer started by the first motion elapsed during it.
  *
  *  Commands to deCONZ lights (DZL) of the rules and the time control are checked: a command
  *  lost on the air (APSDE-DATA.confirm 0xA7 / 0xE9) leaves the light in its state, deCONZ
@@ -42,7 +51,12 @@
  *  Switching by the WEBIF ends the check.
  */
 
+#include <sys/stat.h>
+
 #include "daemon.h"
+
+static const char* lightRuleTimersDir {"/var/cache/homectld"};
+static const char* lightRuleTimersFile {"/var/cache/homectld/lightruletimers.json"};
 
 //***************************************************************************
 // Target 'TYPE:0xNN'
@@ -238,6 +252,9 @@ int HomeCtl::performLightRules()
       lastCheckAt = time(0);
       lightCheckCommands();
       lightRuleCheckTimers();
+
+      if (lightRuleTimersDirty)
+         lightRuleTimersStore();
    }
 
    return done;
@@ -259,8 +276,23 @@ int HomeCtl::lightRuleApply(const char* key, json_t* jRule, const LightRuleEvent
    }
    else if (trigger == "motion")
    {
-      if (event.presence == na || (!event.presence && action != "follow"))
+      if (event.presence == na)
          return done;
+
+      // end of motion: the off timer of the rule counts from now
+
+      if (!event.presence && action != "follow")
+      {
+         auto it {lightRuleTimers.find(key)};
+
+         if (it != lightRuleTimers.end() && it->second.delay > 0)
+         {
+            it->second.offAt = time(0) + it->second.delay;
+            tell(eloDetail, "Light rule '%s': end of motion, off at %s", key, l2pTime(it->second.offAt, "%H:%M:%S").c_str());
+         }
+
+         return done;
+      }
    }
    else
       return done;
@@ -318,6 +350,35 @@ int HomeCtl::lightRuleApply(const char* key, json_t* jRule, const LightRuleEvent
    int bri {getIntFromJson(jRule, "bri", 0)};
    int transition {getIntFromJson(jRule, "transition", 0)};
    int offAfter {getIntFromJson(jRule, "offAfter", 0)};
+   std::string motionSensor {trigger == "motion" ? lightKey(event.type.c_str(), event.address) : ""};
+
+   // follow, end of motion: not off at once - the sensors report a continuous motion not
+   //   continuously (see above), the lights went off and on again at once;
+   //   off by the timer 'offAfter' s (without: lightFollowGrace s) later, all targets on now
+
+   if (action == "follow" && !on)
+   {
+      size_t count {lightRuleTimers.count(key) ? lightRuleTimers[key].switchedOn.size() : 0};
+      LightRuleTimer& timer {lightRuleTimers[key]};    // new or the one of the motion
+
+      timer.delay = offAfter > 0 ? offAfter : lightFollowGrace;
+      timer.offAt = time(0) + timer.delay;
+      timer.transition = transition;
+      timer.motionSensor = motionSensor;
+
+      for (const auto& t : targets)
+         if (lightTargetState(t) || (lightCommands.count(t) && lightCommands[t].on))
+            timer.switchedOn.emplace(t, false);
+
+      tell(eloDetail, "Light rule '%s' (follow): end of motion, off at %s", key, l2pTime(timer.offAt, "%H:%M:%S").c_str());
+
+      if (timer.switchedOn.empty())
+         lightRuleTimers.erase(key);
+      else if (timer.switchedOn.size() != count)
+         lightRuleTimersDirty = true;
+
+      return done;
+   }
 
    tell(eloDetail, "Light rule '%s' (%s): %s", key, action.c_str(), on ? "on" : "off");
 
@@ -335,20 +396,51 @@ int HomeCtl::lightRuleApply(const char* key, json_t* jRule, const LightRuleEvent
 
    if (on && offAfter > 0)
    {
+      size_t count {lightRuleTimers.count(key) ? lightRuleTimers[key].switchedOn.size() : 0};
       LightRuleTimer& timer {lightRuleTimers[key]};    // new or retriggered
 
       timer.offAt = time(0) + offAfter;
       timer.transition = transition;
+      timer.delay = offAfter;
+      timer.motionSensor = motionSensor;
 
       for (const auto& t : switchedOn)
          timer.switchedOn[t] = false;
 
-      tell(eloDetail, "Light rule '%s': off at %s", key, l2pTime(timer.offAt, "%H:%M:%S").c_str());
+      if (timer.switchedOn.size() != count)
+         lightRuleTimersDirty = true;    // only new targets, not the later off time
+
+      if (timer.switchedOn.empty())
+         tell(eloDetail, "Light rule '%s': the targets were already on, no off timer", key);
+      else
+         tell(eloDetail, "Light rule '%s': off at %s", key, l2pTime(timer.offAt, "%H:%M:%S").c_str());
    }
-   else if (!on)
-      lightRuleTimers.erase(key);
+   else if (!on || action == "follow")
+   {
+      if (lightRuleTimers.erase(key))      // follow without offAfter: motion again, the pending off is gone
+         lightRuleTimersDirty = true;
+   }
 
    return done;
+}
+
+//***************************************************************************
+// Motion Present
+//   the sensor ('DZS:0x23') still reports motion - not if it is silent for an hour
+//   (a lost end of the motion would keep the lights on for ever)
+//***************************************************************************
+
+bool HomeCtl::lightMotionPresent(const std::string& sensor)
+{
+   std::string type;
+   uint address {0};
+
+   if (sensor.empty() || !parseTarget(sensor, type, address) || !sensors.count(type) || !sensors[type].count(address))
+      return false;
+
+   const SensorData& s {sensors[type][address]};
+
+   return s.state && s.valid() && time(0) - s.last() < 3600;
 }
 
 //***************************************************************************
@@ -373,6 +465,7 @@ int HomeCtl::lightRuleCheckTimers()
          {
             tell(eloDetail, "Light rule '%s': '%s' switched off meanwhile", it->first.c_str(), t->first.c_str());
             t = timer.switchedOn.erase(t);
+            lightRuleTimersDirty = true;
             continue;
          }
 
@@ -382,7 +475,14 @@ int HomeCtl::lightRuleCheckTimers()
       if (timer.switchedOn.empty())
       {
          it = lightRuleTimers.erase(it);      // nothing to switch off
+         lightRuleTimersDirty = true;
          continue;
+      }
+
+      if (now >= timer.offAt && lightMotionPresent(timer.motionSensor))
+      {
+         timer.offAt = now + std::max(timer.delay, 10);     // the end of the motion restarts it anyway
+         tell(eloDetail, "Light rule '%s': still motion, off at %s", it->first.c_str(), l2pTime(timer.offAt, "%H:%M:%S").c_str());
       }
 
       if (now >= timer.offAt)
@@ -393,11 +493,119 @@ int HomeCtl::lightRuleCheckTimers()
             lightTargetSwitch(t.first, false, na, timer.transition);
 
          it = lightRuleTimers.erase(it);
+         lightRuleTimersDirty = true;
          continue;
       }
 
       it++;
    }
+
+   return done;
+}
+
+//***************************************************************************
+// Store / Load the Off Timers
+//   { "DZS:0x21#0": { "offAt": 1793599067, "transition": 8, "delay": 180,
+//                     "motionSensor": "DZS:0x21", "switchedOn": { "DZL:0x03": true } } }
+//***************************************************************************
+
+int HomeCtl::lightRuleTimersStore()
+{
+   lightRuleTimersDirty = false;
+
+   if (lightRuleTimers.empty())
+   {
+      if (fileExists(lightRuleTimersFile))
+         unlink(lightRuleTimersFile);
+
+      return done;
+   }
+
+   json_t* oTimers {json_object()};
+
+   for (const auto& [key, timer] : lightRuleTimers)
+   {
+      json_t* oTimer {json_object()};
+      json_t* oTargets {json_object()};
+
+      for (const auto& [target, seen] : timer.switchedOn)
+         json_object_set_new(oTargets, target.c_str(), json_boolean(seen));
+
+      json_object_set_new(oTimer, "offAt", json_integer(timer.offAt));
+      json_object_set_new(oTimer, "transition", json_integer(timer.transition));
+      json_object_set_new(oTimer, "delay", json_integer(timer.delay));
+      json_object_set_new(oTimer, "motionSensor", json_string(timer.motionSensor.c_str()));
+      json_object_set_new(oTimer, "switchedOn", oTargets);
+      json_object_set_new(oTimers, key.c_str(), oTimer);
+   }
+
+   char* p {json_dumps(oTimers, JSON_INDENT(2))};
+   json_decref(oTimers);
+
+   std::string tmp {std::string(lightRuleTimersFile) + ".tmp"};
+
+   mkdir(lightRuleTimersDir, 0755);
+
+   if (!p || storeToFile(tmp.c_str(), p, strlen(p)) != success || rename(tmp.c_str(), lightRuleTimersFile) != 0)
+   {
+      tell(eloAlways, "Error: Can't store the light rule timers to '%s'", lightRuleTimersFile);
+      free(p);
+      return fail;
+   }
+
+   free(p);
+
+   return success;
+}
+
+int HomeCtl::lightRuleTimersLoad()
+{
+   if (!fileExists(lightRuleTimersFile))
+      return done;
+
+   json_error_t error;
+   json_t* oTimers {json_load_file(lightRuleTimersFile, 0, &error)};
+
+   if (!oTimers || !json_is_object(oTimers))
+   {
+      tell(eloAlways, "Error: Can't load the light rule timers from '%s' (%s)", lightRuleTimersFile, error.text);
+      json_decref(oTimers);
+      return fail;
+   }
+
+   const char* key {};
+   json_t* oTimer {};
+
+   json_object_foreach(oTimers, key, oTimer)
+   {
+      LightRuleTimer timer;
+      json_t* oTargets {getObjectFromJson(oTimer, "switchedOn")};
+      const char* target {};
+      json_t* jSeen {};
+
+      timer.offAt = getIntFromJson(oTimer, "offAt", 0);
+      timer.transition = getIntFromJson(oTimer, "transition", na);
+      timer.delay = getIntFromJson(oTimer, "delay", 0);
+      timer.motionSensor = getStringFromJson(oTimer, "motionSensor", "");
+
+      // 'seen on' anew - the states of the lights come with the init of deCONZ, before they are
+      //  'off' and the targets would be dropped as switched off by hand; elapsed meanwhile:
+      //  off shortly after the start (deCONZ ready)
+
+      if (oTargets && json_is_object(oTargets))
+         json_object_foreach(oTargets, target, jSeen)
+            timer.switchedOn[target] = false;
+
+      timer.offAt = std::max(timer.offAt, time(0) + 15);
+
+      if (timer.switchedOn.empty())
+         continue;
+
+      lightRuleTimers[key] = timer;
+      tell(eloAlways, "Light rule '%s': off timer restored, off at %s", key, l2pTime(timer.offAt, "%H:%M:%S").c_str());
+   }
+
+   json_decref(oTimers);
 
    return done;
 }

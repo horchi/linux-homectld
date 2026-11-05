@@ -180,6 +180,7 @@ class HomeCtl : public cWebInterface, public Service
          std::string image;
          bool disabled {false};
          int battery {na};
+         int maxAge {0};                   // MQTT sensors: seconds without data -> invalid ('maxage' of the message), 0 = none
          std::string color;
          int hue {0};                      // 0-360° hue
          int sat {0};                      // 0-100% saturation
@@ -351,6 +352,7 @@ class HomeCtl : public cWebInterface, public Service
       int homeMaticBlindUpdate(uint address, double value, bool working, int direction, const char* jsonTopic, const char* message);
       int dispatchHmMqtt(const char* topic, const char* message);
       int deconzCheckOutdated();
+      int mqttCheckOutdated();
       static constexpr time_t deconzMaxAge {3 * 60 * 60};      // [s] measuring sensors without data that long are invalid
       int homeMaticServiceAction(SensorData& sensor, double value, bool noStop);
       int homeMatic2Json(json_t* obj);
@@ -359,6 +361,7 @@ class HomeCtl : public cWebInterface, public Service
       virtual int dispatchGrowattEvents(const char* message);
       virtual int dispatchRtl433(const char* message);
       virtual int dispatchOther(const char* topic, const char* message);
+      int dispatchEspLog(const char* topic, const char* message);
       const char* lookupCommandTopic(const char* type, int address);
       bool checkRights(long client, Event event, json_t* oObject);
       virtual bool onCheckRights(long client, Event event, uint rights) { return false; }
@@ -589,6 +592,10 @@ class HomeCtl : public cWebInterface, public Service
       int gpsTourCheckPause(time_t now);                     // called from the main loop
       int gpsTourPauseStart(time_t at);                      // stores a 'halt' event
       int gpsTourPauseEnd(time_t at);                        // sums the pause time, closes the 'halt' event
+      int gpsTourFerryStart(long eventId, time_t at);        // on the ferry (event 'ferry' stored by the WEBIF)
+      int gpsTourFerryEnd(time_t at);                        // off the ferry, closes the 'ferry' event
+      int gpsTourFerryClose(const GpsCoordinate& c);         // end position of a ferry ended without GPS fix
+      bool gpsHasFix();                                      // the receiver delivers a current position
       int gpsTourStorePoint(time_t now, const GpsCoordinate& c, double distance = 0.0);
       int gpsTourStoreState();
       int gpsTourSetRecordFlag(bool on);
@@ -673,10 +680,15 @@ class HomeCtl : public cWebInterface, public Service
          time_t offAt {0};
          std::map<std::string,bool> switchedOn;   // targets switched on by the rule -> seen 'on' since then
          int transition {na};
+         int delay {0};                  // [s] off delay (offAfter of the rule, follow without: lightFollowGrace)
+         std::string motionSensor;       // motion rules: the sensor ('DZS:0x23'), no off while it reports motion
       };
+
+      static constexpr int lightFollowGrace {30};     // [s] follow without offAfter: off delay after the end of motion
 
       std::vector<LightRuleEvent> lightRuleEvents;
       std::map<std::string,LightRuleTimer> lightRuleTimers;   // "DZS:0x21#0" (sensor # rule index)
+      bool lightRuleTimersDirty {false};                        // new / ended timer or targets -> store them
 
       // switching of the deCONZ lights by the rules / the time control, checked and repeated (lightrules.c)
 
@@ -698,6 +710,9 @@ class HomeCtl : public cWebInterface, public Service
       int performLightRules();
       int lightRuleApply(const char* key, json_t* jRule, const LightRuleEvent& event);
       int lightRuleCheckTimers();
+      int lightRuleTimersStore();
+      int lightRuleTimersLoad();
+      bool lightMotionPresent(const std::string& sensor);
       int lightTargetSwitch(const std::string& target, bool on, int bri, int transition);
       bool lightTargetState(const std::string& target);
 
@@ -995,6 +1010,7 @@ class HomeCtl : public cWebInterface, public Service
       bool gpsLocation {false};                             // config: position for sun times / weather from GPS
       SunTimes sunTimes;
       static constexpr uint gpsCoordinateAddress {0x0a};    // GPS sensor 'Coordinate' (text 'lat/lng')
+      static constexpr uint gpsFixAddress {0x00};           // GPS sensor 'Sat State' (state: fix)
       static constexpr uint gpsSpeedAddress {0x03};         // GPS sensor 'Speed' [km/h]
       static constexpr uint gpsAltitudeAddress {0x05};      // GPS sensor 'Altitude' [m]
       static constexpr const char* gpsTourAggregate {"T"};  // AGGREGATE of the tour samples (never aggregated)
@@ -1015,6 +1031,10 @@ class HomeCtl : public cWebInterface, public Service
          long points {0};
          long pauseTime {0};             // [s]
          long odometer {0};              // [km] at start
+         long ferryEventId {0};          // the open 'ferry' event (on the ferry), 0 -> not on a ferry
+         time_t ferryStart {0};
+         long ferryClosingId {0};        // ferry ended without GPS fix: the next point is its end position
+         time_t ferryEnd {0};            //   .. and the end of that ferry
       };
 
       GpsTour gpsTour;

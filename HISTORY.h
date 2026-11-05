@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.40"
+#define _VERSION     "0.1.41"
 #define VERSION_DATE "31.10.2026"
 
 #ifdef GIT_REV
@@ -17,7 +17,7 @@
 /*
  * ------------------------------------
 
-2026-10-31: version 0.1.40
+2026-10-31: version 0.1.41
     - added: dashboard widget 'HTML' (widgettype 18, 'HTML:0xNN' like spacer / time, 'Widget hinzufügen' -> HTML):
              shows a snippet of the new table 'htmlwidgets' (name, kind, code, css, parameters), the widget
              references it by its options {"snippet": <id>, "params": {...}}, so one snippet serves several widgets
@@ -46,6 +46,7 @@
              ('homectld-htmlwidgets', name, kind, code, CSS, parameters, no ids) and import of such a file;
              existing names are asked for: overwrite (the widgets show the new state at once) or as copy
              ('<name> (2)'); the daemon stores the import in one go (storehtmlwidgets action 'import')
+2026-10-30: version 0.1.40
     - change: widget setup: height factor up to 4 (was 2)
     - added: the sensor data to the WEBIF contain the state ('state') of each sensor, e.g. the presence of a deCONZ
              motion sensor (its 'value' stays 0), usable in HTML widgets as {{DZS:0x23.state ? ja : nein}}
@@ -61,10 +62,14 @@
              id 172) by a passive scan, two sensors per cap by the ID printed on it: TPMS:0x<ID>1 pressure [bar]
              with the battery [%] (column 'Batterie' of the sensor setup), TPMS:0x<ID>2 temperature [°C];
              only the caps of the config 'TPMS:<deviceid>' "wheels": ["318C4B", ...] are sent, with "learn" each
-             new cap is added by itself; published at once on new data (the caps repeat each packet ~10 times)
-             and every 'interval' s, older than 'maxAge' s as invalid; the scan runs without WLAN / MQTT too
-             (values on the serial console); sensor type title 'Reifendruck', default widget 'value', init
-             requested at the start; the HTML widget 'Reifendruck Womo' maps the caps to the wheels
+             new cap is added by itself (each device with company id 172, logged with format, rssi, address in
+             the data); published at once on new data, the same data again with the next 'interval' (the caps
+             repeat each packet ~10 times), nothing without a packet, all after a start of homectld; the message
+             of the pressure carries the details of the cap (JSON tab of the info dialog); the scan runs without
+             WLAN / MQTT too (values on the serial console); sensor type title 'Reifendruck', default widget
+             'value', init requested at the start; the HTML widget 'Reifendruck Womo' maps the caps to the wheels
+    - added: MQTT sensors: optional 'maxage' (seconds) in the message, without data for this time the sensor
+             gets invalid (also if the device itself is gone), its last update stays
     - added: MQTT sensors with config (ESP32 sketches): parameters of the init message missing in the stored config
              (e.g. after a firmware update) and new items of arrays (caps learned by tpms) are added, the stored
              values are kept (before only the very first init was taken)
@@ -77,6 +82,18 @@
     - bugfix: configuration: a category with only one item was shown very narrow (the table shrinks to its content)
     - bugfix: alpicool, kenwood: a '$' in the WLAN password was replaced by make / the shell ('&' and ':' broke sed),
               the ESP got a wrong password; the values go unchanged into config.h now (perl)
+    - added: GPS tours: ferry, button 'Fähre' in the tool bar of an active tour (dialog price / note like the other
+             events) starts the crossing (event 'ferry' with the current position), the same button ends it
+             (with confirmation, 'Tour beenden' ends it too); on the ferry the recording goes on with a GPS fix
+             (GPS:0x00 'Sat State', a point only on leaving the pause radius), no automatic pause; without GPS
+             (in the hold) no points; a ferry open at a restart of homectld (switched off on the ferry) is
+             resumed; ended without fix the next point is its end position, the distance up to it belongs
+             to the ferry; table 'gpstourevents': new columns ENDLAT, ENDLON, ENDDISTANCE
+    - added: GPS tours: the map draws the route on a ferry in its own color (teal), without points on the ferry
+             begin and end are connected by a dashed line (tooltip with time, duration, km); the tour details
+             show the ferries (count, duration, distance, costs), 'Strecke (GPS)' the driven distance and the
+             ferry separately ('+ x km Fähre', live while on the ferry); the ferry time is not 'Fahrzeit', the
+             ferry km are not taken for the consumption by GPS, the price counts to the total costs
 
 2026-10-29: version 0.1.39
     - added: hmmqtt: the position of a running blind is shown, the actuator reports only the start and the end of

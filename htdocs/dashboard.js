@@ -474,8 +474,12 @@ function getWidgetTitleClass(widget, fact)
       titleClass = 'mdi mdi-timer-sand-complete';
    else if (!setupMode && widget.unit == '°C')
       titleClass = 'mdi mdi-thermometer';
-   else if (!setupMode && (widget.unit == 'hPa' || widget.unit == 'A' || widget.unit == 'mA' ||
-                           widget.unit == 'W' || widget.unit == 'V' || widget.unit == 'Ah'))
+   else if (!setupMode && widget.unit == 'bar' && fact != null && fact.type == 'TPMS')
+      titleClass = 'mdi mdi-car-tire-alert';
+   else if (!setupMode && (widget.unit == 'hPa' || widget.unit == 'bar' ||
+                           widget.unit == 'A' || widget.unit == 'mA' ||
+                           widget.unit == 'W' || widget.unit == 'V' ||
+                           widget.unit == 'Ah'))
       titleClass = 'mdi mdi-gauge';
    else if (!setupMode && widget.unit == '%' && title.indexOf('FEUCHT') != -1)
       titleClass = 'mdi mdi-water-percent';
@@ -2419,6 +2423,36 @@ function titleClick(ctrlKey, key)
          close: function() { $(this).dialog('destroy').remove();}
       });
    }
+}
+
+// dialog with the last raw message of a sensor (e.g. the button in the sensor setup),
+//   uses the same ids as the JSON tab of the info dialog, filled by showSensorJson()
+
+function sensorJsonDialog(type, address)
+{
+   let request = function() {
+      socket.send({ "event" : "command", "object" : { "what" : 'sensorjson', "type": type, "address": address } });
+   };
+
+   let form = $('<div></div>')
+       .append($('<div></div>').attr('id', 'sensorInfoJson')
+               .css('min-width', '40vw')
+               .append($('<div></div>').attr('id', 'sensorInfoJsonHead').addClass('sensorJsonHead').html('wird geladen ...'))
+               .append($('<pre></pre>').attr('id', 'sensorInfoJsonBody').addClass('sensorJsonBody')));
+
+   $(form).dialog({
+      modal: true,
+      resizable: true,
+      closeOnEscape: true,
+      width: "auto",
+      title: "Letzte Nachricht - " + toKey(type, address),
+      buttons: {
+         'Aktualisieren': function() { request(); },
+         'Schließen': function() { $(this).dialog('close'); }
+      },
+      open: function() { request(); },
+      close: function() { $(this).dialog('destroy').remove(); }
+   });
 }
 
 // event 'sensorjson' - the last raw message of a sensor (info dialog, tab JSON)

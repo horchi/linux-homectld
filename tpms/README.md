@@ -21,7 +21,13 @@ Herstellerdaten mit Company-ID 172 (0x00AC), 15 Byte, legacy ADV_NONCONN_IND:
 Die BLE-Adresse ist die **ID auf der Kappe** + `11:11:11` (Kappe `318F01` -> `31:8F:01:11:11:11`).
 Die Batterie in % wird wie in der App geschätzt: % = (V - 1.95) * 100.
 
-Die Kappe sendet bei einer Druckänderung sofort (einige Sekunden), jedes Paket ca. 10 mal, in Ruhe seltener.
+Sendeverhalten (gemessen 02.11.2026, Kappe 318C4B):
+
+* in Ruhe alle ~201 s (3:20 min) eine kurze Aussendung
+* bei einer Druckänderung sofort (einige Sekunden), danach ca. 1 min lang alle ~9 s (Alarm 1 / 2),
+  dann wieder alle ~201 s
+* pro Aussendung empfängt der ESP 1-3 Pakete (Scan-Fenster 50 %), fehlt eine Aussendung kommen die
+  nächsten Daten erst ~3:20 min später
 
 ## Adressen in homectld
 
@@ -38,8 +44,16 @@ Die Sensoren werden von homectld inaktiv angelegt, im Sensor Setup aktivieren un
 Die Zuordnung zu den Rädern erfolgt im HTML Widget 'Reifendruck Womo' (Parameter `vl`, `vl_t`, `vr`, ... `h2r_t`);
 wird ein Rad umgesetzt bleibt der Verlauf (Chart) bei seiner Kappe / seinem Reifen.
 
-Veröffentlicht wird sofort bei geänderten Daten und alle `interval` Sekunden die letzten Werte.
-Werte älter als `maxAge` Sekunden werden mit `"valid": false` gesendet.
+Veröffentlicht wird sofort bei geänderten Daten, kommt dasselbe Paket wieder wird es mit dem nächsten `interval`
+nachgereicht, ohne Paket wird nichts gesendet - die letzte Aktualisierung in homectld ist also der letzte Empfang.
+Jede Nachricht trägt `"maxage"`: kommt so lange nichts (Kappe stumm oder der ESP ausgefallen) setzt homectld die
+Sensoren auf ungültig. Nach einem Start von homectld (requestinit) bzw. einer neuen MQTT Verbindung sendet der ESP
+die letzten Werte aller Kappen.
+
+Die Nachricht des Drucks enthält die Details der Kappe (Info Dialog, Reiter 'JSON'), z.B. um eine gelernte
+fremde Kappe zu erkennen: `voltage`, `alarm`, `rssi`, `format`, `macmatch` (die BLE Adresse steht in den Daten,
+typisch für diese Kappen) und `raw` (die Herstellerdaten). Gelernt wird jedes Gerät mit Company-ID 172 (das einzige
+Format das der ESP kennt), das Lernen steht mit diesen Angaben auch im Log.
 
 ## Konfiguration
 
@@ -66,8 +80,12 @@ Der ESP meldet sich mit seinen Parametern an, sie stehen danach in der WEBIF Kon
   die fehlenden Einträge in der gespeicherten Konfiguration). Sind alle Kappen drin auf `false` setzen, sonst sammelt
   er z.B. auf dem Campingplatz die Kappen der Nachbarn. Zum Tausch einer Kappe kurz wieder einschalten.
   Eine versehentlich gelernte Kappe aus `wheels` löschen (bei `learn` aus, sonst kommt sie wieder).
+* `eloquence` - Log auf `homectld2mqtt/tpms/log` (Bits): 1 Info (Init, Lernen), 2 Detail (geänderte Daten
+  einer Kappe), 4 Debug (jedes empfangene Paket einer Kappe, auch unverändert), z.B. 7 für alles.
+  Die serielle Konsole zeigt immer alles.
 * `interval` - Sekunden, die letzten Werte werden zyklisch gesendet
-* `maxAge` - Sekunden, ältere Werte werden als ungültig gesendet
+* `maxAge` - Sekunden ohne Daten, danach setzt homectld die Sensoren auf ungültig. Größer als das Intervall
+  der Kappen in Ruhe (~201 s) wählen, ab ~420 s übersteht es eine verpasste Aussendung (z.B. 600 - 900 s)
 
 homectld muss das Topic lesen: in der Konfiguration 'Zusätzliche sensor Topics' (`mqttSensorTopics`)
 `homectld2mqtt/tpms` eintragen.

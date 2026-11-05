@@ -6,6 +6,7 @@
 // Date 2010 - 2024  Jörg Wendel
 //***************************************************************************
 
+#include <syslog.h>
 #include <sys/wait.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -283,6 +284,10 @@ const char* HomeCtl::getImageFor(std::string type, const char* usrTitle, std::st
       imagePath = value ? "mdi:mdi-toggle-switch-outline" : "mdi:mdi-toggle-switch-off-outline";
    else if (unit == "mov")
       imagePath = "mdi:mdi-walk";
+   else if (type == "TPMS" && unit == "bar")
+      imagePath = "mdi:mdi-car-tire-alert";
+   else if (unit == "bar")
+      imagePath = "mdi:mdi-gauge";
    else if (type == "HMB")
       imagePath = value ? "mdi:mdi-blinds-open" : "mdi:mdi-blinds";
    else if (type == "DZL")
@@ -446,6 +451,7 @@ int HomeCtl::init()
    }
 
    deconz.init(this, connection);
+   lightRuleTimersLoad();          // the off timers of the light rules before the stop / crash
 
    // ---------------------------------
    // check users - add default user if empty
@@ -737,6 +743,7 @@ int HomeCtl::exit()
          gpioWrite(sensor.first, false, false);
    }
 
+   lightRuleTimersStore();         // complete, with the current off times
    lmcExit();
    deconz.exit();
    mqttDisconnect();
@@ -2220,6 +2227,19 @@ int HomeCtl::readConfiguration(bool initial)
    std::string hTopic {haspMqttTopic};
    getConfigItem("mqttSensorTopics", sensorTopics, "+/w1/#");
    mqttSensorTopics = split(sensorTopics, ',');
+
+   // the ESP sketches publish their log messages to '<topic-base>/log' -> /var/log/esp.log
+   //   (a topic ending with a wildcard gets them anyway)
+
+   for (size_t i = 0, n = mqttSensorTopics.size(); i < n; i++)
+   {
+      const std::string t {mqttSensorTopics[i]};
+
+      if (t.rfind(INSTANCE "2mqtt/", 0) == 0 && t.back() != '#' && t.back() != '+' &&
+          (t.length() < 4 || t.compare(t.length()-4, 4, "/log") != 0))
+         mqttSensorTopics.push_back(t + "/log");
+   }
+
    mqttSensorTopics.push_back(INSTANCE "2mqtt/ping/#");
    mqttSensorTopics.push_back(INSTANCE "2mqtt/light/+/set/#");
    mqttSensorTopics.push_back(INSTANCE "2mqtt/command/#");
@@ -2765,6 +2785,45 @@ int HomeCtl::deconzCheckOutdated()
    return done;
 }
 
+//***************************************************************************
+// MQTT Check Outdated
+//   a MQTT sensor with 'maxage' in its messages (e.g. tpms) without data for this time
+//   is invalid (also if the device itself is gone), its last update stays
+//***************************************************************************
+
+int HomeCtl::mqttCheckOutdated()
+{
+   time_t now {time(0)};
+   bool changed {false};
+
+   for (auto& [type, list] : sensors)
+   {
+      for (auto& [address, sensor] : list)
+      {
+         if (sensor.maxAge <= 0 || !sensor.valid() || !sensor.last() || sensor.last() >= now - sensor.maxAge)
+            continue;
+
+         tell(eloAlways, "Info: Sensor '%s:0x%02x' (%s) without data since %s, invalid", type.c_str(), address,
+              sensor.title.c_str(), l2pTime(sensor.last()).c_str());
+
+         sensor.invalidate();
+
+         json_t* ojData {json_object()};
+         sensor2Json(ojData, type.c_str(), address);
+
+         char tuple[100];
+         snprintf(tuple, sizeof(tuple), "%s:0x%02x", type.c_str(), address);
+         jsonSensorList[tuple] = ojData;
+         changed = true;
+      }
+   }
+
+   if (changed)
+      pushDataUpdate("update", 0L);
+
+   return done;
+}
+
 int HomeCtl::process(bool force, bool signal)
 {
    // Zeitschaltuhr
@@ -2776,6 +2835,7 @@ int HomeCtl::process(bool force, bool signal)
    time_t checkedAt {actorTimesCheckedAt};
 
    deconzCheckOutdated();
+   mqttCheckOutdated();
    std::vector<ActorTimeAction> actorActions;
 
    actorTimesCheckedAt = now;
@@ -4095,7 +4155,13 @@ int HomeCtl::dispatchDeconz()
       else if (getObjectFromJson(oData, "btnevent"))
          sensor->setValue(getIntFromJson(oData, "btnevent"), now);
       else if (getObjectFromJson(oData, "presence"))
+      {
+         // the value too - the symbol widgets of the dashboard show 'value' (was always 0, an update
+         //  without 'value' was shown as motion, the list of all sensors as none)
+
          sensor->setState(getBoolFromJson(oData, "presence"), now);
+         sensor->value = sensor->state;
+      }
 
 
       // switches and motion sensors are events for the light rules - also the same value again
@@ -4157,7 +4223,7 @@ int HomeCtl::dispatchDeconz()
             if (getObjectFromJson(oData, "sat"))
                json_object_set_new(ojData, "sat", json_integer(sat));
          }
-         else if (getObjectFromJson(oData, "value"))
+         else if (getObjectFromJson(oData, "value") || getObjectFromJson(oData, "presence"))
             json_object_set_new(ojData, "value", json_real(sensor->value));
 
          if (sensor->battery != na)
@@ -4662,6 +4728,42 @@ const char* HomeCtl::lookupCommandTopic(const char* type, int address)
 }
 
 //***************************************************************************
+// Dispatch ESP Log
+//   log message of an ESP sketch published to '<topic-base>/log':
+//   { "type": "tpms", "action": "log", "level": 1, "message": "...", "timestamp": 1234 }
+//   written by syslog with facility LOCAL0 -> rsyslog puts it to /var/log/esp.log
+//***************************************************************************
+
+int HomeCtl::dispatchEspLog(const char* topic, const char* message)
+{
+   std::string name {topic};
+   std::string text {message};
+
+   // name by the topic: 'homectld2mqtt/tpms/log' -> 'tpms'
+
+   name = name.substr(0, name.length() - strlen("/log"));
+
+   if (name.rfind('/') != std::string::npos)
+      name = name.substr(name.rfind('/') + 1);
+
+   json_t* jData {jsonLoad(message)};
+
+   if (jData)
+   {
+      name = getStringFromJson(jData, "type", name.c_str());
+      text = getStringFromJson(jData, "message", message);
+      json_decref(jData);
+   }
+
+   if (logstdout)
+      tell(eloAlways, "ESP %s: %s", name.c_str(), text.c_str());
+   else
+      syslog(LOG_LOCAL0 | LOG_INFO, "%s: %s", name.c_str(), text.c_str());
+
+   return done;
+}
+
+//***************************************************************************
 // Dispatch Other
 //
 // Data/State:
@@ -4975,6 +5077,7 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
    }
 
    sensors[type][address].battery = getIntFromJson(jData, "battery", na);
+   sensors[type][address].maxAge = getIntFromJson(jData, "maxage", 0);
    sensors[type][address].kind = getStringFromJson(jData, "kind", "value");
 
    // ignore data for impulse (outputs)

@@ -410,6 +410,16 @@ function showTable(section)
                                     .addClass('buttonOptions rounded-border')
                                     .text('Löschen')
                                     .on('click', () => deleteValueFact(item.type, item.address))));
+
+      // the last raw message (MQTT JSON, deCONZ event, ...) if the daemon holds one
+
+      if (allSensors[key] && allSensors[key].hasjson)
+         tr.append($('<td>').append($('<button>')
+                                    .addClass('buttonOptions rounded-border')
+                                    .attr('title', 'Letzte Nachricht')
+                                    .append($('<span></span>').addClass('mdi mdi-code-json'))
+                                    .on('click', () => sensorJsonDialog(item.type, item.address))));
+
       root.append(tr);
    }
 }
@@ -1269,7 +1279,7 @@ function createRuleBlock(rule, targetOptions, lastButton)
       .append(row('Ziele', $targets))
       .append(row('Helligkeit [%]', num('rule-bri', rule.bri, 'leer = unverändert')))
       .append(row('Übergang [s]', num('rule-transition', rule.transition, 'leer = Standard')))
-      .append(row('Aus nach [s]', num('rule-offafter', rule.offAfter, 'leer = kein Timer; jede weitere Bewegung / Tastendruck startet ihn neu')))
+      .append(row('Aus nach [s]', num('rule-offafter', rule.offAfter, 'leer = kein Timer; jede weitere Bewegung / Tastendruck startet ihn neu; bei Bewegung zählt er ab dem Ende der Bewegung (Folgen ohne Angabe: 30 s)')))
       .append(row('Nur im Zeitfenster', $condOn, $condLabel, $condSides))
       .append($('<div></div>').css('text-align', 'right')
               .append($('<button></button>').text('Regel löschen').addClass('rounded-border do-timer-delete')

@@ -18,7 +18,9 @@ function initVdr()
    document.getElementById("container").innerHTML =
       '<div class="vdrContent">' +
       '  <div class="vdrPresent rounded-border">' +
-      '    <div id="vdrChannel"class="vdrChannel">' +
+      '    <div class="vdrChannel">' +
+      '      <img id="vdrChannelLogo" class="vdrChannelLogo" style="display:none;" onerror="this.style.display=\'none\'" onload="this.style.display=\'\'"/>' +
+      '      <div id="vdrChannel"></div>' +
       '    </div>' +
       '    <div>' +
       '      <span id="vdrStartTime" class="vdrTime"></span>' +
@@ -99,6 +101,7 @@ function dispatchVdrMessage(event, jMessage)
       console.log("VDR: Got", event, JSON.stringify(actual, undefined, 4));
 
       $('#vdrChannel').html(actual.channel.channelname);
+      vdrSetChannelLogo(actual.channel);
 
       $('#vdrStartTime').html(start.toTimeLocal());
       $('#vdrTitle').html(actual.present.title);
@@ -109,6 +112,28 @@ function dispatchVdrMessage(event, jMessage)
       $('#vdrShorttextNext').html(actual.following.shorttext);
 
    }
+}
+
+function vdrSetChannelLogo(channel)
+{
+   // osd2web serves the logos by HTTP on the port of its websocket
+
+   let logo = document.getElementById('vdrChannelLogo');
+
+   if (!logo)
+      return;
+
+   if (!channel || !channel.channelname) {
+      logo.removeAttribute('src');
+      logo.style.display = 'none';
+      return;
+   }
+
+   const src = 'http://' + config.vdr + '/data/channellogo?name=' + encodeURIComponent(channel.channelname) +
+      '&id=' + encodeURIComponent(channel.channelid || '');
+
+   if (logo.getAttribute('src') != src)
+      logo.setAttribute('src', src);
 }
 
 function vdrKeyPress(key)

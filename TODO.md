@@ -1,18 +1,16 @@
 
-# Important
-
-- recover Output states also for MCPO !
-  -> move ioStates from config table in a new separate table with type, address as KEY to
-     support all kind of outputs
-
 # General
 
+- README.md aufteilen (GPS, TPMS, HomeMatic, Deconz, ...)
 - add write of victron registers to WEBIF
 - move the sensor default settings (defaultWidgetProperties in daemon.c: widget type, scale, peak per type / unit,
-  the colors in widgetDefaults2Json) out of the code into a JSON config on disk (e.g.
-  /etc/homectld/widget-defaults.json + a user file) or a table - to be decided
+  the colors in widgetDefaults2Json) out of the code into a JSON config on disk
+  (e.g. /etc/homectld/widget-defaults.json + a user file) or a table - to be decided
+- Anzeige der Widget defaults im Sensor Setup als Tab im Message ({...}) Dialog
+- TPMS wenn ESP nicht erreichbar "Parken" anzeigen
+- integrate MQTT converter scripts into frontend
 
-## HTML widgets - stage 2: JS snippets
+## HTML widgets - JS snippets
 
 - new kind 'js' in the table 'htmlwidgets' (no schema change): CODE is an ES module, 'export default class
   extends HTMLElement', loaded by import() of a Blob URL, registered as 'hc-snippet-<id>-<version>' (a tag
@@ -32,8 +30,6 @@
 - option 'isoliert' per snippet: render it in a Shadow DOM (isolation in both directions, the theme variables
   still inherit, the MDI CSS has to be loaded into the shadow root) - only if WEBIF styles really disturb
 
-# Home (from the former NR-Plan.md)
-
 ## Shading (shade.c)
 
 - Lux sensor (Aqara Light Sensor T1, GZCGQ11LM, via deCONZ) still missing, waiting for the shop
@@ -46,10 +42,6 @@
 - pairing / removing is implemented but not yet tested with a real device -> test with the next new actor
 
 ## Light rules / time control
-
-- off timer: option to switch off also a light switched on before (today only what the rule switched on)
-- off timer: keep running timers over a restart (store expiry and 'switched on by the rule', run expired
-  ones right after the start)
 - blinds: catch up a limit of the time range missed during a restart
 - time zone: on travel use the time zone of the GPS position (today the one of the system)
 
@@ -63,39 +55,11 @@
 - [ ] `after(name, sec, fn)`: nachtriggerbarer Timer, `cancel(name)`
 - [ ] Logging / Fehleranzeige pro Regel
 
-# Motorhome tire pressure (TPMS) - test in spring 2027
+# Motorhome tire pressure (TPMS) - test in March 2027
 
-- motorhome: 3 axles, 8.5 m, 6 wheels, target pressure up to 4.5 bar
-- ordered 30.10.2026: Amazon B0GWH88YSV (WODHMIEY, BLE valve caps, app LYTPMS / ITPMS (K), battery replaceable),
-  6 sensors needed; fallback with the same app: B0DPMT9VKS (0-6.8 bar, CR1632, sets of 2/3/4)
-- format = type D of github.com/bkbilly/tpms_ble (decoded, tested with a real capture), passive, no connection:
-  manufacturer data company id 172 (0x00AC); byte 0 battery (V = b0 * 0.01 + 1.22), byte 1 pressure
-  (bar = (b1 + 256 * b6) * 0.03144), byte 2 temperature (°C = b2 - 55), byte 3 alarm; 15 byte packets carry the
-  MAC in byte 9-14 (legacy variant: bar = (b7 - 2) / 103)
-- test 31.10.2026 (arrived, bike tire): BLE confirmed - legacy ADV_NONCONN_IND on LE 1M, flags 06, 16-bit UUID
-  0xfbb0, manufacturer data company 172 with 15 bytes, e.g. 99 13 4a 02 0a be 00 ea 28 11 11 11 01 8f 31;
-  the advertising address is the ID printed on the cap + 11:11:11 (cap '318F01' -> 31:8F:01:11:11:11, bytes
-  9-14 hold it reversed) -> the wheel mapping can be done by the printed ID; bytes 4-5 = battery in mV (0x0abe =
-  2750, matches b0 * 0.01 + 1.22); temperature (b2 - 55) and pressure 0 match the app (LYTPMS)
-- pressure scale confirmed: b1 * 0.03144 bar (packet 92 3d 4b 00 0a 9b 00 cb ... of cap 31953C = 1.92 bar / 20 °C,
-  app 1.9 bar / 20 °C; 0.5 psi per step would give 2.1 bar)
-- battery % of the app: 2.77 V -> 82 %, 2.72 V -> 75 %, 2.68 V -> 75 % (app seems to smooth); % = (V - 1.95) * 100
-  hits it within 2-3 % -> publish the voltage, % only as rough estimate
-- receiver for tests at home: ESP32 mini board (diymore, CH9102F, 1a86:55d4, /dev/ttyACM1 on gate) with a NimBLE
-  passive scan sketch printing the company 172 adverts on the serial port; it gets the caps at -84 dBm
-- the sensor sends at once on a pressure change (app updated 5-7 s after unscrewing / screwing on), rarely at rest
-- the BT stick of gate (33fa:0001 USB2.0-BT, Barrot, 04:7F:0E:62:ED:11 - probably the old Mopeka stick, replaced
-  for weak reception) is useless for it: RSSI of all devices -96 dBm, only 4 packets
-  of the sensor in 5 min, none at all in 3 later captures (also LE only, stick right at the sensor) while the
-  iPhone got every update
-- software (done 31.10.2026): ESP32 sketch tpms/ (not BlueZ / bleak on the Odroid), sensors per cap by the ID
-  printed on it: TPMS:0x<ID>1 pressure with battery %, TPMS:0x<ID>2 temperature; config 'wheels' (list of IDs)
-  + 'learn'; mapping to the wheels in the HTML widget 'Reifendruck Womo' (see tpms/README.md)
 - open: the 6th cap ID; mount the ESP32 in the double floor above the rear axle, powered by D+ / ignition;
   spring test: reception of all axles (aluminium walls, steel rims), WLAN of the motorhome
 - spring in the motorhome: Make.user there (WLAN, MQTT_HOST, TPMS_PORT / TPMS_OTA_HOST), build and flash the ESP32
   (make upload); homectld config 'Zusätzliche sensor Topics' + homectld2mqtt/tpms; 'learn' on until all 6 caps are
   in 'wheels', then off; activate / name the sensors; export the HTML widget 'Reifendruck Womo' at gate, import it
   there and set the IDs per wheel (vl, vl_t, ... h2r_t)
-- no 433 MHz SDR (gets very hot); lesson from the returned SYNJAUPO B0GYMYGJBC: solar display sets are 433 MHz
-  (OOK, sync 9653, XOR scrambled), Bluetooth must be stated in the listing itself

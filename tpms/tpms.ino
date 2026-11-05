@@ -39,8 +39,12 @@ struct Cap
 {
    char id[7] {};              // ID printed on the cap, e.g. "318F01", empty = free entry
    bool received {false};      // got a packet since the start
-   bool fresh {false};         // new packet, not published yet
+   bool fresh {false};         // new data, published at once
+   bool pending {false};       // the same data again, published with the next interval
    bool announced {false};     // published with the widget parameter
+   bool macMatch {false};      // the data contain the BLE address (bytes 9-14), typical for these caps
+   int length {0};             // length of the manufacturer data (without company id)
+   uint8_t data[15] {};        // the last manufacturer data (without company id)
    unsigned long lastTime {0}; // millis of the last packet
    float pressure {0.0};
    int temperature {0};
@@ -48,7 +52,9 @@ struct Cap
    int battery {0};
    int alarm {0};
    int rssi {0};
-   uint8_t raw[8] {};          // data bytes 0-7 of the last packet, the caps repeat each packet ~10 times
+   uint8_t raw[8] {};          // data bytes 0-7 of the last packet
+   int packets {0};            // packets since the last debug log
+   bool changed {false};       //   .. with new data among them
 };
 
 class TpmsBridge;
@@ -65,6 +71,8 @@ private:
    portMUX_TYPE capMux = portMUX_INITIALIZER_UNLOCKED;
    bool capsAdded {false};          // learned a new cap, report it to homectld (init message)
    bool listFull {false};           // learning failed, the list is full
+   bool resendAll {false};          // homectld (re)started - send the last values of all caps
+   char learnedId[7] {};            // last learned cap, logged by the loop
 
    unsigned long LastPublishTime {0};
    unsigned long LastLedToggleTime {0};
@@ -108,7 +116,8 @@ public:
       scan->setScanCallbacks(this, true);
       scan->setActiveScan(false);
       scan->setInterval(100);
-      scan->setWindow(50);      // 50 %, WLAN and BLE share the radio (the caps repeat each packet ~10 times)
+      scan->setWindow(50);      // 50 %, WLAN and BLE share the radio (1-3 packets of each transmission received;
+                                //  the caps send every ~201 s at rest, ~9 s for ~1 min after a change)
       scan->setMaxResults(0);
       scan->start(0, false, true);
 
@@ -143,15 +152,37 @@ public:
       if (cyclic)
          LastPublishTime = currentMillis;
 
+      // new data at once, the same data again with the interval (only if a packet came),
+      //  nothing without a packet - so the last update at homectld is the last reception
+
+      bool all {resendAll && MqttClient.connected()};
+
+      if (all)
+         resendAll = false;
+
       for (int i = 0; i < MaxCaps; i++)
       {
          Cap c;
          portENTER_CRITICAL(&capMux);
          c = capList[i];
-         capList[i].fresh = false;
+         bool publish {c.fresh || (cyclic && c.pending) || (all && c.received && millis() - c.lastTime < maxAge * 1000)};
+         capList[i].packets = 0;
+         capList[i].changed = false;
+
+         if (publish && MqttClient.connected())
+            capList[i].fresh = capList[i].pending = false;
+
          portEXIT_CRITICAL(&capMux);
 
-         if (c.id[0] && (c.fresh || (cyclic && c.received)))
+         // the packets of a cap since the last pass (debug), the loop pauses 10 ms (delay) - so mostly one per line
+
+         if (c.id[0] && c.packets)
+            tell(eloDebug, "Debug: <= Kappe %s: %.2f bar, %d °C, %.2f V (%d %%), Alarm %d, %d dBm, %s%s",
+                 c.id, c.pressure, c.temperature, c.voltage, c.battery, c.alarm, c.rssi,
+                 c.changed ? "neu" : "unverändert",
+                 c.packets > 1 ? (String(", ") + c.packets + " Pakete").c_str() : "");
+
+         if (c.id[0] && publish)
          {
             if (publishCap(c))
             {
@@ -163,6 +194,20 @@ public:
                portEXIT_CRITICAL(&capMux);
             }
          }
+      }
+
+      if (learnedId[0])
+      {
+         char id[7];
+         portENTER_CRITICAL(&capMux);
+         strcpy(id, learnedId);
+         learnedId[0] = 0;
+         int i {capOf(id)};
+         Cap c {i >= 0 ? capList[i] : Cap()};
+         portEXIT_CRITICAL(&capMux);
+
+         tell(eloAlways, "Info: <= Neue Kappe '%s' gelernt (Format LYTPMS / company 172, %d Byte, Adresse in den Daten: %s, %.2f bar, %d dBm)",
+              id, c.length, c.macMatch ? "ja" : "nein", c.pressure, c.rssi);
       }
 
       if (capsAdded && MqttClient.connected())
@@ -255,6 +300,7 @@ public:
          {
             capList[i] = Cap();
             strcpy(capList[i].id, id);
+            strcpy(learnedId, id);
             capsAdded = true;
          }
          else
@@ -269,9 +315,15 @@ public:
          Cap& c {capList[i]};
 
          if (!c.received || memcmp(c.raw, d, sizeof(c.raw)) != 0)
-            c.fresh = true;
+            c.fresh = c.changed = true;
+         else
+            c.pending = true;
 
          memcpy(c.raw, d, sizeof(c.raw));
+         c.length = md.size() - 2 > sizeof(c.data) ? sizeof(c.data) : md.size() - 2;
+         memcpy(c.data, d, c.length);
+         c.macMatch = c.length >= 15 && d[9] == mac[0] && d[10] == mac[1] && d[11] == mac[2]
+            && d[12] == mac[3] && d[13] == mac[4] && d[14] == mac[5];
          c.received = true;
          c.lastTime = millis();
          c.pressure = roundf(pressure * 100.0f) / 100.0f;
@@ -280,6 +332,7 @@ public:
          c.battery = battery;
          c.alarm = d[3];
          c.rssi = dev->getRSSI();
+         c.packets++;
          LastPacketTime = millis();
       }
 
@@ -361,7 +414,6 @@ private:
 
    bool publishCap(const Cap& c)
    {
-      bool valid {c.received && millis() - c.lastTime < maxAge * 1000};
       long address {strtol(c.id, nullptr, 16) << 4};
       char title[30];
 
@@ -369,18 +421,20 @@ private:
          return false;
 
       snprintf(title, sizeof(title), "Reifen %s Druck", c.id);
-      PublishValue(address + 1, title, c.pressure, "bar", valid, c.announced, c.battery);
+      PublishValue(address + 1, title, c.pressure, "bar", c.announced, &c);
       snprintf(title, sizeof(title), "Reifen %s Temperatur", c.id);
-      PublishValue(address + 2, title, c.temperature, "°C", valid, c.announced);
+      PublishValue(address + 2, title, c.temperature, "°C", c.announced);
 
       if (c.fresh)
-         tell(eloDetail, "Kappe %s: %.2f bar, %d °C, %.2f V (%d %%), Alarm %d, %d dBm",
+         tell(eloDetail, "-> Kappe %s: %.2f bar, %d °C, %.2f V (%d %%), Alarm %d, %d dBm",
               c.id, c.pressure, c.temperature, c.voltage, c.battery, c.alarm, c.rssi);
 
       return true;
    }
 
-   void PublishValue(long address, const char* title, float value, const char* unit, bool valid, bool announced, int battery = -1)
+   // 'cap' -> the pressure, carries the battery and the details of the cap (JSON tab of the info dialog)
+
+   void PublishValue(long address, const char* title, float value, const char* unit, bool announced, const Cap* cap = nullptr)
    {
       JsonDocument doc;
       doc["type"] = sensorType;
@@ -389,12 +443,23 @@ private:
       doc["kind"] = "value";
       doc["title"] = title;
       doc["unit"] = unit;
+      doc["maxage"] = maxAge;      // homectld invalidates the sensor without data for this time
 
-      if (battery >= 0)
-         doc["battery"] = battery;
+      if (cap)
+      {
+         char hex[2 * sizeof(cap->data) + 1] {};
 
-      if (!valid)
-         doc["valid"] = false;
+         for (int i = 0; i < cap->length; i++)
+            sprintf(hex + 2 * i, "%02x", cap->data[i]);
+
+         doc["battery"] = cap->battery;
+         doc["voltage"] = cap->voltage;
+         doc["alarm"] = cap->alarm;
+         doc["rssi"] = cap->rssi;
+         doc["format"] = "LYTPMS (company 172)";
+         doc["macmatch"] = cap->macMatch;
+         doc["raw"] = hex;
+      }
 
       // the first message of a cap since the start carries the widget default,
       //  homectld takes it when it creates the sensor
@@ -540,6 +605,7 @@ private:
          {
             MqttClient.subscribe(TopicSubscribe);
             publishInitMessage();
+            resendAll = true;
          }
       }
    }
@@ -557,6 +623,8 @@ private:
       if (doc["action"] == "init")
       {
          JsonObject config {doc["config"]};
+         String configStr;
+         serializeJson(config, configStr);
 
          if (config.isNull())
             return;
@@ -576,12 +644,15 @@ private:
          if (config["wheels"].is<JsonArray>())
             parseWheels(config["wheels"].as<JsonArray>());
 
-         tell(eloInfo, "Info: INIT: Eloquence %d; Interval %lu s; MaxAge %lu s; Learn %s",
+         tell(eloInfo, "Info: <- INIT: Eloquence %d; Interval %lu s; MaxAge %lu s; Learn %s",
               eloquence, publishInterval, maxAge, learn ? "an" : "aus");
+         tell(eloDetail, "Detail: <- INIT von homectld: %s", configStr.c_str());
       }
       else if (doc["action"] == "requestinit")
       {
+         tell(eloDetail, "Detail: <- requestinit von homectld, sende Init und die letzten Werte");
          publishInitMessage();
+         resendAll = true;       // homectld (re)started
       }
    }
 };

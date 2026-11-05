@@ -42,6 +42,7 @@ If you like the project and want to support it
             or by using NodeRed as bridge to the CCU (alternative to the CUL stick)
 - Light and blind control by fixed times or sun times,
   rules for switches and motion sensors, shading of the blinds - details below
+- Tire pressure (TPMS) of Bluetooth valve caps via an ESP32 and MQTT - details below
 
 # Some Screenshots
 
@@ -394,6 +395,24 @@ With `hmmqtt` the setup menu has the page *HomeMatic*:
 
 The blinds appear as `HMB` sensors as before, the names are set in the sensor setup.
 
+<a id="tpms"></a>
+# Tire Pressure (TPMS)
+
+The pressure, temperature and battery of Bluetooth (BLE) valve caps are received by an ESP32 (sketch `tpms/`)
+and sent to homectld via MQTT (sensor type `TPMS`, two sensors per cap: pressure and temperature, addressed by
+the ID printed on the cap). The ESP32 only listens passively (no connection, no pairing), the caps keep working
+with their app at the same time.
+
+Supported are caps compatible to the apps like **LYTPMS / ITPMS (K)** (BLE manufacturer data with company id 172), e.g.
+
+- WODHMIEY BLE valve caps, battery replaceable - https://www.amazon.de/dp/B0GWH88YSV (tested)
+- valve caps for the same app, 0 - 6.8 bar, CR1632, sets of 2 / 3 / 4 - https://www.amazon.de/dp/B0DPMT9VKS (not tested yet)
+
+Take care when buying: many sets use 433 MHz instead of Bluetooth, the listing has to state Bluetooth / the app itself.
+
+Build, flashing (USB or OTA), the configuration (`wheels`, `learn`, ...) and the data format are described in
+[tpms/README.md](tpms/README.md).
+
 <a id="gps-tours"></a>
 # GPS Tours (recording of trips)
 
@@ -402,7 +421,7 @@ In addition trips can be recorded as tours and displayed later. Any receiver del
 serial port works (USB pucks, modules on a UART), see the receiver notes in `gps.u-blox/README.md`; the
 receiver settings of the GPS configuration are u-blox specific. While a tour is recorded the *Map* tab
 of the main menu and the *Touren* button of the tool bar are colored (red, orange while paused), the tour
-head shows the driving time (duration minus pauses); a pause / night stop entered during an automatic
+head shows the driving time (duration minus pauses and ferries); a pause / night stop entered during an automatic
 pause takes over its begin, end and duration.
 
 ## Recording
@@ -411,7 +430,7 @@ pause takes over its begin, end and duration.
   recording (needs control rights), *■ Tour beenden* stops it and asks for the odometer at the end.
   Only one tour can be active at a time.
 - while a tour is active the tool bar offers buttons for events: fuel stop (liters, total price,
-  odometer), toll, pause, night stop (each with optional costs) and a note. Every event is stored
+  odometer), toll, pause, night stop, ferry (each with optional costs) and a note. Every event is stored
   with its time and the current GPS position (table `gpstourevents`). The odometer readings at start
   and end are columns of `gpstours`, they can be corrected later together with the name (pencil
   button in the tour list)
@@ -436,6 +455,15 @@ pause takes over its begin, end and duration.
   leaving the radius *gpsTourPauseRadius* (default 200 m) around the position of the last movement;
   while paused no points are stored. Each pause is kept as event *Stillstand* with begin, end and
   duration in the event list of the tour (only its note is editable).
+- ferry: the button *Fähre* (only while a tour is active) starts the crossing with the current position and
+  optional price / note, the same button ends it (with confirmation, *Tour beenden* ends it too); the tour head
+  shows *auf der Fähre*. On the ferry the recording goes on as long as the receiver has a fix (a point only
+  on leaving the pause radius), there is no automatic pause. Without GPS (in the hold, homectld switched off)
+  no points are stored; ended without a fix the next point is taken as the end position, the distance up to it
+  belongs to the ferry. A ferry still open at a restart of the daemon is resumed. Begin, end, end position
+  and the distance of the crossing are stored with the event (`gpstourevents`: `ENDLAT`, `ENDLON`,
+  `ENDDISTANCE`). The ferry time doesn't count as driving time (*Fahrzeit*), its distance isn't taken for the
+  consumption by GPS, its price counts to the total costs
 - the active tour survives a restart of the daemon: it is continued automatically, including the
   distance and the point count.
 - the recording is bound to the sensor `GPS:0x0a` (*Coordinate*), it has to be active. While a tour is
@@ -485,7 +513,10 @@ view is not offered.
   and the list of its events (time, kind, liters, price, odometer, consumption, note) where events can
   be changed or deleted (control rights); *Karte* draws the tour on the map (green marker = start,
   red marker = end) with the events as icons, their popup shows the details and offers the same
-  actions; the pencil button changes name, odometer readings and a free comment for the whole tour
+  actions; the route on a ferry is drawn in its own color (teal), without points on the ferry begin and
+  end are connected by a dashed line (tooltip with time, duration and km). The details show the ferries
+  (count, duration, distance, costs) and *Strecke (GPS)* the driven distance with the ferry separately
+  (*+ x km Fähre*, live while on the ferry); the pencil button changes name, odometer readings and a free comment for the whole tour
   (shown above the details), the trash button deletes the tour
   (control rights). The active tour can be displayed too but not deleted. Entering an event never
   changes the view.

@@ -988,6 +988,9 @@ function dispatchMessage(message)
    else if (event == "sensorjson") {
       showSensorJson(jMessage.object);
    }
+   else if (event == "nextactions") {
+      showNextActions(jMessage.object);
+   }
    else if (event == "chartdata") {
       hideProgressDialog();
       let id = jMessage.object.id;

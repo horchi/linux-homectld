@@ -163,6 +163,35 @@ HomeCtl::GpsCoordinate HomeCtl::location(bool* fromGps)
 }
 
 //***************************************************************************
+// Sun Times Of
+//   the times of the day 'day' at the position of 'st' (also for other days than today,
+//   e.g. the next actions of the time control)
+//***************************************************************************
+
+void HomeCtl::sunTimesOf(time_t day, SunTimes& st)
+{
+   GpsCoordinate pos {st.position};
+   time_t noon {midnightOf(day) + 12 * tmeSecondsPerHour};
+   bool upRise {false}, upSet {false}, dummy {false};
+
+   st.day = midnightOf(day);
+
+   if (!sunEvent(noon, pos.latitude, pos.longitude, zenithOfficial, true, st.sunrise, upRise))
+      st.sunrise = 0;
+
+   if (!sunEvent(noon, pos.latitude, pos.longitude, zenithOfficial, false, st.sunset, upSet))
+      st.sunset = 0;
+
+   if (!sunEvent(noon, pos.latitude, pos.longitude, zenithCivil, true, st.dawn, dummy))
+      st.dawn = 0;
+
+   if (!sunEvent(noon, pos.latitude, pos.longitude, zenithCivil, false, st.dusk, dummy))
+      st.dusk = 0;
+
+   st.sunUp = upRise || upSet;
+}
+
+//***************************************************************************
 // Sun Calc
 //   recalculates on a new day or if the position moved, returns true if done
 //***************************************************************************
@@ -177,26 +206,9 @@ bool HomeCtl::sunCalc(bool force)
       return false;
 
    sunTimes = {};
-   sunTimes.day = today;
    sunTimes.position = pos;
    sunTimes.gps = fromGps;
-
-   time_t noon {today + 12 * tmeSecondsPerHour};
-   bool upRise {false}, upSet {false}, dummy {false};
-
-   if (!sunEvent(noon, pos.latitude, pos.longitude, zenithOfficial, true, sunTimes.sunrise, upRise))
-      sunTimes.sunrise = 0;
-
-   if (!sunEvent(noon, pos.latitude, pos.longitude, zenithOfficial, false, sunTimes.sunset, upSet))
-      sunTimes.sunset = 0;
-
-   if (!sunEvent(noon, pos.latitude, pos.longitude, zenithCivil, true, sunTimes.dawn, dummy))
-      sunTimes.dawn = 0;
-
-   if (!sunEvent(noon, pos.latitude, pos.longitude, zenithCivil, false, sunTimes.dusk, dummy))
-      sunTimes.dusk = 0;
-
-   sunTimes.sunUp = upRise || upSet;
+   sunTimesOf(today, sunTimes);
 
    tell(eloDetail, "Sun: %s position %.4f/%.4f (%s): dawn %s, sunrise %s, sunset %s, dusk %s",
         l2pTime(today, "%d.%m.%Y").c_str(), pos.latitude, pos.longitude, fromGps ? "GPS" : "config",
@@ -288,7 +300,7 @@ int HomeCtl::sun2Json(json_t* obj)
 //   "HH:MM" or dawn|sunrise|sunset|dusk plus offset [minutes] -> HHMM (0..2400)
 //***************************************************************************
 
-int HomeCtl::sunResolve(const char* ref, int offset, uint& hhmm)
+int HomeCtl::sunResolve(const char* ref, int offset, uint& hhmm, const SunTimes* times)
 {
    if (isEmpty(ref))
       return fail;
@@ -306,8 +318,13 @@ int HomeCtl::sunResolve(const char* ref, int offset, uint& hhmm)
    }
    else
    {
-      sunCalc();     // a new day (the sensor follows by the main loop)
+      if (!times)
+      {
+         sunCalc();     // a new day (the sensor follows by the main loop)
+         times = &sunTimes;
+      }
 
+      const SunTimes& sunTimes {*times};
       bool rising {strcmp(ref, "dawn") == 0 || strcmp(ref, "sunrise") == 0};
       time_t t {0};
 
@@ -484,4 +501,264 @@ int HomeCtl::actorTimeAction(const ActorTimeAction& action)
 
    int bri {action.bri > 0 ? std::min(action.bri, 100) : na};
    return lightCommand(type, action.address, action.in, bri, na);
+}
+
+//***************************************************************************
+// Next Time Actions 2 Json
+//   the next actions of the time control of an output / actor for the info dialog,
+//   with the sun times of the day of the action (the next days too):
+//
+//   { "type": "DZL", "address": 3,
+//     "next": { "at": 1793599067, "in": true, "bri": 80 },        earliest action, missing if none
+//     "ranges": [ { "at": ..., "in": false }, null, ... ],       next limit of each range (null: none within a week)
+//     "note": "Handbetrieb",                                      why there is no automatic action (optional)
+//     "timers": [ ... ] }                                         running off timers of light rules (see below)
+//
+//   actors (DZL, DZLG, HMB) switch at each limit, DO / GPIO (out) are forced to the state of
+//   their ranges (in auto mode) - for them the next change of this state is 'next'
+//***************************************************************************
+
+int HomeCtl::nextTimeActions2Json(const char* type, uint address, json_t* obj)
+{
+   constexpr int dayCount {9};     // yesterday (morning part of a range over midnight) and the next 8 days
+
+   json_object_set_new(obj, "type", json_string(type));
+   json_object_set_new(obj, "address", json_integer(address));
+
+   // running off timers of the light rules (lightrules.c) which switched this light on,
+   //   "timers": [ { "at": ..., "rule": "DZS:0x21#0", "motion": true }, ... ] - with motion the
+   //   timer is extended as long as the motion sensor reports it
+
+   char* key {};
+   asprintf(&key, "%s:0x%02x", type, address);
+   json_t* jTimers {json_array()};
+
+   for (const auto& [ruleKey, timer] : lightRuleTimers)
+   {
+      if (!timer.switchedOn.count(key) || !timer.offAt)
+         continue;
+
+      json_t* jTimer {json_object()};
+      json_object_set_new(jTimer, "at", json_integer(timer.offAt));
+      json_object_set_new(jTimer, "rule", json_string(ruleKey.c_str()));
+      json_object_set_new(jTimer, "motion", json_boolean(!timer.motionSensor.empty() && lightMotionPresent(timer.motionSensor)));
+      json_array_append_new(jTimers, jTimer);
+   }
+
+   free(key);
+   json_object_set_new(obj, "timers", jTimers);
+
+   bool actor {strcmp(type, "DZL") == 0 || strcmp(type, "DZLG") == 0 || strcmp(type, "HMB") == 0};
+   bool output {strcmp(type, "DO") == 0 || (strcmp(type, "GPIO") == 0 && sensors[type][address].fct == "out")};
+   cDbRow* fact {(actor || output) ? valueFactRowOf(type, address) : nullptr};
+
+   if (!fact || fact->getValue("SETTINGS")->isEmpty())
+      return done;
+
+   json_t* oSettings {jsonLoad(fact->getStrValue("SETTINGS"), 0, true)};
+   json_t* jTimes {oSettings ? getObjectFromJson(oSettings, "times") : nullptr};
+
+   if (!jTimes || !json_is_array(jTimes) || !json_array_size(jTimes))
+   {
+      if (oSettings)
+         json_decref(oSettings);
+      return done;
+   }
+
+   const char* note {};
+
+   if (!fact->hasValue("STATE", "A") || !sensors[type][address].active)
+      note = "Sensor nicht aktiv";
+   else if (actor && !getBoolFromJson(oSettings, "timesEnabled", true))
+      note = "Zeitsteuerung ausgeschaltet";
+   else if (output && sensors[type][address].mode != omAuto)
+      note = "Handbetrieb";
+
+   if (note)
+   {
+      json_object_set_new(obj, "note", json_string(note));
+      json_decref(oSettings);
+      return done;
+   }
+
+   // sun times of the days
+
+   sunCalc();
+
+   time_t now {time(0)};
+   time_t today {midnightOf(now)};
+   std::vector<SunTimes> days(dayCount);
+
+   for (int d = 0; d < dayCount; d++)
+   {
+      days[d].position = sunTimes.position;
+      sunTimesOf(today + (d - 1) * tmeSecondsPerDay + 12 * tmeSecondsPerHour, days[d]);
+   }
+
+   auto dayIndexOf = [&](time_t t) {
+      time_t midnight {midnightOf(t)};
+
+      for (int d = 0; d < dayCount; d++)
+         if (days[d].day == midnight)
+            return d;
+
+      return -1;
+   };
+
+   // the action as JSON
+
+   auto action2Json = [&](time_t at, bool in) {
+      json_t* jAction {json_object()};
+      json_object_set_new(jAction, "at", json_integer(at));
+      json_object_set_new(jAction, "in", json_boolean(in));
+
+      if (strcmp(type, "HMB") == 0)
+         json_object_set_new(jAction, "level", json_integer(getIntFromJson(oSettings, in ? "levelIn" : "levelOut", in ? 0 : 100)));
+      else if (actor && in && getIntFromJson(oSettings, "bri", na) > 0)
+         json_object_set_new(jAction, "bri", json_integer(getIntFromJson(oSettings, "bri", na)));
+
+      return jAction;
+   };
+
+   // next limit of each range (like actorTimesDue(): a limit of a day with the sun times of this day,
+   //   the end of a range over midnight belongs to the day before)
+
+   json_t* jRanges {json_array()};
+   time_t nextAt {0};
+   bool nextIn {false};
+   size_t index {0};
+   json_t* jRange {};
+
+   json_array_foreach(jTimes, index, jRange)
+   {
+      time_t rangeAt {0};
+      bool rangeIn {false};
+
+      for (int d = 1; d < dayCount && !rangeAt; d++)
+      {
+         auto limitOf = [&](bool in, uint& hhmm) {
+            const char* ref {getStringFromJson(jRange, in ? "start" : "end")};
+            return !isEmpty(ref) && sunResolve(ref, getIntFromJson(jRange, in ? "startOffset" : "endOffset", 0), hhmm, &days[d]) == success && hhmm < 2400;
+         };
+
+         uint hhmmStart {0}, hhmmEnd {0};
+         bool hasStart {limitOf(true, hhmmStart)};
+         bool hasEnd {limitOf(false, hhmmEnd)};
+         bool overnight {hasStart && hasEnd && hhmmEnd <= hhmmStart};
+
+         if (output && (!hasStart || !hasEnd))   // DO / GPIO need both limits
+            continue;
+
+         for (bool in : { true, false })
+         {
+            if (!(in ? hasStart : hasEnd))
+               continue;
+
+            time_t at {localTimeOf(days[d].day, in ? hhmmStart : hhmmEnd)};
+            time_t dayOfRange {in || !overnight ? days[d].day : days[d - 1].day};
+
+            if (at > now && rangeDateValid(jRange, dayOfRange) && (!rangeAt || at < rangeAt))
+            {
+               rangeAt = at;
+               rangeIn = in;
+            }
+         }
+      }
+
+      json_array_append_new(jRanges, rangeAt ? action2Json(rangeAt, rangeIn) : json_null());
+
+      if (actor && rangeAt && (!nextAt || rangeAt < nextAt))
+      {
+         nextAt = rangeAt;
+         nextIn = rangeIn;
+      }
+   }
+
+   json_object_set_new(obj, "ranges", jRanges);
+
+   // DO / GPIO: the next change of the state the ranges force (like process(), overlapping ranges
+   //   and days without a valid range don't switch)
+
+   if (output)
+   {
+      auto stateAt = [&](time_t t, bool& active) {
+         int d {dayIndexOf(t)};
+         uint hhmm {(uint)l2hhmm(t)};
+         bool hasRanges {false};
+         size_t i {0};
+         json_t* jR {};
+
+         active = false;
+
+         if (d < 0)
+            return false;
+
+         json_array_foreach(jTimes, i, jR)
+         {
+            Range r;
+
+            if (sunResolve(getStringFromJson(jR, "start"), getIntFromJson(jR, "startOffset", 0), r.from, &days[d]) != success ||
+                sunResolve(getStringFromJson(jR, "end"), getIntFromJson(jR, "endOffset", 0), r.to, &days[d]) != success)
+               continue;
+
+            bool morningPart {r.from > r.to && hhmm < r.to};
+
+            if (!rangeDateValid(jR, morningPart ? days[d].day - 1 : t))
+               continue;
+
+            hasRanges = true;
+
+            if (r.inRange(hhmm))
+               active = true;
+         }
+
+         return hasRanges;
+      };
+
+      // candidates: the limits of all ranges and the midnights (date ranges, sun times of the next day)
+
+      std::set<time_t> candidates;
+
+      for (int d = 1; d < dayCount; d++)
+      {
+         candidates.insert(days[d].day);
+
+         json_array_foreach(jTimes, index, jRange)
+         {
+            for (bool in : { true, false })
+            {
+               uint hhmm {0};
+
+               if (sunResolve(getStringFromJson(jRange, in ? "start" : "end"), getIntFromJson(jRange, in ? "startOffset" : "endOffset", 0), hhmm, &days[d]) == success && hhmm < 2400)
+                  candidates.insert(localTimeOf(days[d].day, hhmm));
+            }
+         }
+      }
+
+      bool state {sensors[type][address].state};
+      bool active {false};
+
+      if (stateAt(now, active))
+         state = active;
+
+      for (time_t t : candidates)
+      {
+         if (t <= now || !stateAt(t, active))
+            continue;
+
+         if (active != state)
+         {
+            nextAt = t;
+            nextIn = active;
+            break;
+         }
+      }
+   }
+
+   if (nextAt)
+      json_object_set_new(obj, "next", action2Json(nextAt, nextIn));
+
+   json_decref(oSettings);
+
+   return done;
 }

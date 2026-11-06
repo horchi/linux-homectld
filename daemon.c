@@ -4148,6 +4148,7 @@ int HomeCtl::dispatchDeconz()
       int hue {getIntFromJson(oData, "hue", 0)};
       int sat {getIntFromJson(oData, "sat", 0)};
 
+      bool isLight {strcmp(type, "DZL") == 0 || strcmp(type, "DZLG") == 0};
       if (getObjectFromJson(oData, "state"))
          sensor->setState(state, now);
       else if (getObjectFromJson(oData, "value"))
@@ -4172,7 +4173,11 @@ int HomeCtl::dispatchDeconz()
       else if (getObjectFromJson(oData, "presence"))
          lightRuleEvents.push_back({ type, (uint)address, na, getBoolFromJson(oData, "presence") });
 
-      if (getObjectFromJson(oData, "bri"))
+      // the brightness of a light only while it is on - switched off with a transition it reports the
+      //  brightness while dimming down (e.g. 249 -> 79), kept as its brightness (symbol, color dialog dark);
+      //  taken anyway if none is known yet (start)
+
+      if (getObjectFromJson(oData, "bri") && (!isLight || sensor->state || sensor->value <= 0))
          sensor->setValue(bri);
 
       if (getObjectFromJson(oData, "hue") && sensor->hue != hue)
@@ -4185,6 +4190,26 @@ int HomeCtl::dispatchDeconz()
       {
          sensor->sat = sat;
          sensor->markChanged();
+      }
+
+      // white mode of the color lights (color temperature), the range comes with the init only
+
+      if (getObjectFromJson(oData, "ct") && sensor->ct != getIntFromJson(oData, "ct"))
+      {
+         sensor->ct = getIntFromJson(oData, "ct");
+         sensor->markChanged();
+      }
+
+      if (getObjectFromJson(oData, "colormode") && sensor->colorMode != getStringFromJson(oData, "colormode", ""))
+      {
+         sensor->colorMode = getStringFromJson(oData, "colormode", "");
+         sensor->markChanged();
+      }
+
+      if (getObjectFromJson(oData, "ctmin"))
+      {
+         sensor->ctMin = getIntFromJson(oData, "ctmin");
+         sensor->ctMax = getIntFromJson(oData, "ctmax");
       }
 
       // also for messages without one of the above - not for a battery only (deCONZ reports it also
@@ -4215,13 +4240,14 @@ int HomeCtl::dispatchDeconz()
 
          if (getObjectFromJson(oData, "state"))
          {
+            // always all of them (as by the 'all' update) - the WEBIF replaces the data of the sensor, an
+            //  event without brightness / color (e.g. only 'on') lost them there (symbol and color dialog
+            //  dark resp. without color)
+
             json_object_set_new(ojData, "value", json_integer(sensor->state));
-            if (getObjectFromJson(oData, "bri"))
-               json_object_set_new(ojData, "score", json_integer(bri));
-            if (getObjectFromJson(oData, "hue"))
-               json_object_set_new(ojData, "hue", json_integer(hue));
-            if (getObjectFromJson(oData, "sat"))
-               json_object_set_new(ojData, "sat", json_integer(sat));
+            json_object_set_new(ojData, "score", json_integer(sensor->value));
+            json_object_set_new(ojData, "hue", json_integer(sensor->hue));
+            json_object_set_new(ojData, "sat", json_integer(sensor->sat));
          }
          else if (getObjectFromJson(oData, "value") || getObjectFromJson(oData, "presence"))
             json_object_set_new(ojData, "value", json_real(sensor->value));
@@ -5607,6 +5633,19 @@ int HomeCtl::getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges
 // Toggle Color
 //***************************************************************************
 
+int HomeCtl::toggleColorTemperature(uint addr, const char* type, int ct, int bri)
+{
+   if (strcmp(type, "DZL") != 0 || !valueFactRowOf(type, addr))
+      return fail;
+
+   SensorData& sensor {sensors[type][addr]};
+
+   if (sensor.ctMin > 0 && sensor.ctMax > sensor.ctMin)
+      ct = std::max(sensor.ctMin, std::min(ct, sensor.ctMax));
+
+   return deconz.colorTemperature(type, addr, ct, bri);
+}
+
 int HomeCtl::toggleColor(uint addr, const char* type, int hue, int sat, int bri)
 {
    cDbRow* fact {valueFactRowOf(type, addr)};
@@ -5644,7 +5683,17 @@ int HomeCtl::toggleIo(uint addr, const char* type, int state, int bri, int trans
    else if (strcmp(type, "DZL") == 0 || strcmp(type, "DZLG") == 0)
    {
       lightCommands.erase(lightKey(type, addr));   // by hand, no check
-      deconz.toggle(type, addr, newState, bri, transitiontime);
+
+      tell(eloAlways, "Light '%s:0x%02x' (%s) switched %s by hand (was %s)%s", type, addr, sensors[type][addr].title.c_str(),
+           newState ? "on" : "off", sensors[type][addr].state ? "on" : "off",
+           newState && bri != na ? (", brightness " + std::to_string(bri) + "%").c_str() : "");
+
+      // a light takes the new state at once (the event of deCONZ follows), a next toggle before
+      //  this event (e.g. a fast second tap) sent the same state again and seemed not to react;
+      //  a group is toggled by deCONZ itself ('toggle')
+
+      if (deconz.toggle(type, addr, newState, bri, transitiontime) == success && strcmp(type, "DZL") == 0)
+         sensors[type][addr].state = newState && !(bri != na && bri < 5);
    }
    else if (strcmp(type, "HMB") == 0)
    {

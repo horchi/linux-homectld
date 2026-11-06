@@ -698,6 +698,8 @@ function initWidget(key, widget, fact)
          if (!setupMode) {
             $('#button' + fact.type + fact.address)
                .on('mousedown touchstart', {"fact" : fact}, function(e) {
+                  if (lightEmulatedMouse(e))
+                     return;
                   if (e.touches != null) {
                      lightClickPosX = e.touches[0].pageX;
                      lightClickPosY = e.touches[0].pageY;
@@ -724,7 +726,7 @@ function initWidget(key, widget, fact)
                })
                .on('mousemove touchmove', {"fact" : fact}, function(e) {
                   // moved (e.g. scrolling the dashboard) -> no long press and no toggle
-                  if (lightClickPosX == null || lightClickPosY == null)
+                  if (lightEmulatedMouse(e) || lightClickPosX == null || lightClickPosY == null)
                      return;
                   let x = e.touches != null ? e.touches[0].pageX : e.clientX;
                   let y = e.touches != null ? e.touches[0].pageY : e.clientY;
@@ -734,9 +736,15 @@ function initWidget(key, widget, fact)
                      lightClickTimeout = lightClickPosX = lightClickPosY = null;
                   }
                })
-               .on('mouseup mouseleave touchend', {"fact" : fact}, function(e) {
-                  if (lightDialogOpen())
+               .on('mouseup mouseleave touchend touchcancel', {"fact" : fact}, function(e) {
+                  if (lightEmulatedMouse(e) || lightDialogOpen())
                      return;
+                  if (e.type == 'touchcancel') {        // the browser took the touch (e.g. scrolling)
+                     if (lightClickTimeout)
+                        clearTimeout(lightClickTimeout);
+                     lightClickTimeout = lightClickPosX = lightClickPosY = null;
+                     return;
+                  }
                   if (e.changedTouches != null) {
                      posX = e.changedTouches[0].pageX;
                      posY = e.changedTouches[0].pageY;
@@ -753,7 +761,7 @@ function initWidget(key, widget, fact)
                         function doToggle() { toggleIo(fact.address, fact.type); }
                         if (fact.settings && fact.settings.ask)
                            confirmDialog(doToggle, 'Wirklich schalten', 'Schalten', 'Abbrechen');
-                        else
+                        else if (!lightToggledJustNow(key))
                            toggleIo(fact.address, fact.type);
                      }
                   }
@@ -1827,13 +1835,35 @@ function initMeter(key, widget, fact, neededScaleMax, value)
 
 function initLightColorDialog()
 {
+   // mode 'Farbe' (color wheel, RGB) | 'Weiß' (color temperature, the own white LEDs of RGB+CCT lights),
+   //   the mode selection only for lights with a white mode (ctmin / ctmax of the daemon)
+
    $("#container").append($('<div></div>)')
                           .attr('id', 'lightColorDiv')
                           .addClass('rounded-border lightColorDiv')
-                          .append($('<input></input>)')
-                                  .attr('id', 'lightColor')
-                                  .addClass('lightColor')
-                                  .attr('type', 'text'))
+                          .append($('<div></div>').attr('id', 'lightModeRow').addClass('lightModeRow')
+                                  .append($('<label></label>')
+                                          .append($('<input></input>').attr('type', 'radio').attr('name', 'lightMode').attr('value', 'color'))
+                                          .append($('<span></span>').text('Farbe')))
+                                  .append($('<label></label>')
+                                          .append($('<input></input>').attr('type', 'radio').attr('name', 'lightMode').attr('value', 'white'))
+                                          .append($('<span></span>').text('Weiß'))))
+                          .append($('<div></div>').attr('id', 'lightColorPane')
+                                  .append($('<input></input>)')
+                                          .attr('id', 'lightColor')
+                                          .addClass('lightColor')
+                                          .attr('type', 'text')))
+                          .append($('<div></div>').attr('id', 'lightWhitePane').addClass('lightWhitePane')
+                                  .append($('<div></div>').addClass('lightDimRow')
+                                          .append($('<span></span>').addClass('lightWhiteLabel').text('Warm'))
+                                          .append($('<input></input>').attr('id', 'lightCt').attr('type', 'range').addClass('lightDim lightCt'))
+                                          .append($('<span></span>').addClass('lightWhiteLabel').text('Kalt'))
+                                          .append($('<span></span>').attr('id', 'lightCtValue').addClass('lightDimValue')))
+                                  .append($('<div></div>').addClass('lightDimRow')
+                                          .append($('<span></span>').addClass('mdi mdi-brightness-6 lightWhiteLabel'))
+                                          .append($('<input></input>').attr('id', 'lightWhiteBri').attr('type', 'range')
+                                                  .attr('min', '1').attr('max', '100').attr('step', '1').addClass('lightDim'))
+                                          .append($('<span></span>').attr('id', 'lightWhiteBriValue').addClass('lightDimValue'))))
                           .append($('<button></button>)')
                                   .html('Ok')
                                   .click(function() { $('#lightColorDiv').css('display', 'none'); }))
@@ -1850,6 +1880,27 @@ function initLightColorDialog()
    $('#lightColor').wheelColorPicker(options);
    $('#lightColorDiv').css('display', 'none');
 
+   // white mode: the slider runs from warm (left, high mired) to cold (right), its value is -mired
+
+   $('#lightCt').on('input', function() {
+      $('#lightCtValue').text(miredToKelvin(-$(this).val()) + ' K');
+   });
+
+   $('#lightWhiteBri').on('input', function() {
+      $('#lightWhiteBriValue').text($(this).val() + ' %');
+   });
+
+   $('#lightCt, #lightWhiteBri').on('change', function() { sendLightWhite(); });   // on release
+
+   $('input[name="lightMode"]').on('change', function() {
+      showLightMode(this.value);
+
+      if (this.value == 'white')
+         sendLightWhite();
+      else
+         $('#lightColor').trigger('sliderup');    // the color of the wheel
+   });
+
    $('#lightColor').on('sliderup', function(e) {
       if (!$(this).data('key'))
          return;
@@ -1858,17 +1909,16 @@ function initLightColorDialog()
       let hue = parseInt($(this).wheelColorPicker('getColor').h * 360);
       let sat = parseInt($(this).wheelColorPicker('getColor').s * 100);
       let bri = parseInt($(this).wheelColorPicker('getColor').v * 100);
+      let obj = { 'action': 'color', 'type': fact.type, 'address': fact.address, 'hue': hue, 'saturation' : sat };
+
+      // the brightness only if changed in the dialog - the value the dialog started with may be an
+      //  intermediate one of a transition (the light reports them while dimming), sent it set the light dark
+
+      if (bri != $(this).data('bri'))
+         obj.bri = bri;
 
       console.log("color of " + fact.address + " changed to '" + hue + "' / " + bri + '% / ' + sat + '%');
-
-      socket.send({ "event": "toggleio", "object":
-                    {  'action': 'color',
-                       'type': fact.type,
-                       'address': fact.address,
-                       'hue': hue,
-                       'saturation' : sat,
-                       'bri': bri
-                    }});
+      socket.send({ "event": "toggleio", "object": obj });
    });
 
 
@@ -1951,6 +2001,34 @@ function showLightDimDialog(key)
 }
 
 var lightDialogOpenedAt = 0;
+var lightTouchAt = 0;
+var lightToggledAt = {};
+
+// touch devices send emulated mouse events after a touch (mousedown / mouseup / mouseleave), not always
+//   suppressed by preventDefault() of the touchend (e.g. if the browser took the touch as start of a
+//   scroll) - they toggled the light a second time (seemed not to react or switched twice);
+//   mouse events up to 1 s after a touch are ignored
+
+function lightEmulatedMouse(e)
+{
+   if (e.type.startsWith('touch')) {
+      lightTouchAt = Date.now();
+      return false;
+   }
+
+   return Date.now() - lightTouchAt < 1000;
+}
+
+// a second toggle of the same light within 600 ms is a double event, not a second tap
+
+function lightToggledJustNow(key)
+{
+   let now = Date.now();
+   let just = lightToggledAt[key] && now - lightToggledAt[key] < 600;
+
+   lightToggledAt[key] = now;
+   return just;
+}
 
 function closeLightDialogs()
 {
@@ -1963,18 +2041,63 @@ function lightDialogOpen()
    return $('#lightColorDiv').css('display') != 'none' || $('#lightDimDiv').css('display') != 'none';
 }
 
+function miredToKelvin(mired)
+{
+   return mired > 0 ? Math.round(1000000 / mired / 50) * 50 : 0;
+}
+
+function showLightMode(mode)
+{
+   $('#lightColorPane').css('display', mode == 'white' ? 'none' : 'block');
+   $('#lightWhitePane').css('display', mode == 'white' ? 'block' : 'none');
+}
+
+function sendLightWhite()
+{
+   let fact = valueFacts[$('#lightColor').data('key')];
+
+   if (!fact)
+      return;
+
+   let obj = { 'action': 'ct', 'type': fact.type, 'address': fact.address, 'ct': -parseInt($('#lightCt').val()) };
+   let bri = parseInt($('#lightWhiteBri').val());
+
+   if (bri != $('#lightWhiteBri').data('start'))     // the brightness only if changed (see the color wheel)
+      obj.bri = bri;
+
+   socket.send({ "event": "toggleio", "object": obj });
+}
+
 function showLightColorDialog(key)
 {
-   let posX = ($('#container').innerWidth() - $('#lightColorDiv').outerWidth()) / 2;
-   let posY = ($('#container').innerHeight() - $('#lightColorDiv').outerHeight()) / 2;
    let sensor = allSensors[key];
+   let hasWhite = sensor.ctmin > 0 && sensor.ctmax > sensor.ctmin;
+   let mode = hasWhite && sensor.colormode == 'ct' ? 'white' : 'color';
+   let bri = sensor.score != null ? sensor.score : 100;
+   let ct = sensor.ct >= sensor.ctmin && sensor.ct <= sensor.ctmax ? sensor.ct : Math.round((sensor.ctmin + sensor.ctmax) / 2);
 
    $('#lightColor').data('key', key);
-   $('#lightColorDiv').css('left', posX + 'px');
-   $('#lightColorDiv').css('top', posY + 'px');
+   $('#lightModeRow').css('display', hasWhite ? 'flex' : 'none');
+   $('input[name="lightMode"][value="' + mode + '"]').prop('checked', true);
+   showLightMode(mode);
+
+   if (hasWhite) {
+      $('#lightCt').attr('min', -sensor.ctmax).attr('max', -sensor.ctmin).attr('step', '1').val(-ct);
+      $('#lightCtValue').text(miredToKelvin(ct) + ' K');
+      $('#lightWhiteBri').val(Math.max(bri, 1)).data('start', Math.max(bri, 1));
+      $('#lightWhiteBriValue').text(Math.max(bri, 1) + ' %');
+   }
+
    $('#lightColorDiv').css('display', 'block');
    lightDialogOpenedAt = Date.now();
    $('#lightColor').wheelColorPicker('setColor', { 'h': sensor.hue/360.0, 's': sensor.sat/100.0, 'v': sensor.score/100.0 });
+   $('#lightColor').data('bri', parseInt($('#lightColor').wheelColorPicker('getColor').v * 100));
+
+   let posX = ($('#container').innerWidth() - $('#lightColorDiv').outerWidth()) / 2;
+   let posY = ($('#container').innerHeight() - $('#lightColorDiv').outerHeight()) / 2;
+
+   $('#lightColorDiv').css('left', posX + 'px');
+   $('#lightColorDiv').css('top', posY + 'px');
 }
 
 function getTimeHtml()
@@ -2137,8 +2260,7 @@ function titleClick(ctrlKey, key)
       let timeItems = [];
 
       if (fact.settings && Array.isArray(fact.settings.times))
-         for (const t of fact.settings.times)
-            timeItems.push(timeRangeItem(t, fact));
+         fact.settings.times.forEach((t, i) => timeItems.push(Object.assign(timeRangeItem(t, fact), { 'rangeIndex': i })));
 
       let rules = timeItems.concat(lightRulesFor(key));     // time control, light rules of the sensor / switching this light (tab 'Regeln')
       let hasRules = rules.length > 0 || sensor.offAt || sensor.shade;
@@ -2180,11 +2302,17 @@ function titleClick(ctrlKey, key)
          let rulesTab = $('<div></div>').attr('id', 'sensorInfoRules').addClass('sensorRules');
 
          if (sensor.offAt)
-            rulesTab.append($('<div></div>').addClass('sensorRulesTimer')
+            rulesTab.append($('<div></div>').attr('id', 'sensorRulesOffTimer').addClass('sensorRulesTimer')
                             .text('Aus-Timer läuft bis ' + new Date(sensor.offAt * 1000).toLocaleTimeString(dateLocale)));
 
          if (sensor.shade)
             rulesTab.append($('<div></div>').addClass('sensorRulesTimer').text('Beschattung: ' + sensor.shade));
+
+         // next action of the time control, filled by the daemon (event 'nextactions')
+
+         if (timeItems.length || sensor.offAt)
+            rulesTab.prepend($('<div></div>').attr('id', 'sensorRulesNext').addClass('sensorRulesTimer')
+                            .text('Nächste Aktion: wird berechnet ...'));
 
          for (const rule of rules) {
             let block = $('<div></div>').addClass('sensorRule')
@@ -2194,6 +2322,11 @@ function titleClick(ctrlKey, key)
                block.append($('<div></div>').addClass('sensorRuleRow')
                             .append($('<span></span>').addClass('sensorRuleLabel').text(label))
                             .append($('<span></span>').text(text)));
+
+            if (rule.rangeIndex != null)
+               block.append($('<div></div>').addClass('sensorRuleRow')
+                            .append($('<span></span>').addClass('sensorRuleLabel').text('Nächste'))
+                            .append($('<span></span>').attr('id', 'sensorRuleNext' + rule.rangeIndex).text('–')));
 
             rulesTab.append(block);
          }
@@ -2418,6 +2551,12 @@ function titleClick(ctrlKey, key)
 
                if (sensor.hasjson)
                   socket.send({ "event" : "command", "object" : { "what" : 'sensorjson', "type": fact.type, "address": fact.address } });
+
+               // the next actions of the time control (calculated by the daemon with the sun times of their days)
+               //   and the off timers of the light rules
+
+               if (timeItems.length || sensor.offAt)
+                  socket.send({ "event" : "command", "object" : { "what" : 'nextactions', "type": fact.type, "address": fact.address } });
             }
          },
          close: function() { $(this).dialog('destroy').remove();}
@@ -2453,6 +2592,84 @@ function sensorJsonDialog(type, address)
       open: function() { request(); },
       close: function() { $(this).dialog('destroy').remove(); }
    });
+}
+
+// event 'nextactions' - the next automatic actions of an output / actor (info dialog, tab 'Regeln'):
+//   time control: 'next' the earliest one, 'ranges' the next one of each time range, 'note' why there is none,
+//   'timers' the running off timers of the light rules (e.g. after a motion) switching off this light
+
+function showNextActions(obj)
+{
+   if (!$('#sensorRulesNext').length)
+      return;
+
+   let blind = obj.type == 'HMB';
+
+   let actionText = function(a) {
+      let text = blind ? (a.in ? 'Zu' : 'Auf') : (a.in ? 'An' : 'Aus');
+
+      if (a.level != null)
+         text += ' (' + a.level + ' %)';
+      else if (a.bri != null)
+         text += ' (' + a.bri + ' %)';
+
+      return text + ' – ' + nextActionTime(a.at);
+   };
+
+   let ruleTitle = function(ruleKey) {          // 'DZS:0x21#0' -> 'Flur: Bewegung → An'
+      let [sensorKey, index] = ruleKey.split('#');
+      let f = valueFacts[sensorKey];
+      let rule = f && f.settings && Array.isArray(f.settings.rules) ? f.settings.rules[parseInt(index)] : null;
+      return factTitle(sensorKey) + (rule ? ': ' + lightRuleItem(rule).title : '');
+   };
+
+   // the off timers of the light rules
+
+   let timers = (obj.timers || []).slice().sort((a, b) => a.at - b.at);
+
+   if (timers.length)
+      $('#sensorRulesOffTimer').html(timers.map(t => $('<div></div>')
+                                                 .text('Aus-Timer (' + ruleTitle(t.rule) + '): Aus – ' + nextActionTime(t.at, true) +
+                                                       (t.motion ? ', frühestens – verlängert, solange Bewegung erkannt wird' : ''))[0]));
+
+   // the earliest action of all
+
+   let candidates = [];
+
+   if (obj.next)
+      candidates.push({ 'at': obj.next.at, 'text': actionText(obj.next) + ' (Zeitsteuerung)' });
+
+   for (const t of timers)
+      candidates.push({ 'at': t.at, 'text': 'Aus – ' + nextActionTime(t.at, true) + ' (Aus-Timer' + (t.motion ? ', frühestens' : '') + ')' });
+
+   candidates.sort((a, b) => a.at - b.at);
+
+   if (candidates.length)
+      $('#sensorRulesNext').text('Nächste Aktion: ' + candidates[0].text);
+   else if (obj.note)
+      $('#sensorRulesNext').text('Nächste Aktion: keine (' + obj.note + ')');
+   else
+      $('#sensorRulesNext').text('Nächste Aktion: keine innerhalb einer Woche');
+
+   (obj.ranges || []).forEach((a, i) => $('#sensorRuleNext' + i).text(a ? actionText(a) : '–'));
+}
+
+// time of an action as 'heute 22:30', 'morgen 07:15' or 'Sa. 08.11. 07:15' (optional with seconds)
+
+function nextActionTime(at, withSeconds)
+{
+   let d = new Date(at * 1000);
+   let today = new Date();
+   let days = Math.round((new Date(d).setHours(0, 0, 0, 0) - today.setHours(0, 0, 0, 0)) / 86400000);
+   let time = d.toLocaleTimeString(dateLocale, withSeconds ? { hour: '2-digit', minute: '2-digit', second: '2-digit' }
+                                                           : { hour: '2-digit', minute: '2-digit' });
+
+   if (days == 0)
+      return 'heute ' + time;
+   if (days == 1)
+      return 'morgen ' + time;
+
+   return d.toLocaleDateString(dateLocale, { weekday: 'short', day: '2-digit', month: '2-digit' }) + ' ' + time;
 }
 
 // event 'sensorjson' - the last raw message of a sensor (info dialog, tab JSON)

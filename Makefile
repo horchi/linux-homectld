@@ -18,6 +18,8 @@ LASTHIST     = $(shell grep '^20[0-3][0-9]' $(HISTFILE) | head -1)
 
 # the top block of the HISTORY as commit message - via a file, a 'git commit -m "$(..)"' loses the
 #  line feeds and lets the shell expand '$' in the text (e.g. NMEA sentences like '$GNRMC')
+#  the blank line after the first line makes it the subject, else git takes the whole first paragraph
+#  as subject and shows it in one line (git log --oneline, GitHub)
 
 define historyBlock
 sed -n '/$(LASTHIST)/,/^ *$$/p' $(HISTFILE)
@@ -359,7 +361,7 @@ push: vcheck
 	git push
 
 commit: vcheck
-	@tmp=$$(mktemp); $(historyBlock) > $$tmp; git commit -F $$tmp -a; rm -f $$tmp
+	@tmp=$$(mktemp); $(historyBlock) | sed -e '1G' > $$tmp; git commit -F $$tmp -a; rm -f $$tmp
 
 git: commit push
 

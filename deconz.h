@@ -45,6 +45,7 @@ class Deconz
 
       int toggle(const char* type, uint address, bool state, int bri = na, int transitiontime = na, bool explicitState = false);
       int color(const char* type, uint address, int hue, int saturation, int bri);
+      int colorTemperature(const char* type, uint address, int ct, int bri);   // white mode, ct [mired]
 
       static cMyMutex messagesInMutex;
       static std::queue<std::string> messagesIn;

@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.41"
-#define VERSION_DATE "31.10.2026"
+#define _VERSION     "0.1.42"
+#define VERSION_DATE "06.11.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,32 @@
 
 /*
  * ------------------------------------
+
+2026-11-06: version 0.1.42
+    - added: info dialog of the dashboard, tab 'Regeln': the next automatic action with its time ('Nächste Aktion:
+             Aus – heute 22:30 (Zeitsteuerung)'), each block of the time control with its next action ('Nächste'),
+             the running off timers of the light rules (e.g. after a motion) with their rule and time, while the
+             motion sensor still reports motion as 'frühestens'; calculated by the daemon on opening the dialog
+             (command 'nextactions'), like the switching itself: actors (DZL, DZLG, HMB) at the limits of their
+             ranges, DO / GPIO (auto mode) the next change of their state, date ranges, ranges over midnight and the
+             sun times of the day of the action (up to 8 days ahead); without action the reason (Handbetrieb,
+             Zeitsteuerung ausgeschaltet, Sensor nicht aktiv)
+    - added: color dialog of the deCONZ color lights: mode 'Farbe' | 'Weiß' (radio buttons, only for lights with a
+             white mode, opened in the current mode of the light); 'Weiß' switches RGB+CCT lights to their own white
+             LEDs (colormode 'ct') with a slider warm <-> cold (shown in K) and one for the brightness, sent on release
+             (toggleio action 'ct'); the daemon takes colormode, ct and the ct range from deCONZ, a nonsense range
+             (GLEDOPTO GL-S-007Z reports 0 - 65279) is taken as 153 - 454 mired (6500 - 2200 K)
+    - bugfix: dashboard: switching a light by a tap on the phone sometimes didn't react or switched twice, the
+              emulated mouse events after the touch toggled it a second time; mouse events up to 1 s after a touch
+              are ignored, a touch taken by the browser (touchcancel, e.g. scrolling) switches nothing, a second
+              toggle of the same light within 600 ms is dropped
+    - bugfix: deCONZ: a light toggled again before the event of deCONZ to the toggle before got the same state once
+              more (seemed not to react), a light (not a group) takes the new state at once now
+    - bugfix: dashboard: the symbol and the color dialog of a color light got dark resp. lost the color after
+              switching it (e.g. bright orange -> dark orange), an event of deCONZ without brightness / color
+              (only 'on') replaced the data of the light in the WEBIF without them; the update of a light
+              contains brightness, hue and saturation always now
+    - change: color and brightness dialog of the lights: no text selection / callout on touch
 
 2026-10-31: version 0.1.41
     - added: dashboard widget 'HTML' (widgettype 18, 'HTML:0xNN' like spacer / time, 'Widget hinzufügen' -> HTML):
@@ -46,6 +72,7 @@
              ('homectld-htmlwidgets', name, kind, code, CSS, parameters, no ids) and import of such a file;
              existing names are asked for: overwrite (the widgets show the new state at once) or as copy
              ('<name> (2)'); the daemon stores the import in one go (storehtmlwidgets action 'import')
+
 2026-10-30: version 0.1.40
     - change: widget setup: height factor up to 4 (was 2)
     - added: the sensor data to the WEBIF contain the state ('state') of each sensor, e.g. the presence of a deCONZ

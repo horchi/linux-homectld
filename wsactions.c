@@ -149,7 +149,11 @@ bool HomeCtl::checkRights(long client, Event event, json_t* oObject)
       case evStoreUserConfig:     return rights & urAdmin;
       case evUserDetails:         return rights & urAdmin;
       case evChangePasswd:        return true;   // check will done in performPasswChange()
-      case evCommand:             return getStringFromJson(oObject, "what", "") == std::string("sensorjson") ? rights & urView : rights & urFullControl;
+      case evCommand:
+      {
+         std::string what {getStringFromJson(oObject, "what", "")};
+         return what == "sensorjson" || what == "nextactions" ? rights & urView : rights & urFullControl;
+      }
       case evSyslog:              return rights & urAdmin;
       case evSystem:              return rights & urView;
       case evForceRefresh:        return rights & urView;
@@ -528,9 +532,17 @@ int HomeCtl::performToggleIo(json_t* oObject, long client)
    {
       int hue {getIntFromJson(oObject, "hue")};
       int sat {getIntFromJson(oObject, "saturation")};
-      int bri {getIntFromJson(oObject, "bri")};
+      int bri {getIntFromJson(oObject, "bri", na)};      // missing -> brightness unchanged
       tell(eloAlways, "Changing color of %s:0x%02x to %d", type, addr, hue);
       return toggleColor(addr, type, hue, sat, bri);
+   }
+
+   if (action == "ct")       // white mode of a color light (color temperature [mired])
+   {
+      int ct {getIntFromJson(oObject, "ct")};
+      int bri {getIntFromJson(oObject, "bri", na)};
+      tell(eloAlways, "Changing color temperature of %s:0x%02x to %d mired", type, addr, ct);
+      return toggleColorTemperature(addr, type, ct, bri);
    }
 
    return done;
@@ -3205,6 +3217,15 @@ int HomeCtl::performCommand(json_t* obj, long client)
 
       return pushOutMessage(oJson, "sensorjson", client);
    }
+   else if (what == "nextactions")
+   {
+      // the next actions of the time control of an output / actor - for the info dialog (tab 'Regeln')
+
+      json_t* oJson {json_object()};
+      nextTimeActions2Json(getStringFromJson(obj, "type", ""), (uint)getIntFromJson(obj, "address", 0), oJson);
+
+      return pushOutMessage(oJson, "nextactions", client);
+   }
    else
       return fail;
 
@@ -3333,6 +3354,16 @@ int HomeCtl::sensor2Json(json_t* obj, const char* type, uint address)
 
    if (!sensors[type][address].color.empty())
       json_object_set_new(obj, "color", json_string(sensors[type][address].color.c_str()));
+
+   // white mode of the color lights (deCONZ): color mode, color temperature and its range [mired]
+
+   if (strcmp(type, "DZL") == 0 && sensors[type][address].ctMin > 0)
+   {
+      json_object_set_new(obj, "ctmin", json_integer(sensors[type][address].ctMin));
+      json_object_set_new(obj, "ctmax", json_integer(sensors[type][address].ctMax));
+      json_object_set_new(obj, "ct", json_integer(sensors[type][address].ct));
+      json_object_set_new(obj, "colormode", json_string(sensors[type][address].colorMode.c_str()));
+   }
 
    return done;
 }

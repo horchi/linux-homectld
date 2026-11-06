@@ -362,6 +362,31 @@ int Deconz::processDevices(json_t* jData, std::string kind)
                int sat = getIntByPath(jItem, "state/sat") / 255.0 * 100.0;
                json_object_set_new(jsData, "sat", json_integer(sat));
             }
+
+            // white mode (color temperature): the range of the light, some report a nonsense range
+            //  (e.g. GLEDOPTO GL-S-007Z 0 - 65279) -> 153 - 454 mired (6500 - 2200 K)
+
+            if (strcasestr(dzType.c_str(), "color") && !strcasestr(dzType.c_str(), "color temperature") &&
+                (getObjectFromJson(jItem, "ctmin") || getObjectByPath(jItem, "state/ct")))
+            {
+               int ctMin {getIntFromJson(jItem, "ctmin", 0)};
+               int ctMax {getIntFromJson(jItem, "ctmax", 0)};
+
+               if (ctMin < 100 || ctMax > 1000 || ctMin >= ctMax)
+               {
+                  ctMin = 153;
+                  ctMax = 454;
+               }
+
+               json_object_set_new(jsData, "ctmin", json_integer(ctMin));
+               json_object_set_new(jsData, "ctmax", json_integer(ctMax));
+            }
+
+            if (getObjectByPath(jItem, "state/ct"))
+               json_object_set_new(jsData, "ct", json_integer(getIntByPath(jItem, "state/ct")));
+
+            if (getObjectByPath(jItem, "state/colormode"))
+               json_object_set_new(jsData, "colormode", json_string(getStringByPath(jItem, "state/colormode")));
          }
 
          // don't trigger switches (the last button event would be a new event for the light rules),
@@ -503,7 +528,6 @@ int Deconz::color(const char* type, uint address, int hue, int sat, int bri)
       }
    }
 
-   bri = (int)((255 / 100.0) * bri);
    sat = (int)((255 / 100.0) * sat);
    hue = (65535 / 360) * hue;
 
@@ -511,7 +535,9 @@ int Deconz::color(const char* type, uint address, int hue, int sat, int bri)
    json_object_set_new(jObj, "on", json_boolean(true));
    json_object_set_new(jObj, "hue", json_integer(hue));
    json_object_set_new(jObj, "sat", json_integer(sat));
-   json_object_set_new(jObj, "bri", json_integer(bri));
+
+   if (bri != na)                // na -> the light keeps its brightness
+      json_object_set_new(jObj, "bri", json_integer((int)((255 / 100.0) * bri)));
 
    int status {success};
 
@@ -524,6 +550,52 @@ int Deconz::color(const char* type, uint address, int hue, int sat, int bri)
    json_decref(jArray);
 
    return success;
+}
+
+//***************************************************************************
+// Color Temperature
+//   white mode of a color light (RGB+CCT, its own white LEDs), ct [mired], bri [%]
+//***************************************************************************
+
+int Deconz::colorTemperature(const char* type, uint address, int ct, int bri)
+{
+   json_t* jArray {};
+   std::string uuid;
+
+   {
+      cMyMutexLock lock(&mapsMutex);
+
+      for (const auto& light : lights)
+      {
+         if (light.second == address)
+         {
+            uuid = light.first;
+            break;
+         }
+      }
+   }
+
+   if (uuid.empty())
+      return fail;
+
+   json_t* jObj = json_object();
+   json_object_set_new(jObj, "on", json_boolean(true));
+   json_object_set_new(jObj, "ct", json_integer(ct));
+
+   if (bri > 0)
+      json_object_set_new(jObj, "bri", json_integer((int)((255 / 100.0) * std::min(bri, 100))));
+
+   int status {success};
+
+   if ((status = put(type, jArray, uuid.c_str(), jObj)) == success)
+      status = checkResult(jArray);
+
+   if (status == success)
+      tell(eloDeconz, "DECONZ: Changed color temperature of %s to %d mired", uuid.c_str(), ct);
+
+   json_decref(jArray);
+
+   return status;
 }
 
 //***************************************************************************
@@ -917,6 +989,10 @@ int Deconz::atInMessage(const char* data, size_t size)
          int sat = getIntByPath(obj, "state/sat") / 255.0 * 100.0;
          json_object_set_new(jData, "sat", json_integer(sat));
       }
+      if (getObjectByPath(obj, "state/ct"))
+         json_object_set_new(jData, "ct", json_integer(getIntByPath(obj, "state/ct")));
+      if (getObjectByPath(obj, "state/colormode"))
+         json_object_set_new(jData, "colormode", json_string(getStringByPath(obj, "state/colormode")));
    }
 
    free(type);

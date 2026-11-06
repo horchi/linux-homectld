@@ -184,6 +184,10 @@ class HomeCtl : public cWebInterface, public Service
          std::string color;
          int hue {0};                      // 0-360° hue
          int sat {0};                      // 0-100% saturation
+         int ct {0};                       // color temperature [mired] (deCONZ lights with white mode)
+         int ctMin {0};                    // range of the color temperature [mired], 0 -> no white mode
+         int ctMax {0};
+         std::string colorMode;            // deCONZ: 'hs', 'xy' (color) or 'ct' (white)
 
          // fact
 
@@ -626,7 +630,8 @@ class HomeCtl : public cWebInterface, public Service
       bool sunCalc(bool force = false);                       // recalculate on a new day / moved position
       int sunUpdate(bool force = false);                      // sunCalc() and the sensor SUN:0x01
       int sun2Json(json_t* obj);
-      int sunResolve(const char* ref, int offset, uint& hhmm);   // "HH:MM" or dawn|sunrise|sunset|dusk + offset -> HHMM
+      void sunTimesOf(time_t day, SunTimes& st);              // the sun times of a day at the position of 'st'
+      int sunResolve(const char* ref, int offset, uint& hhmm, const SunTimes* times = nullptr);   // "HH:MM" or dawn|sunrise|sunset|dusk + offset -> HHMM (times of today or of 'times')
       bool rangeDateValid(json_t* jRange, time_t t);          // time range valid on this day ("dateFrom" / "dateTo")
 
       static void sunPosition(time_t t, double lat, double lng, double& azimuth, double& elevation);
@@ -716,6 +721,7 @@ class HomeCtl : public cWebInterface, public Service
       int lightTargetSwitch(const std::string& target, bool on, int bri, int transition);
       bool lightTargetState(const std::string& target);
 
+      int nextTimeActions2Json(const char* type, uint address, json_t* obj);   // next actions of the time control (info dialog)
       int actorTimesDue(const char* type, uint address, json_t* oSettings, time_t from, time_t to, std::vector<ActorTimeAction>& actions);
       int actorTimeAction(const ActorTimeAction& action);
       time_t actorTimesCheckedAt {0};
@@ -772,6 +778,7 @@ class HomeCtl : public cWebInterface, public Service
       const char* getImageFor(std::string type, const char* usrTitle, std::string unit, int value);
       int toggleIo(uint addr, const char* type, int state = na, int bri = na, int transitiontime = na);
       int toggleColor(uint addr, const char* type, int color, int sat, int bri);
+      int toggleColorTemperature(uint addr, const char* type, int ct, int bri);   // white mode of a color light, ct [mired]
       int toggleIoNext(uint pin);
       int toggleOutputMode(json_t* oObject, long client);
 

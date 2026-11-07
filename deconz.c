@@ -99,6 +99,22 @@ int Deconz::exit()
 }
 
 //***************************************************************************
+// Set Http Url
+//   'host:port' of the REST API (config deconzHttpUrl), an 'http://' in front is skipped
+//***************************************************************************
+
+void Deconz::setHttpUrl(const char* url)
+{
+   httpUrl = url;
+
+   if (httpUrl.find("http://") == 0)
+      httpUrl = httpUrl.substr(strlen("http://"));
+
+   while (!httpUrl.empty() && httpUrl.back() == '/')
+      httpUrl.pop_back();
+}
+
+//***************************************************************************
 // Query Api Key
 //***************************************************************************
 
@@ -728,6 +744,8 @@ int Deconz::query(json_t*& jResult, const char* method, const char* key)
 }
 
 lws* Deconz::client_wsi {};
+std::string Deconz::wsHost;
+int Deconz::wsPort {443};
 lws_context* Deconz::context {};
 Deconz* Deconz::singleton {};
 
@@ -751,8 +769,8 @@ void callbackConnect(lws_sorted_usec_list_t* _sul)
    memset(&ci, 0, sizeof(ci));
 
    ci.context = Deconz::context;
-   ci.port = 443;
-   ci.address = "192.168.200.101"; // #TODO IP ist hardcoded!
+   ci.port = Deconz::wsPort;
+   ci.address = Deconz::wsHost.c_str();
    ci.path = "/";
    ci.host = ci.address;
    ci.origin = ci.address;
@@ -775,6 +793,30 @@ void callbackConnect(lws_sorted_usec_list_t* _sul)
 int Deconz::initWsClient()
 {
    Deconz::singleton = this;
+
+   // the websocket runs on the host of the REST API, its port is reported by deCONZ
+   //   (config 'websocketport', set in deCONZ resp. the docker container), 443 if it can't be queried
+
+   wsHost = httpUrl.substr(0, httpUrl.find_first_of(":/"));
+   wsPort = 443;
+
+   json_t* jConfig {};
+
+   if (query(jConfig, "config", apiKey.c_str()) == success && jConfig)
+   {
+      int port = getIntFromJson(jConfig, "websocketport", na);
+
+      if (port > 0 && port < 65536)
+         wsPort = port;
+      else
+         tell(eloAlways, "DECONZ: Warning: No websocket port in the config of deCONZ, using %d", wsPort);
+
+      json_decref(jConfig);
+   }
+   else
+      tell(eloAlways, "DECONZ: Warning: Query of the config failed, using websocket port %d", wsPort);
+
+   tell(eloAlways, "DECONZ: Websocket at '%s:%d'", wsHost.c_str(), wsPort);
 
    int logs {LLL_ERR | LLL_WARN | LLL_USER}; // {LLL_USER | LLL_ERR | LLL_WARN | LLL_NOTICE};
    lws_set_log_level(logs, NULL);

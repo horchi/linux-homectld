@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.43"
+#define _VERSION     "0.1.44"
 #define VERSION_DATE "07.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,19 @@
 
 /*
  * ------------------------------------
+
+2026-11-07: version 0.1.44
+    - change: README: the screenshots are shown on the WEBIF page 'README' too (moved from contrib/ to doc/img/,
+              images of the markdown are taken relative to its file), as previews of 400 px width side by side,
+              a click opens the full size (also on GitHub), not wider than the page (phone)
+    - bugfix: deCONZ: the websocket (events of the buttons, motion sensors, values) was connected to a fixed address
+              (192.168.200.101:443), with deCONZ on another host / port no events came; the host is taken from the
+              config 'deCONZ HTTP URL', the port from deCONZ (its config 'websocketport', 443 if it can't be
+              queried), logged at the start ('DECONZ: Websocket at ...'); after the first registration (new API
+              key) the websocket is connected at once (was only after the next start); an 'http://' in front of
+              the 'deCONZ HTTP URL' is skipped
+    - change: README: doc/deconz.md corrected (the URL is host:port without http, websocket)
+    - bugfix: HISTORY.h: compiler warning (comment opener in the text of 0.1.43)
 
 2026-11-07: version 0.1.43
     - change: sensor setup: the buttons of a sensor are icons in one column (info, setup, clone, delete, colored, a
@@ -28,7 +41,7 @@
               linking doc/installation.md, webif.md, hardware.md, lights.md, homematic.md, tpms.md, gps.md, hasp.md,
               garmin.md, lua.md, windy.md, standalone-server.md (each with a link back to the overview), new chapter
               doc/deconz.md (setup, API key, lights / groups / sensors, battery, invalid sensors)
-    - change: WEBIF page 'README': shows README.md and doc/*.md (htdocs/doc -> ../doc), links between them open in
+    - change: WEBIF page 'README': shows README.md and doc/<name>.md (htdocs/doc -> ../doc), links between them open in
               the viewer, anchors scroll in the page, other files of the project open at GitHub; the help buttons
               (GPS tours, fuel stops, HASP, Garmin) open their chapter
     - bugfix: make install: the README of the WEBIF was a dangling symlink in WEBDEST (htdocs/README.md ->

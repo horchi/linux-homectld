@@ -1537,6 +1537,12 @@ table.tableMultiCol td
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);*/
 }
 
+.markdown-body img                  /* screenshots, not wider than the page */
+{
+    max-width: 100%;
+    height: auto;
+}
+
 @media (max-width: 767px)
 {
     .markdown-body { padding: 15px; }

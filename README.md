@@ -91,13 +91,17 @@ Further READMEs of the components: [homematic](homematic/README.md), [tpms](tpms
 # Some Screenshots
 
 ## As Camper Control
-![](contrib/w-dash1.jpg?raw=true "Title")
-![](contrib/w-dash2.jpg?raw=true "Title")
-![](contrib/w-dash3.jpg?raw=true "Title")
-![](contrib/w-chart1.jpg?raw=true "Title")
+
+<a href="doc/img/w-dash1.jpg"><img src="doc/img/w-dash1.jpg" width="400" alt="Dashboard"></a>
+<a href="doc/img/w-dash2.jpg"><img src="doc/img/w-dash2.jpg" width="400" alt="Dashboard"></a>
+<a href="doc/img/w-dash3.jpg"><img src="doc/img/w-dash3.jpg" width="400" alt="Dashboard"></a>
+<a href="doc/img/w-chart1.jpg"><img src="doc/img/w-chart1.jpg" width="400" alt="Chart"></a>
 
 ## As Pool Control
-![](contrib/poold.jpg?raw=true "Title")
+
+<a href="doc/img/poold.jpg"><img src="doc/img/poold.jpg" width="400" alt="Pool control"></a>
+
+*Click on a screenshot for the full size.*
 
 # Disclaimer
 

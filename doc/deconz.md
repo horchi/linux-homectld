@@ -23,16 +23,18 @@ The sensors appear in *Setup -> IO Setup* in the sections *DECONZ Lampen*, *DECO
 
 1. Install and start deCONZ (package or docker container), pair the devices in Phoscon.
    For the stick use the path below `/dev/serial/by-id/`, it doesn't change with other USB devices.
-2. WEBIF *Setup -> Konfiguration -> DECONZ*: set *deCONZ HTTP URL* to the REST API of deCONZ,
-   e.g. `http://192.168.200.101:8081`, leave *deCONZ API key* empty
+2. WEBIF *Setup -> Konfiguration -> DECONZ*: set *deCONZ HTTP URL* to host and port of the REST API of deCONZ,
+   e.g. `192.168.200.101:8081` (an `http://` in front is skipped), leave *deCONZ API key* empty
 3. In Phoscon unlock the gateway for apps (*Settings -> Gateway -> Advanced -> Authenticate app*) and restart
    homectld within the 60 seconds: `systemctl restart homectld`. homectld registers itself, stores the key
-   as *deCONZ API key* and reads all devices. Without unlock the log shows
+   as *deCONZ API key*, reads all devices and connects to the websocket. Without unlock the log shows
    `Initiale Registrierung bei deconz ... fehlgeschlagen`
 4. Activate the wanted sensors in *Setup -> IO Setup*
 
-**Note:** the websocket of deCONZ is expected at `192.168.200.101` port `443` (hardcoded in `deconz.c`, not yet
-taken from the configuration), the websocket port of deCONZ has to be set to 443 resp. the address adjusted there.
+The events (buttons, motion, values, lights switched elsewhere) come by the websocket of deCONZ. It runs on the
+host of the *deCONZ HTTP URL*, the port is reported by deCONZ itself (its config `websocketport`, set in deCONZ
+resp. its docker container), if it can't be queried 443 is taken. The log shows it at the start:
+`DECONZ: Websocket at '192.168.200.101:443'`.
 
 If deCONZ forgets the API key after a restart (it isn't stored in its database), it can be entered there by hand:
 ```

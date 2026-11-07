@@ -577,6 +577,7 @@ int HomeCtl::init()
          setConfigItem("deconzApiKey", result.c_str());
          deconz.setApiKey(result.c_str());
          deconz.initDevices();
+         deconz.initWsClient();     // the events of deCONZ at once, not only after the next start
       }
    }
 

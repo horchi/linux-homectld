@@ -87,11 +87,22 @@ async function loadAndRenderReadme(file = 'README.md', anchor = null)
     }
 }
 
-// links of the markdown: README.md and doc/*.md are opened in the viewer, anchors scroll in the page,
+// images and links of the markdown: README.md and doc/*.md are opened in the viewer, anchors scroll in the page,
 //   other files of the project (e.g. tpms/README.md, not part of the WEBIF) are opened at GitHub
 
 function readmeLinks(container, file)
 {
+    // images relative to the markdown file (e.g. 'img/x.jpg' in doc/*.md)
+
+    container.querySelectorAll('img[src]').forEach(function(img) {
+        const src = img.getAttribute('src');
+
+        if (!/^[a-z]+:/i.test(src) && !src.startsWith('/')) {
+            const url = new URL(src, 'http://x/' + file);
+            img.setAttribute('src', url.pathname.substring(1) + url.search);
+        }
+    });
+
     container.querySelectorAll('a[href]').forEach(function(a) {
         const href = a.getAttribute('href');
 
@@ -114,7 +125,11 @@ function readmeLinks(container, file)
         const path = decodeURIComponent(url.pathname.substring(1));
         const anchor = url.hash ? decodeURIComponent(url.hash.substring(1)) : null;
 
-        if (path == 'README.md' || /^doc\/[^\/]+\.md$/.test(path)) {
+        if (/^doc\/.+\.(jpg|jpeg|png|gif|svg)$/i.test(path)) {         // images of the docs (screenshots) -> full size
+            a.setAttribute('href', path);
+            a.setAttribute('target', '_blank');
+        }
+        else if (path == 'README.md' || /^doc\/[^\/]+\.md$/.test(path)) {
             a.addEventListener('click', function(event) {
                 event.preventDefault();
                 loadAndRenderReadme(path, anchor);

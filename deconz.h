@@ -27,7 +27,7 @@ class Deconz
       int exit();
 
       void setApiKey(const char* key)  { apiKey = key; }
-      void setHttpUrl(const char* url) { httpUrl = url; }
+      void setHttpUrl(const char* url);   // 'host:port' of the REST API, an 'http://' in front is skipped
 
       const char* getHttpUrl() { return httpUrl.c_str(); }
       const char* getApiKey() { return apiKey.c_str(); }
@@ -95,4 +95,6 @@ class Deconz
       static Deconz* singleton;
       static struct lws_context* context;
       static struct lws* client_wsi;
+      static std::string wsHost;          // websocket of deCONZ: host of the REST API (deconzHttpUrl)
+      static int wsPort;                  //   and the port deCONZ reports in its config ('websocketport')
 };

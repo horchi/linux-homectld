@@ -472,6 +472,24 @@ class HomeCtl : public cWebInterface, public Service
       int storeHaspPages(json_t* obj, long client);
       int htmlWidgets2Json(json_t* obj);
       int storeHtmlWidgets(json_t* obj, long client);
+
+      // MQTT converter scripts (mqttconv.c, setup page 'MQTT Konverter')
+
+      struct MqttSeenTopic
+      {
+         std::string message;     // last message
+         time_t time {0};
+      };
+
+      int performMqttConverters(json_t* obj, long client);
+      int mqttConverters2Json(json_t* obj);
+      int mqttConverterStore(json_t* obj, std::string& error);
+      int mqttConverterDelete(const std::string& file, std::string& error);
+      int mqttConverterTest(json_t* obj, json_t* oJson);
+      std::vector<std::string> mqttConverterAliasesOf(const std::string& file);
+      std::string mqttConverterFile(const std::string& topic);
+      void mqttConverterSeen(const char* topic, const char* message);
+      std::map<std::string,MqttSeenTopic> mqttSeenTopics;      // topics received by dispatchOther()
       int storeHtmlWidget(json_t* obj, std::string& error);
       virtual int storeIoSetup(json_t* array, long client);
       int storeGroups(json_t* array, long client);
@@ -668,6 +686,7 @@ class HomeCtl : public cWebInterface, public Service
          bool in {false};                // start of the range (on / close), else end (off / open)
          int bri {na};                   // DZL / DZLG: brightness [%] on switch on
          int level {na};                 // HMB: position [%]
+         time_t at {0};                  // time of the limit
       };
 
       // light rules (lightrules.c) - switches / motion sensors (DZS) switch lights, optional off timer
@@ -725,6 +744,20 @@ class HomeCtl : public cWebInterface, public Service
       int actorTimesDue(const char* type, uint address, json_t* oSettings, time_t from, time_t to, std::vector<ActorTimeAction>& actions);
       int actorTimeAction(const ActorTimeAction& action);
       time_t actorTimesCheckedAt {0};
+
+      // catch up the limits missed during a stop / power off (sun.c): the time up to which the limits are
+      //  checked is stored once a minute, at the start the limits since then are done (up to 2 h back,
+      //  per actor only the last one), as soon as deCONZ and MQTT are ready (at most 2 min after the start)
+
+      int actorTimesStore();
+      int actorTimesLoad();
+      bool actorTimesReady(time_t now);
+      bool actorTimesCatchUp {false};
+      time_t actorTimesStartedAt {0};
+      time_t actorTimesStoredAt {0};
+      bool deconzReady {false};                                                // devices read after the websocket connected
+      static constexpr time_t actorTimesCatchUpMax {2 * tmeSecondsPerHour};   // [s] older limits are not caught up
+      static constexpr time_t actorTimesReadyWait {2 * tmeSecondsPerMinute};  // [s] longest wait for deCONZ / MQTT
 
       // Garmin activities (activities.c)
 

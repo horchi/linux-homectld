@@ -40,7 +40,8 @@ If you like the project and want to support it
 - Supports the VE.Direct-HEX-Protocol-Phoenix-Inverter protocol of Victron devices
 - Act as frontend of LMS (Logitech Media Server)
 - Act as a remote control of the VDR (Linux Video Disc Recorder)
-- Script adapter/converter interface for custom MQTT messages - to be able to integrate almost all sensors that deliver data via MQTT
+- Script adapter/converter interface for custom MQTT messages - to be able to integrate almost all sensors that deliver data via MQTT,
+  editable and testable in the WEBIF (*Setup -> MQTT Konverter*) - see [MQTT Converter](doc/mqtt-converter.md)
 - Windy App / Windy App Map to display wind data from https://windy.app/de/widgets - see [Windy App](doc/windy.md)
 - Control of WiFi management via nmcli client integrated in the web interface
 - Control of system services via systemd integrated in the web interface
@@ -78,6 +79,7 @@ If you like the project and want to support it
 | [GPS Tours](doc/gps.md) | live position, tour recording, ferries, dish alignment, fuel stops and consumption |
 | [HASP Panel](doc/hasp.md) | openHASP touch panel as display |
 | [Garmin Activities](doc/garmin.md) | activities of a Garmin Connect account |
+| [MQTT Converter](doc/mqtt-converter.md) | converter scripts for MQTT messages of foreign devices (e.g. TASMOTA), setup page, test |
 | [Lua Interface](doc/lua.md) | scripts for calculated values and outputs |
 | [Windy App](doc/windy.md) | wind / weather widgets of windy.app |
 | [Stand Alone Server](doc/standalone-server.md) | camper setup: network, DNS/DHCP, IP masquerading, LTE modem |

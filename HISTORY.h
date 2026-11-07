@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.44"
+#define _VERSION     "0.1.45"
 #define VERSION_DATE "07.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,30 @@
 
 /*
  * ------------------------------------
+
+2026-11-07: version 0.1.45
+    - added: time control of lights, groups and blinds (DZL, DZLG, HMB): a limit of a time range missed while
+             homectld was stopped (restart, power off) is caught up at the start, up to 2 h back, per actor only
+             the last one (e.g. 'Zu' at 22:00 and 'Auf' at 06:30 missed -> only 'Auf'); it waits until deCONZ
+             (websocket connected, devices read) and MQTT are ready, at most 2 min; the time up to which the
+             limits are done is stored once a minute and at the stop in /var/cache/homectld/actortimes.json;
+             logged ('Time control: Catching up the limits since ...', '... caught up the limit of ...');
+             the actions of the time control are done in the order of their limits
+    - added: WEBIF setup page 'MQTT Konverter' (admin only, checked by the daemon too, the scripts run as root): the
+             converter scripts of /etc/homectld/mqtt.d for MQTT messages of foreign devices (e.g. TASMOTA) as script,
+             alias (symbolic link to a script, one script for several topics) or skip (empty file, the messages are
+             dropped); editor (CodeMirror, shell mode, Ctrl-S stores, template for a new script), new / store /
+             duplicate / alias / delete (a script with aliases can't be deleted or replaced); the topics received via
+             the subscribed topics ('Zusätzliche sensor Topics') without converter are listed with their last message
+             (marked if homectld understands them directly), a click creates a converter; the editor shows by which
+             subscription the topic is received or warns if it isn't subscribed (the converter would never be
+             called) and the last message of the topic; after storing, the next call of the script is the first one
+             again (call count 1, init); button 'Testen': runs the script of the editor (also unsaved) with
+             the test message (the last message of the topic, editable, also without one), a stand-in of mosquitto_pub first in the PATH notes the
+             messages instead of publishing them, shown formatted (red if no JSON or type / address / value is
+             missing) with the output of the script, as a regular call (count 2), at most 5 s
+    - change: README: new chapter doc/mqtt-converter.md (how the converters work, message format, setup page,
+              test); TASMOTA.md: the examples are in etc/mqtt.d of the source tree (was configs/mqtt.d)
 
 2026-11-07: version 0.1.44
     - change: README: the screenshots are shown on the WEBIF page 'README' too (moved from contrib/ to doc/img/,

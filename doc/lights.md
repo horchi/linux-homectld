@@ -24,6 +24,10 @@ the GPS receiver (useful in a motorhome). The dashboard switches day / night by 
 - lights: on at the start, off at the end, optional with a brightness
 - blinds: *Zu* at the start, *Auf* at the end, with the positions for both [%]
 - switching only happens at the limits of a range; switched by hand it stays until the next limit
+- a limit missed while homectld was stopped (restart, power off of the motorhome) is caught up at the start,
+  up to 2 hours back and per light / blind only the last one (closed at 22:00 and opened at 06:30 -> only
+  opened); it waits until deCONZ and MQTT are ready (at most 2 minutes). The time up to which the limits are
+  done is stored once a minute in `/var/cache/homectld/actortimes.json`
 - *Zeitsteuerung aktiv* switches the whole time control of the actor off without losing the ranges
 
 The outputs (`DO`, `GPIO`) have their time ranges in the tab *Zeiten* of their setup, with the same sun events.

@@ -4638,6 +4638,70 @@ iPhones
    }
 }
 
+/* setup page 'MQTT Konverter' (mqttconv.js), layout of the page 'HTML Widgets' */
+
+.mqttConvSeenList {
+   margin-top: 12px;
+}
+
+.mqttConvWarnIcon {
+   color: var(--orange);
+   margin-left: 6px;
+}
+
+.mqttConvInfo {
+   font-size: smaller;
+   opacity: 0.8;
+}
+
+.mqttConvMessage {
+   margin: 0;
+   padding: 6px;
+   max-height: 200px;
+   overflow: auto;
+   white-space: pre-wrap;
+   word-break: break-all;
+   font-size: 12px;
+}
+
+.mqttConvTestBar {
+   display: flex;
+   align-items: center;
+   gap: 12px;
+}
+
+/* the labels of the rows are longer than on the page 'HTML Widgets' ('Letzte Nachricht') */
+
+.mqttConvPage .htmlWidgetRow > span:nth-child(1) {
+   width: 120px;
+}
+
+textarea.mqttConvMessage {
+   font-family: monospace;
+   resize: vertical;
+   background-color: transparent;
+   color: inherit;
+}
+
+.mqttConvPage .htmlWidgetRow > pre, .mqttConvPage .htmlWidgetRow > div {
+   flex: 1;
+   min-width: 0;
+}
+
+.mqttConvTestResult {
+   padding-top: 6px;              /* on the line of the label (its padding-top) */
+}
+
+.mqttConvTestResult > pre {
+   margin-bottom: 6px;
+}
+
+.mqttConvBad {
+   border-color: var(--red) !important;
+}
+
+.htmlWidgetRow > .htmlWidgetCm.mcCodeCm   { height: 420px; }   /* more specific than the 300px of .htmlWidgetCm below */
+
 .htmlWidgetMissing {
    border: 2px solid var(--red) !important;
 }

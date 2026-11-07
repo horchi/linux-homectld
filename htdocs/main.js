@@ -67,7 +67,7 @@ var sab = 0;             // env(safe-area-inset-bottom)
 var controlContainerCollapsed = false;
 var lastSetupPage = null;
 var lastSetupAction = null;
-var setupPages = ['setup', 'sensorsetup', 'userdetails', 'alerts', 'images', 'groups', 'syslog', 'system', 'commands', 'readme', 'hasp', 'homematic', 'htmlwidgets'];
+var setupPages = ['setup', 'sensorsetup', 'userdetails', 'alerts', 'images', 'groups', 'syslog', 'system', 'commands', 'readme', 'hasp', 'homematic', 'htmlwidgets', 'mqttconverters'];
 
 $('document').ready(function() {
    daemonState.state = -1;
@@ -929,6 +929,12 @@ function dispatchMessage(message)
    else if (event == "htmlwidgets") {
       htmlWidgetsReceived(jMessage.object);
    }
+   else if (event == "mqttconverters") {
+      mqttConvReceived(jMessage.object);
+   }
+   else if (event == "mqttconvtest") {
+      mqttConvTestResult(jMessage.object);
+   }
    else if (event == "hasppages") {
       haspPages = jMessage.object;
 
@@ -1216,8 +1222,10 @@ function prepareSetupMenu()
          addSetupMenuButton('Images', 'images');
          addSetupMenuButton('HASP Panel', 'hasp');
 
-         if (localStorage.getItem(storagePrefix + 'Rights') & 0x10)
+         if (localStorage.getItem(storagePrefix + 'Rights') & 0x10) {
             addSetupMenuButton('HTML Widgets', 'htmlwidgets');
+            addSetupMenuButton('MQTT Konverter', 'mqttconverters');
+         }
 
          if (config.homeMaticBridge == 'hmmqtt')
             addSetupMenuButton('HomeMatic', 'homematic');
@@ -1366,6 +1374,10 @@ function mainMenuSel(what, action = null, recoverSetupPage = true)
       event = "homematic";
    else if (currentPage == "htmlwidgets")
       initHtmlWidgetsPage();
+   else if (currentPage == "mqttconverters") {
+      initMqttConvPage();
+      event = "mqttconverters";       // the daemon sends the list (event 'mqttconverters')
+   }
    else if (currentPage == "syslog") {
       updateSyslog();
       return;

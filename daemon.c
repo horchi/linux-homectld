@@ -452,6 +452,7 @@ int HomeCtl::init()
 
    deconz.init(this, connection);
    lightRuleTimersLoad();          // the off timers of the light rules before the stop / crash
+   actorTimesLoad();               // the time control catches up the limits missed meanwhile
 
    // ---------------------------------
    // check users - add default user if empty
@@ -745,6 +746,7 @@ int HomeCtl::exit()
    }
 
    lightRuleTimersStore();         // complete, with the current off times
+   actorTimesStore();
    lmcExit();
    deconz.exit();
    mqttDisconnect();
@@ -2833,16 +2835,36 @@ int HomeCtl::process(bool force, bool signal)
    //  the actions are collected and done after the loop (toggleIo() uses tableValueFacts)
 
    time_t now {time(0)};
-   time_t checkedAt {actorTimesCheckedAt};
+   time_t checkedAt {now};      // nothing to check as long as not ready (after the start)
+   bool catchUp {false};
 
    deconzCheckOutdated();
    mqttCheckOutdated();
    std::vector<ActorTimeAction> actorActions;
 
-   actorTimesCheckedAt = now;
+   if (actorTimesReady(now))
+   {
+      checkedAt = actorTimesCheckedAt;
+      catchUp = actorTimesCatchUp;
+      actorTimesCheckedAt = now;
+      actorTimesCatchUp = false;
 
-   if (now - checkedAt > 15 * tmeSecondsPerMinute)
-      checkedAt = now;           // start or stalled for a long time - limits in the past are not caught up
+      // after the start the limits since the stored time (stop / power off) up to actorTimesCatchUpMax,
+      //  else (stalled for a long time) limits in the past are not caught up
+
+      if (now - checkedAt > (catchUp ? actorTimesCatchUpMax : 15 * tmeSecondsPerMinute))
+      {
+         if (catchUp && checkedAt)
+            tell(eloAlways, "Time control: Stopped since %s, too long to catch up the missed limits", l2pTime(checkedAt).c_str());
+
+         checkedAt = now;
+      }
+      else if (catchUp && checkedAt < now)
+         tell(eloAlways, "Time control: Catching up the limits since %s", l2pTime(checkedAt).c_str());
+
+      if (now - actorTimesStoredAt >= tmeSecondsPerMinute)
+         actorTimesStore();
+   }
 
    for (bool f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
    {
@@ -2931,6 +2953,27 @@ int HomeCtl::process(bool force, bool signal)
 
       if (sensors[type][address].state != activate)
          gpioWrite(address, activate);
+   }
+
+   // in the order of their limits, caught up (after the start) per actor only the last one
+   //  (e.g. 'Zu' at 22:00 missed, no need to close a blind which opened again at 06:30)
+
+   std::stable_sort(actorActions.begin(), actorActions.end(), [](const auto& a, const auto& b) { return a.at < b.at; });
+
+   if (catchUp)
+   {
+      std::map<std::string,ActorTimeAction> last;
+
+      for (const auto& action : actorActions)
+         last[action.type + ":" + std::to_string(action.address)] = action;
+
+      actorActions.clear();
+
+      for (const auto& [key, action] : last)
+      {
+         tell(eloAlways, "Time control: '%s:0x%02x' caught up the limit of %s", action.type.c_str(), action.address, l2pTime(action.at).c_str());
+         actorActions.push_back(action);
+      }
    }
 
    for (const auto& action : actorActions)
@@ -4126,7 +4169,9 @@ int HomeCtl::dispatchDeconz()
       {
          Deconz::messagesIn.pop();
          tell(eloAlways, "DECONZ: Init devices on WS connected");
-         return deconz.initDevices();
+         int status = deconz.initDevices();
+         deconzReady = deconzReady || status == success;    // the time control may catch up missed limits now
+         return status;
       }
 
       json_t* oData {jsonLoad(msg)};
@@ -4807,6 +4852,8 @@ int HomeCtl::dispatchEspLog(const char* topic, const char* message)
 int HomeCtl::dispatchOther(const char* topic, const char* message)
 {
    // tell(eloAlways, "Debug: Dispatch '%s'", message);
+
+   mqttConverterSeen(topic, message);     // offered by the setup page 'MQTT Konverter'
 
    // check if we have a converter script - before parsing, the payload of foreign
    // devices (e.g. TASMOTA 'OFF') is usually no JSON, the script converts it

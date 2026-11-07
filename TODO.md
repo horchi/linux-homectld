@@ -1,14 +1,11 @@
 
 # General
 
-- README.md aufteilen (GPS, TPMS, HomeMatic, Deconz, ...)
-- add write of victron registers to WEBIF
 - move the sensor default settings (defaultWidgetProperties in daemon.c: widget type, scale, peak per type / unit,
   the colors in widgetDefaults2Json) out of the code into a JSON config on disk
   (e.g. /etc/homectld/widget-defaults.json + a user file) or a table - to be decided
 - Anzeige der Widget defaults im Sensor Setup als Tab im Message ({...}) Dialog
-- TPMS wenn ESP nicht erreichbar "Parken" anzeigen
-- integrate MQTT converter scripts into frontend
+- add write of victron registers to WEBIF
 
 ## HTML widgets - JS snippets
 
@@ -42,7 +39,6 @@
 - pairing / removing is implemented but not yet tested with a real device -> test with the next new actor
 
 ## Light rules / time control
-- blinds: catch up a limit of the time range missed during a restart
 - time zone: on travel use the time zone of the GPS position (today the one of the system)
 
 ## Lua rules for special cases (optional, not needed for the Node-RED replacement)
@@ -63,3 +59,4 @@
   (make upload); homectld config 'Zusätzliche sensor Topics' + homectld2mqtt/tpms; 'learn' on until all 6 caps are
   in 'wheels', then off; activate / name the sensors; export the HTML widget 'Reifendruck Womo' at gate, import it
   there and set the IDs per wheel (vl, vl_t, ... h2r_t)
+- wenn ESP nicht erreichbar "Parken" anzeigen

@@ -61,12 +61,20 @@ stat/bbqlight/POWER   stat_bbqlight_POWER.sh
 ```
 As an example for a simple TASMOTA switch (light,relais, ...) you find a example in the source tree:
 ```
-configs/mqtt.d/stat_bbqlight_POWER.sh
-configs/mqtt.d/tele_bbqlight_STATE.sh
+etc/mqtt.d/stat_bbqlight_POWER.sh
+etc/mqtt.d/tele_bbqlight_STATE.sh
 ```
 
 As a example for a sensor with more values:
 ```
-configs/mqtt.d/tele_tasmota_SENSOR.sh
+etc/mqtt.d/tele_tasmota_SENSOR.sh
 ```
 If a converter is to be used for multiple topics, this can be mapped using symbolic links.
+
+Details of the converters (parameters, message format, test): [doc/mqtt-converter.md](doc/mqtt-converter.md).
+The converters can be managed in the WEBIF as well: *Setup -> MQTT Konverter* (admin only, the scripts run as root).
+It lists the converters (script, alias = symbolic link to a script, skip = empty file, the messages of the topic
+are dropped) and the topics received via the subscribed topics without a converter (with their last message, a
+click creates a converter). The editor shows whether the topic is subscribed - a converter is only called for a
+topic listed in *Konfiguration -> MQTT -> Zusätzliche sensor Topics* (directly or by a pattern like `stat/bbqlight/+`).
+After storing a script its next call is the first one again (call count 1, e.g. for the init message).

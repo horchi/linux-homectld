@@ -99,6 +99,7 @@ int HomeCtl::dispatchClientRequest()
             case evHomeMatic:           status = performHomeMatic(oObject, client);      break;
             case evStoreHaspPages:      status = storeHaspPages(oObject, client);        break;
             case evStoreHtmlWidgets:    status = storeHtmlWidgets(oObject, client);      break;
+            case evMqttConverters:      status = performMqttConverters(oObject, client); break;
             default:
             {
                if (dispatchSpecialRequest(event,oObject, client) == ignore)
@@ -167,6 +168,7 @@ bool HomeCtl::checkRights(long client, Event event, json_t* oObject)
       case evHomeMatic:           return rights & urSettings;
       case evStoreHaspPages:      return rights & urFullControl;
       case evStoreHtmlWidgets:    return rights & urAdmin;     // the snippets run in the WEBIF of all users
+      case evMqttConverters:      return rights & urAdmin;     // the scripts run as root
       case evGroups:              return rights & urSettings;
       case evImageConfig:         return rights & urSettings;
 

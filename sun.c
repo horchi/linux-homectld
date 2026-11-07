@@ -40,6 +40,7 @@
 #include <cmath>
 #include <sstream>
 #include <iomanip>
+#include <sys/stat.h>
 
 #include "daemon.h"
 
@@ -444,7 +445,7 @@ int HomeCtl::actorTimesDue(const char* type, uint address, json_t* oSettings, ti
             continue;
 
          uint hhmm {in ? hhmmStart : hhmmEnd};
-         bool due {false};
+         time_t dueAt {0};
 
          for (time_t day : { yesterday, today })
          {
@@ -452,16 +453,17 @@ int HomeCtl::actorTimesDue(const char* type, uint address, json_t* oSettings, ti
             time_t dayOfRange {in || !overnight ? day : midnightOf(day - 1)};
 
             if (at > from && at <= to && rangeDateValid(jRange, dayOfRange))
-               due = true;
+               dueAt = std::max(dueAt, at);
          }
 
-         if (!due)
+         if (!dueAt)
             continue;
 
          ActorTimeAction action;
          action.type = type;
          action.address = address;
          action.in = in;
+         action.at = dueAt;
 
          if (strcmp(type, "HMB") == 0)
             action.level = getIntFromJson(oSettings, in ? "levelIn" : "levelOut", in ? 0 : 100);
@@ -501,6 +503,94 @@ int HomeCtl::actorTimeAction(const ActorTimeAction& action)
 
    int bri {action.bri > 0 ? std::min(action.bri, 100) : na};
    return lightCommand(type, action.address, action.in, bri, na);
+}
+
+//***************************************************************************
+// Store / Load the Time of the last Check
+//   { "checkedAt": 1794067200 } - the limits up to this time are done, the ones after it
+//   are caught up at the next start (stop, crash, power off)
+//***************************************************************************
+
+static const char* actorTimesDir {"/var/cache/homectld"};
+static const char* actorTimesFile {"/var/cache/homectld/actortimes.json"};
+
+int HomeCtl::actorTimesStore()
+{
+   if (!actorTimesCheckedAt || actorTimesCatchUp)       // not yet checked since the start, keep the stored time
+      return done;
+
+   actorTimesStoredAt = time(0);
+
+   char* p {};
+   asprintf(&p, "{ \"checkedAt\": %ld }\n", (long)actorTimesCheckedAt);
+
+   std::string tmp {std::string(actorTimesFile) + ".tmp"};
+   mkdir(actorTimesDir, 0755);
+
+   if (storeToFile(tmp.c_str(), p, strlen(p)) != success || rename(tmp.c_str(), actorTimesFile) != 0)
+   {
+      tell(eloAlways, "Error: Can't store the time of the time control to '%s'", actorTimesFile);
+      free(p);
+      return fail;
+   }
+
+   free(p);
+
+   return success;
+}
+
+int HomeCtl::actorTimesLoad()
+{
+   actorTimesStartedAt = time(0);
+   actorTimesCatchUp = true;
+   actorTimesCheckedAt = 0;
+
+   if (!fileExists(actorTimesFile))
+      return done;
+
+   json_error_t error;
+   json_t* obj {json_load_file(actorTimesFile, 0, &error)};
+
+   if (!obj)
+   {
+      tell(eloAlways, "Error: Can't load the time of the time control from '%s' (%s)", actorTimesFile, error.text);
+      return fail;
+   }
+
+   time_t checkedAt = getLongFromJson(obj, "checkedAt", 0);
+   json_decref(obj);
+
+   if (checkedAt > 0 && checkedAt <= actorTimesStartedAt)
+      actorTimesCheckedAt = checkedAt;
+
+   return success;
+}
+
+//***************************************************************************
+// Actor Times Ready
+//   the actors can be switched: deCONZ connected and its devices read (if configured) and
+//   MQTT connected (HomeMatic via Node-RED / hmmqtt), the time control waits for it after the
+//   start (the commands would get lost), at most actorTimesReadyWait
+//***************************************************************************
+
+bool HomeCtl::actorTimesReady(time_t now)
+{
+   if (!actorTimesCatchUp)
+      return true;
+
+   bool deconzOk {isEmpty(deconz.getHttpUrl()) || isEmpty(deconz.getApiKey()) || deconzReady};
+   bool mqttOk {mqttWriter && mqttWriter->isConnected()};
+
+   if (deconzOk && mqttOk)
+      return true;
+
+   if (now - actorTimesStartedAt < actorTimesReadyWait)
+      return false;
+
+   tell(eloAlways, "Time control: Not ready after %ld s (deCONZ %s, MQTT %s), going on",
+        (long)(now - actorTimesStartedAt), deconzOk ? "ok" : "not ready", mqttOk ? "ok" : "not connected");
+
+   return true;
 }
 
 //***************************************************************************

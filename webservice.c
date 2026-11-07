@@ -61,6 +61,7 @@ const char* cWebService::events[] =
    "storehasppages",
    "homematic",
    "storehtmlwidgets",
+   "mqttconverters",
 
    0
 };

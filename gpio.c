@@ -14,6 +14,8 @@
 #include <chrono>
 
 #include "lib/json.h"
+#include <unistd.h>
+
 #include "gpio.h"
 
 #if defined (GPIOD)
@@ -235,7 +237,9 @@ int Gpio::init()
    {
       if (loadMapping() != 0)
       {
-         tell(eloAlways, "GPIO: Failed to load mapping");
+         if (!noBoard)
+            tell(eloAlways, "GPIO: Failed to load mapping");
+
          return fail;
       }
    }
@@ -279,6 +283,18 @@ int Gpio::loadMapping()
 {
    if (mappingLoaded)
       return success;
+
+   // only boards (Raspberry Pi, Orange Pi, ...) report their model by the device tree - without it
+   //  (e.g. a x86 PC) there is no GPIO header, no mapping needed and nothing to report
+
+   if (access("/proc/device-tree/model", R_OK) != 0)
+   {
+      if (!noBoard)
+         tell(eloDebug, "GPIO: No board model (/proc/device-tree/model), no GPIO header");
+
+      noBoard = true;
+      return fail;
+   }
 
    std::string file {configPath};
 

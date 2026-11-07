@@ -14,7 +14,8 @@
  *
  *  { "rules": [ { "trigger": "button",              button | motion
  *                 "button": 1002,                   button event (trigger 'button')
- *                 "action": "toggle",               toggle | on | off | follow
+ *                 "action": "toggle",               toggle | on | off | follow | dim
+ *                 "stopButton": 1003,               dim: button event ending the dimming (default 1003)
  *                 "targets": [ "DZL:0x03", ... ],
  *                 "bri": 80,                        brightness [%] on switching on (optional)
  *                 "transition": 15,                 transition time [s] (optional)
@@ -29,6 +30,10 @@
  *  on      all on, off     all off
  *  follow  on with motion, off 'offAfter' s (without: lightFollowGrace s) after the sensor
  *          reports no motion anymore - a new motion meanwhile keeps the lights on
+ *  dim     holding the button (e.g. 1001) dims the targets, its release ('stopButton', e.g. 1003)
+ *          stops it; 'transition' is the time over the full range (default lightDimDefaultTime s);
+ *          off targets are switched on with the lowest brightness and dimmed up, else down from
+ *          50 % on, up below - holding again within lightDimReverseWithin s takes the other direction
  *
  *  Off timer: started / restarted by each event which switches on, at the end only the
  *  targets switched on by the rule are switched off (a light which was already on stays on),
@@ -269,9 +274,13 @@ int HomeCtl::lightRuleApply(const char* key, json_t* jRule, const LightRuleEvent
    std::string trigger {getStringFromJson(jRule, "trigger", "")};
    std::string action {getStringFromJson(jRule, "action", "")};
 
+   bool dimStop {false};
+
    if (trigger == "button")
    {
-      if (event.button == na || getIntFromJson(jRule, "button", na) != event.button)
+      dimStop = action == "dim" && event.button != na && event.button == getIntFromJson(jRule, "stopButton", 1003);
+
+      if (!dimStop && (event.button == na || getIntFromJson(jRule, "button", na) != event.button))
          return done;
    }
    else if (trigger == "motion")
@@ -309,6 +318,14 @@ int HomeCtl::lightRuleApply(const char* key, json_t* jRule, const LightRuleEvent
 
    if (targets.empty())
       return done;
+
+   if (action == "dim")
+   {
+      if (dimStop)
+         return lightRuleDimStop(key, targets);
+
+      return lightRuleDim(key, targets, getIntFromJson(jRule, "transition", 0));
+   }
 
    bool on {false};
 
@@ -420,6 +437,82 @@ int HomeCtl::lightRuleApply(const char* key, json_t* jRule, const LightRuleEvent
       if (lightRuleTimers.erase(key))      // follow without offAfter: motion again, the pending off is gone
          lightRuleTimersDirty = true;
    }
+
+   return done;
+}
+
+//***************************************************************************
+// Light Rule Dim / Dim Stop
+//***************************************************************************
+
+int HomeCtl::lightRuleDim(const char* key, const std::vector<std::string>& targets, int transition)
+{
+   LightDim& dim {lightDims[key]};
+   bool anyOn {false};
+   int bri {na};
+
+   for (const auto& t : targets)
+   {
+      std::string type;
+      uint address {0};
+
+      if (!lightTargetState(t) || !parseTarget(t, type, address))
+         continue;
+
+      anyOn = true;
+
+      if (bri == na)
+         bri = sensors[type][address].value;     // brightness [%] of the first one on
+   }
+
+   int dir {1};
+
+   if (!anyOn)
+      dir = 1;
+   else if (dim.dir && time(0) - dim.stoppedAt <= lightDimReverseWithin)
+      dir = -dim.dir;
+   else
+      dir = bri >= 50 ? -1 : 1;
+
+   int transitionTime {(transition > 0 ? transition : lightDimDefaultTime) * 10};
+
+   tell(eloDetail, "Light rule '%s' (dim): %s%s", key, dir > 0 ? "up" : "down", anyOn ? "" : ", switching on");
+
+   for (const auto& t : targets)
+   {
+      std::string type;
+      uint address {0};
+
+      if (parseTarget(t, type, address) && (type == "DZL" || type == "DZLG"))
+         deconz.dim(type.c_str(), address, dir * 254, transitionTime, !anyOn);
+   }
+
+   dim.dir = dir;
+   dim.active = true;
+
+   return done;
+}
+
+int HomeCtl::lightRuleDimStop(const char* key, const std::vector<std::string>& targets)
+{
+   auto it {lightDims.find(key)};
+
+   if (it == lightDims.end() || !it->second.active)
+      return done;
+
+   tell(eloDetail, "Light rule '%s' (dim): stop", key);
+
+   for (const auto& t : targets)
+   {
+      std::string type;
+      uint address {0};
+
+      if (parseTarget(t, type, address) && (type == "DZL" || type == "DZLG"))
+         deconz.dim(type.c_str(), address, 0, na);
+   }
+
+   it->second.active = false;
+   it->second.stoppedAt = time(0);
 
    return done;
 }

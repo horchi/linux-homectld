@@ -132,6 +132,7 @@ class Gpio
       std::string modelName;
 
       bool mappingLoaded {};
+      bool noBoard {};          // no board with GPIO header (no /proc/device-tree/model, e.g. x86 PC)
       std::map<int, PinInfo>  pinMapping;
       std::map<int, PinState> pins;
 };

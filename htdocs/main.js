@@ -67,7 +67,7 @@ var sab = 0;             // env(safe-area-inset-bottom)
 var controlContainerCollapsed = false;
 var lastSetupPage = null;
 var lastSetupAction = null;
-var setupPages = ['setup', 'sensorsetup', 'userdetails', 'alerts', 'images', 'groups', 'syslog', 'system', 'commands', 'readme', 'hasp', 'homematic', 'htmlwidgets', 'mqttconverters'];
+var setupPages = ['setup', 'sensorsetup', 'userdetails', 'alerts', 'images', 'groups', 'syslog', 'system', 'commands', 'readme', 'hasp', 'homematic', 'htmlwidgets', 'mqttconverters', 'zigbee'];
 
 $('document').ready(function() {
    daemonState.state = -1;
@@ -825,6 +825,8 @@ function dispatchMessage(message)
          updateList();
       else if (currentPage == 'htmlwidgets')
          htmlWidgetPreview();
+      else if (currentPage == 'zigbee')
+         zigbeeUpdateValues();
       else if (currentPage == 'sensorsetup')
          updateSensorSetupValue();
       else if (currentPage == 'gpslive')
@@ -931,6 +933,9 @@ function dispatchMessage(message)
    }
    else if (event == "mqttconverters") {
       mqttConvReceived(jMessage.object);
+   }
+   else if (event == "zigbee") {
+      zigbeeReceived(jMessage.object);
    }
    else if (event == "mqttconvtest") {
       mqttConvTestResult(jMessage.object);
@@ -1225,6 +1230,9 @@ function prepareSetupMenu()
          if (localStorage.getItem(storagePrefix + 'Rights') & 0x10) {
             addSetupMenuButton('HTML Widgets', 'htmlwidgets');
             addSetupMenuButton('MQTT Konverter', 'mqttconverters');
+
+            if (!isEmpty(config.deconzHttpUrl))
+               addSetupMenuButton('Zigbee', 'zigbee');
          }
 
          if (config.homeMaticBridge == 'hmmqtt')
@@ -1377,6 +1385,11 @@ function mainMenuSel(what, action = null, recoverSetupPage = true)
    else if (currentPage == "mqttconverters") {
       initMqttConvPage();
       event = "mqttconverters";       // the daemon sends the list (event 'mqttconverters')
+   }
+   else if (currentPage == "zigbee") {
+      zigbee = null;                  // 'wird geladen ...' until the daemon sends the devices (event 'zigbee')
+      initZigbeePage();
+      event = "zigbee";
    }
    else if (currentPage == "syslog") {
       updateSyslog();

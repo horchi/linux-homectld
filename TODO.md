@@ -4,7 +4,7 @@
 - move the sensor default settings (defaultWidgetProperties in daemon.c: widget type, scale, peak per type / unit,
   the colors in widgetDefaults2Json) out of the code into a JSON config on disk
   (e.g. /etc/homectld/widget-defaults.json + a user file) or a table - to be decided
-- Anzeige der Widget defaults im Sensor Setup als Tab im Message ({...}) Dialog
+- Anzeige der Widget defaults im Sensor Setup als Tab im Info Dialog
 - add write of victron registers to WEBIF
 
 ## HTML widgets - JS snippets
@@ -33,6 +33,11 @@
   (fallback: DIY ESP32-C6 Zigbee sensor); then pair it, set up the shading of Blumenfenster (HMB:0x02)
   and Küche (HMB:0x04) - windows face 224°, start with azimuth ~180-290° - and calibrate the thresholds;
   activate only with the sensor (without it the brightness is not checked)
+
+## Zigbee (zigbee.c, Setup -> Zigbee)
+
+- pairing (search, event 'added', activating) and renaming tested 07.11. (Aqara switch lumi.remote.b1acn01,
+  DZS:0x2f); removing (with reset of lights) and 'API-Key holen' not yet tested -> removing with a spare device
 
 ## HomeMatic (hmmqtt)
 

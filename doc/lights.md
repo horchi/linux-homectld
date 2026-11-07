@@ -38,6 +38,10 @@ The outputs (`DO`, `GPIO`) have their time ranges in the tab *Zeiten* of their s
 
 - trigger: a button code of the switch or *Bewegung* of the motion sensor
 - action: *Umschalten*, *An*, *Aus* or *Folgen* (on with motion, off when the sensor reports no motion anymore)
+- action *Dimmen (Taste halten)*: holding the button (e.g. `1001`) dims the targets, the button of *Stopp bei Taste*
+  (release, e.g. `1003`) stops it; *Übergang* is the time over the full range (default 4 s). Off targets go on
+  with the lowest brightness and get brighter, else darker from 50 % on and brighter below; holding again within
+  5 s after the release dims in the other direction
 - targets: one or more lights, groups or outputs
 - optional brightness [%] and transition [s] (fading time)
 - optional off timer *Aus nach* [s], restarted by each event, switches off only what the rule switched on

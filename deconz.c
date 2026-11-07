@@ -6,6 +6,8 @@
 // Date 04.11.2010 - 15.12.2021  Jörg Wendel
 //***************************************************************************
 
+#include <algorithm>
+
 #include "lib/curl.h"
 #include "lib/json.h"
 
@@ -136,22 +138,31 @@ int Deconz::queryApiKey(std::string& result)
    json_t* jItem {};
 
    if (!jData)
+   {
+      json_decref(jArray);
       return fail;
+   }
+
+   int res {fail};
 
    json_object_foreach(jData, status, jItem)
    {
       if (strcmp(status, "success") != 0)
       {
-         result = getStringFromJson(jItem, "description");
-         return fail;
+         // e.g. {"error": {"type": 101, "address": "/", "description": "link button not pressed"}}
+
+         result = getStringFromJson(jItem, "description", "");
+         res = fail;
+         break;
       }
 
-      result = getStringFromJson(jItem, "username");
+      result = getStringFromJson(jItem, "username", "");
+      res = result.empty() ? fail : success;
    }
 
    json_decref(jArray);
 
-   return success;
+   return res;
 }
 
 //***************************************************************************
@@ -526,6 +537,64 @@ int Deconz::toggle(const char* type, uint address, bool state, int bri, int tran
 // Color
 //***************************************************************************
 
+//***************************************************************************
+// Dim
+//   'bri_inc' of deCONZ: changes the brightness by inc (-254 .. 254) within the transition time
+//   [1/10 s], 0 stops a running change (dimming while a button is hold); switchOn: an off light
+//   is switched on with the lowest brightness first
+//***************************************************************************
+
+int Deconz::dim(const char* type, uint address, int inc, int transitiontime, bool switchOn)
+{
+   std::string uuid;
+
+   {
+      cMyMutexLock lock(&mapsMutex);
+
+      for (const auto& light : lights)
+      {
+         if (light.second == address)
+         {
+            uuid = light.first;
+            break;
+         }
+      }
+   }
+
+   if (uuid.empty())
+      return fail;
+
+   json_t* jArray {};
+   int status {success};
+
+   if (switchOn)
+   {
+      if ((status = put(type, jArray, uuid.c_str(), json_pack("{s:b,s:i}", "on", 1, "bri", 1))) == success)
+         status = checkResult(jArray);
+
+      json_decref(jArray);
+      jArray = nullptr;
+
+      if (status != success)
+         return status;
+   }
+
+   json_t* jObj {json_object()};
+   json_object_set_new(jObj, "bri_inc", json_integer(std::clamp(inc, -254, 254)));
+
+   if (inc != 0 && transitiontime != na)
+      json_object_set_new(jObj, "transitiontime", json_integer(transitiontime));
+
+   if ((status = put(type, jArray, uuid.c_str(), jObj)) == success)
+      status = checkResult(jArray);
+
+   json_decref(jArray);
+
+   tell(eloDeconz, "DECONZ: Dim '%s' by %d (%d)", uuid.c_str(), inc, transitiontime);
+
+   return status;
+}
+
 int Deconz::color(const char* type, uint address, int hue, int sat, int bri)
 {
    json_t* jArray {};
@@ -743,9 +812,152 @@ int Deconz::query(json_t*& jResult, const char* method, const char* key)
    return done;
 }
 
+//***************************************************************************
+// REST
+//   method GET | PUT | POST | DELETE on http://<host:port>/api/<key>/<path>, jData (taken, may
+//   be null) is the body; the result is the JSON of deCONZ (an array of success / error objects
+//   for PUT / POST / DELETE, the resource(s) for GET)
+//***************************************************************************
+
+int Deconz::rest(const char* method, const char* path, json_t* jData, json_t*& jResult)
+{
+   jResult = nullptr;
+
+   if (httpUrl.empty() || apiKey.empty())
+   {
+      if (jData)
+         json_decref(jData);
+
+      return fail;
+   }
+
+   char* url {};
+   asprintf(&url, "http://%s/api/%s/%s", httpUrl.c_str(), apiKey.c_str(), path);
+
+   char* payload {jData ? json_dumps(jData, JSON_REAL_PRECISION(4)) : strdup("")};
+
+   if (jData)
+      json_decref(jData);
+
+   std::string data;
+   int status {fail};
+
+   if (strcmp(method, "GET") == 0)
+   {
+      MemoryStruct mem;
+      int size {0};
+
+      if ((status = curl.downloadFile(url, size, &mem, 5)) == success && mem.memory)
+         data.assign(mem.memory, mem.size);
+   }
+   else if (strcmp(method, "PUT") == 0)
+      status = curl.put(url, payload, &data);
+   else if (strcmp(method, "POST") == 0)
+      status = curl.post(url, payload, &data);
+   else if (strcmp(method, "DELETE") == 0)
+      status = curl.del(url, payload, &data);
+
+   tell(eloDeconz, "DECONZ: -> %s '%s' '%s'; result [%s]", method, url, payload, data.c_str());
+
+   if (status != success)
+      tell(eloAlways, "DECONZ: REST call %s '%s' failed", method, url);
+
+   free(url);
+   free(payload);
+
+   if (status != success)
+      return fail;
+
+   jResult = jsonLoad(data.c_str());
+
+   return jResult ? success : fail;
+}
+
+//***************************************************************************
+// Result Error
+//   [{"error": {"address": "/lights/7", "description": "resource, /lights/7, not available", "type": 3}}]
+//***************************************************************************
+
+std::string Deconz::resultError(json_t* jArray)
+{
+   if (!jArray)
+      return "keine Antwort von deCONZ";
+
+   if (!json_is_array(jArray))
+      return "";
+
+   size_t i {0};
+   json_t* jItem {};
+
+   json_array_foreach(jArray, i, jItem)
+   {
+      json_t* jError {json_object_get(jItem, "error")};
+
+      if (jError)
+         return getStringFromJson(jError, "description", "unbekannter Fehler");
+   }
+
+   return "";
+}
+
+//***************************************************************************
+// Address Of / Forget
+//***************************************************************************
+
+long Deconz::addressOf(const char* kind, const char* uuid)
+{
+   cMyMutexLock lock(&mapsMutex);
+
+   const std::map<std::string,uint>& map {strcmp(kind, "light") == 0 ? lights : sensors};
+   auto it {map.find(uuid)};
+
+   return it != map.end() ? (long)it->second : na;
+}
+
+time_t Deconz::knownSince(const char* kind, const char* uuid)
+{
+   cDbTable* table {strcmp(kind, "light") == 0 ? tableDeconzLights : tableDeconzSensors};
+   cDbStatement* select {strcmp(kind, "light") == 0 ? selectLightByUuid : selectSensorByUuid};
+
+   table->clear();
+   table->setValue("UUID", uuid);
+
+   time_t since {select->find() ? (time_t)table->getIntValue("INSSP") : 0};
+
+   select->freeResult();
+   table->reset();
+
+   return since;
+}
+
+void Deconz::forget(const char* kind, const char* uuid)
+{
+   {
+      cMyMutexLock lock(&mapsMutex);
+
+      if (strcmp(kind, "light") == 0)
+         lights.erase(uuid);
+      else
+         sensors.erase(uuid);
+   }
+
+   cDbTable* table {strcmp(kind, "light") == 0 ? tableDeconzLights : tableDeconzSensors};
+   cDbStatement* select {strcmp(kind, "light") == 0 ? selectLightByUuid : selectSensorByUuid};
+
+   table->clear();
+   table->setValue("UUID", uuid);
+
+   if (select->find())
+      table->deleteWhere("%s = %ld", table->getField("ADDRESS")->getDbName(), table->getIntValue("ADDRESS"));
+
+   select->freeResult();
+   table->reset();
+}
+
 lws* Deconz::client_wsi {};
 std::string Deconz::wsHost;
 int Deconz::wsPort {443};
+std::atomic<bool> Deconz::connected {false};
 lws_context* Deconz::context {};
 Deconz* Deconz::singleton {};
 
@@ -941,22 +1153,65 @@ int Deconz::atInMessage(const char* data, size_t size)
 
    long address {na};
 
+   // a new light / sensor ({"e":"added","r":"sensors","id":"41","sensor":{...},"t":"event","uniqueid":"..."})
+   //  resp. a deleted one ({"e":"deleted","r":"lights","id":"7","t":"event","uniqueid":"..."}) - paired / removed
+   //  by the setup page 'Zigbee' or by Phoscon; processed by the main thread (REST calls, database),
+   //  see HomeCtl::zigbeeEvent()
+
+   if ((resource == "lights" || resource == "sensors") && !isEmpty(t) && strcmp(t, "event") == 0 &&
+       !isEmpty(event) && (strcmp(event, "added") == 0 || strcmp(event, "deleted") == 0))
+   {
+      json_t* jEvent {json_object()};
+      json_object_set_new(jEvent, "dzevent", json_string(event));
+      json_object_set_new(jEvent, "resource", json_string(resource.c_str()));
+      json_object_set_new(jEvent, "id", json_string(getStringFromJson(obj, "id", "")));
+      json_object_set_new(jEvent, "uniqueid", json_string(uuid ? uuid : ""));
+
+      json_t* jItem {json_object_get(obj, resource == "lights" ? "light" : "sensor")};
+
+      if (jItem)
+         json_object_set(jEvent, "item", jItem);
+
+      char* p {json_dumps(jEvent, JSON_REAL_PRECISION(4))};
+
+      {
+         cMyMutexLock lock(&messagesInMutex);
+         messagesIn.push(p);
+      }
+
+      free(p);
+      json_decref(jEvent);
+      json_decref(obj);
+
+      return success;
+   }
+
    // we start with 'sensors' and 'lights', later on may be 'groups'
 
    {
       cMyMutexLock lock(&mapsMutex);
 
-      if (resource == "lights")
-         address = lights[uuid];
-      else if (resource == "sensors")
-         address = sensors[uuid];
-      else if (resource == "groups")
-         address = lights[uuid];
-      else
+      // find() - an unknown uuid (e.g. the 'Daylight' sensor, a not yet registered device) must not be
+      //  added to the maps with address 0
+
+      std::map<std::string,uint>* map {resource == "sensors" ? &sensors : resource == "lights" || resource == "groups" ? &lights : nullptr};
+
+      if (!map || isEmpty(uuid))
       {
          json_decref(obj);
          return done;
       }
+
+      auto it {map->find(uuid)};
+
+      if (it == map->end())
+      {
+         tell(eloDebugDeconz, "DECONZ: Ignoring event of unknown '%s' uuid '%s'", resource.c_str(), uuid);
+         json_decref(obj);
+         return done;
+      }
+
+      address = it->second;
 
       tell(eloDebugDeconz, "DECONZ: Got address %ld for uuid '%s'", address, uuid);
    }
@@ -1064,6 +1319,7 @@ int Deconz::callbackDeconzWs(lws* wsi, enum lws_callback_reasons reason, void* u
       case LWS_CALLBACK_CLIENT_CONNECTION_ERROR:
       {
          tell(eloAlways, "DECONZ: Client connection error '%s'", in ? (char*)in : "(null)");
+         connected = false;
          lws_sul_schedule(Deconz::context, 0, &sul, callbackConnect, 5 * LWS_USEC_PER_SEC);
          break;
       }
@@ -1072,6 +1328,7 @@ int Deconz::callbackDeconzWs(lws* wsi, enum lws_callback_reasons reason, void* u
          // push a (re) conect message to call initDevices() again
 
          tell(eloDebugDeconz, "DECONZ: Established");
+         connected = true;
          Deconz::singleton->atInMessage("WS CONNECTED");
          break;
       }
@@ -1090,6 +1347,7 @@ int Deconz::callbackDeconzWs(lws* wsi, enum lws_callback_reasons reason, void* u
       case LWS_CALLBACK_CLIENT_CLOSED:
       {
          tell(eloAlways, "DECONZ: Client closed");
+         connected = false;
          lws_sul_schedule(Deconz::context, 0, &sul, callbackConnect, 5 * LWS_USEC_PER_SEC);
          break;
       }

@@ -422,7 +422,7 @@ function mqttConvIsNative(message)
 
 function mqttConvAgo(time)
 {
-   let seconds = Math.max(0, Math.round(Date.now() / 1000 - daemonState.timeOffset / 1000 - time));
+   let seconds = Math.max(0, Math.round(Date.now() / 1000 - (daemonState.timeOffset || 0) - time));
    return 'vor ' + prettyDuration(seconds);
 }
 

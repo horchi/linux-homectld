@@ -2266,9 +2266,9 @@ function sensorInfoDialog(key, widget)
 
    let now = new Date();
    let lastUpd = new Date(sensor.last * 1000);
-   let updBefore = prettyDuration(Math.round((now - daemonState.timeOffset - lastUpd)/1000));
+   let updBefore = prettyDuration(Math.round((now - (daemonState.timeOffset || 0) * 1000 - lastUpd)/1000));
    let changedAt = new Date(sensor.changedAt * 1000);
-   let chgBefore = prettyDuration(Math.round((now - daemonState.timeOffset - changedAt)/1000));
+   let chgBefore = prettyDuration(Math.round((now - (daemonState.timeOffset || 0) * 1000 - changedAt)/1000));
    let peakMaxTime = new Date(sensor.peakmaxtime * 1000);
    let peakMinTime = new Date(sensor.peakmintime * 1000);
    let form = document.createElement("div");

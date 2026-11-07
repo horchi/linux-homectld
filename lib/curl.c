@@ -20,6 +20,44 @@ int cCurl::curlInitialized = no;
 //cSystemNotification* cCurl::sysNotification = 0;
 
 //***************************************************************************
+// Delete (HTTP DELETE, e.g. of a resource of a REST API)
+//***************************************************************************
+
+int cCurl::del(const char* url, const std::string& sPost, std::string* sOutput)
+{
+   init();
+
+   curl_slist* headers {nullptr};
+
+   headers = curl_slist_append(headers, "Accept: application/json");
+   headers = curl_slist_append(headers, "Content-Type: application/json");
+   headers = curl_slist_append(headers, "charset: utf-8");
+
+   curl_easy_setopt(handle, CURLOPT_URL, url);
+   curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, "DELETE");
+   curl_easy_setopt(handle, CURLOPT_HTTPHEADER, headers);
+
+   if (!sPost.empty())
+      curl_easy_setopt(handle, CURLOPT_POSTFIELDS, sPost.c_str());
+
+   curl_easy_setopt(handle, CURLOPT_USERAGENT, "libcrp/0.1");
+
+   sBuf = "";
+
+   if (curl_easy_perform(handle) == 0)
+   {
+      *sOutput = sBuf;
+      curl_slist_free_all(headers);
+      return success;
+   }
+
+   *sOutput = "";
+   curl_slist_free_all(headers);
+
+   return fail;
+}
+
+//***************************************************************************
 // Callbacks
 //***************************************************************************
 

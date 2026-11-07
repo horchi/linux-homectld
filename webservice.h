@@ -64,6 +64,7 @@ class cWebService
          evHomeMatic,
          evStoreHtmlWidgets,
          evMqttConverters,
+         evZigbee,
 
          evCount
       };

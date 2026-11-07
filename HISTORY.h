@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.45"
+#define _VERSION     "0.1.46"
 #define VERSION_DATE "07.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,37 @@
 
 /*
  * ------------------------------------
+
+2026-11-07: version 0.1.46
+    - added: WEBIF setup page 'Zigbee' (admin only, checked by the daemon too, offered if the 'deCONZ HTTP URL' is
+             set): the gateway (URL, websocket state, name, version of deCONZ and of the stick firmware, channel,
+             PAN ID, API key); 'Suche starten' opens the Zigbee network for new lights and sensors (180 s, countdown,
+             'Suche beenden' closes it at once, hints for the pairing modes); the devices of deCONZ grouped by their
+             MAC (manufacturer, model, software version, reachable, battery, last seen, filter), per resource the
+             kind, the name at deCONZ (editable), the sensor of homectld (DZL / DZS, 'aktiv', own title, 'Speichern'),
+             the ID at deCONZ and the current value (switches: the last button event and when); a device found by
+             the search is marked as new at the top and its sensors are activated at once; 'Entfernen' deletes all
+             resources of the device at deCONZ and their sensors in homectld (the recorded values stay), a light
+             optionally leaves the network and resets to factory defaults; 'API-Key holen' / 'Neu registrieren'
+             registers homectld at deCONZ (gateway unlocked in Phoscon), stores the key, reads the devices and
+             connects the websocket without restart
+    - added: deCONZ: new and deleted devices are taken at once by the websocket events 'added' / 'deleted' (also
+             paired / deleted in Phoscon - new ones inactive as before, deleted ones keep their sensor in homectld),
+             while searching 'lights/new' / 'sensors/new' are checked every 5 s too
+    - added: light rules: action 'Dimmen (Taste halten)': holding the button (e.g. 1001) dims the targets, the
+             'Stopp bei Taste' (release, e.g. 1003) stops it ('bri_inc' of deCONZ); 'Übergang' is the time over
+             the full range (default 4 s); off targets go on with the lowest brightness and get brighter, else
+             darker from 50 % on and brighter below, holding again within 5 s dims in the other direction
+    - change: deCONZ: the button events of the switches are sent to the WEBIF with the update (was only with the
+              next complete update)
+    - bugfix: deCONZ: events of unknown devices (e.g. 'Daylight') added entries with address 0 to the maps of the
+              lights / sensors; a failed registration (API key) didn't free its result
+    - change: GPIO: without a board model (/proc/device-tree/model, e.g. x86 PC) the mapping is not searched and
+              'GPIO: Failed to load mapping' is not logged anymore
+    - bugfix: WEBIF: the times 'vor ...' of the page 'MQTT Konverter' and of the info dialog ('aktualisiert',
+              'geändert') took the time offset between browser and server in a wrong unit
+    - change: lib/curl: HTTP DELETE (del())
+    - change: README: doc/deconz.md (setup page 'Zigbee', API key by the WEBIF), doc/lights.md (action 'Dimmen')
 
 2026-11-07: version 0.1.45
     - added: time control of lights, groups and blinds (DZL, DZLG, HMB): a limit of a time range missed while

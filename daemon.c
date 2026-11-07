@@ -571,7 +571,8 @@ int HomeCtl::init()
       {
          tell(eloAlways, "DECONZ: Key result was '%s' (%d)", result.c_str(), status);
          tell(eloAlways, "ACHTUNG: Initiale Registrierung bei deconz '%s' fehlgeschlagen! "   \
-              "Unlock the deCONZ gateway and restart homectrld within the 60 seconds", deconz.getHttpUrl());
+              "Unlock the deCONZ gateway and use 'API-Key holen' of the WEBIF page 'Setup -> Zigbee' "   \
+              "(or restart homectld) within the 60 seconds", deconz.getHttpUrl());
       }
       else
       {
@@ -2401,6 +2402,7 @@ int HomeCtl::meanwhile()
 
    dispatchClientRequest();
    dispatchDeconz();
+   zigbeeService();
    performLightRules();
    homeMaticCheckRequests();
    performMqttRequests();
@@ -4171,10 +4173,26 @@ int HomeCtl::dispatchDeconz()
          tell(eloAlways, "DECONZ: Init devices on WS connected");
          int status = deconz.initDevices();
          deconzReady = deconzReady || status == success;    // the time control may catch up missed limits now
+
+         // deCONZ (re)started: it creates the resources of devices found by a new DDF some seconds
+         //  after the websocket is up and without 'added' event -> once more later (zigbeeService())
+
+         deconzReinitAt = time(0) + deconzReinitDelay;
          return status;
       }
 
       json_t* oData {jsonLoad(msg)};
+
+      // new / deleted devices - processed by zigbeeService() outside of the lock (REST calls of deCONZ)
+
+      if (oData && json_object_get(oData, "dzevent"))
+      {
+         deconzEvents.push(msg);
+         json_decref(oData);
+         Deconz::messagesIn.pop();
+         continue;
+      }
+
       const char* type {getStringFromJson(oData, "type")};
       int address {getIntFromJson(oData, "address")};
       SensorData* sensor {getSensor(type, address)};
@@ -4295,8 +4313,8 @@ int HomeCtl::dispatchDeconz()
             json_object_set_new(ojData, "hue", json_integer(sensor->hue));
             json_object_set_new(ojData, "sat", json_integer(sensor->sat));
          }
-         else if (getObjectFromJson(oData, "value") || getObjectFromJson(oData, "presence"))
-            json_object_set_new(ojData, "value", json_real(sensor->value));
+         else if (getObjectFromJson(oData, "value") || getObjectFromJson(oData, "presence") || getObjectFromJson(oData, "btnevent"))
+            json_object_set_new(ojData, "value", json_real(sensor->value));    // switches: the button event
 
          if (sensor->battery != na)
             json_object_set_new(ojData, "battery", json_integer(sensor->battery));

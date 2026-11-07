@@ -4752,3 +4752,231 @@ textarea.mqttConvMessage {
    color: #6a6a6a !important;
    font-style: italic;
 }
+
+/* ---------------------------------------------------------------------------
+ * Setup page 'Zigbee' (zigbee.js)
+ * --------------------------------------------------------------------------- */
+
+.zigbeePage {
+   display: flex;
+   flex-direction: column;
+   gap: 12px;
+   padding: 10px;
+   width: 96%;
+   box-sizing: border-box;
+}
+
+.zigbeeBox {
+   border: 1px solid var(--light3);
+   border-radius: var(--borderRadius);
+   background-color: var(--light1);
+   padding: 8px 10px;
+   display: flex;
+   flex-direction: column;
+   gap: 8px;
+}
+
+.inputTableConfig.zigbeePage > .zigbeeBox {     /* full width, not the 48 % of '.inputTableConfig > div' */
+   display: flex;
+   width: auto;
+}
+
+.zigbeeBoxTitle {
+   font-weight: bold;
+}
+
+.zigbeeDevicesTitle {
+   display: flex;
+   align-items: center;
+   gap: 12px;
+   flex-wrap: wrap;
+}
+
+.zigbeeFilterInput {
+   width: 220px;
+   max-width: 100%;
+   font-weight: normal;
+}
+
+.zigbeeInfo {
+   display: grid;
+   grid-template-columns: max-content 1fr;
+   gap: 4px 16px;
+   align-items: center;
+}
+
+.zigbeeInfo > span:nth-child(odd) {
+   opacity: 0.7;
+}
+
+.zigbeeOk   { color: var(--green); }
+.zigbeeWarn { color: var(--orange); }
+
+.zigbeePage button.zigbeeSmallButton {
+   width: auto;
+   min-width: 0;
+   padding: 2px 10px;
+   margin-left: 6px;
+}
+
+.zigbeeSearchBar {
+   display: flex;
+   align-items: center;
+   gap: 12px;
+   flex-wrap: wrap;
+}
+
+.zigbeeSearchBar > button {
+   width: auto;
+   min-width: 160px;
+}
+
+.zigbeeProgress {
+   flex: 1;
+   min-width: 120px;
+   max-width: 400px;
+   height: 8px;
+   border-radius: 4px;
+   background-color: var(--light3);
+   overflow: hidden;
+}
+
+.zigbeeProgressBar {
+   height: 100%;
+   width: 100%;
+   background-color: var(--yellow);
+   transition: width 1s linear;
+}
+
+.zigbeeHelp {
+   font-size: 12px;
+   opacity: 0.8;
+   line-height: 1.6;
+}
+
+.zigbeeFound {
+   color: var(--green);
+   font-weight: bold;
+}
+
+.zigbeeDevices {
+   display: flex;
+   flex-direction: column;
+   gap: 8px;
+}
+
+.zigbeeDevice {
+   border: 1px solid var(--light3);
+   border-left: 3px solid transparent;
+   border-radius: var(--borderRadius);
+   padding: 6px 8px;
+}
+
+.zigbeeDeviceNew {
+   border-left-color: var(--yellow);
+   background-color: var(--light2);
+}
+
+.zigbeeDeviceHead {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+   flex-wrap: wrap;
+}
+
+.zigbeeDeviceIcon {
+   font-size: 26px;
+   opacity: 0.8;
+}
+
+.zigbeeDeviceTitle {
+   flex: 1;
+   min-width: 200px;
+}
+
+.zigbeeDeviceName {
+   font-weight: bold;
+}
+
+.zigbeeNewBadge {
+   margin-left: 8px;
+   padding: 0 6px;
+   border-radius: 8px;
+   font-size: smaller;
+   background-color: var(--yellow);
+   color: black;
+}
+
+.zigbeeDeviceModel, .zigbeeDeviceMac {
+   font-size: smaller;
+   opacity: 0.7;
+}
+
+.zigbeeDeviceMac {
+   font-family: monospace;
+}
+
+.zigbeeDeviceState {
+   display: flex;
+   gap: 12px;
+   flex-wrap: wrap;
+   font-size: smaller;
+}
+
+.zigbeeResources {
+   display: flex;
+   flex-direction: column;
+   gap: 4px;
+   margin: 6px 0 0 36px;
+}
+
+.zigbeeResource {
+   display: grid;
+   grid-template-columns: 110px minmax(120px, 220px) 100px 60px minmax(120px, 220px) max-content 1fr;
+   gap: 8px;
+   align-items: center;
+}
+
+.zigbeeResType {
+   opacity: 0.8;
+}
+
+.zigbeeKey {
+   font-family: monospace;
+   font-size: smaller;
+   opacity: 0.8;
+}
+
+.zigbeeDzId {
+   opacity: 0.6;
+}
+
+.zigbeeActive {
+   white-space: nowrap;
+}
+
+.zigbeePage button.zigbeeStore {
+   margin-left: 0;
+}
+
+.zigbeePage button.zigbeeStore:disabled {
+   opacity: 0.4;
+}
+
+.zigbeeValue {
+   white-space: nowrap;
+   overflow: hidden;
+   text-overflow: ellipsis;
+}
+
+@media (max-width: 800px) {
+   .zigbeeResources {
+      margin-left: 0;
+   }
+
+   .zigbeeResource {
+      grid-template-columns: 1fr 1fr;
+      border-top: 1px solid var(--light3);
+      padding-top: 4px;
+   }
+}

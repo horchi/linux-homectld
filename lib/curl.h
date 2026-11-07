@@ -46,6 +46,7 @@ class cCurl
 
       int post(const char* url, const std::string& sPost, std::string* sOutput);
       int put(const char* url, const std::string& sPost, std::string* sOutput);
+      int del(const char* url, const std::string& sPost, std::string* sOutput);   // HTTP DELETE (JSON body, may be empty)
       char* EscapeUrl(const char *url);
       void Free(char* str);
 

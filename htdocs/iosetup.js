@@ -1248,7 +1248,11 @@ function createRuleBlock(rule, targetOptions, lastButton)
        .append($('<option></option>').val('on').text('An'))
        .append($('<option></option>').val('off').text('Aus'))
        .append($('<option></option>').val('follow').text('Folgen (an bei Bewegung, aus ohne)'))
+       .append($('<option></option>').val('dim').text('Dimmen (Taste halten)'))
        .val(rule.action || 'toggle');
+   let $stopButton = $('<input></input>').attr('type', 'number').addClass('rounded-border rule-stopbutton')
+       .attr('title', 'Tastencode, der das Dimmen beendet (Loslassen), z.B. 1003')
+       .val(rule.stopButton != null ? rule.stopButton : 1003);
 
    let $targets = $('<select></select>').attr('multiple', true).attr('size', 8).addClass('rounded-border rule-targets');
 
@@ -1271,22 +1275,31 @@ function createRuleBlock(rule, targetOptions, lastButton)
 
    let update = () => {
       let button = $trigger.val() == 'button';
+      let dim = $action.val() == 'dim';
       $button.toggle(button);
       $buttonHint.toggle(button);
       $condSides.toggle($condOn.is(':checked'));
+      $block.find('.rule-for-dim').toggle(dim);
+      $block.find('.rule-not-dim').toggle(!dim);
+      $block.find('.rule-transition').attr('title', dim ? 'Dauer über den ganzen Bereich, leer = 4 s' : 'leer = Standard');
    };
 
    $trigger.on('change', update);
+   $action.on('change', update);
    $condOn.on('change', update);
 
    $block
       .append(row('Auslöser', $trigger, $button, $buttonHint))
       .append(row('Aktion', $action))
+      .append(row('Stopp bei Taste', $stopButton).addClass('rule-for-dim'))
       .append(row('Ziele', $targets))
-      .append(row('Helligkeit [%]', num('rule-bri', rule.bri, 'leer = unverändert')))
+      .append(row('Helligkeit [%]', num('rule-bri', rule.bri, 'leer = unverändert')).addClass('rule-not-dim'))
       .append(row('Übergang [s]', num('rule-transition', rule.transition, 'leer = Standard')))
-      .append(row('Aus nach [s]', num('rule-offafter', rule.offAfter, 'leer = kein Timer; jede weitere Bewegung / Tastendruck startet ihn neu; bei Bewegung zählt er ab dem Ende der Bewegung (Folgen ohne Angabe: 30 s)')))
-      .append(row('Nur im Zeitfenster', $condOn, $condLabel, $condSides))
+      .append(row('Aus nach [s]', num('rule-offafter', rule.offAfter, 'leer = kein Timer; jede weitere Bewegung / Tastendruck startet ihn neu; bei Bewegung zählt er ab dem Ende der Bewegung (Folgen ohne Angabe: 30 s)')).addClass('rule-not-dim'))
+      .append(row('Nur im Zeitfenster', $condOn, $condLabel, $condSides).addClass('rule-not-dim'))
+      .append($('<div></div>').addClass('rule-for-dim do-timer-resolved')
+              .text('Halten dimmt, Loslassen stoppt: aus -> an und heller, sonst ab 50 % dunkler, darunter heller; ' +
+                    'erneut halten innerhalb von 5 s dimmt in die andere Richtung'))
       .append($('<div></div>').css('text-align', 'right')
               .append($('<button></button>').text('Regel löschen').addClass('rounded-border do-timer-delete')
                       .on('click', () => $block.remove())));
@@ -1310,13 +1323,18 @@ function collectRuleBlocks($container)
       if (rule.trigger == 'button')
          rule.button = parseInt($b.find('.rule-button').val()) || 0;
 
+      if (rule.action == 'dim')
+         rule.stopButton = parseInt($b.find('.rule-stopbutton').val()) || 1003;
+
       for (const [cls, name] of [['rule-bri', 'bri'], ['rule-transition', 'transition'], ['rule-offafter', 'offAfter']]) {
+         if (rule.action == 'dim' && name != 'transition')      // hidden for dim
+            continue;
          let v = parseInt($b.find('.' + cls).val());
          if (v > 0)
             rule[name] = v;
       }
 
-      if ($b.find('.rule-cond-on').is(':checked')) {
+      if (rule.action != 'dim' && $b.find('.rule-cond-on').is(':checked')) {
          let side = (cls) => {
             let ref = $b.find('.' + cls + '-ref').val();
             return ref != 'time' ? ref : $b.find('input.' + cls).val();

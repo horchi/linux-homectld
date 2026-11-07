@@ -491,6 +491,21 @@ class HomeCtl : public cWebInterface, public Service
       void mqttConverterSeen(const char* topic, const char* message);
       std::map<std::string,MqttSeenTopic> mqttSeenTopics;      // topics received by dispatchOther()
       int storeHtmlWidget(json_t* obj, std::string& error);
+
+      // Zigbee / deCONZ: pairing, renaming, removing of devices (zigbee.c, setup page 'Zigbee')
+
+      int performZigbee(json_t* obj, long client);
+      int zigbee2Json(json_t* obj);
+      int zigbeePush(long client = 0);             // to the client, 0 for all admins on the page 'zigbee'
+      int zigbeeService();                         // events 'added' / 'deleted' of deCONZ, the running search
+      int zigbeeEvent(json_t* oEvent);
+      int zigbeeAdded(const char* resource, const char* id, json_t* jItem);
+      int zigbeeCheckNew();                        // search: 'lights/new', 'sensors/new' (if an event got lost)
+      int zigbeeStartSearch(std::string& message);
+      int zigbeeRename(const char* resource, const char* id, const char* name, std::string& error);
+      int zigbeeDelete(const char* mac, bool reset, std::string& error);
+      int zigbeeApiKey(std::string& message);
+      int zigbeeActivate(const char* type, uint address, bool active, const char* usrtitle);
       virtual int storeIoSetup(json_t* array, long client);
       int storeGroups(json_t* array, long client);
       int performChartbookmarks(long client);
@@ -738,6 +753,21 @@ class HomeCtl : public cWebInterface, public Service
       int lightRuleTimersLoad();
       bool lightMotionPresent(const std::string& sensor);
       int lightTargetSwitch(const std::string& target, bool on, int bri, int transition);
+      int lightRuleDim(const char* key, const std::vector<std::string>& targets, int transition);
+      int lightRuleDimStop(const char* key, const std::vector<std::string>& targets);
+
+      // dimming by holding a button (action 'dim'), per rule "DZS:0x1f#2"
+
+      struct LightDim
+      {
+         int dir {0};                    // +1 up, -1 down
+         bool active {false};            // started, no stop button yet
+         time_t stoppedAt {0};
+      };
+
+      std::map<std::string,LightDim> lightDims;
+      static constexpr int lightDimReverseWithin {5};   // [s] holding again within -> the other direction
+      static constexpr int lightDimDefaultTime {4};     // [s] dimming over the full range (rule without 'transition')
       bool lightTargetState(const std::string& target);
 
       int nextTimeActions2Json(const char* type, uint address, json_t* obj);   // next actions of the time control (info dialog)
@@ -998,6 +1028,19 @@ class HomeCtl : public cWebInterface, public Service
 
       std::map<std::string,std::string> commandTopicsMap; // like "VIC":"homectld2mqtt/victron/in"
       std::map<std::string,uint> mqttConverters;
+
+      // Zigbee (zigbee.c)
+
+      std::queue<std::string> deconzEvents;        // 'added' / 'deleted' of deCONZ, see dispatchDeconz()
+      time_t zigbeeSearchUntil {0};                // end of the running search (permit join), 0 if none
+      int zigbeeSearchDuration {180};              // [s] of the running search (reported by deCONZ)
+      time_t deconzReinitAt {0};                   // read the devices again (deCONZ creates some late after its start)
+      static constexpr int deconzReinitDelay {60}; // [s] after the websocket connected
+      time_t zigbeeSearchNextCheck {0};
+      std::set<std::string> zigbeeKnownIds;        // '<resource>/<id>' known by homectld (at the start of the search + added)
+      std::set<std::string> zigbeeFound;           // MACs of the devices found by the last search
+      static constexpr int zigbeeCheckInterval {5};   // [s] query of 'lights/new' / 'sensors/new' while searching
+      static constexpr int zigbeeNewFor {5 * 60};     // [s] a device first seen within is marked as new on the page
 
       int webPort {61109};
       std::string webUrl;

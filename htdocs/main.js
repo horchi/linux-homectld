@@ -1081,7 +1081,7 @@ function storeSetupPage(page, action)
       localStorage.removeItem(storagePrefix + 'lastSetupAction');
 }
 
-// open the README at the given anchor (id of a heading or <a id="..."></a> in README.md)
+// open the README viewer at the given target: '<file>#<anchor>' (e.g. 'doc/gps.md#gps-tours'), '<file>' or an anchor of README.md
 
 function showHelp(anchor)
 {

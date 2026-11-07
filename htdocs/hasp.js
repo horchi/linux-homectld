@@ -191,7 +191,7 @@ function initHaspSetup()
               .addClass('rounded-border tool-button')
               .html('Hilfe')
               .attr('title', 'Beschreibung im README')
-              .click(function() { showHelp('hasp-panel'); }));
+              .click(function() { showHelp('doc/hasp.md#hasp-panel'); }));
 
    if (!haspPages.topic || haspPages.topic == '')
       $('#controlContainer').append($('<div></div>').addClass('labelB1').css('color', 'var(--peakColor)')

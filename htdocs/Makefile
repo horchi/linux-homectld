@@ -38,7 +38,7 @@ linstall: index.html
 		if test -f "$(WEBDEST)/stylesheet.css"; then \
 			cp -Pp "$(WEBDEST)/stylesheet.css" "$(WEBDEST)/stylesheet.css.save"; \
 		fi ; \
-		cp -r ./* $(WEBDEST)/; \
+		cp -rL --remove-destination ./* $(WEBDEST)/; \
 		if test -f "$(WEBDEST)/stylesheet.css.save"; then \
 			cp -Pp "$(WEBDEST)/stylesheet.css.save" "$(WEBDEST)/stylesheet.css"; \
 		fi ; \

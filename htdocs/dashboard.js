@@ -2241,356 +2241,348 @@ function titleClick(ctrlKey, key)
          widgetSetup(key);
    }
    else {
-      let sensor = allSensors[key];
-
-      if (sensor == null)
-         return;
-
-      let now = new Date();
-      let lastUpd = new Date(sensor.last * 1000);
-      let updBefore = prettyDuration(Math.round((now - daemonState.timeOffset - lastUpd)/1000));
-      let changedAt = new Date(sensor.changedAt * 1000);
-      let chgBefore = prettyDuration(Math.round((now - daemonState.timeOffset - changedAt)/1000));
-      let peakMaxTime = new Date(sensor.peakmaxtime * 1000);
-      let peakMinTime = new Date(sensor.peakmintime * 1000);
-      let form = document.createElement("div");
-
-      // time control (ranges of the outputs / actors) -> tab 'Regeln'
-
-      let timeItems = [];
-
-      if (fact.settings && Array.isArray(fact.settings.times))
-         fact.settings.times.forEach((t, i) => timeItems.push(Object.assign(timeRangeItem(t, fact), { 'rangeIndex': i })));
-
-      let rules = timeItems.concat(lightRulesFor(key));     // time control, light rules of the sensor / switching this light (tab 'Regeln')
-      let hasRules = rules.length > 0 || sensor.offAt || sensor.shade;
-
-      let value = sensor.value + ' ' + widget.unit;
-
-      if (fact.widget.widgettype == 0 || fact.widget.widgettype == 9 || fact.widget.widgettype == 12)
-         value = sensor.value ? "On" :  "Off";
-
-      if (!isEmpty(sensor.text))
-         value = value + " / '" + sensor.text + "'";
-
-      // console.log(sensor);
-      // console.log(fact);
-
-      // tabs: data, optional rules (light rules of the sensor / switching this light, see lightrules.c),
-      //   optional JSON (the daemon holds the raw message of the sensor)
-
-      let tabs = $('<div></div>').attr('id', 'sensorInfoTabs');
-      let dataTab = $('<div></div>').attr('id', 'sensorInfoData');
-      let withTabs = sensor.hasjson || hasRules;
-
-      if (withTabs) {
-         let ul = $('<ul></ul>')
-             .append($('<li></li>').append($('<a></a>').attr('href', '#sensorInfoData').html('Daten')));
-
-         if (hasRules)
-            ul.append($('<li></li>').append($('<a></a>').attr('href', '#sensorInfoRules').html('Regeln')));
-
-         if (sensor.hasjson)
-            ul.append($('<li></li>').append($('<a></a>').attr('href', '#sensorInfoJson').html('JSON')));
-
-         tabs.append(ul);
-      }
-
-      tabs.append(dataTab);
-
-      if (hasRules) {
-         let rulesTab = $('<div></div>').attr('id', 'sensorInfoRules').addClass('sensorRules');
-
-         if (sensor.offAt)
-            rulesTab.append($('<div></div>').attr('id', 'sensorRulesOffTimer').addClass('sensorRulesTimer')
-                            .text('Aus-Timer läuft bis ' + new Date(sensor.offAt * 1000).toLocaleTimeString(dateLocale)));
-
-         if (sensor.shade)
-            rulesTab.append($('<div></div>').addClass('sensorRulesTimer').text('Beschattung: ' + sensor.shade));
-
-         // next action of the time control, filled by the daemon (event 'nextactions')
-
-         if (timeItems.length || sensor.offAt)
-            rulesTab.prepend($('<div></div>').attr('id', 'sensorRulesNext').addClass('sensorRulesTimer')
-                            .text('Nächste Aktion: wird berechnet ...'));
-
-         for (const rule of rules) {
-            let block = $('<div></div>').addClass('sensorRule')
-                .append($('<div></div>').addClass('sensorRuleTitle').text(rule.title));
-
-            for (const [label, text] of rule.rows)
-               block.append($('<div></div>').addClass('sensorRuleRow')
-                            .append($('<span></span>').addClass('sensorRuleLabel').text(label))
-                            .append($('<span></span>').text(text)));
-
-            if (rule.rangeIndex != null)
-               block.append($('<div></div>').addClass('sensorRuleRow')
-                            .append($('<span></span>').addClass('sensorRuleLabel').text('Nächste'))
-                            .append($('<span></span>').attr('id', 'sensorRuleNext' + rule.rangeIndex).text('–')));
-
-            rulesTab.append(block);
-         }
-
-         tabs.append(rulesTab);
-      }
-
-      if (sensor.hasjson)
-         tabs.append($('<div></div>').attr('id', 'sensorInfoJson')
-                     .append($('<div></div>').attr('id', 'sensorInfoJsonHead').addClass('sensorJsonHead').html('wird geladen ...'))
-                     .append($('<pre></pre>').attr('id', 'sensorInfoJsonBody').addClass('sensorJsonBody')));
-
-      $(form).append(tabs);
-
-      $(dataTab).append($('<div></div>')
-                     .css('z-index', '9999')
-                     .css('minWidth', '40vh')
-                     .append($('<div></div>')
-                             .css('display', 'flex')
-                             .css('margin-bottom', '4px')
-                             .append($('<span></span>')
-                                     .css('width', '30%')
-                                     .css('text-align', 'end')
-                                     .css('margin-right', '10px')
-                                     .html('Sensor'))
-                             .append($('<span></span>')
-                                     .append($('<div></div>')
-                                             .css('font-style', 'italic')
-                                             .addClass('rounded-border')
-                                             .html(key + ' (' + parseInt(key.split(":")[1]) + ')')
-                                            )))
-
-                     .append($('<div></div>')
-                             .css('display', 'flex')
-                             .css('margin-bottom', '4px')
-                             .append($('<span></span>')
-                                     .css('width', '30%')
-                                     .css('text-align', 'end')
-                                     .css('margin-right', '10px')
-                                     .html('Title'))
-                             .append($('<span></span>')
-                                     .append($('<div></div>')
-                                             .css('font-style', 'italic')
-                                             .addClass('rounded-border')
-                                             .html(fact.title)
-                                            )))
-                     .append($('<div></div>')
-                             .css('display', 'flex')
-                             .css('margin-bottom', '4px')
-                             .append($('<span></span>')
-                                     .css('width', '30%')
-                                     .css('text-align', 'end')
-                                     .css('margin-right', '10px')
-                                     .html('User Title'))
-                             .append($('<span></span>')
-                                     .append($('<div></div>')
-                                             .css('font-style', 'italic')
-                                             .addClass('rounded-border')
-                                             .html(fact.usrtitle)
-                                            )))
-                     .append($('<div></div>')
-                             .css('display', 'flex')
-                             .css('margin-bottom', '4px')
-                             .append($('<span></span>')
-                                     .css('width', '30%')
-                                     .css('text-align', 'end')
-                                     .css('margin-right', '10px')
-                                     .html('Value'))
-                             .append($('<span></span>')
-                                     .append($('<div></div>')
-                                             .addClass('rounded-border')
-                                             .html(value)
-                                            )))
-                     .append($('<div></div>')
-                             .css('display', !isNil(sensor.peakmin) ? 'flex' : 'none')
-                             .css('margin-bottom', '4px')
-                             .append($('<span></span>')
-                                     .css('width', '30%')
-                                     .css('text-align', 'end')
-                                     .css('margin-right', '10px')
-                                     .html('Peak Min'))
-                             .append($('<span></span>')
-                                     .append($('<div></div>')
-                                             .attr('id', 'dlgPeakMin')
-                                             .addClass('rounded-border')
-                                             .append(!isNil(sensor.peakmin) ? sensor.peakmin + ' ' + widget.unit + ' ' : '- ')
-                                             .append($('<span></span>')
-                                                     .css('font-size', 'smaller')
-                                                     .css('color', '#3d3737')
-                                                     .html(peakMinTime.toLocaleString('de-DE')))
-                                            )))
-                     .append($('<div></div>')
-                             .css('display', !isNil(sensor.peakmax) ? 'flex' : 'none')
-                             .css('margin-bottom', '4px')
-                             .append($('<span></span>')
-                                     .css('width', '30%')
-                                     .css('text-align', 'end')
-                                     .css('margin-right', '10px')
-                                     .html('Peak Max'))
-                             .append($('<span></span>')
-                                     .append($('<div></div>')
-                                             .attr('id', 'dlgPeakMax')
-                                             .addClass('rounded-border')
-                                             .append(!isNil(sensor.peakmax) ? sensor.peakmax + ' ' + widget.unit + ' ' : '- ')
-                                             .append($('<span></span>')
-                                                     .css('font-size', 'smaller')
-                                                     .css('color', '#3d3737')
-                                                     .html(peakMaxTime.toLocaleString('de-DE')))
-                                            )))
-                     .append($('<div></div>')
-                             .css('display', 'flex')
-                             .css('margin-bottom', '4px')
-                             .append($('<span></span>')
-                                     .css('width', '30%')
-                                     .css('text-align', 'end')
-                                     .css('margin-right', '10px')
-                                     .html('Last Update'))
-                             .append($('<span></span>')
-                                     .append($('<div></div>')
-                                             .addClass('rounded-border')
-                                             .append(lastUpd.toLocaleString('de-DE') + ' ')
-                                             .append($('<span></span>')
-                                                     .css('font-size', 'smaller')
-                                                     .css('color', '#3d3737')
-                                                     .html(updBefore))
-                                            )))
-                     .append($('<div></div>')
-                             .css('display', 'flex')
-                             .css('margin-bottom', '4px')
-                             .append($('<span></span>')
-                                     .css('width', '30%')
-                                     .css('text-align', 'end')
-                                     .css('margin-right', '10px')
-                                     .html('Changed'))
-                             .append($('<span></span>')
-                                     .append($('<div></div>')
-                                             .addClass('rounded-border')
-                                             .append(changedAt.toLocaleString('de-DE') + ' ')
-                                             .append($('<span></span>')
-                                                     .css('font-size', 'smaller')
-                                                     .css('color', '#3d3737')
-                                                     .html(chgBefore))
-                                            )))
-
-                     .append($('<div></div>')
-                             .css('display', sensor.battery ? 'flex' : 'none')
-                             .css('margin-bottom', '4px')
-                             .append($('<span></span>')
-                                     .css('width', '30%')
-                                     .css('text-align', 'end')
-                                     .css('margin-right', '10px')
-                                     .html('Battery'))
-                             .append($('<span></span>')
-                                     .append($('<div></div>')
-                                             .addClass('rounded-border')
-                                             .append(batterySymbol(sensor.battery))
-                                             .append($('<span></span>').html(sensor.battery ? ' ' + sensor.battery + ' %' :  '-'))
-                                            )))
-
-                     .append($('<div></div>')         // deCONZ: the MAC as the deCONZ log shows it
-                             .css('display', fact.mac ? 'flex' : 'none')
-                             .css('margin-bottom', '4px')
-                             .append($('<span></span>')
-                                     .css('width', '30%')
-                                     .css('text-align', 'end')
-                                     .css('margin-right', '10px')
-                                     .html('MAC'))
-                             .append($('<span></span>')
-                                     .append($('<div></div>')
-                                             .addClass('rounded-border')
-                                             .css('user-select', 'text')
-                                             .text(fact.mac || '')
-                                            )))
-                    );
-
-      let btns = {};
-
-      if (!isNil(sensor.peakmax)) {
-         btns['Reset Peak'] = function() {
-            $('#dlgPeakMax').html('-');
-            $('#dlgPeakMin').html('-');
-            socket.send({ "event" : "command", "object" : { "what" : 'peak', "type": fact.type, "address": fact.address } });
-            let sensor = allSensors[key];
-            sensor.peakmax = null;
-            sensor.peakmin = null;
-         };
-      }
-
-      if (hasMode) {
-         btns['Manuel/Auto'] = function () {
-            if (fact && localStorage.getItem(storagePrefix + 'Rights') & fact.rights)
-               toggleMode(fact.address, fact.type);
-            $(this).dialog('close');
-         };
-      }
-
-      btns['Ok'] = function () { $(this).dialog('close'); };
-
-      $(form).dialog({
-         modal: true,
-         closeOnEscape: true,
-         hide: "fade",
-         width: "auto",
-         title: "Info - " + key + ' (' + parseInt(key.split(":")[1]) + ')',
-         buttons: btns,
-         open: function() {
-            if (withTabs) {
-               $('#sensorInfoTabs').tabs({
-                  active: 0,                       // always start with 'Daten' (else jQuery UI picks the tab matching location.hash)
-                  activate: function(event, ui) {
-                     if (ui.newPanel.attr('id') == 'sensorInfoJson')
-                        socket.send({ "event" : "command", "object" : { "what" : 'sensorjson', "type": fact.type, "address": fact.address } });
-                  }
-               });
-
-               // the dialog is sized by its content ('auto'); keep the width of the data tab
-               // when switching to the (initially almost empty) JSON tab
-
-               $('#sensorInfoTabs').css('min-width', $('#sensorInfoTabs').width() + 'px');
-
-               // fetch the JSON right away (small), so it is there when the tab is opened
-
-               if (sensor.hasjson)
-                  socket.send({ "event" : "command", "object" : { "what" : 'sensorjson', "type": fact.type, "address": fact.address } });
-
-               // the next actions of the time control (calculated by the daemon with the sun times of their days)
-               //   and the off timers of the light rules
-
-               if (timeItems.length || sensor.offAt)
-                  socket.send({ "event" : "command", "object" : { "what" : 'nextactions', "type": fact.type, "address": fact.address } });
-            }
-         },
-         close: function() { $(this).dialog('destroy').remove();}
-      });
+      sensorInfoDialog(key, widget);
    }
 }
 
-// dialog with the last raw message of a sensor (e.g. the button in the sensor setup),
-//   uses the same ids as the JSON tab of the info dialog, filled by showSensorJson()
+// info dialog of a sensor (click on the title of a widget, button 'Info' of the sensor setup),
+//   without widget (sensor setup) the unit / widget type of the fact are taken
 
-function sensorJsonDialog(type, address)
+function sensorInfoDialog(key, widget)
 {
-   let request = function() {
-      socket.send({ "event" : "command", "object" : { "what" : 'sensorjson', "type": type, "address": address } });
-   };
+   let fact = valueFacts[key];
+   let hasMode = fact && fact.outputModes == 3 //  -> ooUser and ooAuto are set
 
-   let form = $('<div></div>')
-       .append($('<div></div>').attr('id', 'sensorInfoJson')
-               .css('min-width', '40vw')
-               .append($('<div></div>').attr('id', 'sensorInfoJsonHead').addClass('sensorJsonHead').html('wird geladen ...'))
-               .append($('<pre></pre>').attr('id', 'sensorInfoJsonBody').addClass('sensorJsonBody')));
+   if (!fact)
+      return;
+
+   if (!widget)
+      widget = { 'unit': fact.unit };
+
+   let sensor = allSensors[key];
+
+   if (sensor == null)
+      return;
+
+   let now = new Date();
+   let lastUpd = new Date(sensor.last * 1000);
+   let updBefore = prettyDuration(Math.round((now - daemonState.timeOffset - lastUpd)/1000));
+   let changedAt = new Date(sensor.changedAt * 1000);
+   let chgBefore = prettyDuration(Math.round((now - daemonState.timeOffset - changedAt)/1000));
+   let peakMaxTime = new Date(sensor.peakmaxtime * 1000);
+   let peakMinTime = new Date(sensor.peakmintime * 1000);
+   let form = document.createElement("div");
+
+   // time control (ranges of the outputs / actors) -> tab 'Regeln'
+
+   let timeItems = [];
+
+   if (fact.settings && Array.isArray(fact.settings.times))
+      fact.settings.times.forEach((t, i) => timeItems.push(Object.assign(timeRangeItem(t, fact), { 'rangeIndex': i })));
+
+   let rules = timeItems.concat(lightRulesFor(key));     // time control, light rules of the sensor / switching this light (tab 'Regeln')
+   let hasRules = rules.length > 0 || sensor.offAt || sensor.shade;
+
+   let value = sensor.value + ' ' + widget.unit;
+
+   if (fact.widget && (fact.widget.widgettype == 0 || fact.widget.widgettype == 9 || fact.widget.widgettype == 12))
+      value = sensor.value ? "On" :  "Off";
+
+   if (!isEmpty(sensor.text))
+      value = value + " / '" + sensor.text + "'";
+
+   // console.log(sensor);
+   // console.log(fact);
+
+   // tabs: data, optional rules (light rules of the sensor / switching this light, see lightrules.c),
+   //   optional JSON (the daemon holds the raw message of the sensor)
+
+   let tabs = $('<div></div>').attr('id', 'sensorInfoTabs');
+   let dataTab = $('<div></div>').attr('id', 'sensorInfoData');
+   let withTabs = sensor.hasjson || hasRules;
+
+   if (withTabs) {
+      let ul = $('<ul></ul>')
+          .append($('<li></li>').append($('<a></a>').attr('href', '#sensorInfoData').html('Daten')));
+
+      if (hasRules)
+         ul.append($('<li></li>').append($('<a></a>').attr('href', '#sensorInfoRules').html('Regeln')));
+
+      if (sensor.hasjson)
+         ul.append($('<li></li>').append($('<a></a>').attr('href', '#sensorInfoJson').html('JSON')));
+
+      tabs.append(ul);
+   }
+
+   tabs.append(dataTab);
+
+   if (hasRules) {
+      let rulesTab = $('<div></div>').attr('id', 'sensorInfoRules').addClass('sensorRules');
+
+      if (sensor.offAt)
+         rulesTab.append($('<div></div>').attr('id', 'sensorRulesOffTimer').addClass('sensorRulesTimer')
+                         .text('Aus-Timer läuft bis ' + new Date(sensor.offAt * 1000).toLocaleTimeString(dateLocale)));
+
+      if (sensor.shade)
+         rulesTab.append($('<div></div>').addClass('sensorRulesTimer').text('Beschattung: ' + sensor.shade));
+
+      // next action of the time control, filled by the daemon (event 'nextactions')
+
+      if (timeItems.length || sensor.offAt)
+         rulesTab.prepend($('<div></div>').attr('id', 'sensorRulesNext').addClass('sensorRulesTimer')
+                         .text('Nächste Aktion: wird berechnet ...'));
+
+      for (const rule of rules) {
+         let block = $('<div></div>').addClass('sensorRule')
+             .append($('<div></div>').addClass('sensorRuleTitle').text(rule.title));
+
+         for (const [label, text] of rule.rows)
+            block.append($('<div></div>').addClass('sensorRuleRow')
+                         .append($('<span></span>').addClass('sensorRuleLabel').text(label))
+                         .append($('<span></span>').text(text)));
+
+         if (rule.rangeIndex != null)
+            block.append($('<div></div>').addClass('sensorRuleRow')
+                         .append($('<span></span>').addClass('sensorRuleLabel').text('Nächste'))
+                         .append($('<span></span>').attr('id', 'sensorRuleNext' + rule.rangeIndex).text('–')));
+
+         rulesTab.append(block);
+      }
+
+      tabs.append(rulesTab);
+   }
+
+   if (sensor.hasjson)
+      tabs.append($('<div></div>').attr('id', 'sensorInfoJson')
+                  .append($('<div></div>').attr('id', 'sensorInfoJsonHead').addClass('sensorJsonHead').html('wird geladen ...'))
+                  .append($('<pre></pre>').attr('id', 'sensorInfoJsonBody').addClass('sensorJsonBody')));
+
+   $(form).append(tabs);
+
+   $(dataTab).append($('<div></div>')
+                  .css('z-index', '9999')
+                  .css('minWidth', '40vh')
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .css('margin-bottom', '4px')
+                          .append($('<span></span>')
+                                  .css('width', '30%')
+                                  .css('text-align', 'end')
+                                  .css('margin-right', '10px')
+                                  .html('Sensor'))
+                          .append($('<span></span>')
+                                  .append($('<div></div>')
+                                          .css('font-style', 'italic')
+                                          .addClass('rounded-border')
+                                          .html(key + ' (' + parseInt(key.split(":")[1]) + ')')
+                                         )))
+
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .css('margin-bottom', '4px')
+                          .append($('<span></span>')
+                                  .css('width', '30%')
+                                  .css('text-align', 'end')
+                                  .css('margin-right', '10px')
+                                  .html('Title'))
+                          .append($('<span></span>')
+                                  .append($('<div></div>')
+                                          .css('font-style', 'italic')
+                                          .addClass('rounded-border')
+                                          .html(fact.title)
+                                         )))
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .css('margin-bottom', '4px')
+                          .append($('<span></span>')
+                                  .css('width', '30%')
+                                  .css('text-align', 'end')
+                                  .css('margin-right', '10px')
+                                  .html('User Title'))
+                          .append($('<span></span>')
+                                  .append($('<div></div>')
+                                          .css('font-style', 'italic')
+                                          .addClass('rounded-border')
+                                          .html(fact.usrtitle)
+                                         )))
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .css('margin-bottom', '4px')
+                          .append($('<span></span>')
+                                  .css('width', '30%')
+                                  .css('text-align', 'end')
+                                  .css('margin-right', '10px')
+                                  .html('Value'))
+                          .append($('<span></span>')
+                                  .append($('<div></div>')
+                                          .addClass('rounded-border')
+                                          .html(value)
+                                         )))
+                  .append($('<div></div>')
+                          .css('display', !isNil(sensor.peakmin) ? 'flex' : 'none')
+                          .css('margin-bottom', '4px')
+                          .append($('<span></span>')
+                                  .css('width', '30%')
+                                  .css('text-align', 'end')
+                                  .css('margin-right', '10px')
+                                  .html('Peak Min'))
+                          .append($('<span></span>')
+                                  .append($('<div></div>')
+                                          .attr('id', 'dlgPeakMin')
+                                          .addClass('rounded-border')
+                                          .append(!isNil(sensor.peakmin) ? sensor.peakmin + ' ' + widget.unit + ' ' : '- ')
+                                          .append($('<span></span>')
+                                                  .css('font-size', 'smaller')
+                                                  .css('color', '#3d3737')
+                                                  .html(peakMinTime.toLocaleString('de-DE')))
+                                         )))
+                  .append($('<div></div>')
+                          .css('display', !isNil(sensor.peakmax) ? 'flex' : 'none')
+                          .css('margin-bottom', '4px')
+                          .append($('<span></span>')
+                                  .css('width', '30%')
+                                  .css('text-align', 'end')
+                                  .css('margin-right', '10px')
+                                  .html('Peak Max'))
+                          .append($('<span></span>')
+                                  .append($('<div></div>')
+                                          .attr('id', 'dlgPeakMax')
+                                          .addClass('rounded-border')
+                                          .append(!isNil(sensor.peakmax) ? sensor.peakmax + ' ' + widget.unit + ' ' : '- ')
+                                          .append($('<span></span>')
+                                                  .css('font-size', 'smaller')
+                                                  .css('color', '#3d3737')
+                                                  .html(peakMaxTime.toLocaleString('de-DE')))
+                                         )))
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .css('margin-bottom', '4px')
+                          .append($('<span></span>')
+                                  .css('width', '30%')
+                                  .css('text-align', 'end')
+                                  .css('margin-right', '10px')
+                                  .html('Last Update'))
+                          .append($('<span></span>')
+                                  .append($('<div></div>')
+                                          .addClass('rounded-border')
+                                          .append(lastUpd.toLocaleString('de-DE') + ' ')
+                                          .append($('<span></span>')
+                                                  .css('font-size', 'smaller')
+                                                  .css('color', '#3d3737')
+                                                  .html(updBefore))
+                                         )))
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .css('margin-bottom', '4px')
+                          .append($('<span></span>')
+                                  .css('width', '30%')
+                                  .css('text-align', 'end')
+                                  .css('margin-right', '10px')
+                                  .html('Changed'))
+                          .append($('<span></span>')
+                                  .append($('<div></div>')
+                                          .addClass('rounded-border')
+                                          .append(changedAt.toLocaleString('de-DE') + ' ')
+                                          .append($('<span></span>')
+                                                  .css('font-size', 'smaller')
+                                                  .css('color', '#3d3737')
+                                                  .html(chgBefore))
+                                         )))
+
+                  .append($('<div></div>')
+                          .css('display', sensor.battery ? 'flex' : 'none')
+                          .css('margin-bottom', '4px')
+                          .append($('<span></span>')
+                                  .css('width', '30%')
+                                  .css('text-align', 'end')
+                                  .css('margin-right', '10px')
+                                  .html('Battery'))
+                          .append($('<span></span>')
+                                  .append($('<div></div>')
+                                          .addClass('rounded-border')
+                                          .append(batterySymbol(sensor.battery))
+                                          .append($('<span></span>').html(sensor.battery ? ' ' + sensor.battery + ' %' :  '-'))
+                                         )))
+
+                  .append($('<div></div>')         // deCONZ: the MAC as the deCONZ log shows it
+                          .css('display', fact.mac ? 'flex' : 'none')
+                          .css('margin-bottom', '4px')
+                          .append($('<span></span>')
+                                  .css('width', '30%')
+                                  .css('text-align', 'end')
+                                  .css('margin-right', '10px')
+                                  .html('MAC'))
+                          .append($('<span></span>')
+                                  .append($('<div></div>')
+                                          .addClass('rounded-border')
+                                          .css('user-select', 'text')
+                                          .text(fact.mac || '')
+                                         )))
+                 );
+
+   let btns = {};
+
+   if (!isNil(sensor.peakmax)) {
+      btns['Reset Peak'] = function() {
+         $('#dlgPeakMax').html('-');
+         $('#dlgPeakMin').html('-');
+         socket.send({ "event" : "command", "object" : { "what" : 'peak', "type": fact.type, "address": fact.address } });
+         let sensor = allSensors[key];
+         sensor.peakmax = null;
+         sensor.peakmin = null;
+      };
+   }
+
+   if (hasMode) {
+      btns['Manuel/Auto'] = function () {
+         if (fact && localStorage.getItem(storagePrefix + 'Rights') & fact.rights)
+            toggleMode(fact.address, fact.type);
+         $(this).dialog('close');
+      };
+   }
+
+   btns['Ok'] = function () { $(this).dialog('close'); };
 
    $(form).dialog({
       modal: true,
-      resizable: true,
       closeOnEscape: true,
+      hide: "fade",
       width: "auto",
-      title: "Letzte Nachricht - " + toKey(type, address),
-      buttons: {
-         'Aktualisieren': function() { request(); },
-         'Schließen': function() { $(this).dialog('close'); }
+      title: "Info - " + key + ' (' + parseInt(key.split(":")[1]) + ')',
+      buttons: btns,
+      open: function() {
+         if (withTabs) {
+            $('#sensorInfoTabs').tabs({
+               active: 0,                       // always start with 'Daten' (else jQuery UI picks the tab matching location.hash)
+               activate: function(event, ui) {
+                  if (ui.newPanel.attr('id') == 'sensorInfoJson')
+                     socket.send({ "event" : "command", "object" : { "what" : 'sensorjson', "type": fact.type, "address": fact.address } });
+               }
+            });
+
+            // the dialog is sized by its content ('auto'); keep the width of the data tab
+            // when switching to the (initially almost empty) JSON tab
+
+            let tabsWidth = $('#sensorInfoTabs').width();
+            $('#sensorInfoTabs').css('min-width', tabsWidth + 'px');
+
+            // the rules may go up to 60vw but at least fill the dialog (on a phone the data tab is wider than 60vw)
+
+            $('#sensorInfoRules').css('max-width', Math.max(tabsWidth, window.innerWidth * 0.6) + 'px');
+
+            // fetch the JSON right away (small), so it is there when the tab is opened
+
+            if (sensor.hasjson)
+               socket.send({ "event" : "command", "object" : { "what" : 'sensorjson', "type": fact.type, "address": fact.address } });
+
+            // the next actions of the time control (calculated by the daemon with the sun times of their days)
+            //   and the off timers of the light rules
+
+            if (timeItems.length || sensor.offAt)
+               socket.send({ "event" : "command", "object" : { "what" : 'nextactions', "type": fact.type, "address": fact.address } });
+         }
       },
-      open: function() { request(); },
-      close: function() { $(this).dialog('destroy').remove(); }
+      close: function() { $(this).dialog('destroy').remove();}
    });
 }
 

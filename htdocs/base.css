@@ -557,6 +557,47 @@ body.standalone .menu
     background-color: #335656a1;
 }
 
+/* icon buttons (e.g. the actions of the sensor setup), just the icon */
+
+.iconButtons
+{
+    white-space: nowrap;
+}
+
+.iconButton
+{
+    padding: 0 2px;
+    margin: 2px;
+    border: none;
+    background: none;
+    color: var(--buttonFont);
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.iconButton:hover:not(:disabled)
+{
+    filter: brightness(1.3);
+}
+
+.iconButton:disabled
+{
+    opacity: 0.3;
+    cursor: default;
+}
+
+.iconButton.iconBlue   { color: var(--blue); }
+.iconButton.iconGreen  { color: var(--green); }
+.iconButton.iconRed    { color: var(--red); }
+.iconButton.iconGray   { color: slategray; }
+
+.iconButton.iconButtonSpace          /* placeholder of a missing button, keeps the icons in columns */
+{
+    visibility: hidden;
+    cursor: default;
+}
+
 .tool-button
 {
     height: 32px;
@@ -954,7 +995,7 @@ span > select
 }
 
 .sensorRules {
-   max-width: 60vw;
+   max-width: 60vw;              /* widened to the data tab when the dialog opens (dashboard.js) */
 }
 
 .sensorRule {
@@ -984,6 +1025,10 @@ span > select
 .sensorRulesTimer {
    color: orange;
    margin-bottom: 6px;
+}
+
+#sensorRulesNext {
+   color: var(--blue);
 }
 
 .rule-block {

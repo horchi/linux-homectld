@@ -734,7 +734,7 @@ function gpsBuildControlPanel()
               .addClass('rounded-border tool-button')
               .html('Hilfe')
               .attr('title', 'Beschreibung im README')
-              .click(function() { showHelp('gps-tours'); }));
+              .click(function() { showHelp('doc/gps.md#gps-tours'); }));
 }
 
 function gpsResizeContainer(id)
@@ -1250,7 +1250,7 @@ function gpsBuildFuelPanel()
               .addClass('rounded-border tool-button')
               .html('Hilfe')
               .attr('title', 'Beschreibung im README')
-              .click(function() { showHelp('gps-fuel'); }));
+              .click(function() { showHelp('doc/gps.md#gps-fuel'); }));
 }
 
 function processGpsFuelList(obj)

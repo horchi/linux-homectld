@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.42"
-#define VERSION_DATE "06.11.2026"
+#define _VERSION     "0.1.43"
+#define VERSION_DATE "07.11.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,23 @@
 
 /*
  * ------------------------------------
+
+2026-11-07: version 0.1.43
+    - change: sensor setup: the buttons of a sensor are icons in one column (info, setup, clone, delete, colored, a
+              missing one keeps its place so the icons stay in columns), the button 'Letzte Nachricht' (JSON) is
+              replaced by 'Info'; it opens the info dialog of the dashboard (same code, sensorInfoDialog(), tabs
+              Daten / Regeln / JSON) for each sensor with data, without a widget the unit of the sensor is taken
+    - change: info dialog of the dashboard: the tab 'Regeln' gets at least the width of the dialog (on a phone the
+              data tab is wider than 60vw), 'Nächste Aktion' in blue
+    - change: README split into chapters: README.md with introduction, features, quick start and an overview
+              linking doc/installation.md, webif.md, hardware.md, lights.md, homematic.md, tpms.md, gps.md, hasp.md,
+              garmin.md, lua.md, windy.md, standalone-server.md (each with a link back to the overview), new chapter
+              doc/deconz.md (setup, API key, lights / groups / sensors, battery, invalid sensors)
+    - change: WEBIF page 'README': shows README.md and doc/*.md (htdocs/doc -> ../doc), links between them open in
+              the viewer, anchors scroll in the page, other files of the project open at GitHub; the help buttons
+              (GPS tours, fuel stops, HASP, Garmin) open their chapter
+    - bugfix: make install: the README of the WEBIF was a dangling symlink in WEBDEST (htdocs/README.md ->
+              ../README.md copied as link), the page 'README' couldn't load it; the files are copied now (cp -L)
 
 2026-11-06: version 0.1.42
     - added: info dialog of the dashboard, tab 'Regeln': the next automatic action with its time ('Nächste Aktion:

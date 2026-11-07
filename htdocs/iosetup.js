@@ -384,42 +384,48 @@ function showTable(section)
          );
       }
 
-      if (item.type == 'DO' || item.type.startsWith('MCPO') ||
+      // action buttons (icons) in one cell, a missing one keeps its place (the icons stay in columns)
+
+      let actions = $('<td>').addClass('iconButtons');
+
+      let iconButton = function(show, icon, color, title, action) {
+         let btn = $('<button>')
+             .addClass('iconButton ' + color)
+             .attr('title', title)
+             .append($('<span></span>').addClass('mdi ' + icon));
+
+         if (show)
+            btn.on('click', action);
+         else
+            btn.addClass('iconButtonSpace').attr('tabindex', -1);
+
+         actions.append(btn);
+         return btn;
+      };
+
+      let hasSetup = item.type == 'DO' || item.type.startsWith('MCPO') ||
           item.type == 'DI' || item.type.startsWith('MCPI') ||
           item.type == 'SC' || item.type == 'GPIO' ||
           item.type == 'CV' || item.type == 'AI' ||
           item.type == 'DZL' || item.type == 'DZLG' || item.type == 'HMB' || item.type == 'DZS' ||
-          item.type.startsWith('ADS')) {
-         tr.append($('<td>').append($('<button>')
-                                    .attr('id', 'btnSensorSetup_' + id)
-                                    .attr('disabled', item.type == 'GPIO' ? gpioFct == 'deactivated' || gpioFct == 'occupied' : false)
-                                    .addClass('buttonOptions rounded-border')
-                                    .text('Setup')
-                                    .on('click', () => sensorSetupDialog(item.type, item.address))));
-      }
+          item.type.startsWith('ADS');
+      let deletable = item.type != 'WEA' && item.type != 'BMS' && item.type != 'MOPEKA'
+          && item.type != 'VIC' && !item.type.startsWith('VOTRO');
 
-      if (item.type == 'SC' && item.parameter && item.parameter.cloneable)
-         tr.append($('<td>').append($('<button>')
-                                    .addClass('buttonOptions rounded-border')
-                                    .text('Clone')
-                                    .on('click', () => sensorScClone(item.type, item.address))));
+      // the info dialog of the dashboard (data, rules, last raw message if the daemon holds one)
 
-      if (item.type != 'WEA' && item.type != 'BMS' && item.type != 'MOPEKA'
-          && item.type != 'VIC' && !item.type.startsWith('VOTRO') )
-         tr.append($('<td>').append($('<button>')
-                                    .addClass('buttonOptions rounded-border')
-                                    .text('Löschen')
-                                    .on('click', () => deleteValueFact(item.type, item.address))));
+      iconButton(allSensors[key], 'mdi-information', 'iconBlue', 'Info', () => sensorInfoDialog(key));
 
-      // the last raw message (MQTT JSON, deCONZ event, ...) if the daemon holds one
+      iconButton(hasSetup, 'mdi-cog', 'iconGray', 'Setup', () => sensorSetupDialog(item.type, item.address))
+         .attr('id', 'btnSensorSetup_' + id)
+         .attr('disabled', hasSetup && item.type == 'GPIO' ? gpioFct == 'deactivated' || gpioFct == 'occupied' : false);
 
-      if (allSensors[key] && allSensors[key].hasjson)
-         tr.append($('<td>').append($('<button>')
-                                    .addClass('buttonOptions rounded-border')
-                                    .attr('title', 'Letzte Nachricht')
-                                    .append($('<span></span>').addClass('mdi mdi-code-json'))
-                                    .on('click', () => sensorJsonDialog(item.type, item.address))));
+      iconButton(item.type == 'SC' && item.parameter && item.parameter.cloneable, 'mdi-content-copy', 'iconGreen', 'Clone',
+                 () => sensorScClone(item.type, item.address));
 
+      iconButton(deletable, 'mdi-trash-can-outline', 'iconRed', 'Löschen', () => deleteValueFact(item.type, item.address));
+
+      tr.append(actions);
       root.append(tr);
    }
 }

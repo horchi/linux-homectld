@@ -317,7 +317,7 @@ function actBuildControlPanel()
               .addClass('rounded-border tool-button')
               .html('Hilfe')
               .attr('title', 'Beschreibung im README')
-              .click(function() { showHelp('garmin-activities'); }));
+              .click(function() { showHelp('doc/garmin.md#garmin-activities'); }));
 }
 
 // options of the type select: the types (with counts) within period, name and location filter;

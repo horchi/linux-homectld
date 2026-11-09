@@ -22,15 +22,18 @@ the GPS receiver (useful in a motorhome). The dashboard switches day / night by 
 - optional valid on some days of the year only (*Gültig* day / month from - to), e.g. to close a blind
   later in summer
 - lights: on at the start, off at the end, optional with a brightness
-- blinds: *Zu* at the start, *Auf* at the end, with the positions for both [%]
+- blinds: *Zu* at the start, *Auf* at the end, each range with its own positions for both [%] (e.g. 22:00 to
+  30 % and 23:30 completely closed); ranges stored before take the former position of the blind until stored again
 - switching only happens at the limits of a range; switched by hand it stays until the next limit
 - a limit missed while homectld was stopped (restart, power off of the motorhome) is caught up at the start,
   up to 2 hours back and per light / blind only the last one (closed at 22:00 and opened at 06:30 -> only
   opened); it waits until deCONZ and MQTT are ready (at most 2 minutes). The time up to which the limits are
   done is stored once a minute in `/var/cache/homectld/actortimes.json`
 - *Zeitsteuerung aktiv* switches the whole time control of the actor off without losing the ranges
+- each range has its own checkbox (left of the row): unchecked it is switched off but stays configured, shown dimmed
 
-The outputs (`DO`, `GPIO`) have their time ranges in the tab *Zeiten* of their setup, with the same sun events.
+The outputs (`DO`, `GPIO`) have their time ranges in the tab *Zeiten* of their setup, with the same sun events
+and the checkbox per range.
 
 ## Rules of switches and motion sensors
 
@@ -41,15 +44,17 @@ The outputs (`DO`, `GPIO`) have their time ranges in the tab *Zeiten* of their s
 - action *Dimmen (Taste halten)*: holding the button (e.g. `1001`) dims the targets, the button of *Stopp bei Taste*
   (release, e.g. `1003`) stops it; *Übergang* is the time over the full range (default 4 s). Off targets go on
   with the lowest brightness and get brighter, else darker from 50 % on and brighter below; holding again within
-  5 s after the release dims in the other direction
+  5 s after the release dims in the other direction; still holding at the end (lowest brightness / 100 %) it dims
+  back after a short pause (1 s), back and forth until the release (at most 60 s)
 - targets: one or more lights, groups or outputs
 - optional brightness [%] and transition [s] (fading time)
 - optional off timer *Aus nach* [s], restarted by each event, switches off only what the rule switched on
 - optional time range (fixed or sun times), e.g. motion switches the light only at night
+- *Aktiv*: unchecked the rule is switched off but stays configured (a running off timer still ends)
 
 ## Shading of the blinds
 
-Dialog *Zeitsteuerung* of a blind, section *Beschattung*: while the sun shines on the window the blind moves
+Dialog *Zeitsteuerung* of a blind, tab *Beschattung* (the time ranges are in the tab *Zeiten*): while the sun shines on the window the blind moves
 to the shading position and later back.
 
 - position at shading [%]

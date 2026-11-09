@@ -2907,6 +2907,7 @@ int HomeCtl::valueTypes2Json(json_t* obj)
 
       json_object_set_new(oData, "type", json_string(tableValueTypes->getStrValue("TYPE")));
       json_object_set_new(oData, "title", json_string(tableValueTypes->getStrValue("TITLE")));
+      json_object_set_new(oData, "symbol", json_string(tableValueTypes->getStrValue("SYMBOL")));
    }
 
    selectAllValueTypes->freeResult();
@@ -3277,6 +3278,36 @@ int HomeCtl::daemonState2Json(json_t* obj)
 }
 
 //***************************************************************************
+// Sensor Value 2 Json
+//   the value fields (value, text, battery, image, color) for an 'update' of a single
+//   sensor - the WEBIF replaces the whole sensor object, without them e.g. 'value' is undefined
+//***************************************************************************
+
+int HomeCtl::sensorValue2Json(json_t* obj, const char* type, uint address)
+{
+   const SensorData& sensor {sensors[type][address]};
+
+   if (sensor.kind == "status")
+      json_object_set_new(obj, "value", json_integer(sensor.state));
+   else if (sensor.kind == "value")
+      json_object_set_new(obj, "value", json_real(sensor.value));
+
+   if (!sensor.text.empty())
+      json_object_set_new(obj, "text", json_string(sensor.text.c_str()));
+
+   if (sensor.battery != na)
+      json_object_set_new(obj, "battery", json_integer(sensor.battery));
+
+   if (!sensor.image.empty())
+      json_object_set_new(obj, "image", json_string(sensor.image.c_str()));
+
+   if (!sensor.color.empty())
+      json_object_set_new(obj, "color", json_string(sensor.color.c_str()));
+
+   return done;
+}
+
+//***************************************************************************
 // Sensor 2 Json
 //***************************************************************************
 
@@ -3311,6 +3342,10 @@ int HomeCtl::sensor2Json(json_t* obj, const char* type, uint address)
    //          Beispiel: sie liefern "nextUpdate" : "<time>"
    //                    diese wird dann hier zum valid check verwendet
 
+   //  'timeout' - seconds without data until the sensor is invalid (0 = never), info dialog of the WEBIF
+
+   int timeout {0};
+
    if (strcmp(type, "GPIO") == 0 && sensors[type][address].fct == "out")
       ;
    else if (strcmp(type, "WEA") == 0)
@@ -3320,18 +3355,33 @@ int HomeCtl::sensor2Json(json_t* obj, const char* type, uint address)
    else if (strcmp(type, "HMB") == 0)
       ;
    else if (strcmp(type, "DZS") == 0 || strncmp(type, "DZL", 3) == 0)
-      ;
+   {
+      // measuring sensors - deconzCheckOutdated()
+
+      const std::string& unit {sensors[type][address].unit};
+
+      if (strcmp(type, "DZS") == 0 && !unit.empty() && unit != "lx")
+         timeout = deconzMaxAge;
+   }
    else if (strncmp(type, "P4", 2) == 0)
    {
-      if (sensors[type][address].last() < time(0) - 10*tmeSecondsPerMinute)
+      timeout = 10*tmeSecondsPerMinute;
+
+      if (sensors[type][address].last() < time(0) - timeout)
          sensors[type][address].invalidate();
    }
    else if (sensors[type][address].maxAge > 0)
-      ;   // MQTT sensors with 'maxage' (e.g. tpms, the caps report every ~200 s) - mqttCheckOutdated()
-   else if (sensors[type][address].last() < time(0)-2 * tmeSecondsPerMinute)
-      sensors[type][address].invalidate();
+      timeout = sensors[type][address].maxAge;   // MQTT sensors with 'maxage' (e.g. tpms) - mqttCheckOutdated()
+   else
+   {
+      timeout = 2*tmeSecondsPerMinute;
+
+      if (sensors[type][address].last() < time(0) - timeout)
+         sensors[type][address].invalidate();
+   }
 
    json_object_set_new(obj, "valid", json_boolean(sensors[type][address].valid()));
+   json_object_set_new(obj, "timeout", json_integer(timeout));
 
    // state of the shading of a blind (shade.c)
 

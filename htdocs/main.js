@@ -445,6 +445,9 @@ function factTitle(key) {
 function lightRuleItem(rule, source) {   // title 'Bewegung → Folgen', rows Geräte, Helligkeit, Übergang, Aus nach, Zeitraum
    const actions = { 'toggle': 'Umschalten', 'on': 'An', 'off': 'Aus', 'follow': 'Folgen' };
    let title = (rule.trigger == 'button' ? 'Taste ' + rule.button : 'Bewegung') + ' → ' + (actions[rule.action] || rule.action);
+
+   if (rule.enabled === false)
+      title += ' (ausgeschaltet)';
    let rows = [];
 
    if (source)
@@ -478,12 +481,12 @@ function timeRangeItem(t, fact) {        // time control: rows An / Aus (blind: 
       rows.push(['Gültig', t.dateFrom + '. – ' + t.dateTo + '.']);
 
    if (blind)
-      rows.push(['Position', 'Zu ' + (st.levelIn != null ? st.levelIn : 0) + ' % / Auf ' +
-                 (st.levelOut != null ? st.levelOut : 100) + ' %']);
+      rows.push(['Position', 'Zu ' + (t.levelIn != null ? t.levelIn : st.levelIn != null ? st.levelIn : 0) + ' % / Auf ' +
+                 (t.levelOut != null ? t.levelOut : st.levelOut != null ? st.levelOut : 100) + ' %']);
    else if ((fact.type == 'DZL' || fact.type == 'DZLG') && st.bri)
       rows.push(['Helligkeit', st.bri + ' %']);
 
-   return { 'title': 'Zeitsteuerung' + (st.timesEnabled === false ? ' (ausgeschaltet)' : ''), 'rows': rows };
+   return { 'title': 'Zeitsteuerung' + (st.timesEnabled === false || t.enabled === false ? ' (ausgeschaltet)' : ''), 'rows': rows };
 }
 
 function lightRulesFor(key) {         // rules of a sensor, or the rules switching a light / output -> [ item ]
@@ -1206,6 +1209,19 @@ function prepareMenu()
       active.scrollIntoView({ inline: 'nearest', block: 'nearest' });
 }
 
+// height of the container (viewport - menu - footer) and its resize handler,
+//  each page has to set it - else the one of the previous page stays until a resize
+
+function setupContainerHeight(offset = 10)
+{
+   let resize = function() {
+      $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('footer') - sab - offset);
+   };
+
+   resize();
+   window.onresize = resize;
+}
+
 function prepareSetupMenu()
 {
    // sub menu for setup
@@ -1574,6 +1590,7 @@ function showDatabaseStatistic(statistic)
    $('#container').html('<div id="systemContainer"></div>');
 
    prepareSetupMenu();
+   setupContainerHeight();
 
    let html = '<div>';
 
@@ -1620,6 +1637,7 @@ function showWifiList()
    $('#container').html('<div id="systemContainer"></div>');
 
    prepareSetupMenu();
+   setupContainerHeight();
 
    $("#controlContainer")
       .empty()
@@ -1840,6 +1858,7 @@ function showSystemServicesList()
    $('#container').html('<div id="systemContainer"></div>');
 
    prepareSetupMenu();
+   setupContainerHeight();
 
    $("#controlContainer")
       .empty()

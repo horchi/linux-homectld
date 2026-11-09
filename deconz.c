@@ -69,6 +69,7 @@ int Deconz::init(HomeCtl* parent, cDbConnection* connection)
 
    selectLightByUuid->build("select ");
    selectLightByUuid->bindAllOut();
+   selectLightByUuid->bind("INSSP", cDBS::bndOut, ", ");     // meta field, not in bindAllOut() - knownSince()
    selectLightByUuid->build(" from %s where ", tableDeconzLights->TableName());
    selectLightByUuid->bind("UUID", cDBS::bndIn | cDBS::bndSet);
 
@@ -80,6 +81,7 @@ int Deconz::init(HomeCtl* parent, cDbConnection* connection)
 
    selectSensorByUuid->build("select ");
    selectSensorByUuid->bindAllOut();
+   selectSensorByUuid->bind("INSSP", cDBS::bndOut, ", ");     // meta field, not in bindAllOut() - knownSince()
    selectSensorByUuid->build(" from %s where ", tableDeconzSensors->TableName());
    selectSensorByUuid->bind("UUID", cDBS::bndIn | cDBS::bndSet);
 

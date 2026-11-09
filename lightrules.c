@@ -21,7 +21,8 @@
  *                 "transition": 15,                 transition time [s] (optional)
  *                 "offAfter": 180,                  off timer [s] (optional)
  *                 "condition": { "start": "dusk", "startOffset": -30,
- *                                "end": "sunrise", "endOffset": 0 } } ] }   switch on only inside (optional)
+ *                                "end": "sunrise", "endOffset": 0 },        switch on only inside (optional)
+ *                 "enabled": false } ] }            switched off, stays configured (optional, default true)
  *
  *  Each button event / motion of the sensor is an event, also the same value again
  *  (twice the same button toggles on and off, new motion retriggers the timer).
@@ -33,7 +34,10 @@
  *  dim     holding the button (e.g. 1001) dims the targets, its release ('stopButton', e.g. 1003)
  *          stops it; 'transition' is the time over the full range (default lightDimDefaultTime s);
  *          off targets are switched on with the lowest brightness and dimmed up, else down from
- *          50 % on, up below - holding again within lightDimReverseWithin s takes the other direction
+ *          50 % on, up below - holding again within lightDimReverseWithin s takes the other direction;
+ *          still hold at the end (reported by the lights, latest after the full transition time) it
+ *          dims back after a pause of lightDimEndPause ms, back and forth until the release, at most
+ *          lightDimMaxTime s (a lost release)
  *
  *  Off timer: started / restarted by each event which switches on, at the end only the
  *  targets switched on by the rule are switched off (a light which was already on stays on),
@@ -216,6 +220,8 @@ int HomeCtl::lightTargetSwitch(const std::string& target, bool on, int bri, int 
 
 int HomeCtl::performLightRules()
 {
+   lightRuleCheckDims();
+
    while (!lightRuleEvents.empty())
    {
       LightRuleEvent event {lightRuleEvents.front()};
@@ -240,6 +246,9 @@ int HomeCtl::performLightRules()
 
          json_array_foreach(jRules, index, jRule)
          {
+            if (!getBoolFromJson(jRule, "enabled", true))     // switched off rule, stays configured
+               continue;
+
             char* key {};
             asprintf(&key, "%s:0x%02x#%zu", event.type.c_str(), event.address, index);
             lightRuleApply(key, jRule, event);
@@ -478,17 +487,103 @@ int HomeCtl::lightRuleDim(const char* key, const std::vector<std::string>& targe
 
    tell(eloDetail, "Light rule '%s' (dim): %s%s", key, dir > 0 ? "up" : "down", anyOn ? "" : ", switching on");
 
+   lightRuleDimSend(targets, dir, transitionTime, !anyOn);
+
+   dim.dir = dir;
+   dim.active = true;
+   dim.targets = targets;
+   dim.transitionTime = transitionTime;
+   dim.startedAt = cTimeMs::Now();
+   dim.holdSince = dim.startedAt;
+   dim.endAt = dim.startedAt + transitionTime * 100;
+   dim.endSeenAt = 0;
+
+   return done;
+}
+
+int HomeCtl::lightRuleDimSend(const std::vector<std::string>& targets, int dir, int transitionTime, bool switchOn)
+{
    for (const auto& t : targets)
    {
       std::string type;
       uint address {0};
 
       if (parseTarget(t, type, address) && (type == "DZL" || type == "DZLG"))
-         deconz.dim(type.c_str(), address, dir * 254, transitionTime, !anyOn);
+         deconz.dim(type.c_str(), address, dir * 254, transitionTime, switchOn);
    }
 
-   dim.dir = dir;
-   dim.active = true;
+   return done;
+}
+
+//***************************************************************************
+// Light Rule Dim At End
+//   all lights (DZL, DZLG) of the targets which are on report the end of the direction
+//   (down: lowest brightness, up: 100 %) - only the end itself, the values while dimming
+//   come delayed / not at all; only values reported after 'since' (an older one is the
+//   brightness before, e.g. 100 % of a light switched on with the lowest one)
+//***************************************************************************
+
+bool HomeCtl::lightRuleDimAtEnd(const std::vector<std::string>& targets, int dir, time_t since)
+{
+   int count {0};
+
+   for (const auto& t : targets)
+   {
+      std::string type;
+      uint address {0};
+
+      if (!parseTarget(t, type, address) || (type != "DZL" && type != "DZLG") || !lightTargetState(t))
+         continue;
+
+      const auto& sensor {sensors[type][address]};
+      double bri {sensor.value};
+
+      if (sensor.last() <= since || (dir < 0 && bri > 1) || (dir > 0 && bri < 99))
+         return false;
+
+      count++;
+   }
+
+   return count > 0;
+}
+
+//***************************************************************************
+// Light Rule Check Dims
+//   button still hold at the end of the range -> after a pause back in the other direction
+//***************************************************************************
+
+int HomeCtl::lightRuleCheckDims()
+{
+   uint64_t now {cTimeMs::Now()};
+
+   for (auto& it : lightDims)
+   {
+      LightDim& dim {it.second};
+
+      if (!dim.active)
+         continue;
+
+      if (!dim.endSeenAt && (now >= dim.endAt || lightRuleDimAtEnd(dim.targets, dim.dir, dim.startedAt / 1000)))
+         dim.endSeenAt = now;
+
+      if (!dim.endSeenAt || now < dim.endSeenAt + lightDimEndPause)
+         continue;
+
+      if (now - dim.holdSince > lightDimMaxTime * 1000ULL)
+      {
+         tell(eloAlways, "Light rule '%s' (dim): no release after %d s, stopped", it.first.c_str(), lightDimMaxTime);
+         lightRuleDimStop(it.first.c_str(), dim.targets);
+         continue;
+      }
+
+      dim.dir = -dim.dir;
+      tell(eloDetail, "Light rule '%s' (dim): end reached, back %s", it.first.c_str(), dim.dir > 0 ? "up" : "down");
+      lightRuleDimSend(dim.targets, dim.dir, dim.transitionTime, false);
+
+      dim.startedAt = now;
+      dim.endAt = now + dim.transitionTime * 100;
+      dim.endSeenAt = 0;
+   }
 
    return done;
 }

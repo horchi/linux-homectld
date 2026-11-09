@@ -202,9 +202,11 @@ restart: $(TARGET) install
 	   if systemctl is-active -q $$s.service; then systemctl restart $$s.service; echo "restarted $$s"; fi; \
 	done
 
-# light restart - onlx buld the deamon
+# light restart - only build the daemon, install it and the web files (index.html with the
+#  versioned asset URLs, ~1 s), restart it
 
 lrestart: $(TARGET) slinstall
+	$(MAKE) install-web
 	systemctl restart $(TARGET)
 	@echo restarted $(TARGET)
 

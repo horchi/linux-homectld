@@ -13,7 +13,8 @@
 var zigbee = null;                  // { gateway: {...}, search: { active, remaining }, devices: [ ... ] }
 var zigbeeSearchEnd = 0;            // [ms] end of the running search (local clock)
 var zigbeeTimer = null;
-var zigbeeFilter = '';
+var zigbeeFilter = localStorage.getItem(storagePrefix + 'zigbeeFilter') || '';
+var zigbeeSort = localStorage.getItem(storagePrefix + 'zigbeeSort') || 'name';   // name, reachable, inserted, update
 var zigbeeSearchTotal = 180;        // [s] duration of the running search (deCONZ reports it, e.g. 180 or 600)
 
 // event 'zigbee'
@@ -43,6 +44,7 @@ function initZigbeePage()
 {
    $('#container').removeClass('hidden');
    prepareSetupMenu();
+   setupContainerHeight();
 
    if (!zigbee) {
       $('#container').empty().append($('<div></div>').addClass('rounded-border inputTableConfig').text('wird geladen ...'));
@@ -148,7 +150,12 @@ function zigbeeSearchBox()
 
    if (found.length) {
       $box.append($('<div></div>').addClass('zigbeeFound')
-                  .text((active ? 'Bisher gefunden / neu: ' : 'Neu in den letzten 5 Minuten: ') + found.map(d => d.name + ' (' + d.model + ')').join(', ')));
+                  .text((active ? 'Bisher gefunden / neu: ' : 'Neu in den letzten 15 Minuten: ') +
+                        found.map(d => d.name + ' (' + (d.noddf ? 'ohne DDF - nicht nutzbar' : d.model) + ')').join(', ')));
+
+      if (found.some(d => d.noddf))
+         $box.append($('<div></div>').addClass('zigbeeHelp zigbeeWarn')
+                     .text('Ein Gerät ist zwar angelernt, deCONZ legt dafür aber weder Licht noch Sensor an - Details unten am Gerät.'));
    }
    else if (!active) {
       $box.append($('<div></div>').addClass('zigbeeHelp')
@@ -190,8 +197,18 @@ function zigbeeDevicesBox()
    let devices = zigbee.devices.slice().sort(function(a, b) {
       if (a.new != b.new)
          return a.new ? -1 : 1;
+      if (!!a.noddf != !!b.noddf)
+         return a.noddf ? -1 : 1;                     // the unusable ones (no DDF) on top
       if (a.new && (a.since || 0) != (b.since || 0))
          return (b.since || 0) - (a.since || 0);      // the latest first
+
+      if (zigbeeSort == 'reachable' && a.reachable != b.reachable)
+         return a.reachable ? 1 : -1;                 // the not reachable first
+      if (zigbeeSort == 'inserted' && (a.inserted || 0) != (b.inserted || 0))
+         return (b.inserted || 0) - (a.inserted || 0);                  // the latest first
+      if (zigbeeSort == 'update' && (a.lastseen || '') != (b.lastseen || ''))
+         return (b.lastseen || '').localeCompare(a.lastseen || '');     // the latest first (ISO time of deCONZ)
+
       return a.name.localeCompare(b.name);
    });
 
@@ -218,10 +235,32 @@ function zigbeeDevicesBox()
                       .val(zigbeeFilter)
                       .on('input', function() {
                          zigbeeFilter = $(this).val();
+                         localStorage.setItem(storagePrefix + 'zigbeeFilter', zigbeeFilter);
                          let $new = zigbeeDevicesBox();
                          $(this).closest('.zigbeeBox').find('.zigbeeDevices').replaceWith($new.find('.zigbeeDevices'));
-                      })))
+                      }))
+              .append(zigbeeSortSelect()))
       .append($list);
+}
+
+function zigbeeSortSelect()
+{
+   const sorts = { 'name': 'Name', 'reachable': 'Erreichbar', 'inserted': 'Hinzugefügt', 'update': 'Zuletzt gesehen' };
+   let $select = $('<select></select>').addClass('rounded-border input zigbeeSortSelect')
+       .attr('title', 'Sortierung (neue Geräte immer oben)')
+       .on('change', function() {
+          zigbeeSort = $(this).val();
+          localStorage.setItem(storagePrefix + 'zigbeeSort', zigbeeSort);
+          let $new = zigbeeDevicesBox();
+          $(this).closest('.zigbeeBox').find('.zigbeeDevices').replaceWith($new.find('.zigbeeDevices'));
+       });
+
+   for (let s in sorts)
+      $select.append($('<option></option>').val(s).text(sorts[s]));
+
+   return $('<label></label>').addClass('zigbeeSort')
+      .append($('<span></span>').addClass('mdi mdi-sort'))
+      .append($select.val(zigbeeSort));
 }
 
 function zigbeeDevice(device)
@@ -233,8 +272,11 @@ function zigbeeDevice(device)
                  .append($('<span></span>').addClass('mdi ' + zigbeeBatteryIcon(device.battery)))
                  .append(' ' + device.battery + ' %'));
 
-   state.push($('<span></span>').addClass(device.reachable ? 'zigbeeOk' : 'zigbeeWarn')
-              .text(device.reachable ? 'erreichbar' : 'nicht erreichbar'));
+   if (device.noddf)
+      state.push($('<span></span>').addClass('zigbeeWarn').text('ohne DDF - nicht nutzbar'));
+   else
+      state.push($('<span></span>').addClass(device.reachable ? 'zigbeeOk' : 'zigbeeWarn')
+                 .text(device.reachable ? 'erreichbar' : 'nicht erreichbar'));
 
    if (device.lastseen)
       state.push($('<span></span>').text('zuletzt ' + zigbeeAgo(device.lastseen))
@@ -250,9 +292,12 @@ function zigbeeDevice(device)
    for (let res of device.resources)
       $resources.append(zigbeeResource(res));
 
+   if (device.noddf)
+      $resources.append(zigbeeNoDdfHelp(device));
+
    return $('<div></div>').addClass('zigbeeDevice' + (device.new ? ' zigbeeDeviceNew' : ''))
       .append($('<div></div>').addClass('zigbeeDeviceHead')
-              .append($('<span></span>').addClass('mdi ' + zigbeeDeviceIcon(device) + ' zigbeeDeviceIcon'))
+              .append(zigbeeDeviceIconElement(device))
               .append($('<div></div>').addClass('zigbeeDeviceTitle')
                       .append($('<div></div>').addClass('zigbeeDeviceName')
                               .text(device.name)
@@ -262,11 +307,90 @@ function zigbeeDevice(device)
                               .text([device.manufacturer, device.model, device.swversion ? 'SW ' + device.swversion : ''].filter(s => s).join(' · ')))
                       .append($('<div></div>').addClass('zigbeeDeviceMac').text(device.mac)))
               .append($state)
-              .append($('<button></button>').addClass('rounded-border button1 htmlWidgetDelete zigbeeSmallButton')
+              .append(device.noddf ? null :     // deCONZ deletes only resources, the device itself in its GUI
+                      $('<button></button>').addClass('rounded-border button1 htmlWidgetDelete zigbeeSmallButton')
                       .append($('<span></span>').addClass('mdi mdi-delete-outline'))
                       .append(' Entfernen')
                       .click(function() { zigbeeDelete(device); })))
       .append($resources);
+}
+
+// device paired with deCONZ without any resource - why it doesn't work and what to do
+
+function zigbeeNoDdfHelp(device)
+{
+   let what = device.manufacturer ? 'Hersteller \'' + device.manufacturer + '\'' + (device.model ? ', Modell \'' + device.model + '\'' : '')
+       : null;
+   let $help = $('<div></div>').addClass('zigbeeHelp zigbeeNoDdf');
+
+   $help.append($('<div></div>').addClass('zigbeeWarn')
+                .text('Das Gerät ist bei deCONZ angelernt, deCONZ legt dafür aber weder Licht noch Sensor an - ' +
+                      'homectld kann es daher weder schalten noch auslesen.'));
+
+   if (what) {
+      $help.append($('<div></div>')
+                   .text('Grund: deCONZ hat keine Gerätebeschreibung (DDF) für ' + what + '. ' +
+                         'Die eingebauten DDFs gelten jeweils nur für eine Liste von Herstellernamen ' +
+                         '(bei Tuya z. B. \'_TZ3000_...\'), dieser ist (noch) nicht dabei.'))
+         .append($('<div></div>')
+                 .text('Abhilfe: eine passende DDF (gleiches Modell) aus /usr/share/deCONZ/devices/ nach ' +
+                       '/opt/deCONZ/ddf/<hersteller>/ kopieren, Herstellername und uuid anpassen und den Container mit ' +
+                       '/opt/deCONZ/create-docker.sh neu erstellen - danach erscheint das Gerät hier mit Licht / Sensor.'));
+   }
+   else {
+      $help.append($('<div></div>')
+                   .text('Grund: deCONZ kennt nicht einmal Hersteller und Modell - die Abfrage des Geräts beim Anlernen ' +
+                         'ist nicht fertig geworden (z. B. ein schlafendes Batterie- oder End-Device), so findet deCONZ keine DDF.'))
+         .append($('<div></div>')
+                 .text('Abhilfe: das Gerät wecken (Taste drücken / schalten) und warten, oder neu anlernen und dabei wach halten; ' +
+                       'notfalls in der deCONZ-GUI (create-docker.sh --vnc) beim Gerät Endpoint 01 -> Basic -> Read. ' +
+                       'Kennt deCONZ danach den Herstellernamen, aber das Gerät erscheint weiter so, fehlt die DDF.'));
+   }
+
+   return $help;
+}
+
+// the icon of the device, of an actor (light, plug) it switches the (first) light of the device
+
+function zigbeeDeviceIconElement(device)
+{
+   let $icon = $('<span></span>').addClass('mdi ' + zigbeeDeviceIcon(device) + ' zigbeeDeviceIcon');
+   let lights = device.resources.filter(r => r.resource == 'lights' && r.address != null && r.state == 'A');
+
+   if (!lights.length) {
+      // not active in homectld (no state there): switched by deCONZ directly, the state of deCONZ
+
+      let inactive = device.resources.filter(r => r.resource == 'lights');
+
+      if (!inactive.length)
+         return $icon;
+
+      let res = inactive[0];
+
+      return $icon.addClass('zigbeeDeviceSwitch')
+         .toggleClass('zigbeeDeviceOn', !!res.on)
+         .attr('title', 'Klicken: ' + res.name + ' (deCONZ lights/' + res.id + ') schalten - in homectld nicht aktiv')
+         .click(function() {
+            res.on = !res.on;
+            $(this).toggleClass('zigbeeDeviceOn', res.on);    // deCONZ reports the state with the next read
+            zigbeeSend({ 'action': 'switch', 'id': res.id, 'on': res.on });
+         });
+   }
+
+   let res = lights[0];
+   let key = toKey(res.type, Number(res.address));
+
+   return $icon.addClass('zigbeeDeviceSwitch')
+      .attr('data-key', key)
+      .toggleClass('zigbeeDeviceOn', zigbeeIsOn(key))
+      .attr('title', 'Klicken: ' + (res.usrtitle || res.name) + ' (' + key + ') schalten')
+      .click(function() { toggleIo(Number(res.address), res.type); });
+}
+
+function zigbeeIsOn(key)
+{
+   let sensor = allSensors ? allSensors[key] : null;
+   return sensor != null && !!sensor.value;
 }
 
 function zigbeeResource(res)
@@ -289,7 +413,8 @@ function zigbeeResource(res)
        .prop('checked', res.state == 'A');
 
    let $store = $('<button></button>').addClass('rounded-border button1 zigbeeSmallButton zigbeeStore')
-       .text('Speichern')
+       .append($('<span></span>').addClass('mdi mdi-content-save-outline'))
+       .append(' Speichern')
        .prop('disabled', true);
 
    let changed = function() {
@@ -359,6 +484,10 @@ function zigbeeUpdateValues()
       let key = $(this).attr('data-key');
       if (key)
          $(this).text(zigbeeValueOf(key, $(this).attr('data-dztype')));
+   });
+
+   $('.zigbeeDeviceSwitch').each(function() {
+      $(this).toggleClass('zigbeeDeviceOn', zigbeeIsOn($(this).attr('data-key')));
    });
 }
 

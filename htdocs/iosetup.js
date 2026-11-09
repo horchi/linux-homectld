@@ -699,13 +699,16 @@ function createTimeSide(label, cls, ref, offset, allowEmpty = false) {
    $offset.on('input', update);
    update();
 
+   // the fields in their own wrapping block, a wrapped line stays beside the label
+
    return $('<div></div>').addClass('do-timer-side')
       .append($('<span></span>').text(label).addClass('do-timer-label'))
-      .append($select)
-      .append($time)
-      .append($offset)
-      .append($unit)
-      .append($resolved);
+      .append($('<span></span>').addClass('do-timer-fields')
+              .append($select)
+              .append($time)
+              .append($offset)
+              .append($unit)
+              .append($resolved));
 }
 
 // optional date range of a time range ('DD.MM', also over the turn of the year), selected by day and month
@@ -731,9 +734,10 @@ function createDateSide(t) {
 
    return $('<div></div>').addClass('do-timer-side').attr('title', 'leer = ganzjährig')
       .append($('<span></span>').text('Gültig').addClass('do-timer-label'))
-      .append($date('timer-date-from', t.dateFrom))
-      .append($('<span>–</span>'))
-      .append($date('timer-date-to', t.dateTo));
+      .append($('<span></span>').addClass('do-timer-fields')
+              .append($date('timer-date-from', t.dateFrom))
+              .append($('<span>–</span>'))
+              .append($date('timer-date-to', t.dateTo)));
 }
 
 function dateSideValue($row, cls) {      // 'DD.MM' or '' (day and month both needed)
@@ -743,11 +747,42 @@ function dateSideValue($row, cls) {      // 'DD.MM' or '' (day and month both ne
    return d && m ? d + '.' + m : '';
 }
 
-function createTimeRow(t = { 'start': '08:00', 'end': '17:00' }, labels = ['Von', 'Bis'], allowEmpty = false) {
+//   levels: blinds (HMB), position [%] at start / end of the range { 'levelIn': 0, 'levelOut': 100 }
+
+let timeRowCount = 0;
+
+function createTimeRow(t = { 'start': '08:00', 'end': '17:00' }, labels = ['Von', 'Bis'], allowEmpty = false, levels = null) {
    let $row = $('<div></div>').addClass('do-timer-row');
+
+   // enabled: a switched off range stays configured (the checkbox is drawn by its label, needs a unique id)
+
+   let enId = 'timeRowEnabled' + (++timeRowCount);
+   let $enabled = $('<input></input>').attr('type', 'checkbox').attr('id', enId).addClass('timer-enabled')
+       .prop('checked', t.enabled !== false)
+       .on('change', function() { $row.toggleClass('do-timer-off', !this.checked); });
+
+   $row.toggleClass('do-timer-off', t.enabled === false)
+      .append($('<span></span>').addClass('do-timer-enabled').attr('title', 'Zeile aktiv')
+              .append($enabled).append($('<label></label>').prop('for', enId)));
+
+   let $start = createTimeSide(labels[0], 'timer-start', t.start, t.startOffset, allowEmpty);
+   let $end = createTimeSide(labels[1], 'timer-end', t.end, t.endOffset, allowEmpty);
+
+   if (levels) {
+      let level = (cls, value, title) => $('<span></span>').addClass('do-timer-level')
+          .append($('<input></input>').attr('type', 'number').attr('min', '0').attr('max', '100').attr('step', '1')
+                  .attr('title', title).addClass('do-timer-input do-timer-offset ' + cls).val(value))
+          .append($('<span>%</span>'));
+
+      // right after the label 'Zu' / 'Auf' (fixed place, the rest of the side varies with the time reference)
+
+      $start.find('.do-timer-fields').prepend(level('timer-start-level', levels.levelIn, 'Position [%], 0 = ganz zu'));
+      $end.find('.do-timer-fields').prepend(level('timer-end-level', levels.levelOut, 'Position [%], 100 = ganz auf'));
+   }
+
    $row.append($('<div></div>').addClass('do-timer-sides')
-               .append(createTimeSide(labels[0], 'timer-start', t.start, t.startOffset, allowEmpty))
-               .append(createTimeSide(labels[1], 'timer-end', t.end, t.endOffset, allowEmpty))
+               .append($start)
+               .append($end)
                .append(createDateSide(t)))
        .append($('<button></button>').text('X').addClass('do-timer-delete').on('click', function() { $row.remove(); }));
    return $row;
@@ -775,6 +810,15 @@ function collectTimeRows($container, allowEmpty = false) {
          if (dateFrom && dateTo) {         // both or none
             range.dateFrom = dateFrom;
             range.dateTo = dateTo;
+         }
+
+         if (!$(this).find('.timer-enabled').is(':checked'))
+            range.enabled = false;
+
+         if ($(this).find('.timer-start-level').length) {   // blinds: position per range
+            let level = (cls, def) => { let v = parseInt($(this).find('.' + cls).val()); return isNaN(v) ? def : Math.min(100, Math.max(0, v)); };
+            range.levelIn = level('timer-start-level', 0);
+            range.levelOut = level('timer-end-level', 100);
          }
 
          timesArray.push(range);
@@ -1058,7 +1102,14 @@ function sensorActorSetup(type, address)
                        .addClass('rounded-border inputSetting')
                        .val(value)));
 
+   // blinds: position per range, ranges stored before take the former position of the blind
+
+   let rowLevels = (t) => !blind ? null : {
+      'levelIn': t.levelIn != null ? t.levelIn : settings.levelIn != null ? settings.levelIn : 0,
+      'levelOut': t.levelOut != null ? t.levelOut : settings.levelOut != null ? settings.levelOut : 100 };
+
    let dlgContent = $('<div></div>')
+       .attr('id', 'actorSetupTimes')
        .addClass('settingsDialogContent')
        .append($('<div></div>')
                .append($('<span></span>').html('Zeitsteuerung aktiv'))
@@ -1070,11 +1121,7 @@ function sensorActorSetup(type, address)
                                .prop('checked', settings.timesEnabled != null ? settings.timesEnabled : true))
                        .append($('<label></label>').prop('for', 'timesEnabled'))));
 
-   if (blind)
-      dlgContent
-         .append(numberRow('levelIn', 'Position bei \'Zu\' [%]', settings.levelIn != null ? settings.levelIn : 0, '0 = ganz zu'))
-         .append(numberRow('levelOut', 'Position bei \'Auf\' [%]', settings.levelOut != null ? settings.levelOut : 100, '100 = ganz auf'));
-   else
+   if (!blind)
       dlgContent
          .append(numberRow('timesBri', 'Helligkeit bei \'An\' [%]', settings.bri != null && settings.bri > 0 ? settings.bri : '', 'leer = unverändert'));
 
@@ -1084,14 +1131,17 @@ function sensorActorSetup(type, address)
       .append($('<div></div>').attr('id', 'actorTimerListContainer').addClass('do-timer-list'))
       .append($('<div></div>')
               .append($('<button></button>').text('+').attr('title', 'Zeit hinzufügen').addClass('rounded-border button2')
-                      .on('click', function() { $('#actorTimerListContainer').append(createTimeRow({ 'start': '', 'end': '' }, labels, true)); })))
+                      .on('click', function() { $('#actorTimerListContainer').append(createTimeRow({ 'start': '', 'end': '' }, labels, true, rowLevels({}))); })))
       .append($('<div></div>')
               .css('font-size', 'smaller').css('color', '#999').css('margin-top', '8px')
               .html('Geschaltet wird nur zu den eingestellten Zeiten, von Hand geschaltet bleibt es bis zur nächsten Zeit. ' +
                     'Eine der beiden Zeiten darf \'keine\' sein. Gültig (Tag / Monat, leer = ganzjährig): nur an diesen Tagen, ' +
-                    'auch über den Jahreswechsel, das Ende über Mitternacht gehört zum Vortag.'));
+                    'auch über den Jahreswechsel, das Ende über Mitternacht gehört zum Vortag.' +
+                    (blind ? ' Die Position [%] gilt für \'Zu\' bzw. \'Auf\' dieser Zeile (0 = ganz zu, 100 = ganz auf).' : '')));
 
-   // shading of the blinds (see shade.c)
+   // shading of the blinds (see shade.c), own tab
+
+   let shadeContent = null;
 
    if (blind) {
       let shade = settings.shade || {};
@@ -1122,8 +1172,9 @@ function sensorActorSetup(type, address)
 
       let sun = sunPositionNow();
 
-      dlgContent
-         .append($('<div></div>').css('margin-top', '14px').css('font-weight', 'bold').html('Beschattung'))
+      shadeContent = $('<div></div>')
+         .attr('id', 'actorSetupShade')
+         .addClass('settingsDialogContent')
          .append($('<div></div>')
                  .append($('<span></span>').html('Beschattung aktiv'))
                  .append($('<span></span>')
@@ -1150,10 +1201,20 @@ function sensorActorSetup(type, address)
                        'Von Hand gefahren: Beschattung bis morgen aus. Die Zeitsteuerung hat Vorrang.'));
    }
 
-   $(form).append(dlgContent);
+   // blinds: tabs 'Zeiten' / 'Beschattung' (look of the tabs of the info dialog)
+
+   if (shadeContent)
+      $(form).append($('<div></div>').attr('id', 'actorSetupTabs')
+                     .append($('<ul></ul>')
+                             .append($('<li></li>').append($('<a></a>').attr('href', '#actorSetupTimes').html('Zeiten')))
+                             .append($('<li></li>').append($('<a></a>').attr('href', '#actorSetupShade').html('Beschattung'))))
+                     .append(dlgContent)
+                     .append(shadeContent));
+   else
+      $(form).append(dlgContent);
 
    (Array.isArray(settings.times) ? settings.times : []).forEach(t => {
-      $(form).find('#actorTimerListContainer').append(createTimeRow(t, labels, true));
+      $(form).find('#actorTimerListContainer').append(createTimeRow(t, labels, true, rowLevels(t)));
    });
 
    let title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
@@ -1169,6 +1230,9 @@ function sensorActorSetup(type, address)
       open: function() {
          calSensorType = type;
          calSensorAddress = address;
+
+         if (blind)
+            $('#actorSetupTabs').tabs({ active: 0 });     // always start with 'Zeiten' (else jQuery UI picks the tab matching location.hash)
       },
       buttons: {
          'Abbrechen': function () {
@@ -1181,8 +1245,8 @@ function sensorActorSetup(type, address)
             newSettings.times = collectTimeRows($(form), true);
 
             if (blind) {
-               newSettings.levelIn = parseInt($('#levelIn').val()) || 0;
-               newSettings.levelOut = $('#levelOut').val() != '' ? parseInt($('#levelOut').val()) : 100;
+               delete newSettings.levelIn;          // the position is per range now
+               delete newSettings.levelOut;
 
                let int = (id, def) => { let v = parseInt($('#' + id).val()); return isNaN(v) ? def : v; };
 
@@ -1273,7 +1337,13 @@ function createRuleBlock(rule, targetOptions, lastButton)
        .append(createTimeSide('Von', 'timer-start', cond.start || 'dusk', cond.startOffset))
        .append(createTimeSide('Bis', 'timer-end', cond.end || 'sunrise', cond.endOffset));
 
+   let enId = 'ruleEnabled' + (++ruleBlockCount);
+   let $enabled = $('<input></input>').attr('type', 'checkbox').attr('id', enId).addClass('rule-enabled')
+       .prop('checked', rule.enabled !== false);
+   let $enLabel = $('<label></label>').prop('for', enId);
+
    let update = () => {
+      $block.toggleClass('rule-off', !$enabled.is(':checked'));
       let button = $trigger.val() == 'button';
       let dim = $action.val() == 'dim';
       $button.toggle(button);
@@ -1287,8 +1357,10 @@ function createRuleBlock(rule, targetOptions, lastButton)
    $trigger.on('change', update);
    $action.on('change', update);
    $condOn.on('change', update);
+   $enabled.on('change', update);
 
    $block
+      .append(row('Aktiv', $enabled, $enLabel).addClass('rule-enabled-row'))
       .append(row('Auslöser', $trigger, $button, $buttonHint))
       .append(row('Aktion', $action))
       .append(row('Stopp bei Taste', $stopButton).addClass('rule-for-dim'))
@@ -1319,6 +1391,9 @@ function collectRuleBlocks($container)
          'action': $b.find('.rule-action').val(),
          'targets': $b.find('.rule-targets').val() || []
       };
+
+      if (!$b.find('.rule-enabled').is(':checked'))
+         rule.enabled = false;
 
       if (rule.trigger == 'button')
          rule.button = parseInt($b.find('.rule-button').val()) || 0;

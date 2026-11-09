@@ -77,50 +77,65 @@ HomeCtl::WidgetType HomeCtl::toType(const char* name)
 
 HomeCtl::ValueTypes HomeCtl::defaultValueTypes[] =
 {
-   // expression, title
+   // expression,     title,                    symbol (first match wins!)
 
-   { "^VA$",      "Messwerte" },
-   { "^SD",       "Status Laufzeiten" },
-   { "^DO",       "Digitale Ausgänge" },
-   { "^MCPO",     "Digitale Ausgänge" },
-   { "^DI",       "Digitale Eingänge" },
-   { "^MCPI",     "Digitale Eingänge" },
-   { "^GPIO",     "GPIO" },
-   { "^W1",       "One Wire Sensoren" },
-   { "^SC",       "Skripte" },
-   { "^AO",       "Analog Ausgänge" },
-   { "^AI",       "Analog Eingänge" },
-   { "^ADS",      "Analog Eingänge" },
-   { "^Sp",       "Weitere Sensoren" },
-   { "^DZL",      "DECONZ Lampen" },
-   { "^DZLG",     "DECONZ Lampen Gruppe" },
-   { "^DZS",      "DECONZ Sensoren" },
-   { "^HM.*",     "Home Matic" },
-   { "^P4.*",     "P4 Daemon" },
-   { "^WEA",      "Wetter" },
-   { "^SUN",      "Sonne" },
-   { "^DHT",      "Wetter" },
-   { "^CV",       "Calculated Values" },
-   { "^PA",       "Parameter" },
-   { "^UD",       "User Defined" },
-   { "^VIC",      "Victron" },
-   { "^VOTRO",    "Votronic" },
-   { "^MOPEKA.*", "Mopeka" },
-   { "^TPMS",     "Reifendruck" },
+   { "^VA$",          "Messwerte",              "mdi:mdi-chart-line" },
+   { "^SD",           "Status Laufzeiten",      "mdi:mdi-timer-outline" },
+   { "^DO",           "Digitale Ausgänge",      "mdi:mdi-toggle-switch-outline" },
+   { "^MCPO",         "Digitale Ausgänge",      "mdi:mdi-toggle-switch-outline" },
+   { "^DI",           "Digitale Eingänge",      "mdi:mdi-electric-switch" },
+   { "^MCPI",         "Digitale Eingänge",      "mdi:mdi-electric-switch" },
+   { "^GPIO",         "GPIO",                   "mdi:mdi-chip" },
+   { "^W1",           "One Wire Sensoren",      "mdi:mdi-thermometer" },
+   { "^DS[0-9a-f]",   "One Wire Sensoren",      "mdi:mdi-thermometer" },   // DS18B20 via DS2484 (i2cmqtt)
+   { "^SC",           "Skripte",                "mdi:mdi-script-text-outline" },
+   { "^AO",           "Analog Ausgänge",        "mdi:mdi-sine-wave" },
+   { "^AI",           "Analog Eingänge",        "mdi:mdi-sine-wave" },
+   { "^ADS",          "Analog Eingänge",        "mdi:mdi-sine-wave" },
+   { "^Sp",           "Weitere Sensoren",       "mdi:mdi-access-point" },
+   { "^DZLG",         "DECONZ Lampen Gruppe",   "mdi:mdi-lightbulb-group-outline" },
+   { "^DZL",          "DECONZ Lampen",          "mdi:mdi-lightbulb-outline" },
+   { "^DZS",          "DECONZ Sensoren",        "mdi:mdi-zigbee" },
+   { "^HM.*",         "Home Matic",             "mdi:mdi-home-automation" },
+   { "^P4.*",         "P4 Daemon",              "mdi:mdi-fire" },
+   { "^WEA",          "Wetter",                 "mdi:mdi-weather-partly-cloudy" },
+   { "^SUN",          "Sonne",                  "mdi:mdi-white-balance-sunny" },
+   { "^DHT",          "Wetter",                 "mdi:mdi-weather-partly-cloudy" },
+   { "^CV",           "Calculated Values",      "mdi:mdi-calculator-variant-outline" },
+   { "^PA",           "Parameter",              "mdi:mdi-tune-variant" },
+   { "^UD",           "User Defined",           "mdi:mdi-account-cog-outline" },
+   { "^VIC",          "Victron",                "mdi:mdi-battery-charging" },
+   { "^VOTRO",        "Votronic",               "mdi:mdi-battery-charging" },
+   { "^MOPEKA.*",     "Mopeka",                 "mdi:mdi-gas-cylinder" },
+   { "^TPMS",         "Reifendruck",            "mdi:mdi-car-tire-alert" },
+   { "^GROWATT",      "GROWATT",                "mdi:mdi-solar-power-variant-outline" },
+   { "^TASMOTA",      "TASMOTA",                "mdi:mdi-power-socket-de" },
+   { "^BBQ",          "BBQ",                    "mdi:mdi-grill-outline" },
 
-   { "",          "" }
+   { "",              "",                       "" }
 };
 
-const char* HomeCtl::getTitleOfType(const char* type)
+const HomeCtl::ValueTypes* HomeCtl::findValueType(const char* type)
 {
    for (int i = 0; defaultValueTypes[i].typeExpression != ""; i++)
    {
-      // tell(eloAlways, "check type '%s' against '%s'", type, defaultValueTypes[i].typeExpression.c_str());
       if (rep(type, defaultValueTypes[i].typeExpression.c_str()) == success)
-         return defaultValueTypes[i].title.c_str();
+         return &defaultValueTypes[i];
    }
 
-   return type;
+   return nullptr;
+}
+
+const char* HomeCtl::getTitleOfType(const char* type)
+{
+   const ValueTypes* vt {findValueType(type)};
+   return vt ? vt->title.c_str() : type;
+}
+
+const char* HomeCtl::getSymbolOfType(const char* type)
+{
+   const ValueTypes* vt {findValueType(type)};
+   return vt ? vt->symbol.c_str() : "";
 }
 
 //***************************************************************************
@@ -1197,6 +1212,7 @@ int HomeCtl::callScript(int addr, const char* command)
 
       json_t* ojData {json_object()};
       sensor2Json(ojData, "SC", addr);
+      sensorValue2Json(ojData, "SC", addr);
 
       char* tuple {};
       asprintf(&tuple, "%s:0x%02x", "SC", addr);
@@ -2006,11 +2022,40 @@ int HomeCtl::initDb()
          if (!tableValueTypes->find())
          {
             tableValueTypes->setValue("TITLE", getTitleOfType(tableValueFacts->getStrValue("TYPE")));
+            tableValueTypes->setValue("SYMBOL", getSymbolOfType(tableValueFacts->getStrValue("TYPE")));
             tableValueTypes->store();
          }
       }
 
       selectAllValueFacts->freeResult();
+   }
+
+   // valuetypes without symbol (e.g. from before the column existed) -> default symbol
+
+   std::vector<std::string> noSymbol;
+   tableValueTypes->clear();
+
+   for (bool f = selectAllValueTypes->find(); f; f = selectAllValueTypes->fetch())
+   {
+      if (tableValueTypes->isNull("SYMBOL") || isEmpty(tableValueTypes->getStrValue("SYMBOL")))
+         noSymbol.push_back(tableValueTypes->getStrValue("TYPE"));
+   }
+
+   selectAllValueTypes->freeResult();
+
+   for (const auto& type : noSymbol)
+   {
+      if (isEmpty(getSymbolOfType(type.c_str())))
+         continue;
+
+      tableValueTypes->clear();
+      tableValueTypes->setValue("TYPE", type.c_str());
+
+      if (tableValueTypes->find())
+      {
+         tableValueTypes->setValue("SYMBOL", getSymbolOfType(type.c_str()));
+         tableValueTypes->update();
+      }
    }
 
    // -------------------
@@ -2779,6 +2824,7 @@ int HomeCtl::deconzCheckOutdated()
 
       json_t* ojData {json_object()};
       sensor2Json(ojData, "DZS", address);
+      sensorValue2Json(ojData, "DZS", address);
 
       char tuple[50];
       snprintf(tuple, sizeof(tuple), "DZS:0x%02x", address);
@@ -2815,6 +2861,7 @@ int HomeCtl::mqttCheckOutdated()
 
          json_t* ojData {json_object()};
          sensor2Json(ojData, type.c_str(), address);
+         sensorValue2Json(ojData, type.c_str(), address);
 
          char tuple[100];
          snprintf(tuple, sizeof(tuple), "%s:0x%02x", type.c_str(), address);
@@ -2923,6 +2970,9 @@ int HomeCtl::process(bool force, bool signal)
                // start / end: "HH:MM" or dawn|sunrise|sunset|dusk, each with an optional offset [minutes]
 
                Range r;
+
+               if (!getBoolFromJson(value, "enabled", true))     // switched off range, stays configured
+                  continue;
 
                if (sunResolve(getStringFromJson(value, "start"), getIntFromJson(value, "startOffset", 0), r.from) == success &&
                    sunResolve(getStringFromJson(value, "end"), getIntFromJson(value, "endOffset", 0), r.to) == success)
@@ -3814,6 +3864,7 @@ int HomeCtl::addValueFact(int addr, const char* type, int factor, const char* na
    if (!tableValueTypes->find())
    {
       tableValueTypes->setValue("TITLE", getTitleOfType(type));
+      tableValueTypes->setValue("SYMBOL", getSymbolOfType(type));
       tableValueTypes->store();
    }
 
@@ -4943,6 +4994,12 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
    myString type = getStringFromJson(jData, "type", "");
    int address = getIntFromJson(jData, "address", na);
 
+   // optional 'age' [s] - the data is that old (e.g. tpms resends the last reception of
+   //   its caps after a restart of homectld), its time is the one of the reception
+
+   if (int age {getIntFromJson(jData, "age", 0)}; age > 0 && age < 30 * tmeSecondsPerDay)
+      newTime -= age;
+
    bool valid {getBoolFromJson(jData, "valid", true)};
    const char* unit = getStringFromJson(jData, "unit");
    const char* title = getStringFromJson(jData, "title");
@@ -5158,18 +5215,35 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
    }
 
    sensors[type][address].setLastJson(topic, message, newTime);
+   sensors[type][address].maxAge = getIntFromJson(jData, "maxage", 0);   // also of invalid data (info dialog)
 
-   // ignore invalid data - don't publish and don't store
+   // ignore invalid data - don't store, the WEBIF gets the invalid state
 
    if (!valid)
    {
+      bool wasValid {sensors[type][address].valid()};
+
       sensors[type][address].invalidate(newTime);
       json_decref(jData);
+
+      if (wasValid)
+      {
+         json_t* ojData {json_object()};
+         sensor2Json(ojData, type.c_str(), address);
+         sensorValue2Json(ojData, type.c_str(), address);
+
+         char* tuple {};
+         asprintf(&tuple, "%s:0x%02x", type.c_str(), address);
+         jsonSensorList[tuple] = ojData;
+         free(tuple);
+
+         pushDataUpdate("update", 0L);
+      }
+
       return done;
    }
 
    sensors[type][address].battery = getIntFromJson(jData, "battery", na);
-   sensors[type][address].maxAge = getIntFromJson(jData, "maxage", 0);
    sensors[type][address].kind = getStringFromJson(jData, "kind", "value");
 
    // ignore data for impulse (outputs)

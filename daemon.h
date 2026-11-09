@@ -296,10 +296,13 @@ class HomeCtl : public cWebInterface, public Service
       {
          std::string typeExpression;
          std::string title;
+         std::string symbol;       // e.g. 'mdi:mdi-thermometer'
       };
 
       static ValueTypes defaultValueTypes[];
+      static const ValueTypes* findValueType(const char* type);
       static const char* getTitleOfType(const char* type);
+      static const char* getSymbolOfType(const char* type);
 
       virtual int exit();
       virtual int initLocale();
@@ -501,6 +504,7 @@ class HomeCtl : public cWebInterface, public Service
       int zigbeeEvent(json_t* oEvent);
       int zigbeeAdded(const char* resource, const char* id, json_t* jItem);
       int zigbeeCheckNew();                        // search: 'lights/new', 'sensors/new' (if an event got lost)
+      int zigbeeDeviceMacs(std::set<std::string>& macs);   // MACs of all devices of deCONZ ('devices')
       int zigbeeStartSearch(std::string& message);
       int zigbeeRename(const char* resource, const char* id, const char* name, std::string& error);
       int zigbeeDelete(const char* mac, bool reset, std::string& error);
@@ -755,6 +759,9 @@ class HomeCtl : public cWebInterface, public Service
       int lightTargetSwitch(const std::string& target, bool on, int bri, int transition);
       int lightRuleDim(const char* key, const std::vector<std::string>& targets, int transition);
       int lightRuleDimStop(const char* key, const std::vector<std::string>& targets);
+      int lightRuleDimSend(const std::vector<std::string>& targets, int dir, int transitionTime, bool switchOn);
+      bool lightRuleDimAtEnd(const std::vector<std::string>& targets, int dir, time_t since);
+      int lightRuleCheckDims();
 
       // dimming by holding a button (action 'dim'), per rule "DZS:0x1f#2"
 
@@ -763,11 +770,19 @@ class HomeCtl : public cWebInterface, public Service
          int dir {0};                    // +1 up, -1 down
          bool active {false};            // started, no stop button yet
          time_t stoppedAt {0};
+         std::vector<std::string> targets;
+         int transitionTime {0};         // [1/10 s] over the full range
+         uint64_t holdSince {0};         // [ms] button pressed
+         uint64_t startedAt {0};         // [ms] start of the current direction
+         uint64_t endAt {0};             // [ms] the end is reached latest (full range)
+         uint64_t endSeenAt {0};         // [ms] the end reported by the lights
       };
 
       std::map<std::string,LightDim> lightDims;
       static constexpr int lightDimReverseWithin {5};   // [s] holding again within -> the other direction
       static constexpr int lightDimDefaultTime {4};     // [s] dimming over the full range (rule without 'transition')
+      static constexpr int lightDimEndPause {1000};     // [ms] pause at the end before dimming back (button still hold)
+      static constexpr int lightDimMaxTime {60};        // [s] dimming without stop button at most (release lost)
       bool lightTargetState(const std::string& target);
 
       int nextTimeActions2Json(const char* type, uint address, json_t* obj);   // next actions of the time control (info dialog)
@@ -827,6 +842,7 @@ class HomeCtl : public cWebInterface, public Service
       int syslogs2Json(json_t* obj);
       int daemonState2Json(json_t* obj);
       int sensor2Json(json_t* obj, const char* type, uint address);
+      int sensorValue2Json(json_t* obj, const char* type, uint address);
       int systemServices2Json(json_t* obj);
       int images2Json(json_t* obj);
       void pin2Json(json_t* ojData, const char* type, uint pin);
@@ -1038,9 +1054,11 @@ class HomeCtl : public cWebInterface, public Service
       static constexpr int deconzReinitDelay {60}; // [s] after the websocket connected
       time_t zigbeeSearchNextCheck {0};
       std::set<std::string> zigbeeKnownIds;        // '<resource>/<id>' known by homectld (at the start of the search + added)
-      std::set<std::string> zigbeeFound;           // MACs of the devices found by the last search
+      std::map<std::string,time_t> zigbeeFound;    // MACs of the devices found by the last search, when (end of the search)
+      std::set<std::string> zigbeeKnownMacs;       // MACs of 'devices' of deCONZ at the start of the search (joined ones without DDF)
+      time_t zigbeeNewUntil {0};                   // push the page again when the 'new' mark of a device expires
       static constexpr int zigbeeCheckInterval {5};   // [s] query of 'lights/new' / 'sensors/new' while searching
-      static constexpr int zigbeeNewFor {5 * 60};     // [s] a device first seen within is marked as new on the page
+      static constexpr int zigbeeNewFor {15 * 60};    // [s] a device first seen within is marked as new on the page
 
       int webPort {61109};
       std::string webUrl;

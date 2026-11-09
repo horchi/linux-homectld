@@ -956,13 +956,36 @@ span > select
 
 .do-timer-side {
    display: flex;
-   flex-wrap: wrap;
-   align-items: center;
+   flex-wrap: nowrap;
+   align-items: flex-start;      /* the label beside the first line of the fields */
    gap: 4px;
 }
 
-.do-timer-row .do-timer-label {
-   min-width: 30px;
+.do-timer-row span.do-timer-fields,
+.rule-block span.do-timer-fields {
+   display: flex;
+   flex-wrap: wrap;              /* a wrapped line stays beside the label, not below it */
+   align-items: center;
+   gap: 4px;
+   flex: 1;
+   min-width: 0;
+   margin: 0;
+}
+
+.do-timer-side .do-timer-label {
+   flex: none;
+   min-width: 45px;              /* 'Gültig', the fields of all sides start at the same place */
+   line-height: 28px;            /* the height of the fields */
+}
+
+/* the same height for all fields of a side (the time input is higher by its picker by default) */
+
+.do-timer-side select,
+.do-timer-side input {
+   height: 28px;
+   box-sizing: border-box;
+   padding-top: 0;
+   padding-bottom: 0;
 }
 
 .do-timer-ref {
@@ -986,6 +1009,38 @@ span > select
 .do-timer-list .do-timer-row {
    border-bottom: 1px solid #555;
    padding-bottom: 8px;
+}
+
+/* blinds: position [%] of a range, input and '%' never wrapped apart */
+
+.do-timer-row span.do-timer-level {
+   display: inline-flex;
+   align-items: center;
+   flex: none;
+   gap: 2px;
+   margin: 0 6px 0 0;
+   white-space: nowrap;
+}
+
+.do-timer-row span.do-timer-level > span {
+   margin: 0;
+}
+
+.do-timer-level .do-timer-input.do-timer-offset {
+   flex: none;
+   width: 60px;
+   min-width: 60px;
+}
+
+/* a switched off range / rule stays configured, shown dimmed */
+
+.do-timer-row span.do-timer-enabled {
+   margin: 0 8px 0 0;
+}
+
+.do-timer-row.do-timer-off .do-timer-sides,
+.rule-block.rule-off .rule-row:not(.rule-enabled-row) {
+   opacity: 0.45;
 }
 
 .do-timer-row span.do-timer-date {
@@ -1262,49 +1317,191 @@ span > select
     padding: 0px 0px 0px env(safe-area-inset-left);
 }
 
-.listContainer
-{
-    font-size: 18px;
+/* page 'List' (list.js) */
+
+.listPage {
     padding: var(--containerPadding);
-}
-
-.listContainer > div > div > img
-{
-    margin-top: 2%;
-    display: table-cell;
-    max-height: 80%;
-}
-
-.listFirstCol
-{
-    width: 20%;
-    min-width: 145px;
-    display: inline-block;
-    text-align: left;
-    overflow: hidden;
-    line-height: 45px;
     color: var(--listFontColor);
 }
 
-.listSecondCol
-{
-    display: inline-flex;
-    text-align: left;
-    overflow: hidden;
+.listState {
+    background-color: var(--widgetBackground);
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 24px;
+    align-items: baseline;
+}
+
+.listStateTitle {
+    font-size: 18px;
+    color: var(--green);
+    width: 100%;
+}
+
+.listStateFail {
+    color: #b55a5a;
+    font-size: 18px;
+}
+
+.listStateLabel {
+    opacity: 0.6;
+    margin-right: 8px;
+}
+
+.listToolbar {
+    display: flex;
     align-items: center;
-    color: var(--listFontColor);
+    gap: 12px;
+    margin-bottom: 6px;
+}
+
+.listFilterInput {
+    width: 220px;
+    max-width: 100%;
+}
+
+.listCount {
+    opacity: 0.6;
+    font-size: smaller;
+}
+
+.listGroup {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 18px 2px 6px 2px;
+    padding: 6px 12px 6px 10px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--fontColor);
+    background: linear-gradient(90deg, var(--caption2) 0%, var(--caption1) 60%, transparent 100%);
+    border-left: 4px solid var(--blue);
+    border-radius: var(--borderRadius);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.listGroup:first-of-type {
+    margin-top: 8px;
+}
+
+.listGroupIcon {
+    font-size: 20px;
+    line-height: 1;
+    opacity: 0.9;
+}
+
+.listGroupTitle {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.listGroupCount {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0;
+    min-width: 22px;
+    padding: 1px 8px;
+    text-align: center;
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 .listRow {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) minmax(90px, auto) 110px;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+    margin: 2px;
+    padding: 2px 10px 2px 6px;
     background-color: var(--widgetBackground);
     border-radius: var(--borderRadius);
-    border-color: var(--borderColor);
-    border-style: solid;
-    border-width: 1px;
-    margin: 2px;
-    height: 45px;
-    display: flex;
-    padding: 0px 0px 0px 10px;
+    border: 1px solid var(--borderColor);
+}
+
+.listInvalid {
+    opacity: 0.45;
+}
+
+.listSymbol {
+    font-size: 24px;
+    text-align: center;
+    opacity: 0.8;
+}
+
+.listSwitch {
+    cursor: pointer;
+    border-radius: 50%;
+    transition: background-color 0.15s;
+}
+
+.listSwitch:hover {
+    opacity: 1;
+    background-color: rgba(128, 128, 128, 0.2);
+}
+
+.listSymbolImg img {
+    height: 28px;
+    vertical-align: middle;
+}
+
+.listTitle {
+    cursor: pointer;
+    min-width: 0;
+}
+
+.listName {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.listKey {
+    font-size: 11px;
+    opacity: 0.5;
+}
+
+.listValue {
+    text-align: right;
+    font-size: 18px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.listAge {
+    text-align: right;
+    font-size: 12px;
+    line-height: 1.2;
+    opacity: 0.6;
+}
+
+.listEmpty {
+    padding: 10px;
+    opacity: 0.6;
+}
+
+/* two columns on wide windows, group titles across the full width */
+@media (min-width: 550px) {
+    .listContainer {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        column-gap: 6px;
+        align-items: stretch;
+    }
+    .listGroup, .listEmpty { grid-column: 1 / -1; }
+}
+
+@media (max-width: 600px) {
+    .listRow { grid-template-columns: 30px minmax(0, 1fr) auto; }
+    .listAge { display: none; }
 }
 
 /* used for p4d */
@@ -4267,16 +4464,22 @@ iPhones
     background: #ddd;
 }
 
-/* widget info dialog: tabs data / JSON (dashboard.js titleClick) - look of the main menu tabs */
+/* widget info dialog: tabs data / JSON (dashboard.js titleClick) - look of the main menu tabs,
+   the same for the tabs of the time control of the blinds (iosetup.js sensorActorSetup) */
 
 #sensorInfoTabs,
+#actorSetupTabs,
 #sensorInfoTabs .ui-tabs-nav,
+#actorSetupTabs .ui-tabs-nav,
 #sensorInfoTabs .ui-tabs-nav li,
-#sensorInfoTabs .ui-tabs-panel {
+#actorSetupTabs .ui-tabs-nav li,
+#sensorInfoTabs .ui-tabs-panel,
+#actorSetupTabs .ui-tabs-panel {
     box-shadow: none;             /* .ui-widget-content of dialog.css adds one */
 }
 
-#sensorInfoTabs {
+#sensorInfoTabs,
+#actorSetupTabs {
     border: none;
     background: transparent;
     padding: 0px;
@@ -4284,7 +4487,8 @@ iPhones
     box-sizing: border-box;
 }
 
-#sensorInfoTabs .ui-tabs-nav {
+#sensorInfoTabs .ui-tabs-nav,
+#actorSetupTabs .ui-tabs-nav {
     background: transparent;
     border: none;
     border-bottom: 1px solid var(--neutral3);
@@ -4293,7 +4497,8 @@ iPhones
     margin: 0px 0px 8px 0px;
 }
 
-#sensorInfoTabs .ui-tabs-nav li {
+#sensorInfoTabs .ui-tabs-nav li,
+#actorSetupTabs .ui-tabs-nav li {
     background: transparent;
     border: none;
     border-radius: 0px;
@@ -4301,24 +4506,28 @@ iPhones
     opacity: 0.6;
 }
 
-#sensorInfoTabs .ui-tabs-nav li:hover {
+#sensorInfoTabs .ui-tabs-nav li:hover,
+#actorSetupTabs .ui-tabs-nav li:hover {
     opacity: 0.8;
 }
 
-#sensorInfoTabs .ui-tabs-nav li.ui-tabs-active {
+#sensorInfoTabs .ui-tabs-nav li.ui-tabs-active,
+#actorSetupTabs .ui-tabs-nav li.ui-tabs-active {
     opacity: 1.0;
     font-weight: bold;
     border-bottom: 3px solid var(--yellow);
 }
 
-#sensorInfoTabs .ui-tabs-nav li a {
+#sensorInfoTabs .ui-tabs-nav li a,
+#actorSetupTabs .ui-tabs-nav li a {
     color: var(--dialogColor);            /* the text color of the dialogs, not the (white) button font */
     font-size: 14px;                      /* like the buttons of the WEBIF */
     padding: 4px 12px;
     outline: none;
 }
 
-#sensorInfoTabs .ui-tabs-panel {
+#sensorInfoTabs .ui-tabs-panel,
+#actorSetupTabs .ui-tabs-panel {
     padding: 0px;
     width: 100%;
     box-sizing: border-box;
@@ -4798,6 +5007,13 @@ textarea.mqttConvMessage {
    font-weight: normal;
 }
 
+.zigbeeSort {
+   display: flex;
+   align-items: center;
+   gap: 4px;
+   font-weight: normal;
+}
+
 .zigbeeInfo {
    display: grid;
    grid-template-columns: max-content 1fr;
@@ -4887,6 +5103,23 @@ textarea.mqttConvMessage {
 .zigbeeDeviceIcon {
    font-size: 26px;
    opacity: 0.8;
+}
+
+.zigbeeDeviceSwitch {                /* actor: the icon switches it */
+   cursor: pointer;
+   border-radius: 50%;
+   padding: 2px;
+   transition: background-color 0.15s, opacity 0.15s;
+}
+
+.zigbeeDeviceSwitch:hover {
+   opacity: 1;
+   background-color: rgba(128, 128, 128, 0.2);
+}
+
+.zigbeeDeviceOn {
+   color: var(--yellow);
+   opacity: 1;
 }
 
 .zigbeeDeviceTitle {

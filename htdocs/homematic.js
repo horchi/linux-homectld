@@ -16,6 +16,7 @@ function initHomeMatic()
 {
    $('#container').removeClass('hidden');
    prepareSetupMenu();
+   setupContainerHeight();
 
    let hm = homeMatic;
    let status = hm.status || {};

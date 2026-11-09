@@ -365,8 +365,18 @@ int HomeCtl::sunResolve(const char* ref, int offset, uint& hhmm, const SunTimes*
 //
 //   SETTINGS: { "timesEnabled": true, "times": [ ... ],
 //               "bri": 80,                         DZL / DZLG, brightness on switch on (optional)
-//               "levelIn": 0, "levelOut": 100 }    HMB, position at the start / end of the range
+//               "times": [ { ...,
+//                            "levelIn": 0, "levelOut": 100,   HMB, position at the start / end of the range
+//                                                  (without it the former "levelIn" / "levelOut" of
+//                                                  the actor, else 0 / 100)
+//                            "enabled": false } ] }   range switched off, stays configured (optional)
 //***************************************************************************
+
+static int actorRangeLevel(json_t* jRange, json_t* oSettings, bool in)
+{
+   const char* name {in ? "levelIn" : "levelOut"};
+   return getIntFromJson(jRange, name, getIntFromJson(oSettings, name, in ? 0 : 100));
+}
 
 static time_t localTimeOf(time_t day, uint hhmm)
 {
@@ -427,6 +437,9 @@ int HomeCtl::actorTimesDue(const char* type, uint address, json_t* oSettings, ti
 
    json_array_foreach(jTimes, index, jRange)
    {
+      if (!getBoolFromJson(jRange, "enabled", true))      // switched off range, stays configured
+         continue;
+
       // the limits, false if empty or not occurring this day (sun times at polar night / midnight sun)
 
       auto limitOf = [&](bool in, uint& hhmm) {
@@ -466,7 +479,7 @@ int HomeCtl::actorTimesDue(const char* type, uint address, json_t* oSettings, ti
          action.at = dueAt;
 
          if (strcmp(type, "HMB") == 0)
-            action.level = getIntFromJson(oSettings, in ? "levelIn" : "levelOut", in ? 0 : 100);
+            action.level = actorRangeLevel(jRange, oSettings, in);
          else if (in)
             action.bri = getIntFromJson(oSettings, "bri", na);
 
@@ -697,13 +710,13 @@ int HomeCtl::nextTimeActions2Json(const char* type, uint address, json_t* obj)
 
    // the action as JSON
 
-   auto action2Json = [&](time_t at, bool in) {
+   auto action2Json = [&](time_t at, bool in, json_t* jR) {
       json_t* jAction {json_object()};
       json_object_set_new(jAction, "at", json_integer(at));
       json_object_set_new(jAction, "in", json_boolean(in));
 
       if (strcmp(type, "HMB") == 0)
-         json_object_set_new(jAction, "level", json_integer(getIntFromJson(oSettings, in ? "levelIn" : "levelOut", in ? 0 : 100)));
+         json_object_set_new(jAction, "level", json_integer(actorRangeLevel(jR, oSettings, in)));
       else if (actor && in && getIntFromJson(oSettings, "bri", na) > 0)
          json_object_set_new(jAction, "bri", json_integer(getIntFromJson(oSettings, "bri", na)));
 
@@ -716,6 +729,7 @@ int HomeCtl::nextTimeActions2Json(const char* type, uint address, json_t* obj)
    json_t* jRanges {json_array()};
    time_t nextAt {0};
    bool nextIn {false};
+   json_t* nextRange {};
    size_t index {0};
    json_t* jRange {};
 
@@ -723,8 +737,9 @@ int HomeCtl::nextTimeActions2Json(const char* type, uint address, json_t* obj)
    {
       time_t rangeAt {0};
       bool rangeIn {false};
+      bool enabled {getBoolFromJson(jRange, "enabled", true)};    // switched off: no next action (null)
 
-      for (int d = 1; d < dayCount && !rangeAt; d++)
+      for (int d = 1; enabled && d < dayCount && !rangeAt; d++)
       {
          auto limitOf = [&](bool in, uint& hhmm) {
             const char* ref {getStringFromJson(jRange, in ? "start" : "end")};
@@ -755,12 +770,13 @@ int HomeCtl::nextTimeActions2Json(const char* type, uint address, json_t* obj)
          }
       }
 
-      json_array_append_new(jRanges, rangeAt ? action2Json(rangeAt, rangeIn) : json_null());
+      json_array_append_new(jRanges, rangeAt ? action2Json(rangeAt, rangeIn, jRange) : json_null());
 
       if (actor && rangeAt && (!nextAt || rangeAt < nextAt))
       {
          nextAt = rangeAt;
          nextIn = rangeIn;
+         nextRange = jRange;
       }
    }
 
@@ -786,6 +802,9 @@ int HomeCtl::nextTimeActions2Json(const char* type, uint address, json_t* obj)
          json_array_foreach(jTimes, i, jR)
          {
             Range r;
+
+            if (!getBoolFromJson(jR, "enabled", true))
+               continue;
 
             if (sunResolve(getStringFromJson(jR, "start"), getIntFromJson(jR, "startOffset", 0), r.from, &days[d]) != success ||
                 sunResolve(getStringFromJson(jR, "end"), getIntFromJson(jR, "endOffset", 0), r.to, &days[d]) != success)
@@ -846,7 +865,7 @@ int HomeCtl::nextTimeActions2Json(const char* type, uint address, json_t* obj)
    }
 
    if (nextAt)
-      json_object_set_new(obj, "next", action2Json(nextAt, nextIn));
+      json_object_set_new(obj, "next", action2Json(nextAt, nextIn, nextRange));
 
    json_decref(oSettings);
 

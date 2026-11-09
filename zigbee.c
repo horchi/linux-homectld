@@ -29,7 +29,7 @@
  *    { "gateway": { "url", "apikey", "connected", "name", "swversion", "fwversion", "channel", "panid", "error" },
  *      "search": { "active", "remaining" },
  *      "devices": [ { "mac", "name", "manufacturer", "model", "swversion", "reachable", "battery",
- *                     "lastseen", "new", "resources": [ { "resource", "id", "uniqueid", "name", "dztype",
+ *                     "lastseen", "inserted", "new", "resources": [ { "resource", "id", "uniqueid", "name", "dztype",
  *                     "type", "address", "state", "usrtitle", "reachable" } ] } ] }
  */
 
@@ -89,7 +89,32 @@ int HomeCtl::performZigbee(json_t* obj, long client)
       deconz.rest("PUT", "config", json_pack("{s:i}", "permitjoin", 0), jResult);
       json_decref(jResult);
       zigbeeSearchUntil = 0;
+
+      for (auto& found : zigbeeFound)            // 'new' for zigbeeNewFor from the end of the search
+         found.second = time(0);
+
       tell(eloAlways, "DECONZ: Search for new devices stopped");
+   }
+   else if (action == "switch")     // a light by deCONZ directly, also if not active in homectld
+   {
+      std::string id {getStringFromJson(obj, "id", "")};
+      bool on {getBoolFromJson(obj, "on")};
+
+      if (id.empty() || id.find_first_not_of("0123456789") != std::string::npos)
+         return replyResult(fail, client, "Ungültige Licht-Id '%s'", id.c_str());
+
+      json_t* jResult {};
+      std::string path {"lights/" + id + "/state"};
+      int status {deconz.rest("PUT", path.c_str(), json_pack("{s:b}", "on", on), jResult)};
+      std::string error {status == success ? deconz.resultError(jResult) : "deCONZ nicht erreichbar"};
+      json_decref(jResult);
+
+      if (!error.empty())
+         return replyResult(fail, client, "%s", error.c_str());
+
+      tell(eloAlways, "DECONZ: Light 'lights/%s' switched %s on the zigbee page", id.c_str(), on ? "on" : "off");
+
+      return done;     // no push, the state of deCONZ may follow later - the page shows the new state already
    }
    else if (action == "rename")
    {
@@ -220,16 +245,22 @@ int HomeCtl::zigbee2Json(json_t* obj)
 
    std::map<std::string,json_t*> devices;
    std::vector<std::string> order;
+   std::set<std::string> withResource;          // MACs with any resource (also the internal ones as the gateway)
+   bool resourcesRead {true};
 
    for (const char* resource : { "lights", "sensors" })
    {
       json_t* jData {};
 
       if (deconz.rest("GET", resource, nullptr, jData) != success)
+      {
+         resourcesRead = false;
          continue;
+      }
 
       if (!json_is_object(jData))     // [{"error": {"description": "unauthorized user", ...}}]
       {
+         resourcesRead = false;
          std::string error {deconz.resultError(jData)};
          json_object_set_new(jGateway, "error", json_string(error.empty() ? "unerwartete Antwort von deCONZ" : error.c_str()));
          json_decref(jData);
@@ -244,6 +275,9 @@ int HomeCtl::zigbee2Json(json_t* obj)
       {
          const char* uuid {getStringFromJson(jItem, "uniqueid", "")};
          std::string dzType {getStringFromJson(jItem, "type", "")};
+
+         if (!isEmpty(uuid))
+            withResource.insert(macOfUuid(uuid));
 
          if (isEmpty(uuid) || isInternalType(dzType))
             continue;
@@ -265,7 +299,7 @@ int HomeCtl::zigbee2Json(json_t* obj)
             json_object_set_new(jDevice, "model", json_string(getStringFromJson(jItem, "modelid", "")));
             json_object_set_new(jDevice, "swversion", json_string(getStringFromJson(jItem, "swversion", "")));
             json_object_set_new(jDevice, "reachable", json_boolean(reachable));
-            json_object_set_new(jDevice, "new", json_boolean(zigbeeFound.count(mac) > 0));
+            json_object_set_new(jDevice, "new", json_false());
             json_object_set_new(jDevice, "resources", json_array());
          }
 
@@ -274,13 +308,31 @@ int HomeCtl::zigbee2Json(json_t* obj)
          if (reachable)
             json_object_set_new(jDevice, "reachable", json_true());
 
-         // new: found by the last search or first seen by homectld within zigbeeNewFor (also paired in
-         //  Phoscon, taken by a later read of the devices)
+         // new: found by the last search (while it runs and zigbeeNewFor after its end) or first seen
+         //  by homectld within zigbeeNewFor (also paired in Phoscon, taken by a later read of the devices)
 
+         time_t now {time(0)};
          time_t since {deconz.knownSince(isLight ? "light" : "sensor", uuid)};
+         auto itFound {zigbeeFound.find(mac)};
 
-         if (since && since > time(0) - zigbeeNewFor)
+         if (itFound != zigbeeFound.end() && (zigbeeSearchUntil || itFound->second > now - zigbeeNewFor))
          {
+            json_object_set_new(jDevice, "new", json_true());
+
+            if (!zigbeeSearchUntil && (!zigbeeNewUntil || itFound->second + zigbeeNewFor < zigbeeNewUntil))
+               zigbeeNewUntil = itFound->second + zigbeeNewFor;
+         }
+
+         // inserted: the first resource of the device known by homectld (sorting of the WEBIF)
+
+         if (since && (!getIntFromJson(jDevice, "inserted", 0) || since < getIntFromJson(jDevice, "inserted", 0)))
+            json_object_set_new(jDevice, "inserted", json_integer(since));
+
+         if (since && since > now - zigbeeNewFor)
+         {
+            if (!zigbeeNewUntil || since + zigbeeNewFor < zigbeeNewUntil)
+               zigbeeNewUntil = since + zigbeeNewFor;
+
             json_object_set_new(jDevice, "new", json_true());
 
             if (since > getIntFromJson(jDevice, "since", 0))
@@ -304,6 +356,9 @@ int HomeCtl::zigbee2Json(json_t* obj)
          json_object_set_new(jRes, "name", json_string(getStringFromJson(jItem, "name", "")));
          json_object_set_new(jRes, "dztype", json_string(dzType.c_str()));
          json_object_set_new(jRes, "reachable", json_boolean(reachable));
+
+         if (isLight)                  // for switching a light not active in homectld (no state there)
+            json_object_set_new(jRes, "on", json_boolean(getBoolByPath(jItem, "state/on", false)));
 
          const char* type {isLight ? "DZL" : "DZS"};
          long address {deconz.addressOf(isLight ? "light" : "sensor", uuid)};
@@ -332,7 +387,90 @@ int HomeCtl::zigbee2Json(json_t* obj)
    for (const auto& mac : order)
       json_array_append_new(jDevices, devices[mac]);
 
+   // devices paired with deCONZ but without any resource: deCONZ has no DDF (device description)
+   //   for them, e.g. a Tuya device with a new manufacturer name ('_TZ3000_...') - homectld can't use them
+
+   std::set<std::string> dzMacs;
+
+   if (resourcesRead && zigbeeDeviceMacs(dzMacs) == success)
+   {
+      for (const auto& mac : dzMacs)
+      {
+         if (withResource.count(mac))
+            continue;
+
+         json_t* jItem {};
+         std::string path {"devices/" + mac};
+
+         if (deconz.rest("GET", path.c_str(), nullptr, jItem) != success || !json_is_object(jItem))
+         {
+            json_decref(jItem);
+            continue;
+         }
+
+         // {"manufacturername": "_TZ3000_hbxsdd6k", "modelid": "TS0011", "lastseen": "...", "subdevices": [], ...}
+         //  (empty of an incomplete interview, the basic cluster not read)
+
+         const char* manufacturer {getStringFromJson(jItem, "manufacturername", "")};
+         const char* model {getStringFromJson(jItem, "modelid", "")};
+         auto itFound {zigbeeFound.find(mac)};
+         bool isNew {itFound != zigbeeFound.end() && (zigbeeSearchUntil || itFound->second > time(0) - zigbeeNewFor)};
+
+         json_t* jDevice {json_object()};
+         json_object_set_new(jDevice, "mac", json_string(mac.c_str()));
+         json_object_set_new(jDevice, "name", json_string(!isEmpty(model) ? model : mac.c_str()));
+         json_object_set_new(jDevice, "manufacturer", json_string(manufacturer));
+         json_object_set_new(jDevice, "model", json_string(model));
+         json_object_set_new(jDevice, "swversion", json_string(""));
+         json_object_set_new(jDevice, "reachable", json_true());
+         json_object_set_new(jDevice, "noddf", json_true());
+         json_object_set_new(jDevice, "new", json_boolean(isNew));
+         json_object_set_new(jDevice, "resources", json_array());
+
+         if (isNew && !zigbeeSearchUntil && (!zigbeeNewUntil || itFound->second + zigbeeNewFor < zigbeeNewUntil))
+            zigbeeNewUntil = itFound->second + zigbeeNewFor;
+
+         const char* lastSeen {getStringFromJson(jItem, "lastseen", "")};
+
+         if (!isEmpty(lastSeen))
+            json_object_set_new(jDevice, "lastseen", json_string(lastSeen));
+
+         json_array_append_new(jDevices, jDevice);
+         json_decref(jItem);
+      }
+   }
+
    return done;
+}
+
+//***************************************************************************
+// Zigbee Device MACs
+//   'devices' of deCONZ: ["00:15:8d:00:02:05:9f:8e", ...] - all paired devices, also the ones
+//   without a resource (no DDF)
+//***************************************************************************
+
+int HomeCtl::zigbeeDeviceMacs(std::set<std::string>& macs)
+{
+   json_t* jData {};
+
+   if (deconz.rest("GET", "devices", nullptr, jData) != success || !json_is_array(jData))
+   {
+      json_decref(jData);
+      return fail;
+   }
+
+   size_t i {};
+   json_t* jMac {};
+
+   json_array_foreach(jData, i, jMac)
+   {
+      if (json_is_string(jMac))
+         macs.insert(json_string_value(jMac));
+   }
+
+   json_decref(jData);
+
+   return success;
 }
 
 //***************************************************************************
@@ -366,6 +504,12 @@ int HomeCtl::zigbeeService()
       changed = true;
    }
 
+   if (zigbeeNewUntil && time(0) > zigbeeNewUntil)
+   {
+      zigbeeNewUntil = 0;                       // the 'new' mark of a device expired, set again by zigbeePush()
+      changed = true;
+   }
+
    if (zigbeeSearchUntil)
    {
       time_t now {time(0)};
@@ -382,6 +526,10 @@ int HomeCtl::zigbeeService()
       {
          tell(eloAlways, "DECONZ: Search for new devices finished, %zu found", zigbeeFound.size());
          zigbeeSearchUntil = 0;
+
+         for (auto& found : zigbeeFound)         // 'new' for zigbeeNewFor from the end of the search
+            found.second = now;
+
          changed = true;
       }
    }
@@ -468,7 +616,7 @@ int HomeCtl::zigbeeAdded(const char* resource, const char* id, json_t* jItem)
    bool known {deconz.addressOf(kind, uuid) != na};
 
    if (zigbeeSearchUntil)
-      zigbeeFound.insert(macOfUuid(uuid));      // also a known device paired again
+      zigbeeFound[macOfUuid(uuid)] = time(0);   // also a known device paired again
 
    // as by the start: table deconzl / deconzs, address, valuefact, the state
 
@@ -546,6 +694,28 @@ int HomeCtl::zigbeeCheckNew()
       json_decref(jNew);
    }
 
+   // joined devices which got no resource (no DDF at deCONZ) - not in '<resource>/new'
+
+   std::set<std::string> macs;
+
+   if (!zigbeeKnownMacs.empty() && zigbeeDeviceMacs(macs) == success)
+   {
+      for (const auto& mac : macs)
+      {
+         if (zigbeeKnownMacs.count(mac))
+            continue;
+
+         zigbeeKnownMacs.insert(mac);
+
+         if (!zigbeeFound.count(mac))
+         {
+            tell(eloAlways, "DECONZ: Device '%s' joined", mac.c_str());
+            zigbeeFound[mac] = time(0);
+            count++;
+         }
+      }
+   }
+
    return count;
 }
 
@@ -559,6 +729,8 @@ int HomeCtl::zigbeeStartSearch(std::string& message)
 
    zigbeeKnownIds.clear();
    zigbeeFound.clear();
+   zigbeeKnownMacs.clear();
+   zigbeeDeviceMacs(zigbeeKnownMacs);
 
    for (const char* resource : { "lights", "sensors" })
    {

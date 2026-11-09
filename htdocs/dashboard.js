@@ -2488,6 +2488,23 @@ function sensorInfoDialog(key, widget)
                                                   .css('color', '#3d3737')
                                                   .html(chgBefore))
                                          )))
+                  .append($('<div></div>')         // seconds without data until invalid (daemon, sensor2Json())
+                          .css('display', sensor.timeout != null ? 'flex' : 'none')
+                          .css('margin-bottom', '4px')
+                          .append($('<span></span>')
+                                  .css('width', '30%')
+                                  .css('text-align', 'end')
+                                  .css('margin-right', '10px')
+                                  .html('Ungültig nach'))
+                          .append($('<span></span>')
+                                  .append($('<div></div>')
+                                          .addClass('rounded-border')
+                                          .append(sensor.timeout > 0 ? prettyDuration(sensor.timeout) + ' ohne Daten ' : 'nie (keine Zeitüberwachung) ')
+                                          .append($('<span></span>')
+                                                  .css('font-size', 'smaller')
+                                                  .css('color', sensor.valid ? '#5b8c5a' : '#b55a5a')   // gedämpftes Grün / Rot
+                                                  .html(sensor.valid ? 'gültig' : 'aktuell ungültig'))
+                                         )))
 
                   .append($('<div></div>')
                           .css('display', sensor.battery ? 'flex' : 'none')
@@ -2701,6 +2718,53 @@ function updateDashboard(widgets, refresh)
    }
 }
 
+//***************************************************************************
+// Widget Symbol
+//   state, image / MDI classes and color of a symbol widget (Symbol, SymbolValue, SymbolText),
+//   shared by the dashboard (updateWidget()) and the page 'List'
+//   -> { state, image: '<path>' or '', classes: 'mdi mdi-..' or '', color }
+//***************************************************************************
+
+function widgetSymbolOf(fact, widget, sensor)
+{
+   // a stale sensor (e.g. device offline) is displayed as 'off': symbol, color and no animation
+
+   let state = sensor.valid && (fact.type != 'HMB' ? sensor.value != 0 : sensor.value == 100);
+   let image = '';
+   let classes = '';
+
+   if (sensor.image != null) {                                    // own image got by data
+      if (sensor.image.indexOf('mdi:') != 0)
+         image = sensor.image;
+      else
+         classes = sensor.image.replace(':', ' ');
+   }
+   else if (state && widget.symbolOn && widget.symbolOn != '')    // MDI Icon ON
+      classes = widget.symbolOn.replace(':', ' ');
+   else if (!state && widget.symbol && widget.symbol != '')       // MDI Icon OFF
+      classes = widget.symbol.replace(':', ' ');
+   else if (widget.symbol && widget.symbol != '')                 // MDI Icon
+      classes = widget.symbol.replace(':', ' ');
+   else                                                           // image by patch as <img> element
+      image = state ? widget.imgon : widget.imgoff;
+
+   if (state && widget.spin && classes != '')                     // option 'Aktivität anzeigen': the symbol turns while on
+      classes += ' mdispin';
+
+   widget.colorOn = widget.colorOn == null ? symbolOnColorDefault : widget.colorOn;
+
+   let color = state ? widget.colorOn : widget.color;
+
+   color = getWidgetColor(widget, widget.colorCondition, color, sensor.value);
+
+   if (sensor.hue)
+      color = tinycolor({ 'h': sensor.hue, 's': sensor.sat, 'v': sensor.score }).toHslString();
+   else if (sensor.color)
+      color = sensor.color;
+
+   return { 'state': state, 'image': image, 'classes': classes, 'color': color };
+}
+
 function updateWidget(sensor, refresh, widget)
 {
    if (sensor == null)
@@ -2744,38 +2808,14 @@ function updateWidget(sensor, refresh, widget)
    if (widget.widgettype == 0 || widget.widgettype == 9 || widget.widgettype == 12)         // Symbol, Symbol-Value, Symbol-Text
    {
       // console.log("sensor: ", JSON.stringify(sensor));
-      // a stale sensor (e.g. device offline) is displayed as 'off': symbol, color and no animation
 
-      let state = sensor.valid && (fact.type != 'HMB' ? sensor.value != 0 : sensor.value == 100);
-      let image = '';
-      let classes = '';
+      let sym = widgetSymbolOf(fact, widget, sensor);    // shared with the page 'List'
+      let state = sym.state;
+      let image = sym.image;
+      let classes = sym.classes;
 
-      if (sensor.image != null) {                                    // own image got by data
-         if (sensor.image.indexOf('mdi:') != 0) {
-            image = sensor.image;
-         }
-         else {
-            classes = sensor.image.replace(':', ' ');
-            $("#widget" + fact.type + fact.address).remove();
-         }
-      }
-      else if (state && widget.symbolOn && widget.symbolOn != '') {  // MDI Icon ON
-         classes = widget.symbolOn.replace(':', ' ');
+      if (classes != '')                                             // MDI symbol, no <img> element
          $("#widget" + fact.type + fact.address).remove();
-      }
-      else if (!state && widget.symbol && widget.symbol != '') {     // MDI Icon OFF
-         classes = widget.symbol.replace(':', ' ');
-         $("#widget" + fact.type + fact.address).remove();
-      }
-      else if (widget.symbol && widget.symbol != '') {               // MDI Icon
-         classes = widget.symbol.replace(':', ' ');
-         $("#widget" + fact.type + fact.address).remove();
-      }
-      else                                                           // image by patch as <img> element
-         image = state ? widget.imgon : widget.imgoff;
-
-      if (state && widget.spin && classes != '')                     // option 'Aktivität anzeigen': the symbol turns while on
-         classes += ' mdispin';
 
       if (image != '')
          $("#widget" + fact.type + fact.address).attr("src", image);
@@ -2792,20 +2832,8 @@ function updateWidget(sensor, refresh, widget)
 
       // $('#div_'+key.replace(':', '\\:')).css('background-color', (fact.outputModes == 3 && sensor.mode == 'manual') ? '#a27373' : '');
       widgetDiv.css('background-color', (fact.outputModes == 3 && sensor.mode == 'manual') ? '#a27373' : '');
-      widget.colorOn = widget.colorOn == null ? symbolOnColorDefault : widget.colorOn;
 
-      let color = state ? widget.colorOn : widget.color;
-
-      color = getWidgetColor(widget, widget.colorCondition, color, sensor.value);
-
-      if (sensor.hue)
-         color = tinycolor({ 'h': sensor.hue, 's': sensor.sat, 'v': sensor.score }).toHslString();
-      else if (sensor.color)
-         color = sensor.color;
-
-      // widget.color = widget.color == null ? symbolColorDefault : widget.color;
-
-      $("#button" + fact.type + fact.address).css('color', color);
+      $("#button" + fact.type + fact.address).css('color', sym.color);
 
       if (widget.widgettype == 9) {
          $("#value" + fact.type + fact.address).text(sensor.value.toFixed(widget.unit == '%' || widget.unit == '' ? 0 : 2) + (widget.unit != '' ? ' ' : '') + widget.unit);
@@ -3336,15 +3364,11 @@ function toggleChartDialog(type, address)
 
 function requestChartDialogData()
 {
+   // der Sensor muss nicht selbst als Widget auf dem Dashboard liegen
+   // (z.B. data-chart eines HTML Widgets) -> dann Default 1 Tag
+
    let widget = dashboards[actDashboard].widgets[chartDialogKey];
-
-   if (!widget)
-      return ;
-
-   if (!widget.range)
-      widget.range = 1;
-
-   let range = parseFloat(widget.range);
+   let range = parseFloat(widget && widget.range) || 1;
    let start = 0;    // 0 -> der Server nimmt 'jetzt - range'
 
    if (chartDialogDayOffset > 0)

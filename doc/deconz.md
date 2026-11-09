@@ -45,6 +45,15 @@ sqlite3 zll.db
      values('<key>','2021-12-25T07:23:29','2021-12-25T07:23:29','homectld','homectld');
 ```
 
+Docker: stop the container properly before removing / recreating it, deCONZ stores its database on SIGTERM:
+```
+docker stop -t 60 deconz
+docker rm deconz
+```
+A `docker rm -f` alone kills deCONZ at once, everything changed since its last store is lost - after the start
+deCONZ reports old values of the sensors again (e.g. the temperature of days ago with its old `lastupdated`) until
+each sensor reports the next time, and homectld takes these old values when it reconnects.
+
 ## Setup page 'Zigbee'
 
 *Setup -> Zigbee* (admin only, offered if the *deCONZ HTTP URL* is set):

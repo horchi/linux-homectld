@@ -84,6 +84,7 @@ function initUserConfig(users)
 function initUser()
 {
    $('#container').removeClass('hidden');
+   setupContainerHeight();
 
    document.getElementById("container").innerHTML =
       '<div id="userContainer" class="rounded-border inputTableConfig">' +

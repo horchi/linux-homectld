@@ -653,6 +653,14 @@ function htmlWidgetSetupRows(widget)
               .attr('id', 'htmlSensorKeys'));
 }
 
+// is the text of a snippet parameter (default or setting of the widget) a sensor key like 'DZS:0x12'
+
+function htmlWidgetIsSensorKey(paramText)
+{
+   let key = String(paramText ?? '').trim();
+   return valueFacts[key] != null || /^[A-Za-z0-9]+:0x[0-9a-fA-F]+$/.test(key);
+}
+
 // the inputs of the parameters of the selected snippet
 
 function htmlWidgetSetupParams(widget)
@@ -671,6 +679,11 @@ function htmlWidgetSetupParams(widget)
    let params = widget.params || {};
 
    for (let name in snippet.parameters || {}) {
+      // the sensor list only for sensor parameters (default or value is a sensor key, or no default),
+      //   not for texts like 'raum'
+      let def = String(snippet.parameters[name] ?? '').trim();
+      let isSensor = def == '' || htmlWidgetIsSensorKey(def) || htmlWidgetIsSensorKey(params[name]);
+
       $div.append($('<div></div>')
                   .addClass('htmlWidgetSetupRow')
                   .append($('<span></span>').text(name))
@@ -678,7 +691,7 @@ function htmlWidgetSetupParams(widget)
                           .append($('<input></input>')
                                   .addClass('rounded-border inputSetting htmlParam')
                                   .attr('type', 'search')
-                                  .attr('list', 'htmlSensorKeys')
+                                  .attr('list', isSensor ? 'htmlSensorKeys' : null)
                                   .attr('placeholder', snippet.parameters[name])
                                   .attr('title', 'Leer: Vorgabe des Snippets \'' + snippet.parameters[name] + '\'')
                                   .data('name', name)
@@ -708,6 +721,7 @@ async function initHtmlWidgetsPage()
 {
    $('#container').removeClass('hidden');
    prepareSetupMenu();
+   setupContainerHeight();
 
    let ids = Object.keys(htmlWidgets).sort((a, b) => htmlWidgets[a].name.localeCompare(htmlWidgets[b].name));
 

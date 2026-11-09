@@ -13,6 +13,7 @@ function initReadme(target = null)
    $('#container').html('<div id="systemContainer"></div>');
 
    prepareSetupMenu();
+   setupContainerHeight();
 
    $('#systemContainer')
       .addClass('setupContainer')

@@ -115,6 +115,7 @@ async function initMqttConvPage()
 {
    $('#container').removeClass('hidden');
    prepareSetupMenu();
+   setupContainerHeight();
 
    if (!mqttConv) {
       $('#container').empty().append($('<div></div>').addClass('rounded-border inputTableConfig').text('wird geladen ...'));

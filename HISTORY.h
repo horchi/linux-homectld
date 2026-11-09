@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.46"
-#define VERSION_DATE "07.11.2026"
+#define _VERSION     "0.1.48"
+#define VERSION_DATE "09.11.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,34 @@
 
 /*
  * ------------------------------------
+
+2026-11-09: version 0.1.48
+    - added: WEBIF page 'Zigbee': devices paired with deCONZ but without any light / sensor (no DDF at deCONZ, e.g. a
+             Tuya device with a new manufacturer name, or the interview not finished) are shown at the top marked
+             'ohne DDF - nicht nutzbar', with the reason (manufacturer / model) and what to do (own DDF in
+             /opt/deCONZ/ddf/<vendor>/, or wake / pair again); the running search reports them too (deCONZ 'devices')
+    - added: WEBIF page 'Zigbee': the icon of a light not active in homectld switches it by deCONZ directly (state
+             of deCONZ)
+    - change: time control of the blinds (HMB): the positions [%] at 'Zu' / 'Auf' per range (beside the label of
+             the row, e.g. 22:00 to 30 % and 23:30 closed) instead of once for all ranges of the blind; ranges
+             stored before take the former position of the blind ("levelIn" / "levelOut" of the actor) until
+             stored again, then these are removed
+    - change: dialog 'Zeitsteuerung' of a blind: tabs 'Zeiten' and 'Beschattung' (look of the tabs of the info
+             dialog) instead of one long page
+    - added: enable / disable single ranges of the time control (checkbox per row, lights, groups, blinds and the
+             outputs DO / GPIO) and single rules of switches / motion sensors ('Aktiv'), switched off they stay
+             configured, shown dimmed and in the info dialog '(ausgeschaltet)'; "enabled": false in the range /
+             rule, skipped by the daemon (also at catching up after a start); a running off timer of a switched
+             off rule still ends
+    - change: WEBIF: time rows: all fields of the same height (the time input was higher), a wrapped line stays
+             beside the label 'Zu' / 'Auf' / 'Gültig' instead of below it, the labels of the same width
+    - change: README: doc/lights.md (position per range, tab 'Beschattung', switching off ranges / rules)
+
+2026-11-07: version 0.1.47
+    - added: light rules, action 'Dimmen': still holding the button at the end of the range it dims back after a
+             pause of 1 s, back and forth until the release; the end is taken from the brightness reported by the
+             lights (lowest / 100 %), latest after the full transition time; without release at most 60 s
+    - change: README: doc/lights.md (action 'Dimmen': back and forth while holding)
 
 2026-11-07: version 0.1.46
     - added: WEBIF setup page 'Zigbee' (admin only, checked by the daemon too, offered if the 'deCONZ HTTP URL' is

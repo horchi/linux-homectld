@@ -1,6 +1,8 @@
 
 # General
 
+- dashboard JSON Export/Import
+  (das erledigt auch meinen offenen Punkt des default dashboards nach installation)
 - move the sensor default settings (defaultWidgetProperties in daemon.c: widget type, scale, peak per type / unit,
   the colors in widgetDefaults2Json) out of the code into a JSON config on disk
   (e.g. /etc/homectld/widget-defaults.json + a user file) or a table - to be decided
@@ -36,8 +38,7 @@
 
 ## Zigbee (zigbee.c, Setup -> Zigbee)
 
-- pairing (search, event 'added', activating) and renaming tested 07.11. (Aqara switch lumi.remote.b1acn01,
-  DZS:0x2f); removing (with reset of lights) and 'API-Key holen' not yet tested -> removing with a spare device
+- pairing, renaming and removing tested 07.11.; 'API-Key holen' / 'Neu registrieren' not yet tested
 
 ## HomeMatic (hmmqtt)
 
@@ -45,6 +46,12 @@
 
 ## Light rules / time control
 - time zone: on travel use the time zone of the GPS position (today the one of the system)
+- actor follows actor: e.g. DZL:0x3d (Steckdose Terrasse, Lichterkette) off when HMB:0x01 (Rollladen Terrasse)
+  closes - also when closed by hand / earlier; today solved by the same time (22:30) in both time controls
+  (09.11.); trigger: state change of an actor (light on/off, blind closed/open/position), action as the rules
+  (an / aus / umschalten / folgen), targets lights, groups, outputs, blinds
+- rules of switches / motion sensors: optional date range ('Gültig' DD.MM from - to, as the ranges of the time
+  control already have - rangeDateValid()), e.g. a rule only at Christmas
 
 ## Lua rules for special cases (optional, not needed for the Node-RED replacement)
 

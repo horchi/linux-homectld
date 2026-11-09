@@ -72,6 +72,7 @@ private:
    bool capsAdded {false};          // learned a new cap, report it to homectld (init message)
    bool listFull {false};           // learning failed, the list is full
    bool resendAll {false};          // homectld (re)started - send the last values of all caps
+   volatile bool otaActive {false};  // firmware update running - the BLE scan is stopped
    char learnedId[7] {};            // last learned cap, logged by the loop
 
    unsigned long LastPublishTime {0};
@@ -140,7 +141,7 @@ public:
 
       // the scan may stop (e.g. after an error of the controller) - restart it
 
-      if (!NimBLEDevice::getScan()->isScanning())
+      if (!otaActive && !NimBLEDevice::getScan()->isScanning())
       {
          tell(eloInfo, "Scan stand, starte neu");
          NimBLEDevice::getScan()->start(0, false, true);
@@ -165,7 +166,10 @@ public:
          Cap c;
          portENTER_CRITICAL(&capMux);
          c = capList[i];
-         bool publish {c.fresh || (cyclic && c.pending) || (all && c.received && millis() - c.lastTime < maxAge * 1000)};
+         // after a (re)start of homectld all known caps, also the outdated ones (invalid) - so homectld
+         //  knows their maxage and the time of the last reception ('age')
+
+         bool publish {c.fresh || (cyclic && c.pending) || (all && c.received)};
          capList[i].packets = 0;
          capList[i].changed = false;
 
@@ -420,10 +424,12 @@ private:
       if (!MqttClient.connected())
          return false;
 
+      unsigned long age {(millis() - c.lastTime) / 1000};    // [s] since the reception
+
       snprintf(title, sizeof(title), "Reifen %s Druck", c.id);
-      PublishValue(address + 1, title, c.pressure, "bar", c.announced, &c);
+      PublishValue(address + 1, title, c.pressure, "bar", c.announced, age, &c);
       snprintf(title, sizeof(title), "Reifen %s Temperatur", c.id);
-      PublishValue(address + 2, title, c.temperature, "°C", c.announced);
+      PublishValue(address + 2, title, c.temperature, "°C", c.announced, age);
 
       if (c.fresh)
          tell(eloDetail, "-> Kappe %s: %.2f bar, %d °C, %.2f V (%d %%), Alarm %d, %d dBm",
@@ -433,8 +439,11 @@ private:
    }
 
    // 'cap' -> the pressure, carries the battery and the details of the cap (JSON tab of the info dialog)
+   // 'age' -> [s] since the reception, homectld takes 'now - age' as time of the data; older
+   //   than maxAge (resent after a restart of homectld) the data is published as invalid
 
-   void PublishValue(long address, const char* title, float value, const char* unit, bool announced, const Cap* cap = nullptr)
+   void PublishValue(long address, const char* title, float value, const char* unit, bool announced,
+                     unsigned long age, const Cap* cap = nullptr)
    {
       JsonDocument doc;
       doc["type"] = sensorType;
@@ -444,6 +453,10 @@ private:
       doc["title"] = title;
       doc["unit"] = unit;
       doc["maxage"] = maxAge;      // homectld invalidates the sensor without data for this time
+      doc["age"] = age;
+
+      if (age >= maxAge)
+         doc["valid"] = false;
 
       if (cap)
       {
@@ -522,9 +535,19 @@ private:
       if (OtaPassword && *OtaPassword)
          ArduinoOTA.setPassword(OtaPassword);
 
-      ArduinoOTA.onStart([this]() { tell(eloAlways, "OTA: Update startet ..."); });
+      // the BLE scan shares the radio with the WLAN - stopped during the update, else the
+      //  transfer breaks (OTA error 3, receive error); after an error the loop restarts it
+
+      ArduinoOTA.onStart([this]() {
+         otaActive = true;
+         NimBLEDevice::getScan()->stop();
+         tell(eloAlways, "OTA: Update startet, Scan angehalten ...");
+      });
       ArduinoOTA.onEnd([this]() { tell(eloAlways, "OTA: Update fertig, Neustart"); });
-      ArduinoOTA.onError([this](ota_error_t error) { tell(eloAlways, "OTA: Fehler %u", error); });
+      ArduinoOTA.onError([this](ota_error_t error) {
+         otaActive = false;
+         tell(eloAlways, "OTA: Fehler %u, Scan läuft wieder", error);
+      });
 
       ArduinoOTA.begin();
       tell(eloAlways, "[BOOT] OTA bereit als '%s' auf %s", OtaHostname, WiFi.localIP().toString().c_str());

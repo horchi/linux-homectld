@@ -758,6 +758,40 @@ class HomeCtl : public cWebInterface, public Service
       int lightRuleTimersLoad();
       bool lightMotionPresent(const std::string& sensor);
       int lightTargetSwitch(const std::string& target, bool on, int bri, int transition);
+
+      // scenes (scenes.c) - sensor type 'SCN', a list of steps (set, wait, waitfor, ...)
+
+      struct SceneRun
+      {
+         json_t* steps {};               // array of the steps (owned)
+         size_t index {0};               // next step
+         uint64_t nextMs {0};            // pause until (step 'wait')
+         uint64_t waitSince {0};         // start of the current 'waitfor', 0 = not waiting
+         std::vector<std::pair<int,std::string>> warnings;   // steps failed but continued ('continue'): step, reason
+      };
+
+      struct SceneInfo                 // progress / result of the last run, sent to the WEBIF (setup dialog)
+      {
+         int step {0};                   // current step resp. the step which ended the scene (1..), 0 = none
+         std::string result;             // running, ok, error, timeout, stopped, aborted
+         std::vector<std::pair<int,std::string>> warnings;
+      };
+
+      std::map<uint,SceneRun> sceneRuns;   // running scenes by address
+      std::map<uint,SceneInfo> sceneInfo;
+
+      bool sceneRunning(uint address);
+      int sceneStart(uint address);
+      int sceneStop(uint address, const char* text);
+      int sceneToggle(uint address, int state = na);
+      int sceneProcess();
+      void sceneRunSteps(uint address);
+      void sceneFinish(uint address, const std::string& text, const char* result = "ok", int step = 0);
+      void sceneStatus(uint address, bool running, const std::string& text, int step = 0, const char* result = nullptr);
+      std::string sceneDescribe(json_t* step);
+      bool sceneCondition(json_t* cond);
+      int sceneSet(json_t* step, std::string& error);
+      bool sceneShellAllowed(const std::string& program, std::string& error);
       int lightRuleDim(const char* key, const std::vector<std::string>& targets, int transition);
       int lightRuleDimStop(const char* key, const std::vector<std::string>& targets);
       int lightRuleDimSend(const std::vector<std::string>& targets, int dir, int transitionTime, bool switchOn);

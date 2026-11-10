@@ -6,11 +6,6 @@
   (e.g. /etc/homectld/widget-defaults.json + a user file) or a table - to be decided
 - Anzeige der Widget defaults im Sensor Setup als Tab im Info Dialog
 - add write of victron registers to WEBIF
-- Multt Media Automatisierung
-   - TV mit VDR und Denaon an
-   - Radio an
-   - Musik an
-- aktion buttons gehen aktuell nur via shell script? Welcher Weg wäre zusätzlich sinnvoll, LUA Script?
 
 ## HTML widgets - JS snippets
 
@@ -41,7 +36,7 @@
 
 ## Zigbee (zigbee.c, Setup -> Zigbee)
 
-- pairing, renaming and removing tested 07.11.; 'API-Key holen' / 'Neu registrieren' not yet tested
+- 'API-Key holen' / 'Neu registrieren' not yet tested
 
 ## HomeMatic (hmmqtt)
 

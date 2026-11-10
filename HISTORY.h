@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.50"
-#define VERSION_DATE "10.11.2026"
+#define _VERSION     "0.1.51"
+#define VERSION_DATE "11.11.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,35 @@
 
 /*
  * ------------------------------------
+
+2026-11-11: version 0.1.51
+    - added: scenes (scenes.c), sensor type 'SCN' - a list of steps performed one after the other, e.g. a multi media
+             automation (receiver on, TV on, wait for the TV, select inputs / app, ..); a virtual actor: a symbol
+             widget starts the scene by a click, a click on a running scene aborts it ('working' like the scripts,
+             the widget is grayed; the text shows the progress 'Schritt 3/7: warte auf <sensor>' and at the end
+             'fertig' / 'abgebrochen' / 'Timeout bei Schritt n' / the error); the steps are stored in the SETTINGS
+             of the sensor: { "steps": [ { "do": "set|wait|waitfor|stop|scene", ... } ] }
+             set      sensor <type>:<address> ('key') and 'value': missing / "toggle" toggles, true / false (or
+                      "on" / "off") the state, number a level (brightness, volume), text a choice (input, app);
+                      'action': "color" / "ct" for color lights; 'continue': true - a failing step doesn't abort
+             wait     pause of 'sec' seconds
+             waitfor  waits until the condition (key, op, value) is true, 'timeout' seconds (default 30), then the
+                      scene is aborted (or goes on with 'continue': true)
+             stop     ends the scene
+             scene    starts (or aborts, 'mode': "stop") the scene 'id'; a running scene is not started again
+             shell    runs the command 'cmd' (e.g. "/usr/sbin/etherwake -i eno1 00:1e:06:43:48:8e") in the background,
+                      the scene goes on at once, the output is logged; not by a shell (posix_spawn, the line is split
+                      into arguments, no pipes / expansion), the program (absolute path) must be in the whitelist
+                      /etc/homectld/scene-commands-whitelist.conf (JSON list, not changeable by the WEBIF)
+             every step: optional 'if' { key, op ( == != < > <= >= ), value } - skipped if not true, and 'title'
+             the steps run in meanwhile() without blocking, scenes run in parallel (one instance per scene), they are
+             not continued after a restart of homectld
+    - added: WEBIF: setup dialog of the scenes (sensor setup, page 'Szenen' with '+', gear): list of the steps with
+             sensor / value / condition selection (choice list for sensors with choices), move / delete, JSON view,
+             'Speichern' and 'Speichern und Testen' (stores and starts / aborts the scene, the dialog stays open)
+             while the scene runs the dialog marks the running step (blue), a failed step with the message (red:
+             error, timeout) and steps which failed but went on (orange); the daemon sends { step, result, warnings }
+             with the sensor ('scene')
 
 2026-11-10: version 0.1.50
     - added: samsungtv/samsungtv.py: Samsung Tizen TV (2016+, tested with QLED GQ65Q8F) via MQTT, type 'SAMTV',

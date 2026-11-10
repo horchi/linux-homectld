@@ -260,7 +260,7 @@ function showTable(section)
 
    // Add (+) button for CV
 
-   if (ioSections[section].type == 'CV') {
+   if (ioSections[section].type == 'CV' || ioSections[section].type == 'SCN') {
       table
          .append($('<tfoot>')
                  .append($('<tr>')
@@ -270,8 +270,8 @@ function showTable(section)
                                          .text('+')
                                          .on('click', function() {
                                             socket.send({ "event" : "storesensorsetup", "object" : {
-                                               'type' : 'CV',
-                                               'name' : 'Calc Sensor',
+                                               'type' : ioSections[section].type,
+                                               'name' : ioSections[section].type == 'SCN' ? 'Szene' : 'Calc Sensor',
                                                'action' : 'add'
                                             }});
                                          })
@@ -405,7 +405,7 @@ function showTable(section)
 
       let hasSetup = item.type == 'DO' || item.type.startsWith('MCPO') ||
           item.type == 'DI' || item.type.startsWith('MCPI') ||
-          item.type == 'SC' || item.type == 'GPIO' ||
+          item.type == 'SC' || item.type == 'SCN' || item.type == 'GPIO' ||
           item.type == 'CV' || item.type == 'AI' ||
           item.type == 'DZL' || item.type == 'DZLG' || item.type == 'HMB' || item.type == 'DZS' ||
           item.type.startsWith('ADS');
@@ -435,6 +435,9 @@ var calSensorAddress = -1;
 
 function updateSensorSetupValue()
 {
+   if (typeof scnUpdate === 'function')
+      scnUpdate();
+
    var key = toKey(calSensorType, calSensorAddress);
 
    if (calSensorType != '' && allSensors[key] != null && allSensors[key].plain != null) {
@@ -459,6 +462,8 @@ function sensorSetupDialog(type, address)
          sensorDiSetup(type, address);
       else if (type == 'SC')
          sensorScSetup(type, address);
+      else if (type == 'SCN')
+         sensorScnSetup(type, address);
       else if (type == 'DZL' || type == 'DZLG' || type == 'HMB')
          sensorActorSetup(type, address);
       else if (type == 'DZS')
@@ -1792,6 +1797,490 @@ async function sensorCvSetup(type, address)
          $(this).dialog('destroy').remove();
       }
    });
+}
+
+//***************************************************************************
+// Scene Setup (sensor type 'SCN', the steps are performed by the daemon, scenes.c)
+//   settings: { "steps": [ { "do": "set|wait|waitfor|stop|scene", ..., "if": { key, op, value } } ] }
+//***************************************************************************
+
+const scnStepTypes = { 'set': 'Setzen', 'wait': 'Warten', 'waitfor': 'Warten bis', 'stop': 'Beenden', 'scene': 'Szene', 'shell': 'Befehl' };
+const scnOps = ['==', '!=', '<', '>', '<=', '>='];
+
+function scnSelect(options, selected, onChange)
+{
+   let sel = $('<select></select>').addClass('rounded-border inputSetting scnInput');
+
+   for (const [value, label] of options)
+      sel.append($('<option></option>').attr('value', value).text(label));
+
+   sel.val(selected);
+   sel.on('change', function() { onChange($(this).val()); });
+
+   return sel;
+}
+
+function scnSensorSelect(selected, onChange, exclude)
+{
+   let keys = Object.keys(valueFacts).filter(k => k != exclude).sort(function(a, b) {
+      if (valueFacts[a].type != valueFacts[b].type)
+         return valueFacts[a].type.localeCompare(valueFacts[b].type);
+      return scnTitle(a).localeCompare(scnTitle(b));
+   });
+
+   let options = [['', '- Sensor -']];
+
+   for (const k of keys)
+      options.push([k, k + '  ' + scnTitle(k)]);
+
+   if (selected && !valueFacts[selected])
+      options.push([selected, selected + ' (unbekannt)']);
+
+   return scnSelect(options, selected || '', onChange);
+}
+
+function scnTitle(key)
+{
+   let f = valueFacts[key];
+   return f ? (f.usrtitle ? f.usrtitle : f.title) : '';
+}
+
+// value of a step / condition: toggle (set only), on, off or a value (number, text; a choice if the sensor has choices)
+
+function scnValueEditor(obj, field, key, allowToggle)
+{
+   let fact = valueFacts[key];
+   let choices = fact && fact.choices ? fact.choices.split(',').map(s => s.trim()).filter(s => s != '') : [];
+   let v = obj[field];
+   let mode = 'value';
+
+   if (v === undefined || v === 'toggle')
+      mode = allowToggle ? 'toggle' : 'on';
+   else if (v === true || (v === 'on' && !choices.length))
+      mode = 'on';
+   else if (v === false || (v === 'off' && !choices.length))
+      mode = 'off';
+
+   let span = $('<span></span>').addClass('scnValue');
+   let modes = allowToggle ? [['toggle', 'umschalten']] : [];
+   modes.push(['on', 'an'], ['off', 'aus'], ['value', 'Wert']);
+
+   span.append(scnSelect(modes, mode, function(m) {
+      if (m == 'toggle')
+         delete obj[field];
+      else if (m == 'on')
+         obj[field] = true;
+      else if (m == 'off')
+         obj[field] = false;
+      else
+         obj[field] = choices.length ? choices[0] : '';
+      scnRender();
+   }));
+
+   if (mode == 'value') {
+      if (choices.length) {
+         let cur = String(v);
+         let options = choices.map(c => [c, c]);
+         if (!choices.includes(cur)) {
+            obj[field] = choices[0];
+            cur = choices[0];
+         }
+         span.append(scnSelect(options, cur, function(val) { obj[field] = val; }));
+      }
+      else {
+         span.append($('<input>').attr('type', 'text').addClass('rounded-border inputSetting scnInput scnShort')
+                     .attr('placeholder', 'Zahl / Text')
+                     .val(v === undefined ? '' : v)
+                     .on('input', function() {
+                        let s = $(this).val().trim();
+                        obj[field] = /^-?\d+(\.\d+)?$/.test(s) ? Number(s) : s;
+                     }));
+      }
+   }
+
+   return span;
+}
+
+// condition: sensor, operator, value
+
+function scnCondEditor(cond, self)
+{
+   let span = $('<span></span>').addClass('scnCond');
+
+   span.append(scnSensorSelect(cond.key, function(k) { cond.key = k; scnRender(); }, self));
+   span.append(scnSelect(scnOps.map(o => [o, o]), cond.op || '==', function(o) { cond.op = o; }));
+   span.append(scnValueEditor(cond, 'value', cond.key, false));
+
+   return span;
+}
+
+var scnModel = [];          // the steps in the dialog
+var scnSelf = '';           // key of the scene
+var scnJsonMode = false;
+
+function scnNewStep(type, old)
+{
+   let step = { 'do': type };
+
+   if (type == 'wait')
+      step.sec = 1;
+   else if (type == 'waitfor')
+      Object.assign(step, { 'key': '', 'op': '==', 'value': true, 'timeout': 30 });
+   else if (type == 'scene')
+      Object.assign(step, { 'id': '', 'mode': 'start' });
+   else if (type == 'set')
+      step.key = '';
+   else if (type == 'shell')
+      step.cmd = '';
+
+   if (old && old.if)
+      step.if = old.if;
+   if (old && old.title)
+      step.title = old.title;
+
+   return step;
+}
+
+// switch in the style of homectld (checkbox.css: the checkbox is drawn by its label, needs a unique id)
+
+function scnSwitch(id, checked, text, onChange)
+{
+   return $('<span></span>').addClass('scnCheck')
+      .append($('<input>').attr('type', 'checkbox').attr('id', id).prop('checked', checked)
+              .on('change', function() { onChange(this.checked); }))
+      .append($('<label></label>').attr('for', id).text(text));
+}
+
+function scnIconButton(icon, title, action, disabled)
+{
+   return $('<button></button>')
+      .attr('type', 'button')
+      .attr('title', title)
+      .attr('disabled', disabled ? true : false)
+      .addClass('scnButton rounded-border')
+      .append($('<span></span>').addClass('mdi ' + icon))
+      .on('click', action);
+}
+
+function scnRender()
+{
+   let list = $('#scnSteps').empty();
+
+   if (!scnModel.length)
+      list.append($('<div></div>').addClass('scnEmpty').text('Keine Schritte, mit "+" hinzufügen'));
+
+   scnModel.forEach(function(step, i) {
+      let row = $('<div></div>').addClass('scnStep rounded-border');
+      let main = $('<div></div>').addClass('scnMain');
+
+      main.append(scnSelect(Object.entries(scnStepTypes), step.do, function(t) {
+         scnModel[i] = scnNewStep(t, step);
+         scnRender();
+      }));
+
+      if (step.do == 'set') {
+         if (step.action == 'color' || step.action == 'ct') {
+            main.append(scnSensorSelect(step.key, function(k) { step.key = k; scnRender(); }, scnSelf));
+            main.append($('<span></span>').addClass('scnNote').text(step.action == 'color' ? 'Farbe (JSON)' : 'Farbtemperatur (JSON)'));
+         }
+         else {
+            main.append(scnSensorSelect(step.key, function(k) { step.key = k; scnRender(); }, scnSelf));
+            main.append(scnValueEditor(step, 'value', step.key, true));
+         }
+      }
+      else if (step.do == 'wait') {
+         main.append($('<input>').attr('type', 'number').attr('min', 0).attr('step', 0.5)
+                     .addClass('rounded-border inputSetting scnInput scnShort')
+                     .val(step.sec)
+                     .on('input', function() { step.sec = parseFloat($(this).val()) || 0; }));
+         main.append($('<span></span>').addClass('scnNote').text('Sekunden'));
+      }
+      else if (step.do == 'waitfor') {
+         main.append(scnCondEditor(step, scnSelf));
+         main.append($('<span></span>').addClass('scnNote').text('max.'));
+         main.append($('<input>').attr('type', 'number').attr('min', 1)
+                     .addClass('rounded-border inputSetting scnInput scnShort')
+                     .val(step.timeout !== undefined ? step.timeout : 30)
+                     .on('input', function() { step.timeout = parseFloat($(this).val()) || 30; }));
+         main.append($('<span></span>').addClass('scnNote').text('s,'));
+         main.append(scnSwitch('scnContinue_' + i, step.continue === true, 'bei Timeout weitermachen',
+                               function(on) { step.continue = on; }));
+      }
+      else if (step.do == 'shell') {
+         main.append($('<input>').attr('type', 'text').attr('placeholder', '/usr/sbin/etherwake -i eno1 00:11:22:33:44:55 (Programm nur aus der Whitelist)')
+                     .attr('spellcheck', false)
+                     .addClass('rounded-border inputSetting scnInput scnCmd')
+                     .val(step.cmd || '')
+                     .on('input', function() { step.cmd = $(this).val(); }));
+      }
+      else if (step.do == 'scene') {
+         let options = [['', '- Szene -']];
+         for (const k of Object.keys(valueFacts))
+            if (valueFacts[k].type == 'SCN' && k != scnSelf)
+               options.push([String(valueFacts[k].address), k + '  ' + scnTitle(k)]);
+         main.append(scnSelect(options, String(step.id), function(v) { step.id = v == '' ? '' : parseInt(v); }));
+         main.append(scnSelect([['start', 'starten'], ['stop', 'abbrechen']], step.mode || 'start', function(m) { step.mode = m; }));
+      }
+
+      main.append($('<span></span>').addClass('scnSpacer'));
+      main.append(scnIconButton('mdi-arrow-up', 'nach oben', function() {
+         scnModel.splice(i - 1, 0, scnModel.splice(i, 1)[0]); scnRender();
+      }, i == 0));
+      main.append(scnIconButton('mdi-arrow-down', 'nach unten', function() {
+         scnModel.splice(i + 1, 0, scnModel.splice(i, 1)[0]); scnRender();
+      }, i == scnModel.length - 1));
+      main.append(scnIconButton('mdi-trash-can-outline', 'Schritt löschen', function() {
+         scnModel.splice(i, 1); scnRender();
+      }));
+
+      // line 1: number and name of the step (shown in the state text of the scene)
+
+      row.append($('<div></div>').addClass('scnHead')
+                 .append($('<span></span>').addClass('scnNo').text(i + 1))
+                 .append($('<span></span>').addClass('scnNote').text('Bezeichnung:'))
+                 .append($('<input>').attr('type', 'text').attr('placeholder', 'z.B. Fernseher einschalten')
+                         .attr('title', 'Name des Schritts, erscheint im Status der Szene (statt "setze <Sensor>")')
+                         .attr('spellcheck', false)
+                         .addClass('rounded-border inputSetting scnInput scnTitle')
+                         .val(step.title || '')
+                         .on('input', function() {
+                            let t = $(this).val();
+                            if (t == '') delete step.title; else step.title = t;
+                         })));
+
+      row.append(main);
+
+      // condition and title
+
+      let opt = $('<div></div>').addClass('scnOptions');
+
+      opt.append(scnSwitch('scnIf_' + i, !!step.if, 'nur wenn', function(on) {
+         if (on)
+            step.if = { 'key': '', 'op': '==', 'value': true };
+         else
+            delete step.if;
+         scnRender();
+      }));
+
+      if (step.if)
+         opt.append(scnCondEditor(step.if, scnSelf));
+
+      row.append(opt);
+      list.append(row);
+   });
+
+   // add a step below the last one
+
+   list.append($('<button></button>')
+               .attr('type', 'button')
+               .addClass('buttonOptions rounded-border scnAdd')
+               .text('+')
+               .attr('title', 'Schritt hinzufügen')
+               .on('click', function() {
+                  scnModel.push(scnNewStep('set'));
+                  scnRender();
+                  let box = $('#scnSteps').closest('.scnDialog');
+                  box.scrollTop(box[0].scrollHeight);
+               }));
+
+   scnUpdate();
+}
+
+// progress and result of a run (test) in the dialog: the daemon sends { step, result, warnings } with the sensor
+//   running -> the current step, error / timeout -> the failed step with the message,
+//   warnings -> steps which failed but went on ('weitermachen')
+
+var scnSince = 0;           // 'last' of the sensor at the opening, older results are not shown
+
+function scnUpdate()
+{
+   if (scnSelf == '' || !$('#scnSteps').length)
+      return;
+
+   let sensor = allSensors[scnSelf];
+   let rows = $('#scnSteps .scnStep');
+   let status = $('#scnStatus');
+
+   rows.removeClass('scnRunning scnFailed scnWarn').find('.scnMessage').remove();
+
+   if (!sensor || !sensor.scene || !(sensor.last > scnSince)) {
+      status.text('').attr('class', 'scnStatus');
+      return;
+   }
+
+   let info = sensor.scene;
+   let text = sensor.text || '';
+
+   function mark(n, cls, message) {
+      let row = rows.eq(n - 1);
+
+      if (!row.length)
+         return;
+
+      row.addClass(cls);
+
+      if (message)
+         row.append($('<div></div>').addClass('scnMessage ' + cls + 'Text')
+                    .append($('<span></span>').addClass('mdi ' + (cls == 'scnFailed' ? 'mdi-alert-circle-outline' : 'mdi-alert-outline')))
+                    .append($('<span></span>').text(message)));
+   }
+
+   status.text(text).attr('class', 'scnStatus scnResult-' + info.result);
+
+   for (const w of (info.warnings || []))
+      mark(w.step, 'scnWarn', 'Schritt fehlgeschlagen, weiter: ' + w.message);
+
+   if (info.result == 'running')
+      mark(info.step, 'scnRunning', '');
+   else if (info.result == 'error' || info.result == 'timeout')
+      mark(info.step, 'scnFailed', text);
+}
+
+// the steps for the daemon, null on an error (reported)
+
+function scnCollect()
+{
+   for (let i = 0; i < scnModel.length; i++) {
+      let s = scnModel[i];
+      let err = '';
+
+      if ((s.do == 'set' || s.do == 'waitfor') && !s.key)
+         err = 'kein Sensor gewählt';
+      else if (s.do == 'waitfor' && s.value === undefined)
+         err = 'kein Wert';
+      else if (s.do == 'wait' && !(s.sec > 0))
+         err = 'Pause muss größer 0 sein';
+      else if (s.do == 'shell' && !(s.cmd || '').trim())
+         err = 'kein Befehl';
+      else if (s.do == 'scene' && s.id === '')
+         err = 'keine Szene gewählt';
+      else if (s.if && !s.if.key)
+         err = 'Bedingung ohne Sensor';
+
+      if (err) {
+         showInfoDialog({ 'status': -1, 'message': 'Schritt ' + (i + 1) + ': ' + err });
+         return null;
+      }
+   }
+
+   return scnModel;
+}
+
+function sensorScnSetup(type, address)
+{
+   calSensorType = type;
+   calSensorAddress = parseInt(address);
+
+   var key = toKey(calSensorType, calSensorAddress);
+   var form = document.createElement("div");
+
+   if (valueFacts[key] == null) {
+      console.log("Sensor ", key, "undefined");
+      return;
+   }
+
+   scnSelf = key;
+   scnJsonMode = false;
+   scnSince = (allSensors[key] && allSensors[key].last) || 0;
+   scnModel = JSON.parse(JSON.stringify((valueFacts[key].settings && valueFacts[key].settings.steps) || []));
+
+   $(form).append($('<div></div>')
+                  .addClass('scnDialog')
+                  .append($('<div></div>').attr('id', 'scnStatus').addClass('scnStatus'))
+                  .append($('<div></div>').attr('id', 'scnSteps'))
+                  .append($('<textarea></textarea>').attr('id', 'scnJson').addClass('rounded-border inputSetting hidden')
+                          .attr('spellcheck', false))
+                  .append($('<div></div>').addClass('scnHelp')
+                          .text('Ein Klick auf das Symbol startet die Szene, ein Klick auf eine laufende Szene bricht sie ab. ' +
+                                '"Warten bis" prüft den Sensor laufend bis die Bedingung stimmt.')));
+
+   var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
+
+   function store(thenStart) {
+      if (scnJsonMode && !scnFromJson())
+         return false;
+
+      let steps = scnCollect();
+
+      if (steps == null)
+         return false;
+
+      socket.send({ "event" : "storesensorsetup", "object" : {
+         'type':    calSensorType,
+         'address': calSensorAddress,
+         'settings': { 'steps': steps }
+      }});
+
+      if (thenStart)
+         socket.send({ "event": "toggleio", "object": { 'action': 'toggle', 'address': calSensorAddress, 'type': calSensorType } });
+
+      return true;
+   }
+
+   $(form).dialog({
+      modal: true,
+      resizable: true,
+      closeOnEscape: true,
+      hide: "fade",
+      width: Math.round($(window).width() * 0.9),
+      height: Math.round($(window).height() * 0.8),
+      title: "Szene '" + title + "'",
+      open: function() {
+         scnRender();
+      },
+      buttons: {
+         'Abbrechen': function () {
+            $(this).dialog('close');
+         },
+         'JSON': function () {
+            if (scnJsonMode) {
+               if (!scnFromJson())
+                  return;
+               scnJsonMode = false;
+               $('#scnJson').addClass('hidden');
+               $('#scnSteps').removeClass('hidden');
+               scnRender();
+            }
+            else {
+               scnJsonMode = true;
+               $('#scnJson').val(JSON.stringify(scnModel, undefined, 2)).removeClass('hidden');
+               $('#scnSteps').addClass('hidden');
+            }
+         },
+         'Speichern und Testen': function () {
+            store(true);          // the dialog stays open
+         },
+         'Speichern': function () {
+            if (store(false))
+               $(this).dialog('close');
+         }
+      },
+      close: function() {
+         scnModel = [];
+         scnSelf = '';
+         scnJsonMode = false;
+         calSensorType = '';
+         calSensorAddress = -1;
+         $(this).dialog('destroy').remove();
+      }
+   });
+}
+
+function scnFromJson()
+{
+   try {
+      let steps = JSON.parse($('#scnJson').val());
+
+      if (!Array.isArray(steps))
+         throw new Error('Die Schritte müssen eine Liste [ ... ] sein');
+
+      scnModel = steps;
+      return true;
+   }
+   catch (e) {
+      showInfoDialog({ 'status': -1, 'message': 'Ungültiges JSON: ' + e.message });
+      return false;
+   }
 }
 
 function showLuaCheckResult(obj)

@@ -88,6 +88,7 @@ HomeCtl::ValueTypes HomeCtl::defaultValueTypes[] =
    { "^GPIO",         "GPIO",                   "mdi:mdi-chip" },
    { "^W1",           "One Wire Sensoren",      "mdi:mdi-thermometer" },
    { "^DS[0-9a-f]",   "One Wire Sensoren",      "mdi:mdi-thermometer" },   // DS18B20 via DS2484 (i2cmqtt)
+   { "^SCN$",         "Szenen",                 "mdi:mdi-play-box-multiple-outline" },
    { "^SC",           "Skripte",                "mdi:mdi-script-text-outline" },
    { "^AO",           "Analog Ausgänge",        "mdi:mdi-sine-wave" },
    { "^AI",           "Analog Eingänge",        "mdi:mdi-sine-wave" },
@@ -188,6 +189,7 @@ HomeCtl::DefaultWidgetProperty HomeCtl::defaultWidgetProperties[] =
    { "CV",       na, "txt",       wtText,        0,         0,       0, true },
    { "CV",       na,  "°C",  wtMeterLevel,       0,         0,       0, true },
    { "CV",       na,   "*",      wtSymbol,       0,         0,       0, true },
+   { "SCN",      na,   "*",      wtSymbol,       0,         0,       0, true },
    { "TPMS",     na,   "*",       wtValue,       0,         0,       0, false },
    { "" }
 };
@@ -603,6 +605,7 @@ int HomeCtl::init()
    }
 
    addValueFact(1, "CV", 1, "Calc Sensor 1", "", "");
+   addValueFact(1, "SCN", 1, "Szene 1", "", "", urControl);
    addValueFact(2, "WEA", 1, "Windy App by Spot ID", "", "");
    addValueFact(3, "WEA", 1, "Windy App Map", "", "");
    addValueFact(4, "WEA", 1, "Windy App by GPS", "", "");
@@ -822,8 +825,11 @@ int HomeCtl::initSensorByFact(myString type, uint address)
    if (!fact->getValue("PARAMETER")->isEmpty())
       sensors[type][address].parameter = fact->getStrValue("PARAMETER");
 
-   if (type == "GPIO" || type == "DO" || type == "DI" || type == "DZL" || type == "DZLG")
+   if (type == "GPIO" || type == "DO" || type == "DI" || type == "DZL" || type == "DZLG" || type == "SCN")
       sensors[type][address].kind = "status";
+
+   if (type == "SCN" && !sensors[type][address].valid())
+      sensors[type][address].setState(false);          // idle (the running scenes are not restored)
 
    if (sensors[type][address].unit == "txt")
       sensors[type][address].kind = "text";
@@ -2597,6 +2603,7 @@ int HomeCtl::meanwhile()
    performLightRules();
    homeMaticCheckRequests();
    performMqttRequests();
+   sceneProcess();
    performJobs();
    performLmcUpdates();
    // updateInputs();
@@ -5970,6 +5977,8 @@ int HomeCtl::toggleIo(uint addr, const char* type, int state, int bri, int trans
       gpioWrite(addr, newState);
    else if (strcmp(type, "SC") == 0)
       callScript(addr, "toggle");
+   else if (strcmp(type, "SCN") == 0)
+      sceneToggle(addr, state);          // start, a click on a running scene aborts it
    else if (strcmp(type, "DZL") == 0 || strcmp(type, "DZLG") == 0)
    {
       lightCommands.erase(lightKey(type, addr));   // by hand, no check

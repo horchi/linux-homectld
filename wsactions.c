@@ -1777,12 +1777,14 @@ int HomeCtl::storeSensorSetup(json_t* obj, long client)
       status = storeIoSettings(obj, client);
    else if (type == "SC")
       status = storeIoSettings(obj, client);
+   else if (type == "SCN")
+      status = storeIoSettings(obj, client);
    else if (type == "DZL" || type == "DZLG" || type == "HMB")     // time control
       status = storeIoSettings(obj, client);
    else if (type == "DZS")                                          // light rules
       status = storeIoSettings(obj, client);
    else
-      return replyResult(fail, client, "Ignoring config request, only supported for 'AI', 'DO', 'GPIO', 'W1', 'SC', 'CV', 'DZL', 'DZLG', 'DZS' and 'HMB' sensors");
+      return replyResult(fail, client, "Ignoring config request, only supported for 'AI', 'DO', 'GPIO', 'W1', 'SC', 'SCN', 'CV', 'DZL', 'DZLG', 'DZS' and 'HMB' sensors");
 
    if (status == success)
    {
@@ -1805,6 +1807,10 @@ int HomeCtl::storeSensorSetup(json_t* obj, long client)
 int HomeCtl::deleteValueFact(const char* type, long address)
 {
    tell(eloAlways, "DELETE: type = '%s' and address = %ld", type, address);
+
+   if (strcmp(type, "SCN") == 0)
+      sceneStop(address, "gelöscht");
+
    tableValueFacts->deleteWhere("type = '%s' and address = %ld", type, address);
    return success;
 }
@@ -1826,7 +1832,7 @@ int HomeCtl::storeIoSettings(json_t* obj, long client)
       const char* name {getStringFromJson(obj, "name", "UNNAMED")};
       tell(eloAlways, "Add sensor '%s' - '%s:0x%x'", name, type, address);
       std::string sensorName {std::string(name) + " " + std::to_string(address)};
-      addValueFact(address, type, 1, sensorName.c_str(), "", "");
+      addValueFact(address, type, 1, sensorName.c_str(), "", "", strcmp(type, "SCN") == 0 ? urControl : urNone);   // scenes are started by a click
    }
 
    else if (action == "clone" && strcmp(type, "SC") == 0)
@@ -3347,6 +3353,8 @@ int HomeCtl::sensor2Json(json_t* obj, const char* type, uint address)
 
    if (strcmp(type, "GPIO") == 0 && sensors[type][address].fct == "out")
       ;
+   else if (strcmp(type, "SCN") == 0)
+      ;                                  // scenes get data only when started / ended - always valid
    else if (strcmp(type, "WEA") == 0)
       ; // valid ist bereits korrekt gesetzt
    else if (strcmp(type, "SUN") == 0)

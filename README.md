@@ -55,6 +55,7 @@ If you like the project and want to support it
 - openHASP touch panels as wall or vehicle display - see [HASP Panel](doc/hasp.md)
 - Garmin Connect activities - see [Garmin Activities](doc/garmin.md)
 - Lua scripts for calculated values and outputs - see [Lua Interface](doc/lua.md)
+- Scenes: lists of steps with pauses, conditions and waiting for sensors, e.g. a multi media automation - see [Scenes](doc/scenes.md)
 - Dashboards with many widget types, own HTML widgets, charts, alerts - see [WEB Interface](doc/webif.md)
 
 # Quick start
@@ -81,6 +82,7 @@ If you like the project and want to support it
 | [Garmin Activities](doc/garmin.md) | activities of a Garmin Connect account |
 | [MQTT Converter](doc/mqtt-converter.md) | converter scripts for MQTT messages of foreign devices (e.g. TASMOTA), setup page, test |
 | [Lua Interface](doc/lua.md) | scripts for calculated values and outputs |
+| [Scenes](doc/scenes.md) | steps (set, wait, wait for, condition) started by a symbol widget, e.g. multi media automation |
 | [Windy App](doc/windy.md) | wind / weather widgets of windy.app |
 | [Stand Alone Server](doc/standalone-server.md) | camper setup: network, DNS/DHCP, IP masquerading, LTE modem |
 | [Bluetooth Audio](README-BT.md) | Bluetooth audio setup (BR/EDR devices) |

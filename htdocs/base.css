@@ -5243,3 +5243,168 @@ textarea.mqttConvMessage {
     margin-left: -1px;
     background-color: #ff3b30;
 }
+
+/* ----------------------- */
+/* Scene Setup Dialog (SCN) */
+
+.scnDialog
+{
+    height: 100%;
+    overflow-y: auto;
+    box-sizing: border-box;
+    padding: 4px;
+}
+
+.scnStep
+{
+    padding: 6px 8px;
+    margin-bottom: 8px;
+    border: 1px solid var(--borderColor, #666);
+}
+
+.scnMain, .scnOptions, .scnCond, .scnValue
+{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.scnOptions
+{
+    margin-top: 6px;
+    font-size: smaller;
+    opacity: 0.9;
+}
+
+.scnNo
+{
+    min-width: 1.8em;
+    font-weight: bold;
+    text-align: center;
+}
+
+.scnInput
+{
+    width: auto;
+    max-width: 24em;
+}
+
+.scnShort
+{
+    width: 7em;
+}
+
+.scnTitle
+{
+    flex: 1;
+    min-width: 10em;
+}
+
+.scnSpacer
+{
+    flex: 1;
+}
+
+.scnNote
+{
+    opacity: 0.7;
+}
+
+.scnCheck
+{
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+
+.scnButton
+{
+    min-width: 2.2em;
+    height: 2.2em;
+    cursor: pointer;
+}
+
+.scnButton:disabled
+{
+    opacity: 0.3;
+    cursor: default;
+}
+
+.scnEmpty, .scnHelp
+{
+    opacity: 0.7;
+    padding: 8px;
+}
+
+#scnJson
+{
+    width: 100%;
+    height: calc(100% - 4em);
+    font-family: monospace;
+    resize: none;
+    box-sizing: border-box;
+}
+
+.scnAdd
+{
+    display: block;
+    margin: 4px 0 8px 0;
+    min-width: 4em;
+}
+
+.scnCmd
+{
+    flex: 1;
+    min-width: 20em;
+    max-width: none;
+    font-family: monospace;
+}
+
+.scnStatus
+{
+    min-height: 1.4em;
+    padding: 2px 4px 6px 4px;
+    font-weight: bold;
+}
+
+.scnStatus.scnResult-running { color: #5aa9e6; }
+.scnStatus.scnResult-ok      { color: #4caf50; }
+.scnStatus.scnResult-error,
+.scnStatus.scnResult-timeout { color: #ef5350; }
+
+.scnStep.scnRunning { border-color: #5aa9e6; box-shadow: 0 0 0 1px #5aa9e6; }
+.scnStep.scnFailed  { border-color: #ef5350; box-shadow: 0 0 0 1px #ef5350; background-color: rgba(239, 83, 80, 0.12); }
+.scnStep.scnWarn    { border-color: #ffa726; box-shadow: 0 0 0 1px #ffa726; }
+
+.scnMessage
+{
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: smaller;
+}
+
+.scnMessage.scnFailedText { color: #ef5350; }
+.scnMessage.scnWarnText   { color: #ffa726; }
+
+.scnTitleLabel
+{
+    margin-left: 12px;
+}
+
+.scnHead
+{
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.scnHead .scnTitle
+{
+    flex: 1;
+    max-width: none;
+}

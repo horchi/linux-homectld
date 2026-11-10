@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.48"
+#define _VERSION     "0.1.49"
 #define VERSION_DATE "09.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,23 @@
 
 /*
  * ------------------------------------
+
+2026-11-09: version 0.1.49
+    - added: WEBIF: export / import of dashboards as JSON file (menu dialog of the dashboard page, full control);
+             the export asks which dashboards (all preselected), the file contains title, symbol, group, order,
+             options and the widgets with their options ("type": "homectld-dashboards"); the import shows the
+             dashboards of the file and how many widgets refer to sensors not present here, existing dashboards
+             (same title, without title same symbol) are overwritten or added as copy ('<title> (2)'); HTML widgets
+             carry the name of their snippet, at the import the snippet is assigned by this name (the snippets
+             themselves are not part of the export, use the snippet export)
+    - added: WEBIF: Ctrl+click on a dashboard button opens the setup dialog of this dashboard without the setup mode
+             (like the widgets, full control), the active dashboard is not changed
+    - added: WEBIF: long touch (touch devices, no Ctrl key) acts like Ctrl+click: widget title (resp. the whole HTML
+             widget) -> widget setup / mode toggle, dashboard button -> dashboard setup; not in the setup mode, the
+             following click and the context menu / callout of the browser are suppressed
+    - added: WEBIF: option 'Value anzeigen' for the radial meter too (hides the value box)
+    - fixed: WEBIF: widget setup dialog shows the option 'Value anzeigen' only for the meters (radial / linear), it
+             was offered for all widget types (e.g. HTML) without any effect
 
 2026-11-09: version 0.1.48
     - added: WEBIF page 'Zigbee': devices paired with deCONZ but without any light / sensor (no DDF at deCONZ, e.g. a

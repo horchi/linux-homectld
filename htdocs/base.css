@@ -686,6 +686,9 @@ body.standalone .menu
     text-decoration: none;
     cursor: pointer;
     font-size: x-large;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;   /* long touch = dashboard setup, no callout */
 }
 
 /*.buttonDashboard:hover
@@ -2697,6 +2700,8 @@ table.tableMultiCol td
     padding: 4px;
     margin: 0px;
     user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;   /* long touch = widget setup, no callout */
 }
 
 .widget-edit
@@ -4620,6 +4625,21 @@ iPhones
 
 .widget-html [data-toggle], .widget-html [data-set], .widget-html [data-chart] {
    cursor: pointer;
+}
+
+/* stale sensors: the whole widget (all invalid) resp. the element with data-valid,
+   not twice within a pale widget */
+
+.widgetHtml.widget-html-stale {
+   opacity: 45%;
+}
+
+.widget-html .htmlw-stale {
+   opacity: 45%;
+}
+
+.widgetHtml.widget-html-stale .htmlw-stale {
+   opacity: 1;
 }
 
 .widget-html-iframe {

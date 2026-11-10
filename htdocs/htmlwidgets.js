@@ -26,6 +26,9 @@
  *    data-toggle="DZL:0x03"              switch
  *    data-set="HMB:0x02" data-value="0"  brightness / position
  *    data-chart="W1:0x01"                chart dialog of the sensor
+ *  Pale display (stale sensor, e.g. device offline):
+ *    the whole widget if all of its sensors are invalid (automatic)
+ *    data-valid="W1:0x01"                the element if this sensor is invalid
  *  Kind 'iframe': the code is the URL (placeholders work there too).
  *  The CSS of a snippet is nested into '.htmlw-<id>' (CSS nesting) and so applies to its widgets only.
  */
@@ -472,6 +475,7 @@ function htmlWidgetContent($content, snippetId, widgetParams, wid)
    let snippet = htmlWidgets[snippetId];
 
    if (!snippet) {
+      $content.closest('.widgetHtml').removeClass('widget-html-stale');
       $content.html('<div class="widget-html-missing"><span class="mdi mdi-code-tags"></span>' +
                     '<div>' + (snippetId != null ? 'Snippet fehlt' : 'Kein Snippet gewählt') + '</div></div>');
       return new Set();
@@ -488,8 +492,43 @@ function htmlWidgetContent($content, snippetId, widgetParams, wid)
    }
 
    $content.data('usesTime', result.usesTime);
+   htmlWidgetValidity($content, result.deps, result.params);
 
    return result.deps;
+}
+
+// pale display of stale sensors (e.g. device offline), like the other widgets:
+//  - the whole widget if all its sensors are invalid (a widget without sensors never)
+//  - an element with data-valid="<key>" if this sensor is invalid
+//  the sensors of data-valid are added to the deps (the validity changes without a changed text)
+
+function htmlWidgetIsValid(key)
+{
+   return allSensors[key] != null && !!allSensors[key].valid;
+}
+
+function htmlWidgetValidity($content, deps, params)
+{
+   let allStale = deps.size > 0;
+
+   for (let key of deps) {
+      if (htmlWidgetIsValid(key)) {
+         allStale = false;
+         break;
+      }
+   }
+
+   $content.closest('.widgetHtml').toggleClass('widget-html-stale', allStale);
+
+   $content.find('[data-valid]').each(function() {
+      let key = htmlWidgetKeyOf($(this).attr('data-valid'), params);
+
+      if (!key)
+         return;
+
+      deps.add(key);
+      $(this).toggleClass('htmlw-stale', !htmlWidgetIsValid(key));
+   });
 }
 
 // widgets with relative times ('age', 'changed') age without a sensor update -> re-render every 30 seconds
@@ -837,6 +876,8 @@ async function initHtmlWidgetsPage()
                      '<code>{{p.motion.changed|ago}}</code> \'vor 3 min\' (Felder age / changed: Sekunden seit Update / Änderung)<br>' +
                      '<b>Aktionen:</b> <code>data-toggle="DZL:0x03"</code> schalten, <code>data-set="HMB:0x02" data-value="0"</code> Helligkeit / Position, ' +
                      '<code>data-chart="W1:0x01"</code> Chart, statt des Keys auch <code>p.&lt;name&gt;</code><br>' +
+                     '<b>Blass:</b> das Widget, wenn alle seine Sensoren ungültig sind (z. B. Gerät offline), ' +
+                     'ein Element mit <code>data-valid="p.temp"</code>, wenn dieser Sensor ungültig ist<br>' +
                      'Die Parameter sind die Vorgaben, im Widget-Setup des Dashboards je Widget überschreibbar. ' +
                      'Die Farben des Themes als <code>var(--fontColor)</code>, <code>var(--green)</code>, ... und MDI Symbole als <code>&lt;span class="mdi mdi-lightbulb"&gt;</code>.'));
 

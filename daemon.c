@@ -2064,6 +2064,9 @@ int HomeCtl::initDb()
    count = 0;
    tableDashboards->countWhere("1=1", count);
 
+   if (!count && loadDefaultDashboards() > 0)
+      count = 1;
+
    if (!count)
    {
       tell(eloInfo, "Starting with empty dashboard");
@@ -2073,6 +2076,145 @@ int HomeCtl::initDb()
    }
 
    return status;
+}
+
+//***************************************************************************
+// Load Default Dashboards
+//   initially (no dashboard in the database) from <confDir>/defaultDashboards.json,
+//   the format of the dashboard export of the WEBIF:
+//   { "type": "homectld-dashboards", "version": 1,
+//     "dashboards": [ { "title", "symbol", "group", "options": {...},
+//                       "widgets": { "<type>:<address>": {...}, ... } }, ... ] }
+//   HTML widgets: the snippet is assigned by 'snippetName' if a snippet with this name exists
+//   returns the number of created dashboards
+//***************************************************************************
+
+int HomeCtl::loadDefaultDashboards()
+{
+   char* path {};
+   asprintf(&path, "%s/defaultDashboards.json", confDir);
+
+   if (!fileExists(path))
+   {
+      free(path);
+      return 0;
+   }
+
+   json_t* jData {jsonLoadFile(path)};
+
+   if (!jData)
+   {
+      free(path);
+      return 0;
+   }
+
+   json_t* jList {json_is_array(jData) ? jData : getObjectFromJson(jData, "dashboards")};
+
+   if (!json_is_array(jList))
+   {
+      tell(eloAlways, "Error: No dashboards found in '%s', ignoring", path);
+      json_decref(jData);
+      free(path);
+      return 0;
+   }
+
+   // snippets of HTML widgets by name
+
+   std::map<std::string,long> snippetByName;
+   tableHtmlWidgets->clear();
+
+   for (bool f = selectAllHtmlWidgets->find(); f; f = selectAllHtmlWidgets->fetch())
+      snippetByName[tableHtmlWidgets->getStrValue("NAME")] = tableHtmlWidgets->getIntValue("ID");
+
+   selectAllHtmlWidgets->freeResult();
+
+   int count {0};
+   size_t index {0};
+   json_t* jDashboard {};
+
+   json_array_foreach(jList, index, jDashboard)
+   {
+      if (!json_is_object(jDashboard))
+         continue;
+
+      const char* title {getStringFromJson(jDashboard, "title", "")};
+      const char* symbol {getStringFromJson(jDashboard, "symbol", "")};
+
+      if (isEmpty(title) && isEmpty(symbol))
+         continue;
+
+      json_t* jOptions {getObjectFromJson(jDashboard, "options")};
+      char* options {json_is_object(jOptions) ? json_dumps(jOptions, JSON_REAL_PRECISION(4)) : nullptr};
+
+      tableDashboards->clear();
+      tableDashboards->setValue("TITLE", title);
+      tableDashboards->setValue("SYMBOL", symbol);
+      tableDashboards->setValue("GROUP", getIntFromJson(jDashboard, "group", 0));
+      tableDashboards->setValue("ORDER", (long)index);
+      tableDashboards->setValue("OPTS", !isEmpty(options) ? options : "{}");
+      tableDashboards->store();
+      free(options);
+
+      long dashboardId {tableDashboards->getLastInsertId()};
+      tableDashboards->reset();
+      count++;
+
+      // the widgets
+
+      int ord {0};
+      const char* key {};
+      json_t* jWidget {};
+      json_t* jWidgets {getObjectFromJson(jDashboard, "widgets")};
+
+      if (json_is_object(jWidgets))
+      {
+         json_object_foreach(jWidgets, key, jWidget)
+         {
+            auto tuple = split(key, ':');
+
+            if (tuple.size() != 2)
+            {
+               tell(eloAlways, "Warning: Ignoring widget with invalid key '%s' of default dashboard '%s'", key, title);
+               continue;
+            }
+
+            json_t* jOpts {json_is_object(jWidget) ? json_deep_copy(jWidget) : json_object()};
+            const char* snippetName {getStringFromJson(jOpts, "snippetName")};
+
+            if (snippetName)
+            {
+               auto it = snippetByName.find(snippetName);
+
+               if (it != snippetByName.end())
+                  json_object_set_new(jOpts, "snippet", json_integer(it->second));
+
+               json_object_del(jOpts, "snippetName");
+            }
+
+            char* opts {json_dumps(jOpts, JSON_REAL_PRECISION(4))};
+
+            tableDashboardWidgets->clear();
+            tableDashboardWidgets->setValue("DASHBOARDID", dashboardId);
+            tableDashboardWidgets->setValue("TYPE", tuple[0].c_str());
+            tableDashboardWidgets->setValue("ADDRESS", strtoll(tuple[1].c_str(), nullptr, 0));
+            tableDashboardWidgets->setValue("ORDER", ord++);
+            tableDashboardWidgets->setValue("WIDGETOPTS", opts ? opts : "{}");
+            tableDashboardWidgets->store();
+
+            free(opts);
+            json_decref(jOpts);
+         }
+      }
+
+      tell(eloInfo, "Created default dashboard '%s' (%ld) with %d widgets", !isEmpty(title) ? title : symbol, dashboardId, ord);
+   }
+
+   tell(eloAlways, "Loaded %d default dashboard(s) from '%s'", count, path);
+
+   json_decref(jData);
+   free(path);
+
+   return count;
 }
 
 int HomeCtl::exitDb()

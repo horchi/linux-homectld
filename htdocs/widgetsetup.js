@@ -478,6 +478,7 @@ function widgetSetup(key, hasp)
       $("#divImgoff").css("display", ([0,9].includes(wType) && $('#symbol').val() == '') ? 'flex' : 'none');
       $("#divPeak").css("display", [1,3,4,5,6,13].includes(wType) ? 'flex' : 'none');
       $("#divPeakMin").css("display", [1,3,4,5,6,13].includes(wType) ? 'flex' : 'none');
+      $("#divShowValue").css("display", [5,6].includes(wType) ? 'flex' : 'none');   // only the meters evaluate 'showvalue'
       $("#divColor").css("display", [0,1,2,3,4,6,7,8,9,10,11,12,13,14,16].includes(wType) ? 'flex' : 'none');
       $("#divColorCondition").css("display", [0,2,3,6,7,8,9,10,11,12].includes(wType) ? 'flex' : 'none');
       $("#divLinefeed").css("display", [10].includes(wType) ? 'flex' : 'none');

@@ -2054,7 +2054,6 @@ int HomeCtl::storeDashboards(json_t* obj, long client)
          tableDashboards->store();
          tableDashboards->reset();
          free(options);
-         json_decref(jOptions);
 
          // the widgets
 

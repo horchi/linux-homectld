@@ -1286,6 +1286,11 @@ function openMenuBurger()
    if (currentPage == 'dashboard' && localStorage.getItem(storagePrefix + 'Rights') & 0x10)
       form += '  <br/><div><button style="width:120px;margin:2px;color" class="rounded-border button1 mdi mdi-lead-pencil" onclick=" setupDashboard()">' + (setupMode ? ' Stop Setup' : ' Setup Dashboard') + '</button></div>';
 
+   if (currentPage == 'dashboard' && localStorage.getItem(storagePrefix + 'Rights') & 0x10) {
+      form += '  <div><button style="width:120px;margin:2px;" class="rounded-border button1 mdi mdi-export" title="Dashboards als JSON Datei exportieren" onclick="$(\'#burgerPopup\').dialog(\'close\'); dashboardExportSelect()"> Export</button></div>';
+      form += '  <div><button style="width:120px;margin:2px;" class="rounded-border button1 mdi mdi-import" title="Dashboards aus einer JSON Datei (Export) importieren" onclick="$(\'#burgerPopup\').dialog(\'close\'); dashboardImportSelect()"> Import</button></div>';
+   }
+
    if (currentPage == 'schema' && (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10))
       form += '  <br/><div><button style="width:120px;margin:2px;color" class="rounded-border button1 mdi mdi-lead-pencil" onclick=" setupSchema()">' + (schemaEditActive ? ' Stop Setup' : ' Setup Schema') + '</button></div>';
 

@@ -241,6 +241,9 @@ install-config:
 	fi
 	install --mode=644 -D ./etc/configs/*.dat $(CONFDEST)/;
 	install --mode=644 -D ./etc/configs/gpio.json $(CONFDEST)/;
+	if test -f ./etc/configs/defaultDashboards.json; then \
+	   install --mode=644 -D ./etc/configs/defaultDashboards.json $(CONFDEST)/; \
+	fi
 	mkdir -p $(DESTDIR)/etc/rsyslog.d
 	cat contrib/rsyslog.conf | sed s:"<TARGET>":$(TARGET):g | install --mode=644 -C -D /dev/stdin $(DESTDIR)/etc/rsyslog.d/10-$(TARGET).conf; \
 	mkdir -p $(DESTDIR)/etc/logrotate.d

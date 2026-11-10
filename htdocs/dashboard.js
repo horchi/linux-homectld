@@ -59,6 +59,8 @@ function initDashboard(update = false)
       return;
    }
 
+   initLongTouch();
+
    for (const gkey in dashboardGauges) {
       if (dashboardGauges.hasOwnProperty(gkey)) {
          dashboardGauges[gkey].destroy();
@@ -134,6 +136,12 @@ function initDashboard(update = false)
                                  .on('drop', function(event) {dropDashboard(event)})
                                  .html(dashboards[did].title)
                                  .click({'id': did, 'index': i}, function(event) {
+                                    if (event.ctrlKey) {
+                                       // dashboard setup without the setup mode (like the widgets, needs 'full control')
+                                       if (localStorage.getItem(storagePrefix + 'Rights') & 0x04)
+                                          dashboardSetup('dash' + $(this).data('did'));
+                                       return;
+                                    }
                                     setActualDashboard($(this).data('did'), $(this).data('index'));
                                     console.log("Activate dashboard " + actDashboard);
                                     initDashboard();
@@ -1786,7 +1794,7 @@ function initMeter(key, widget, fact, neededScaleMax, value)
       borderInnerWidth: 0,
       borderShadowWidth: 0,
       fontValueWeight: 'bold',
-      valueBox: radial,
+      valueBox: radial && showValue,
       valueInt: 0,
       valueDec: widget.unit == '%' ? 0 : 2,
       colorValueText: colorStyle.getPropertyValue('--scale'),
@@ -2217,6 +2225,113 @@ function weatherForecast()
          $(form).remove();
       }
    });
+}
+
+// ---------------------------------------------------------------------------
+// long touch = Ctrl+click for touch devices (no Ctrl key on the phone)
+//   - widget title (resp. the whole HTML widget) -> titleClick(true) (widget setup / mode toggle)
+//   - dashboard button -> dashboard setup
+//   one delegated handler on the document (the widgets are re-created), only outside the setup mode
+//   (there the pencils exist); the click following the long touch is suppressed
+// ---------------------------------------------------------------------------
+
+var longTouch = { 'timer' : null, 'x' : 0, 'y' : 0, 'firedAt' : 0, 'firedTouch' : false };
+
+function longTouchTarget(el)
+{
+   if (setupMode)
+      return null;
+
+   let dash = $(el).closest('#dashboardMenu .buttonDashboard[id^="dash"]');
+
+   if (dash.length) {
+      if (!(localStorage.getItem(storagePrefix + 'Rights') & 0x04))
+         return null;
+      let id = dash.attr('id');
+      return function() { dashboardSetup(id); };
+   }
+
+   if (!$(el).closest('.widget-title, .widgetHtml').length)
+      return null;
+
+   let div = $(el).closest('[id^="div_"]');
+
+   if (!div.length)
+      return null;
+
+   let key = div.attr('id').substring(4);
+   return function() { titleClick(true, key); };
+}
+
+function longTouchCancel()
+{
+   if (longTouch.timer)
+      clearTimeout(longTouch.timer);
+
+   longTouch.timer = null;
+}
+
+function initLongTouch()
+{
+   if (initLongTouch.done)
+      return;
+
+   initLongTouch.done = true;
+
+   document.addEventListener('touchstart', function(e) {
+      longTouchCancel();
+      longTouch.firedTouch = false;
+
+      if (e.touches.length != 1)
+         return;
+
+      let action = longTouchTarget(e.target);
+
+      if (!action)
+         return;
+
+      longTouch.x = e.touches[0].pageX;
+      longTouch.y = e.touches[0].pageY;
+      longTouch.timer = setTimeout(function() {
+         longTouch.timer = null;
+         longTouch.firedAt = Date.now();
+         longTouch.firedTouch = true;
+         action();
+      }, 600);
+   }, { passive: true });
+
+   document.addEventListener('touchmove', function(e) {
+      // moved (e.g. scrolling) -> no long touch
+      if (longTouch.timer && (Math.abs(e.touches[0].pageX - longTouch.x) >= 15 ||
+                              Math.abs(e.touches[0].pageY - longTouch.y) >= 15))
+         longTouchCancel();
+   }, { passive: true });
+
+   document.addEventListener('touchend', function(e) {
+      longTouchCancel();
+      if (longTouch.firedTouch && e.cancelable)
+         e.preventDefault();             // no click after the long touch
+      longTouch.firedTouch = false;
+   }, { passive: false });
+
+   document.addEventListener('touchcancel', function(e) {
+      longTouchCancel();
+      longTouch.firedTouch = false;
+   }, { passive: true });
+
+   // fallback: suppress the (emulated) click resp. the context menu just after a long touch
+
+   document.addEventListener('click', function(e) {
+      if (Date.now() - longTouch.firedAt < 800) {
+         e.preventDefault();
+         e.stopPropagation();
+      }
+   }, true);
+
+   document.addEventListener('contextmenu', function(e) {
+      if (longTouch.timer || Date.now() - longTouch.firedAt < 800)
+         e.preventDefault();
+   }, true);
 }
 
 function titleClick(ctrlKey, key)
@@ -3576,4 +3691,320 @@ function dropWidget(ev)
 
    socket.send({ "event" : "storedashboards", "object" : { [actDashboard] : { 'title' : dashboards[actDashboard].title, 'widgets' : json } } });
    socket.send({ "event" : "forcerefresh", "object" : { 'action' : 'dashboards' } });
+}
+
+//***************************************************************************
+// Dashboard Export / Import
+//   file: { "type": "homectld-dashboards", "version": 1, "exported": "<iso time>",
+//           "dashboards": [ { "title", "symbol", "group", "order", "options": {...},
+//                             "widgets": { "<type>:<address>": {...}, ... } }, ... ] }
+//   HTML widgets additionally carry 'snippetName', on import the snippet is
+//   assigned by this name (the snippet ids differ between instances)
+//***************************************************************************
+
+function dashboardExportSelect()      // choose the dashboards to export (menu dialog)
+{
+   let ids = Object.keys(dashboards).sort((a, b) => (dashboards[a].order || 0) - (dashboards[b].order || 0));
+
+   if (!ids.length) {
+      showInfoDialog({ 'status': -1, 'message': 'Keine Dashboards vorhanden' });
+      return;
+   }
+
+   let form = document.createElement('div');
+
+   // switches as in the rest of the webif: hidden checkbox + '<label for>' (checkbox.css)
+
+   let switchRow = function(inputId, $text) {
+      return $('<div></div>')
+         .css('padding', '2px 0px')
+         .append($('<input></input>').attr('type', 'checkbox').attr('id', inputId).prop('checked', true))
+         .append($('<label></label>')
+                 .attr('for', inputId)
+                 .css('align-items', 'center')
+                 .css('gap', '6px')
+                 .append($text));
+   };
+
+   let $list = $('<div></div>')
+       .css('max-height', '60vh')
+       .css('overflow-y', 'auto')
+       .css('margin', '6px 0px 0px 0px');
+
+   for (let id of ids) {
+      let $row = switchRow('dashExp_' + id,
+                           [ $('<span></span>').addClass(dashboards[id].symbol ? dashboards[id].symbol.replace(':', ' ') : ''),
+                             $('<span></span>').text(dashboards[id].title || '(ohne Titel)') ]);
+      $row.find('input').addClass('dashExportSel').val(id);
+      $list.append($row);
+   }
+
+   let $all = switchRow('dashExportAll', $('<span></span>').css('font-weight', 'bold').text('Alle'));
+
+   $(form)
+      .append($all)
+      .append($('<hr></hr>').css('margin', '4px 0px').css('border', '0').css('border-top', '1px solid var(--neutral2)'))
+      .append($list);
+
+   $('#dashExportAll', form).change(function() { $('.dashExportSel', form).prop('checked', this.checked); });
+
+   $list.find('.dashExportSel').change(function() {
+      $('#dashExportAll', form).prop('checked', $('.dashExportSel:checked', form).length == ids.length);
+   });
+
+   $(form).dialog({
+      modal: true,
+      resizable: false,
+      closeOnEscape: true,
+      width: 'auto',
+      title: 'Dashboards exportieren',
+      buttons: {
+         'Abbrechen': function() { $(this).dialog('close'); },
+         'Exportieren': function() {
+            let sel = $('.dashExportSel:checked').map(function() { return $(this).val(); }).get();
+
+            if (!sel.length) {
+               showInfoDialog({ 'status': -1, 'message': 'Kein Dashboard gewählt' });
+               return;
+            }
+
+            dashboardExport(sel);
+            $(this).dialog('close');
+         }
+      },
+      close: function() { $(this).dialog('destroy').remove(); }
+   });
+}
+
+// dashboards may have no title (symbol only) -> identified by the symbol
+
+function dashboardIdentKey(title, symbol)
+{
+   title = (title || '').trim();
+   return title != '' ? 'T:' + title : 'S:' + (symbol || '');
+}
+
+function dashboardDisplayName(title, symbol)
+{
+   title = (title || '').trim();
+
+   if (title != '')
+      return title;
+
+   return symbol ? symbol.replace(/^.*:/, '').replace(/^mdi-/, '') + ' (ohne Titel)' : '(ohne Titel)';
+}
+
+function dashboardExport(ids)
+{
+   let list = [];
+
+   ids = ids.map(id => String(id)).filter(id => dashboards[id] != null);
+   ids.sort((a, b) => (dashboards[a].order || 0) - (dashboards[b].order || 0));
+
+   for (let id of ids) {
+      let d = dashboards[id];
+      let widgets = {};
+
+      for (let key in d.widgets || {}) {
+         let w = Object.assign({}, d.widgets[key]);
+
+         if (w.snippet != null && typeof htmlWidgets != 'undefined' && htmlWidgets[w.snippet])
+            w.snippetName = htmlWidgets[w.snippet].name;
+
+         widgets[key] = w;
+      }
+
+      list.push({ 'title': d.title || '', 'symbol': d.symbol || '', 'group': d.group || 0, 'order': d.order || 0,
+                  'options': d.options || {}, 'widgets': widgets });
+   }
+
+   if (!list.length)
+      return;
+
+   let data = { 'type': 'homectld-dashboards', 'version': 1, 'exported': new Date().toISOString(), 'dashboards': list };
+   let fileName = list.length == 1
+       ? 'dashboard-' + dashboardDisplayName(list[0].title, list[0].symbol).replace(/[^\w\-äöüÄÖÜß]+/g, '_').replace(/^_+|_+$/g, '') + '.json'
+       : 'dashboards-' + new Date().toISOString().substring(0, 10) + '.json';
+
+   let url = URL.createObjectURL(new Blob([JSON.stringify(data, undefined, 2)], { type: 'application/json' }));
+   let a = document.createElement('a');
+   a.href = url;
+   a.download = fileName;
+   document.body.appendChild(a);
+   a.click();
+   a.remove();
+   setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+}
+
+function dashboardImportSelect()       // file selection (menu dialog)
+{
+   let input = document.createElement('input');
+   input.type = 'file';
+   input.accept = '.json,application/json';
+   input.style.display = 'none';
+   input.addEventListener('change', function() {
+      if (input.files.length)
+         dashboardImportFile(input.files[0]);
+      input.remove();
+   });
+   document.body.appendChild(input);
+   input.click();
+}
+
+function dashboardImportFile(file)
+{
+   let reader = new FileReader();
+
+   reader.onload = function() {
+      let list = null;
+
+      try {
+         let data = JSON.parse(reader.result);
+
+         if (data && data.type && data.type != 'homectld-dashboards')
+            throw new Error('keine Dashboard Datei (type \'' + data.type + '\')');
+
+         list = Array.isArray(data) ? data : data.dashboards;
+
+         if (!Array.isArray(list))
+            throw new Error('keine Dashboards gefunden');
+
+         list = list.filter(d => d && typeof d == 'object' &&
+                            ((typeof d.title == 'string' && d.title.trim() != '') || (typeof d.symbol == 'string' && d.symbol != '')) &&
+                            (d.widgets == null || (typeof d.widgets == 'object' && !Array.isArray(d.widgets))));
+
+         if (!list.length)
+            throw new Error('keine Dashboards mit Titel oder Symbol gefunden');
+      }
+      catch (e) {
+         showInfoDialog({ 'status': -1, 'message': 'Import von \'' + file.name + '\' fehlgeschlagen: ' + e.message });
+         return;
+      }
+
+      dashboardImport(list);
+   };
+
+   reader.readAsText(file);
+}
+
+// existing titles (symbol if no title) -> ask: overwrite or as copy
+
+function dashboardImport(list)
+{
+   let byTitle = {};
+
+   for (let d of list)
+      d.title = typeof d.title == 'string' ? d.title.trim() : '';
+
+   for (let id in dashboards)
+      byTitle[dashboardIdentKey(dashboards[id].title, dashboards[id].symbol)] = id;
+
+   // widgets without sensor on this instance (SPACER, TIME, HTML, ... are no sensors)
+
+   let unknown = 0;
+
+   for (let d of list) {
+      for (let key in d.widgets || {}) {
+         if (valueFacts[key] == null && !/^(SPACER|TIME|HTML):/.test(key))
+            unknown++;
+      }
+   }
+
+   let conflicts = [...new Set(list.filter(d => byTitle[dashboardIdentKey(d.title, d.symbol)] != null)
+                                   .map(d => dashboardDisplayName(d.title, d.symbol)))];
+   let form = document.createElement('div');
+
+   $(form).append($('<div></div>').text(list.length + ' Dashboard(s) in der Datei: ' + list.map(d => dashboardDisplayName(d.title, d.symbol)).join(', ')));
+
+   if (unknown)
+      $(form).append($('<div></div>')
+                     .css('margin-top', '8px')
+                     .text(unknown + ' Widget(s) beziehen sich auf Sensoren, die es hier nicht gibt'));
+
+   let buttons = { 'Abbrechen': function() { $(this).dialog('close'); } };
+
+   if (conflicts.length) {
+      $(form)
+         .append($('<div></div>').css('margin-top', '8px').text('Diese gibt es schon:'))
+         .append($('<ul></ul>').append(conflicts.map(n => $('<li></li>').text(n))))
+         .append($('<div></div>')
+                 .html('<b>Überschreiben</b>: Einstellungen und Widgets der vorhandenen werden ersetzt<br>' +
+                       '<b>Als Kopie</b>: sie werden zusätzlich angelegt, mit Titel z. B. als \'' +
+                       $('<div></div>').text(conflicts[0]).html() + ' (2)\''));
+      buttons['Als Kopie'] = function() { dashboardImportSend(list, byTitle, 'copy'); $(this).dialog('close'); };
+      buttons['Überschreiben'] = function() { dashboardImportSend(list, byTitle, 'overwrite'); $(this).dialog('close'); };
+   }
+   else {
+      buttons['Importieren'] = function() { dashboardImportSend(list, byTitle, 'copy'); $(this).dialog('close'); };
+   }
+
+   $(form).dialog({
+      modal: true,
+      resizable: false,
+      closeOnEscape: true,
+      width: 'auto',
+      title: 'Dashboards importieren',
+      buttons: buttons,
+      close: function() { $(this).dialog('destroy').remove(); }
+   });
+}
+
+function dashboardImportSend(list, byTitle, mode)
+{
+   let taken = new Set(Object.keys(byTitle));     // identity keys (see dashboardIdentKey)
+   let snippetByName = {};
+
+   if (typeof htmlWidgets != 'undefined') {
+      for (let id in htmlWidgets)
+         snippetByName[htmlWidgets[id].name] = parseInt(id);
+   }
+
+   for (let d of list) {
+      let title = d.title;
+      let key = dashboardIdentKey(title, d.symbol);
+      let id = -1;
+
+      if (byTitle[key] != null && mode == 'overwrite')
+         id = parseInt(byTitle[key]);
+      else if (title != '' && taken.has(key)) {    // without title the copy stays without title
+         let n = 2;
+         while (taken.has(dashboardIdentKey(title + ' (' + n + ')')))
+            n++;
+         title = title + ' (' + n + ')';
+      }
+
+      taken.add(dashboardIdentKey(title, d.symbol));
+
+      let widgets = {};
+
+      for (let key in d.widgets || {}) {
+         let w = d.widgets[key];
+
+         if (w == null || typeof w != 'object' || Array.isArray(w))
+            w = {};
+         else
+            w = Object.assign({}, w);
+
+         if (w.snippetName != null) {
+            if (snippetByName[w.snippetName] != null)
+               w.snippet = snippetByName[w.snippetName];
+            delete w.snippetName;
+         }
+
+         if (!Object.keys(w).length)
+            w = '';            // empty -> the daemon creates the default options of the widget
+
+         widgets[key] = w;
+      }
+
+      let options = d.options && typeof d.options == 'object' && !Array.isArray(d.options) ? d.options : {};
+
+      // one message per dashboard, the key -1 (new dashboard) can only be used once per object
+
+      socket.send({ 'event': 'storedashboards', 'object': { [id]: { 'title': title, 'symbol': d.symbol || '',
+                                                                   'group': parseInt(d.group) || 0,
+                                                                   'options': options, 'widgets': widgets } } });
+   }
+
+   socket.send({ 'event': 'forcerefresh', 'object': { 'action': 'dashboards' } });
 }

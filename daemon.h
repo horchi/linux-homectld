@@ -547,6 +547,7 @@ class HomeCtl : public cWebInterface, public Service
       int valueTypes2Json(json_t* obj);
       int valueFacts2Json(json_t* obj, bool filterActive);
       int dashboards2Json(json_t* obj);
+      int loadDefaultDashboards();
       int haspPages2Json(json_t* obj);
 
       // openHASP panel (hasp.c)

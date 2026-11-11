@@ -1,0 +1,17 @@
+[Unit]
+
+Description = Froeling S 3200 to MQTT service
+After = network.target mosquitto.service
+StartLimitInterval = 200
+StartLimitBurst = 5
+
+[Service]
+EnvironmentFile=-/etc/default/p4mqttd
+Type = forking
+ExecStart = <BINDEST>/p4mqttd $P4MQTTD_OPTS
+Restart = always
+RestartSec = 30
+
+[Install]
+
+WantedBy = multi-user.target

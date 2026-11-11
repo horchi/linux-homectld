@@ -365,6 +365,28 @@ class HomeCtl : public cWebInterface, public Service
       int homeMatic2Json(json_t* obj);
       int performHomeMatic(json_t* obj, long client);
       bool homeMaticViaService() { return homeMaticInterface && homeMaticBridge == "hmmqtt"; }
+
+      // S 3200 via the service p4mqttd (p4service.c)
+
+      bool p4ReadConfig();
+      std::string p4Config2Json();
+      int p4Check();
+      int p4MergeErrors(json_t* jErrors);
+      int p4SendErrorMail();
+      int p4SendStateMail(const char* stateInfo, int state);
+      bool p4IsMailState(int state);
+      int p4Errors2Json(json_t* obj);
+      int performP4Errors(json_t* obj, long client);
+      int p4CalcStateDuration();
+      int p4Pellets2Json(json_t* obj);
+      int performP4Pellets(json_t* obj, long client);
+      int performP4PelletsAdd(json_t* obj, long client);
+      int p4CheckPending();
+      int dispatchP4Mqtt(const char* topic, const char* message);
+      int performP4Menu(json_t* obj, long client);
+      int performP4Cmd(json_t* obj, long client);
+      int p4SendCommand(json_t* oCmd, long client, const char* what, int parent, int timeout);
+      int p4Answer(long client, const char* error, const char* event = "p4menu");
       virtual int dispatchGrowattEvents(const char* message);
       virtual int dispatchRtl433(const char* message);
       virtual int dispatchOther(const char* topic, const char* message);
@@ -946,6 +968,8 @@ class HomeCtl : public cWebInterface, public Service
       cDbTable* tableActivities {};
       cDbTable* tableActivityTracks {};
       cDbTable* tableSchemaConf {};
+      cDbTable* tableP4Errors {};
+      cDbTable* tableP4Pellets {};
       cDbTable* tableHomeMatic {};
       cDbTable* tableIoStates {};
 
@@ -987,6 +1011,11 @@ class HomeCtl : public cWebInterface, public Service
       cDbStatement* selectAllSchemaConf {};
       cDbStatement* selectHomeMaticByUuid {};
       cDbStatement* selectAllHomeMatic {};
+      cDbStatement* selectP4ErrorByKey {};
+      cDbStatement* selectP4PendingErrors {};
+      cDbStatement* selectAllP4Errors {};
+      cDbStatement* selectAllP4Pellets {};
+      cDbStatement* selectP4StateSamples {};
 
       cDbValue xmlTime;
       cDbValue rangeFrom;
@@ -1124,6 +1153,36 @@ class HomeCtl : public cWebInterface, public Service
       std::map<uint,std::string> homeMaticUuids;
       std::deque<std::string> homeMaticValueRequests;        // uuids of the blinds waiting for getParamset()
       time_t homeMaticRequestAt {0};                         // request sent (0 -> none pending)
+
+      bool p4Enabled {false};                               // S 3200 via p4mqttd
+      std::string p4Topic {"p4"};                           // MQTT base topic of p4mqttd
+      int p4PollInterval {60};                              // [s] values
+      int p4StateInterval {10};                             // [s] state
+      bool p4TimeSync {false};                              // set the clock of the control
+      int p4MaxTimeLeak {10};                               // [s] drift from which it is set
+      std::string p4ConfigSent;                             // last config published to the service
+      double p4ConsumptionPerHour {0.0};                    // [kg] pellets per stoker hour (0 -> calculated from the deliveries)
+      time_t p4StateDurationAt {0};
+      bool p4Mail {false};                                  // mails for the errors and the state of the S 3200
+      std::string p4StateMailStates {"0,1,3,19"};           // states which are mailed (empty -> every change)
+      int p4LastState {-1};
+      std::string p4StateInfo;                              // text of the state of the control
+      std::string p4HeatingType {"P4"};                     // picture of the heating (img/p4/type)
+      std::string p4PageTitle {"S3200"};                    // name of the page in the main menu
+      bool p4Online {false};                                // p4mqttd is running and talks to the control
+
+      struct P4Pending                                      // requests to p4mqttd waiting for the answer
+      {
+         long client {0};
+         time_t at {0};
+         std::string cmd;
+         int parent {1};                                    // the menu level to show again after a change
+         int timeout {30};                                  // [s]
+         std::string user;
+      };
+
+      std::map<std::string,P4Pending> p4Pending;            // rid -> request
+      uint p4Rid {0};
 
       std::string lmcHost {};
       int lmcPort {9090};

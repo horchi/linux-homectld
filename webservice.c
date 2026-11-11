@@ -63,6 +63,11 @@ const char* cWebService::events[] =
    "storehtmlwidgets",
    "mqttconverters",
    "zigbee",
+   "p4menu",
+   "p4cmd",
+   "p4errors",
+   "p4pellets",
+   "p4pelletsadd",
 
    0
 };

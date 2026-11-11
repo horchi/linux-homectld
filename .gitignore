@@ -12,8 +12,8 @@ Make.user
 Make.user.bak
 
 mqt
-p4d
-p4
+/p4d
+/p4
 
 build-nano-atmega328
 dbchart
@@ -57,3 +57,8 @@ openHASP/src/
 openHASP/venv/
 
 homematic/hmmqtt
+
+# p4mqttd (Froeling S 3200)
+p4mqttd/p4mqttd
+p4mqttd/p4
+p4mqttd/obj/

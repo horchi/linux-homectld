@@ -101,6 +101,11 @@ int HomeCtl::dispatchClientRequest()
             case evStoreHtmlWidgets:    status = storeHtmlWidgets(oObject, client);      break;
             case evMqttConverters:      status = performMqttConverters(oObject, client); break;
             case evZigbee:              status = performZigbee(oObject, client);         break;
+            case evP4Menu:              status = performP4Menu(oObject, client);         break;
+            case evP4Cmd:               status = performP4Cmd(oObject, client);          break;
+            case evP4Errors:            status = performP4Errors(oObject, client);       break;
+            case evP4Pellets:           status = performP4Pellets(oObject, client);      break;
+            case evP4PelletsAdd:        status = performP4PelletsAdd(oObject, client);   break;
             default:
             {
                if (dispatchSpecialRequest(event,oObject, client) == ignore)
@@ -171,6 +176,11 @@ bool HomeCtl::checkRights(long client, Event event, json_t* oObject)
       case evStoreHtmlWidgets:    return rights & urAdmin;     // the snippets run in the WEBIF of all users
       case evMqttConverters:      return rights & urAdmin;     // the scripts run as root
       case evZigbee:              return rights & urAdmin;     // pairing / removing of the deCONZ devices
+      case evP4Menu:              return rights & urView;      // the service menu of the S 3200
+      case evP4Pellets:           return rights & urControl;   // the pellet deliveries of the S 3200 (like the p4d)
+      case evP4PelletsAdd:        return rights & urFullControl;
+      case evP4Errors:            return rights & urView;      // the error list of the S 3200
+      case evP4Cmd:               return rights & urSettings;  // writes to the heating control (parameters, time programs), reads the menu again
       case evGroups:              return rights & urSettings;
       case evImageConfig:         return rights & urSettings;
 
@@ -1459,16 +1469,25 @@ int HomeCtl::performSchema(json_t* oObject, long client)
 
    json_t* oArray {json_array()};
 
+   // 'p4' -> the schema of the heating (elements of the types P4...), else the one of the main menu without them
+
+   std::string set {getStringFromJson(oObject, "set", "")};
+
    tableSchemaConf->clear();
 
    for (bool f = selectAllSchemaConf->find(); f; f = selectAllSchemaConf->fetch())
    {
+      if ((set == "p4") != (strncmp(tableSchemaConf->getStrValue("TYPE"), "P4", 2) == 0))
+         continue;
+
       tableValueFacts->clear();
       tableValueFacts->setValue("ADDRESS", tableSchemaConf->getIntValue("ADDRESS"));
       tableValueFacts->setValue("TYPE", tableSchemaConf->getStrValue("TYPE"));
 
       if (!tableSchemaConf->hasValue("TYPE", "UC") &&
           !tableSchemaConf->hasValue("TYPE", "CN") &&
+          !tableSchemaConf->hasValue("TYPE", "P4UC") &&
+          !tableSchemaConf->hasValue("TYPE", "P4CN") &&
           (!tableValueFacts->find() || !tableValueFacts->hasValue("STATE", "A")))
          continue;
 
@@ -1495,7 +1514,7 @@ int HomeCtl::performSchema(json_t* oObject, long client)
 
    selectAllSchemaConf->freeResult();
 
-   pushOutMessage(oArray, "schema", client);
+   pushOutMessage(oArray, set == "p4" ? "p4schema" : "schema", client);
    performData(client);
 
    return done;
@@ -2867,6 +2886,64 @@ int HomeCtl::configChoice2json(json_t* obj, const char* name)
 
          for (const auto& opt : options)
             json_array_append_new(oArray, json_string(opt.name.c_str()));
+
+         json_object_set_new(obj, "options", oArray);
+      }
+
+      free(path);
+   }
+   else if (strcmp(name, "p4Schema") == 0)
+   {
+      // the pictures of the schema of the heating: img/p4/schema/schema-<name>.png
+
+      FileList options;
+      int count {0};
+      char* path {};
+
+      asprintf(&path, "%s/img/p4/schema", httpPath);
+
+      if (getFileList(path, DT_REG, "png", false, &options, count) == success)
+      {
+         json_t* oArray {json_array()};
+
+         for (const auto& opt : options)
+         {
+            std::string n {opt.name};
+
+            if (n.rfind("schema-", 0) != 0 || n.length() < 12)
+               continue;
+
+            json_array_append_new(oArray, json_string(n.substr(7, n.length() - 11).c_str()));
+         }
+
+         json_object_set_new(obj, "options", oArray);
+      }
+
+      free(path);
+   }
+   else if (strcmp(name, "p4HeatingType") == 0)
+   {
+      // the pictures of the heating types: img/p4/type/heating-<type>.png
+
+      FileList options;
+      int count {0};
+      char* path {};
+
+      asprintf(&path, "%s/img/p4/type", httpPath);
+
+      if (getFileList(path, DT_REG, "png", false, &options, count) == success)
+      {
+         json_t* oArray {json_array()};
+
+         for (const auto& opt : options)
+         {
+            std::string n {opt.name};
+
+            if (n.rfind("heating-", 0) != 0 || n.length() < 13)
+               continue;
+
+            json_array_append_new(oArray, json_string(n.substr(8, n.length() - 12).c_str()));
+         }
 
          json_object_set_new(obj, "options", oArray);
       }

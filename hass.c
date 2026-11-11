@@ -232,6 +232,7 @@ int HomeCtl::performMqttRequests()
       lastMqttRead = time(0);
 
    mqttCheckConnection();
+   p4Check();
 
    if (!mqttReader->isConnected())
       return done;
@@ -252,6 +253,8 @@ int HomeCtl::performMqttRequests()
 
       if (strstr(tp.c_str(), "2mqtt/ping"))
          ;
+      else if (p4Enabled && tp.rfind(p4Topic + "/", 0) == 0 && tp != p4Topic + "/sensor")
+         dispatchP4Mqtt(tp.c_str(), message.memory);
       else if (homeMaticViaService() && tp.rfind(homeMaticTopic + "/", 0) == 0)
          dispatchHmMqtt(tp.c_str(), message.memory);
       else if (strstr(tp.c_str(), "2mqtt/w1"))
@@ -327,6 +330,7 @@ int HomeCtl::mqttDisconnect()
 
    delete mqttReader; mqttReader = nullptr;
    delete mqttWriter; mqttWriter = nullptr;
+   p4ConfigSent.clear();                    // (retained, but the service may be started with a new broker)
 
    tell(eloMqtt, "Disconnected from MQTT");
 

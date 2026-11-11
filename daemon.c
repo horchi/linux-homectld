@@ -1464,6 +1464,12 @@ int HomeCtl::initDb()
    tableHomeMatic = new cDbTable(connection, "homematic");
    if (tableHomeMatic->open() != success) return fail;
 
+   tableP4Errors = new cDbTable(connection, "p4errors");
+   if (tableP4Errors->open() != success) return fail;
+
+   tableP4Pellets = new cDbTable(connection, "p4pellets");
+   if (tableP4Pellets->open() != success) return fail;
+
    tableIoStates = new cDbTable(connection, "iostates");
    if (tableIoStates->open() != success) return fail;
 
@@ -1981,6 +1987,65 @@ int HomeCtl::initDb()
 
    status += selectAllHomeMatic->prepare();
 
+   // the error list of the S 3200 (p4service.c)
+
+   selectP4ErrorByKey = new cDbStatement(tableP4Errors);
+
+   selectP4ErrorByKey->build("select ");
+   selectP4ErrorByKey->bindAllOut();
+   selectP4ErrorByKey->build(" from %s where ", tableP4Errors->TableName());
+   selectP4ErrorByKey->bind("NUMBER", cDBS::bndIn | cDBS::bndSet);
+   selectP4ErrorByKey->bind("TIME1", cDBS::bndIn | cDBS::bndSet, " and ");
+
+   status += selectP4ErrorByKey->prepare();
+
+   selectP4PendingErrors = new cDbStatement(tableP4Errors);
+
+   selectP4PendingErrors->build("select ");
+   selectP4PendingErrors->bindAllOut();
+   selectP4PendingErrors->build(" from %s where %s <> 'quittiert' and (%s <= 0 or %s is null) order by %s",
+                                tableP4Errors->TableName(),
+                                tableP4Errors->getField("STATE")->getDbName(),
+                                tableP4Errors->getField("MAILCNT")->getDbName(),
+                                tableP4Errors->getField("MAILCNT")->getDbName(),
+                                tableP4Errors->getField("TIME1")->getDbName());
+
+   status += selectP4PendingErrors->prepare();
+
+   selectAllP4Errors = new cDbStatement(tableP4Errors);
+
+   selectAllP4Errors->build("select ");
+   selectAllP4Errors->bindAllOut();
+   selectAllP4Errors->build(" from %s order by %s desc", tableP4Errors->TableName(),
+                            tableP4Errors->getField("TIME1")->getDbName());
+
+   status += selectAllP4Errors->prepare();
+
+   selectAllP4Pellets = new cDbStatement(tableP4Pellets);
+
+   selectAllP4Pellets->build("select ");
+   selectAllP4Pellets->bindAllOut();
+   selectAllP4Pellets->build(" from %s order by %s", tableP4Pellets->TableName(),
+                             tableP4Pellets->getField("TIME")->getDbName());
+
+   status += selectAllP4Pellets->prepare();
+
+   // the state of the S 3200 of today (duration of the states, p4service.c)
+
+   selectP4StateSamples = new cDbStatement(tableSamples);
+
+   selectP4StateSamples->build("select ");
+   selectP4StateSamples->bindAllOut();
+   selectP4StateSamples->build(" from %s where %s = 'P4UD' and %s = 1 and %s is not null and date(%s) = curdate() order by %s",
+                               tableSamples->TableName(),
+                               tableSamples->getField("TYPE")->getDbName(),
+                               tableSamples->getField("ADDRESS")->getDbName(),
+                               tableSamples->getField("TEXT")->getDbName(),
+                               tableSamples->getField("TIME")->getDbName(),
+                               tableSamples->getField("TIME")->getDbName());
+
+   status += selectP4StateSamples->prepare();
+
    /*
    // patch dashboars widget options to default (once)
    tableDashboardWidgets->clear();
@@ -2243,6 +2308,8 @@ int HomeCtl::exitDb()
    delete tableHtmlWidgets;        tableHtmlWidgets = nullptr;
    delete tableSchemaConf;         tableSchemaConf = nullptr;
    delete tableHomeMatic;          tableHomeMatic = nullptr;
+   delete tableP4Errors;           tableP4Errors = nullptr;
+   delete tableP4Pellets;          tableP4Pellets = nullptr;
    delete tableIoStates;           tableIoStates = nullptr;
 
    delete selectTableStatistic;    selectTableStatistic = nullptr;
@@ -2272,6 +2339,11 @@ int HomeCtl::exitDb()
    delete selectAllSchemaConf;     selectAllSchemaConf = nullptr;
    delete selectHomeMaticByUuid;   selectHomeMaticByUuid = nullptr;
    delete selectAllHomeMatic;      selectAllHomeMatic = nullptr;
+   delete selectP4ErrorByKey;      selectP4ErrorByKey = nullptr;
+   delete selectP4PendingErrors;   selectP4PendingErrors = nullptr;
+   delete selectAllP4Errors;       selectAllP4Errors = nullptr;
+   delete selectAllP4Pellets;      selectAllP4Pellets = nullptr;
+   delete selectP4StateSamples;    selectP4StateSamples = nullptr;
    delete selectDashboardWidgetsFor; selectDashboardWidgetsFor = nullptr;
    delete selectHaspPages;         selectHaspPages = nullptr;
    delete selectAllHtmlWidgets;    selectAllHtmlWidgets = nullptr;
@@ -2469,8 +2541,10 @@ int HomeCtl::readConfiguration(bool initial)
       mqttSensorTopics.push_back(INSTANCE "2mqtt/homematic/events");
    }
 
+   bool p4Changed {p4ReadConfig()};
+
    if (url != mqttUrl || sTopics != sensorTopics || hTopic != haspMqttTopic ||
-       hmInterface != homeMaticInterface || hmBridge != homeMaticBridge || hmTopic != homeMaticTopic)
+       hmInterface != homeMaticInterface || hmBridge != homeMaticBridge || hmTopic != homeMaticTopic || p4Changed)
    {
       tell(eloAlways, "Config of MQTT url or subscribtions changed, reconnect");
       mqttDisconnect();
@@ -2896,6 +2970,8 @@ int HomeCtl::store(time_t now, const SensorData* sensor)
       tableSamples->setValue("VALUE", (double)sensor->state);
    else if (sensor->kind == "value")
       tableSamples->setValue("VALUE", sensor->value);
+   else if (sensor->kind == "text" && sensor->type.rfind("P4", 0) == 0)
+      tableSamples->setValue("VALUE", sensor->value);          // the number of the state of the S 3200 belongs to its text
 
    // send text if set, independent of 'kind'
 
@@ -4078,6 +4154,12 @@ int HomeCtl::addValueFact(int addr, const char* type, int factor, const char* na
       tableValueFacts->setValue("NAME", name);
       tableValueFacts->setValue("TITLE", title);
    }
+
+   // the default widget options of the sensors of the S 3200 (p4mqttd) follow the version of the service,
+   //  the user changes the widgets, not the 'parameter'
+
+   if (strncmp(type, "P4", 2) == 0 && !isEmpty(parameter))
+      tableValueFacts->setValue("PARAMETER", parameter);
 
    if (strcmp(type, "SC") != 0)
    {

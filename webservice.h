@@ -65,6 +65,11 @@ class cWebService
          evStoreHtmlWidgets,
          evMqttConverters,
          evZigbee,
+         evP4Menu,
+         evP4Cmd,
+         evP4Errors,
+         evP4Pellets,
+         evP4PelletsAdd,
 
          evCount
       };

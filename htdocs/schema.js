@@ -11,6 +11,20 @@
 var oTop = 0;
 var oLeft = 0;
 var lastSchemadata = null;
+var schemaSet = '';          // '' -> the schema of the main menu, 'p4' -> the schema of the heating (p4/schema.js)
+
+// the elements of the heating schema have the prefix P4 like its sensors (the table schemaconf is keyed by type and address)
+
+function schemaTypeUC()  { return schemaSet == 'p4' ? 'P4UC' : 'UC'; }       // user constant (text)
+function schemaTypeCN()  { return schemaSet == 'p4' ? 'P4CN' : 'CN'; }       // connection (line)
+function isSchemaUC(type)  { return type == 'UC' || type == 'P4UC'; }
+function isSchemaCN(type)  { return type == 'CN' || type == 'P4CN'; }
+
+function schemaImage()
+{
+   return schemaSet == 'p4' ? 'img/p4/schema/schema-' + config.p4Schema + '.png'
+                            : 'img/schema/schema-' + config.schema + '.png';
+}
 var properties = [ "top", "left", "color", "font-size", "color", "background-color", "border", "border-radius", "z-index"];
 
 function initSchema(schemaData)
@@ -30,7 +44,7 @@ function initSchema(schemaData)
                  }
               })
               .append($('<img></img>')
-                      .attr('src', 'img/schema/schema-' + config.schema + '.png')
+                      .attr('src', schemaImage())
                       .attr('draggable', false)
                       .on('drop', function(event) { dropSValue(event); })
                       .on('dragover', function(event) { return false; }))
@@ -300,9 +314,9 @@ function updateSchema()
 
       let title = "";
 
-      if (schemaDef.type == "UC")
+      if (isSchemaUC(schemaDef.type))
          title = "User Constant";
-      else if (schemaDef.type == "CN")
+      else if (isSchemaCN(schemaDef.type))
          title = "Leitung";
       else if (item != null)
          title = item.title || '';
@@ -414,11 +428,11 @@ function schemaAddItem()
    let addr = 0;
 
    for (let i = 0; i < lastSchemadata.length; i++) {
-      if (lastSchemadata[i].type == "UC" && ((lastSchemadata[i].address)>>>0).toString(10) == addr)
+      if (lastSchemadata[i].type == schemaTypeUC() && ((lastSchemadata[i].address)>>>0).toString(10) == addr)
          addr++;
    }
 
-   schemaDef = { type: "UC",      // User Constant
+   schemaDef = { type: schemaTypeUC(),      // User Constant
                  address: addr,
                  state: "A",
                  properties: {},
@@ -437,12 +451,12 @@ function makeResizableDiv(div)
 
    if (lastSchemadata) {
       for (let i = 0; i < lastSchemadata.length; i++) {
-         if (lastSchemadata[i].type == "CN" && ((lastSchemadata[i].address)>>>0).toString(10) == addr)
+         if (lastSchemadata[i].type == schemaTypeCN() && ((lastSchemadata[i].address)>>>0).toString(10) == addr)
             addr++;
       }
    }
 
-   schemaDef = { type: "CN",      //Connection
+   schemaDef = { type: schemaTypeCN(),      //Connection
                  address: addr,
                  state: "A",
                  properties: {},
@@ -476,8 +490,8 @@ function editSchemaValue(type, address, newUC)
    let id = type + ((address)>>>0).toString(10);
 
    let schemaDef = getSchemDef(id);
-   let isUC = schemaDef.type == "UC";
-   let isCN = schemaDef.type == "CN";
+   let isUC = isSchemaUC(schemaDef.type);
+   let isCN = isSchemaCN(schemaDef.type);
    let item = allSensors[key];
 
    let form = $('<div></div>')

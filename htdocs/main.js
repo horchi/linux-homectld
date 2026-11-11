@@ -806,7 +806,7 @@ function dispatchMessage(message)
       allSensors = jMessage.object;
       if (currentPage == 'dashboard')
          initDashboard();
-      else if (currentPage == 'schema')
+      else if (currentPage == 'schema' || (currentPage == 'p4menu' && p4Tab == 'schema'))
          updateSchema();
       else if (currentPage == 'list')
          initList();
@@ -822,7 +822,7 @@ function dispatchMessage(message)
       }
       if (currentPage == 'dashboard')
          updateDashboard(jMessage.object, event == "all");
-      else if (currentPage == 'schema')
+      else if (currentPage == 'schema' || (currentPage == 'p4menu' && p4Tab == 'schema'))
          updateSchema();
       else if (currentPage == 'list')
          updateList();
@@ -835,7 +835,11 @@ function dispatchMessage(message)
       else if (currentPage == 'gpslive')
          gpsSensorUpdate(jMessage.object, event == "all");
    }
+   else if (event == "p4schema") {
+      p4SchemaReceived(jMessage.object);
+   }
    else if (event == "schema") {
+      schemaSet = '';
       initSchema(jMessage.object);
       // console.log("schema " + JSON.stringify(jMessage.object, undefined, 4));
    }
@@ -933,6 +937,15 @@ function dispatchMessage(message)
    }
    else if (event == "htmlwidgets") {
       htmlWidgetsReceived(jMessage.object);
+   }
+   else if (event == "p4menu") {
+      p4MenuReceived(jMessage.object);
+   }
+   else if (event == "p4errors") {
+      p4ErrorsReceived(jMessage.object);
+   }
+   else if (event == "p4pellets") {
+      p4PelletsReceived(jMessage.object);
    }
    else if (event == "mqttconverters") {
       mqttConvReceived(jMessage.object);
@@ -1173,6 +1186,7 @@ function prepareMenu()
    addMainMenuButton('VDR', 'vdr', config.vdr != '');
    addMainMenuButton('Charts', 'chart');
 
+   addMainMenuButton(config.p4PageTitle || 'S3200', 'p4menu', config.p4Enabled == '1');     // the service menu of the S 3200 (p4/menu.js)
    // addMainMenuButton('Service Menü', 'menu');
    // addMainMenuButton('Fehler', 'errors');
    // addMainMenuButton('Pellets', 'pellets', localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x02);
@@ -1228,6 +1242,10 @@ function prepareSetupMenu()
 
    $('#confirmDiv').remove();
    $('#setupMenu').remove();
+   $('#p4SubMenu').remove();
+
+   if (currentPage == 'p4menu' && typeof p4PrepareSubMenu == 'function')
+      p4PrepareSubMenu();                 // the tabs of the page of the S 3200 (p4/page.js)
 
    if (setupPages.includes(currentPage)) {
       if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10) {
@@ -1291,7 +1309,7 @@ function openMenuBurger()
       form += '  <div><button style="width:120px;margin:2px;" class="rounded-border button1 mdi mdi-import" title="Dashboards aus einer JSON Datei (Export) importieren" onclick="$(\'#burgerPopup\').dialog(\'close\'); dashboardImportSelect()"> Import</button></div>';
    }
 
-   if (currentPage == 'schema' && (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10))
+   if ((currentPage == 'schema' || (currentPage == 'p4menu' && p4Tab == 'schema')) && (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10))
       form += '  <br/><div><button style="width:120px;margin:2px;color" class="rounded-border button1 mdi mdi-lead-pencil" onclick=" setupSchema()">' + (schemaEditActive ? ' Stop Setup' : ' Setup Schema') + '</button></div>';
 
    form += '</div>';
@@ -1458,6 +1476,8 @@ function mainMenuSel(what, action = null, recoverSetupPage = true)
       event = "alerts";
    else if (currentPage == "schema")
       event = "schema";
+   else if (currentPage == "p4menu")
+      initP4Page();
    // else if (currentPage == "menu")
    //    event = "menu";
    // else if (currentPage == "errors")

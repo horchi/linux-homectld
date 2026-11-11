@@ -114,6 +114,21 @@ std::list<HomeCtl::ConfigItemDef> HomeCtl::configuration
    { "homeMaticBridge",           ctChoice,  "Aus",                "N", false, "HomeMatic", "Anbindung", "Rollläden (HMB) über HomeMatic BidCos-RF – Aus; Node-RED: Brücke zur HomeMatic CCU; hmmqtt: eigener Dienst mit CUL-Funkstick, ohne CCU und Node-RED (Seite Setup -> HomeMatic)" },
    { "homeMaticTopic",            ctString,  "homematic",          "N", false, "HomeMatic", "MQTT Topic des Dienstes hmmqtt", "Basis-Topic (hmmqtt Option -T)" },
 
+   // S 3200 (Fröling heating) via the service p4mqttd
+
+   { "p4Enabled",                 ctBool,    "0",                  "N", false, "Heizung S 3200", "Anbindung über p4mqttd", "Aktiviert die Anbindung der Fröling S 3200 über den Dienst p4mqttd (p4mqttd/README.md). ACHTUNG: Der Dienst kann Parameter der Heizung schreiben, Nutzung auf eigenes Risiko, siehe Disclaimer in p4mqttd/README.md" },
+   { "p4Mail",                    ctBool,    "0",                  "N", false, "Heizung S 3200", "Status- und Fehler-Mails", "Mail bei einer Störung (Fehler Mail Empfänger) und beim Wechsel des Betriebszustands (Status Mail Empfänger) der Heizung, braucht die Mail-Konfiguration der Gruppe 'Mail' und dort 'Mail Benachrichtigung'. Solange der alte p4d noch Mails sendet aus lassen!" },
+   { "p4StateMailStates",         ctString,  "0,1,3,19",           "N", false, "Heizung S 3200", "Status Mail bei den Zuständen", "Nummern der Betriebszustände der Heizung, bei deren Erreichen eine Status Mail gesendet wird, Komma getrennt (0 Störung, 1 Brenner aus, 3 Heizen, 19 Betriebsbereit), leer = bei jedem Wechsel" },
+   { "p4ConsumptionPerHour",      ctNum,     "0",                  "N", false, "Heizung S 3200", "Pellet Verbrauch / Stoker Stunde [kg]", "Für die Schätzung des Verbrauchs seit der letzten Lieferung (Seite Pellets), 0 = der Wert aus den letzten beiden Lieferungen" },
+   { "p4Schema",                  ctChoice,  "p4-2hk-puffer",      "N", false, "Heizung S 3200", "Bild des Schemas", "Das Anlagenbild des Tabs Schema (img/p4/schema/schema-<Name>.png), die Elemente werden dort im Schema-Setup platziert" },
+   { "p4HeatingType",             ctChoice,  "P4",                 "N", false, "Heizung S 3200", "Typ der Heizung", "Das Bild des Heizungstyps (img/p4/type/heating-<Typ>.png) zeigt der Status der Heizung, wenn es für den Betriebszustand kein eigenes animiertes Bild gibt" },
+   { "p4PageTitle",               ctString,  "S3200",              "N", false, "Heizung S 3200", "Name der Seite im Hauptmenü", "Die Seite mit dem Service Menü der Heizung (nur sichtbar wenn die Anbindung aktiviert ist)" },
+   { "p4Topic",                   ctString,  "p4",                 "N", false, "Heizung S 3200", "MQTT Topic des Dienstes p4mqttd", "Basis-Topic (p4mqttd Option -T)" },
+   { "p4PollInterval",            ctInteger, "60",                 "N", false, "Heizung S 3200", "Intervall der Messwerte [s]", "Die aktiven Sensoren der Heizung werden in diesem Intervall gelesen" },
+   { "p4StateInterval",           ctInteger, "10",                 "N", false, "Heizung S 3200", "Intervall der Status Prüfung [s]", "" },
+   { "p4TimeSync",                ctBool,    "0",                  "N", false, "Heizung S 3200", "Zeitsynchronisation", "Die Uhr der Heizung wird (frühestens um 3:00, höchstens einmal täglich) auf die Systemzeit gesetzt, wenn die Abweichung größer als die unten genannte ist. Nicht im Nur-Lesen-Modus von p4mqttd" },
+   { "p4MaxTimeLeak",             ctInteger, "10",                 "N", false, "Heizung S 3200", "Zeitsynchronisation bei Abweichung über [s]", "Mindestabweichung für die Synchronisation in Sekunden" },
+
    // VDR
 
    { "vdr",                       ctString,  "",                   "N", false, "VDR", "URL des VDR WEB Interfaces (Video Disk Recorder)", "Beispiel: vdr:4444" },

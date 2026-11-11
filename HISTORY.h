@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.51"
+#define _VERSION     "0.1.52"
 #define VERSION_DATE "11.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,21 @@
 
 /*
  * ------------------------------------
+
+2026-11-11: version 0.1.52
+    - added: Fröling S 3200 via the new service p4mqttd (directory p4mqttd/, built on its own, serial line + MQTT, no
+             database; works beside the stand alone p4d, see doc/p4.md): sensors P4VA / P4DI / P4DO / P4AO / P4UD with
+             widget defaults and state images, only the active sensors are polled, time synchronization, mails on
+             errors and state changes (p4Mail); page 'S3200' (p4PageTitle) with the tabs service menu (changing of
+             parameters and time ranges, rights), errors, pellets and an own schema (p4Schema); duration of the states
+             (P4SD); p4mqttd/scripts/p4d-migrate.sh takes over the data of the p4d
+    - added: MQTT last will (Mqtt::setWill); images of the p4d in htdocs/img/p4/
+    - change: symbol widgets with an image show it as big as an MDI symbol (60 % of the widget)
+    - bugfix: widget 'Special Symbol' with an MDI symbol in 'symbol' (error in updateWidget)
+    - bugfix: WebSocket service thread at 100 % CPU for ever: an entry of the client list without a connection (created by
+             a late callback of a closed connection) kept the writable callback armed; such entries are ignored now
+             (and not created any more), the members of the client struct are initialized
+    - added: add widgets dialog: filter not case sensitive
 
 2026-11-11: version 0.1.51
     - added: scenes (scenes.c), sensor type 'SCN' - a list of steps performed one after the other, e.g. a multi media

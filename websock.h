@@ -67,11 +67,11 @@ class cWebSock : public cWebService
       {
          ~Client() { free(msgBuffer); }
 
-         ClientType type;
-         int tftprio;
+         ClientType type {ctWithLogin};
+         int tftprio {0};
          std::queue<std::string> messagesOut;
          cMyMutex messagesOutMutex;
-         void* wsi;
+         void* wsi {nullptr};              // set when the connection is established, an entry without it is a leftover
 
          // buffer to send the payload in chunks
 

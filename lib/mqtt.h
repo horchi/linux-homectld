@@ -38,6 +38,15 @@ class Mqtt
 
       // connect / disconnect
 
+      // optional last will (published by the broker if the connection is lost), call before connect()
+
+      void setWill(const char* topic, const char* message, bool retain = true)
+      {
+         willTopic = topic ? topic : "";
+         willMessage = message ? message : "";
+         willRetain = retain;
+      }
+
       virtual int connect(const char* aUrl, const char* user = nullptr, const char* password = nullptr);
       virtual int disconnect();
       virtual int isConnected() { return connected; }
@@ -87,6 +96,9 @@ class Mqtt
       std::string lastReadTopic;
       std::string theTopic;
       bool connected {false};
+      std::string willTopic;
+      std::string willMessage;
+      bool willRetain {true};
       ulong lastResult {0};
       mqtt_client* mqttClient {nullptr};
       int sockfd {-1};

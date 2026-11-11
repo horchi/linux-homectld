@@ -369,6 +369,42 @@ Table schemaconf
 // Table states
 // ----------------------------------------------------------------
 
+// ----------------------------------------------------------------
+// Table P4Errors (error list of the S 3200, see p4service.c)
+// ----------------------------------------------------------------
+
+Table p4errors
+{
+   ID                   ""                id         UInt        11 Primary|Autoinc,
+   INSSP                ""                inssp      Int         10 Meta,
+   UPDSP                ""                updsp      Int         10 Meta,
+
+   TIME1                "time came"       time1      DateTime     0 Data,
+   TIME4                "time gone"       time4      DateTime     0 Data,
+   TIME2                "time acknowledged" time2    DateTime     0 Data,
+   NUMBER               ""                number     Int         10 Data,
+   INFO                 ""                info       Int         10 Data,
+   STATE                ""                state      Ascii       10 Data,
+   TEXT                 ""                text       Ascii      100 Data,
+   MAILCNT              ""                mailcnt    Int         10 Data,
+}
+
+// ----------------------------------------------------------------
+// Table P4Pellets (pellet deliveries, see p4service.c)
+// ----------------------------------------------------------------
+
+Table p4pellets
+{
+   ID                   ""    id                   UInt         4 Primary|Autoinc,
+   INSSP                ""    inssp                Int         10 Meta,
+   UPDSP                ""    updsp                Int         10 Meta,
+
+   TIME                 ""    time                 DateTime     0 Data,
+   AMOUNT               "kg"  amount               Int         10 Data,
+   PRICE                "€/t" price                Float      122 Data,
+   COMMENT              ""    comment              Ascii      200 Data,
+}
+
 Table iostates
 {
    TYPE       ""            type                 Ascii        8 Primary,

@@ -281,6 +281,12 @@ int cWebSock::performData(MsgType type)
 
    for (auto it = clients.begin(); it != clients.end(); ++it)
    {
+      // a leftover entry (no connection, e.g. created by a late callback of a closed connection) is never served,
+      //  counting it would keep the service loop spinning at 100 % CPU for ever
+
+      if (!it->second.wsi)
+         continue;
+
       if ((it->second.msgBufferDataPending() || !it->second.messagesOut.empty()) && now >= it->second.chokedUntilMs)
       {
          count++;
@@ -662,6 +668,9 @@ int cWebSock::callbackWs(lws* wsi, lws_callback_reasons reason, void* user, void
 
          else if (msgType == mtData)
          {
+            if (clients.find(wsi) == clients.end())          // don't create an entry for a connection we don't know
+               return 0;
+
             if (!clients[wsi].msgBufferDataPending() && clients[wsi].messagesOut.empty())
                return 0;
 
@@ -962,7 +971,8 @@ void cWebSock::pushOutMessage(const char* message, lws* wsi)
    else
    {
       for (auto it = clients.begin(); it != clients.end(); ++it)
-         it->second.pushMessage(message);
+         if (it->second.wsi)                                 // only the established connections
+            it->second.pushMessage(message);
    }
 }
 

@@ -1171,8 +1171,15 @@ function initWidget(key, widget, fact)
             xPos = (maxWidth - symbolWidth) / 2 + 10;
          }
 
-         if (widget.symbol == null || widget.symbol == 0) {
-            console.log("widget.symbol: '" + widget.symbol + "'");
+         // 'symbol' is the MDI symbol of the other widget types (e.g. 'mdi:mdi-toggle-switch-off-outline' as default
+         //   of a sensor), here it is the number of the variant of the symbol: anything but a number is the plain tank
+
+         let symbolVariant = parseInt(widget.symbol);
+
+         if (isNaN(symbolVariant))
+            symbolVariant = 0;
+
+         if (symbolVariant == 0) {
             // plain rectangular tank symbol
 
             html = '<svg xmlns="http://www.w3.org/2000/svg" style="height:100%;aspect-ratio:1/1;" viewBox="0 0 300 200">' +
@@ -1192,7 +1199,7 @@ function initWidget(key, widget, fact)
                '</svg>';
          }
 
-         else if (widget.symbol == 1) {
+         else if (symbolVariant == 1) {
             // ...
          }
 
@@ -3017,8 +3024,16 @@ function updateWidget(sensor, refresh, widget)
       if (classes != '')                                             // MDI symbol, no <img> element
          $("#widget" + fact.type + fact.address).remove();
 
-      if (image != '')
-         $("#widget" + fact.type + fact.address).attr("src", image);
+      if (image != '') {
+         // the image gets the size of an MDI symbol (60 % of the widget) instead of the whole button,
+         //  the images (e.g. the 800 x 800 pump) have their own margin
+
+         let imgSize = Math.min(widgetDiv.height(), widgetDiv.width()) * 0.6;
+
+         $("#widget" + fact.type + fact.address)
+            .attr("src", image)
+            .css({ 'max-width': imgSize + 'px', 'max-height': imgSize + 'px', 'object-fit': 'contain' });
+      }
       else {
          $("#button" + fact.type + fact.address).removeClass();
          $("#button" + fact.type + fact.address).addClass('widget-main');
@@ -3304,6 +3319,9 @@ function updateWidget(sensor, refresh, widget)
       let v = document.getElementById('value' + key);
       let y = parseFloat($(div).data('yStart'));
       let fullPx = parseFloat($(div).data('heightStart'));
+      if (!div || !l || !v)             // the widget is not (or not yet) built as a tank symbol
+         return;
+
       let percent = sensor.value;
       if (widget.unit != '%')
          percent = sensor.value / (widget.scalemax / 100);
@@ -3474,8 +3492,14 @@ function addWidget()
       filterExpression = null;
       addFilterString = $('#incFilter').val();
 
-      if ($('#incFilter').val() != '')
-         filterExpression = new RegExp(addFilterString);
+      if ($('#incFilter').val() != '') {
+         try {
+            filterExpression = new RegExp(addFilterString, 'i');                               // not case sensitive
+         }
+         catch (e) {                                                                           // not a valid expression: the plain text
+            filterExpression = new RegExp(addFilterString.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+         }
+      }
 
       for (let key in valueFacts) {
          if (!valueFacts[key].state)   // use only active facts here

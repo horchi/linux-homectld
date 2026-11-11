@@ -15,7 +15,7 @@ index.html: index.html.in
 	@bash genindex.sh $< $@
 
 check:
-	for f in *.js; do \
+	for f in *.js p4/*.js; do \
 		echo Check "$$f" ..; \
 		err=$$(node --check "$$f" 2>&1); \
 		if [ $$? -ne 0 ]; then \

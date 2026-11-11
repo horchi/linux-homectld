@@ -163,7 +163,14 @@ int Mqtt::connect(const char* aUrl, const char* user, const char* password)
 
    // #TODO - some connecting options needed?
 
-   lastResult = mqtt_connect(mqttClient, "", NULL, NULL, 0, user, password, MQTT_CONNECT_RESERVED | MQTT_CONNECT_CLEAN_SESSION, 400);
+   const char* wTopic {willTopic.empty() ? nullptr : willTopic.c_str()};
+   uint8_t wFlags {(uint8_t)(MQTT_CONNECT_RESERVED | MQTT_CONNECT_CLEAN_SESSION)};
+
+   if (wTopic && willRetain)
+      wFlags |= MQTT_CONNECT_WILL_RETAIN;
+
+   lastResult = mqtt_connect(mqttClient, "", wTopic, wTopic ? willMessage.c_str() : NULL, wTopic ? willMessage.length() : 0,
+                             user, password, wFlags, 400);
 
    if (lastResult != MQTT_OK)
    {

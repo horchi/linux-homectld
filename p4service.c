@@ -1,0 +1,1061 @@
+/*
+ *  p4service.c
+ *
+ *  (c) 2026 Jörg Wendel
+ *
+ * This code is distributed under the terms and conditions of the
+ * GNU GENERAL PUBLIC LICENSE. See the file COPYING for details.
+ *
+ *  Fröling S 3200 via the service p4mqttd (see p4mqttd/README.md and p4d-integration-plan.md),
+ *  config 'p4Enabled', MQTT base topic 'p4Topic' (default 'p4'):
+ *
+ *    <base>/status     (retained, from the service) online / comm state
+ *    <base>/state      (retained) state and mode of the control, a change of the state sends the state mail
+ *    <base>/errors     (retained) the error list of the control, merged into the table 'p4errors', new errors are mailed
+ *    <base>/cmd        (to the service) {"cmd":"menu","rid":"m1","parent":1}
+ *    <base>/reply      (from the service) the answer to a command, same 'rid'
+ *    <base>/sensor     the sensors P4VA, P4DI, P4DO, P4AO, P4UD (dispatchOther, like any other sensor)
+ *    <base>/config     (retained, to the service) intervals, time synchronization and the active sensors,
+ *                      the service polls only these (the first sweep after its start covers all sensors,
+ *                      so they get known here and can be activated in the sensor setup)
+ */
+
+#include "daemon.h"
+
+//***************************************************************************
+// P4 Read Config
+//   returns true if the connection to the broker has to be renewed (subscriptions)
+//***************************************************************************
+
+bool HomeCtl::p4ReadConfig()
+{
+   bool enabled {p4Enabled};
+   std::string topic {p4Topic};
+
+   getConfigItem("p4Enabled", p4Enabled, false);
+   getConfigItem("p4Topic", p4Topic, "p4");
+   getConfigItem("p4PageTitle", p4PageTitle, "S3200");
+   getConfigItem("p4HeatingType", p4HeatingType, "P4");
+   getConfigItem("p4Mail", p4Mail, false);
+   getConfigItem("p4ConsumptionPerHour", p4ConsumptionPerHour, 0.0);
+   getConfigItem("p4StateMailStates", p4StateMailStates, "0,1,3,19");
+   getConfigItem("p4PollInterval", p4PollInterval, 60);
+   getConfigItem("p4StateInterval", p4StateInterval, 10);
+   getConfigItem("p4TimeSync", p4TimeSync, false);
+   getConfigItem("p4MaxTimeLeak", p4MaxTimeLeak, 10);
+
+   // the config is sent (again) to the service with the next check
+
+   p4ConfigSent.clear();
+
+   if (!p4Enabled)
+      return enabled != p4Enabled;
+
+   tell(eloAlways, "Adding the topics of the S 3200 service p4mqttd ('%s/...')", p4Topic.c_str());
+
+   for (const char* sub : { "/sensor", "/status", "/reply", "/state", "/errors" })
+      mqttSensorTopics.push_back(p4Topic + sub);
+
+   return enabled != p4Enabled || topic != p4Topic;
+}
+
+//***************************************************************************
+// P4 Config 2 Json
+//***************************************************************************
+
+std::string HomeCtl::p4Config2Json()
+{
+   json_t* jConfig {json_object()};
+   json_t* jActive {json_object()};
+
+   json_object_set_new(jConfig, "pollInterval", json_integer(p4PollInterval));
+   json_object_set_new(jConfig, "stateInterval", json_integer(p4StateInterval));
+   json_object_set_new(jConfig, "tsync", json_boolean(p4TimeSync));
+   json_object_set_new(jConfig, "maxTimeLeak", json_integer(p4MaxTimeLeak));
+   json_object_set_new(jConfig, "iconSet", json_string(iconSet.empty() ? "light" : iconSet.c_str()));     // the images of the state of the control
+   json_object_set_new(jConfig, "heatingType", json_string(p4HeatingType.c_str()));
+   json_object_set_new(jConfig, "active", jActive);
+
+   // the types always in the message, also if no sensor of it is active (then nothing is polled)
+
+   for (const char* type : { "P4VA", "P4DI", "P4DO", "P4AO" })
+   {
+      json_t* jList {json_array()};
+      json_object_set_new(jActive, type, jList);
+
+      const auto it {sensors.find(type)};
+
+      if (it == sensors.end())
+         continue;
+
+      for (const auto& [address, sensor] : it->second)
+         if (sensor.active)
+            json_array_append_new(jList, json_integer(address));
+   }
+
+   char* message {json_dumps(jConfig, JSON_COMPACT)};
+   std::string s {message};
+
+   free(message);
+   json_decref(jConfig);
+
+   return s;
+}
+
+//***************************************************************************
+// P4 Check
+//   publish the config (retained) to the service at the start, after a reconnect
+//   and whenever it changed (e.g. a sensor activated)
+//***************************************************************************
+
+int HomeCtl::p4Check()
+{
+   static time_t lastCheck {0};
+
+   p4CheckPending();
+
+   // the duration of the states of today, every minute
+
+   if (p4Enabled && time(0) >= p4StateDurationAt + tmeSecondsPerMinute)
+   {
+      p4StateDurationAt = time(0);
+      p4CalcStateDuration();
+   }
+
+   if (!p4Enabled || !mqttWriter || !mqttWriter->isConnected())
+      return done;
+
+   if (time(0) < lastCheck + 5)
+      return done;
+
+   lastCheck = time(0);
+
+   std::string config {p4Config2Json()};
+
+   if (config == p4ConfigSent)
+      return done;
+
+   tell(eloAlways, "Info: Sending the config to p4mqttd [%s]", config.c_str());
+
+   if (mqttWriter->writeRetained((p4Topic + "/config").c_str(), config.c_str()) == success)
+      p4ConfigSent = config;
+
+   return done;
+}
+
+//***************************************************************************
+// P4 Answer
+//   an error to the WEBIF page of the service menu (it shows the message instead of the items)
+//***************************************************************************
+
+int HomeCtl::p4Answer(long client, const char* error, const char* event)
+{
+   json_t* oJson {json_object()};
+
+   json_object_set_new(oJson, "error", json_string(error));
+   pushOutMessage(oJson, event, client);
+
+   return done;
+}
+
+//***************************************************************************
+// P4 Check Pending
+//   requests the service didn't answer
+//***************************************************************************
+
+int HomeCtl::p4CheckPending()
+{
+   for (auto it = p4Pending.begin(); it != p4Pending.end(); )
+   {
+      if (time(0) - it->second.at > it->second.timeout)
+      {
+         tell(eloAlways, "Warning: p4mqttd didn't answer '%s' (%s)", it->second.cmd.c_str(), it->first.c_str());
+         p4Answer(it->second.client, "Keine Antwort des Dienstes p4mqttd", it->second.cmd == "errors" ? "p4errors" : "p4menu");
+         it = p4Pending.erase(it);
+      }
+      else
+         ++it;
+   }
+
+   return done;
+}
+
+//***************************************************************************
+// Dispatch P4 MQTT (status and replies of the service)
+//***************************************************************************
+
+int HomeCtl::dispatchP4Mqtt(const char* topic, const char* message)
+{
+   std::string sub {topic};
+   sub = sub.substr(p4Topic.length() + 1);
+
+   json_t* jMsg {jsonLoad(message, 0, true)};
+
+   if (!jMsg)
+   {
+      tell(eloAlways, "Error: p4mqttd: Can't parse '%s' [%s]", topic, message);
+      return fail;
+   }
+
+   if (sub == "status")
+   {
+      bool online {getBoolFromJson(jMsg, "online", false) && std::string(getStringFromJson(jMsg, "comm", "")) == "ok"};
+
+      if (online != p4Online)
+         tell(eloAlways, "Info: The S 3200 service p4mqttd is %s (comm '%s')", online ? "online" : "not available",
+              getStringFromJson(jMsg, "comm", ""));
+
+      p4Online = online;
+   }
+
+   else if (sub == "state")
+   {
+      int state {getIntFromJson(jMsg, "state", -1)};
+      std::string info {getStringFromJson(jMsg, "stateinfo", "")};
+
+      // the first message after our start is no change (it's retained)
+
+      if (p4LastState != -1 && state != -1 && state != p4LastState)
+      {
+         tell(eloAlways, "Info: The state of the S 3200 changed from %d to %d '%s'", p4LastState, state, info.c_str());
+
+         if (p4Mail && sendMails && p4IsMailState(state))
+            p4SendStateMail(info.c_str(), state);
+      }
+
+      p4LastState = state;
+      p4StateInfo = info;
+   }
+
+   else if (sub == "errors")
+   {
+      p4MergeErrors(getObjectFromJson(jMsg, "errors"));
+
+      if (p4Mail && sendMails)
+         p4SendErrorMail();
+   }
+
+   else if (sub == "reply")
+   {
+      std::string rid {getStringFromJson(jMsg, "rid", "")};
+      auto it {p4Pending.find(rid)};
+
+      if (it == p4Pending.end())
+      {
+         tell(eloDebug, "Debug: p4mqttd: reply for unknown request '%s'", rid.c_str());
+      }
+      else
+      {
+         long client {it->second.client};
+         std::string cmd {it->second.cmd};
+         P4Pending pending {it->second};
+
+         p4Pending.erase(it);
+
+         std::string status {getStringFromJson(jMsg, "status", "")};
+         std::string text {getStringFromJson(jMsg, "message", "")};
+
+         if (cmd == "menu")
+         {
+            if (status != "ok")
+               p4Answer(client, text.empty() ? ("Fehler: " + status).c_str() : text.c_str());
+            else
+            {
+               json_t* oJson {json_deep_copy(jMsg)};
+
+               json_object_del(oJson, "rid");
+               json_object_del(oJson, "cmd");
+               json_object_del(oJson, "status");
+               pushOutMessage(oJson, "p4menu", client);
+            }
+         }
+         else if (cmd == "errors")
+         {
+            if (status == "ok")
+            {
+               p4MergeErrors(getObjectFromJson(jMsg, "errors"));
+
+               if (p4Mail && sendMails)
+                  p4SendErrorMail();
+
+               json_t* oJson {json_object()};
+               p4Errors2Json(oJson);
+               pushOutMessage(oJson, "p4errors", client);
+            }
+            else
+               p4Answer(client, text.empty() ? "Fehler beim Lesen der Fehlerliste" : text.c_str());
+         }
+         else
+         {
+            // a change or a command: tell the result and show the menu level again (this also ends the progress dialog)
+
+            const char* user {pending.user.c_str()};
+
+            if (cmd == "parset" || cmd == "timeset")
+            {
+               std::string old {getStringFromJson(jMsg, "old", "")};
+               std::string now {getStringFromJson(jMsg, "value", "")};
+
+               tell(eloAlways, "P4: '%s' by '%s' address 0x%x: '%s' -> '%s', result '%s'", cmd.c_str(), user,
+                    getIntFromJson(jMsg, "address", 0), old.c_str(), now.c_str(), status.c_str());
+
+               if (status == "ok")
+                  replyResult(success, client, "Gespeichert: %s -> %s", old.c_str(), now.c_str());
+               else if (status == "nochange")
+                  replyResult(success, client, "Wert unverändert");
+               else
+                  replyResult(fail, client, "%s", text.empty() ? ("Fehler: " + status).c_str() : text.c_str());
+            }
+            else if (cmd == "initmenu")
+            {
+               if (status == "ok")
+                  replyResult(success, client, "Menü und Sensoren neu gelesen (%d Menüeinträge, %d Sensoren)",
+                              getIntFromJson(jMsg, "menuItems", 0), getIntFromJson(jMsg, "sensors", 0));
+               else
+                  replyResult(fail, client, "%s", text.empty() ? ("Fehler: " + status).c_str() : text.c_str());
+            }
+            else if (cmd == "inittimes")
+            {
+               if (status == "ok")
+                  replyResult(success, client, "Zeitprogramme neu gelesen (%d)", getIntFromJson(jMsg, "times", 0));
+               else
+                  replyResult(fail, client, "%s", text.empty() ? ("Fehler: " + status).c_str() : text.c_str());
+            }
+
+            json_t* oMenu {json_object()};
+
+            json_object_set_new(oMenu, "parent", json_integer(pending.parent));
+            performP4Menu(oMenu, client);
+            json_decref(oMenu);
+         }
+      }
+   }
+
+   json_decref(jMsg);
+
+   return done;
+}
+
+//***************************************************************************
+// Perform P4 Menu (WEBIF)
+//   { "parent": 1 }  -> the items of this level of the service menu with their values,
+//   the answer comes with the event 'p4menu' ({ "items": [...], "parent", "last", "title" } or { "error" })
+//***************************************************************************
+
+int HomeCtl::performP4Menu(json_t* obj, long client)
+{
+   json_t* oCmd {json_object()};
+
+   json_object_set_new(oCmd, "cmd", json_string("menu"));
+   json_object_set_new(oCmd, "parent", json_integer(getIntFromJson(obj, "parent", 1)));
+
+   return p4SendCommand(oCmd, client, "menu", getIntFromJson(obj, "parent", 1), 30);
+}
+
+//***************************************************************************
+// P4 Send Command
+//   to the service, the answer is handled in dispatchP4Mqtt(), takes the reference of oCmd
+//***************************************************************************
+
+int HomeCtl::p4SendCommand(json_t* oCmd, long client, const char* what, int parent, int timeout)
+{
+   const char* ev {std::string(what) == "errors" ? "p4errors" : "p4menu"};   // the page which waits for the answer
+
+   if (!p4Enabled)
+   {
+      json_decref(oCmd);
+      return p4Answer(client, "Die Anbindung der Heizung ist nicht aktiviert (Konfiguration -> Heizung S 3200)", ev);
+   }
+
+   if (mqttCheckConnection() != success || !mqttWriter || !mqttWriter->isConnected())
+   {
+      json_decref(oCmd);
+      return p4Answer(client, "MQTT nicht verbunden", ev);
+   }
+
+   if (!p4Online)
+   {
+      json_decref(oCmd);
+      return p4Answer(client, "Der Dienst p4mqttd ist nicht erreichbar oder hat keine Verbindung zur Heizung", ev);
+   }
+
+   char rid[30];
+   snprintf(rid, sizeof(rid), "m%u", ++p4Rid);
+
+   json_object_set_new(oCmd, "rid", json_string(rid));
+
+   char* message {json_dumps(oCmd, JSON_COMPACT)};
+   int status {mqttWriter->write((p4Topic + "/cmd").c_str(), message)};
+
+   tell(eloMqtt, "-> (p4mqttd) '%s/cmd' [%s]", p4Topic.c_str(), message);
+
+   free(message);
+   json_decref(oCmd);
+
+   if (status != success)
+      return p4Answer(client, "Senden an den Dienst p4mqttd fehlgeschlagen", ev);
+
+   P4Pending pending;
+
+   pending.client = client;
+   pending.at = time(0);
+   pending.cmd = what;
+   pending.parent = parent;
+   pending.timeout = timeout;
+   pending.user = wsClients[(void*)client].user;
+   p4Pending[rid] = pending;
+
+   return done;
+}
+
+//***************************************************************************
+// Perform P4 Command (WEBIF)
+//   writes to the heating control, so the rights are checked (urSettings, wsactions.c) and every
+//   change is logged with the user:
+//   { "what": "parset",  "address": 480, "value": "72", "parent": 5 }
+//   { "what": "timeset", "address": 3, "range": 1, "value": "06:00 - 22:00", "parent": 5 }
+//   { "what": "initmenu" } | { "what": "inittimes" }      (read again from the control, takes a while)
+//   the result comes as 'result' message followed by the menu level (event 'p4menu')
+//***************************************************************************
+
+int HomeCtl::performP4Cmd(json_t* obj, long client)
+{
+   std::string what {getStringFromJson(obj, "what", "")};
+   int parent {getIntFromJson(obj, "parent", 1)};
+   std::string user {wsClients[(void*)client].user};
+
+   json_t* oCmd {json_object()};
+
+   if (what == "parset" || what == "timeset")
+   {
+      std::string value {getStringFromJson(obj, "value", "")};
+
+      // only what a number, a time or 'ja' / 'nein' consists of
+
+      if (value.length() > 40 || value.find_first_not_of("0123456789:-,. janeinJANEIN") != std::string::npos)
+      {
+         json_decref(oCmd);
+         return p4Answer(client, "Ungültiger Wert");
+      }
+
+      json_object_set_new(oCmd, "address", json_integer(getIntFromJson(obj, "address", -1)));
+      json_object_set_new(oCmd, "value", json_string(value.c_str()));
+      json_object_set_new(oCmd, "user", json_string(user.c_str()));
+
+      if (what == "timeset")
+         json_object_set_new(oCmd, "range", json_integer(getIntFromJson(obj, "range", 0)));
+
+      tell(eloAlways, "P4: user '%s' writes '%s' to %s 0x%x%s", user.c_str(), value.c_str(), what.c_str(),
+           getIntFromJson(obj, "address", -1), what == "timeset" ? (" range " + std::to_string(getIntFromJson(obj, "range", 0))).c_str() : "");
+   }
+   else if (what == "initmenu" || what == "inittimes")
+   {
+      tell(eloAlways, "P4: user '%s' requests '%s'", user.c_str(), what.c_str());
+   }
+   else
+   {
+      json_decref(oCmd);
+      return p4Answer(client, "Unbekanntes Kommando");
+   }
+
+   json_object_set_new(oCmd, "cmd", json_string(what.c_str()));
+
+   // reading the whole menu and sensors takes minutes
+
+   int timeout {what == "initmenu" ? 900 : what == "inittimes" ? 180 : 60};
+
+   return p4SendCommand(oCmd, client, what.c_str(), parent, timeout);
+}
+
+//***************************************************************************
+// P4 Error Text of a state of an entry
+//***************************************************************************
+
+static const char* p4ErrState2Text(int state)
+{
+   switch (state)
+   {
+      case 1:  return "gekommen";
+      case 4:  return "gegangen";
+      case 2:  return "quittiert";
+      default: return "unknown";
+   }
+}
+
+//***************************************************************************
+// P4 Merge Errors
+//   the list of the control (oldest first) has up to three entries for one error: came, gone,
+//   acknowledged - they are one row of the table 'p4errors' (key: number and time it came)
+//***************************************************************************
+
+int HomeCtl::p4MergeErrors(json_t* jErrors)
+{
+   if (!json_is_array(jErrors))
+      return fail;
+
+   // the first import (empty table) is not mailed, the errors are history
+
+   bool initial {!selectAllP4Errors->find()};
+   selectAllP4Errors->freeResult();
+
+   time_t timeOne {0};
+   size_t index {};
+   json_t* jE {};
+   int count {0};
+
+   json_array_foreach(jErrors, index, jE)
+   {
+      int number {getIntFromJson(jE, "number", 0)};
+      int info {getIntFromJson(jE, "info", 0)};
+      int state {getIntFromJson(jE, "state", 0)};
+      time_t t {(time_t)getIntFromJson(jE, "time", 0)};
+      const char* text {getStringFromJson(jE, "text", "")};
+      const char* timeField {state == 1 ? "TIME1" : state == 2 ? "TIME2" : state == 4 ? "TIME4" : nullptr};
+
+      if (!timeField)
+         continue;
+
+      if (state == 1)
+         timeOne = t;
+
+      if (!timeOne)
+         continue;
+
+      tableP4Errors->clear();
+      tableP4Errors->setValue("NUMBER", number);
+      tableP4Errors->setValue("TIME1", timeOne);
+
+      bool insert {!selectP4ErrorByKey->find()};
+
+      tableP4Errors->clearChanged();
+
+      if (insert
+          || (state == 2 && !tableP4Errors->hasValue("STATE", p4ErrState2Text(2)))
+          || (state == 4 && tableP4Errors->hasValue("STATE", p4ErrState2Text(1))))
+      {
+         tableP4Errors->setValue(timeField, t);
+         tableP4Errors->setValue("STATE", p4ErrState2Text(state));
+         tableP4Errors->setValue("NUMBER", number);
+         tableP4Errors->setValue("INFO", info);
+         tableP4Errors->setValue("TEXT", text);
+
+         if (insert && initial)
+            tableP4Errors->setValue("MAILCNT", 1);        // history, no mail
+      }
+
+      if (insert)
+      {
+         tableP4Errors->insert();
+         count++;
+      }
+      else if (tableP4Errors->getChanges())
+      {
+         tableP4Errors->update();
+         count++;
+      }
+
+      selectP4ErrorByKey->freeResult();
+
+      if (state == 2)
+         timeOne = 0;
+   }
+
+   if (count)
+      tell(eloAlways, "Info: S 3200 error list: %d rows new or changed%s", count, initial ? " (first import)" : "");
+
+   return done;
+}
+
+//***************************************************************************
+// P4 Mails
+//***************************************************************************
+
+// the text goes into a shell command in single quotes
+
+static std::string p4ShellEscape(const std::string& in)
+{
+   return strReplace("'", "'\\''", in);
+}
+
+static std::string p4HtmlEscape(const std::string& in)
+{
+   std::string out;
+
+   for (char c : in)
+   {
+      switch (c)
+      {
+         case '&': out += "&amp;";  break;
+         case '<': out += "&lt;";   break;
+         case '>': out += "&gt;";   break;
+         default:  out += c;
+      }
+   }
+
+   return out;
+}
+
+int HomeCtl::p4SendErrorMail()
+{
+   if (!sendMails || mailScript.empty() || errorMailTo.empty())
+      return done;
+
+   std::vector<long> ids;
+   std::string rows;
+
+   tableP4Errors->clear();
+
+   for (bool f = selectP4PendingErrors->find(); f; f = selectP4PendingErrors->fetch())
+   {
+      time_t t {std::max(std::max(tableP4Errors->getTimeValue("TIME1"), tableP4Errors->getTimeValue("TIME4")), tableP4Errors->getTimeValue("TIME2"))};
+
+      rows += "        <tr><td>" + l2pTime(t) + "</td><td>" + p4HtmlEscape(tableP4Errors->getStrValue("TEXT")) +
+         "</td><td>" + tableP4Errors->getStrValue("STATE") + "</td></tr>\n";
+
+      ids.push_back(tableP4Errors->getIntValue("ID"));
+   }
+
+   selectP4PendingErrors->freeResult();
+
+   if (ids.empty())
+      return done;
+
+   // they are mailed once (also if the mail fails, the error list is no queue)
+
+   for (long id : ids)
+   {
+      tableP4Errors->clear();
+      tableP4Errors->setValue("ID", id);
+
+      if (tableP4Errors->find())
+      {
+         tableP4Errors->setValue("MAILCNT", tableP4Errors->getIntValue("MAILCNT") + 1);
+         tableP4Errors->update();
+      }
+   }
+
+   loadHtmlHeader();
+
+   std::string html {
+      "<html>\n " + htmlHeader + "\n"
+      "  <body>\n"
+      "   <font face=\"Arial\"><br/>WEB Interface: <a href=\"" + webUrl + "\">" + instanceName + "</a><br/></font>\n"
+      "   <br/>\n"
+      "Aktueller Status: " + p4HtmlEscape(p4StateInfo) + "\n"
+      "   <br/>\n"
+      "   <table>\n"
+      "     <thead>\n"
+      "       <tr class=\"head\">\n"
+      "         <th><font>Zeit</font></th>\n"
+      "         <th><font>Fehler</font></th>\n"
+      "         <th><font>Status</font></th>\n"
+      "       </tr>\n"
+      "     </thead>\n"
+      "     <tbody>\n" + rows +
+      "     </tbody>\n"
+      "   </table>\n"
+      "   <br/>\n"
+      "  </body>\n"
+      "</html>\n" };
+
+   tell(eloAlways, "Info: Mail for %zu errors of the S 3200 to '%s'", ids.size(), errorMailTo.c_str());
+
+   return sendMail(errorMailTo.c_str(), "Heizung: STÖRUNG", p4ShellEscape(html).c_str(), "text/html");
+}
+
+bool HomeCtl::p4IsMailState(int state)
+{
+   if (p4StateMailStates.empty())
+      return true;
+
+   for (const auto& s : split(p4StateMailStates, ','))
+      if (s.find_first_not_of(" ") != std::string::npos && atoi(s.c_str()) == state)
+         return true;
+
+   return false;
+}
+
+int HomeCtl::p4SendStateMail(const char* stateInfo, int state)
+{
+   if (!sendMails || mailScript.empty() || stateMailTo.empty())
+      return done;
+
+   std::string rows;
+
+   for (const auto& [type, list] : sensors)
+   {
+      if (type.rfind("P4", 0) != 0)
+         continue;
+
+      for (const auto& [address, sensor] : list)
+      {
+         if (!sensor.active || sensor.title.empty() || type == "P4SC" || type == "P4WEA")
+            continue;
+
+         std::string value;
+
+         if (!sensor.text.empty())
+            value = sensor.text;
+         else if (sensor.kind == "status")
+            value = sensor.state ? "on" : "off";
+         else
+         {
+            char buf[50];
+            snprintf(buf, sizeof(buf), "%.2f %s", sensor.value, sensor.unit.c_str());
+            value = buf;
+         }
+
+         rows += "        <tr><td>" + p4HtmlEscape(sensor.title) + "</td><td>" + p4HtmlEscape(value) + "</td></tr>\n";
+      }
+   }
+
+   loadHtmlHeader();
+
+   std::string html {
+      "<html>\n " + htmlHeader + "\n"
+      "  <body>\n"
+      "   <font face=\"Arial\"><br/>WEB Interface: <a href=\"" + webUrl + "\">" + instanceName + "</a><br/></font>\n"
+      "   <br/>\n"
+      "   <table>\n"
+      "     <thead>\n"
+      "       <tr class=\"head\">\n"
+      "         <th><font>Parameter</font></th>\n"
+      "         <th><font>Wert</font></th>\n"
+      "       </tr>\n"
+      "     </thead>\n"
+      "     <tbody>\n" + rows +
+      "     </tbody>\n"
+      "   </table>\n"
+      "   <br/>\n"
+      "  </body>\n"
+      "</html>\n" };
+
+   std::string subject {std::string("Heizung - Status: ") + stateInfo};
+
+   tell(eloAlways, "Info: State mail '%s' (%d) to '%s'", stateInfo, state, stateMailTo.c_str());
+
+   return sendMail(stateMailTo.c_str(), p4ShellEscape(subject).c_str(), p4ShellEscape(html).c_str(), "text/html");
+}
+
+//***************************************************************************
+// P4 Errors 2 Json (the table, newest first)
+//***************************************************************************
+
+int HomeCtl::p4Errors2Json(json_t* obj)
+{
+   json_t* jList {json_array()};
+
+   tableP4Errors->clear();
+
+   for (bool f = selectAllP4Errors->find(); f; f = selectAllP4Errors->fetch())
+   {
+      json_t* jE {json_object()};
+
+      json_object_set_new(jE, "number", json_integer(tableP4Errors->getIntValue("NUMBER")));
+      json_object_set_new(jE, "info", json_integer(tableP4Errors->getIntValue("INFO")));
+      json_object_set_new(jE, "state", json_string(tableP4Errors->getStrValue("STATE")));
+      json_object_set_new(jE, "text", json_string(tableP4Errors->getStrValue("TEXT")));
+      json_object_set_new(jE, "time1", json_integer(tableP4Errors->getTimeValue("TIME1")));
+      json_object_set_new(jE, "time4", json_integer(tableP4Errors->getValue("TIME4")->isNull() ? 0 : tableP4Errors->getTimeValue("TIME4")));
+      json_object_set_new(jE, "time2", json_integer(tableP4Errors->getValue("TIME2")->isNull() ? 0 : tableP4Errors->getTimeValue("TIME2")));
+      json_array_append_new(jList, jE);
+   }
+
+   selectAllP4Errors->freeResult();
+
+   json_object_set_new(obj, "errors", jList);
+   json_object_set_new(obj, "now", json_integer(time(0)));
+   json_object_set_new(obj, "online", json_boolean(p4Online));
+
+   return done;
+}
+
+//***************************************************************************
+// Perform P4 Errors (WEBIF, tab 'Fehler')
+//   { } -> the table, { "action": "refresh" } -> read the list from the control first
+//***************************************************************************
+
+int HomeCtl::performP4Errors(json_t* obj, long client)
+{
+   if (!p4Enabled)
+      return p4Answer(client, "Die Anbindung der Heizung ist nicht aktiviert (Konfiguration -> Heizung S 3200)", "p4errors");
+
+   if (std::string(getStringFromJson(obj, "action", "")) == "refresh")
+   {
+      json_t* oCmd {json_object()};
+
+      json_object_set_new(oCmd, "cmd", json_string("errors"));
+
+      return p4SendCommand(oCmd, client, "errors", 1, 90);
+   }
+
+   json_t* oJson {json_object()};
+
+   p4Errors2Json(oJson);
+   pushOutMessage(oJson, "p4errors", client);
+
+   return done;
+}
+
+//***************************************************************************
+// P4 Calc State Duration
+//   the minutes the S 3200 spent in each state today, from the samples of the state sensor
+//   (P4UD:0x01, has to be recorded), as sensors P4SD:<state> (like the SD of the p4d)
+//***************************************************************************
+
+int HomeCtl::p4CalcStateDuration()
+{
+   std::map<int,time_t> durations;
+   std::map<int,std::string> texts;
+   time_t lastTime {0};
+   int lastState {-1};
+   time_t now {time(0)};
+
+   tableSamples->clear();
+
+   for (bool f = selectP4StateSamples->find(); f; f = selectP4StateSamples->fetch())
+   {
+      if (tableSamples->getValue("VALUE")->isNull())
+         continue;                         // a sample without the number of the state
+
+      time_t t {tableSamples->getTimeValue("TIME")};
+      int state {(int)tableSamples->getFloatValue("VALUE")};
+
+      if (lastState != -1 && t > lastTime)
+         durations[lastState] += t - lastTime;
+
+      lastTime = t;
+      lastState = state;
+      texts[state] = tableSamples->getStrValue("TEXT");
+   }
+
+   selectP4StateSamples->freeResult();
+
+   if (lastState == -1)
+      return done;                       // no samples today (the state sensor isn't recorded?)
+
+   durations[lastState] += now - lastTime;
+
+   // the states known up to now but not seen today are zero
+
+   for (const auto& [address, sensor] : sensors["P4SD"])
+      durations.try_emplace(address, 0);
+
+   bool changed {false};
+
+   for (const auto& [state, seconds] : durations)
+   {
+      const auto it {texts.find(state)};
+      std::string title {(it != texts.end() ? it->second : std::string("Zustand ") + std::to_string(state)) + " (Laufzeit/Tag)"};
+
+      // the default widget: a chart
+
+      addValueFact(state, "P4SD", 1, ("State_Duration_" + std::to_string(state)).c_str(), "min", title.c_str(),
+                   urView, nullptr, soNone, "{\"widgettype\":1,\"showpeak\":true}");
+
+      SensorData& sensor {sensors["P4SD"][state]};
+
+      if (sensor.type.empty())
+         initSensorByFact("P4SD", state);
+
+      sensor.kind = "value";
+
+      if (sensor.setValue(seconds / 60, now))
+      {
+         json_t* ojData {json_object()};
+
+         sensor2Json(ojData, "P4SD", state);
+         sensorValue2Json(ojData, "P4SD", state);
+
+         char* tuple {};
+         asprintf(&tuple, "%s:0x%02x", "P4SD", state);
+         jsonSensorList[tuple] = ojData;
+         free(tuple);
+         changed = true;
+      }
+   }
+
+   if (changed)
+      pushDataUpdate("update", 0L);
+
+   return done;
+}
+
+//***************************************************************************
+// P4 Pellets 2 Json
+//   the deliveries with the stoker hours between them and the consumption per stoker hour
+//   (port of P4d::performPellets), the stoker hours are the sample of P4VA:0xad at the date of the delivery
+//***************************************************************************
+
+static constexpr int p4StokerHoursAddress {0xad};      // 'Betriebsstunden Stokerschnecke'
+
+int HomeCtl::p4Pellets2Json(json_t* obj)
+{
+   json_t* jList {json_array()};
+   uint stokerHhLast {0};
+   time_t timeLast {0};
+   double tAmount {0.0};
+   double tPrice {0.0};
+   double consumptionHLast {0.0};
+
+   // the rows first, the queries for the stoker hours need the connection
+
+   struct Delivery { long id; time_t time; int amount; double price; std::string comment; };
+   std::vector<Delivery> deliveries;
+
+   tableP4Pellets->clear();
+
+   for (bool f = selectAllP4Pellets->find(); f; f = selectAllP4Pellets->fetch())
+      deliveries.push_back({ tableP4Pellets->getIntValue("ID"), tableP4Pellets->getTimeValue("TIME"),
+                             (int)tableP4Pellets->getIntValue("AMOUNT"), tableP4Pellets->getFloatValue("PRICE"),
+                             tableP4Pellets->getStrValue("COMMENT") });
+
+   selectAllP4Pellets->freeResult();
+
+   for (const auto& d : deliveries)
+   {
+      json_t* oData {json_object()};
+      json_array_append_new(jList, oData);
+
+      json_object_set_new(oData, "id", json_integer(d.id));
+      json_object_set_new(oData, "time", json_integer(d.time));
+      json_object_set_new(oData, "amount", json_integer(d.amount));
+      json_object_set_new(oData, "price", json_real(d.price));
+      json_object_set_new(oData, "comment", json_string(d.comment.c_str()));
+
+      tAmount += d.amount;
+      tPrice += d.price;
+
+      // the stoker hours at the date of the delivery (the first sample after it)
+
+      char where[200];
+      int stokerHh {0};
+
+      // the counter only grows, so the smallest value of the first week is the one after the delivery - this is
+      //  much faster than the minimum of all samples after it (2.6 s against 0.07 s), the whole range is the fallback
+      //  for a sensor which wasn't recorded then
+
+      snprintf(where, sizeof(where), "type = 'P4VA' and address = %d and time > '%s' and time <= '%s'", p4StokerHoursAddress,
+               l2pTime(d.time, "%Y-%m-%d %H:%M:%S").c_str(), l2pTime(d.time + 7 * tmeSecondsPerDay, "%Y-%m-%d %H:%M:%S").c_str());
+
+      if (tableSamples->countWhere(where, stokerHh, "min(value)") != success || !stokerHh)
+      {
+         snprintf(where, sizeof(where), "type = 'P4VA' and address = %d and time > '%s'", p4StokerHoursAddress,
+                  l2pTime(d.time, "%Y-%m-%d %H:%M:%S").c_str());
+
+         if (tableSamples->countWhere(where, stokerHh, "min(value)") != success)
+            stokerHh = 0;
+      }
+
+      if (!stokerHh)
+      {
+         tell(eloDetail, "Info: No sample of the stoker hours after %s", l2pTime(d.time).c_str());
+         continue;
+      }
+
+      if (timeLast)
+         json_object_set_new(oData, "duration", json_integer((d.time - timeLast) / tmeSecondsPerDay));
+
+      if (stokerHhLast && (int)stokerHh - (int)stokerHhLast > 0)
+      {
+         json_object_set_new(oData, "stokerHours", json_integer(stokerHh - stokerHhLast));
+         consumptionHLast = d.amount / (double)(stokerHh - stokerHhLast);
+         json_object_set_new(oData, "consumptionH", json_real(consumptionHLast));
+      }
+
+      timeLast = d.time;
+      stokerHhLast = stokerHh;
+   }
+
+   // the sum and the estimation since the last delivery
+
+   double consumptionH {p4ConsumptionPerHour ? p4ConsumptionPerHour : consumptionHLast};
+   double stokerNow {0.0};
+   const auto it {sensors.find("P4VA")};
+
+   if (it != sensors.end() && it->second.count(p4StokerHoursAddress))
+      stokerNow = it->second.at(p4StokerHoursAddress).value;
+
+   char hint[200];
+   snprintf(hint, sizeof(hint), "consumption since the last delivery by %.2f kg per stoker hour", consumptionH);
+
+   json_t* oSum {json_object()};
+   json_array_append_new(jList, oSum);
+
+   json_object_set_new(oSum, "id", json_integer(-1));
+   json_object_set_new(oSum, "sum", json_true());
+   json_object_set_new(oSum, "time", json_integer(time(0)));
+   json_object_set_new(oSum, "amount", json_integer(tAmount));
+   json_object_set_new(oSum, "price", json_real(tPrice));
+   json_object_set_new(oSum, "comment", json_string("Total"));
+   json_object_set_new(oSum, "consumptionHint", json_string(hint));
+
+   double sinceLast {stokerHhLast && stokerNow > stokerHhLast ? stokerNow - stokerHhLast : 0.0};
+
+   json_object_set_new(oSum, "stokerHours", json_integer(sinceLast));
+   json_object_set_new(oSum, "consumptionDelta", json_integer(consumptionH * sinceLast));
+
+   json_object_set_new(obj, "pellets", jList);
+
+   return done;
+}
+
+int HomeCtl::performP4Pellets(json_t* obj, long client)
+{
+   json_t* oJson {json_object()};
+
+   p4Pellets2Json(oJson);
+   pushOutMessage(oJson, "p4pellets", client);
+
+   return done;
+}
+
+//***************************************************************************
+// Perform P4 Pellets Add (WEBIF)
+//   { "id": -1 (new) | n, "time": <unix>, "amount": kg, "price": €, "comment": "..." } | { "id": n, "delete": true }
+//***************************************************************************
+
+int HomeCtl::performP4PelletsAdd(json_t* obj, long client)
+{
+   int id {getIntFromJson(obj, "id", -1)};
+   bool del {getBoolFromJson(obj, "delete", false)};
+   std::string user {wsClients[(void*)client].user};
+
+   tableP4Pellets->clear();
+   tableP4Pellets->setValue("ID", id);
+
+   if (del)
+   {
+      if (id < 0 || !tableP4Pellets->find())
+         return replyResult(fail, client, "Eintrag nicht gefunden");
+
+      tableP4Pellets->deleteWhere("id = %d", id);
+      tell(eloAlways, "P4: user '%s' deleted pellet delivery %d", user.c_str(), id);
+      performP4Pellets(obj, client);
+
+      return replyResult(success, client, "Eintrag gelöscht");
+   }
+
+   if (id >= 0 && !tableP4Pellets->find())
+      return replyResult(fail, client, "Eintrag nicht gefunden");
+
+   int amount {getIntFromJson(obj, "amount", 0)};
+   double price {getDoubleFromJson(obj, "price", 0.0)};
+   long when {getLongFromJson(obj, "time")};
+
+   if (amount <= 0 || price <= 0.0 || when <= 0)
+      return replyResult(fail, client, "Menge, Preis und Datum werden benötigt");
+
+   tableP4Pellets->setValue("TIME", when);
+   tableP4Pellets->setValue("AMOUNT", amount);
+   tableP4Pellets->setValue("PRICE", price);
+   tableP4Pellets->setValue("COMMENT", getStringFromJson(obj, "comment", ""));
+   tableP4Pellets->store();
+
+   tell(eloAlways, "P4: user '%s' stored pellet delivery %d: %d kg, %.2f, %s", user.c_str(), id, amount, price,
+        l2pTime(when).c_str());
+
+   performP4Pellets(obj, client);
+
+   return replyResult(success, client, "Eintrag gespeichert");
+}

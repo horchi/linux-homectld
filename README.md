@@ -34,6 +34,7 @@ If you like the project and want to support it
 - Support of some i2c bus circuits like ADS1115, MCP23017, DHT20 and the TCA9548A multiplexer - see [Hardware](doc/hardware.md#i2c-bus)
 - Arduino(s) with analog and digital inputs via MQTT
 - Thetford refrigerator via CI bus - see [thetford/README.md](thetford/README.md)
+- Fröling S 3200 heating control (values, service menu, errors, pellets, plant picture) via the service `p4mqttd` - see [Fröling S 3200](doc/p4.md)
 - BMS Interface (Battery Management System) like this https://www.lithiumbatterypcb.com/product/4s-lifepo4-battery-bluetooth-bms-with-100a-constant-discharge-current-for-12v-lfp-battery-pack/
   as used for example for the LIONTRON LiFePO4
 - Supports the RS485 Bus and the 'Simple Serial Display' interface of Votronic
@@ -75,6 +76,7 @@ If you like the project and want to support it
 | [Hardware and Interfaces](doc/hardware.md) | One Wire, i2c bus, BMS, RTL-433, CI bus, GPIO, hardware of the pool control |
 | [deCONZ (Zigbee)](doc/deconz.md) | setup, API key, lights / groups / sensors, battery, invalid sensors |
 | [Light and Blind Control](doc/lights.md) | deCONZ lights / groups / switches / motion sensors, outputs, blinds: sun times, time control, rules, shading |
+| [Fröling S 3200](doc/p4.md) | heating control via the service p4mqttd: sensors, page with service menu / errors / pellets / schema, mails, taking over the data of the p4d |
 | [HomeMatic](doc/homematic.md) | blind actuators via CUL stick (hmmqtt) or Node-RED / CCU |
 | [Tire Pressure (TPMS)](doc/tpms.md) | Bluetooth valve caps via ESP32 |
 | [GPS Tours](doc/gps.md) | live position, tour recording, ferries, dish alignment, fuel stops and consumption |
@@ -113,5 +115,6 @@ USE AT YOUR OWN RISK. No warranty.
 This software is a private contribution and not to any products and can also cause unintended behavior. Use at your own risk!
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 The software was created for personal use, it's published here for free under the GPLv2.
+The service `p4mqttd` for the Fröling S 3200 heating control can write parameters of the control: wrong settings can cause malfunction, damage or fire, and it is not related to Fröling - read the disclaimer in [p4mqttd/README.md](p4mqttd/README.md) before you use it without the read only mode!
 The construction of the required hardware, especially in the handling of mains voltage (230V, 110V, ...), is carried out on one's own responsibility, local guidelines and regulations must also be observed especially in connection with water and pool!
 All explanations about the hardware are only indications of how it is technically feasible, security and legal provisions are not discussed here!

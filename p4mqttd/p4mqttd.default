@@ -1,0 +1,13 @@
+# p4mqttd - Froeling S 3200 to MQTT
+#
+#  -d <device>   serial device, use the fixed name in /dev/serial/by-id/
+#  -u <url>      MQTT url
+#  -T <topic>    MQTT base topic
+#  -i <seconds>  interval of the state check
+#  -r            read only, refuse all writing requests
+#  -P            parallel mode beside the old p4d (implies -r)
+#  -l <level>    eloquence (log level)
+#
+# USE AT YOUR OWN RISK, see README.md
+
+P4MQTTD_OPTS="-d /dev/ttyUSB0 -u tcp://localhost:1883 -T p4 -r"

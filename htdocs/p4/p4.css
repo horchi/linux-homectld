@@ -1,0 +1,81 @@
+/* the page of the S 3200 service menu (p4/menu.js) */
+
+.p4Menu {
+   display: flex;
+   flex-direction: column;
+   gap: 4px;
+   padding: 6px;
+   overflow-y: auto;
+}
+
+.p4MenuNoValue,
+.p4MenuNote {
+   color: var(--orange);
+}
+
+.p4MenuError {
+   padding: 14px;
+   color: var(--red);
+}
+
+
+
+
+.p4MenuActions {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 8px;
+   margin-top: 12px;
+}
+
+.p4EditHint {
+   color: var(--orange);
+   margin-bottom: 10px;
+}
+
+.p4EditRow {
+   display: flex;
+   align-items: center;
+   gap: 8px;
+   margin: 10px 0;
+}
+
+.p4EditInfo {
+   font-size: smaller;
+   opacity: 0.7;
+}
+
+.p4ErrorTable {
+   width: 100%;
+}
+
+.p4ErrorTable td {
+   padding: 6px 10px;
+}
+
+.p4ErrorOpen td {
+   color: var(--red);
+   font-weight: bold;
+}
+
+.p4PelletTable {
+   width: 100%;
+}
+
+.p4PelletTable td {
+   padding: 4px 8px;
+}
+
+.p4PelletTable input {
+   width: 100%;
+   min-width: 90px;
+}
+
+.p4PelletSum td {
+   font-weight: bold;
+   background-color: var(--blue);
+}
+
+.p4PelletNew td {
+   background-color: var(--editadd);
+}

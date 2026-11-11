@@ -6,6 +6,10 @@
   (e.g. /etc/homectld/widget-defaults.json + a user file) or a table - to be decided
 - Anzeige der Widget defaults im Sensor Setup als Tab im Info Dialog
 - add write of victron registers to WEBIF
+- sceen als aktion/automatisierung auf 'Taster' legen
+- config um string set erweitern
+- Schema: Darstellung verbessern (generell, nicht nur für die Heizung / p4mqttd)
+- Heizung S 3200 (p4mqttd): Mailtest vom gate (p4Mail, Fehler- und Status-Mail) steht aus
 
 ## HTML widgets - JS snippets
 

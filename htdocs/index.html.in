@@ -37,6 +37,7 @@
     <link rel="stylesheet" type="text/css" href="checkbox.css">
     <link rel="stylesheet" type="text/css" href="dialog.css">
     <link rel="stylesheet" type="text/css" href="base.css">
+    <link rel="stylesheet" type="text/css" href="p4/p4.css">
     <link rel="stylesheet" type="text/css" href="stylesheet.css">
     <link rel="stylesheet" type="text/css" href="scrollbar.css">
     <link rel="stylesheet" type="text/css" href="lib/map/leaflet.css">
@@ -88,6 +89,11 @@
     <script type="text/javascript" src="htmlwidgets.js"></script>
     <script type="text/javascript" src="mqttconv.js"></script>
     <script type="text/javascript" src="zigbee.js"></script>
+    <script type="text/javascript" src="p4/page.js"></script>
+    <script type="text/javascript" src="p4/menu.js"></script>
+    <script type="text/javascript" src="p4/errors.js"></script>
+    <script type="text/javascript" src="p4/pellets.js"></script>
+    <script type="text/javascript" src="p4/schema.js"></script>
     <script type="text/javascript" src="images.js"></script>
     <script type="text/javascript" src="commands.js"></script>
     <script type="text/javascript" src="lmc.js"></script>

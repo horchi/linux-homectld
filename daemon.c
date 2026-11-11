@@ -111,6 +111,8 @@ HomeCtl::ValueTypes HomeCtl::defaultValueTypes[] =
    { "^GROWATT",      "GROWATT",                "mdi:mdi-solar-power-variant-outline" },
    { "^TASMOTA",      "TASMOTA",                "mdi:mdi-power-socket-de" },
    { "^BBQ",          "BBQ",                    "mdi:mdi-grill-outline" },
+   { "^SAMTV",        "Samsung TV",             "mdi:mdi-television" },
+   { "^DENON",        "Denon AV Receiver",      "mdi:mdi-audio-video" },
 
    { "",              "",                       "" }
 };
@@ -557,6 +559,8 @@ int HomeCtl::init()
    requestSensorInit("ALPICOOL");
    requestSensorInit("KENWOOD");
    requestSensorInit("TPMS");
+   requestSensorInit("SAMTV");
+   requestSensorInit("DENON");
 
    // init web socket ...
 
@@ -5058,6 +5062,7 @@ int HomeCtl::dispatchEspLog(const char* topic, const char* message)
 //
 // Registration of a topic to send "commands to the sensor:
 //   { "action": "init", "type": "ALPICOOL", "topic": "homectld2mqtt/alpicool/in", "config" : true}
+//   optional "restore": false - don't restore the last state of the 'status' sensors
 //***************************************************************************
 
 int HomeCtl::dispatchOther(const char* topic, const char* message)
@@ -5202,9 +5207,12 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
 
       selectActiveValueFacts->freeResult();
 
-      // restore last state
+      // restore last state - not for devices which shouldn't be switched by a restart
+      //   of homectld (e.g. a TV), they send "restore": false with the init
 
-      if (sensors[type][address].kind == "status" && sensors[type][address].outputModes & ooUser)
+      bool restore {getBoolFromJson(jData, "restore", true)};
+
+      if (restore && sensors[type][address].kind == "status" && sensors[type][address].outputModes & ooUser)
       {
          bool state {false};
          OutputMode mode {omManual};

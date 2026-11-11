@@ -50,6 +50,55 @@ function bigDashSymbols()
    return config.bigDashSymbols == '1';
 }
 
+// scroll position of the dashboard pages: remembered per dashboard, kept over a rebuild, a change of the
+// dashboard and a reload of the page (map did -> position, stored in the localStorage)
+
+var scrollRestoreUntil = 0;             // no storing of the position while restoring
+var scrollSaveTimer = null;
+var scrollPos = null;                   // { did : top }
+
+function scrollPositions()
+{
+   if (scrollPos == null) {
+      try { scrollPos = JSON.parse(localStorage.getItem(storagePrefix + 'dashScrollPos') || '{}'); } catch (e) { scrollPos = {}; }
+   }
+
+   return scrollPos;
+}
+
+function scrollRestore(did, top)
+{
+   let $c = $('#container');
+
+   scrollRestoreUntil = Date.now() + 1000;
+   $c.scrollTop(top);
+
+   // widgets may still grow (charts, images, values): once more after the layout settled
+
+   if (top > 0)
+      setTimeout(function() { if (did == actDashboard && Math.abs($c.scrollTop() - top) > 1) $c.scrollTop(top); }, 300);
+}
+
+function scrollInit()
+{
+   $('#container').off('scroll.dash').on('scroll.dash', function() {
+      // not while rebuilding / restoring and not if the container shows something else (the
+      // clamping of the position by removed content would be taken as scrolling of the user)
+
+      if (Date.now() < scrollRestoreUntil || !$('#widgetContainer').length)
+         return;
+
+      scrollPositions()[actDashboard] = $('#container').scrollTop();
+
+      clearTimeout(scrollSaveTimer);
+      scrollSaveTimer = setTimeout(function() {
+         try {
+            localStorage.setItem(storagePrefix + 'dashScrollPos', JSON.stringify(scrollPositions()));
+         } catch (e) {}
+      }, 300);
+   });
+}
+
 function initDashboard(update = false)
 {
    // console.log("initDashboard " + JSON.stringify(allSensors, undefined, 4));
@@ -58,6 +107,8 @@ function initDashboard(update = false)
       console.log("Fatal: Missing widgets!");
       return;
    }
+
+   scrollRestoreUntil = Date.now() + 1000;
 
    initLongTouch();
 
@@ -296,6 +347,9 @@ function initDashboard(update = false)
 
    resizeDashboard();
    window.onresize = function() { resizeDashboard(); };
+
+   scrollInit();
+   scrollRestore(actDashboard, scrollPositions()[actDashboard] || 0);     // the remembered position of the dashboard
 }
 
 function animateOut($el, targetX, pageDir)
@@ -1529,22 +1583,43 @@ function initBalance(key, widget, fact)
    let title = getWidgetTitle(widget, fact);
    let id = fact.type + fact.address;
    let scaleMax = parseFloat(widget.scalemax) || 0;
-   let scaleMin = parseFloat(widget.scalemin) || 0;
+   let scaleMin = parseFloat(widget.scalemin);
 
-   if (scaleMax <= 0)                   // zero must be inside the range, default symmetric
+   if (scaleMax <= 0)                   // zero must be inside the range
       scaleMax = 100;
 
-   if (scaleMin >= 0)
+   if (isNaN(scaleMin) || scaleMin >= scaleMax)    // only if not set (or invalid) default to symmetric
       scaleMin = -scaleMax;
+
+   // crit limits: marked as line in the bar, -1 / unset = off
+
+   let critMin = (widget.critmin == null || widget.critmin == -1 || isNaN(parseFloat(widget.critmin))) ? null : parseFloat(widget.critmin);
+   let critMax = (widget.critmax == null || widget.critmax == -1 || isNaN(parseFloat(widget.critmax))) ? null : parseFloat(widget.critmax);
 
    // the dashboard defaults an unset color to 'white' (initWidget), the dialog sets red / green on choosing the type
 
    let colorNeg = widget.color && widget.color != 'white' ? widget.color : '#ff5757';
    let colorPos = widget.colorOn ? widget.colorOn : '#4caf50';
    let pctOf = function(v) { return (v - scaleMin) / (scaleMax - scaleMin) * 100; };
+   let zeroPct = Math.min(100, Math.max(0, pctOf(0)));      // fill starts at the edge if zero is outside the range
+
+   // bar thickness like the level meter ('Balkenbreite'); 7 is the dialog default of other types, treated as unset
+
+   let barWidth = parseInt(widget.barwidth);
+   if (isNaN(barWidth) || barWidth == 7)
+      barWidth = 22;
+   barWidth = Math.min(Math.max(barWidth, 8), 60);
 
    let eScale = $('<div></div>').addClass('balance-scale');
-   let marks = [scaleMin, scaleMin / 2, 0, scaleMax / 2, scaleMax];
+   // zero inside the range: min, min/2, 0, max/2, max - otherwise only min and max (the halves would be
+   // outside of or arbitrary within the bar); the crit values are shown at their line instead of close marks
+
+   let marks = scaleMin < 0 && scaleMax > 0 ? [scaleMin, scaleMin / 2, 0, scaleMax / 2, scaleMax] : [scaleMin, scaleMax];
+   let crits = [critMin, critMax].filter(function(c) { return c != null && c > scaleMin && c < scaleMax; });
+
+   marks = marks.filter(function(m) {
+      return !crits.some(function(c) { return Math.abs(pctOf(c) - pctOf(m)) < 12; });
+   });
 
    for (let i = 0; i < marks.length; i++)
       eScale.append($('<span></span>')
@@ -1553,12 +1628,19 @@ function initBalance(key, widget, fact)
                     .css('color', marks[i] < 0 ? colorNeg : marks[i] > 0 ? colorPos : '')
                     .html(balanceFormat(marks[i])));
 
+   for (let i = 0; i < crits.length; i++)
+      eScale.append($('<span></span>')
+                    .addClass('balance-mark')
+                    .css('left', pctOf(crits[i]) + '%')
+                    .css('color', '#ff3b30')
+                    .html(balanceFormat(crits[i])));
+
    let cFact = fact;
    let chart = function() { if (!setupMode && cFact.record) toggleChartDialog(cFact.type, cFact.address, key); };
 
    $(elem)
       .addClass('widgetBalance widgetDropZone')
-      .data('balance', { 'min' : scaleMin, 'max' : scaleMax, 'zero' : pctOf(0),
+      .data('balance', { 'min' : scaleMin, 'max' : scaleMax, 'zero' : zeroPct,
                          'colorNeg' : colorNeg, 'colorPos' : colorPos, 'invert' : widget.invert == true })
       .append($('<div></div>')
               .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
@@ -1577,15 +1659,18 @@ function initBalance(key, widget, fact)
                       .html('--' + (widget.unit ? ' ' + widget.unit : '')))
               .append($('<div></div>')
                       .addClass('balance-bar')
+                      .css('--bh', barWidth + 'px')
                       .append($('<div></div>')
                               .addClass('balance-trough')
                               .append($('<div></div>')
                                       .attr('id', 'widget' + id)
                                       .addClass('balance-fill')
-                                      .css('left', pctOf(0) + '%')))
-                      .append($('<div></div>')
+                                      .css('left', zeroPct + '%')))
+                      .append(scaleMin < 0 && scaleMax > 0 ? $('<div></div>')
                               .addClass('balance-zero')
-                              .css('left', pctOf(0) + '%')))
+                              .css('left', zeroPct + '%') : null)
+                      .append(critMin == null ? null : $('<div></div>').addClass('balance-crit').css('left', pctOf(critMin) + '%'))
+                      .append(critMax == null ? null : $('<div></div>').addClass('balance-crit').css('left', pctOf(critMax) + '%')))
               .append(eScale));
 }
 
@@ -1751,7 +1836,7 @@ function initMeter(key, widget, fact, neededScaleMax, value)
 
    let bWidth = radial ? 0 : (widget.unit == '%' || widget.unit == 'l' ? 12 : 7);
 
-   if (widget.barwidth != null)
+   if (!radial && widget.barwidth != null)      // the radial meter has no setting for the bar width
       bWidth = widget.barwidth;
 
    let progressColor = widget.unit == '%' ? 'blue' : 'red';

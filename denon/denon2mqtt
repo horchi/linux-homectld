@@ -1,0 +1,21 @@
+# Usage:
+#  denon [-h] [-H [H]] [-i [I]] [-V [V]] [-S [S]] [-m [M]] [-p [P]] [-T [T]] [-t [T]] [-v [V]] [-l] [-s] [--cmd [CMD]]
+#
+#   -H [H]       Receiver IP / hostname
+#   -i [I]       Interval [seconds] (default 5)
+#   -V [V]       Maximum volume, 0 - 98, 80 = 0 dB (default 75)
+#   -S [S]       Step of the volume buttons [dB] (default 1)
+#   -m [M]       MQTT host
+#   -p [P]       MQTT port
+#   -T [T]       MQTT topic
+#   -t [T]       Sensor type string (default DENON)
+#   -v [V]       Verbosity level (0-3) (default 0)
+#   -l           Log to syslog (default console)
+#   -s           Show current status and exit
+#   --cmd [CMD]  Send a command (e.g. MVUP) and exit
+
+DENON_MQTT="-m localhost"
+DENON_TOPIC="-T homectld2mqtt/denon"
+DENON_HOST="-H denon"
+DENON_LOG_LEVEL="-v 0"
+DENON_OPTS="-l"

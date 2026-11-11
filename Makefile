@@ -150,6 +150,12 @@ install:  linstall
    ifdef GARMIN
 	   (cd garmin; $(MAKE) install)
    endif
+   ifdef SAMSUNGTV
+	   (cd samsungtv; $(MAKE) install)
+   endif
+   ifdef DENON
+	   (cd denon; $(MAKE) install)
+   endif
    ifdef GPS
 	   (cd gps.u-blox; $(MAKE) install)
    endif
@@ -185,6 +191,12 @@ ifdef MOPEKA
 endif
 ifdef THETFORD
    SERVICES += thetford
+endif
+ifdef SAMSUNGTV
+   SERVICES += samsungtv
+endif
+ifdef DENON
+   SERVICES += denon
 endif
 ifdef GPS
    SERVICES += gpsmqtt

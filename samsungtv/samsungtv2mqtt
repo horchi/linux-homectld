@@ -1,0 +1,29 @@
+# Usage:
+#  samsungtv [-h] [-H [H]] [-M [M]] [-B [B]] [-P [P]] [-k [K]] [-i [I]] [-m [M]] [-p [P]]
+#            [-T [T]] [-t [T]] [-K [K]] [-A [A]] [-v [V]] [-l] [-s] [--pair] [--key [KEY]]
+#
+#   -H [H]       TV IP / hostname
+#   -M [M]       TV MAC address (Wake-on-LAN)
+#   -B [B]       Broadcast address for Wake-on-LAN (default 255.255.255.255)
+#   -P [P]       Websocket port (default 8002)
+#   -k [K]       Token file (default /etc/homectld/samsungtv.token)
+#   -i [I]       Interval [seconds] (default 10)
+#   -m [M]       MQTT host
+#   -p [P]       MQTT port
+#   -T [T]       MQTT topic
+#   -t [T]       Sensor type string (default SAMTV)
+#   -K [K]       Keys, one sensor each (default HOME,BACK,MENU,SOURCE,GUIDE,INFO,UP,DOWN,
+#                LEFT,RIGHT,ENTER,PLAY,PAUSE,STOP,FF,REWIND,CHUP,CHDOWN,VOLUP,VOLDOWN)
+#   -A [A]       Apps "Title=AppId,..."
+#   -v [V]       Verbosity level (0-3) (default 0)
+#   -l           Log to syslog (default console)
+#   -s           Show current status and exit
+#   --pair       Connect once to get the token (confirm the popup on the TV) and exit
+#   --key [KEY]  Send a key (e.g. KEY_VOLUP) and exit
+
+SAMSUNGTV_MQTT="-m localhost"
+SAMSUNGTV_TOPIC="-T homectld2mqtt/samsungtv"
+SAMSUNGTV_HOST="-H 192.168.200.xxx"
+SAMSUNGTV_MAC="-M AA:BB:CC:DD:EE:FF"
+SAMSUNGTV_LOG_LEVEL="-v 0"
+SAMSUNGTV_OPTS="-l"

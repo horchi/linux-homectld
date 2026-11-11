@@ -25,6 +25,7 @@
  *  Actions (attributes, the key may be a parameter 'p.<name>'):
  *    data-toggle="DZL:0x03"              switch
  *    data-set="HMB:0x02" data-value="0"  brightness / position
+ *    data-set="SAMTV:0x04" data-value="Netflix"  choice of a sensor with 'choices' (not a number)
  *    data-chart="W1:0x01"                chart dialog of the sensor
  *  Pale display (stale sensor, e.g. device offline):
  *    the whole widget if all of its sensors are invalid (automatic)
@@ -572,9 +573,15 @@ function htmlWidgetActions($content)
       }
       else if ($el.is('[data-set]')) {
          let key = htmlWidgetKeyOf($el.attr('data-set'), params);
-         let value = parseInt($el.attr('data-value'));
-         if (key && valueFacts[key] && !isNaN(value))
-            toggleIo(valueFacts[key].address, valueFacts[key].type, value);
+         let raw = ($el.attr('data-value') || '').trim();
+         let value = Number(raw);
+         if (!key || !valueFacts[key] || raw == '')
+            return;
+         if (!isNaN(value))
+            toggleIo(valueFacts[key].address, valueFacts[key].type, parseInt(value));
+         else   // a choice (text) like the choice widget, e.g. the app of the TV
+            socket.send({ 'event': 'toggleio', 'object': { 'address': valueFacts[key].address, 'type': valueFacts[key].type,
+                                                           'value': raw, 'action': 'switch' } });
       }
       else if ($el.is('[data-chart]')) {
          let key = htmlWidgetKeyOf($el.attr('data-chart'), params);
@@ -875,6 +882,7 @@ async function initHtmlWidgetsPage()
                      '<code>{{p.temp > 25 ? warm : ok}}</code> vergleichen (&gt; &lt; &gt;= &lt;= == !=, Text in \'...\'), ' +
                      '<code>{{p.motion.changed|ago}}</code> \'vor 3 min\' (Felder age / changed: Sekunden seit Update / Änderung)<br>' +
                      '<b>Aktionen:</b> <code>data-toggle="DZL:0x03"</code> schalten, <code>data-set="HMB:0x02" data-value="0"</code> Helligkeit / Position, ' +
+                     '<code>data-set="SAMTV:0x04" data-value="Netflix"</code> Auswahl (Text), ' +
                      '<code>data-chart="W1:0x01"</code> Chart, statt des Keys auch <code>p.&lt;name&gt;</code><br>' +
                      '<b>Blass:</b> das Widget, wenn alle seine Sensoren ungültig sind (z. B. Gerät offline), ' +
                      'ein Element mit <code>data-valid="p.temp"</code>, wenn dieser Sensor ungültig ist<br>' +

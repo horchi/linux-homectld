@@ -1,0 +1,18 @@
+[Unit]
+
+Description = Denon / Marantz AV Receiver
+After = network-online.target mosquitto.service
+Wants = network-online.target
+StartLimitInterval = 200
+StartLimitBurst = 5
+
+[Service]
+EnvironmentFile=-/etc/default/denon2mqtt
+Type = simple
+ExecStart = <BINDEST>/denon.py ${DENON_MQTT} ${DENON_TOPIC} ${DENON_HOST} ${DENON_LOG_LEVEL} ${DENON_OPTS}
+Restart = always
+RestartSec = 30
+
+[Install]
+
+WantedBy = multi-user.target

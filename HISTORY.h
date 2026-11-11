@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.49"
-#define VERSION_DATE "09.11.2026"
+#define _VERSION     "0.1.50"
+#define VERSION_DATE "10.11.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,50 @@
 
 /*
  * ------------------------------------
+
+2026-11-10: version 0.1.50
+    - added: samsungtv/samsungtv.py: Samsung Tizen TV (2016+, tested with QLED GQ65Q8F) via MQTT, type 'SAMTV',
+             service 'samsungtv' (Make.user: SAMSUNGTV = 1, settings /etc/default/samsungtv2mqtt); python module
+             samsungtvws (like the Home Assistant integration) and paho-mqtt in a venv (/usr/local/lib/homectld-samsungtv,
+             'make install' installs python3-venv if missing); power (on by Wake-on-LAN, off by KEY_POWER only if the
+             REST PowerState is 'on'), volume / mute (UPnP RenderingControl), app (started by REST, shows the visible
+             app, list by -A) and one push button sensor per key (address 10.., list by -K); free keys / apps by MQTT
+             ({"key": "KEY_HOME"} / {"app": "Netflix"}); the sensors except power are reported only while the TV is
+             on (invalid 2 minutes after power off); 'off' only after two failed requests in series (the TV doesn't
+             answer sometimes); pairing once by 'samsungtv.py -H <ip> --pair', the token in /etc/homectld/samsungtv.token;
+             the source (KEY_HDMI1..4) is disabled, ignored by the Q8F (see script);
+             the TV closes a websocket after about 20 seconds without an answer to its pings (samsungtvws answers only
+             while reading), so a reader thread keeps the connection (opened in advance while the TV is on) - otherwise
+             the first key after a pause was delayed by the reconnect or got lost
+    - added: init message of MQTT sensors: optional "restore": false - homectld doesn't restore the last state of
+             the 'status' sensors (the TV must not be switched on by a restart of homectld)
+    - added: samsungtv/htmlwidget-samsungtv-fb.json: HTML widget snippet 'Samsung TV Fernbedienung' (looks like the small
+             Samsung remote: power, d-pad, back / home, play / pause, volume and channel rocker, app buttons); it grows
+             with the widget keeping the aspect ratio, but never gets smaller than its natural size (170 x 480 px)
+    - added: HTML widget: data-set with a text value (not a number) sends it as choice to the sensor (e.g.
+             data-set="SAMTV:0x04" data-value="Netflix")
+    - added: denon/denon.py: Denon / Marantz AV receiver (AVR-X series, tested with the AVR-X3000) via MQTT, type 'DENON',
+             service 'denon' (Make.user: DENON = 1, settings /etc/default/denon2mqtt); the status is polled by HTTP,
+             the commands are sent by HTTP (the ASCII commands of the telnet port), python standard library and
+             paho-mqtt only; main zone and zone 2: power, volume (display in dB, push buttons louder / quieter by
+             -S dB, never above -V), mute, source (names as renamed at the receiver, without the deleted inputs),
+             surround mode (main zone); the sensors except power are reported only while the zone is on; free
+             commands by MQTT ({"cmd": "MVUP"})
+    - added: denon/htmlwidget-denon.json: HTML widget snippet 'Denon AVR' (front of the receiver: display with source,
+             surround mode and volume, volume buttons, mute, 8 source buttons, zone 2 with the same); scales with
+             the widget like the Samsung remote (natural size 352 x 445 px)
+    - fixed: samsungtv, denon: the widget parameters (widgettype, symbols) are sent with the first message of each
+             sensor, not only with the first of the service - the sensors which are published first when the TV /
+             zone is switched on were added by homectld without them and became the default widget (meter)
+    - added: sensor groups 'Samsung TV' (SAMTV) and 'Denon AV Receiver' (DENON), request of the init at start
+    - fixed: WEBIF widget 'Balance': 'Skala Min' is used (it was replaced by -'Skala Max' for every value >= 0, also for an
+             unset one - now only if unset); zero outside of the range: the fill starts at the edge and the zero mark
+             is omitted; the scale shows min / max only if zero is outside (before also min/2, 0, max/2 beyond the bar)
+    - added: widget 'Balance' (WEBIF and HASP): 'Skala Crit Min' / 'Skala Crit Max' - red mark in the bar with the value
+             labeled at the mark (scale values close to it are omitted); option 'Bar Breite' (height of the bar,
+             like the level meter; 7 = dialog default is taken as unset)
+    - added: WEBIF: the scroll position of the dashboard page is remembered per dashboard (rebuild after an app
+             switch, change of the dashboard, reload of the page; stored in the localStorage)
 
 2026-11-09: version 0.1.49
     - added: WEBIF: export / import of dashboards as JSON file (menu dialog of the dashboard page, full control);

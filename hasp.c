@@ -1342,17 +1342,16 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
    int scaleMax {getIntFromJson(jOpts, "scalemax", 100)};
    int critMax {getIntFromJson(jOpts, "critmax", scaleMax)};
 
-   if (scaleMax <= scaleMin)
-      scaleMax = scaleMin + 100;
-
-   if (widgetType == hwtBalance)        // zero must be inside the range, default symmetric
+   if (widgetType == hwtBalance)        // zero must be inside the range
    {
       if (scaleMax <= 0)
          scaleMax = 100;
 
-      if (scaleMin >= 0)
+      if (!json_object_get(jOpts, "scalemin") || scaleMin >= scaleMax)   // only if not set default symmetric
          scaleMin = -scaleMax;
    }
+   else if (scaleMax <= scaleMin)
+      scaleMax = scaleMin + 100;
 
    std::string valueText {"--"};
 
@@ -1739,7 +1738,12 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
          bool invert {getBoolFromJson(jOpts, "invert", false)};
          std::string colorNeg {haspColor(getStringFromJson(jOpts, "color", ""), colorCritical)};
          std::string colorPos {haspColor(getStringFromJson(jOpts, "colorOn", ""), colorPositive)};
-         int troughH {small ? 16 : 22};
+         int troughH {getIntFromJson(jOpts, "barwidth", 0)};     // 'Balkenbreite', 7 is the dialog default of other types
+
+         if (troughH <= 7)
+            troughH = small ? 16 : 22;
+
+         troughH = std::clamp(troughH, 8, std::max(8, ih / 2));
          int labelW {small ? 40 : 56};
          int labelH {smallFont + 4};
          int gap {std::clamp((ih - (valueFont + 6) - troughH - labelH) / 2, 0, 6)};   // 4 rows: no room for gaps
@@ -1753,7 +1757,8 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
          double range {(double)scaleMax - scaleMin};
 
          auto xOf = [&](double v) { return innerX + (int)lround((v - scaleMin) / range * innerW); };
-         int zeroX {xOf(0)};
+         int zeroX {xOf(std::clamp(0.0, (double)scaleMin, (double)scaleMax))};   // fill starts at the edge if zero is outside
+         bool zeroInside {scaleMin < 0 && scaleMax > 0};
 
          auto rect = [&](int id, int parent, int x, int y, int w, int h, const char* color, int radius)
          {
@@ -1781,18 +1786,71 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
          int fillR {(troughH - 4) / 2};
          haspPublishJsonl(rect(base+4, base+2, zeroX, innerX, 1, troughH - 4, colorPos.c_str(), fillR));               // fill
          haspPublishJsonl(rect(base+16, base+2, zeroX, innerX, 1, troughH - 4, colorPos.c_str(), 0));                  // patch
-         haspPublishJsonl(rect(base+5, base, troughX + zeroX - 1, troughY - 3, 2, troughH + 6, colorScale, 0));       // zero mark
+         if (zeroInside)
+            haspPublishJsonl(rect(base+5, base, troughX + zeroX - 1, troughY - 3, 2, troughH + 6, colorScale, 0));    // zero mark
 
-         int marks[5] {scaleMin, scaleMin / 2, 0, scaleMax / 2, scaleMax};
+         // crit limits as red marks (-1 / unset = off)
 
-         for (int i = 0; i < 5; i++)
+         const char* critKeys[2] {"critmin", "critmax"};
+
+         for (int i = 0; i < 2; i++)
          {
-            int xMark {troughX + xOf(marks[i])};
-            const char* color {marks[i] < 0 ? colorNeg.c_str() : marks[i] > 0 ? colorPos.c_str() : colorScale};
+            int crit {getIntFromJson(jOpts, critKeys[i], -1)};
+
+            if (crit != -1 && crit > scaleMin && crit < scaleMax)
+               haspPublishJsonl(rect(base+17+i, base, troughX + xOf(crit) - 1, troughY - 3, 2, troughH + 6, colorCritical, 0));
+         }
+
+         // zero inside the range: min, min/2, 0, max/2, max (min, 0, max with crit limits, ids for 5 marks only),
+         // otherwise min and max; the crit values are labeled in red at their line, close marks are dropped
+
+         std::vector<std::pair<double, std::string>> marks;
+         std::vector<double> crits;
+
+         for (int i = 0; i < 2; i++)
+         {
+            int crit {getIntFromJson(jOpts, critKeys[i], -1)};
+
+            if (crit != -1 && crit > scaleMin && crit < scaleMax)
+               crits.push_back(crit);
+         }
+
+         std::vector<double> std_;
+
+         if (zeroInside)
+            std_ = crits.empty() ? std::vector<double>{(double)scaleMin, scaleMin / 2.0, 0, scaleMax / 2.0, (double)scaleMax}
+                                 : std::vector<double>{(double)scaleMin, 0, (double)scaleMax};
+         else
+            std_ = {(double)scaleMin, (double)scaleMax};
+
+         for (double m : std_)
+         {
+            bool close {false};
+
+            for (double c : crits)
+               if (fabs(c - m) / range < 0.12)
+                  close = true;
+
+            if (!close)
+               marks.push_back({m, m < 0 ? colorNeg : m > 0 ? colorPos : colorScale});
+         }
+
+         for (double c : crits)
+            marks.push_back({c, colorCritical});
+
+         for (size_t i = 0; i < marks.size() && i < 5; i++)
+         {
+            int xMark {troughX + xOf(marks[i].first)};
+            const char* color {marks[i].second.c_str()};
             char text[30];
 
             haspPublishJsonl(rect(base+6+i, base, xMark - 1, troughY + troughH + 1, 2, 4, color, 0));
-            snprintf(text, sizeof(text), "%d", marks[i]);
+
+            if (fabs(marks[i].first - lround(marks[i].first)) < 0.05)
+               snprintf(text, sizeof(text), "%ld", lround(marks[i].first));
+            else
+               snprintf(text, sizeof(text), "%.1f", marks[i].first);
+
             haspPublishJsonl(haspLabel(pageNo, base+11+i, base, xMark - labelW / 2, troughY + troughH + gap, labelW, labelH, text, smallFont, color, "center"));
          }
 

@@ -2894,7 +2894,7 @@ table.tableMultiCol td
 .balance-bar
 {
     position: relative;
-    height: 22px;
+    height: var(--bh, 22px);
     flex-shrink: 0;
 }
 
@@ -2903,7 +2903,7 @@ table.tableMultiCol td
     position: absolute;
     inset: 0;
     overflow: hidden;
-    border-radius: 11px;
+    border-radius: calc(var(--bh, 22px) / 2);
     background-color: #333333;
 }
 
@@ -2924,13 +2924,13 @@ table.tableMultiCol td
     bottom: 2px;
     width: 0%;
     min-width: 2px;
-    border-radius: 0px 9px 9px 0px;
+    border-radius: 0px calc((var(--bh, 22px) - 4px) / 2) calc((var(--bh, 22px) - 4px) / 2) 0px;
     transition: left 0.3s, width 0.3s;
 }
 
 .balance-fill.neg
 {
-    border-radius: 9px 0px 0px 9px;
+    border-radius: calc((var(--bh, 22px) - 4px) / 2) 0px 0px calc((var(--bh, 22px) - 4px) / 2);
 }
 
 .balance-zero
@@ -5232,4 +5232,14 @@ textarea.mqttConvMessage {
       border-top: 1px solid var(--light3);
       padding-top: 4px;
    }
+}
+
+.balance-crit
+{
+    position: absolute;
+    top: -3px;
+    bottom: -3px;
+    width: 2px;
+    margin-left: -1px;
+    background-color: #ff3b30;
 }

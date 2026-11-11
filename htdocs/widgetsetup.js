@@ -467,9 +467,9 @@ function widgetSetup(key, hasp)
       $("#divRescale").css("display", [5,6].includes(wType) ? 'flex' : 'none');
       $("#divScalemin").css("display", [5,6,15,16].includes(wType) ? 'flex' : 'none');
       $("#divScalestep").css("display", [5,6].includes(wType) ? 'flex' : 'none');
-      $("#divCritmin").css("display", [5,6].includes(wType) ? 'flex' : 'none');
-      $("#divCritmax").css("display", [5,6].includes(wType) ? 'flex' : 'none');
-      $("#divBarWidth").css("display", [6,14].includes(wType) ? 'flex' : 'none');
+      $("#divCritmin").css("display", [5,6,16].includes(wType) ? 'flex' : 'none');
+      $("#divCritmax").css("display", [5,6,16].includes(wType) ? 'flex' : 'none');
+      $("#divBarWidth").css("display", [6,14,16].includes(wType) ? 'flex' : 'none');
       $("#divBarColor").css("display", [6,15].includes(wType) ? 'flex' : 'none');
       $("#divSymbolOn").css("display", [6].includes(wType) ? 'flex' : 'none');
       $("#divSymbol").css("display", [0,9,12,15].includes(wType) ? 'flex' : 'none');
@@ -503,6 +503,13 @@ function widgetSetup(key, hasp)
          if (byUser) {
             $('#color').spectrum('set', '#ff5757');
             $('#colorOn').spectrum('set', '#4caf50');
+
+            if (!(parseInt($('#barwidth').val()) > 7))
+               $('#barwidth').val(22);
+
+            let sMax = parseFloat($('#scalemax').val()) || 100;
+            if (!(parseFloat($('#scalemin').val()) < 0))
+               $('#scalemin').val(-sMax);
          }
          $('.spColorOn').css('display', 'flex');
          $('#spanColor').html("Farbe −, +");
@@ -521,7 +528,7 @@ function widgetSetup(key, hasp)
       if (hasp) {
          // settings without meaning for the HASP panel
 
-         ['#divRescale', '#divScalestep', '#divBarWidth', '#divImgon', '#divImgoff', '#divPeak', '#divPeakMin', '#divShowValue',
+         ['#divRescale', '#divScalestep', ...(wType == 16 ? [] : ['#divBarWidth']), '#divImgon', '#divImgoff', '#divPeak', '#divPeakMin', '#divShowValue',
           '#divLinefeed', '#divButtons', '#divRange', '#divColorCondition'].forEach(function(id) { $(id).css('display', 'none'); });
          $('#widthfactor, #heightfactor').parent().parent().css('display', 'none');   // the rows 'Breite' and 'Höhe'
       }

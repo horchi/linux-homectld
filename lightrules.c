@@ -8,8 +8,8 @@
  *
  *  Light rules
  *
- *  Switches and motion sensors of deCONZ (DZS) switch lights (DZL, DZLG) and
- *  outputs, configured without LUA in the setup dialog of the sensor, stored in
+ *  Switches and motion sensors of deCONZ (DZS) switch lights (DZL, DZLG),
+ *  outputs and scenes (SCN), configured without LUA in the setup dialog of the sensor, stored in
  *  its SETTINGS:
  *
  *  { "rules": [ { "trigger": "button",              button | motion
@@ -26,6 +26,9 @@
  *
  *  Each button event / motion of the sensor is an event, also the same value again
  *  (twice the same button toggles on and off, new motion retriggers the timer).
+ *
+ *  Scenes: 'on' starts, 'off' aborts, the state is 'running' (toggle aborts a running one, else
+ *  starts it); 'dim' ignores them, an off timer aborts a scene still running.
  *
  *  toggle  if one of the targets is on, all off - else all on
  *  on      all on, off     all off

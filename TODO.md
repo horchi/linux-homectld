@@ -7,8 +7,6 @@
 - Anzeige der Widget defaults im Sensor Setup als Tab im Info Dialog
 - add write of victron registers to WEBIF
 
-- sceen als aktion/automatisierung auf 'Taster' legen
-
 ## HTML widgets - JS snippets
 
 - new kind 'js' in the table 'htmlwidgets' (no schema change): CODE is an ES module, 'export default class

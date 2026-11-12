@@ -1444,14 +1444,14 @@ function sensorRulesSetup(type, address)
    let lastButton = sensor && sensor.value > 1000 ? sensor.value : null;
    let form = document.createElement("div");
 
-   // targets: active lights, light groups and outputs
+   // targets: active lights, light groups, outputs and scenes
 
    let targetOptions = [];
 
    for (const k in valueFacts) {
       let f = valueFacts[k];
 
-      if (!f.state || !(f.type == 'DZL' || f.type == 'DZLG' || f.type == 'DO' || f.type.startsWith('MCPO') ||
+      if (!f.state || !(f.type == 'DZL' || f.type == 'DZLG' || f.type == 'DO' || f.type.startsWith('MCPO') || f.type == 'SCN' ||
                         (f.type == 'GPIO' && f.settings && f.settings.fct == 'out')))
          continue;
 
@@ -1473,7 +1473,9 @@ function sensorRulesSetup(type, address)
               .css('font-size', 'smaller').css('color', '#999').css('margin-top', '8px')
               .html('Jeder Tastendruck und jede Bewegung löst aus. \'Umschalten\': ist eines der Ziele an, gehen alle aus, sonst alle an. ' +
                     'Der Aus-Timer schaltet nur aus, was die Regel selbst eingeschaltet hat. ' +
-                    'Das Zeitfenster gilt nur für das Einschalten.'));
+                    'Das Zeitfenster gilt nur für das Einschalten. ' +
+                    'Szenen: \'An\' startet, \'Aus\' bricht ab, \'Umschalten\' bricht eine laufende ab, sonst startet sie; ' +
+                    'Dimmen wirkt nicht auf Szenen, ein Aus-Timer bricht eine noch laufende Szene ab.'));
 
    let title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
 

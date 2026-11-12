@@ -12,8 +12,8 @@
 #     pellets     table pellets -> p4pellets
 #     alerts      the alerts of the sensors (table sensoralert, type VA -> P4VA ...), only simple ones (no 'subid'),
 #                 the receivers and texts as they are - the mails are sent if 'Mail Benachrichtigung' is on in the homectld
-#     schema      the elements of the schema of the p4d, UC -> P4UC (texts), CN -> P4CN (lines) and
-#                 the sensors which are not placed yet in the schema of the heating
+#     schema      the elements of the schema of the p4d with their positions, UC -> P4UC (texts), CN -> P4CN (lines);
+#                 existing elements without a position are filled, the sensors in the functions get the prefix
 #
 #   Nothing which exists in the homectld is overwritten (INSERT IGNORE, 'not exists'), what the homectld wrote
 #   in the meantime stays, so the script can be called again and again, also while both are running.
@@ -260,21 +260,40 @@ if has alerts; then
 fi
 
 # --------------------------------------------------------
-# schema - UC -> P4UC, CN -> P4CN, the sensors which aren't placed yet
+# schema - the elements: UC -> P4UC, CN -> P4CN, the sensors get the prefix, too
+#   - existing elements without properties (placeholders of an earlier take over, the position is missing) are filled
+#   - missing ones are inserted
+#   - the sensors in the functions ("VA:0x0", getItem(...)) get the prefix, too
 
 if has schema; then
    say "schema ..."
    list=$(printf "'%s'," $TYPES UC CN); list=${list%,}
-   n=$(sql "select count(*) from ${FROMDB}.schemaconf s where type in (${list}) and not exists
-              (select 1 from ${TODB}.schemaconf x where x.address = s.address and x.type = concat('P4', s.type))")
+
+   # the type in the functions: getItem("VA:0x1f") -> getItem("P4VA:0x1f")
+   REWRITE="regexp_replace(s.function, '([\\\\x22\\\\x27])(VA|DI|DO|AO|UD|SD|W1|SC|CV|PA):0x', '\\\\1P4\\\\2:0x')"
+
+   n_fill=$(sql "select count(*) from ${FROMDB}.schemaconf s join ${TODB}.schemaconf t
+                  on t.address = s.address and t.type = concat('P4', s.type)
+                 where s.type in (${list}) and s.properties is not null and ifnull(t.properties, '') = ''")
+   n_new=$(sql "select count(*) from ${FROMDB}.schemaconf s where s.type in (${list}) and not exists
+                  (select 1 from ${TODB}.schemaconf x where x.address = s.address and x.type = concat('P4', s.type))")
 
    if [ "$RUN" = yes ]; then
+      sqlw "update ${TODB}.schemaconf t join ${FROMDB}.schemaconf s
+               on t.address = s.address and t.type = concat('P4', s.type)
+               set t.state = s.state, t.kind = s.kind, t.width = s.width, t.height = s.height, t.showunit = s.showunit,
+                   t.showtitle = s.showtitle, t.usrtext = s.usrtext, t.function = ${REWRITE}, t.properties = s.properties
+             where s.type in (${list}) and s.properties is not null and ifnull(t.properties, '') = ''"
       sqlw "insert ignore into ${TODB}.schemaconf (address, type, inssp, updsp, state, kind, width, height, showunit, showtitle, usrtext, function, properties)
-           select address, concat('P4', type), inssp, updsp, state, kind, width, height, showunit, showtitle, usrtext, function, properties
-             from ${FROMDB}.schemaconf where type in (${list})"
-      say "schema: ${n} elements taken over"
+           select s.address, concat('P4', s.type), s.inssp, s.updsp, s.state, s.kind, s.width, s.height, s.showunit, s.showtitle, s.usrtext, ${REWRITE}, s.properties
+             from ${FROMDB}.schemaconf s where s.type in (${list})"
+      # elements taken over earlier have the old types in their functions
+      sqlw "update ${TODB}.schemaconf t
+               set t.function = ${REWRITE//s.function/t.function}
+             where t.type like 'P4%' and t.function rlike '[\\\\x22\\\\x27](VA|DI|DO|AO|UD|SD|W1|SC|CV|PA):0x'"
+      say "schema: ${n_fill} elements filled (position, ...), ${n_new} new"
    else
-      say "schema: ${n} elements would be taken over"
+      say "schema: ${n_fill} elements would be filled (position, ...), ${n_new} new"
    fi
 fi
 

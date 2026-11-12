@@ -6,7 +6,7 @@
  * This code is distributed under the terms and conditions of the
  * GNU GENERAL PUBLIC LICENSE. See the file COPYING for details.
  *
- *  Fröling S 3200 via the service p4mqttd (see p4mqttd/README.md and p4d-integration-plan.md),
+ *  Fröling S 3200 via the service p4mqttd (see p4mqttd/README.md),
  *  config 'p4Enabled', MQTT base topic 'p4Topic' (default 'p4'):
  *
  *    <base>/status     (retained, from the service) online / comm state
@@ -53,7 +53,9 @@ bool HomeCtl::p4ReadConfig()
 
    tell(eloAlways, "Adding the topics of the S 3200 service p4mqttd ('%s/...')", p4Topic.c_str());
 
-   for (const char* sub : { "/sensor", "/status", "/reply", "/state", "/errors" })
+   // '/cmd' and '/reply/#' (the answers for scripts) only to remove retained messages, see dispatchP4Mqtt()
+
+   for (const char* sub : { "/sensor", "/status", "/reply", "/reply/#", "/cmd", "/state", "/errors" })
       mqttSensorTopics.push_back(p4Topic + sub);
 
    return enabled != p4Enabled || topic != p4Topic;
@@ -159,6 +161,22 @@ int HomeCtl::p4Answer(long client, const char* error, const char* event)
 }
 
 //***************************************************************************
+// P4 Raw Answer
+//   an error to the tab 'Kommandos' of the WEBIF (event 'p4raw')
+//***************************************************************************
+
+int HomeCtl::p4RawAnswer(long client, const char* tag, const char* error)
+{
+   json_t* oJson {json_object()};
+
+   json_object_set_new(oJson, "tag", json_string(tag));
+   json_object_set_new(oJson, "error", json_string(error));
+   pushOutMessage(oJson, "p4raw", client);
+
+   return done;
+}
+
+//***************************************************************************
 // P4 Check Pending
 //   requests the service didn't answer
 //***************************************************************************
@@ -170,7 +188,10 @@ int HomeCtl::p4CheckPending()
       if (time(0) - it->second.at > it->second.timeout)
       {
          tell(eloAlways, "Warning: p4mqttd didn't answer '%s' (%s)", it->second.cmd.c_str(), it->first.c_str());
-         p4Answer(it->second.client, "Keine Antwort des Dienstes p4mqttd", it->second.cmd == "errors" ? "p4errors" : "p4menu");
+         if (it->second.raw)
+            p4RawAnswer(it->second.client, it->second.tag.c_str(), "Keine Antwort des Dienstes p4mqttd");
+         else
+            p4Answer(it->second.client, "Keine Antwort des Dienstes p4mqttd", it->second.cmd == "errors" ? "p4errors" : "p4menu");
          it = p4Pending.erase(it);
       }
       else
@@ -189,12 +210,38 @@ int HomeCtl::dispatchP4Mqtt(const char* topic, const char* message)
    std::string sub {topic};
    sub = sub.substr(p4Topic.length() + 1);
 
+   // Commands and answers are never retained. If a client published one retained (by mistake) it would stay
+   // at the broker for ever, so it is removed there. Anything else on these topics isn't for us: the commands
+   // (of us and of scripts) and the answers on the topics of scripts ('replyTo') are read and dropped.
+
+   bool isCmd {sub == "cmd"};
+   bool isReply {sub == "reply" || sub.rfind("reply/", 0) == 0};
+
+   if ((isCmd || isReply) && mqttReader && mqttReader->isRetained())
+   {
+      tell(eloAlways, "Warning: p4mqttd: Removing the retained message of '%s' at the broker [%s]", topic, message);
+
+      if (mqttWriter && mqttWriter->isConnected())
+         mqttWriter->writeRetained(topic, nullptr);
+
+      return done;
+   }
+
+   if (isCmd || (isReply && sub != "reply"))
+      return done;
+
    json_t* jMsg {jsonLoad(message, 0, true)};
 
    if (!jMsg)
    {
-      tell(eloAlways, "Error: p4mqttd: Can't parse '%s' [%s]", topic, message);
-      return fail;
+      // an answer which isn't JSON can't be assigned to a request, the others are messages of the service
+
+      if (isReply)
+         tell(eloDebug, "Debug: p4mqttd: dropped '%s', no JSON [%s]", topic, message);
+      else
+         tell(eloAlways, "Error: p4mqttd: Can't parse '%s' [%s]", topic, message);
+
+      return isReply ? done : fail;
    }
 
    if (sub == "status")
@@ -242,7 +289,9 @@ int HomeCtl::dispatchP4Mqtt(const char* topic, const char* message)
 
       if (it == p4Pending.end())
       {
-         tell(eloDebug, "Debug: p4mqttd: reply for unknown request '%s'", rid.c_str());
+         // not our request (a script, a missing 'rid') or already timed out: dropped
+
+         tell(eloDebug, "Debug: p4mqttd: dropped the reply for the unknown request '%s'", rid.c_str());
       }
       else
       {
@@ -255,7 +304,24 @@ int HomeCtl::dispatchP4Mqtt(const char* topic, const char* message)
          std::string status {getStringFromJson(jMsg, "status", "")};
          std::string text {getStringFromJson(jMsg, "message", "")};
 
-         if (cmd == "menu")
+         if (pending.raw)
+         {
+            // the tab 'Kommandos': the answer as it is, with the message which was sent
+
+            if (cmd == "parset" || cmd == "timeset")
+               tell(eloAlways, "P4: '%s' by '%s' address 0x%x: '%s' -> '%s', result '%s'", cmd.c_str(), pending.user.c_str(),
+                    getIntFromJson(jMsg, "address", 0), getStringFromJson(jMsg, "old", ""), getStringFromJson(jMsg, "value", ""), status.c_str());
+
+            json_t* oJson {json_object()};
+            json_t* jRequest {jsonLoad(pending.request.c_str())};
+
+            json_object_set_new(oJson, "tag", json_string(pending.tag.c_str()));
+            json_object_set_new(oJson, "request", jRequest ? jRequest : json_null());
+            json_object_set_new(oJson, "reply", json_deep_copy(jMsg));
+            json_object_set_new(oJson, "duration", json_integer(time(0) - pending.at));
+            pushOutMessage(oJson, "p4raw", client);
+         }
+         else if (cmd == "menu")
          {
             if (status != "ok")
                p4Answer(client, text.empty() ? ("Fehler: " + status).c_str() : text.c_str());
@@ -353,34 +419,90 @@ int HomeCtl::performP4Menu(json_t* obj, long client)
 }
 
 //***************************************************************************
-// P4 Send Command
-//   to the service, the answer is handled in dispatchP4Mqtt(), takes the reference of oCmd
+// Perform P4 Raw (WEBIF, tab 'Kommandos')
+//   a test platform for the command topic of the service: the command is sent as it is typed
+//   { "json": "{\"cmd\":\"parget\",\"address\":480}", "tag": "request" }
+//   only the 'rid' (needed to assign the answer) and the 'user' (the one logged in) are set here,
+//   a 'replyTo' is removed (the answer has to come to the homectld).
+//   The answer comes with the event 'p4raw': { "tag", "request": {..as sent..}, "reply": {..as received..} }
+//   or { "tag", "error" }. Commands which write to the heating control need the right urSettings.
 //***************************************************************************
 
-int HomeCtl::p4SendCommand(json_t* oCmd, long client, const char* what, int parent, int timeout)
+int HomeCtl::performP4Raw(json_t* obj, long client)
+{
+   std::string tag {getStringFromJson(obj, "tag", "")};
+   const char* text {getStringFromJson(obj, "json", "")};
+   json_t* oCmd {jsonLoad(text ? text : "", 0, true)};
+
+   if (!oCmd || !json_is_object(oCmd))
+   {
+      if (oCmd)
+         json_decref(oCmd);
+
+      return p4RawAnswer(client, tag.c_str(), "Die Anfrage ist kein gültiges JSON Objekt");
+   }
+
+   std::string cmd {getStringFromJson(oCmd, "cmd", "")};
+   std::string user {wsClients[(void*)client].user};
+   bool writes {cmd == "parset"};
+
+   json_object_del(oCmd, "replyTo");         // the answer has to come to us (topic <base>/reply)
+
+   if (cmd != "parget" && cmd != "parset" && cmd != "parlist")
+   {
+      json_decref(oCmd);
+      return p4RawAnswer(client, tag.c_str(), "Hier sind nur die Kommandos 'parget', 'parset' und 'parlist' erlaubt (Element \"cmd\")");
+   }
+
+   if (writes)
+   {
+      if (!(wsClients[(void*)client].rights & urSettings))
+      {
+         json_decref(oCmd);
+         return p4RawAnswer(client, tag.c_str(), "Das Schreiben erfordert das Recht 'Einstellungen'");
+      }
+
+      // every change is logged with the user who is logged in
+
+      json_object_set_new(oCmd, "user", json_string(user.c_str()));
+
+      char* p {json_dumps(oCmd, JSON_COMPACT)};
+      tell(eloAlways, "P4: user '%s' sends '%s' [%s]", user.c_str(), cmd.c_str(), p);
+      free(p);
+   }
+
+   return p4SendCommand(oCmd, client, cmd.c_str(), 1, 60, tag.c_str());
+}
+
+//***************************************************************************
+// P4 Send Command
+//   to the service, the answer is handled in dispatchP4Mqtt(), takes the reference of oCmd
+//   rawTag: a request of the tab 'Kommandos' (performP4Raw), answered with the event 'p4raw'
+//***************************************************************************
+
+int HomeCtl::p4SendCommand(json_t* oCmd, long client, const char* what, int parent, int timeout, const char* rawTag)
 {
    const char* ev {std::string(what) == "errors" ? "p4errors" : "p4menu"};   // the page which waits for the answer
 
-   if (!p4Enabled)
+   auto failed = [&](const char* error)
    {
       json_decref(oCmd);
-      return p4Answer(client, "Die Anbindung der Heizung ist nicht aktiviert (Konfiguration -> Heizung S 3200)", ev);
-   }
+      return rawTag ? p4RawAnswer(client, rawTag, error) : p4Answer(client, error, ev);
+   };
+
+   if (!p4Enabled)
+      return failed("Die Anbindung der Heizung ist nicht aktiviert (Konfiguration -> Heizung S 3200)");
 
    if (mqttCheckConnection() != success || !mqttWriter || !mqttWriter->isConnected())
-   {
-      json_decref(oCmd);
-      return p4Answer(client, "MQTT nicht verbunden", ev);
-   }
+      return failed("MQTT nicht verbunden");
 
    if (!p4Online)
-   {
-      json_decref(oCmd);
-      return p4Answer(client, "Der Dienst p4mqttd ist nicht erreichbar oder hat keine Verbindung zur Heizung", ev);
-   }
+      return failed("Der Dienst p4mqttd ist nicht erreichbar oder hat keine Verbindung zur Heizung");
 
-   char rid[30];
-   snprintf(rid, sizeof(rid), "m%u", ++p4Rid);
+   // the prefix is reserved for the homectld, so the 'rid' of a script can't collide with it
+
+   char rid[40];
+   snprintf(rid, sizeof(rid), "homectld-%u", ++p4Rid);
 
    json_object_set_new(oCmd, "rid", json_string(rid));
 
@@ -389,11 +511,14 @@ int HomeCtl::p4SendCommand(json_t* oCmd, long client, const char* what, int pare
 
    tell(eloMqtt, "-> (p4mqttd) '%s/cmd' [%s]", p4Topic.c_str(), message);
 
+   std::string sent {message};
+
    free(message);
-   json_decref(oCmd);
 
    if (status != success)
-      return p4Answer(client, "Senden an den Dienst p4mqttd fehlgeschlagen", ev);
+      return failed("Senden an den Dienst p4mqttd fehlgeschlagen");
+
+   json_decref(oCmd);
 
    P4Pending pending;
 
@@ -402,6 +527,9 @@ int HomeCtl::p4SendCommand(json_t* oCmd, long client, const char* what, int pare
    pending.cmd = what;
    pending.parent = parent;
    pending.timeout = timeout;
+   pending.raw = rawTag != nullptr;
+   pending.tag = rawTag ? rawTag : "";
+   pending.request = sent;
    pending.user = wsClients[(void*)client].user;
    p4Pending[rid] = pending;
 
@@ -694,7 +822,9 @@ int HomeCtl::p4SendStateMail(const char* stateInfo, int state)
 
          std::string value;
 
-         if (!sensor.text.empty())
+         // the text of an in/output is its mode (Auto / Manual), it comes after the state or value
+
+         if (sensor.kind == "text")
             value = sensor.text;
          else if (sensor.kind == "status")
             value = sensor.state ? "on" : "off";
@@ -704,6 +834,9 @@ int HomeCtl::p4SendStateMail(const char* stateInfo, int state)
             snprintf(buf, sizeof(buf), "%.2f %s", sensor.value, sensor.unit.c_str());
             value = buf;
          }
+
+         if (sensor.kind != "text" && !sensor.text.empty())
+            value += " (" + sensor.text + ")";
 
          rows += "        <tr><td>" + p4HtmlEscape(sensor.title) + "</td><td>" + p4HtmlEscape(value) + "</td></tr>\n";
       }

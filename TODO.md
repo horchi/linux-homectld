@@ -6,10 +6,9 @@
   (e.g. /etc/homectld/widget-defaults.json + a user file) or a table - to be decided
 - Anzeige der Widget defaults im Sensor Setup als Tab im Info Dialog
 - add write of victron registers to WEBIF
+
 - sceen als aktion/automatisierung auf 'Taster' legen
-- config um string set erweitern
-- Schema: Darstellung verbessern (generell, nicht nur für die Heizung / p4mqttd)
-- Heizung S 3200 (p4mqttd): Mailtest vom gate (p4Mail, Fehler- und Status-Mail) steht aus
+- schema skalieren / posttionen berechnen
 
 ## HTML widgets - JS snippets
 
@@ -26,7 +25,7 @@
 - use cases: sliders (dimming, blind position), animated bars / energy flow (Growatt), puffer graphic (P4)
   with color gradient, sparkline of the last 24 h, loops over a list of parameters
 
-## HTML widgets - optional
+## HTML widgets (optional)
 
 - option 'isoliert' per snippet: render it in a Shadow DOM (isolation in both directions, the theme variables
   still inherit, the MDI CSS has to be loaded into the shadow root) - only if WEBIF styles really disturb

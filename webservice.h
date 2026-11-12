@@ -67,6 +67,7 @@ class cWebService
          evZigbee,
          evP4Menu,
          evP4Cmd,
+         evP4Raw,
          evP4Errors,
          evP4Pellets,
          evP4PelletsAdd,

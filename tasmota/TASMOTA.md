@@ -71,7 +71,7 @@ etc/mqtt.d/tele_tasmota_SENSOR.sh
 ```
 If a converter is to be used for multiple topics, this can be mapped using symbolic links.
 
-Details of the converters (parameters, message format, test): [doc/mqtt-converter.md](doc/mqtt-converter.md).
+Details of the converters (parameters, message format, test): [doc/mqtt-converter.md](../doc/mqtt-converter.md).
 The converters can be managed in the WEBIF as well: *Setup -> MQTT Konverter* (admin only, the scripts run as root).
 It lists the converters (script, alias = symbolic link to a script, skip = empty file, the messages of the topic
 are dropped) and the topics received via the subscribed topics without a converter (with their last message, a

@@ -133,7 +133,10 @@ button:focus {
     -webkit-tap-highlight-color: transparent;
     position: fixed;
     z-index: 1;
-    left: 45%;
+    left: 0;                         /* horizontally centered, independent of its (not yet known) width; */
+    right: 0;                        /*   not 'left: 50%' + translate, that limits fit-content to half */
+    margin-left: auto;               /*   the screen width (the sliders of the color dialog wrapped) */
+    margin-right: auto;
     top: 40%;
     width: fit-content;
     text-align: center;
@@ -1175,17 +1178,34 @@ span > select
     white-space: pre;
 }
 
+/* the outer box has the scaled size of the schema, the schema itself is scaled by a transform (schema.js, schemaFit) */
+
+.schemaScaler
+{
+    margin: 4px;
+    overflow: hidden;
+    display: inline-block;
+    touch-action: pan-x pan-y;     /* the pinch zooms only the schema (schemaZoomEvents), not the page */
+}
+
 .schemaBox
 {
     background-color: var(--light1);
     padding: 0px;
-    margin-top: 0px;
+    margin: 0px;
     position: relative;
     display: inline-block;
+    transform-origin: 0 0;
+}
+
+.schemaBox > img
+{
+    display: block;                /* no gap below the picture (baseline), the size of the box is the one of the picture */
 }
 
 .schemaDiv
 {
+    z-index: 100;                  /* default 'Layer', above the lines (50) */
     color: var(--fontColor);
     padding-top: 5px;
     padding-left: 4px;
@@ -2213,53 +2233,265 @@ table.tableMultiCol td
     border-color: red;
 }
 
+/* list of strings (ctStringSet), one input per element */
+
+.inputTableConfig > div > span.stringSet
+{
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.stringSetRow
+{
+    display: flex;
+    gap: 4px;
+    width: 100%;
+}
+
+.stringSetRow > input
+{
+    flex: 1;
+    min-width: 300;
+}
+
 /* ----------------------- */
 /* Schema Settings Dialog */
 
-.schemaSettingsForm
+/* schema edit mode: menu line, hidden elements, list of 'Sensor hinzufügen' */
+
+.schemaEditMenu > button.mdi::before
 {
-    display: grid;
-    max-width_ 650px;
-    min-width: 750;
+    margin-right: 3px;
 }
 
-.schemaSettingsForm > div
+.schemaDivHidden
 {
-    display: flex;
-    margin: 4px;
+    opacity: 0.45;
+    border-style: dashed;
+}
+
+.schemaSensorFilter
+{
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 6px;
+}
+
+.schemaSensorList
+{
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.schemaSensorList > div
+{
+    user-select: none;
+    display: grid;
+    grid-template-columns: 2fr 2fr 1fr;
+    grid-gap: 8px;
+    padding: 5px 6px;
+    cursor: pointer;
     text-align: left;
 }
 
-.schemaSettingsForm > div > span:nth-child(2)
+.schemaSensorList > div:hover
 {
-    width: -webkit-fill-available;
-    width: -moz-available;
+    background-color: var(--neutral3);
 }
 
-.schemaSettingsForm > div > span:nth-child(1)
+.schemaSensorList > div.selected
 {
-    min-width: 120px;
+    background-color: slategray;
+    color: white;
+}
+
+.schemaPlacing
+{
+    cursor: crosshair;
+}
+
+.schemaDivPlacing
+{
+    pointer-events: none;
+    outline: 1px dashed var(--fontColor);
+}
+
+.schemaSensorList > div > span
+{
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.schemaSensorList > div > span:nth-child(n+2)
+{
+    opacity: 0.7;
+    font-size: smaller;
     align-self: center;
 }
 
-.schemaSettingsForm > div > span > input
+/* lines of the schema (schema.js): a SVG polyline above the picture, the flow is an animated dash pattern */
+
+.schemaLine
+{
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;          /* only the line itself and its handles (edit mode) take the mouse */
+}
+
+.schemaLine polyline
+{
+    fill: none;
+    stroke-linejoin: round;
+}
+
+.schemaLineFlow
+{
+    stroke-linecap: round;
+    animation-name: schemaLineFlow;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+@keyframes schemaLineFlow
+{
+    from { stroke-dashoffset: var(--schemaDash); }
+    to   { stroke-dashoffset: 0; }
+}
+
+.schemaLineHidden polyline
+{
+    opacity: 0.4;
+}
+
+.schemaLineHit
+{
+    stroke: transparent;
+    pointer-events: stroke;
+    cursor: move;
+}
+
+.schemaLineHandle
+{
+    fill: white;
+    stroke: #1e88e5;
+    stroke-width: 2px;
+    pointer-events: all;
+    cursor: pointer;
+}
+
+.schemaLineHandle.start
+{
+    fill: #4caf50;
+}
+
+.schemaLineMid
+{
+    fill: #1e88e5;
+    fill-opacity: 0.6;
+    stroke: white;
+    stroke-width: 1px;
+    pointer-events: all;
+    cursor: copy;
+}
+
+/* while an element is placed by the mouse the others don't take the click */
+
+.schemaPlacing .schemaDiv,
+.schemaPlacing .schemaLine *
+{
+    pointer-events: none !important;
+}
+
+.schemaEditHint
+{
+    align-self: center;
+    margin-left: 12px;
+    white-space: nowrap;
+    font-size: smaller;
+}
+
+/* edit dialog of a schema element: hints and the editor of the function (outfit of the LUA editor) */
+
+.schemaDlgHint
+{
+    font-size: smaller;
+    color: black;
+    text-align: left;
+}
+
+/* two fields side by side: label | field | label | field, a fixed grid so the columns of all rows match */
+
+.settingsDialogContent > div.schemaRow2
+{
+    display: grid;
+    /* first column like the label of the single rows: there 40% + 10px margin and the field (100%) shrink
+       in proportion, the label ends up with 2/7 of the width */
+    grid-template-columns: calc(28.57% + 7px) 1fr 30% 1fr;
+    align-items: center;
+    min-height: 36px;
+}
+
+.settingsDialogContent > div.schemaRow2 > span
 {
     width: auto;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
-.schemaSettingsForm > div > span > textarea
+.settingsDialogContent > div.schemaRow2 > span:nth-child(odd)
 {
-    width: inherit;
-    height: 22px;
+    width: auto;             /* the general label rule (40%) comes later with the same weight */
+    text-align: end;
+    margin-right: 0;
+    padding-right: 10px;
+}
+
+.settingsDialogContent > div.schemaRow2 > span:nth-child(even)
+{
+    width: auto;
+    display: flex;
+    align-items: center;
+    text-align: left;
+}
+
+.settingsDialogContent > div.schemaRow2 > span:nth-child(even) > input[type="checkbox"] + label,
+.settingsDialogContent > div.schemaRow2 > span:nth-child(even) > .sp-replacer
+{
+    margin: 0 0 0 1px;
+}
+
+.settingsDialogContent > div.textarea-row.schemaFctRow
+{
+    flex: none;
+    margin-top: 6px;
+}
+
+.schemaFctRow .lua-cm-editor
+{
+    flex: none;
+    height: 160px;
+    min-height: 60px;
     resize: vertical;
-    font-family: monospace;
+    overflow: hidden;
 }
 
-.schemaSettingsForm > div > span > span > input[type='radio']
+.schemaFctRow .CodeMirror-placeholder
 {
-    margin-right: 20px;
-    margin-left:7px;
-    width:auto;
+    color: #6a6a6a !important;
+    font-style: italic;
+}
+
+.schemaFctRow .lua-cm-editor > textarea
+{
+    height: 100% !important;
+    box-sizing: border-box;
 }
 
 /* ----------------------- */
@@ -4579,6 +4811,20 @@ iPhones
    margin: 6px 0 10px 0;
 }
 
+/* one line: icon and text side by side (overrides the grid of '.inputTableConfig > div') */
+
+.homeMaticPage > .homeMaticState {
+   display: flex;
+   align-items: center;
+   gap: 6px;
+   width: auto;
+   padding: 0;
+}
+
+.homeMaticPage > .homeMaticState > span {
+   min-width: 0;
+}
+
 .homeMaticActions {
    display: flex;
    flex-wrap: wrap;
@@ -4604,6 +4850,48 @@ iPhones
 
 .homeMaticDevices td {
    padding: 4px 8px;
+}
+
+.homeMaticButtons {
+   white-space: nowrap;
+}
+
+.homeMaticButtons button {
+   margin-right: 4px;
+}
+
+.homeMaticLearn {
+   padding: 10px;
+   margin: 6px 0 12px 0;
+   border-color: orange !important;
+}
+
+.homeMaticLearnTitle {
+   font-weight: bold;
+   margin-bottom: 6px;
+}
+
+.homeMaticLearnState {
+   margin-bottom: 8px;
+   opacity: 0.8;
+}
+
+.homeMaticLearnText {
+   margin-bottom: 8px;
+   line-height: 1.4;
+}
+
+.homeMaticLearnClock {
+   font-weight: bold;
+   font-variant-numeric: tabular-nums;
+}
+
+.homeMaticLearnValues {
+   margin-top: 8px;
+}
+
+.homeMaticLearnInput {
+   width: 6em;
 }
 
 /* dashboard widget 'HTML' and the setup page 'HTML Widgets' (htmlwidgets.js) */
@@ -4684,6 +4972,39 @@ iPhones
    text-align: left;
 }
 
+/* sensor parameter: input and the picker button (native select over it, invisible) */
+
+.htmlParamCell {
+   display: flex;
+   align-items: center;
+   gap: 4px;
+}
+.htmlParamCell .htmlParam {
+   flex: 1;
+   min-width: 0;
+}
+.htmlParamPicker {
+   position: relative;
+   flex: none;
+   width: 32px;
+   height: 32px;
+   box-sizing: border-box;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   font-size: 18px;
+   cursor: pointer;
+}
+.htmlParamPickerSelect {
+   position: absolute;
+   inset: 0;
+   width: 100%;
+   height: 100%;
+   opacity: 0;
+   cursor: pointer;
+   font-size: 16px;          /* iOS: no zoom on focus */
+}
+
 .htmlWidgetPage {
    display: flex;
    gap: 12px;
@@ -4720,6 +5041,23 @@ iPhones
 
 .htmlWidgetListItem:last-child, .htmlWidgetListEmpty {
    border-bottom: 0;
+}
+
+/* delivered template (read only): lock in the list, hint above the editor */
+
+.htmlWidgetLock {
+   float: right;
+   opacity: 0.6;
+}
+.htmlWidgetLockOpen {        /* development instance: editable, clearly distinguishable from the closed one */
+   opacity: 1;
+   color: var(--orange);
+}
+.htmlWidgetReadonly {
+   padding: 6px 8px;
+   margin-bottom: 6px;
+   border-radius: 4px;
+   background: var(--light3);
 }
 
 .htmlWidgetListItem {

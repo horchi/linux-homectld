@@ -115,6 +115,8 @@ json_t* HmDevice::toJson()
 
    json_object_set_new(obj, "channels", jChannels);
 
+   addJson(obj);
+
    return obj;
 }
 
@@ -160,7 +162,7 @@ int HmBlind::set(uint channel, json_t* jCommand, std::vector<Frame>& frames)
    else if (getObjectFromJson(jCommand, "level"))
    {
       double value {getDoubleFromJson(jCommand, "level", 0)};
-      value = std::max(0.0, std::min(100.0, value));
+      value = toActor(std::max(0.0, std::min(100.0, value)));
       f.payload = { 0x02, (uint8_t)channel, (uint8_t)lround(value * 2) };
    }
    else
@@ -183,7 +185,12 @@ json_t* HmBlind::state(uint channel)
    json_t* obj {json_object()};
 
    if (level >= 0)
-      json_object_set_new(obj, "level", json_real(level));
+   {
+      json_object_set_new(obj, "level", json_real(round(toVisible(level) * 10) / 10));
+
+      if (half >= 0)
+         json_object_set_new(obj, "actorLevel", json_real(level));
+   }
 
    json_object_set_new(obj, "working", json_boolean(working()));
    json_object_set_new(obj, "direction", json_string(direction == 1 ? "up" : direction == 2 ? "down" : "none"));
@@ -194,4 +201,105 @@ json_t* HmBlind::state(uint channel)
    json_object_set_new(obj, "ts", json_integer(stateAt));
 
    return obj;
+}
+
+//***************************************************************************
+// Blind - Running Times
+//   REFERENCE_RUNNING_TIME_TOP_BOTTOM (0B/0C) and _BOTTOM_TOP (0D/0E) of
+//   list 1 of channel 1, [0.1 s], big endian; the actor calculates the
+//   position from them (no position sensor, no end position detection)
+//***************************************************************************
+
+void HmBlind::addJson(json_t* obj)
+{
+   if (runtimeDown >= 0)
+      json_object_set_new(obj, "runtimeDown", json_real(runtimeDown));
+
+   if (runtimeUp >= 0)
+      json_object_set_new(obj, "runtimeUp", json_real(runtimeUp));
+
+   if (half >= 0)
+      json_object_set_new(obj, "half", json_real(half));
+}
+
+void HmBlind::fromJson(json_t* obj)
+{
+   runtimeDown = getDoubleFromJson(obj, "runtimeDown", -1);
+   runtimeUp = getDoubleFromJson(obj, "runtimeUp", -1);
+   half = getDoubleFromJson(obj, "half", -1);
+}
+
+//***************************************************************************
+// Blind - Characteristic (visible level <-> level of the actor)
+//***************************************************************************
+
+double HmBlind::toActor(double visible)
+{
+   if (half <= 0 || half >= 100)
+      return visible;
+
+   if (visible <= 50)
+      return visible / 50 * half;
+
+   return half + (visible - 50) / 50 * (100 - half);
+}
+
+double HmBlind::toVisible(double actor)
+{
+   if (half <= 0 || half >= 100)
+      return actor;
+
+   if (actor <= half)
+      return actor / half * 50;
+
+   return 50 + (actor - half) / (100 - half) * 50;
+}
+
+std::vector<uint8_t> HmBlind::runtimeRegisters(double down, double up)
+{
+   uint down10 = lround(std::max(0.1, std::min(600.0, down)) * 10);
+   uint up10 = lround(std::max(0.1, std::min(600.0, up)) * 10);
+
+   return { 0x0B, (uint8_t)(down10 >> 8), 0x0C, (uint8_t)down10,
+            0x0D, (uint8_t)(up10 >> 8), 0x0E, (uint8_t)up10 };
+}
+
+bool HmBlind::handleParams(const Frame& frame)
+{
+   if (frame.type != mtInfo || frame.payload.size() < 2)
+      return false;
+
+   if (frame.payload[0] == 0x02)                       // pairs <reg> <value>, 00 00 ends the list
+   {
+      for (size_t i = 1; i + 1 < frame.payload.size(); i += 2)
+      {
+         if (!frame.payload[i] && !frame.payload[i+1])
+            break;
+
+         params[frame.payload[i]] = frame.payload[i+1];
+      }
+   }
+   else if (frame.payload[0] == 0x03)                  // sequence <start reg> <value> <value> ...
+   {
+      uint8_t reg {frame.payload[1]};
+
+      for (size_t i = 2; i < frame.payload.size(); i++)
+         params[reg++] = frame.payload[i];
+   }
+   else
+      return false;
+
+   for (uint8_t reg : { 0x0B, 0x0C, 0x0D, 0x0E })
+   {
+      if (params.find(reg) == params.end())
+         return false;
+   }
+
+   runtimeDown = ((params[0x0B] << 8) | params[0x0C]) / 10.0;
+   runtimeUp = ((params[0x0D] << 8) | params[0x0E]) / 10.0;
+   params.clear();
+
+   tell(eloAlways, "Blind '%s' running times: down %.1f s, up %.1f s", serial.c_str(), runtimeDown, runtimeUp);
+
+   return true;
 }

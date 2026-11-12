@@ -7,7 +7,7 @@
 //
 // Communication daemon for the Fröling S 3200 boiler control, the counterpart of
 // the homectld. No database, no WEBIF, only the serial line and MQTT.
-// See README.md and p4d-integration-plan.md.
+// See README.md.
 //
 // Phase 1: state, measured values, digital in/outputs and analog outputs.
 // Phase 2: configuration from the homectld, only the active sensors are polled,
@@ -19,6 +19,8 @@
 //                     "items":[{"id":12,"parent":1,"child":5,"type":42,"address":0,"title":"Kessel",
 //                     "unit":"","digits":0,"value":"3,0","editable":false}, ...]}
 //                    status: ok | notready | error, with "message"
+//                    with "replyTo":"<base>/reply/<name>" in the command the answer goes to this topic instead
+//                    (for scripts, no need to filter the answers of others by the 'rid')
 //
 //    cmd 'menu'       the items of one level of the service menu with their current values
 //                     (the structure is cached in the cache file, the values are read from the control)
@@ -28,7 +30,9 @@
 // Phase 4 (this state): writing, never in the read only mode (-r, -P) and only for the parameters
 // and time ranges of the service menu:
 //
-//    cmd 'parget'     {"address":480}  -> value, unit, digits, min, max, default, type
+//    cmd 'parget'     {"address":480}  -> title, value, unit, digits, min, max, default, type
+//    cmd 'parlist'    the parameters of the service menu: {"count":412,"parameters":[{"address":480,"type":7,
+//                     "title":"Kesseltemperatur-Sollwert","path":"Kessel / Kesseltemperatur"}, ...]}  (from the cache)
 //    cmd 'parset'     {"address":480,"value":"72","user":"joerg"}  -> status ok | nochange | range | format |
 //                     readonly | error | comm, with "value" (read back) and "old"
 //    cmd 'timeset'    {"address":3,"range":1,"value":"06:00 - 22:00","user":"joerg"}   ('nn:nn - nn:nn' deletes)
@@ -72,8 +76,8 @@
 //  service -> homectld (not retained, topic <base>/sensor or the one given by -D),
 //  the format of HomeCtl::dispatchOther:
 //    {"type":"P4VA","address":1,"title":"Abgas","unit":"°C","value":77.5,"maxage":180}
-//    {"type":"P4DO","address":12,"title":"Saugzug","kind":"status","state":1,"text":"A","maxage":180}
-//    {"type":"P4AO","address":3,"title":"Saugzug Leistung","unit":"%","value":62,"text":"A","maxage":180}
+//    {"type":"P4DO","address":12,"title":"Saugzug","kind":"status","state":true,"text":"Auto","maxage":180}
+//    {"type":"P4AO","address":3,"title":"Saugzug Leistung","unit":"%","value":62,"text":"Auto","maxage":180}
 //    {"type":"P4UD","address":1,"title":"Heizungsstatus","unit":"zst","kind":"text","value":3,"text":"Heizen"}
 //    {"type":"P4VA","address":1,"title":"Abgas","unit":"°C","valid":false}              (not readable)
 //
@@ -97,7 +101,7 @@
 
 #include "p4io.h"
 
-#define P4MQTTD_VERSION "0.10.2"
+#define P4MQTTD_VERSION "0.12.0"
 
 #define semaphoreKey 0x3da00001
 
@@ -210,6 +214,7 @@ class P4Mqttd
       int cmdMenu(json_t* jCmd, json_t* jReply);
       int cmdInitMenu(json_t* jReply);
       int menuItemValue(const MenuEntry& m, json_t* jItem, std::string& value);
+      int cmdParList(json_t* jReply);
       int cmdParGet(json_t* jCmd, json_t* jReply);
       int cmdParSet(json_t* jCmd, json_t* jReply);
       int cmdTimeSet(json_t* jCmd, json_t* jReply);
@@ -275,6 +280,7 @@ class P4Mqttd
       std::vector<Sensor> sensors;
       std::vector<MenuEntry> menu;
       std::deque<std::string> commands;         // received, not yet executed
+      std::string replyTopic;                   // topic of the answer of the command in work ("replyTo"), empty -> <base>/reply
       std::map<int,Fs::TimeRanges> times;       // the time programs by address (0 - 0xdf)
       bool timesLoaded {false};
       bool sensorsReady {false};
@@ -1264,7 +1270,7 @@ int P4Mqttd::reply(json_t* jReply, const char* status, const char* message)
    if (message)
       json_object_set_new(jReply, "message", json_string(message));
 
-   return publish((opt.topic + "/reply").c_str(), jReply, false);
+   return publish(replyTopic.empty() ? (opt.topic + "/reply").c_str() : replyTopic.c_str(), jReply, false);
 }
 
 int P4Mqttd::dispatchCommands()
@@ -1288,7 +1294,20 @@ int P4Mqttd::dispatchCommands()
 
    tell(eloAlways, "Command '%s' [%s]", cmd.c_str(), message.c_str());
 
-   if (!commOk || !sensorsReady)
+   // "replyTo": the answer goes to this topic instead of <base>/reply, only topics below <base>/reply/
+   // are accepted (the service must not be used to publish anywhere else)
+
+   std::string replyTo {getStringFromJson(jCmd, "replyTo", "")};
+   std::string replyBase {opt.topic + "/reply/"};
+   bool replyToOk {replyTo.empty() ||
+                   (replyTo.rfind(replyBase, 0) == 0 && replyTo.length() > replyBase.length() && replyTo.length() <= 200 &&
+                    replyTo.find_first_of("#+") == std::string::npos)};
+
+   replyTopic = replyToOk ? replyTo : "";
+
+   if (!replyToOk)
+      reply(jReply, "error", ("'replyTo' has to be a topic below '" + replyBase + "' without wildcards").c_str());
+   else if (!commOk || !sensorsReady)
       reply(jReply, "notready", "Keine Verbindung zur Steuerung bzw. die Menüstruktur ist noch nicht gelesen");
    else if (cmd == "menu")
       cmdMenu(jCmd, jReply);
@@ -1298,6 +1317,8 @@ int P4Mqttd::dispatchCommands()
       cmdInitTimes(jReply);
    else if (cmd == "errors")
       cmdErrors(jReply);
+   else if (cmd == "parlist")
+      cmdParList(jReply);
    else if (cmd == "parget")
       cmdParGet(jCmd, jReply);
    else if (cmd == "parset")
@@ -1576,6 +1597,7 @@ int P4Mqttd::readTimes()
    std::map<int,Fs::TimeRanges> list;
    int status {success};
    int steps {0};
+   std::string seen;                                 // addresses in the order received, for the error log
    BusGuard guard(this);
 
    tell(eloAlways, "Reading the time programs from the S 3200 ...");
@@ -1597,9 +1619,12 @@ int P4Mqttd::readTimes()
 
       list[t.address] = t;
 
+      if (seen.length() < 400)
+         seen += (seen.empty() ? "" : ",") + std::to_string(t.address);
+
       if (++steps > 300)
       {
-         tell(eloAlways, "Error: The list of the time programs doesn't end, giving up");
+         tell(eloAlways, "Error: The list of the time programs doesn't end, giving up (addresses: %s ...)", seen.c_str());
          return fail;
       }
    }
@@ -1979,14 +2004,87 @@ int P4Mqttd::cmdParGet(json_t* jCmd, json_t* jReply)
    if (status != success)
       return reply(jReply, "comm", "Lesen des Parameters fehlgeschlagen");
 
+   std::string title;
+
+   for (const auto& m : menu)
+      if (m.address == address && !m.child && m.type == type)
+      {
+         title = trimMenuTitle(m.title);
+         break;
+      }
+
    json_object_set_new(jReply, "address", json_integer(address));
    json_object_set_new(jReply, "type", json_integer(type));
+   json_object_set_new(jReply, "title", json_string(title.c_str()));
    json_object_set_new(jReply, "value", json_string(p.toNice(type).string()));
    json_object_set_new(jReply, "unit", json_string(p.unit ? p.unit : ""));
    json_object_set_new(jReply, "digits", json_integer(p.digits));
    json_object_set_new(jReply, "min", json_real(p.rMin));
    json_object_set_new(jReply, "max", json_real(p.rMax));
    json_object_set_new(jReply, "default", json_real(p.rDefault));
+
+   return reply(jReply, "ok");
+}
+
+//***************************************************************************
+// Command 'parlist'
+//   the parameters of the service menu (the addresses which 'parget' / 'parset' accept) with
+//   their way through the menu, from the cache - the control isn't asked
+//***************************************************************************
+
+int P4Mqttd::cmdParList(json_t* jReply)
+{
+   json_t* jPars {json_array()};
+   std::set<uint> seen;
+
+   for (const auto& m : menu)
+   {
+      if (m.child || !isWritableType(m.type) || seen.count(m.address))
+         continue;
+
+      if (m.address == 9997 || m.address == 9998 || m.address == 9999)
+         continue;
+
+      seen.insert(m.address);
+
+      // the titles of the levels above
+
+      std::string path;
+      uint level {m.parent};
+
+      for (int depth = 0; depth < 20 && level > 1; depth++)
+      {
+         const MenuEntry* up {};
+
+         for (const auto& e : menu)
+            if (e.child == level)
+            {
+               up = &e;
+               break;
+            }
+
+         if (!up)
+            break;
+
+         std::string t {trimMenuTitle(up->title)};
+
+         if (!t.empty())
+            path = path.empty() ? t : t + " / " + path;
+
+         level = up->parent;
+      }
+
+      json_t* jPar {json_object()};
+
+      json_object_set_new(jPar, "address", json_integer(m.address));
+      json_object_set_new(jPar, "type", json_integer(m.type));
+      json_object_set_new(jPar, "title", json_string(trimMenuTitle(m.title).c_str()));
+      json_object_set_new(jPar, "path", json_string(path.c_str()));
+      json_array_append_new(jPars, jPar);
+   }
+
+   json_object_set_new(jReply, "count", json_integer(json_array_size(jPars)));
+   json_object_set_new(jReply, "parameters", jPars);
 
    return reply(jReply, "ok");
 }
@@ -2120,6 +2218,19 @@ int P4Mqttd::cmdTimeSet(json_t* jCmd, json_t* jReply)
 
    std::string sFrom {from}, sTo {to};
 
+   // the control stores a time in steps of 10 minutes (hh*10 + mm/10), anything else would be cut off silently
+
+   for (const std::string& sT : {sFrom, sTo})
+   {
+      const char* colon {strchr(sT.c_str(), ':')};
+
+      if (colon && strcasecmp(sT.c_str(), "nn:nn") != 0 && atoi(colon + 1) % 10)
+      {
+         tell(eloAlways, "Refused: timeset 0x%x/%d '%s' by '%s', minutes not in steps of 10", address, range, value.c_str(), user.c_str());
+         return reply(jReply, "format", "Die Steuerung kennt nur Zeiten in 10-Minuten-Schritten");
+      }
+   }
+
    Fs::TimeRanges t {it->second};
    std::string old {t.getTimeRange(range - 1)};
 
@@ -2128,6 +2239,9 @@ int P4Mqttd::cmdTimeSet(json_t* jCmd, json_t* jReply)
       tell(eloAlways, "Refused: timeset 0x%x/%d '%s' by '%s', wrong format", address, range, value.c_str(), user.c_str());
       return reply(jReply, "format", "Wert hat das falsche Format (hh:mm - hh:mm)");
    }
+
+   if (old == t.getTimeRange(range - 1))
+      return reply(jReply, "nochange", "Wert unverändert");
 
    tell(eloAlways, "WRITE time program 0x%x range %d: '%s' -> '%s' by '%s'", address, range, old.c_str(), t.getTimeRange(range - 1), user.c_str());
 
@@ -2210,7 +2324,9 @@ int P4Mqttd::pollOne(size_t index)
          // mode: 'A' automatic, 'M' manual; analog outputs: 0xff -> automatic
 
          cmode[0] = s.type == "P4AO" ? (v.mode == 0xff ? 'A' : 'M') : (isprint(v.mode) ? v.mode : 0);
-         json_object_set_new(jObj, "text", json_string(cmode));
+
+         const char* mode {cmode[0] == 'A' ? "Auto" : cmode[0] == 'M' ? "Manual" : cmode};   // unknown modes as sent
+         json_object_set_new(jObj, "text", json_string(mode));
 
          if (s.type == "P4AO")
          {
@@ -2219,7 +2335,7 @@ int P4Mqttd::pollOne(size_t index)
          else
          {
             json_object_set_new(jObj, "kind", json_string("status"));
-            json_object_set_new(jObj, "state", json_integer(v.state ? 1 : 0));
+            json_object_set_new(jObj, "state", json_boolean(v.state));   // homectld reads it by getBoolFromJson(), an integer would be 'false'
          }
       }
    }

@@ -65,6 +65,7 @@ const char* cWebService::events[] =
    "zigbee",
    "p4menu",
    "p4cmd",
+   "p4raw",
    "p4errors",
    "p4pellets",
    "p4pelletsadd",

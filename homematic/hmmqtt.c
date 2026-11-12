@@ -15,11 +15,14 @@
 //  service -> clients
 //    <base>/event/paired      {"serial","type","rfAddress","result":"ok|unsupported|failed","text"}
 //    <base>/event/removed     {"serial","result":"ok|failed"}
+//    <base>/event/runtime     {"serial","runtimeDown":52.3,"runtimeUp":55.1,"result":"ok|failed","text"}
 //  clients -> service
 //    <base>/set/<channel>     {"level":50} | {"stop":true}
 //    <base>/get/<channel>     status request at the device
 //    <base>/pair              {"enable":true,"duration":60} | {"enable":false}
 //    <base>/remove            {"serial":"OEQ1853240"}
+//    <base>/runtime           {"serial":"OEQ1853240"} read | {"serial":..,"down":52.3,"up":55.1} write [s]
+//                             optional "half": level of the actor at half height (characteristic), < 0 removes it
 //
 // The service takes the address (hmId) of the former central (CCU), the devices
 // paired to it keep working without pairing them again.
@@ -250,7 +253,12 @@ int HmMqtt::dispatchFrame(const Frame& frame)
    {
       Pending pending {sendQueue.front()};
 
-      if (pending.frame.dst == frame.src && pending.frame.cnt == frame.cnt)
+      // the register list (INFO 02 / 03) of a CONFIG 04 may come with its own counter
+
+      bool paramAnswer {pending.kind == pkParamReq && frame.type == mtInfo && frame.payload.size() &&
+                        (frame.payload[0] == 0x02 || frame.payload[0] == 0x03)};
+
+      if (pending.frame.dst == frame.src && (pending.frame.cnt == frame.cnt || paramAnswer))
       {
          sendQueue.pop_front();
          inFlight = false;
@@ -271,6 +279,12 @@ int HmMqtt::dispatchFrame(const Frame& frame)
    {
       for (int c = 1; c <= d->channels(); c++)
          publishState(d, c);
+   }
+   else if (d->handleParams(frame))
+   {
+      saveDevices();
+      publishDevices();
+      publishRuntime(d, "ok", "Laufzeiten gelesen");
    }
 
    return done;
@@ -469,6 +483,45 @@ int HmMqtt::pendingDone(const Pending& pending, bool succeeded, const Frame* ans
          break;
       }
 
+      case pkRuntimeWrite:
+      case pkRuntimeEnd:
+      {
+         if (succeeded && pending.kind == pkRuntimeWrite)
+            break;
+
+         if (!succeeded)
+         {
+            while (!sendQueue.empty() && sendQueue.front().frame.dst == pending.frame.dst &&
+                   (sendQueue.front().kind == pkRuntimeWrite || sendQueue.front().kind == pkRuntimeEnd))
+               sendQueue.pop_front();
+
+            tell(eloAlways, "Writing the running times of '%s' failed", target.c_str());
+
+            if (d)
+               publishRuntime(d, "failed", "keine Antwort beim Schreiben der Laufzeiten");
+
+            break;
+         }
+
+         tell(eloAlways, "Running times of '%s' written, reading them back", target.c_str());
+
+         if (d)
+            readParams(d, 1, 1);                       // check, publishes event/runtime
+
+         break;
+      }
+
+      case pkParamReq:
+      {
+         if (!succeeded && d)
+         {
+            tell(eloAlways, "Reading the registers of '%s' failed", target.c_str());
+            publishRuntime(d, "failed", "keine Antwort beim Lesen der Laufzeiten");
+         }
+
+         break;
+      }
+
       case pkRemoveEnd:
       {
          json_t* obj {json_object()};
@@ -624,27 +677,125 @@ int HmMqtt::removeDevice(const char* serial)
 }
 
 //***************************************************************************
-// Config Frames (list 0 of the device)
+// Config Frames (list 0 of the device by default, without peer)
 //***************************************************************************
 
-int HmMqtt::configFrames(uint32_t dst, const std::vector<uint8_t>& registers, PendingKind endKind)
+int HmMqtt::configFrames(uint32_t dst, const std::vector<uint8_t>& registers, PendingKind endKind,
+                         uint8_t channel, uint8_t list)
 {
+   PendingKind startKind {endKind == pkPairEnd ? pkPairStart : endKind == pkRuntimeEnd ? pkRuntimeWrite : pkCommand};
+   PendingKind writeKind {endKind == pkPairEnd ? pkPairWrite : endKind == pkRuntimeEnd ? pkRuntimeWrite : pkCommand};
+
    Frame f;
    f.flags = fBidi | fRptEn;
    f.type = mtConfig;
    f.dst = dst;
 
-   f.payload = { 0x00, ctStart, 0x00, 0x00, 0x00, 0x00, 0x00 };   // channel 0, peer 000000:00, list 0
-   enqueue(f, endKind == pkPairEnd ? pkPairStart : pkCommand);
+   f.payload = { channel, ctStart, 0x00, 0x00, 0x00, 0x00, list };  // peer 000000:00
+   enqueue(f, startKind);
 
-   f.payload = { 0x00, ctWriteIndex };
+   f.payload = { channel, ctWriteIndex };
    f.payload.insert(f.payload.end(), registers.begin(), registers.end());
-   enqueue(f, endKind == pkPairEnd ? pkPairWrite : pkCommand);
+   enqueue(f, writeKind);
 
-   f.payload = { 0x00, ctEnd };
+   f.payload = { channel, ctEnd };
    enqueue(f, endKind);
 
    return done;
+}
+
+//***************************************************************************
+// Read Params (CONFIG 04: register list of a channel, peer 000000:00)
+//***************************************************************************
+
+int HmMqtt::readParams(HmDevice* d, uint8_t channel, uint8_t list)
+{
+   d->params.clear();
+
+   Frame f;
+   f.flags = fBidi | fRptEn;
+   f.type = mtConfig;
+   f.dst = d->rfAddress;
+   f.payload = { channel, ctParamReq, 0x00, 0x00, 0x00, 0x00, list };
+   enqueue(f, pkParamReq);
+
+   return done;
+}
+
+//***************************************************************************
+// Running Times of a Blind (MQTT 'runtime')
+//   {"serial"} reads them, {"serial","down","up"} [s] writes and reads them back
+//***************************************************************************
+
+int HmMqtt::runtime(json_t* jMsg)
+{
+   const char* serial {getStringFromJson(jMsg, "serial", "")};
+   HmBlind* blind {};
+
+   for (auto& d : devices)
+   {
+      if (d.second->serial == serial)
+         blind = dynamic_cast<HmBlind*>(d.second);
+   }
+
+   if (!blind)
+   {
+      tell(eloAlways, "Warning: Running times: '%s' is not a known blind", serial);
+      return fail;
+   }
+
+   if (getObjectFromJson(jMsg, "half"))
+   {
+      double half {getDoubleFromJson(jMsg, "half", -1)};
+      blind->half = half > 0 && half < 100 ? half : -1;
+
+      tell(eloAlways, "Characteristic of '%s': half height at %.1f%% of the actor%s", serial, blind->half,
+           blind->half < 0 ? " (none)" : "");
+
+      saveDevices();
+      publishDevices();
+
+      for (int c = 1; c <= blind->channels(); c++)
+         publishState(blind, c);
+
+      if (!getObjectFromJson(jMsg, "down") || !getObjectFromJson(jMsg, "up"))
+      {
+         publishRuntime(blind, "ok", "Kennlinie gespeichert");
+         return done;
+      }
+   }
+
+   if (!getObjectFromJson(jMsg, "down") || !getObjectFromJson(jMsg, "up"))
+   {
+      tell(eloAlways, "Reading the running times of '%s'", serial);
+      return readParams(blind, 1, 1);
+   }
+
+   double down {getDoubleFromJson(jMsg, "down", 0)};
+   double up {getDoubleFromJson(jMsg, "up", 0)};
+
+   if (down < 1 || up < 1 || down > 600 || up > 600)
+   {
+      tell(eloAlways, "Warning: Running times of '%s' out of range (1..600 s): down %.1f, up %.1f", serial, down, up);
+      publishRuntime(blind, "failed", "Laufzeit außerhalb 1..600 s");
+      return fail;
+   }
+
+   tell(eloAlways, "Writing the running times of '%s': down %.1f s, up %.1f s", serial, down, up);
+
+   return configFrames(blind->rfAddress, blind->runtimeRegisters(down, up), pkRuntimeEnd, 1, 1);
+}
+
+int HmMqtt::publishRuntime(HmDevice* d, const char* result, const char* text)
+{
+   json_t* obj {json_object()};
+   json_object_set_new(obj, "serial", json_string(d->serial.c_str()));
+   json_object_set_new(obj, "type", json_string(d->type.c_str()));
+   d->addJson(obj);
+   json_object_set_new(obj, "result", json_string(result));
+   json_object_set_new(obj, "text", json_string(text));
+
+   return publish("event/runtime", obj, false);
 }
 
 //***************************************************************************
@@ -686,6 +837,7 @@ int HmMqtt::loadDevices()
       d->serial = getStringFromJson(jDev, "serial", "");
       d->rfAddress = addr(getStringFromJson(jDev, "rfAddress", ""));
       d->firmware = getStringFromJson(jDev, "firmware", "");
+      d->fromJson(jDev);
 
       if (!d->rfAddress || d->serial.empty())
       {
@@ -782,7 +934,7 @@ int HmMqtt::mqttConnection()
          return fail;
       }
 
-      for (const char* sub : { "set/#", "get/#", "pair", "remove" })
+      for (const char* sub : { "set/#", "get/#", "pair", "remove", "runtime" })
       {
          std::string t {topic + "/" + sub};
 
@@ -853,7 +1005,10 @@ int HmMqtt::dispatchMqttMessage(const std::string& t, const char* message)
          if (sub[0] == 'g')
             d->statusRequest(channel, frames);
          else if (jMsg)
+         {
+            tell(eloAlways, "Command to '%s': %s", sub.substr(4).c_str(), message);
             d->set(channel, jMsg, frames);
+         }
 
          for (auto& f : frames)
             enqueue(f);
@@ -865,6 +1020,11 @@ int HmMqtt::dispatchMqttMessage(const std::string& t, const char* message)
          pairingStart(getIntFromJson(jMsg, "duration", 60));
       else
          pairingStop();
+   }
+   else if (sub == "runtime")
+   {
+      if (jMsg)
+         runtime(jMsg);
    }
    else if (sub == "remove")
    {

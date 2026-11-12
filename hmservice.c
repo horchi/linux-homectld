@@ -299,7 +299,9 @@ int HomeCtl::homeMatic2Json(json_t* obj)
 
 //***************************************************************************
 // Perform HomeMatic (WEBIF)
-//   action: '' (data of the page), 'pair' (duration), 'pairstop', 'remove' (serial), 'refresh'
+//   action: '' (data of the page), 'pair' (duration), 'pairstop', 'remove' (serial), 'refresh',
+//           'runtime' (serial, down / up [s] to write, without them read, optional half: characteristic),
+//           'drive' (channel, level or stop)
 //***************************************************************************
 
 int HomeCtl::performHomeMatic(json_t* obj, long client)
@@ -339,6 +341,63 @@ int HomeCtl::performHomeMatic(json_t* obj, long client)
          snprintf(message, sizeof(message), "{\"serial\":\"%s\"}", serial);
          mqttWriter->write((homeMaticTopic + "/remove").c_str(), message);
          return replyResult(success, client, "Abmelden von '%s' gesendet", serial);
+      }
+
+      if (action == "runtime")
+      {
+         const char* serial {getStringFromJson(obj, "serial", "")};
+
+         if (isEmpty(serial))
+            return replyResult(fail, client, "Seriennummer fehlt");
+
+         json_t* jMsg {json_object()};
+         json_object_set_new(jMsg, "serial", json_string(serial));
+
+         bool write {getObjectFromJson(obj, "down") && getObjectFromJson(obj, "up")};
+
+         if (write)
+         {
+            json_object_set_new(jMsg, "down", json_real(getDoubleFromJson(obj, "down")));
+            json_object_set_new(jMsg, "up", json_real(getDoubleFromJson(obj, "up")));
+         }
+
+         if (getObjectFromJson(obj, "half"))
+            json_object_set_new(jMsg, "half", json_real(getDoubleFromJson(obj, "half")));
+
+         char* message {json_dumps(jMsg, JSON_REAL_PRECISION(4) | JSON_COMPACT)};
+         mqttWriter->write((homeMaticTopic + "/runtime").c_str(), message);
+         free(message);
+         json_decref(jMsg);
+
+         if (getBoolFromJson(obj, "quiet", false))
+            return done;
+
+         return replyResult(success, client, write ? "Laufzeiten an '%s' gesendet" : "Laufzeiten von '%s' angefragt", serial);
+      }
+
+      if (action == "drive")
+      {
+         const char* channel {getStringFromJson(obj, "channel", "")};
+
+         if (isEmpty(channel))
+            return replyResult(fail, client, "Kanal fehlt");
+
+         // json by jansson, snprintf("%.1f") would write a decimal comma (locale)
+
+         json_t* jMsg {json_object()};
+
+         if (getBoolFromJson(obj, "stop", false))
+            json_object_set_new(jMsg, "stop", json_true());
+         else
+            json_object_set_new(jMsg, "level", json_real(getDoubleFromJson(obj, "level", 0)));
+
+         char* message {json_dumps(jMsg, JSON_REAL_PRECISION(4) | JSON_COMPACT)};
+         tell(eloHomeMatic, "-> (hmmqtt) '%s/set/%s' '%s'", homeMaticTopic.c_str(), channel, message);
+         mqttWriter->write((homeMaticTopic + "/set/" + channel).c_str(), message);
+         free(message);
+         json_decref(jMsg);
+
+         return done;
       }
 
       if (action == "refresh")

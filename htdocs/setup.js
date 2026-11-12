@@ -354,6 +354,48 @@ function initConfig(configdetails = null)
          break;
       }
 
+      case 10:    // ctStringSet - one input per element, stored comma separated
+      {
+         let setSpan = $('<span></span>')
+             .attr('id', 'strset_' + item.name)
+             .addClass('stringSet');
+
+         let addBtn = $('<button></button>')
+             .attr('type', 'button')
+             .addClass('rounded-border tool-button-svg mdi mdi-plus')
+             .attr('title', 'Eintrag hinzufügen');
+
+         let addRow = function(value) {
+            let inp = $('<input></input>')
+                .attr('type', 'search')
+                .addClass('rounded-border input')
+                .val(value);
+
+            let row = $('<div></div>')
+                .addClass('stringSetRow')
+                .append(inp)
+                .append($('<button></button>')
+                        .attr('type', 'button')
+                        .addClass('rounded-border tool-button-svg mdi mdi-minus')
+                        .attr('title', 'Eintrag entfernen')
+                        .click(function() { row.remove(); }));
+
+            row.insertBefore(addBtn);
+            return inp;
+         };
+
+         setSpan.append(addBtn);
+         $(itemsDiv).append(setSpan);
+
+         for (let s of (config[item.name] || '').split(',')) {
+            if (s.trim() != '')
+               addRow(s.trim());
+         }
+
+         addBtn.click(function() { addRow('').focus(); });
+         break;
+      }
+
       case 8:     // ctText
       {
          // the parameters of the MQTT sensors (category 'Sensors') are JSON, shown structured
@@ -429,7 +471,8 @@ function addEditConfigItem(name = null)
       { type: 6, title: 'MultiSelect' },   // ctMultiSelect
       { type: 7, title: 'BitSelect' },     // ctBitSelect
       { type: 8, title: 'Text' },          // ctText
-      { type: 9, title: 'ComboChoice' }    // ctComboChoice
+      { type: 9, title: 'ComboChoice' },   // ctComboChoice
+      { type: 10, title: 'StringSet' }     // ctStringSet
    ];
 
    // Prüfen, ob wir im Bearbeitungsmodus sind
@@ -553,7 +596,8 @@ function addConfigItem(name = null)
       { type: 6, title: 'MultiSelect' },   // ctMultiSelect
       { type: 7, title: 'BitSelect' },     // ctBitSelect
       { type: 8, title: 'Text' },          // ctText
-      { type: 9, title: 'ComboChoice' }    // ctComboChoice
+      { type: 9, title: 'ComboChoice' },   // ctComboChoice
+      { type: 10, title: 'StringSet' }     // ctStringSet
    ];
 
    let typeSel = null;
@@ -729,6 +773,24 @@ function storeConfig()
       var value = getAutoCompleteValues($("#mselect_" + name));
       value = value.replace(/ /g, ',');
       jsonObj[name] = value;
+   }
+
+   // ctStringSet -> as comma separated string
+
+   var elements = rootConfig.querySelectorAll("[id^='strset_']");
+
+   for (var i = 0; i < elements.length; i++) {
+      var name = elements[i].id.substring(elements[i].id.indexOf("_") + 1);
+      var values = [];
+
+      for (let inp of elements[i].querySelectorAll('input')) {
+         for (let s of inp.value.split(',')) {
+            if (s.trim() != '')
+               values.push(s.trim());
+         }
+      }
+
+      jsonObj[name] = values.join(',');
    }
 
    // ctBitSelect -> as string

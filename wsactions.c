@@ -103,6 +103,7 @@ int HomeCtl::dispatchClientRequest()
             case evZigbee:              status = performZigbee(oObject, client);         break;
             case evP4Menu:              status = performP4Menu(oObject, client);         break;
             case evP4Cmd:               status = performP4Cmd(oObject, client);          break;
+            case evP4Raw:               status = performP4Raw(oObject, client);          break;
             case evP4Errors:            status = performP4Errors(oObject, client);       break;
             case evP4Pellets:           status = performP4Pellets(oObject, client);      break;
             case evP4PelletsAdd:        status = performP4PelletsAdd(oObject, client);   break;
@@ -180,6 +181,7 @@ bool HomeCtl::checkRights(long client, Event event, json_t* oObject)
       case evP4Pellets:           return rights & urControl;   // the pellet deliveries of the S 3200 (like the p4d)
       case evP4PelletsAdd:        return rights & urFullControl;
       case evP4Errors:            return rights & urView;      // the error list of the S 3200
+      case evP4Raw:               return rights & urView;      // a command as JSON to the service p4mqttd, writing is checked in performP4Raw()
       case evP4Cmd:               return rights & urSettings;  // writes to the heating control (parameters, time programs), reads the menu again
       case evGroups:              return rights & urSettings;
       case evImageConfig:         return rights & urSettings;
@@ -1542,11 +1544,14 @@ int HomeCtl::storeSchema(json_t* oObject, long client)
       tableSchemaConf->setValue("ADDRESS", address);
       tableSchemaConf->setValue("TYPE", type);
 
-      if (tableSchemaConf->find() && deleted)
+      bool found {tableSchemaConf->find()};
+
+      if (deleted)
       {
-         tableSchemaConf->deleteWhere("%s = '%s' and %s = %d",
-                                      tableSchemaConf->getField("TYPE")->getName(), type,
-                                      tableSchemaConf->getField("ADDRESS")->getName(), address);
+         if (found)
+            tableSchemaConf->deleteWhere("%s = '%s' and %s = %d",
+                                         tableSchemaConf->getField("TYPE")->getName(), type,
+                                         tableSchemaConf->getField("ADDRESS")->getName(), address);
          continue;
       }
 
@@ -2189,6 +2194,14 @@ int HomeCtl::storeHtmlWidgets(json_t* obj, long client)
    {
       long id {getLongFromJson(obj, "id", na)};
 
+      tableHtmlWidgets->clear();
+      tableHtmlWidgets->setValue("ID", id);
+      bool readonly {tableHtmlWidgets->find() && tableHtmlWidgets->getIntValue("READONLY") == 1};
+      tableHtmlWidgets->reset();
+
+      if (readonly)
+         return replyResult(fail, client, "Mitgelieferte Templates können nicht gelöscht werden");
+
       tell(eloDetail, "Deleting HTML widget (%ld)", id);
       tableHtmlWidgets->deleteWhere("%s = %ld", tableHtmlWidgets->getField("ID")->getDbName(), id);
       message = "HTML Widget gelöscht";
@@ -2279,7 +2292,16 @@ int HomeCtl::storeHtmlWidget(json_t* obj, std::string& error)
          error = "HTML Widget (" + std::to_string(id) + ") nicht gefunden";
          return fail;
       }
+
+      if (tableHtmlWidgets->getIntValue("READONLY") == 1 && !develInstance)
+      {
+         error = std::string("'") + tableHtmlWidgets->getStrValue("NAME") + "' ist ein mitgeliefertes Template (nur lesen), zum Anpassen duplizieren";
+         tableHtmlWidgets->reset();
+         return fail;
+      }
    }
+   else
+      tableHtmlWidgets->setValue("READONLY", 0L);
 
    tableHtmlWidgets->setValue("NAME", name);
    tableHtmlWidgets->setValue("KIND", kind.c_str());
@@ -2372,7 +2394,6 @@ int HomeCtl::storeIoSetup(json_t* array, long client)
    json_t* oJson {json_object()};
    valueFacts2Json(oJson, false);
    pushOutMessage(oJson, "valuefacts", client);
-   updateSchemaConfTable();
 
    return replyResult(success, client, "Konfiguration gespeichert");
 }
@@ -3159,7 +3180,7 @@ int HomeCtl::dashboards2Json(json_t* obj)
 }
 //***************************************************************************
 // HTML Widgets 2 Json
-//   { "<id>": { "name", "kind", "code", "css", "parameters": {...} }, ... }
+//   { "<id>": { "name", "kind", "code", "css", "readonly", "parameters": {...} }, ... }
 //***************************************************************************
 
 int HomeCtl::htmlWidgets2Json(json_t* obj)
@@ -3179,6 +3200,7 @@ int HomeCtl::htmlWidgets2Json(json_t* obj)
       json_object_set_new(oSnippet, "kind", json_string(tableHtmlWidgets->getStrValue("KIND")));
       json_object_set_new(oSnippet, "code", json_string(tableHtmlWidgets->getStrValue("CODE")));
       json_object_set_new(oSnippet, "css", json_string(tableHtmlWidgets->getStrValue("CSS")));
+      json_object_set_new(oSnippet, "readonly", json_boolean(tableHtmlWidgets->getIntValue("READONLY") == 1));
 
       json_t* oParameters {jsonLoad(tableHtmlWidgets->getStrValue("PARAMETERS"), 0, true)};
       json_object_set_new(oSnippet, "parameters", json_is_object(oParameters) ? oParameters : json_object());
@@ -3351,6 +3373,7 @@ int HomeCtl::daemonState2Json(json_t* obj)
    json_object_set_new(obj, "state", json_integer(success));
    json_object_set_new(obj, "systime", json_integer(time(0)));
    json_object_set_new(obj, "version", json_string(daemonVersion));
+   json_object_set_new(obj, "devel", json_boolean(develInstance));     // development instance (DEVEL_INSTANCE)
    json_object_set_new(obj, "runningsince", json_string(d));
    json_object_set_new(obj, "average0", json_real(averages[0]));
    json_object_set_new(obj, "average1", json_real(averages[1]));

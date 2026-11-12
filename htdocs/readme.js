@@ -1,4 +1,5 @@
-// README viewer of the WEBIF: README.md (overview) and the chapters in doc/*.md
+// README viewer of the WEBIF: README.md (overview), the chapters in doc/*.md and all other files of the
+//   repository linked by them (markdown is rendered, other files are shown as text), see readmeUrl()
 //
 // target (optional): '<file>#<anchor>', '<file>' or '<anchor>' (of README.md),
 //   e.g. 'doc/gps.md#gps-tours'; the anchor is the id of an element (e.g. <a id="hasp-panel"></a>)
@@ -6,6 +7,17 @@
 
 const readmeGitHub = 'https://github.com/horchi/linux-homectld/blob/master/';
 var readmeFile = 'README.md';
+
+// URL of a file of the repository (path relative to the source tree): README.md and doc/ are linked directly
+//   in htdocs, all other markdown files and the files they link in htdocs/repo/ (genrepo.sh)
+
+function readmeUrl(path)
+{
+   if (path == 'README.md' || path.startsWith('doc/'))
+      return path;
+
+   return 'repo/' + path;
+}
 
 function initReadme(target = null)
 {
@@ -27,7 +39,7 @@ function initReadme(target = null)
    if (target) {
       let [path, hash] = target.split('#');
 
-      if (path.endsWith('.md'))
+      if (path.includes('.'))
          file = path;
       else
          hash = path;
@@ -49,14 +61,22 @@ async function loadAndRenderReadme(file = 'README.md', anchor = null)
 
     try {
         // the daemon sends cache-control max-age=3600, always fetch the current file
-        const response = await fetch(file, { cache: 'no-store' });
+        const response = await fetch(readmeUrl(file), { cache: 'no-store' });
 
         if (!response.ok) {
             throw new Error(`Server lieferte HTTP-Status ${response.status} für '${file}'`);
         }
 
-        const markdownText = await response.text();
-        container.innerHTML = window.marked.parse(markdownText);
+        const text = await response.text();
+
+        if (file.endsWith('.md'))
+            container.innerHTML = window.marked.parse(text);
+        else {                                         // other files (e.g. udev rules) as text
+            container.innerHTML = '<h1></h1><pre><code></code></pre>';
+            container.querySelector('h1').textContent = file;
+            container.querySelector('code').textContent = text;
+        }
+
         readmeFile = file;
 
         // give the headings ids (slug of the text) so links and the help buttons can jump to them
@@ -83,13 +103,14 @@ async function loadAndRenderReadme(file = 'README.md', anchor = null)
         container.style.display = "block";
         container.innerHTML = `
             <div style="color: #cf222e; padding: 20px; background: #ffebe9; border-radius: 6px; border: 1px solid rgba(207,34,46,0.15);">
-                <strong>Fehler beim Laden der Dokumentation:</strong> ${error.message}
+                <strong>Fehler beim Laden der Dokumentation:</strong> ${error.message}<br>
+                <a href="${readmeGitHub + file}" target="_blank">${file} auf GitHub öffnen</a>
             </div>`;
     }
 }
 
-// images and links of the markdown: README.md and doc/*.md are opened in the viewer, anchors scroll in the page,
-//   other files of the project (e.g. tpms/README.md, not part of the WEBIF) are opened at GitHub
+// images and links of the markdown: files of the repository are opened in the viewer (images full size in a
+//   new tab), anchors scroll in the page; absolute links (/...) are opened at GitHub
 
 function readmeLinks(container, file)
 {
@@ -100,7 +121,7 @@ function readmeLinks(container, file)
 
         if (!/^[a-z]+:/i.test(src) && !src.startsWith('/')) {
             const url = new URL(src, 'http://x/' + file);
-            img.setAttribute('src', url.pathname.substring(1) + url.search);
+            img.setAttribute('src', readmeUrl(decodeURIComponent(url.pathname.substring(1))) + url.search);
         }
     });
 
@@ -126,19 +147,19 @@ function readmeLinks(container, file)
         const path = decodeURIComponent(url.pathname.substring(1));
         const anchor = url.hash ? decodeURIComponent(url.hash.substring(1)) : null;
 
-        if (/^doc\/.+\.(jpg|jpeg|png|gif|svg)$/i.test(path)) {         // images of the docs (screenshots) -> full size
-            a.setAttribute('href', path);
+        if (href.startsWith('/')) {                                    // absolute -> at GitHub
+            a.setAttribute('href', readmeGitHub + path + url.hash);
             a.setAttribute('target', '_blank');
         }
-        else if (path == 'README.md' || /^doc\/[^\/]+\.md$/.test(path)) {
+        else if (/\.(jpg|jpeg|png|gif|svg)$/i.test(path)) {         // images (screenshots) -> full size
+            a.setAttribute('href', readmeUrl(path));
+            a.setAttribute('target', '_blank');
+        }
+        else {
             a.addEventListener('click', function(event) {
                 event.preventDefault();
                 loadAndRenderReadme(path, anchor);
             });
-        }
-        else {
-            a.setAttribute('href', readmeGitHub + path + url.hash);
-            a.setAttribute('target', '_blank');
         }
     });
 }

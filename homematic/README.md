@@ -62,8 +62,8 @@ Service → clients (retained):
 | Topic | Content |
 |---|---|
 | `homematic/status` | `{"state":"online","cul":"V 1.67 CUL868","hmId":"4F5EE7"}` |
-| `homematic/devices` | `[{"serial","type","model","rfAddress","firmware","lastSeen","rssi","channels":[{"channel","kind"}]}]` |
-| `homematic/state/<channel>` | blind: `{"level":76.0,"working":true,"direction":"down","rssi":-68,"ts":...}` (level in %) |
+| `homematic/devices` | `[{"serial","type","model","rfAddress","firmware","lastSeen","rssi","runtimeDown","runtimeUp","half","channels":[{"channel","kind"}]}]` (running times of blinds in s and the characteristic, if known) |
+| `homematic/state/<channel>` | blind: `{"level":76.0,"working":true,"direction":"down","rssi":-68,"ts":...}` (level in %, with a characteristic the visible one and `actorLevel` the one of the actor) |
 | `homematic/pairing` | `{"active":true,"remaining":45}` |
 
 Service → clients:
@@ -72,6 +72,7 @@ Service → clients:
 |---|---|
 | `homematic/event/paired` | `{"serial","type","rfAddress","result":"ok\|unsupported\|failed","text"}` |
 | `homematic/event/removed` | `{"serial","result":"ok\|failed"}` |
+| `homematic/event/runtime` | `{"serial","type","runtimeDown","runtimeUp","result":"ok\|failed","text"}` |
 
 Clients → service:
 
@@ -81,6 +82,7 @@ Clients → service:
 | `homematic/get/<channel>` | status request, the answer comes via `state/...` |
 | `homematic/pair` | `{"enable":true,"duration":60}` / `{"enable":false}` |
 | `homematic/remove` | `{"serial":"OEQ1853240"}` |
+| `homematic/runtime` | blind: `{"serial":"OEQ1853240"}` reads the running times, `{"serial":..,"down":52.3,"up":55.1}` (s) writes them and reads them back, optional `"half":66` sets the characteristic (`-1` removes it) |
 
 ## Pairing
 
@@ -89,6 +91,18 @@ device info, the service writes itself as central into the device (list 0, regis
 to the device list and publishes `event/paired`. A device of an unknown type is reported as `unsupported`.
 
 `homematic/remove` clears the central in the device and removes it from the list.
+
+## Running Times of the Blinds
+
+The actor calculates the position from its reference running times (channel 1, list 1, registers `0B`/`0C`
+top → bottom and `0D`/`0E` bottom → top, 0.1 s). `homematic/runtime` writes them (CONFIG start / write index /
+end, no new pairing needed) and reads them back (CONFIG `04`, answer INFO `02`/`03`), the result comes as
+`event/runtime` and in the device list (also stored in the device file). The WEBIF edits them and helps to
+measure them (see [doc/homematic.md](../doc/homematic.md)).
+
+Characteristic: the actor's % is the share of the running time, not of the window height (the roll is thick at
+the top, at the end only the slats close). `half` is the level of the actor at half the height of the window,
+the service maps the levels of MQTT (`set` and `state`) linearly between 0 → 0, 50 → `half` and 100 → 100.
 
 ## Notes
 

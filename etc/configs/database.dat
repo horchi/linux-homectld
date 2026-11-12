@@ -153,7 +153,7 @@ Table dashboardwidgets
    INSSP                ""  inssp                Int          0 Meta,
    UPDSP                ""  updsp                Int          0 Meta,
 
-   WIDGETOPTS           ""  widgetopts           Ascii     1000 Data,
+   WIDGETOPTS           "JSON, the params of an HTML widget may be long"  widgetopts  Ascii  4000 Data,
    ORDER                ""  ord                  Int         10 Data,
 }
 
@@ -209,6 +209,7 @@ Table htmlwidgets
    CODE                 "template resp. URL"            code                 MText   200000 Data,
    CSS                  "scoped to the widget"          css                  Text     10000 Data,
    PARAMETERS           "JSON object, name -> default"  parameters           Text      2000 Data,
+   READONLY             "1: delivered template (htmlWidgetTemplates.json), not editable"  readonly  Int  1 Data,
 }
 
 // ----------------------------------------------------------------

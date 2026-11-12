@@ -27,6 +27,16 @@
 
 #define confDirDefault "/etc/" TARGET
 
+// development instance (make switch DEVEL_INSTANCE in Make.user) - option for the developers,
+//   enables what is needed to develop the delivered parts, e.g. the delivered HTML widget
+//   templates are editable and not overwritten at the start
+
+#ifdef DEVEL_INSTANCE
+   inline constexpr bool develInstance {true};
+#else
+   inline constexpr bool develInstance {false};
+#endif
+
 extern char dbHost[];
 extern int  dbPort;
 extern char dbName[];
@@ -249,7 +259,8 @@ class HomeCtl : public cWebInterface, public Service
          ctMultiSelect,
          ctBitSelect,
          ctText,
-         ctComboChoice    // text input with the values stored before as suggestions (by label), see comboHistoryAdd()
+         ctComboChoice,   // text input with the values stored before as suggestions (by label), see comboHistoryAdd()
+         ctStringSet      // list of strings, stored comma separated, see getConfigItem(name, std::vector<std::string>&)
       };
 
       // ORD of config items created at runtime (sensor and user defined options),
@@ -385,7 +396,9 @@ class HomeCtl : public cWebInterface, public Service
       int dispatchP4Mqtt(const char* topic, const char* message);
       int performP4Menu(json_t* obj, long client);
       int performP4Cmd(json_t* obj, long client);
-      int p4SendCommand(json_t* oCmd, long client, const char* what, int parent, int timeout);
+      int performP4Raw(json_t* obj, long client);
+      int p4RawAnswer(long client, const char* tag, const char* error);
+      int p4SendCommand(json_t* oCmd, long client, const char* what, int parent, int timeout, const char* rawTag = nullptr);
       int p4Answer(long client, const char* error, const char* event = "p4menu");
       virtual int dispatchGrowattEvents(const char* message);
       virtual int dispatchRtl433(const char* message);
@@ -420,7 +433,6 @@ class HomeCtl : public cWebInterface, public Service
       int mqttNodeRedPublishAction(SensorData& sensor, double value, bool publishOnly = false, bool noStop = false);
       int mqttHaWrite(json_t* obj, uint groupid);
       int jsonAddValue(json_t* obj, SensorData& sensor, bool forceConfig = false);
-      int updateSchemaConfTable();
 
       int scheduleAggregate();
       int aggregate();
@@ -436,6 +448,8 @@ class HomeCtl : public cWebInterface, public Service
 
       int getConfigItem(const char* name, std::string& value, const char* def = 0);
       int setConfigItem(const char* name, const char* value, const char* kind = "N");
+      int getConfigItem(const char* name, std::vector<std::string>& value, const char* def = 0);
+      int setConfigItem(const char* name, const std::vector<std::string>& value, const char* kind = "N");
       int getConfigItem(const char* name, int& value, int def = na);
       int getConfigItem(const char* name, long& value, long def = na);
       int setConfigItem(const char* name, long value, const char* kind = "N");
@@ -570,6 +584,8 @@ class HomeCtl : public cWebInterface, public Service
       int valueFacts2Json(json_t* obj, bool filterActive);
       int dashboards2Json(json_t* obj);
       int loadDefaultDashboards();
+      int importHtmlWidgetTemplates();
+      int htmlWidgetDefaultsToWidgets(long snippetId, json_t* jOld, json_t* jNew);
       int haspPages2Json(json_t* obj);
 
       // openHASP panel (hasp.c)
@@ -1178,6 +1194,9 @@ class HomeCtl : public cWebInterface, public Service
          std::string cmd;
          int parent {1};                                    // the menu level to show again after a change
          int timeout {30};                                  // [s]
+         bool raw {false};                                  // request of the tab 'Kommandos', answered as it is (event 'p4raw')
+         std::string tag;                                   //   its tag, returned with the answer
+         std::string request;                               //   the message which was sent to the service
          std::string user;
       };
 

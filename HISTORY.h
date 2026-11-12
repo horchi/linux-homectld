@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.52"
+#define _VERSION     "0.1.53"
 #define VERSION_DATE "11.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,66 @@
 
 /*
  * ------------------------------------
+
+2026-11-11: version 0.1.53
+    - bugfix: p4mqttd: the in/outputs (P4DO / P4DI, e.g. the pumps of the heating circuits) were always 'off' in the
+             homectld, the state was sent as integer and getBoolFromJson() takes it as false; sent as boolean now
+    - change: p4mqttd: the mode of an in/output (sensor text) is sent as 'Auto' / 'Manual' instead of 'A' / 'M'
+    - change: state mail of the S 3200: in/outputs with the state and the mode, e.g. 'on (Auto)', instead of the mode only
+    - added: dashboard: blinds (HMB) - a long press on the symbol opens a slider for the position [%] (0 = zu,
+             100 = auf), like the brightness of the dimmable lights
+    - change: dashboard: widgets 'Symbol-Value' / 'Symbol-Text' handle the press like 'Symbol': a long press opens the
+             color / brightness / position dialog, toggled on release, no toggle when scrolling over the symbol
+    - bugfix: dashboard: the color / brightness dialog was sometimes shifted to the right at the first opening,
+             centered horizontally by the CSS now
+    - added: HTML widget templates 'Gasflasche', 'Wassertank' and 'Abwassertank'
+    - bugfix: setup dialog of an HTML widget: the sensor of a parameter couldn't be selected on iOS (the datalist
+             offers no list there), a button beside the input opens a select of the active sensors now
+    - added: delivered HTML widget templates (etc/configs/htmlWidgetTemplates.json, replaces the snippet files of
+             denon / samsungtv), imported at the start and read only (column htmlwidgets.READONLY), only to duplicate;
+             the sensors are set per widget on the dashboard; defaults of a template which change are taken over
+             into its widgets; dashboardwidgets.WIDGETOPTS enlarged to 4000
+    - added: make switch DEVEL_INSTANCE (Make.user, default off) - option for the developers, e.g. the delivered
+             HTML widget templates are editable in the WEBIF ('Export Auslieferung')
+    - added: hmmqtt: running times of the blinds - MQTT 'runtime' reads / writes the reference running times down / up
+             of the actor (channel 1, list 1, no new pairing needed), result as 'event/runtime' and in the device
+             list (stored in the device file)
+    - added: hmmqtt: characteristic of a blind ('half': level of the actor at half the height of the window) - the %
+             of a blind is the share of its running time, not of the window height (50 % was almost closed); the
+             levels of MQTT are the visible ones now (0 / 50 / 100 -> 0 / half / 100, linear between), the level of
+             the actor is sent as 'actorLevel'
+    - added: setup page 'HomeMatic': column with the running times, 'Lesen' and the panel 'Laufzeiten' per blind
+             (running times down / up and half height, written once to the actor; 'Ab messen' / 'Auf messen' as a
+             stop watch while the blind drives as usual), see doc/homematic.md
+    - change: README viewer of the WEBIF: all markdown files of the repository and the files they link (e.g.
+             p4mqttd/README.md with the disclaimer) are opened in the viewer instead of at GitHub (htdocs/repo/,
+             symlinks created by htdocs/genrepo.sh on every make); other files are shown as text
+    - change: TASMOTA.md moved to tasmota/TASMOTA.md
+    - change: schema (main menu and S 3200), edit mode: a menu line below the menu ('Sensor hinzufügen', 'Template
+             hinzufügen', 'Leitung hinzufügen', 'Speichern', 'Beenden') replaces the context menu, leaving with
+             unsaved changes asks to store or discard them
+    - change: schema: sensors are added explicitly - 'Sensor hinzufügen' offers the active sensors which are not yet
+             in the schema (with search), the selected one is placed by the mouse; no more rows are created
+             automatically for all active sensors, elements without a position are not shown and removed from
+             schemaconf by the next 'Speichern'; sensors can be deleted from the schema like the other elements
+    - change: schema: 'User Constant' is named 'Template' and is placed by the mouse like a sensor
+    - added: schema: lines (CN / P4CN) completely new - a polyline with any number of points (one line around
+             corners) drawn as SVG with an animated flow, direction selectable, optional JavaScript condition of the
+             flow (false / 0 stops, a negative value reverses it); created by clicks (double click / Enter ends),
+             in the edit mode moved by the mouse, handles to move / add / remove the points, a click opens the dialog
+             (color, flow color, width, speed, layer)
+    - change: schema: dialog of an element in the style of the other settings dialogs, the JavaScript with CodeMirror,
+             preview button (taken back without 'Ok'), color and width of the border, sensor name in the title;
+             mouse hint '<title> - <name of the sensor> (<id>)'
+    - bugfix: schema: 'Bezeichnung' had no effect (the title is part of the valuefacts, not of the sensor data);
+             the checkboxes 'Bezeichnung' / 'Einheit' were shown checked even if off; changes of the dialog became
+             visible only with the next value of the sensor; elements can be dropped above other elements and lines
+    - bugfix: storeSchema: an element created and deleted before the first store was stored
+    - change: schema: fitted into the page keeping the aspect ratio (also on resize of the window), scaled by a CSS
+             transform - the positions of the elements and lines stay pixel of the picture, the mouse positions of
+             the edit mode are converted
+    - added: schema: zoom by pinch on the phone (one finger scrolls), double tap zooms in / back to the fitted size,
+             Ctrl + wheel on the PC
 
 2026-11-11: version 0.1.52
     - added: Fröling S 3200 via the new service p4mqttd (directory p4mqttd/, built on its own, serial line + MQTT, no

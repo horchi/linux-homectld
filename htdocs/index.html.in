@@ -92,6 +92,7 @@
     <script type="text/javascript" src="p4/page.js"></script>
     <script type="text/javascript" src="p4/menu.js"></script>
     <script type="text/javascript" src="p4/errors.js"></script>
+    <script type="text/javascript" src="p4/commands.js"></script>
     <script type="text/javascript" src="p4/pellets.js"></script>
     <script type="text/javascript" src="p4/schema.js"></script>
     <script type="text/javascript" src="images.js"></script>

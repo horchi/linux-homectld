@@ -64,6 +64,13 @@
 
 .p4PelletTable td {
    padding: 4px 8px;
+   vertical-align: middle;
+}
+
+.p4PelletTable .p4PelletActions button {
+   display: block;
+   width: 100%;
+   margin: 2px 0;
 }
 
 .p4PelletTable input {
@@ -78,4 +85,181 @@
 
 .p4PelletNew td {
    background-color: var(--editadd);
+}
+
+/* small displays (phones): one card per delivery instead of a wide table */
+
+@media (max-width: 940px) {
+
+   .p4PelletTable, .p4PelletTable tbody, .p4PelletTable tr, .p4PelletTable td {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+   }
+
+   .p4PelletTable thead {
+      display: none;
+   }
+
+   table.p4PelletTable tr {
+      height: auto;                    /* base.css fixes the row height to 48px */
+      margin-bottom: 10px;
+      padding: 4px 0;
+      border: 1px solid var(--blue);
+      border-radius: 8px;
+   }
+
+   table.p4PelletTable td {
+      display: flex;
+      flex-wrap: wrap;
+      min-height: 36px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 3px 10px;
+   }
+
+   .p4PelletTable td[data-label]::before {
+      content: attr(data-label);
+      flex: 0 0 90px;
+      opacity: 0.7;
+      text-align: left;
+   }
+
+   .p4PelletTable td:empty {
+      display: none;
+   }
+
+   .p4PelletTable input {
+      flex: 1 1 auto;
+      min-width: 0;
+      width: auto;
+      font-size: 16px;                 /* avoids the zoom of iOS on focus */
+   }
+
+   .p4PelletTable td[data-label]:not(:has(input)) {
+      justify-content: flex-start;
+   }
+
+   .p4PelletTable .p4PelletActions {
+      justify-content: flex-end;
+   }
+
+   .p4PelletTable .p4PelletActions button {
+      width: auto;
+      margin: 2px 0 2px 8px;
+   }
+}
+
+/* the tab 'Kommandos' (p4/commands.js) */
+
+.p4Cmd {
+   margin: 8px;
+   padding: 12px;
+   background-color: var(--background);           /* the usual partly transparent background of a page */
+   border-radius: var(--borderRadius);
+}
+
+.p4CmdRow {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 16px;
+   align-items: flex-start;
+   margin-bottom: 10px;
+}
+
+.p4CmdBox {
+   flex: 1 1 380px;
+   min-width: 0;
+   display: flex;
+   flex-direction: column;
+   gap: 6px;
+}
+
+.p4CmdHead {
+   font-weight: bold;
+   margin-top: 6px;
+}
+
+.p4Cmd .p4MenuActions {
+   margin-top: 0;
+}
+
+.p4CmdJson {
+   box-sizing: border-box;
+   width: 100%;
+   margin: 0;
+   padding: 8px;
+   font-family: monospace;
+   font-size: 14px;
+   white-space: pre-wrap;
+   overflow-wrap: anywhere;
+}
+
+textarea.p4CmdJson {
+   height: 150px;
+   resize: vertical;
+}
+
+/* CodeMirror of the request (colors of the HTML widget editor, class htmlWidgetCm in base.css) */
+
+.p4CmdBox > .p4CmdCm {                     /* more specific than '.CodeMirror' of codemirror.css (loaded later) */
+   height: 150px;
+   min-height: 60px;
+   resize: vertical;
+   overflow: hidden;
+   font-size: 13px;
+   font-family: 'Courier New', monospace;
+   background: #1e1e1e;
+   color: #d4d4d4;
+   border-radius: var(--borderRadius);
+}
+
+.p4CmdGuide ul {
+   margin: 0;
+   padding-left: 20px;
+}
+
+.p4CmdGuide li {
+   margin: 6px 0;
+}
+
+.p4CmdGuide pre.p4CmdJson {
+   margin: 4px 0;
+   font-size: 13px;
+}
+
+pre.p4CmdJson {
+   border: 1px solid var(--blue);
+   max-height: 320px;
+   overflow-y: auto;
+}
+
+.p4CmdFilter,
+.p4CmdSelect {
+   box-sizing: border-box;
+   width: 100%;
+   font-size: 14px;
+}
+
+.p4CmdSelect {
+   height: auto;
+   padding: 2px;
+}
+
+.p4CmdSelect option {
+   padding: 2px 4px;
+}
+
+.p4ParTable {
+   width: 100%;
+}
+
+.p4ParTable td {
+   padding: 6px 10px;
+}
+
+.p4CmdOk td {
+   color: var(--green, green);
+   font-weight: bold;
 }

@@ -28,9 +28,35 @@ With `hmmqtt` the setup menu has the page *HomeMatic*:
 - state of the service and the CUL
 - *Anlernen* (60 s, then press the config button of the device)
 - status request of all devices
-- device list (name, type, serial, rf address, firmware, position, last heard, signal) with *Abmelden*
+- device list (name, type, serial, rf address, firmware, position, running times, last heard, signal) with
+  *Abmelden*, for blinds *Lesen* (running times of the actor) and *Laufzeiten*
 
 The blinds appear as `HMB` sensors as before, the names are set in the sensor setup.
+
+### Running times of the blinds
+
+The blind actor has no position sensor and doesn't detect the end positions: it calculates the position (%)
+from its reference running times down and up. If they don't fit the blind, the % values are wrong. The running
+times are registers of the actor, they can be written at any time, a new pairing is not needed (factory
+default 50 s, values set at a former CCU are kept).
+
+*Laufzeiten* opens a panel with the running times down / up and the level at half height:
+
+- enter the values (e.g. measured with a stop watch) and *Schreiben*: the running times are written to the
+  actor and read back, the result is shown in the event line
+- *Ab messen* / *Auf messen* as a stop watch: the blind drives as usual from one end position to the other
+  (it has to stand at the top for *Ab messen*, at the bottom for *Auf messen*), click *Halbe Höhe* when the
+  window is half covered / half free (optional) and *Ist unten* / *Ist oben* at the end position - the times
+  are put into the fields. Nothing is written to the actor while measuring. If a running time of the actor
+  is too short to reach the end position, enter a longer one and write it first.
+
+*Halbe Höhe*: the % of a blind is the share of its running time, not of the window height (the roll is thick
+at the top, at the end only the slats close), e.g. 50 % is almost closed. With the level of the actor at half
+height (empty: none) the service maps the %: the ones of the WEBIF are then the visible ones (0 → 0,
+50 → half height, 100 → 100, linear between).
+
+After writing, the % values are correct from the next run into an end position on (there the actor
+synchronizes its position).
 
 ## CCU via Node-RED (notes)
 

@@ -4,6 +4,12 @@
 
 #WOMO = 1
 
+# development instance (default off) - option for the developers of homectld, enables what is needed to
+#   develop the delivered parts, e.g. the delivered HTML widget templates (etc/configs/htmlWidgetTemplates.json)
+#   are editable in the WEBIF and 'Export Auslieferung' on the page 'HTML Widgets' saves them for the repository
+
+#DEVEL_INSTANCE = 1
+
 # =========================
 # services to build/use
 

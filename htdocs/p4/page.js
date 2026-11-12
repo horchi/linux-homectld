@@ -11,6 +11,7 @@
  *
  *     Service-Menü   p4/menu.js       (done)
  *     Fehler         p4/errors.js     (planned, phase 5)
+ *     Kommandos      p4/commands.js   (read / write a parameter by its address)
  *     Pellets        p4/pellets.js    (planned, phase 6)
  *     Schema         (open, a dedicated scheme view of the heating)
  *
@@ -46,7 +47,7 @@ function p4PrepareSubMenu()
    for (const tab of p4VisibleTabs()) {
       $("#p4SubMenu")
          .append($('<button></button>')
-                 .addClass('rounded-border button2' + (tab.id == p4Tab ? ' active' : ''))
+                 .addClass('rounded-border tabButton' + (tab.id == p4Tab ? ' active' : ''))
                  .html(tab.title)
                  .click(function() { p4SelectTab(tab.id); }));
    }
@@ -66,6 +67,8 @@ function p4SelectTab(id)
       return;
 
    p4Tab = tab.id;
+   schemaEditActive = false;            // the edit mode of the schema ends with the tab
+   $('#schemaEditMenu').remove();
 
    try { localStorage.setItem(storagePrefix + 'p4Tab', p4Tab); } catch (e) { }
 

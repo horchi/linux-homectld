@@ -80,7 +80,7 @@ std::list<HomeCtl::ConfigItemDef> HomeCtl::configuration
    { "mqttUrl",                   ctString,  "tcp://localhost:1883",   "N", false, "MQTT", "MQTT Broker Url", "URL der MQTT Instanz Beispiel: 'tcp://127.0.0.1:1883'" },
    { "mqttUser",                  ctString,  "",                       "N", false, "MQTT", "User", "" },
    { "mqttPassword",              ctString,  "",                       "N", false, "MQTT", "Password", "" },
-   { "mqttSensorTopics",          ctText,    INSTANCE "2mqtt/w1/#",    "N", false, "MQTT", "Zusätzliche sensor Topics", "Diese Topics werden gelesen und als Sensor Daten verwendet (Komma getrennte Liste)" },
+   { "mqttSensorTopics",          ctStringSet, INSTANCE "2mqtt/w1/#",  "N", false, "MQTT", "Zusätzliche sensor Topics", "Diese Topics werden gelesen und als Sensor Daten verwendet" },
    { "arduinoTopic",              ctString,  INSTANCE "2mqtt/arduino", "N", false, "MQTT", "MQTT Topic des Arduino Interface", "" },
    { "arduinoInterval",           ctInteger, "10",                     "N", false, "MQTT", "Intervall der Arduino Messungen", "[s]" },
 

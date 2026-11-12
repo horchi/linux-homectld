@@ -88,7 +88,7 @@ If you like the project and want to support it
 | [Windy App](doc/windy.md) | wind / weather widgets of windy.app |
 | [Stand Alone Server](doc/standalone-server.md) | camper setup: network, DNS/DHCP, IP masquerading, LTE modem |
 | [Bluetooth Audio](README-BT.md) | Bluetooth audio setup (BR/EDR devices) |
-| [TASMOTA](TASMOTA.md) | I/O boards with TASMOTA |
+| [TASMOTA](tasmota/TASMOTA.md) | I/O boards with TASMOTA |
 
 Further READMEs of the components: [homematic](homematic/README.md), [tpms](tpms/README.md),
 [openHASP](openHASP/README.md), [gps.u-blox](gps.u-blox/README.md), [garmin](garmin/README.md),

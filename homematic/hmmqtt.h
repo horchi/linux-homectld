@@ -50,12 +50,13 @@ namespace BidCos
       mtDeviceInfo = 0x00,   // pairing request of a device (its config button)
       mtConfig     = 0x01,   // config / status request (sub type in payload[1])
       mtAck        = 0x02,   // payload[0]: 0x00 ACK, 0x01 ACK with status, 0x80 NACK
-      mtInfo       = 0x10,   // payload[0] 0x06: actuator status
+      mtInfo       = 0x10,   // payload[0] 0x06: actuator status, 0x02 / 0x03: register list
       mtAction     = 0x11    // payload[0] 0x02: set level, 0x03: stop
    };
 
    enum ConfigType           // payload[1] of mtConfig
    {
+      ctParamReq   = 0x04,   // read a register list, answered by INFO 02 (pairs) / 03 (sequence)
       ctStart      = 0x05,
       ctEnd        = 0x06,
       ctWriteIndex = 0x08,
@@ -149,6 +150,12 @@ class HmDevice
       virtual json_t* state(uint channel) = 0;
       virtual bool moving() { return false; }          // state changes by itself (blind running)
       json_t* toJson();                                // entry of 'devices'
+      virtual void addJson(json_t* obj) {}             // type specific fields of the entry (also in the device file)
+      virtual void fromJson(json_t* obj) {}
+
+      // register list (INFO 02 / 03, answer of a CONFIG 04), true if the requested values are complete
+
+      virtual bool handleParams(const BidCos::Frame& frame) { return false; }
 
       std::string channelId(uint channel) { return serial + ":" + std::to_string(channel); }
 
@@ -160,6 +167,7 @@ class HmDevice
       time_t lastSeen {0};
       int rssi {0};
       uint64_t pollAt {0};                             // next status request while moving [ms], 0 not moving
+      std::map<uint8_t,uint8_t> params;                // registers of a CONFIG 04 received so far
 };
 
 //***************************************************************************
@@ -179,6 +187,23 @@ class HmBlind : public HmDevice
 
       bool working() { return direction != 0; }
       bool moving() override { return working(); }
+
+      // reference running times (channel 1, list 1, registers 0B/0C top->bottom, 0D/0E bottom->top, 0.1 s)
+
+      void addJson(json_t* obj) override;
+      void fromJson(json_t* obj) override;
+      bool handleParams(const BidCos::Frame& frame) override;
+      std::vector<uint8_t> runtimeRegisters(double down, double up);
+
+      double runtimeDown {-1};  // [s] top -> bottom, -1 unknown
+      double runtimeUp {-1};    // [s] bottom -> top
+
+      // characteristic: level of the actor (% of the running time) at half the height of the window,
+      //   the levels of MQTT are the visible ones (0 / 50 / 100 -> 0 / half / 100, linear between), -1 none
+
+      double half {-1};
+      double toActor(double visible);
+      double toVisible(double actor);
 
    protected:
 
@@ -209,7 +234,8 @@ class HmMqtt
 
       // a frame waiting for its ACK
 
-      enum PendingKind { pkCommand, pkPairStart, pkPairWrite, pkPairEnd, pkRemoveEnd };
+      enum PendingKind { pkCommand, pkPairStart, pkPairWrite, pkPairEnd, pkRemoveEnd,
+                         pkRuntimeWrite, pkRuntimeEnd, pkParamReq };
 
       struct Pending
       {
@@ -238,7 +264,14 @@ class HmMqtt
       int pairingCheck();
       int pairDevice(const BidCos::Frame& frame);
       int removeDevice(const char* serial);
-      int configFrames(uint32_t dst, const std::vector<uint8_t>& registers, PendingKind endKind);
+      int configFrames(uint32_t dst, const std::vector<uint8_t>& registers, PendingKind endKind,
+                       uint8_t channel = 0, uint8_t list = 0);
+
+      // running times of the blinds
+
+      int runtime(json_t* jMsg);
+      int readParams(HmDevice* d, uint8_t channel, uint8_t list);
+      int publishRuntime(HmDevice* d, const char* result, const char* text);
 
       // devices
 

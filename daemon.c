@@ -694,6 +694,7 @@ int HomeCtl::init()
             case ConfigItemType::ctText:
             case ConfigItemType::ctChoice:
             case ConfigItemType::ctComboChoice:
+            case ConfigItemType::ctStringSet:      // the comma separated string
 
             case ConfigItemType::ctMultiSelect:
             case ConfigItemType::ctRange:
@@ -2134,6 +2135,11 @@ int HomeCtl::initDb()
    }
 
    // -------------------
+   // HTML widget templates delivered with homectld (before the default dashboards, they reference them by name)
+
+   importHtmlWidgetTemplates();
+
+   // -------------------
    // create at least one dashboard
 
    count = 0;
@@ -2151,6 +2157,277 @@ int HomeCtl::initDb()
    }
 
    return status;
+}
+
+//***************************************************************************
+// Import HTML Widget Templates
+//   the templates delivered with homectld: <confDir>/htmlWidgetTemplates.json, the format of
+//   the export of the WEBIF { "type": "homectld-htmlwidgets", "version": 1, "snippets": [...] }
+//   matched by name: missing ones are created, changed ones updated, all of them read only
+//   (READONLY = 1, only to duplicate in the WEBIF); a template removed from the file stays,
+//   editable again; an editable one of the same name is taken over (its id and so its widgets
+//   stay), the defaults which change are copied to the widgets relying on them
+//   development instance (DEVEL_INSTANCE): the delivered templates are editable in the WEBIF,
+//   changed ones are kept (not overwritten by the file)
+//***************************************************************************
+
+int HomeCtl::importHtmlWidgetTemplates()
+{
+   char* path {};
+   asprintf(&path, "%s/htmlWidgetTemplates.json", confDir);
+
+   if (!fileExists(path))
+   {
+      free(path);
+      return done;
+   }
+
+   json_t* jData {jsonLoadFile(path)};
+   json_t* jList {!jData ? nullptr : json_is_array(jData) ? jData : getObjectFromJson(jData, "snippets")};
+
+   if (!json_is_array(jList))
+   {
+      tell(eloAlways, "Error: No HTML widget templates found in '%s', ignoring", path);
+      json_decref(jData);
+      free(path);
+      return fail;
+   }
+
+   // the existing snippets by name
+
+   struct Snippet
+   {
+      long id {na};
+      bool readonly {false};
+      std::string kind;
+      std::string code;
+      std::string css;
+      std::string parameters;
+   };
+
+   std::map<std::string,Snippet> existing;
+
+   tableHtmlWidgets->clear();
+
+   for (bool f = selectAllHtmlWidgets->find(); f; f = selectAllHtmlWidgets->fetch())
+   {
+      Snippet& snippet {existing[tableHtmlWidgets->getStrValue("NAME")]};
+
+      snippet.id = tableHtmlWidgets->getIntValue("ID");
+      snippet.readonly = tableHtmlWidgets->getIntValue("READONLY") == 1;
+      snippet.kind = tableHtmlWidgets->getStrValue("KIND");
+      snippet.code = tableHtmlWidgets->getStrValue("CODE");
+      snippet.css = tableHtmlWidgets->getStrValue("CSS");
+      snippet.parameters = tableHtmlWidgets->getStrValue("PARAMETERS");
+   }
+
+   selectAllHtmlWidgets->freeResult();
+
+   std::set<std::string> names;
+   int created {0};
+   int updated {0};
+   size_t index {0};
+   json_t* jSnippet {};
+
+   json_array_foreach(jList, index, jSnippet)
+   {
+      const char* name {getStringFromJson(jSnippet, "name", "")};
+
+      if (isEmpty(name) || names.count(name))
+         continue;
+
+      names.insert(name);
+
+      std::string kind {getStringFromJson(jSnippet, "kind", "html")};
+      const char* code {getStringFromJson(jSnippet, "code", "")};
+      const char* css {getStringFromJson(jSnippet, "css", "")};
+      json_t* jParameters {getObjectFromJson(jSnippet, "parameters")};
+      bool hasParameters {jParameters && json_is_object(jParameters) && json_object_size(jParameters)};
+      char* parameters {hasParameters ? json_dumps(jParameters, JSON_COMPACT) : strdup("")};
+
+      auto it {existing.find(name)};
+
+      if (it != existing.end())
+      {
+         Snippet& old {it->second};
+         json_t* jOld {jsonLoad(old.parameters.c_str(), 0, true)};
+         bool sameParameters {(!hasParameters && (!jOld || !json_object_size(jOld))) ||
+                              (hasParameters && jOld && json_equal(jOld, jParameters))};
+
+         if (old.readonly && old.kind == kind && old.code == code && old.css == css && sameParameters)
+         {
+            json_decref(jOld);
+            free(parameters);
+            continue;                    // unchanged
+         }
+
+         if (old.readonly && develInstance)
+         {
+            tell(eloAlways, "HTML widget template '%s' differs from '%s', kept (DEVEL_INSTANCE) - "
+                 "'Export Auslieferung' writes the file for the repository", name, path);
+            json_decref(jOld);
+            free(parameters);
+            continue;                    // edited in the WEBIF of the development instance
+         }
+
+         if (!sameParameters)
+            htmlWidgetDefaultsToWidgets(old.id, jOld, hasParameters ? jParameters : nullptr);
+
+         json_decref(jOld);
+
+         tableHtmlWidgets->clear();
+         tableHtmlWidgets->setValue("ID", old.id);
+         tableHtmlWidgets->find();
+         tell(eloAlways, "HTML widget template '%s' %s", name, old.readonly ? "updated" : "taken over as delivered template");
+         updated++;
+      }
+      else
+      {
+         tableHtmlWidgets->clear();
+         tell(eloAlways, "HTML widget template '%s' created", name);
+         created++;
+      }
+
+      tableHtmlWidgets->setValue("NAME", name);
+      tableHtmlWidgets->setValue("KIND", kind.c_str());
+      tableHtmlWidgets->setValue("CODE", code);
+      tableHtmlWidgets->setValue("CSS", css);
+      tableHtmlWidgets->setValue("PARAMETERS", parameters);
+      tableHtmlWidgets->setValue("READONLY", 1L);
+      tableHtmlWidgets->store();
+      tableHtmlWidgets->reset();
+
+      free(parameters);
+   }
+
+   // removed from the file -> editable again
+
+   for (const auto& [name, snippet] : existing)
+   {
+      if (!snippet.readonly || names.count(name))
+         continue;
+
+      tableHtmlWidgets->clear();
+      tableHtmlWidgets->setValue("ID", snippet.id);
+
+      if (tableHtmlWidgets->find())
+      {
+         tableHtmlWidgets->setValue("READONLY", 0L);
+         tableHtmlWidgets->update();
+         tell(eloAlways, "HTML widget template '%s' no longer delivered, editable now", name.c_str());
+      }
+
+      tableHtmlWidgets->reset();
+   }
+
+   tell(eloInfo, "HTML widget templates of '%s': %d created, %d updated", path, created, updated);
+
+   json_decref(jData);
+   free(path);
+
+   return success;
+}
+
+//***************************************************************************
+// HTML Widget Defaults To Widgets
+//   defaults of a template which change (jOld -> jNew) are copied into the params of the
+//   widgets using the template (widgettype 18, 'snippet') which don't set them themselves -
+//   so these widgets keep their sensors / texts (e.g. host specific defaults replaced by
+//   neutral ones of the delivered template)
+//***************************************************************************
+
+int HomeCtl::htmlWidgetDefaultsToWidgets(long snippetId, json_t* jOld, json_t* jNew)
+{
+   if (!jOld || !json_is_object(jOld) || !json_object_size(jOld))
+      return done;
+
+   struct Widget
+   {
+      long dashboardId {0};
+      std::string type;
+      long address {0};
+      json_t* jOpts {};
+   };
+
+   std::vector<Widget> widgets;
+   cDbStatement* select {new cDbStatement(tableDashboardWidgets)};
+
+   select->build("select ");
+   select->bindAllOut();
+   select->build(" from %s", tableDashboardWidgets->TableName());
+
+   if (select->prepare() != success)
+   {
+      delete select;
+      return fail;
+   }
+
+   tableDashboardWidgets->clear();
+
+   for (bool f = select->find(); f; f = select->fetch())
+   {
+      json_t* jOpts {jsonLoad(tableDashboardWidgets->getStrValue("WIDGETOPTS"), 0, true)};
+
+      if (jOpts && getIntFromJson(jOpts, "widgettype", na) == wtHtml && getIntFromJson(jOpts, "snippet", na) == snippetId)
+         widgets.push_back({ tableDashboardWidgets->getIntValue("DASHBOARDID"), tableDashboardWidgets->getStrValue("TYPE"),
+                             tableDashboardWidgets->getIntValue("ADDRESS"), jOpts });
+      else
+         json_decref(jOpts);
+   }
+
+   select->freeResult();
+   delete select;
+
+   for (auto& widget : widgets)
+   {
+      json_t* jParams {getObjectFromJson(widget.jOpts, "params")};
+      int count {0};
+
+      if (!jParams || !json_is_object(jParams))
+      {
+         jParams = json_object();
+         json_object_set_new(widget.jOpts, "params", jParams);
+      }
+
+      const char* key {};
+      json_t* jOldValue {};
+
+      json_object_foreach(jOld, key, jOldValue)
+      {
+         json_t* jNewValue {jNew ? json_object_get(jNew, key) : nullptr};
+
+         if (!jNewValue || json_equal(jOldValue, jNewValue) || json_object_get(jParams, key))
+            continue;                    // not used any more, unchanged or set by the widget
+
+         json_object_set(jParams, key, jOldValue);
+         count++;
+      }
+
+      if (count)
+      {
+         char* opts {json_dumps(widget.jOpts, JSON_REAL_PRECISION(4))};
+
+         tableDashboardWidgets->clear();
+         tableDashboardWidgets->setValue("DASHBOARDID", widget.dashboardId);
+         tableDashboardWidgets->setValue("TYPE", widget.type.c_str());
+         tableDashboardWidgets->setValue("ADDRESS", widget.address);
+
+         if (tableDashboardWidgets->find())
+         {
+            tableDashboardWidgets->setValue("WIDGETOPTS", opts);
+            tableDashboardWidgets->update();
+            tell(eloAlways, "HTML widget %s:0x%02lx of dashboard %ld: %d default(s) of its template taken over",
+                 widget.type.c_str(), widget.address, widget.dashboardId, count);
+         }
+
+         tableDashboardWidgets->reset();
+         free(opts);
+      }
+
+      json_decref(widget.jOpts);
+   }
+
+   return done;
 }
 
 //***************************************************************************
@@ -3843,44 +4120,6 @@ int HomeCtl::sendAlertMail(const char* to)
    // send mail
 
    return sendMail(to, alertMailSubject.c_str(), alertMailBody.c_str(), "text/html");
-}
-
-//***************************************************************************
-// Update Conf Tables
-//***************************************************************************
-
-int HomeCtl::updateSchemaConfTable()
-{
-   const int step = 20;
-   int y = 50;
-   int added = 0;
-
-   tableValueFacts->clear();
-
-   for (bool f = selectActiveValueFacts->find(); f; f = selectActiveValueFacts->fetch())
-   {
-      int addr = tableValueFacts->getIntValue("ADDRESS");
-      const char* type = tableValueFacts->getStrValue("TYPE");
-      y += step;
-
-      tableSchemaConf->clear();
-      tableSchemaConf->setValue("ADDRESS", addr);
-      tableSchemaConf->setValue("TYPE", type);
-
-      if (!tableSchemaConf->find())
-      {
-         tableSchemaConf->setValue("KIND", "value");
-         tableSchemaConf->setValue("STATE", "A");
-
-         tableSchemaConf->store();
-         added++;
-      }
-   }
-
-   selectActiveValueFacts->freeResult();
-   tell(eloInfo, "Added %d html schema configurations", added);
-
-   return success;
 }
 
 //***************************************************************************
@@ -5869,6 +6108,40 @@ int HomeCtl::setConfigItem(const char* name, const char* value, const char* kind
    tableConfig->reset();
 
    return status;
+}
+
+//***************************************************************************
+// Config Item as String Set (ctStringSet)
+//   stored as comma separated string, elements are trimmed, empty ones dropped
+//***************************************************************************
+
+int HomeCtl::getConfigItem(const char* name, std::vector<std::string>& value, const char* def)
+{
+   std::string str;
+   int status = getConfigItem(name, str, def);
+
+   value = split(str, ',');
+   value.erase(std::remove_if(value.begin(), value.end(), [](const std::string& s) { return s.empty(); }), value.end());
+
+   return status;
+}
+
+int HomeCtl::setConfigItem(const char* name, const std::vector<std::string>& value, const char* kind)
+{
+   std::string str;
+
+   for (const auto& s : value)
+   {
+      if (s.empty())
+         continue;
+
+      if (!str.empty())
+         str += ",";
+
+      str += s;
+   }
+
+   return setConfigItem(name, str.c_str(), kind);
 }
 
 int HomeCtl::getConfigItem(const char* name, int& value, int def)

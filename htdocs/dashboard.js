@@ -757,81 +757,8 @@ function initWidget(key, widget, fact)
                             .css('user-select', 'none'))
                    );
 
-         if (!setupMode) {
-            $('#button' + fact.type + fact.address)
-               .on('mousedown touchstart', {"fact" : fact}, function(e) {
-                  if (lightEmulatedMouse(e))
-                     return;
-                  if (e.touches != null) {
-                     lightClickPosX = e.touches[0].pageX;
-                     lightClickPosY = e.touches[0].pageY;
-                  }
-                  else
-                  {
-                     e.preventDefault();
-                     lightClickPosX = e.clientX;
-                     lightClickPosY = e.clientY;
-                  }
-                  // e.preventDefault();
-                  if ((e.which != 0 && e.which != 1) || lightDialogOpen())
-                     return;
-                  // long press: color (color lights) resp. brightness (dimmable lights) dialog
-                  if (fact.options & 0x06) {
-                     lightClickTimeout = setTimeout(function(event) {
-                        lightClickTimeout = lightClickPosX = lightClickPosY = null;
-                        if (fact.options & 0x04)
-                           showLightColorDialog(key);
-                        else
-                           showLightDimDialog(key);
-                     }, 400);
-                  }
-               })
-               .on('mousemove touchmove', {"fact" : fact}, function(e) {
-                  // moved (e.g. scrolling the dashboard) -> no long press and no toggle
-                  if (lightEmulatedMouse(e) || lightClickPosX == null || lightClickPosY == null)
-                     return;
-                  let x = e.touches != null ? e.touches[0].pageX : e.clientX;
-                  let y = e.touches != null ? e.touches[0].pageY : e.clientY;
-                  if (Math.abs(lightClickPosX - x) >= 15 || Math.abs(lightClickPosY - y) >= 15) {
-                     if (lightClickTimeout)
-                        clearTimeout(lightClickTimeout);
-                     lightClickTimeout = lightClickPosX = lightClickPosY = null;
-                  }
-               })
-               .on('mouseup mouseleave touchend touchcancel', {"fact" : fact}, function(e) {
-                  if (lightEmulatedMouse(e) || lightDialogOpen())
-                     return;
-                  if (e.type == 'touchcancel') {        // the browser took the touch (e.g. scrolling)
-                     if (lightClickTimeout)
-                        clearTimeout(lightClickTimeout);
-                     lightClickTimeout = lightClickPosX = lightClickPosY = null;
-                     return;
-                  }
-                  if (e.changedTouches != null) {
-                     posX = e.changedTouches[0].pageX;
-                     posY = e.changedTouches[0].pageY;
-                  }
-                  else
-                  {
-                     posX = e.clientX;
-                     posY = e.clientY;
-                  }
-                  if (lightClickPosX != null || lightClickPosY != null) {
-                     if (Math.abs(lightClickPosX - posX) < 15 && Math.abs(lightClickPosY - posY) < 15) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        function doToggle() { toggleIo(fact.address, fact.type); }
-                        if (fact.settings && fact.settings.ask)
-                           confirmDialog(doToggle, 'Wirklich schalten', 'Schalten', 'Abbrechen');
-                        else if (!lightToggledJustNow(key))
-                           toggleIo(fact.address, fact.type);
-                     }
-                  }
-                  if (lightClickTimeout)
-                     clearTimeout(lightClickTimeout);
-                  lightClickTimeout = lightClickPosX = lightClickPosY = null;
-               });
-         }
+         if (!setupMode)
+            bindSymbolPress('#button' + fact.type + fact.address, fact, key);
 
          break;
       }
@@ -1067,19 +994,23 @@ function initWidget(key, widget, fact)
                             .attr('id', 'widget' + fact.type + fact.address)
                             .attr('draggable', false)
                             .addClass('rounded-border')
-                            .css('user-select', 'none'))
-                    .click(function() {
-                       function doToggle() { toggleIo(fact.address, fact.type); }
-                       if (fact.settings && fact.settings.ask)
-                          confirmDialog(doToggle, 'Wirklich schalten', 'Schalten', 'Abbrechen');
-                       else
-                          toggleIo(fact.address, fact.type);
-                    }))
+                            .css('user-select', 'none')))
             .append($('<div></div>')
                     .attr('id', 'value' + fact.type + fact.address)
                     .addClass('symbol-value')
                     .css('user-select', 'none')
                    );
+
+         if (!setupMode)
+            bindSymbolPress('#button' + fact.type + fact.address, fact, key);
+         else
+            $('#button' + fact.type + fact.address).click(function() {
+               function doToggle() { toggleIo(fact.address, fact.type); }
+               if (fact.settings && fact.settings.ask)
+                  confirmDialog(doToggle, 'Wirklich schalten', 'Schalten', 'Abbrechen');
+               else
+                  toggleIo(fact.address, fact.type);
+            });
 
          break;
       }
@@ -2071,7 +2002,7 @@ function initLightDimDialog()
    });
 
    $('#lightDim').on('input', function() {
-      $('#lightDimValue').text($(this).val() + ' %');
+      $('#lightDimValue').text(lightDimValueText($(this).val(), $(this).data('blind')));
    });
 
    $('#lightDim').on('change', function() {      // on release of the slider
@@ -2082,22 +2013,123 @@ function initLightDimDialog()
    });
 }
 
+// text beside the slider; blinds (HMB): 0 % = zu, 100 % = auf
+
+function lightDimValueText(value, blind)
+{
+   if (blind && value == 0)
+      return '0 % (zu)';
+   if (blind && value == 100)
+      return '100 % (auf)';
+   return value + ' %';
+}
+
+// brightness of a dimmable light resp. position of a blind (HMB)
+
 function showLightDimDialog(key)
 {
+   let fact = valueFacts[key] || {};
    let sensor = allSensors[key] || {};
-   let bri = sensor.bri != null ? sensor.bri : sensor.score != null ? sensor.score : 100;
+   let blind = fact.type == 'HMB';
+   let bri = 100;
 
-   $('#lightDim').data('key', key).val(bri);
-   $('#lightDimValue').text(bri + ' %');
-   $('#lightDimTitle').text(factTitle(key));
+   if (blind)
+      bri = sensor.value != null ? Math.round(sensor.value) : 100;
+   else
+      bri = sensor.bri != null ? sensor.bri : sensor.score != null ? sensor.score : 100;
+
+   $('#lightDim').attr('min', blind ? '0' : '1');
+   $('#lightDim').data('key', key).data('blind', blind).val(bri);
+   $('#lightDimValue').text(lightDimValueText(bri, blind));
+   $('#lightDimTitle').text(factTitle(key) + (blind ? ' – Position' : ''));
    $('#lightDimDiv').css('display', 'block');
    lightDialogOpenedAt = Date.now();
 
-   let posX = ($('#container').innerWidth() - $('#lightDimDiv').outerWidth()) / 2;
+   // horizontally centered by the CSS (left 50% / translateX(-50%))
    let posY = ($('#container').innerHeight() - $('#lightDimDiv').outerHeight()) / 2;
 
-   $('#lightDimDiv').css('left', posX + 'px');
    $('#lightDimDiv').css('top', posY + 'px');
+}
+
+// press on the symbol of a widget (Symbol, Symbol-Value, Symbol-Text): a short one toggles, a long one
+//   opens the color (color lights) resp. brightness (dimmable lights) resp. position (blinds) dialog
+
+function bindSymbolPress(button, fact, key)
+{
+   $(button)
+      .on('mousedown touchstart', {"fact" : fact}, function(e) {
+         if (lightEmulatedMouse(e))
+            return;
+         if (e.touches != null) {
+            lightClickPosX = e.touches[0].pageX;
+            lightClickPosY = e.touches[0].pageY;
+         }
+         else
+         {
+            e.preventDefault();
+            lightClickPosX = e.clientX;
+            lightClickPosY = e.clientY;
+         }
+         // e.preventDefault();
+         if ((e.which != 0 && e.which != 1) || lightDialogOpen())
+            return;
+         // long press: color (color lights) resp. brightness (dimmable lights) resp.
+         //   position (blinds) dialog
+         if ((fact.options & 0x06) || fact.type == 'HMB') {
+            lightClickTimeout = setTimeout(function(event) {
+               lightClickTimeout = lightClickPosX = lightClickPosY = null;
+               if (fact.options & 0x04)
+                  showLightColorDialog(key);
+               else
+                  showLightDimDialog(key);
+            }, 400);
+         }
+      })
+      .on('mousemove touchmove', {"fact" : fact}, function(e) {
+         // moved (e.g. scrolling the dashboard) -> no long press and no toggle
+         if (lightEmulatedMouse(e) || lightClickPosX == null || lightClickPosY == null)
+            return;
+         let x = e.touches != null ? e.touches[0].pageX : e.clientX;
+         let y = e.touches != null ? e.touches[0].pageY : e.clientY;
+         if (Math.abs(lightClickPosX - x) >= 15 || Math.abs(lightClickPosY - y) >= 15) {
+            if (lightClickTimeout)
+               clearTimeout(lightClickTimeout);
+            lightClickTimeout = lightClickPosX = lightClickPosY = null;
+         }
+      })
+      .on('mouseup mouseleave touchend touchcancel', {"fact" : fact}, function(e) {
+         if (lightEmulatedMouse(e) || lightDialogOpen())
+            return;
+         if (e.type == 'touchcancel') {        // the browser took the touch (e.g. scrolling)
+            if (lightClickTimeout)
+               clearTimeout(lightClickTimeout);
+            lightClickTimeout = lightClickPosX = lightClickPosY = null;
+            return;
+         }
+         if (e.changedTouches != null) {
+            posX = e.changedTouches[0].pageX;
+            posY = e.changedTouches[0].pageY;
+         }
+         else
+         {
+            posX = e.clientX;
+            posY = e.clientY;
+         }
+         if (lightClickPosX != null || lightClickPosY != null) {
+            if (Math.abs(lightClickPosX - posX) < 15 && Math.abs(lightClickPosY - posY) < 15) {
+               e.preventDefault();
+               e.stopPropagation();
+               function doToggle() { toggleIo(fact.address, fact.type); }
+               if (fact.settings && fact.settings.ask)
+                  confirmDialog(doToggle, 'Wirklich schalten', 'Schalten', 'Abbrechen');
+               else if (!lightToggledJustNow(key))
+                  toggleIo(fact.address, fact.type);
+            }
+         }
+         if (lightClickTimeout)
+            clearTimeout(lightClickTimeout);
+         lightClickTimeout = lightClickPosX = lightClickPosY = null;
+      });
 }
 
 var lightDialogOpenedAt = 0;
@@ -2193,10 +2225,9 @@ function showLightColorDialog(key)
    $('#lightColor').wheelColorPicker('setColor', { 'h': sensor.hue/360.0, 's': sensor.sat/100.0, 'v': sensor.score/100.0 });
    $('#lightColor').data('bri', parseInt($('#lightColor').wheelColorPicker('getColor').v * 100));
 
-   let posX = ($('#container').innerWidth() - $('#lightColorDiv').outerWidth()) / 2;
+   // horizontally centered by the CSS (left 50% / translateX(-50%))
    let posY = ($('#container').innerHeight() - $('#lightColorDiv').outerHeight()) / 2;
 
-   $('#lightColorDiv').css('left', posX + 'px');
    $('#lightColorDiv').css('top', posY + 'px');
 }
 

@@ -95,6 +95,12 @@ ifdef GIT_REV
    DEFINES += -DGIT_REV='"$(GIT_REV)"'
 endif
 
+# development instance (Make.user), e.g. the delivered HTML widget templates are editable
+
+ifdef DEVEL_INSTANCE
+   DEFINES += -DDEVEL_INSTANCE
+endif
+
 # build rules
 
 $(TARGET) : $(OBJS)
@@ -262,6 +268,7 @@ install-config:
 	fi
 	install --mode=644 -D ./etc/configs/*.dat $(CONFDEST)/;
 	install --mode=644 -D ./etc/configs/gpio.json $(CONFDEST)/;
+	install --mode=644 -D ./etc/configs/htmlWidgetTemplates.json $(CONFDEST)/;   # delivered, always replaced
 	if test -f ./etc/configs/defaultDashboards.json; then \
 	   install --mode=644 -D ./etc/configs/defaultDashboards.json $(CONFDEST)/; \
 	fi

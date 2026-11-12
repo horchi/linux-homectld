@@ -5,9 +5,7 @@ line (FTDI USB-serial converter at COM1 of the Fröling mainboard) and to the [h
 
 It has **no WEB interface and no database**. Display, history, charts, alerts, mails and the user rights are provided by
 the homectld. The stand alone [p4d](https://github.com/horchi/linux-p4d) (with its own WEBIF and database) is not
-touched by this and stays available.
-
-The plan and the protocol are described in [p4d-integration-plan.md](../p4d-integration-plan.md).
+needed any more and will not be developed further.
 
 Written by: *Jörg Wendel (linux at jwendel dot de)*
 
@@ -135,7 +133,8 @@ new value). `user` is optional, the homectld sends the name of the logged in use
 
 | Command | Meaning |
 |---|---|
-| `{"cmd":"parget","rid":"p1","address":480}` | value, unit, digits, min, max, default and type of a parameter |
+| `{"cmd":"parlist","rid":"p0"}` | the parameters of the service menu (the addresses `parget` / `parset` accept): `count` and `parameters` with `address`, `type`, `title` and `path` (the way through the menu). From the cache, the control isn't asked |
+| `{"cmd":"parget","rid":"p1","address":480}` | title, value, unit, digits, min, max, default and type of a parameter |
 | `{"cmd":"parset","rid":"p2","address":480,"value":"72","user":"joerg"}` | sets a parameter. `value` is a number (`.` or `,`), `hh:mm` for a time of day, `ja` / `nein` (also `1` / `0`, `true` / `false`) for a switch. The answer has `old` and the `value` read back |
 | `{"cmd":"timeset","rid":"p3","address":3,"range":1,"value":"06:00 - 22:00","user":"joerg"}` | sets range 1 to 4 of the time program at `address`, `nn:nn - nn:nn` deletes it. The control knows only steps of 10 minutes |
 | `{"cmd":"inittimes","rid":"p4"}` | reads the time programs from the control again |
@@ -146,6 +145,39 @@ The time programs can't be requested one by one from the control, they are all r
 memory and in `times.json` of the cache directory and read again by `inittimes` or `initmenu`. A change at the control
 itself is only seen after that.
 
+### Using the commands in scripts
+
+The commands and the answers are **not retained** (a retained command is ignored). The daemon works the commands off
+one after the other (at most 20 are waiting) and copies the `rid` into the answer, so several clients can ask at the
+same time. A command which isn't JSON gets no answer, so use a timeout.
+
+`p4/reply` is shared by all clients (the homectld, too): everybody gets every answer and has to pick his own by the
+`rid`. Choose a unique `rid` with a prefix of your own, **the prefix `homectld-` is reserved for the homectld**.
+Subscribe before the command is sent:
+
+```
+RID="myscript-$$-$(date +%s)"
+mosquitto_sub -h <broker> -t p4/reply -W 30 | jq -c --unbuffered "select(.rid==\"$RID\")" | head -n1 &
+sleep 0.5
+mosquitto_pub -h <broker> -t p4/cmd -m "{\"cmd\":\"parget\",\"rid\":\"$RID\",\"address\":480}"
+wait
+```
+
+As an option to the filter `select(.rid==\"$RID\")`: with **`replyTo`** in the command the answer is sent to this
+topic instead of `p4/reply`. It has to be a topic below `p4/reply/` (without wildcards), take a name of your own.
+Nobody else answers there, so the first message is yours - no filter and no `jq` needed:
+
+```
+mosquitto_sub -h <broker> -t p4/reply/myscript -C 1 -W 30 &
+sleep 0.5
+mosquitto_pub -h <broker> -t p4/cmd -m '{"cmd":"parget","rid":"1","address":480,"replyTo":"p4/reply/myscript"}'
+wait
+```
+
+Two scripts using the same `replyTo` topic at the same time still have to tell their answers apart by the `rid`.
+The homectld reads `p4/cmd`, `p4/reply` and `p4/reply/#`, too: it drops what isn't its own (unknown or missing `rid`,
+no JSON) and removes a command or an answer which was published retained by mistake at the broker.
+
 ## Topics
 
 Retained:
@@ -153,7 +185,7 @@ Retained:
 | Topic | Content |
 |---|---|
 | `p4/config` | written by the homectld: `{"pollInterval":60,"stateInterval":10,"tsync":true,"maxTimeLeak":10,"active":{"P4VA":[0,1],"P4DO":[1],"P4DI":[],"P4AO":[]}}`, without `active` all sensors are polled |
-| `p4/cmd`, `p4/reply` | commands to the daemon and its answers, not retained, see above |
+| `p4/cmd`, `p4/reply`, `p4/reply/<name>` | commands to the daemon and its answers (on `p4/reply/<name>` with `replyTo`), not retained, see above |
 | `p4/status` | `{"online":true,"comm":"ok","tty":"/dev/ttyUSB0","lastOk":1788000000,"firmware":"50.04.00.01","version":"p4mqttd 0.9.0","readonly":true,"parallel":false}`, the last will of the connection sets `online` to `false` |
 | `p4/errors` | the error list of the control as it keeps it (oldest first), `{"errors":[{"number":16,"info":163,"state":1,"time":1788000000,"text":"Raumaustragung kontrollieren"},...],"read":1788000100}`, `state` is 1 came, 4 gone, 2 acknowledged. The three entries of one error are merged by the homectld. Read at the start, if the state changes from or to an error state, every 10 minutes and on the command `errors` |
 | `p4/state` | `{"state":3,"stateinfo":"Heizen","mode":1,"modeinfo":"Automatik","time":1788000000,"error":false}` |
@@ -164,15 +196,15 @@ Sensor data (not retained, topic `p4/sensor`, the homectld subscribes it), the f
 
 ```
 {"type":"P4VA","address":1,"title":"Abgas","unit":"°C","value":77.5,"maxage":180}
-{"type":"P4DO","address":12,"title":"Saugzug","kind":"status","state":1,"text":"A","maxage":180}
-{"type":"P4AO","address":3,"title":"Saugzug Leistung","unit":"%","value":62,"text":"A","maxage":180}
+{"type":"P4DO","address":12,"title":"Saugzug","kind":"status","state":true,"text":"Auto","maxage":180}
+{"type":"P4AO","address":3,"title":"Saugzug Leistung","unit":"%","value":62,"text":"Auto","maxage":180}
 {"type":"P4UD","address":1,"title":"Heizungsstatus","unit":"zst","kind":"text","value":3,"text":"Heizen"}
 {"type":"P4VA","address":1,"title":"Abgas","unit":"°C","valid":false}
 ```
 
 The values are scaled (factor of the control) and signed or unsigned as the control defines it. `P4UD` are the
 state (1), the mode (2) and the time (3) of the control. `valid:false` is sent for a value which could not be read.
-`text` of an output is the mode: `A` automatic, `M` manual.
+`text` of an output is the mode: `Auto` or `Manual` (an unknown mode character of the control is passed as it is).
 
 Every sensor message also carries the default options of its dashboard widget as `parameter` (kind of widget, scale,
 peak, symbol of a switch), chosen by type, unit and title (the table `widgetRules` in `p4mqttd.c`), e.g.
@@ -216,7 +248,47 @@ and are **not** blocked by the read only mode of the daemon.
 
 ## Taking over the data of the p4d
 
-`scripts/p4d-migrate.sh` takes over the history of the database of the p4d (samples, min / max values, errors, pellet
-deliveries and the elements of the schema) into the database of the homectld - see `scripts/p4d-migrate.sh --help`
-and [doc/p4.md](../doc/p4.md). It only reads the old database, nothing existing is overwritten and without `--run` it is a
-dry run.
+`scripts/p4d-migrate.sh` takes over the data of the stand alone p4d (database `p4`) into the database of the homectld
+(`homectl`). Both databases have to be on the same database server. The old database is only **read**.
+
+| Part (`--only`) | Source (`p4`) | Target (`homectl`) |
+|---|---|---|
+| `samples` | `samples` of the types VA, DI, DO, AO, UD, SD, W1, SC, CV, PA | `samples` with the type `P4…` (VA -> P4VA, ...), the address stays |
+| `peaks` | `peaks` | `peaks`, merged: the smaller minimum and the larger maximum win |
+| `errors` | `errors` | `p4errors` (as history, `mailcnt >= 1`, they are not mailed) |
+| `pellets` | `pellets` | `p4pellets` |
+| `alerts` | `sensoralert` (type VA -> P4VA, ...) | `sensoralert`, only simple alerts (no link to another alert), receivers and texts as they are |
+| `schema` | `schemaconf` | `schemaconf` with the type `P4…` (UC -> P4UC texts, CN -> P4CN lines): the elements with their position, size, colors and the functions; elements which exist without a position (placeholders of an earlier take over) are filled, the sensors in the functions (`getItem("VA:0x0")`) get the prefix (`P4VA`) |
+
+Not taken over: dashboards, widgets, groups, users and the configuration (set the few values you need by hand), the menu and
+the time programs (p4mqttd reads them from the control).
+
+```
+cd p4mqttd/scripts
+mysqldump homectl > homectl.sql                       # a backup of the target first
+./p4d-migrate.sh                                       # dry run: shows what would be taken over, writes nothing
+./p4d-migrate.sh --run                                 # takes over everything
+./p4d-migrate.sh --only schema,errors --run            # only these parts
+./p4d-migrate.sh --known-only --run                    # samples only of sensors which exist in the homectld
+```
+
+| Option | Meaning |
+|---|---|
+| `--run` | really write, without it it is a dry run |
+| `--only a,b` | only these parts (`samples,peaks,errors,pellets,alerts,schema`) |
+| `--from YYYY-MM-DD` | samples: only since this day |
+| `--known-only` | samples: skip sensors which are no valuefacts in the target (e.g. one you deleted there), by default they are taken over anyway and shown with a note |
+| `--types "VA DO ..."` | the types of the p4d for samples and peaks, default `VA DI DO AO UD SD W1 SC CV PA` |
+| `--from-db`, `--to-db` | names of the databases, default `p4` and `homectl` |
+| `--mysql-opts "..."` | options for the mysql client (user, password, host) |
+
+Good to know:
+- **It can be repeated** and run while both systems are running: `INSERT IGNORE` and "not exists" keep everything the homectld
+  wrote in the meantime. A statement which fails stops the script, what was done before stays, a new run continues.
+- **Samples** are taken sensor by sensor and year by year, every statement is committed at once (some 26 million rows took
+  about 40 minutes beside the running homectld). It shows its progress.
+- The sensors have to exist as valuefacts in the homectld to be shown there (the homectld creates the `P4…` sensors from the
+  messages of p4mqttd), the script tells which ones don't.
+- Do the take over of the **schema** after the homectld has created the sensors, the positions of the elements in the heating
+  schema (tab *Schema*) come from here. The picture is the one of the configuration *Bild des Schemas* (`p4-2hk-puffer` like
+  in the p4d).

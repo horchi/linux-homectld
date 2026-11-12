@@ -941,6 +941,9 @@ function dispatchMessage(message)
    else if (event == "p4menu") {
       p4MenuReceived(jMessage.object);
    }
+   else if (event == "p4raw") {
+      p4RawReceived(jMessage.object);
+   }
    else if (event == "p4errors") {
       p4ErrorsReceived(jMessage.object);
    }
@@ -1187,9 +1190,6 @@ function prepareMenu()
    addMainMenuButton('Charts', 'chart');
 
    addMainMenuButton(config.p4PageTitle || 'S3200', 'p4menu', config.p4Enabled == '1');     // the service menu of the S 3200 (p4/menu.js)
-   // addMainMenuButton('Service Menü', 'menu');
-   // addMainMenuButton('Fehler', 'errors');
-   // addMainMenuButton('Pellets', 'pellets', localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x02);
    addMainMenuButton('Setup', 'setup', localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10);
 
    // burger menu
@@ -1243,6 +1243,7 @@ function prepareSetupMenu()
    $('#confirmDiv').remove();
    $('#setupMenu').remove();
    $('#p4SubMenu').remove();
+   $('#schemaEditMenu').remove();
 
    if (currentPage == 'p4menu' && typeof p4PrepareSubMenu == 'function')
       p4PrepareSubMenu();                 // the tabs of the page of the S 3200 (p4/page.js)

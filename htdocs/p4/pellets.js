@@ -85,17 +85,17 @@ function p4PelletRow(p, edit)
    let $price = input('number', p.price, 0.1);
    let $comment = input('search', p.comment);
 
-   $row.append($('<td></td>').append($time))
-      .append($('<td></td>').append($amount))
-      .append($('<td></td>').append($price))
-      .append($('<td></td>').append($comment))
-      .append($('<td></td>').text(p.duration != null ? p.duration : ''))
-      .append($('<td></td>').text(p.price && p.amount ? (p.price / (p.amount / 1000)).toFixed(2) + ' €' : ''))
-      .append($('<td></td>').text(p.stokerHours != null ? p.stokerHours : ''))
-      .append($('<td></td>').attr('title', p.consumptionHint || '')
+   $row.append($('<td></td>').attr('data-label', 'Datum').append($time))
+      .append($('<td></td>').attr('data-label', 'Menge [kg]').append($amount))
+      .append($('<td></td>').attr('data-label', 'Preis [€]').append($price))
+      .append($('<td></td>').attr('data-label', 'Notiz').append($comment))
+      .append($('<td></td>').attr('data-label', 'Tage').text(p.duration != null ? p.duration : ''))
+      .append($('<td></td>').attr('data-label', '€ / t').text(p.price && p.amount ? (p.price / (p.amount / 1000)).toFixed(2) + ' €' : ''))
+      .append($('<td></td>').attr('data-label', 'Stoker [h]').text(p.stokerHours != null ? p.stokerHours : ''))
+      .append($('<td></td>').attr('data-label', 'kg / h').attr('title', p.consumptionHint || '')
               .text(sum ? p.consumptionDelta + ' kg' : (p.consumptionH ? p.consumptionH.toFixed(2) : '')));
 
-   let $actions = $('<td></td>');
+   let $actions = $('<td></td>').addClass('p4PelletActions');
 
    if (!sum && edit) {
       $actions.append($('<button></button>').addClass('rounded-border buttonOptions')
@@ -116,7 +116,7 @@ function p4PelletRow(p, edit)
                       }));
 
       if (!isNew)
-         $actions.append($('<button></button>').addClass('rounded-border buttonOptions').css('margin-left', '6px')
+         $actions.append($('<button></button>').addClass('rounded-border buttonOptions')
                          .text('löschen')
                          .click(function() {
                             confirmDialog(function() {

@@ -39,10 +39,10 @@ adjust `/etc/default/denon2mqtt` (host), then
 
 ## Widget
 
-`htmlwidget-denon.json` is an HTML widget snippet 'Denon AVR' looking like the front of the receiver (power, display
+The HTML widget template 'Denon AVR' (delivered with homectld, etc/configs/htmlWidgetTemplates.json) looks like the front of the receiver (power, display
 with source / surround mode / volume in dB, volume buttons and mute, the source buttons, zone 2 with the same).
 It grows with the widget keeping the aspect ratio, but never gets smaller than its natural size (352 x 445 px).
-Import it at *Setup → HTML Widgets → Import*, the
+Add an HTML widget to the dashboard and select the template, the
 parameters are the sensors DENON:0x.. (default addresses) and the names of the 8 source buttons `s1` .. `s8` (the
 names as renamed at the receiver), adjustable per widget. The volume buttons, power and mute need the sensors
 to be active.

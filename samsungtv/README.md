@@ -38,8 +38,9 @@ The token is stored in `/etc/homectld/samsungtv.token`.
 
 ## Remote control widget
 
-`htmlwidget-samsungtv-fb.json` is an HTML widget snippet looking like the small Samsung remote
+The HTML widget template 'Samsung TV Fernbedienung' (delivered with homectld, etc/configs/htmlWidgetTemplates.json)
+looks like the small Samsung remote
 (power, d-pad / OK, back, home, play / pause, volume rocker (click: mute, shows the volume), channel rocker
-(click: guide) and the app buttons). Import it at *Setup → HTML Widgets → Import*, the parameters are
+(click: guide) and the app buttons). Add an HTML widget to the dashboard and select the template, the parameters are
 the sensors SAMTV:0x.. (default addresses), adjustable per widget. The app buttons need `data-set` with
 a text value (homectld 0.1.50).

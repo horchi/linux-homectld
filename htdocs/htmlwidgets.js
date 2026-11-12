@@ -730,19 +730,60 @@ function htmlWidgetSetupParams(widget)
       let def = String(snippet.parameters[name] ?? '').trim();
       let isSensor = def == '' || htmlWidgetIsSensorKey(def) || htmlWidgetIsSensorKey(params[name]);
 
+      let $input = $('<input></input>')
+          .addClass('rounded-border inputSetting htmlParam')
+          .attr('type', 'search')
+          .attr('list', isSensor ? 'htmlSensorKeys' : null)
+          .attr('placeholder', snippet.parameters[name])
+          .attr('title', 'Leer: Vorgabe des Snippets \'' + snippet.parameters[name] + '\'')
+          .data('name', name)
+          .val(params[name] ?? '');
+
       $div.append($('<div></div>')
                   .addClass('htmlWidgetSetupRow')
                   .append($('<span></span>').text(name))
                   .append($('<span></span>')
-                          .append($('<input></input>')
-                                  .addClass('rounded-border inputSetting htmlParam')
-                                  .attr('type', 'search')
-                                  .attr('list', isSensor ? 'htmlSensorKeys' : null)
-                                  .attr('placeholder', snippet.parameters[name])
-                                  .attr('title', 'Leer: Vorgabe des Snippets \'' + snippet.parameters[name] + '\'')
-                                  .data('name', name)
-                                  .val(params[name] ?? ''))));
+                          .addClass('htmlParamCell')
+                          .append($input)
+                          .append(isSensor ? htmlWidgetSensorPicker($input) : null)));
    }
+}
+
+// button beside a sensor parameter with a native select over it (invisible) - the datalist of the
+//   input offers no usable list on iOS (Safari), the select opens the picker of the system there
+
+function htmlWidgetSensorPicker($input)
+{
+   let $sel = $('<select></select>')
+       .addClass('htmlParamPickerSelect')
+       .attr('title', 'Sensor auswählen')
+       .append($('<option></option>').val('').text('- Sensor wählen -'));
+
+   let keys = Object.keys(valueFacts).filter(k => valueFacts[k].state || k == $input.val().trim());
+
+   keys.sort(function(a, b) {
+      if (valueFacts[a].type != valueFacts[b].type)
+         return valueFacts[a].type.localeCompare(valueFacts[b].type);
+      return factTitle(a).localeCompare(factTitle(b));
+   });
+
+   let $group = null;
+
+   for (const key of keys) {
+      if (!$group || $group.attr('label') != valueFacts[key].type)
+         $sel.append($group = $('<optgroup></optgroup>').attr('label', valueFacts[key].type));
+      $group.append($('<option></option>').val(key).text(factTitle(key) + '  (' + key + ')'));
+   }
+
+   $sel.on('change', function() {
+      if ($(this).val() != '')
+         $input.val($(this).val()).trigger('input').trigger('change');
+      $(this).val('');
+   });
+
+   return $('<span></span>')
+      .addClass('htmlParamPicker mdi mdi-format-list-bulleted rounded-border')
+      .append($sel);
 }
 
 // the settings of the dialog into the widget (options)
@@ -777,6 +818,8 @@ async function initHtmlWidgetsPage()
    let snippet = htmlWidgetSelected == 'new' || htmlWidgetSelected == null
        ? { 'name': '', 'kind': 'html', 'code': '', 'css': '', 'parameters': {} }
        : htmlWidgets[htmlWidgetSelected];
+   let delivered = snippet.readonly == true;   // delivered template (htmlWidgetTemplates.json)
+   let readonly = delivered && !daemonState.devel;   // only to duplicate, editable on a development instance
 
    // list
 
@@ -793,6 +836,10 @@ async function initHtmlWidgetsPage()
                    .addClass('htmlWidgetListItem' + (id == htmlWidgetSelected ? ' active' : ''))
                    .append($('<span></span>').addClass('mdi ' + (htmlWidgets[id].kind == 'iframe' ? 'mdi-web' : 'mdi-code-tags')))
                    .append($('<span></span>').text(' ' + htmlWidgets[id].name))
+                   .append(htmlWidgets[id].readonly ? $('<span></span>')
+                           .addClass('mdi htmlWidgetLock ' + (daemonState.devel ? 'mdi-lock-open-variant-outline htmlWidgetLockOpen' : 'mdi-lock-outline'))
+                           .attr('title', daemonState.devel ? 'Mitgeliefertes Template, auf der Entwicklungsinstanz bearbeitbar'
+                                                            : 'Mitgeliefertes Template, nur lesen') : null)
                    .click(function() { htmlWidgetSelected = id; initHtmlWidgetsPage(); }));
    }
 
@@ -816,6 +863,12 @@ async function initHtmlWidgetsPage()
                         .attr('title', 'Alle Snippets als JSON Datei speichern')
                         .prop('disabled', !ids.length)
                         .click(function() { htmlWidgetExport(ids); }))
+                .append(!daemonState.devel ? null : $('<button></button>')
+                        .addClass('rounded-border button1')
+                        .append($('<span></span>').addClass('mdi mdi-package-variant-closed'))
+                        .append(' Export Auslieferung')
+                        .attr('title', 'Die mitgelieferten Templates als etc/configs/htmlWidgetTemplates.json (Entwicklungsinstanz)')
+                        .click(function() { htmlWidgetExportDelivery(); }))
                 .append($('<input></input>')
                         .attr('id', 'hwImportFile')
                         .attr('type', 'file')
@@ -828,6 +881,12 @@ async function initHtmlWidgetsPage()
    let paramsText = Object.keys(snippet.parameters || {}).length ? JSON.stringify(snippet.parameters, undefined, 2) : '';
 
    let $editor = $('<div></div>').addClass('htmlWidgetEditor')
+       .append(!delivered ? null : $('<div></div>').addClass('htmlWidgetReadonly')
+               .html(readonly
+                     ? '<span class="mdi mdi-lock-outline"></span> Mitgeliefertes Template, nur lesen - zum Anpassen ' +
+                       '<b>Duplizieren</b>, die Sensoren stellt man im Widget-Setup des Dashboards ein'
+                     : '<span class="mdi mdi-lock-outline"></span> Mitgeliefertes Template, auf der Entwicklungsinstanz bearbeitbar - ' +
+                       'danach <b>Export Auslieferung</b> und die Datei nach etc/configs/htmlWidgetTemplates.json'))
        .append($('<div></div>').addClass('htmlWidgetRow')
                .append($('<span></span>').text('Name'))
                .append($('<input></input>').attr('id', 'hwName').attr('type', 'text')
@@ -862,6 +921,7 @@ async function initHtmlWidgetsPage()
                        .append($('<div></div>').attr('id', 'hwWarn').addClass('htmlWidgetWarn'))))
        .append($('<div></div>').addClass('htmlWidgetButtons')
                .append($('<button></button>').addClass('rounded-border button1').text('Speichern')
+                       .prop('disabled', readonly)
                        .click(function() { storeHtmlWidget(); }))
                .append($('<button></button>').addClass('rounded-border button1').text('Duplizieren')
                        .prop('disabled', htmlWidgetSelected == 'new' || htmlWidgetSelected == null)
@@ -871,7 +931,7 @@ async function initHtmlWidgetsPage()
                        .prop('disabled', htmlWidgetSelected == 'new' || htmlWidgetSelected == null)
                        .click(function() { htmlWidgetExport([htmlWidgetSelected]); }))
                .append($('<button></button>').addClass('rounded-border button1 htmlWidgetDelete').text('Löschen')
-                       .prop('disabled', htmlWidgetSelected == 'new' || htmlWidgetSelected == null)
+                       .prop('disabled', htmlWidgetSelected == 'new' || htmlWidgetSelected == null || delivered)
                        .click(function() { deleteHtmlWidget(); })))
        .append($('<div></div>').addClass('htmlWidgetHelp')
                .html('<b>Platzhalter:</b> <code>{{W1:0x01}}</code> Wert, <code>{{W1:0x01|1}}</code> eine Nachkommastelle, ' +
@@ -902,6 +962,11 @@ async function initHtmlWidgetsPage()
        .append($('<div></div>').addClass('htmlWidgetMain').append($editor));
 
    $('#container').empty().append($page);
+
+   if (readonly) {
+      $('#hwName, #hwCode, #hwCss, #hwParams').prop('readonly', true);
+      $('#hwKind').prop('disabled', true);
+   }
 
    htmlWidgetEditors = {};
    $('#hwCode, #hwCss, #hwParams').on('input', function() { htmlWidgetPreview(); });
@@ -940,6 +1005,7 @@ async function initHtmlWidgetsPage()
          tabSize:        3,
          indentWithTabs: false,
          lineWrapping:   true,
+         readOnly:       readonly,
          extraKeys:      { 'Ctrl-S': function() { storeHtmlWidget(); } }
       });
 
@@ -1116,6 +1182,11 @@ function storeHtmlWidget(duplicate = false)
 
    let id = htmlWidgetSelected;
 
+   if (!duplicate && htmlWidgets[id] && htmlWidgets[id].readonly && !daemonState.devel) {
+      showInfoDialog({ 'status': -1, 'message': 'Mitgeliefertes Template, nur lesen - zum Anpassen duplizieren' });
+      return;
+   }
+
    if (duplicate || id == 'new' || id == null) {
       if (duplicate)
          snippet.name += ' (Kopie)';
@@ -1183,6 +1254,27 @@ function htmlWidgetExport(ids)
    setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
 }
 
+// the delivered templates as etc/configs/htmlWidgetTemplates.json (development instance),
+//   sorted by name, without the time of the export (no changes in the repository without a reason)
+
+function htmlWidgetExportDelivery()
+{
+   let snippets = Object.values(htmlWidgets)
+       .filter(s => s.readonly)
+       .sort((a, b) => a.name.localeCompare(b.name))
+       .map(s => ({ 'name': s.name, 'kind': s.kind, 'code': s.code, 'css': s.css, 'parameters': s.parameters || {} }));
+
+   let data = { 'type': 'homectld-htmlwidgets', 'version': 1, 'snippets': snippets };
+   let url = URL.createObjectURL(new Blob([JSON.stringify(data, undefined, 2) + '\n'], { type: 'application/json' }));
+   let a = document.createElement('a');
+   a.href = url;
+   a.download = 'htmlWidgetTemplates.json';
+   document.body.appendChild(a);
+   a.click();
+   a.remove();
+   setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+}
+
 function htmlWidgetImportFile(file)
 {
    let reader = new FileReader();
@@ -1235,7 +1327,8 @@ function htmlWidgetImport(snippets)
       .append($('<div></div>').text(snippets.length + ' Snippet(s) in der Datei, diese gibt es schon:'))
       .append($('<ul></ul>').append(conflicts.map(n => $('<li></li>').text(n))))
       .append($('<div></div>')
-              .html('<b>Überschreiben</b>: die vorhandenen werden ersetzt, ihre Widgets zeigen sofort den neuen Stand<br>' +
+              .html('<b>Überschreiben</b>: die vorhandenen werden ersetzt, ihre Widgets zeigen sofort den neuen Stand ' +
+                    '(mitgelieferte Templates nicht, die werden als Kopie angelegt)<br>' +
                     '<b>Als Kopie</b>: sie werden mit neuem Namen angelegt, z. B. \'' + htmlWidgetEscape(conflicts[0]) + ' (2)\''));
 
    $(form).dialog({
@@ -1262,7 +1355,7 @@ function htmlWidgetImportSend(snippets, byName, mode)
       let name = s.name.trim();
       let id = -1;
 
-      if (byName[name] != null && mode == 'overwrite')
+      if (byName[name] != null && mode == 'overwrite' && (!htmlWidgets[byName[name]].readonly || daemonState.devel))
          id = parseInt(byName[name]);
       else if (taken.has(name)) {
          let n = 2;

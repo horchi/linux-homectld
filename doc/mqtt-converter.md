@@ -3,7 +3,7 @@
 <a id="mqtt-converter"></a>
 # MQTT Converter Scripts
 
-Devices which publish their data by MQTT in their own format (e.g. TASMOTA, see [TASMOTA](../TASMOTA.md)) are
+Devices which publish their data by MQTT in their own format (e.g. TASMOTA, see [TASMOTA](../tasmota/TASMOTA.md)) are
 integrated by a small converter script per topic. The script gets the message of the device and publishes it
 again in the format of homectld. The scripts are in `/etc/homectld/mqtt.d`, they can be written with any editor
 or in the WEBIF on the setup page *MQTT Konverter*.

@@ -8,7 +8,6 @@
 - add write of victron registers to WEBIF
 
 - sceen als aktion/automatisierung auf 'Taster' legen
-- schema skalieren / posttionen berechnen
 
 ## HTML widgets - JS snippets
 

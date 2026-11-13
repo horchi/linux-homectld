@@ -80,3 +80,30 @@
       margin: 0 3px;
    }
 }
+
+/*
+ *  the headings of the setup pages are directly on the background (image), on a bright image
+ *  they could not be read - they get a background like the cards (--widgetBackground), the
+ *  light theme sets its own (--setupHeadBackground, --setupHeadColor)
+ */
+
+.cmdGroupTitle,
+.sysSectionHead,
+.cfgPageHead,
+.alrPageHead,
+.imgPageHead,
+.sysPageHead,
+.usrPageHead,
+.homeMaticHead,
+.syslogHead,
+.ioSetupHead {
+   padding: 6px 10px;
+   border-bottom: none;
+   border-radius: 8px;
+   background: var(--setupHeadBackground, var(--widgetBackground));
+}
+
+.cmdGroupTitle,
+.sysSectionHead {
+   color: var(--setupHeadColor, var(--neutral4));
+}

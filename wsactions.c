@@ -638,6 +638,12 @@ int HomeCtl::performAlerts(json_t* oObject, long client)
    selectAllSensorAlerts->freeResult();
    pushOutMessage(oArray, "alerts", client);
 
+   // the attention of the setup may have changed (alerts with an unknown sensor, tab 'Setup' of the WEBIF)
+
+   json_t* oState {json_object()};
+   daemonState2Json(oState);
+   pushOutMessage(oState, "daemonstate", client);
+
    return done;
 }
 
@@ -947,6 +953,8 @@ int HomeCtl::performDatabaseStatistic(json_t* oObject, long client)
       json_object_set_new(jItem, "tblsize", json_string(bytesPretty(tableTableStatistics->getBigintValue("DATASZ"), 2)));
       json_object_set_new(jItem, "idxsize", json_string(bytesPretty(tableTableStatistics->getBigintValue("INDEXSZ"), 2)));
       json_object_set_new(jItem, "rows", json_integer(tableTableStatistics->getBigintValue("ROWS")));
+      json_object_set_new(jItem, "tblbytes", json_integer(tableTableStatistics->getBigintValue("DATASZ")));     // for bars and sums of the WEBIF
+      json_object_set_new(jItem, "idxbytes", json_integer(tableTableStatistics->getBigintValue("INDEXSZ")));
    }
 
    selectTableStatistic->freeResult();
@@ -964,6 +972,8 @@ int HomeCtl::performDatabaseStatistic(json_t* oObject, long client)
       json_object_set_new(jItem, "name", json_string("/"));
       json_object_set_new(jItem, "total", json_string(bytesPretty(stat.total, 2)));
       json_object_set_new(jItem, "available", json_string(bytesPretty(stat.available, 2)));
+      json_object_set_new(jItem, "totalbytes", json_integer((json_int_t)stat.total));
+      json_object_set_new(jItem, "availablebytes", json_integer((json_int_t)stat.available));
    }
 
    pushOutMessage(jObject, "database", client);
@@ -3242,17 +3252,34 @@ int HomeCtl::groups2Json(json_t* obj)
 
 int HomeCtl::commands2Json(json_t* obj)
 {
-   json_t* jCommand {json_object()};
-   json_array_append_new(obj, jCommand);
-   json_object_set_new(jCommand, "title", json_string("Reset Peaks"));
-   json_object_set_new(jCommand, "cmd", json_string("peaks"));
-   json_object_set_new(jCommand, "description", json_string("Peaks zurücksetzen"));
+   // icon / groupIcon: Material Design Icons, style: optional accent of the card (Warn, Fire), see commands.js / commands.css
 
-   jCommand = json_object();
-   json_array_append_new(obj, jCommand);
-   json_object_set_new(jCommand, "title", json_string("Test Mail"));
-   json_object_set_new(jCommand, "cmd", json_string("testmail"));
-   json_object_set_new(jCommand, "description", json_string("Test Mail senden"));
+   auto add = [obj](const char* title, const char* cmd, const char* description, const char* icon,
+                    const char* group, const char* groupIcon, const char* style = nullptr)
+   {
+      json_t* jCommand {json_object()};
+      json_array_append_new(obj, jCommand);
+      json_object_set_new(jCommand, "title", json_string(title));
+      json_object_set_new(jCommand, "cmd", json_string(cmd));
+      json_object_set_new(jCommand, "description", json_string(description));
+      json_object_set_new(jCommand, "icon", json_string(icon));
+      json_object_set_new(jCommand, "group", json_string(group));
+      json_object_set_new(jCommand, "groupIcon", json_string(groupIcon));
+
+      if (style)
+         json_object_set_new(jCommand, "style", json_string(style));
+   };
+
+   add("Reset Peaks", "peaks", "Peaks zurücksetzen", "mdi-chart-bell-curve-cumulative", "Allgemein", "mdi-cog-outline");
+   add("Test Mail", "testmail", "Test Mail an den Status Mail Empfänger senden", "mdi-email-fast-outline", "Allgemein", "mdi-cog-outline");
+
+   if (p4Enabled)       // like the menu button of the S 3200
+   {
+      add("Test Status Mail", "p4statemail", "Status Mail der Heizung mit dem aktuellen Zustand an den Status Mail Empfänger senden",
+          "mdi-fire", "Heizung S 3200", "mdi-fire-circle", "Fire");
+      add("Test Störungs Mail", "p4errormail", "Störungs Mail der Heizung mit den letzten 5 Fehlern an den Fehler Mail Empfänger senden (zählt nicht als gemailt)",
+          "mdi-alert-octagon-outline", "Heizung S 3200", "mdi-fire-circle", "Warn");
+   }
 
    return done;
 }
@@ -3306,6 +3333,8 @@ int HomeCtl::performCommand(json_t* obj, long client)
    }
    else if (what == "testmail")
       performTestMail(obj, client);
+   else if (what == "p4statemail" || what == "p4errormail")
+      return p4SendTestMail(what == "p4errormail", client);
    else if (what == "sensorjson")
    {
       // the last raw message (JSON) a sensor got its value from - for the info dialog
@@ -3378,6 +3407,39 @@ int HomeCtl::daemonState2Json(json_t* obj)
    json_object_set_new(obj, "average0", json_real(averages[0]));
    json_object_set_new(obj, "average1", json_real(averages[1]));
    json_object_set_new(obj, "average2", json_real(averages[2]));
+
+   // things in the setup which need attention (the WEBIF marks the tab 'Setup'):
+   //   active alerts with a sensor which doesn't exist (they are never checked)
+
+   json_t* jAttention {json_array()};
+   std::vector<std::pair<std::string,int>> alerts;
+
+   tableSensorAlert->clear();
+
+   for (bool f = selectAllSensorAlerts->find(); f; f = selectAllSensorAlerts->fetch())
+      if (tableSensorAlert->hasValue("STATE", "A"))
+         alerts.push_back({ tableSensorAlert->getStrValue("TYPE"), (int)tableSensorAlert->getIntValue("ADDRESS") });
+
+   selectAllSensorAlerts->freeResult();
+
+   for (const auto& [type, address] : alerts)
+   {
+      tableValueFacts->clear();
+      tableValueFacts->setValue("TYPE", type.c_str());
+      tableValueFacts->setValue("ADDRESS", address);
+
+      if (!tableValueFacts->find())
+      {
+         json_t* jItem {json_object()};
+         json_object_set_new(jItem, "page", json_string("alerts"));
+         json_object_set_new(jItem, "text", json_string(("Alert für unbekannten Sensor " + type + ":" + std::to_string(address)).c_str()));
+         json_array_append_new(jAttention, jItem);
+      }
+
+      tableValueFacts->reset();
+   }
+
+   json_object_set_new(obj, "attention", jAttention);
 
    return done;
 }
@@ -3542,6 +3604,15 @@ int HomeCtl::systemServices2Json(json_t* obj)
 
    for (const auto& s : services)
    {
+      // not shown - units of the base system which can't be controlled here:
+      //   'static'  no [Install] section (no enable / disable), started by systemd, timers or D-Bus
+      //   'alias'   only a second name of another unit (mysql.service -> mariadb.service)
+      //   templates 'name@.service', not startable without an instance name
+
+      if (s.second.unitFileState == "static" || s.second.unitFileState == "alias" ||
+          s.second.primaryName.find("@.") != std::string::npos)
+         continue;
+
       json_t* jService {json_object()};
 
       json_object_set_new(jService, "service", json_string(s.second.primaryName.c_str()));

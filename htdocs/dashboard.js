@@ -393,21 +393,83 @@ function resizeDashboard()
 
    $("#container").height($(window).outerHeight() - getTotalHeightOf('menu') - getTotalHeightOf('dashboardMenu') - getTotalHeightOf('footer') - sab - space);
 
-   if (layout == 'grid') {
-      // a column is half a widget of width 1 incl. its margin (see initWidget()), the
-      // rows size by the widgets (fixed heights like 'flex'), a linefeed spacer is a thin row
+   if (layout == 'grid')
+      layoutGrid();
+}
 
-      let colWidth = gridColumnWidth();
-      let colCount = Math.max(1, Math.floor($('#container').innerWidth() / colWidth));
+// layout 'grid': a column is half a widget of width 1 incl. its margin (see initWidget()), the
+// rows size by the widgets (fixed heights like 'flex'), a linefeed spacer is a thin row
 
-      $('#widgetContainer').css('grid-template-columns', 'repeat(' + colCount + ', ' + colWidth + 'px)');
+function layoutGrid()
+{
+   let colWidth = gridColumnWidth();
+   let colCount = Math.max(1, Math.floor($('#container').innerWidth() / colWidth));
 
-      // widgets wider than the grid would add columns
+   $('#widgetContainer').css('grid-template-columns', 'repeat(' + colCount + ', ' + colWidth + 'px)');
 
-      $('#widgetContainer > div[data-colspan]').each(function() {
-         $(this).css('grid-column', 'span ' + Math.min(parseInt(this.dataset.colspan), colCount));
-      });
-   }
+   // widgets wider than the grid would add columns
+
+   $('#widgetContainer > div[data-colspan]').each(function() {
+      $(this).css('grid-column', 'span ' + Math.min(parseInt(this.dataset.colspan), colCount));
+   });
+
+   gridCenterRows(colCount);
+}
+
+// the widgets after a spacer 'Zentrieren' up to the next linefeed / centering spacer are centered
+// row by row (a grid can't center a row on its own): the rows are formed like the auto placement
+// does by the column spans, the first widget of a row gets the start column; a higher widget isn't
+// considered (the rows beside it may be shifted then)
+
+function gridCenterRows(colCount)
+{
+   let centering = false;
+   let row = [];
+   let used = 0;
+
+   const flush = function() {
+      if (row.length) {
+         let span = Math.min(parseInt(row[0].dataset.colspan), colCount);
+         $(row[0]).css('grid-column', (Math.floor((colCount - used) / 2) + 1) + ' / span ' + span);
+      }
+      row = [];
+      used = 0;
+   };
+
+   $('#widgetContainer > div').each(function() {
+      if (this.dataset.linefeed) {                  // linefeed resp. centering spacer
+         flush();
+         centering = !!this.dataset.center;
+         return;
+      }
+
+      if (!centering || !this.dataset.colspan)
+         return;
+
+      let span = Math.min(parseInt(this.dataset.colspan), colCount);
+
+      if (used + span > colCount)
+         flush();
+
+      row.push(this);
+      used += span;
+   });
+
+   flush();
+}
+
+// a single widget was (re)initialized: the grid has to be laid out again (spans, centering),
+// once for all widgets of an init loop
+
+var layoutGridTimer = null;
+
+function layoutGridLater()
+{
+   clearTimeout(layoutGridTimer);
+   layoutGridTimer = setTimeout(function() {
+      if (layout == 'grid' && $('#widgetContainer').length)
+         layoutGrid();
+   }, 0);
 }
 
 // width of a grid column (layout 'grid'): half of a widget of width 1 incl. its margin
@@ -640,6 +702,8 @@ function initWidget(key, widget, fact)
       // reset what a linefeed spacer sets (the widget type may have changed)
 
       $(elem).css({ 'flex-basis': '', 'padding': '', 'margin': '', 'align-content': '' });
+      elem.removeAttribute('data-linefeed');
+      elem.removeAttribute('data-center');
    }
 
    elem.innerHTML = '';
@@ -653,6 +717,7 @@ function initWidget(key, widget, fact)
       elem.dataset.colspan = Math.max(1, Math.round(widthFactor * 2));
       $(elem).css('grid-column', 'span ' + elem.dataset.colspan);
       $(elem).css('grid-row', 'span ' + Math.max(1, Math.round(heightFactor * 2)));
+      layoutGridLater();
    }
 
    {
@@ -1022,14 +1087,21 @@ function initWidget(key, widget, fact)
                         .addClass(titleClass)
                         .css('font-weight', 'bold')
                         .click(function(event) {titleClick(event.ctrlKey, key);})
-                        .html(setupMode ? ' spacer' : title));
+                        .html(setupMode ? (widget.linefeed && widget.center ? ' spacer (zentrieren)' : ' spacer') : title));
          // without title invisible outside of the setup mode
 
          if (!setupMode && (isEmpty(title) || title.trim() == ''))
             $(elem).css('background-color', 'transparent');
 
+         // 'Zeilenumbruch' (linefeed) resp. 'Zentrieren' (linefeed and center): a thin row, with 'center'
+         // the widgets behind it up to the next linefeed are centered in their rows (layout 'grid',
+         // gridCenterRows(); the rows of 'flex' are centered anyway by the container)
+
          if (widget.linefeed) {
             elem.removeAttribute('data-colspan');   // whole row, not limited by resizeDashboard()
+            elem.dataset.linefeed = '1';
+            if (widget.center)
+               elem.dataset.center = '1';
             $(elem)
                .css('grid-column', '1 / -1')
                .css('grid-row', 'span 1')

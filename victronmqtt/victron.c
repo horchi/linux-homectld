@@ -10,13 +10,13 @@
 
 #include <signal.h>
 
-#include "lib/common.h"
-#include "lib/json.h"
-#include "lib/mqtt.h"
+#include "../lib/common.h"
+#include "../lib/json.h"
+#include "../lib/mqtt.h"
 
-#include "lib/victron/vedef.h"
-#include "lib/victron/vecom.h"
-#include "lib/victron/veframehandler.h"
+#include "vedef.h"
+#include "vecom.h"
+#include "veframehandler.h"
 
 //***************************************************************************
 // Class - Victron

@@ -1,0 +1,307 @@
+/*
+ *  iosetup.css - the setup page 'Sensor Setup' (iosetup.js, initSensorSetup / showTable)
+ *
+ *  the sensors stay a table (there are hundreds), styled like the cards of the other setup
+ *  pages; the category buttons use .cfgCatButton of setup.css
+ */
+
+#ioSetupContainer.ioSetup {
+   background: none;
+   padding: var(--containerPadding);
+}
+
+.ioSetupHead {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+   gap: 10px;
+   margin: 0 4px 10px 4px;
+   padding-bottom: 8px;
+   border-bottom: 1px solid var(--neutral2);
+}
+
+.ioSetupTitle {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+   font-size: 18px;
+   font-weight: bold;
+   color: var(--fontColor, inherit);
+}
+
+.ioSetupTitle .mdi {
+   font-size: 24px;
+   color: var(--blue);
+}
+
+.ioSetupCount {
+   font-size: 12px;
+   font-weight: normal;
+   padding: 1px 8px;
+   border-radius: 10px;
+   background: var(--neutral1);
+   color: var(--neutral4);
+}
+
+.ioSetupHead button.ioAdd {
+   margin-left: auto;
+   border-radius: 16px;
+   padding: 4px 14px;
+}
+
+.ioSetupHead button.ioAdd .mdi {
+   margin-right: 4px;
+}
+
+/* the table in a card */
+
+.ioTableWrap {
+   border-radius: 8px;
+   border: 1px solid var(--neutral1);
+   background: var(--widgetBackground);
+   overflow-x: auto;
+}
+
+table.tableMultiCol.ioTable {
+   width: 100%;
+   margin-top: 0;
+   background: none;
+   color: var(--fontColor, var(--buttonFont));
+}
+
+table.tableMultiCol.ioTable thead td {
+   position: sticky;
+   top: 0;
+   z-index: 1;
+   padding: 10px 8px;
+   font-size: 11px;
+   letter-spacing: 0.06em;
+   text-transform: uppercase;
+   color: var(--neutral4);
+   background: var(--neutral0);
+}
+
+table.tableMultiCol.ioTable tr {
+   border-bottom-color: var(--neutral1);
+}
+
+table.tableMultiCol.ioTable tbody td {
+   padding: 4px 8px;
+}
+
+table.tableMultiCol.ioTable tbody tr:hover {
+   background: var(--neutral1);
+}
+
+table.tableMultiCol.ioTable tbody tr.ioChanged {
+   box-shadow: inset 3px 0 0 var(--orange);
+}
+
+table.tableMultiCol.ioTable tbody tr.ioInactive td:not(.iconButtons) {
+   opacity: 0.55;
+}
+
+table.tableMultiCol.ioTable tbody tr.ioInactive td:has(input[type="checkbox"]) {
+   opacity: 1;                     /* the switches stay readable */
+}
+
+.ioTable .ioName {
+   font-weight: bold;
+}
+
+.ioTable .ioSub {
+   font-size: 11px;
+   color: var(--neutral4);
+}
+
+.ioTable .ioKey {
+   font-family: monospace;
+   font-size: 12px;
+}
+
+.ioTable input.inputSetting,
+.ioTable select.inputSetting {
+   border-radius: 4px;
+}
+
+.ioTable .iconButton {
+   font-size: 22px;
+}
+
+/* the column of the icon buttons: fixed (4 x (22px icon + 2 x 2px padding + 2 x 2px margin) + 2 x 8px padding of
+   the cell), a share of the width (was 6 %) got too small and the icons ran out of the cell (horizontal scrollbar) */
+
+table.tableMultiCol.ioTable thead td.ioActionsCol {
+   width: 140px;
+   box-sizing: border-box;
+}
+
+table.tableMultiCol.ioTable tbody td.iconButtons {
+   text-align: right;
+}
+
+.ioTable td.ioCellBattery {
+   white-space: nowrap;
+}
+
+.ioEmpty {
+   padding: 20px;
+   text-align: center;
+   color: var(--neutral4);
+}
+
+/* small displays (phones): a card per sensor instead of the table row
+     name                       | ID
+     Titel    [                    ]
+     Einheit  [      ]
+     Aktiv [x]                  | Aufzeichnen [x]
+     Batterie / Funktion (if any)
+                         actions (bigger icons for the finger) */
+
+@media (max-width: 800px) {
+
+   #ioSetupContainer.ioSetup {
+      padding: 6px;
+   }
+
+   .ioTableWrap {
+      border: none;
+      background: none;
+      overflow-x: visible;
+   }
+
+   table.tableMultiCol.ioTable,
+   table.tableMultiCol.ioTable tbody {
+      display: block;
+      width: 100%;
+   }
+
+   table.tableMultiCol.ioTable thead {
+      display: none;
+   }
+
+   table.tableMultiCol.ioTable tbody tr {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px 10px;
+      align-items: center;
+      height: auto;                       /* base.css fixes the row height to 48px */
+      margin-bottom: 8px;
+      padding: 10px 12px;
+      border: 1px solid var(--neutral1);
+      border-radius: 8px;
+      background: var(--widgetBackground);
+   }
+
+   table.tableMultiCol.ioTable tbody tr:hover {
+      background: var(--widgetBackground);
+   }
+
+   table.tableMultiCol.ioTable tbody tr.ioChanged {
+      box-shadow: none;
+      border-color: var(--orange);
+   }
+
+   table.tableMultiCol.ioTable tbody td {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      padding: 0;
+   }
+
+   /* the label before the value */
+
+   table.tableMultiCol.ioTable tbody td[data-label]::before {
+      content: attr(data-label);
+      flex-shrink: 0;
+      min-width: 58px;
+      font-size: 12px;
+      color: var(--neutral4);
+   }
+
+   .ioTable td.ioCellName {
+      display: block !important;
+      grid-column: 1;
+      min-width: 0;
+   }
+
+   .ioTable td.ioCellId {
+      grid-column: 2;
+      grid-row: 1;
+      flex-direction: column;
+      align-items: flex-end !important;
+      gap: 0 !important;
+   }
+
+   table.tableMultiCol.ioTable tbody td.ioCellId::before {
+      display: none;
+   }
+
+   .ioTable td.ioCellTitle,
+   .ioTable td.ioCellFunction {
+      grid-column: 1 / -1;
+   }
+
+   .ioTable td.ioCellTitle input,
+   .ioTable td.ioCellUnit input,
+   .ioTable td.ioCellFunction select {
+      flex: 1;
+      min-width: 0;
+      width: auto;
+      height: 36px;
+      font-size: 16px;                    /* iOS doesn't zoom into an input with 16px */
+   }
+
+   /* unit in its own line, the two switches side by side below */
+
+   .ioTable td.ioCellUnit {
+      grid-column: 1 / -1;
+   }
+
+   .ioTable td.ioCellUnit input {
+      flex: 0 1 110px;
+   }
+
+   .ioTable td.ioCellSwitch {
+      grid-column: auto;
+   }
+
+   .ioTable td.ioCellSwitch input[type="checkbox"] + label {
+      margin: 0;
+   }
+
+   .ioTable td.ioCellBattery.ioCellEmpty {
+      display: none;
+   }
+
+   .ioTable td.ioCellActions {
+      grid-column: 1 / -1;
+      justify-content: flex-end;
+      gap: 4px;
+      padding-top: 6px;
+      border-top: 1px solid var(--neutral1);
+   }
+
+   .ioTable td.ioCellActions .iconButton {
+      font-size: 26px;
+      padding: 2px 6px;
+   }
+
+   .ioTable td.ioCellActions .iconButtonSpace {
+      display: none;                      /* no placeholders, the icons needn't stay in columns */
+   }
+
+   .ioSetupHead button.ioAdd {
+      margin-left: 0;
+      width: 100%;
+   }
+}
+
+/* the GPIO pinout instead of the table */
+
+#gpioState.ioGpio {
+   margin: var(--containerPadding);
+   background-color: var(--widgetBackground);
+   border-radius: 8px;
+}

@@ -13,7 +13,7 @@
 // #  include <wiringPi.h>
 // #endif
 
-#include "../../gpio.h"
+#include "../lib/gpio.h"
 #include "mcp23017.h"
 
 //***************************************************************************

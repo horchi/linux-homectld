@@ -23,7 +23,7 @@
 #include "websock.h"
 #include "deconz.h"
 #include "lmccom.h"
-#include "gpio.h"
+#include "lib/gpio.h"
 
 #define confDirDefault "/etc/" TARGET
 
@@ -385,6 +385,10 @@ class HomeCtl : public cWebInterface, public Service
       int p4MergeErrors(json_t* jErrors);
       int p4SendErrorMail();
       int p4SendStateMail(const char* stateInfo, int state);
+      std::string p4StateMailHtml(const char* stateInfo, int state);
+      std::string p4ErrorMailHtml(std::vector<long>* ids);
+      int p4SendTestMail(bool error, long client);
+      std::string p4MailFrame(const struct P4StateLook& look, const std::string& top, const std::string& list, const char* footer);
       bool p4IsMailState(int state);
       int p4Errors2Json(json_t* obj);
       int performP4Errors(json_t* obj, long client);

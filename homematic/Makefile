@@ -10,17 +10,24 @@ LIBS     += $(shell $(SQLCFG) --libs_r) -lrt -lcrypto -lcurl -lpthread -luuid
 CFLAGS   += $(shell $(SQLCFG) --include)
 
 HMOBJS    = hmmqtt.o bidcos.o cul.o devices.o
-LOBJS     = ../lib/common.o ../lib/json.o ../lib/thread.o ../lib/mqtt.o ../lib/mqtt_c.o ../lib/mqtt_pal.o
+LIBHORCHI = ../lib/libhorchi.a
+LFLAGS   += -Wl,--as-needed
+
+# header dependencies (*.d)
+
+CFLAGS   += -MMD -MP
 
 all: $(HMTARGET)
 
-$(HMTARGET): $(HMOBJS) $(LOBJS)
-	$(doLink) $(HMOBJS) $(LOBJS) $(LIBS) -o $@
+$(HMTARGET): $(HMOBJS) $(LIBHORCHI)
+	$(doLink) $(HMOBJS) $(LIBHORCHI) $(LIBS) -o $@
 
-$(HMOBJS): hmmqtt.h
+-include $(HMOBJS:.o=.d)
 
-$(LOBJS):
-	(cd ..; $(MAKE) --no-print-directory $(subst ../,,$@))
+.PHONY: FORCE
+
+$(LIBHORCHI): FORCE
+	@$(MAKE) -C ../lib --no-print-directory
 
 install: $(HMTARGET)
 	@echo install $(HMTARGET)
@@ -38,4 +45,4 @@ install: $(HMTARGET)
 	fi
 
 clean:
-	rm -f *.o $(HMTARGET)
+	rm -f *.o *.d $(HMTARGET)

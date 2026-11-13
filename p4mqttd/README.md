@@ -79,6 +79,10 @@ sudo make install
 `make install` installs `p4mqttd` and the command line tool `p4` to `/usr/local/bin` (`PREFIX=` changes this), the systemd
 unit `p4mqttd.service` and `/etc/default/p4mqttd` (only if it doesn't exist). `make uninstall` and `make clean` are available.
 
+The log goes to `/var/log/p4mqttd.log` instead of the syslog: `make install` adds `/etc/rsyslog.d/10-p4mqttd.conf`
+(rsyslog is restarted if it changed) and `/etc/logrotate.d/p4mqttd` (daily, 5 generations). This needs rsyslog, on
+systems with journald only install it with `apt install rsyslog`.
+
 Adjust the serial device in `/etc/default/p4mqttd` (use the fixed name in `/dev/serial/by-id/`), then:
 
 ```

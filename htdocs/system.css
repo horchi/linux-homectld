@@ -1,0 +1,430 @@
+/*
+ *  system.css - the setup pages 'Database' and 'System Services' (main.js, showDatabaseStatistic /
+ *  showSystemServicesList), like the other setup pages, only the theme variables
+ */
+
+#controlContainer .sysControl {
+   width: -webkit-fill-available;
+   width: -moz-available;
+   margin-bottom: 8px;
+}
+
+.sysPage {
+   padding: var(--containerPadding);
+   box-sizing: border-box;
+   display: flex;
+   flex-direction: column;
+   gap: 10px;
+}
+
+.sysPageHead {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+   gap: 10px;
+   margin: 0 4px 2px 4px;
+   padding-bottom: 8px;
+   border-bottom: 1px solid var(--neutral2);
+   font-size: 18px;
+   font-weight: bold;
+   color: var(--fontColor, inherit);
+}
+
+.sysPageHead .mdi {
+   font-size: 24px;
+   color: var(--blue);
+}
+
+.sysCount {
+   font-size: 12px;
+   font-weight: normal;
+   padding: 1px 8px;
+   border-radius: 10px;
+   background: var(--neutral1);
+   color: var(--neutral4);
+}
+
+/* tiles (database: sums and the file system) */
+
+.sysTiles {
+   display: grid;
+   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+   gap: 10px;
+}
+
+.sysTile {
+   display: flex;
+   align-items: center;
+   gap: 12px;
+   padding: 12px 14px;
+   border-radius: 8px;
+   background: var(--widgetBackground);
+   border: 1px solid var(--neutral1);
+}
+
+.sysTileIcon {
+   flex-shrink: 0;
+   width: 42px;
+   height: 42px;
+   border-radius: 50%;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   font-size: 22px;
+   color: var(--blue);
+   background: var(--neutral1);
+}
+
+.sysTileText {
+   flex: 1;
+   min-width: 0;
+}
+
+.sysTileValue {
+   font-size: 20px;
+   font-weight: bold;
+   color: var(--fontColor, inherit);
+}
+
+.sysTileLabel,
+.sysTileSub {
+   font-size: 12px;
+   color: var(--neutral4);
+}
+
+.sysBar {
+   margin-top: 6px;
+   height: 6px;
+   border-radius: 3px;
+   background: var(--neutral2);
+   overflow: hidden;
+}
+
+.sysBar > span {
+   display: block;
+   height: 100%;
+   background: var(--green);
+}
+
+.sysBar.sysBarWarn > span { background: var(--orange); }
+.sysBar.sysBarCrit > span { background: var(--red); }
+
+/* the tables */
+
+.sysTableWrap {
+   border-radius: 8px;
+   border: 1px solid var(--neutral1);
+   background: var(--widgetBackground);
+   overflow-x: auto;
+}
+
+table.tableMultiCol.sysTable {
+   width: 100%;
+   margin-top: 0;
+   table-layout: auto;
+   background: none;
+   color: var(--fontColor, var(--buttonFont));
+}
+
+table.tableMultiCol.sysTable thead td {
+   position: sticky;
+   top: 0;
+   z-index: 1;
+   padding: 10px 8px;
+   font-size: 11px;
+   letter-spacing: 0.06em;
+   text-transform: uppercase;
+   white-space: nowrap;
+   color: var(--neutral4);
+   background: var(--neutral0);
+}
+
+table.tableMultiCol.sysTable tr {
+   height: 40px;
+   border-bottom-color: var(--neutral1);
+}
+
+table.tableMultiCol.sysTable tbody td {
+   padding: 4px 8px;
+}
+
+table.tableMultiCol.sysTable tbody tr:hover {
+   background: var(--neutral1);
+}
+
+.sysTable .sysName {
+   font-weight: bold;
+}
+
+.sysTable .sysSub {
+   font-size: 11px;
+   color: var(--neutral4);
+}
+
+.sysTable .sysNum {
+   text-align: right;
+   white-space: nowrap;
+   font-variant-numeric: tabular-nums;
+}
+
+/* database: the size of a table (data + index) relative to the biggest */
+
+.sysSizeCell {
+   width: 35%;
+   min-width: 120px;
+}
+
+.sysSizeBar {
+   display: flex;
+   height: 8px;
+   border-radius: 4px;
+   background: var(--neutral1);
+   overflow: hidden;
+}
+
+.sysSizeData  { background: var(--blue); }
+.sysSizeIndex { background: var(--orange); }
+
+.sysLegend {
+   display: inline-block;
+   width: 10px;
+   height: 10px;
+   border-radius: 2px;
+   vertical-align: middle;
+}
+
+/* services */
+
+.sysServices .sysDotCell {
+   width: 18px;
+   padding-right: 0 !important;
+}
+
+.sysDot {
+   display: inline-block;
+   width: 10px;
+   height: 10px;
+   border-radius: 50%;
+   background: var(--neutral3);
+}
+
+.sysDot.sysOk {
+   background: var(--green);
+   box-shadow: 0 0 5px var(--green);
+}
+
+.sysDot.sysFail {
+   background: var(--red);
+   box-shadow: 0 0 5px var(--red);
+}
+
+.sysStates {
+   white-space: nowrap;
+}
+
+.sysPill {
+   display: inline-block;
+   margin: 1px 4px 1px 0;
+   padding: 1px 8px;
+   border-radius: 10px;
+   font-size: 11px;
+   font-weight: normal;
+   color: var(--neutral4);
+   background: var(--neutral1);
+}
+
+.sysPill.sysOk {
+   color: #fff;
+   background: var(--green);
+}
+
+.sysPill.sysFail {
+   color: #fff;
+   background: var(--red);
+}
+
+.sysPill.sysEnabled {
+   color: #fff;
+   background: var(--blue);
+}
+
+.sysPill.sysSubState {
+   background: none;
+   border: 1px solid var(--neutral2);
+}
+
+.sysServices tr.sysOff .sysName,
+.sysServices tr.sysOff .sysSub {
+   opacity: 0.5;
+}
+
+/* the icon buttons: 5 x (22px + 2 x 2px padding + 2 x 2px margin) + 2 x 8px padding of the cell */
+
+.sysServices thead td.sysActionsCol {
+   width: 166px;
+}
+
+.sysServices .sysActions {
+   text-align: right;
+}
+
+.sysServices .iconButton {
+   font-size: 22px;
+}
+
+.sysEmpty {
+   padding: 20px !important;
+   text-align: center;
+   color: var(--neutral4);
+}
+
+/* wifi (main.js, showWifiList / updateWifiList) */
+
+.sysSectionHead {
+   display: flex;
+   align-items: center;
+   gap: 8px;
+   margin: 8px 4px 0 4px;
+   font-size: 13px;
+   font-weight: bold;
+   letter-spacing: 0.06em;
+   text-transform: uppercase;
+   color: var(--neutral4);
+}
+
+.sysSectionHead .mdi {
+   font-size: 18px;
+   color: var(--blue);
+}
+
+.sysSectionHead .sysCount {
+   letter-spacing: normal;
+   text-transform: none;
+}
+
+.wifiDevices {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 8px;
+}
+
+.wifiDevice {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+   gap: 6px 10px;
+   padding: 8px 12px;
+   border-radius: 8px;
+   background: var(--widgetBackground);
+   border: 1px solid var(--neutral1);
+}
+
+.wifiDevice .mdi {
+   font-size: 18px;
+   color: var(--blue);
+}
+
+.wifiDevice .sysName {
+   font-weight: bold;
+}
+
+.wifiDevice .sysSub {
+   font-size: 12px;
+   color: var(--neutral4);
+}
+
+.wifiMac {
+   font-family: monospace;
+   font-size: 12px;
+   color: var(--neutral4);
+}
+
+.wifiTable .sysName {
+   font-weight: bold;
+}
+
+.wifiTable .sysName + .sysPill {
+   margin-top: 2px;
+}
+
+.wifiTable td.wifiIconCell {
+   width: 28px;
+   font-size: 22px;
+   padding-right: 0 !important;
+}
+
+.wifiTable td.wifiIconCell.sysOk    { color: var(--green); }
+.wifiTable td.wifiIconCell.wifiFair { color: var(--orange); }
+.wifiTable td.wifiIconCell.sysFail  { color: var(--red); }
+
+.wifiTable tr.wifiActive {
+   box-shadow: inset 3px 0 0 var(--green);
+}
+
+.wifiSignal {
+   white-space: nowrap;
+}
+
+.wifiSignal .sysBar.wifiBar {
+   display: inline-block;
+   width: 60px;
+   margin: 0 6px 0 0;
+   vertical-align: middle;
+}
+
+.wifiActions {
+   text-align: right;
+   white-space: nowrap;
+}
+
+.wifiTable thead td.wifiActionsCol {
+   width: 170px;
+}
+
+.wifiTable thead td.wifiActionsColSmall {
+   width: 40px;
+}
+
+button.wifiBtn {
+   display: inline-flex;
+   align-items: center;
+   gap: 4px;
+   margin: 0 4px 0 0;
+   padding: 4px 12px;
+   border-radius: 16px;
+   white-space: nowrap;
+   vertical-align: middle;
+}
+
+button.wifiBtn.wifiBtnOn    { background-color: var(--green); }
+button.wifiBtn.wifiBtnOff   { background-color: var(--orange); }
+button.wifiBtn.wifiBtnSetup { background-color: var(--blue); }
+
+.wifiTable .iconButton {
+   font-size: 22px;
+   vertical-align: middle;
+}
+
+@media (max-width: 700px) {
+   .wifiTable .wifiHideSmall {
+      display: none;
+   }
+
+   button.wifiBtn > span:last-child {
+      display: none;                   /* the icon only */
+   }
+
+   .wifiTable thead td.wifiActionsCol {
+      width: 90px;
+   }
+}
+
+@media (max-width: 600px) {
+   .sysStates {
+      white-space: normal;
+   }
+
+   .sysSizeCell {
+      display: none;
+   }
+}

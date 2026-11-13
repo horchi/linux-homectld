@@ -1,0 +1,59 @@
+# Make.module - common rules of the MQTT services in their sub directories (w1mqtt, bmsmqtt, ...)
+#
+#  The Makefile of a module sets
+#    MODTARGET  name of the binary / service (<MODTARGET>.service, optional <MODTARGET>.default)
+#    MODOBJS    own objects
+#  and includes this file. The lib objects come from ../lib/libhorchi.a, the linker takes only the
+#  used ones. --as-needed: only the shared libs really used are recorded (not default on Debian).
+#
+#
+#  Built / installed by the main Makefile if enabled in Make.user (W1MQTT = 1, ...)
+#
+
+include ../Make.config
+
+LIBHORCHI = ../lib/libhorchi.a
+
+LIBS     += $(shell $(SQLCFG) --libs_r) -lrt -lcrypto -lcurl -lpthread -luuid
+CFLAGS   += $(shell $(SQLCFG) --include)
+LFLAGS   += -Wl,--as-needed
+
+# header dependencies of the own objects (*.d)
+
+CFLAGS   += -MMD -MP
+
+all: $(MODTARGET)
+
+$(MODTARGET): $(MODOBJS) $(LIBHORCHI)
+	$(doLink) $(MODOBJS) $(LIBHORCHI) $(LIBS) -o $@
+
+# lib/Makefile decides if something is to do, relinked only if the archive changed
+
+.PHONY: FORCE
+
+$(LIBHORCHI): FORCE
+	@$(MAKE) -C ../lib --no-print-directory
+
+-include $(MODOBJS:.o=.d)
+
+# install
+
+install: install-bin install-config install-systemd
+
+install-bin: $(MODTARGET)
+	install --mode=755 -D $(MODTARGET) $(BINDEST)/
+
+install-config:
+	@if test -f $(MODTARGET).default && ! test -f $(DESTDIR)/etc/default/$(MODTARGET); then \
+		sed s:"<SUBNET>":"$(SUBNET)":g $(MODTARGET).default | install --mode=644 -C -D /dev/stdin $(DESTDIR)/etc/default/$(MODTARGET); \
+		echo "  /etc/default/$(MODTARGET) installed"; \
+	fi
+
+install-systemd:
+	@$(call installUnit,$(MODTARGET).service,$(MODTARGET).service)
+
+uninstall:
+	rm -f $(SYSTEMDDEST)/$(MODTARGET).service $(DESTDIR)/etc/default/$(MODTARGET) $(BINDEST)/$(MODTARGET)
+
+clean:
+	rm -f *.o *.d $(MODTARGET)

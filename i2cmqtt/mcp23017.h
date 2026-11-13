@@ -7,7 +7,7 @@
 
 #include <stdint.h>
 
-#include "../common.h"
+#include "../lib/common.h"
 #include "i2c.h"
 
 enum class Mcp23017Port : uint8_t

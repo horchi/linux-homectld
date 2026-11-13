@@ -1,11 +1,13 @@
 /*
  *  commands.js
  *
- *  (c) 2020-2021 Jörg Wendel
+ *  (c) 2020-2026 Jörg Wendel
  *
  * This code is distributed under the terms and conditions of the
  * GNU GENERAL PUBLIC LICENSE. See the file COPYING for details.
  *
+ *  The setup page 'Commands': a card per command of the daemon (commands2Json), grouped by
+ *  'group', the styles are in commands.css
  */
 
 function initCommands()
@@ -15,29 +17,52 @@ function initCommands()
 
    prepareSetupMenu();
 
-   $('#container').append($('<div></div>')
-                          .attr('id', 'inputTableConfig')
-                          .addClass('rounded-border inputTableConfig'));
+   let page = $('<div></div>').addClass('cmdPage');
+   let groups = {};
 
-   for (var i = 0; i < commands.length; i++) {
-      var command = commands[i];
-      $('#inputTableConfig').append($('<div></div>')
-                                    .css('display', 'block')
-                                    .css('margin', '4px')
-                                    .append($('<span></span>')
-                                            .append($('<button></button>')
-                                                    .css('width', '20%')
-                                                    .addClass('rounded-border buttonOptions')
-                                                    .html(command.title)
-                                                    .click({'cmd' : command.cmd}, function(event) {
-                                                       console.log("send command with " + event.data.cmd);
-                                                       socket.send({ "event" : "command", "object" : { "what" : event.data.cmd } });
-                                                    })
-                                                   ))
-                                    .append($('<span></span>')
-                                            .css('margin-left', '20px')
-                                            .html(' -> ' + command.description))
-                                   );
+   $('#container').append(page);
+
+   for (let i = 0; i < commands.length; i++) {
+      let command = commands[i];
+      let group = command.group || 'Allgemein';
+
+      if (!groups[group]) {
+         groups[group] = $('<div></div>').addClass('cmdGrid');
+         page.append($('<div></div>').addClass('cmdGroup')
+                     .append($('<div></div>').addClass('cmdGroupTitle')
+                             .append($('<span></span>').addClass('mdi ' + (command.groupIcon || 'mdi-cog-outline')))
+                             .append($('<span></span>').text(group)))
+                     .append(groups[group]));
+      }
+
+      let card = $('<div></div>').addClass('cmdCard').addClass(command.style ? 'cmd' + command.style : '');
+      let button = $('<button></button>')
+          .attr('type', 'button')
+          .addClass('rounded-border buttonOptions cmdRun')
+          .append($('<span></span>').addClass('mdi mdi-play'))
+          .append($('<span></span>').text('Ausführen'))
+          .click(function() {
+             console.log("send command with " + command.cmd);
+             socket.send({ "event" : "command", "object" : { "what" : command.cmd } });
+
+             // a short feedback, blocks a double click (the result comes as message of the daemon)
+
+             button.prop('disabled', true);
+             card.addClass('cmdSent');
+             setTimeout(function() {
+                button.prop('disabled', false);
+                card.removeClass('cmdSent');
+             }, 2000);
+          });
+
+      card.append($('<div></div>').addClass('cmdIcon')
+                  .append($('<span></span>').addClass('mdi ' + (command.icon || 'mdi-console-line'))))
+         .append($('<div></div>').addClass('cmdText')
+                 .append($('<div></div>').addClass('cmdTitle').text(command.title))
+                 .append($('<div></div>').addClass('cmdDesc').text(command.description || '')))
+         .append(button);
+
+      groups[group].append(card);
    }
 
    $("#container").height($(window).height() - getTotalHeightOf('menu') - 8);

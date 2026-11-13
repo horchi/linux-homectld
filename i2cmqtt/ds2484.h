@@ -12,7 +12,7 @@
 #include <vector>
 #include <string>
 
-#include "../common.h"
+#include "../lib/common.h"
 #include "i2c.h"
 
 //***************************************************************************

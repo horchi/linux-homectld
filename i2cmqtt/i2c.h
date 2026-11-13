@@ -16,7 +16,7 @@
 
 #include <stdint.h>
 
-#include "../common.h"
+#include "../lib/common.h"
 
 class Tca9548;
 

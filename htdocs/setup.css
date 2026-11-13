@@ -1,0 +1,283 @@
+/*
+ *  setup.css - the setup page 'Konfiguration' (setup.js, initConfig)
+ *
+ *  a card per config item in a grid, the description visible below the title,
+ *  only the variables of the themes (like commands.css)
+ */
+
+/* the category buttons in the control container */
+
+#controlContainer button.cfgCatButton {
+   display: flex;
+   align-items: center;
+   gap: 8px;
+   text-align: left;
+   white-space: normal;          /* long names (Home Automation Interface) wrap instead of overflowing */
+   height: auto;
+   min-height: 32px;
+   line-height: 1.2;
+   padding-top: 4px;
+   padding-bottom: 4px;
+}
+
+#controlContainer button.cfgCatButton > span:last-child {
+   min-width: 0;
+   overflow-wrap: anywhere;
+}
+
+#controlContainer button.cfgCatButton .mdi {
+   flex-shrink: 0;
+   font-size: 16px;
+   opacity: 0.8;
+}
+
+#controlContainer button.cfgCatButton.cfgCatActive {
+   background-color: var(--blue);
+}
+
+/* page */
+
+.cfgPage {
+   padding: var(--containerPadding);
+   box-sizing: border-box;
+}
+
+.cfgPageHead {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+   gap: 10px;
+   margin: 0 4px 12px 4px;
+   padding-bottom: 8px;
+   border-bottom: 1px solid var(--neutral2);
+}
+
+.cfgPageTitle {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+   font-size: 18px;
+   font-weight: bold;
+   color: var(--fontColor, inherit);
+}
+
+.cfgPageTitle .mdi {
+   font-size: 24px;
+   color: var(--blue);
+}
+
+.cfgCount {
+   font-size: 12px;
+   font-weight: normal;
+   padding: 1px 8px;
+   border-radius: 10px;
+   background: var(--neutral1);
+   color: var(--neutral4);
+}
+
+.cfgPageHead input.cfgFilter {
+   margin-left: auto;
+   width: 240px;
+   max-width: 100%;
+   padding-left: 8px;
+   border-radius: 16px;
+}
+
+.cfgGrid {
+   display: grid;
+   grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+   gap: 10px;
+   align-items: start;
+}
+
+/* a config item */
+
+.cfgItem {
+   display: flex;
+   flex-direction: column;
+   gap: 6px;
+   padding: 12px 14px;
+   border-radius: 8px;
+   background: var(--widgetBackground);
+   border: 1px solid var(--neutral1);
+   box-sizing: border-box;
+   min-width: 0;
+   transition: border-color 0.2s;
+}
+
+.cfgItem:hover,
+.cfgItem:focus-within {
+   border-color: var(--blue);
+}
+
+.cfgItem.cfgWide {               /* text, JSON, lists: the full width */
+   grid-column: 1 / -1;
+}
+
+.cfgItem.cfgChanged {
+   border-color: var(--orange);
+}
+
+.cfgHead {
+   display: flex;
+   align-items: center;
+   gap: 8px;
+   min-width: 0;
+}
+
+.cfgTitle {
+   flex: 1;
+   min-width: 0;
+   font-weight: bold;
+   color: var(--fontColor, inherit);
+}
+
+.cfgTitle.cfgEdit {
+   cursor: pointer;
+}
+
+.cfgTitle.cfgEdit .mdi {
+   color: var(--orange);
+   margin-right: 6px;
+}
+
+.cfgName {
+   flex-shrink: 0;
+   max-width: 45%;
+   overflow: hidden;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+   font-family: monospace;
+   font-size: 11px;
+   padding: 1px 6px;
+   border-radius: 4px;
+   background: var(--neutral1);
+   color: var(--neutral4);
+}
+
+.cfgDesc {
+   font-size: 12px;
+   line-height: 1.4;
+   color: var(--neutral4);
+}
+
+/* the value */
+
+.cfgValue {
+   min-width: 0;
+}
+
+.cfgValue > span > input.input,          /* not the combo choice, it has its own layout (base.css) */
+.cfgValue select.input,
+.cfgValue textarea.input {
+   width: 100%;
+   border-radius: 4px;
+   padding-left: 6px;
+}
+
+.cfgValue textarea.input {
+   height: auto;
+   min-height: 60px;
+   resize: vertical;
+}
+
+.cfgValue textarea.configJson {
+   font-family: monospace;
+   min-height: 200px;
+   white-space: pre;
+}
+
+.cfgValue textarea.configJsonError {
+   border-color: var(--red);
+}
+
+.cfgValue input.inputNum,
+.cfgValue input.inputFloat {
+   width: 120px;
+   border-radius: 4px;
+}
+
+.cfgValue input.inputTime {
+   border-radius: 4px;
+}
+
+/* a bool: the switch right of the title */
+
+.cfgHead .cfgValue {
+   flex-shrink: 0;
+}
+
+.cfgHead .cfgValue input[type="checkbox"] + label {
+   margin: 0;
+}
+
+/* time ranges */
+
+.cfgValue > span.cfgRanges {
+   display: flex;
+   flex-direction: column;
+   gap: 4px;
+}
+
+.cfgValue > span.cfgRanges > span {
+   display: inline-flex;
+   align-items: center;
+   gap: 6px;
+}
+
+/* bit select: the options as chips */
+
+.cfgValue > span.cfgBits {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 2px 10px;
+}
+
+/* list of strings (ctStringSet) */
+
+.cfgValue > span.stringSet {
+   display: flex;
+   flex-direction: column;
+   align-items: flex-start;
+   gap: 4px;
+}
+
+/* user defined: the button for a new item */
+
+.cfgAddItem {
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   gap: 8px;
+   min-height: 60px;
+   border: 1px dashed var(--neutral3);
+   background: transparent;
+   color: var(--orange);
+   cursor: pointer;
+}
+
+.cfgAddItem .mdi {
+   font-size: 22px;
+}
+
+.cfgEmpty {
+   grid-column: 1 / -1;
+   padding: 20px;
+   text-align: center;
+   color: var(--neutral4);
+}
+
+@media (max-width: 600px) {
+   .cfgGrid {
+      grid-template-columns: 1fr;
+   }
+
+   .cfgPageHead input.cfgFilter {
+      width: 100%;
+      margin-left: 0;
+   }
+
+   .cfgName {
+      display: none;
+   }
+}

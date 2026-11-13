@@ -38,6 +38,18 @@
     <link rel="stylesheet" type="text/css" href="dialog.css">
     <link rel="stylesheet" type="text/css" href="base.css">
     <link rel="stylesheet" type="text/css" href="p4/p4.css">
+    <link rel="stylesheet" type="text/css" href="commands.css">
+    <link rel="stylesheet" type="text/css" href="setup.css">
+    <link rel="stylesheet" type="text/css" href="iosetup.css">
+    <link rel="stylesheet" type="text/css" href="usercfg.css">
+    <link rel="stylesheet" type="text/css" href="alerts.css">
+    <link rel="stylesheet" type="text/css" href="homematic.css">
+    <link rel="stylesheet" type="text/css" href="syslog.css">
+    <link rel="stylesheet" type="text/css" href="images.css">
+    <link rel="stylesheet" type="text/css" href="system.css">
+    <link rel="stylesheet" type="text/css" href="setupnav.css">
+    <link rel="stylesheet" type="text/css" href="mainnav.css">
+    <link rel="stylesheet" type="text/css" href="dashnav.css">
     <link rel="stylesheet" type="text/css" href="stylesheet.css">
     <link rel="stylesheet" type="text/css" href="scrollbar.css">
     <link rel="stylesheet" type="text/css" href="lib/map/leaflet.css">

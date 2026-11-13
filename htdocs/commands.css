@@ -1,0 +1,119 @@
+/*
+ *  commands.css - the setup page 'Commands' (commands.js)
+ *
+ *  cards in a grid, grouped by the 'group' of the commands (commands2Json of the daemon),
+ *  only the variables of the themes, so it fits all of them
+ */
+
+.cmdPage {
+   padding: var(--containerPadding);
+   box-sizing: border-box;
+   overflow-y: auto;
+}
+
+.cmdGroup {
+   margin: 6px 0 18px 0;
+}
+
+.cmdGroupTitle {
+   display: flex;
+   align-items: center;
+   gap: 8px;
+   margin: 0 4px 8px 4px;
+   padding-bottom: 4px;
+   font-size: 13px;
+   font-weight: bold;
+   letter-spacing: 0.06em;
+   text-transform: uppercase;
+   color: var(--neutral4);
+   border-bottom: 1px solid var(--neutral2);
+}
+
+.cmdGrid {
+   display: grid;
+   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+   gap: 10px;
+}
+
+.cmdCard {
+   display: flex;
+   align-items: center;
+   gap: 14px;
+   padding: 12px 14px;
+   border-radius: 8px;
+   background: var(--widgetBackground);
+   border: 1px solid var(--neutral1);
+   transition: border-color 0.2s, background-color 0.2s;
+}
+
+.cmdCard:hover {
+   border-color: var(--blue);
+}
+
+.cmdIcon {
+   flex-shrink: 0;
+   width: 42px;
+   height: 42px;
+   border-radius: 50%;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   font-size: 22px;
+   color: var(--blue);
+   background: var(--neutral1);
+}
+
+.cmdCard.cmdWarn .cmdIcon {
+   color: var(--red);
+}
+
+.cmdCard.cmdFire .cmdIcon {
+   color: var(--orange);
+}
+
+.cmdText {
+   flex: 1;
+   min-width: 0;
+}
+
+.cmdTitle {
+   font-weight: bold;
+   color: var(--fontColor, inherit);
+}
+
+.cmdDesc {
+   margin-top: 2px;
+   font-size: 12px;
+   line-height: 1.35;
+   color: var(--neutral4);
+}
+
+.cmdCard > button.cmdRun {
+   flex-shrink: 0;
+   min-width: 86px;
+   border-radius: 16px;
+   padding: 4px 14px;
+   white-space: nowrap;
+}
+
+.cmdCard > button.cmdRun .mdi {
+   margin-right: 4px;
+}
+
+.cmdCard.cmdSent {
+   border-color: var(--green);
+}
+
+@media (max-width: 500px) {
+   .cmdGrid {
+      grid-template-columns: 1fr;
+   }
+
+   .cmdCard {
+      flex-wrap: wrap;
+   }
+
+   .cmdCard > button.cmdRun {
+      width: 100%;
+   }
+}

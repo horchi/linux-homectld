@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.53"
-#define VERSION_DATE "11.11.2026"
+#define _VERSION     "0.1.54"
+#define VERSION_DATE "13.11.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,38 @@
 
 /*
  * ------------------------------------
+
+2026-11-13: version 0.1.54
+    - change: build: the MQTT services w1mqtt, bmsmqtt, votromqtt, victronmqtt and i2cmqtt moved to sub directories
+             (own Makefile, common rules in Make.module, service and default file in the directory), built / installed
+             only if enabled in Make.user (W1MQTT, BMSMQTT, VOTROMQTT, VICTRONMQTT, I2CMQTT = 1, default off,
+             also in 'make config'); lib/victron and lib/i2c moved to victronmqtt/ and i2cmqtt/
+    - change: build: lib/ is built as static lib lib/libhorchi.a (lib/Makefile), homectld, the services and hmmqtt
+             link against it; the services link with --as-needed (only the used shared libs are recorded)
+    - change: build: gpio.c / gpio.h / gpio-test.c moved to lib/, the gpio test is built by 'make -C lib gpiotst'
+    - change: build: header dependencies of hmmqtt (homematic) by the compiler (-MMD), changes of lib/ headers rebuild it
+    - change: build: 'make build-deb' includes w1mqtt (W1MQTT=1)
+    - bugfix: i2cmqtt.service: binary path was fixed to /usr/local/bin, <BINDEST> now
+    - change: Make.user.template: description of the P4 switch (p4mqttd)
+    - change: state and error mail of the S 3200: new HTML layout like the HTML widget 'Heizung S 3200'
+    - bugfix: scripts/mail.sh: a subject with non ASCII characters (umlauts, emoji) is encoded (RFC 2047), the
+             mail clients showed the raw UTF-8 ('STÃRUNG')
+    - added: setup page 'Commands': 'Test Status Mail' and 'Test Störungs Mail' of the S 3200 (only if p4Enabled,
+             independent of p4Mail, subject 'TEST ...'; the error mail with the last 5 errors, not counted as mailed)
+    - bugfix: setup page 'User': 'Reset Passwort' reset the password also on 'Abbrechen' (to the hash of an empty
+             value) and logged the new password to the browser console
+    - bugfix: lib/db.h: build error on 32 bit systems with 64 bit time_t (armhf since Debian trixie, time_t is
+             'long long' there): setValue(cDbFieldDef*, long long) added to cDbRow / cDbTable; cDbValue::setValue(long
+             long) handles date time fields now (a time stamp set by the field name was dropped there with 'Setting
+             invalid field format'), int / long delegate to it
+    - change: WEBIF style: the setup pages in a new card style (own style sheet per page), setup and main menu as
+             tabs with icons, main menu with live states (S 3200, setup, connection, messages)
+    - bugfix: setup page 'Alerts': 'Speichern' reset the sensor type of the P4 alerts to 'VA' (the alert was never
+             checked), the sensor is selected from the existing ones now
+    - bugfix: setup page 'Syslog': the lines were inserted as HTML; 'Wifi': the SSIDs were inserted as HTML
+    - bugfix: system services: 'Kill' sent 'Stop' (and KillUnit was called with a wrong signature), template units
+             logged errors on each load and aren't listed any more (like 'static' and 'alias' units)
+    - bugfix: setup menu jumped back to the start after a selection
 
 2026-11-11: version 0.1.53
     - bugfix: p4mqttd: the in/outputs (P4DO / P4DI, e.g. the pumps of the heating circuits) were always 'off' in the

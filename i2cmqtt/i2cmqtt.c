@@ -8,18 +8,18 @@
 
 #include <signal.h>
 
-#include "lib/common.h"
-#include "lib/json.h"
-#include "lib/mqtt.h"
+#include "../lib/common.h"
+#include "../lib/json.h"
+#include "../lib/mqtt.h"
 
-#include "lib/i2c/ads1115.h"
-#include "lib/i2c/mcp23017.h"
-#include "lib/i2c/dht20.h"
-#include "lib/i2c/ds2484.h"
-#include "lib/i2c/ina219.h"
+#include "ads1115.h"
+#include "mcp23017.h"
+#include "dht20.h"
+#include "ds2484.h"
+#include "ina219.h"
 
-#include "gpio.h"
-#include "service.h"
+#include "../lib/gpio.h"
+#include "../service.h"
 
 #define confDir "/etc/" TARGET
 

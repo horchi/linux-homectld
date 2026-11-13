@@ -12,11 +12,11 @@
 #include <numeric>
 #include <cmath>
 
-#include "gpio.h"
+#include "../lib/gpio.h"
 
-#include "HISTORY.h"
+#include "../HISTORY.h"
 #include "w1.h"
-#include "lib/json.h"
+#include "../lib/json.h"
 
 bool W1::shutdown {false};
 int W1::w1PowerPin {na};

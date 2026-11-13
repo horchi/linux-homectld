@@ -1,0 +1,243 @@
+/*
+ *  alerts.css - the setup page 'Alerts' (alerts.js), a card per sensor alert over the full
+ *  width, like the other setup pages, only the theme variables
+ */
+
+.alrPage {
+   padding: var(--containerPadding);
+   box-sizing: border-box;
+}
+
+.alrPageHead {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+   margin: 0 4px 12px 4px;
+   padding-bottom: 8px;
+   border-bottom: 1px solid var(--neutral2);
+   font-size: 18px;
+   font-weight: bold;
+   color: var(--fontColor, inherit);
+}
+
+.alrPageHead .mdi {
+   font-size: 24px;
+   color: var(--blue);
+}
+
+.alrCount {
+   font-size: 12px;
+   font-weight: normal;
+   padding: 1px 8px;
+   border-radius: 10px;
+   background: var(--neutral1);
+   color: var(--neutral4);
+}
+
+.alrList {
+   display: flex;
+   flex-direction: column;
+   gap: 10px;
+}
+
+/* an alert */
+
+.alrCard {
+   display: flex;
+   flex-direction: column;
+   gap: 12px;
+   padding: 12px 14px;
+   border-radius: 8px;
+   background: var(--widgetBackground);
+   border: 1px solid var(--neutral1);
+   box-sizing: border-box;
+   transition: border-color 0.2s;
+}
+
+.alrCard:hover,
+.alrCard:focus-within {
+   border-color: var(--blue);
+}
+
+.alrCard.alrChanged {
+   border-color: var(--orange);
+}
+
+.alrCard.alrNew {
+   border-style: dashed;
+   border-color: var(--neutral3);
+}
+
+.alrCard.alrUnknown {
+   border-color: var(--red);
+}
+
+.alrCard.alrOff .alrSection,
+.alrCard.alrOff .alrIcon,
+.alrCard.alrOff .alrTitle {
+   opacity: 0.55;
+}
+
+.alrHead {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+   gap: 10px;
+   min-width: 0;
+}
+
+.alrSwitch input[type="checkbox"] + label {
+   margin: 0;
+}
+
+.alrIcon {
+   font-size: 22px;
+   color: var(--orange);
+}
+
+.alrNew .alrIcon {
+   color: var(--neutral4);
+}
+
+.alrTitle {
+   min-width: 0;
+   overflow: hidden;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+   font-size: 16px;
+   font-weight: bold;
+   color: var(--fontColor, inherit);
+}
+
+.alrChip {
+   font-family: monospace;
+   font-size: 11px;
+   padding: 1px 6px;
+   border-radius: 4px;
+   background: var(--neutral1);
+   color: var(--neutral4);
+}
+
+.alrActions {
+   margin-left: auto;
+   display: flex;
+   flex-wrap: wrap;
+   gap: 6px;
+}
+
+button.alrAction {
+   display: inline-flex;
+   align-items: center;
+   gap: 5px;
+   margin: 0;
+   padding: 4px 12px;
+   border-radius: 16px;
+   font-size: 13px;
+   white-space: nowrap;
+}
+
+button.alrAction.alrDelete {
+   color: var(--red);
+}
+
+.alrWarn {
+   display: flex;
+   align-items: center;
+   gap: 8px;
+   padding: 8px 10px;
+   border-radius: 6px;
+   font-size: 13px;
+   color: var(--red);
+   background: var(--neutral1);
+}
+
+.alrWarn .mdi {
+   font-size: 18px;
+}
+
+/* the sections: sensor, condition, mail */
+
+.alrSection {
+   display: flex;
+   flex-direction: column;
+   gap: 6px;
+}
+
+.alrSectionTitle {
+   font-size: 11px;
+   font-weight: bold;
+   letter-spacing: 0.06em;
+   text-transform: uppercase;
+   color: var(--neutral4);
+}
+
+.alrFields {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 8px 14px;
+}
+
+.alrField {
+   display: flex;
+   flex-direction: column;
+   gap: 2px;
+   flex: 0 1 150px;
+   min-width: 0;
+}
+
+.alrField.alrWide {
+   flex: 1 1 260px;
+}
+
+.alrField.alrFull {
+   flex: 1 1 100%;
+}
+
+.alrLabel {
+   font-size: 12px;
+   color: var(--neutral4);
+}
+
+.alrInput {
+   display: flex;
+   align-items: center;
+   gap: 6px;
+}
+
+.alrInput .input {
+   flex: 1;
+   min-width: 0;
+   width: 100%;
+   border-radius: 4px;
+   padding-left: 6px;
+}
+
+.alrInput textarea.input {
+   height: auto;
+   min-height: 80px;
+   resize: vertical;
+}
+
+.alrUnit {
+   flex-shrink: 0;
+   font-size: 12px;
+   color: var(--neutral4);
+}
+
+.alrHint {
+   font-family: monospace;
+   font-size: 11px;
+   color: var(--neutral4);
+   word-spacing: 4px;
+}
+
+@media (max-width: 500px) {
+   .alrActions {
+      margin-left: 0;
+      width: 100%;
+   }
+
+   .alrField {
+      flex: 1 1 40%;
+   }
+}

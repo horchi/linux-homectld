@@ -45,7 +45,15 @@ https://community.hetzner.com/tutorials/how-to-install-mariadb-10-6-on-ubuntu-20
 Set the database root (db admin) password during installation!
 
 #### Local database setup
-If the database server is located locally (on same host as the daemon):
+If the database server is located locally (on same host as the daemon), after getting the sources (see below):
+
+```
+make install-db
+```
+This creates the database, the user (for local and remote access) and the grants, name, user and password
+are taken from `NAME` in `Make.config` (default `homectl`). As root the login to the database works via
+socket, otherwise the root password of the database is prompted. The tables are created by `homectld` at
+its first start. The manual way:
 
 ```
 > mysql -u root -Dmysql -p
@@ -64,6 +72,31 @@ if the database is running remote, or you like to have remote access to the data
  GRANT ALL PRIVILEGES ON homectl.* TO 'homectl'@'%' IDENTIFIED BY 'homectl';
  flush privileges;
 ```
+
+### Get the sources and configure the build
+
+```
+cd /usr/src/
+git clone https://github.com/horchi/linux-homectld/
+cd linux-homectld
+apt -y install dialog
+make config
+```
+`make config` creates / edits `Make.user` interactively, all settings and their defaults come from
+`Make.user.template` (it can also be edited by hand, `cp Make.user.template Make.user`):
+
+- first dialog: the switches - the optional services which are built and installed by `make` / `make install`
+  (all off by default), for example
+  - `W1MQTT`, `BMSMQTT`, `VOTROMQTT`, `VICTRONMQTT`, `I2CMQTT`: the MQTT services for One Wire sensors, battery
+    management system, Votronic, Victron (VE.Direct) and I2C sensors (see [hardware](hardware.md))
+  - `HOMEMATIC` ([homematic](homematic.md)), `P4` ([p4mqttd](p4.md)), `GPS` ([gps](gps.md)), `GARMIN` ([garmin](garmin.md)),
+    `SAMSUNGTV`, `DENON`, `MOPEKA`, `THETFORD`, `VDR`
+  - `WOMO`: the motorhome / standalone server setup ([standalone server](standalone-server.md))
+- second dialog: the personalization, e.g. `MQTT_HOST`, `SUBNET`, `WIFI_SSID` / `WIFI_PWD` (ESP32 sketches);
+  an empty value leaves the setting unset
+
+The previous `Make.user` is kept as `Make.user.bak`. Settings in `Make.user` which are not in the template are kept.
+Call `make config` again at any time to change the selection, then `make install`.
 
 ### Install the build dependencies
 
@@ -147,16 +180,14 @@ make install
 ldconfig
 ```
 
-### Get, build and install the homectld
+### Build and install the homectld
 
 ```
-cd /usr/src/
-git clone https://github.com/horchi/linux-homectld/
-cd linux-homectld
+cd /usr/src/linux-homectld
 make clean all
 make install
 ```
-Now the home control daemon is installed in folder `/usr/local/bin`
+Now the home control daemon and the services enabled in `Make.user` are installed in folder `/usr/local/bin`
 Check `/etc/homectld/daemon.conf` file for setting of your database login. If you have used the defaults above no change is needed.
 
 ## First start of homectld

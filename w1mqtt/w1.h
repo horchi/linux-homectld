@@ -12,8 +12,8 @@
 #include <map>
 #include <limits>
 
-#include "lib/common.h"
-#include "lib/mqtt.h"
+#include "../lib/common.h"
+#include "../lib/mqtt.h"
 
 #define confDir "/etc/" TARGET
 

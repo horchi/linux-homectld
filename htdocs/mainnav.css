@@ -1,0 +1,208 @@
+/*
+ *  mainnav.css - the main menu (main.js, prepareMenu / addMainMenuButton / mainNav*):
+ *  tabs with icon, the active one as filled pill (the setup menu below has underlined tabs),
+ *  live states of the tabs (S 3200 fire / fault, setup attention, GPS recording of gps.js),
+ *  the tools at the right: connection dot, clock, bell with the unread messages, burger.
+ *  The rules start with '.mainNav', they have to win against '.tabButton' of base.css
+ *  (which the dashboard tabs use, too - they stay as they are).
+ */
+
+.mainNav .mainTabs {
+   align-items: center;
+   gap: 2px;
+   padding: 3px 0;
+}
+
+.mainNav .mainTabs > .tabButton.mainNavTab {
+   display: inline-flex;
+   align-items: center;
+   gap: 6px;
+   height: 34px;
+   margin: 0;
+   padding: 0 14px;
+   border: none;
+   border-radius: 17px;
+   background: transparent;
+   color: var(--buttonFont);
+   opacity: 0.7;
+   font-size: 14px;
+   transition: background-color 0.2s, opacity 0.2s, color 0.2s;
+}
+
+.mainNav .mainTabs > .tabButton.mainNavTab:hover {
+   opacity: 1;
+   background: var(--neutral1);
+}
+
+.mainNav .mainTabs > .tabButton.mainNavTab.active {
+   opacity: 1;
+   font-weight: bold;
+   color: #fff;
+   background: var(--blue);
+}
+
+.mainNavIcon {
+   position: relative;
+   font-size: 18px;
+   line-height: 1;
+}
+
+/* GPS recording / paused (gps.js), like before: the color of the tab */
+
+.mainNav .mainTabs > .tabButton.mainNavTab.tabRecording { color: var(--red); opacity: 1; }
+.mainNav .mainTabs > .tabButton.mainNavTab.tabPaused    { color: var(--orange); opacity: 1; }
+.mainNav .mainTabs > .tabButton.mainNavTab.active.tabRecording .mainNavIcon { color: #ffb3b3; }
+
+/* S 3200: the flame burns while heating, red on a fault */
+
+.mainNav .mainTabs > .tabButton.mainNavTab.mainNavFire {
+   opacity: 1;
+}
+
+.mainNavFire .mainNavIcon {
+   color: var(--orange);
+   text-shadow: 0 0 8px #ff7a1a;
+   animation: mainNavFlicker 1.6s ease-in-out infinite;
+}
+
+.mainNavFire.active .mainNavIcon {
+   color: #ffd27a;
+}
+
+@keyframes mainNavFlicker {
+   0%, 100% { opacity: 1;    transform: scale(1); }
+   30%      { opacity: 0.75; transform: scale(0.94); }
+   60%      { opacity: 0.95; transform: scale(1.05); }
+}
+
+.mainNavFault .mainNavIcon {
+   color: var(--red);
+}
+
+/* a dot at the icon: fault of the S 3200, attention of the setup */
+
+.mainNavFault .mainNavIcon::after,
+.mainNavAttention .mainNavIcon::after {
+   content: '';
+   position: absolute;
+   top: -2px;
+   right: -4px;
+   width: 8px;
+   height: 8px;
+   border-radius: 50%;
+   background: var(--red);
+   box-shadow: 0 0 0 2px var(--menu);
+}
+
+/* tools at the right */
+
+.mainNavTools {
+   gap: 10px;
+   padding-left: 8px;
+}
+
+.mainNavConn {
+   width: 10px;
+   height: 10px;
+   border-radius: 50%;
+   background: var(--neutral3);
+   transition: background-color 0.3s;
+}
+
+.mainNavConn.online {
+   background: var(--green);
+   box-shadow: 0 0 6px var(--green);
+}
+
+.mainNavConn.connecting {
+   background: var(--orange);
+   animation: mainNavBlink 1s ease-in-out infinite;
+}
+
+.mainNavConn.offline {
+   background: var(--red);
+   box-shadow: 0 0 6px var(--red);
+}
+
+@keyframes mainNavBlink {
+   50% { opacity: 0.3; }
+}
+
+.mainNavClock {
+   font-size: 14px;
+   font-variant-numeric: tabular-nums;
+   color: var(--buttonFont);
+   opacity: 0.8;
+}
+
+button.mainNavBell {
+   position: relative;
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   width: 34px;
+   height: 34px;
+   padding: 0;
+   border: none;
+   border-radius: 50%;
+   background: transparent;
+   color: var(--buttonFont);
+   font-size: 20px;
+   cursor: pointer;
+   transition: background-color 0.2s;
+}
+
+button.mainNavBell:hover,
+button.mainNavBell.mainNavBellOpen {
+   background: var(--neutral1);
+}
+
+.mainNavBadge {
+   position: absolute;
+   top: 1px;
+   right: -2px;
+   min-width: 16px;
+   height: 16px;
+   padding: 0 4px;
+   box-sizing: border-box;
+   border-radius: 8px;
+   font-size: 10px;
+   font-weight: bold;
+   line-height: 16px;
+   text-align: center;
+   color: #000;
+   background: var(--orange);
+}
+
+.mainNavBadge.mainNavBadgeError {
+   color: #fff;
+   background: var(--red);
+}
+
+.mainNavTools .burgerMenu {
+   margin-left: 0;
+}
+
+/* small displays: the inactive tabs as icon (title as tooltip), no clock */
+
+@media (max-width: 700px) {
+   .mainNav .mainTabs > .tabButton.mainNavTab {
+      padding: 0 10px;
+   }
+
+   .mainNav .mainTabs > .tabButton.mainNavTab:not(.active) .mainNavText {
+      display: none;
+   }
+
+   .mainNavIcon {
+      font-size: 20px;
+   }
+
+   .mainNavClock {
+      display: none;
+   }
+
+   .mainNavTools {
+      gap: 6px;
+   }
+}

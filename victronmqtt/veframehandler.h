@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include "../common.h"
+#include "../lib/common.h"
 
 const byte frameLen {22};                        // VE.Direct Protocol: max frame size is 22
 const byte nameLen {9};                          // VE.Direct Protocol: max name size is 9 including /0

@@ -416,15 +416,18 @@ function widgetSetup(key, hasp)
                   .append($('<div></div>')
                           .attr('id', 'divLinefeed')
                           .append($('<span></span>')
-                                  .html('Zeilenumbruch'))
+                                  .html('Art'))
                           .append($('<span></span>')
-                                  .append($('<input></input>')
+                                  .append($('<select></select>')
                                           .addClass('rounded-border inputSetting')
-                                          .attr('id', 'linefeed')
-                                          .attr('type', 'checkbox')
-                                          .prop('checked', widget.linefeed))
-                                  .append($('<label></label>')
-                                          .prop('for', 'linefeed')
+                                          .attr('id', 'spacermode')
+                                          .attr('title', 'Platzhalter: Leerraum in der Breite des Widgets\n' +
+                                                'Zeilenumbruch: die folgenden Widgets beginnen in einer neuen Zeile\n' +
+                                                'Zentrieren: Zeilenumbruch, die folgenden Widgets bis zum nächsten Zeilenumbruch werden in ihrer Zeile zentriert (Layout \'grid\', bei \'flex\' sind die Zeilen immer zentriert)')
+                                          .append($('<option></option>').val('').html('Platzhalter'))
+                                          .append($('<option></option>').val('linefeed').html('Zeilenumbruch'))
+                                          .append($('<option></option>').val('center').html('Zentrieren'))
+                                          .val(widget.linefeed ? (widget.center ? 'center' : 'linefeed') : '')
                                          )))
                   .append($('<div></div>')
                           .attr('id', 'divRange')
@@ -725,7 +728,8 @@ function widgetSetup(key, hasp)
             widget.showpeakmin = $("#peakmin").is(':checked');
             widget.showvalue = $("#showvalue").is(':checked');
             widget.buttons = $("#buttons").is(':checked');
-            widget.linefeed = $("#linefeed").is(':checked');
+            widget.linefeed = ['linefeed', 'center'].includes($("#spacermode").val());
+            widget.center = $("#spacermode").val() == 'center';
             widget.spin = $("#spin").is(':checked');
             widget.widthfactor = $("#widthfactor").val();
             widget.heightfactor = $("#heightfactor").val();
@@ -762,7 +766,8 @@ function widgetSetup(key, hasp)
             widget.showpeakmin = $("#peakmin").is(':checked');
             widget.showvalue = $("#showvalue").is(':checked');
             widget.buttons = $("#buttons").is(':checked');
-            widget.linefeed = $("#linefeed").is(':checked');
+            widget.linefeed = ['linefeed', 'center'].includes($("#spacermode").val());
+            widget.center = $("#spacermode").val() == 'center';
             widget.spin = $("#spin").is(':checked');
             widget.widthfactor = $("#widthfactor").val();
             widget.heightfactor = $("#heightfactor").val();
@@ -827,7 +832,8 @@ function widgetSetup(key, hasp)
                json[key]["minutes"] = parseInt($("#minutes").val()) || 10;
             if ($("#steps").length)
                json[key]["steps"] = $("#steps").val();
-            json[key]["linefeed"] = $("#linefeed").is(':checked');
+            json[key]["linefeed"] = ['linefeed', 'center'].includes($("#spacermode").val());
+            json[key]["center"] = $("#spacermode").val() == 'center';
             json[key]["color"] = $("#color").spectrum("get").toRgbString();
             json[key]["colorOn"] = $("#colorOn").spectrum("get").toRgbString();
             json[key]["colorCondition"] = $("#colorCondition").val();

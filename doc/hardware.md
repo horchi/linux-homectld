@@ -63,7 +63,7 @@ Aktuell pinctrl-0:                              pinctrl-0 = <0x82 0x83>;
 Bereits korrekt — kein Patch nötig.
 ```
 
-If you use the i2c2mqtt service shipped with the homectld you hav to use tbe i2c bus number provided by the
+If you use the i2cmqtt service shipped with the homectld (`I2CMQTT = 1` in `Make.user`) you hav to use tbe i2c bus number provided by the
 check scipt, in case of the output above 2. Therefor use the device /dev/i2c-2.
 
 To scan the bus:
@@ -105,14 +105,14 @@ show the options and supported sensor types. You can start it as a service and p
 
 ### BMS
 If you like to connect a Battery-Management-Systems like them used commonly from LionTron a you can use
-the `bmsmqtt` service shipped with the `homectld`. Jus configure it in `/etc/default/bmsmqtt`, enable and start it:
+the `bmsmqtt` service shipped with the `homectld`. Enable it with `BMSMQTT = 1` in `Make.user` (or `make config`), `make install`, configure it in `/etc/default/bmsmqtt`, enable and start it:
 ```
 systemctl enable bmsmqtt.service
 systemctl start bmsmqtt.service
 ```
 
 ### One Wire service (w1mqtt)
-The One Wire Sensors are managed by the `w1mqtt` service shipped with `homectld`, this service is enables by default and can be disabled if not needed.
+The One Wire Sensors are managed by the `w1mqtt` service shipped with `homectld`. It is built and installed with `W1MQTT = 1` in `Make.user` (or `make config`) and enabled by the Debian package, it can be disabled if not needed.
 Disable `w1mqtt`
 ```
 systemctl disable w1mqtt.service

@@ -21,7 +21,18 @@
 #HOMEMATIC = 1
 #SAMSUNGTV = 1
 #DENON = 1
+# P4: p4mqttd, Froeling S 3200 (P4) via serial interface to MQTT (see p4mqttd/README.md)
+
 #P4 = 1
+
+# MQTT services in the sub directories (W1MQTT: One Wire sensors, BMSMQTT: battery management system,
+#   VOTROMQTT: Votronic, VICTRONMQTT: Victron VE.Direct, I2CMQTT: I2C sensors)
+
+#W1MQTT = 1
+#BMSMQTT = 1
+#VOTROMQTT = 1
+#VICTRONMQTT = 1
+#I2CMQTT = 1
 
 # =========================
 # personalization

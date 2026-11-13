@@ -155,12 +155,10 @@ function initSensorSetup()
       .empty()
       .append($('<div></div>')
               .attr('id', 'ioSetupContainer')
-              .addClass('setupContainer'))
+              .addClass('setupContainer ioSetup'))       // styles in iosetup.css
       .append($('<div></div>')
               .attr('id', 'gpioState')
-              .css('margin', 'var(--containerPadding)')
-              .css('background-color', 'var(--widgetBackground)')
-              .addClass('hidden rounded-border'));
+              .addClass('hidden rounded-border ioGpio'));
 
    for (var i = 0; i < valueTypes.length; i++) {
       var section = 'io' + valueTypes[i].title.replace(/\s+/g, '');
@@ -170,13 +168,16 @@ function initSensorSetup()
          $("#controlContainer").append($('<div></div>')
                                        .append($('<button></button>')
                                                .attr('id', 'btn_' + section)
-                                               .addClass('rounded-border tool-button')
+                                               .attr('title', valueTypes[i].title)
+                                               .addClass('rounded-border tool-button cfgCatButton')
                                                .click({ "section" : section }, function(event) { switchTable(event.data.section); })
-                                               .html(valueTypes[i].title)));
+                                               .append($('<span></span>').addClass('mdi ' + ioTypeIcon(valueTypes[i])))
+                                               .append($('<span></span>').text(valueTypes[i].title))));
 
          ioSections[section] = {};
          ioSections[section].title = valueTypes[i].title;
          ioSections[section].type = valueTypes[i].type;
+         ioSections[section].icon = ioTypeIcon(valueTypes[i]);
       }
    }
 
@@ -190,6 +191,14 @@ function initSensorSetup()
 }
 
 var filterActive = false;
+
+// the icon of a sensor type, the symbol of the value type is 'mdi:mdi-<name>'
+
+function ioTypeIcon(valueType)
+{
+   let symbol = valueType && valueType.symbol ? valueType.symbol : '';
+   return symbol.startsWith('mdi:') ? symbol.substring(4) : 'mdi-tune-variant';
+}
 
 function filterSensorSetup()
 {
@@ -230,11 +239,8 @@ function showTable(section)
    if (activeSection)
       localStorage.setItem(storagePrefix + 'activeIoSection', activeSection);
 
-   $('button[id^="btn_io"]').each(function () {
-      $(this).css('background-color', '');
-   });
-
-   $('#btn_' + activeSection).css('background-color', 'slategray');
+   $('button[id^="btn_io"]').removeClass('cfgCatActive');
+   $('#btn_' + activeSection).addClass('cfgCatActive');
 
    let headRow = $('<tr>')
       .append($('<td>').css('width', '22%').text('Name'))
@@ -248,40 +254,49 @@ function showTable(section)
    if (activeSection == 'ioGPIO')
       headRow.append($('<td>').css('width', '10%').text('Funktion'));
 
-   headRow.append($('<td>').css('width', '6%'));
+   headRow.append($('<td>').addClass('ioActionsCol'));      // the width in iosetup.css (fits the icon buttons)
 
    let tbody = $('<tbody>').attr('id', section);
 
    let table = $('<table>')
-       .addClass('tableMultiCol')
+       .addClass('tableMultiCol ioTable')
        .append($('<thead>')
                .append(headRow))
        .append(tbody);
 
-   // Add (+) button for CV
+   // the head: icon, title and count of the category, the add button for CV / SCN
+
+   let count = $('<span></span>').addClass('ioSetupCount');
+   let head = $('<div></div>').addClass('ioSetupHead')
+       .append($('<div></div>').addClass('ioSetupTitle')
+               .append($('<span></span>').addClass('mdi ' + (ioSections[section].icon || 'mdi-tune-variant')))
+               .append($('<span></span>').text(ioSections[section].title))
+               .append(count));
 
    if (ioSections[section].type == 'CV' || ioSections[section].type == 'SCN') {
-      table
-         .append($('<tfoot>')
-                 .append($('<tr>')
-                         .append($('<td>').attr('colspan', '8').css('background-color', '#333333')
-                                 .append($('<button>')
-                                         .addClass('buttonOptions rounded-border')
-                                         .text('+')
-                                         .on('click', function() {
-                                            socket.send({ "event" : "storesensorsetup", "object" : {
-                                               'type' : ioSections[section].type,
-                                               'name' : ioSections[section].type == 'SCN' ? 'Szene' : 'Calc Sensor',
-                                               'action' : 'add'
-                                            }});
-                                         })
-                                        ))));
+      head.append($('<button>')
+                  .attr('type', 'button')
+                  .addClass('buttonOptions rounded-border ioAdd')
+                  .append($('<span></span>').addClass('mdi mdi-plus'))
+                  .append($('<span></span>').text(ioSections[section].type == 'SCN' ? 'Neue Szene' : 'Neuer Calc Sensor'))
+                  .on('click', function() {
+                     socket.send({ "event" : "storesensorsetup", "object" : {
+                        'type' : ioSections[section].type,
+                        'name' : ioSections[section].type == 'SCN' ? 'Szene' : 'Calc Sensor',
+                        'action' : 'add'
+                     }});
+                  }));
    }
 
    $('#ioSetupContainer').empty()
-      .append(table)
+      .append(head)
+      .append($('<div></div>').addClass('ioTableWrap').append(table))
+      .off('change input')
       .on('change input', 'input, select', function() {
-         $(this).closest('tr').data('changed', true);
+         let tr = $(this).closest('tr');
+         tr.data('changed', true).addClass('ioChanged');
+         if (this.id && this.id.startsWith('state_'))
+            tr.toggleClass('ioInactive', !this.checked);
          $('#btnStoreIoSetup').attr('disabled', false);
          changes = true;
       });
@@ -329,42 +344,49 @@ function showTable(section)
       let titleParts = item.title.split("\n");
       let id = item.type + item.address;
 
+      // the classes / labels of the cells: on small displays a row is a card (iosetup.css)
+
       let tr = $('<tr>')
+          .toggleClass('ioInactive', !item.state)
           .append($('<td>')
+                  .addClass('ioCellName')
                   .attr('id', 'row_' + id)
                   .data('address', item.address)
                   .data('type', item.type)
                   .append($('<div>')
+                          .addClass('ioName')
                           .text(titleParts[0]))
                   .append($('<div>')
-                          .css({fontSize: 'smaller', color: 'darkgray'})
+                          .addClass('ioSub')
                           .text(titleParts.length > 1 ? titleParts[1] : '')))
-          .append($('<td>').addClass('tableMultiColCell')
+          .append($('<td>').addClass('tableMultiColCell ioCellTitle').attr('data-label', 'Titel')
                   .append($('<input>')
                           .attr({id: 'usrtitle_' + id, type: 'search', value: usrtitle})
                           .addClass('inputSetting rounded-border')
                          ))
-          .append($('<td>').addClass('tableMultiColCell')
+          .append($('<td>').addClass('tableMultiColCell ioCellUnit').attr('data-label', 'Einheit')
                   .append($('<input>')
                           .attr({id: 'unit_' + id, type: 'search', value: item.unit})
                           .addClass('inputSetting rounded-border')
                          ))
-          .append($('<td>')
+          .append($('<td>').addClass('ioCellSwitch').attr('data-label', 'Aktiv')
                   .append($('<input>')
                           .attr({id: 'state_' + id, type: 'checkbox'})
                           .prop('checked', !!item.state)
                           .addClass('rounded-border input'))
                   .append($('<label>')
                           .attr('for', 'state_' + id)))
-          .append($('<td>')
+          .append($('<td>').addClass('ioCellSwitch').attr('data-label', 'Aufzeichnen')
                   .append($('<input>').attr({id: 'record_' + id, type: 'checkbox'})
                           .prop('checked', !!item.record)
                           .addClass('rounded-border input'))
                   .append($('<label>').attr('for', 'record_' + id)))
-          .append($('<td>')
-                  .append($('<div>').text(key))
-                  .append($('<div>').css({fontSize: 'smaller', color: 'darkgray'}).text(item.mac || '')))   // deCONZ MAC
-          .append($('<td>').css('white-space', 'nowrap')        // battery devices (deCONZ sensors, ...)
+          .append($('<td>').addClass('ioCellId').attr('data-label', 'ID')
+                  .append($('<div>').addClass('ioKey').text(key))
+                  .append($('<div>').addClass('ioSub').text(item.mac || '')))   // deCONZ MAC
+          .append($('<td>').addClass('ioCellBattery')        // battery devices (deCONZ sensors, ...)
+                  .toggleClass('ioCellEmpty', !(allSensors[key] && allSensors[key].battery != null && allSensors[key].battery >= 0))
+                  .attr('data-label', 'Batterie')
                   .append(allSensors[key] && allSensors[key].battery != null && allSensors[key].battery >= 0
                           ? [batterySymbol(allSensors[key].battery), $('<span></span>').text(' ' + allSensors[key].battery + ' %')]
                           : []));
@@ -374,7 +396,7 @@ function showTable(section)
       if (item.type == 'GPIO') {
          gpioFct = (item.settings && item.settings.fct && item.settings.fct != '') ? item.settings.fct : "deactivated";
          tr.append(
-            $('<td>').addClass('tableMultiColCell').append(
+            $('<td>').addClass('tableMultiColCell ioCellFunction').attr('data-label', 'Funktion').append(
                $('<select>').attr('id', 'function_' + id).addClass('inputSetting rounded-border')
                   .append($('<option>').val('deactivated').text('Off'))
                   .append($('<option>').val('occupied').text('Occupied'))
@@ -386,7 +408,7 @@ function showTable(section)
 
       // action buttons (icons) in one cell, a missing one keeps its place (the icons stay in columns)
 
-      let actions = $('<td>').addClass('iconButtons');
+      let actions = $('<td>').addClass('iconButtons ioCellActions');
 
       let iconButton = function(show, icon, color, title, action) {
          let btn = $('<button>')
@@ -428,6 +450,14 @@ function showTable(section)
       tr.append(actions);
       root.append(tr);
    }
+
+   let rows = $('#' + section + ' > tr').length;
+
+   count.text(rows);
+
+   if (!rows)
+      $('#' + section).append($('<tr>').append($('<td>').attr('colspan', headRow.children().length).addClass('ioEmpty')
+                                               .text(filterActive || filterSensorExpression ? 'Keine Sensoren für den Filter' : 'Keine Sensoren')));
 }
 
 var calSensorType = '';

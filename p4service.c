@@ -723,27 +723,40 @@ static std::string p4HtmlEscape(const std::string& in)
    return out;
 }
 
+// the look of a state of the control (the groups of the state images of the p4d)
+
+struct P4StateLook
+{
+   const char* icon;
+   const char* color;         // text and accent
+   const char* tint;          // background of the badge
+};
+
+static P4StateLook p4StateLook(int state)
+{
+   if (state == 0)                                                   return { "⚠️", "#d32f2f", "#fdecea" };  // Störung
+   if (state == 1 || state == 5)                                     return { "💤", "#6b7280", "#eef0f3" };  // Brenner aus
+   if (state == 2 || state == 71 || state == 9)                      return { "🌡️", "#e8710a", "#fff1e3" };  // Anheizen
+   if (state == 3)                                                   return { "🔥", "#e8590c", "#ffe8d9" };  // Heizen
+   if (state == 4)                                                   return { "🔥", "#f0a04b", "#fff4e5" };  // Feuerhaltung
+   if (state == 6)                                                   return { "🚪", "#b7791f", "#fef6e4" };  // Tür offen
+   if (state == 7)                                                   return { "⚙️", "#2b7bbf", "#e8f2fb" };  // Vorbereitung
+   if (state == 8)                                                   return { "♨️", "#e8710a", "#fff1e3" };  // Vorwärmen
+   if (state == 15 || state == 70 || state == 69)                    return { "🧹", "#2b7bbf", "#e8f2fb" };  // Reinigen
+   if ((state >= 10 && state <= 14) || state == 35 || state == 16)   return { "⏳", "#2b7bbf", "#e8f2fb" };  // Warten
+   if (state == 60 || state == 61 || state == 72)                    return { "🔥", "#e8590c", "#ffe8d9" };  // Scheitholz
+   if (state == 19)                                                  return { "✅", "#2e7d32", "#e8f5e9" };  // Betriebsbereit
+
+   return { "ℹ️", "#2b7bbf", "#e8f2fb" };
+}
+
 int HomeCtl::p4SendErrorMail()
 {
    if (!sendMails || mailScript.empty() || errorMailTo.empty())
       return done;
 
    std::vector<long> ids;
-   std::string rows;
-
-   tableP4Errors->clear();
-
-   for (bool f = selectP4PendingErrors->find(); f; f = selectP4PendingErrors->fetch())
-   {
-      time_t t {std::max(std::max(tableP4Errors->getTimeValue("TIME1"), tableP4Errors->getTimeValue("TIME4")), tableP4Errors->getTimeValue("TIME2"))};
-
-      rows += "        <tr><td>" + l2pTime(t) + "</td><td>" + p4HtmlEscape(tableP4Errors->getStrValue("TEXT")) +
-         "</td><td>" + tableP4Errors->getStrValue("STATE") + "</td></tr>\n";
-
-      ids.push_back(tableP4Errors->getIntValue("ID"));
-   }
-
-   selectP4PendingErrors->freeResult();
+   std::string html {p4ErrorMailHtml(&ids)};
 
    if (ids.empty())
       return done;
@@ -762,33 +775,78 @@ int HomeCtl::p4SendErrorMail()
       }
    }
 
-   loadHtmlHeader();
-
-   std::string html {
-      "<html>\n " + htmlHeader + "\n"
-      "  <body>\n"
-      "   <font face=\"Arial\"><br/>WEB Interface: <a href=\"" + webUrl + "\">" + instanceName + "</a><br/></font>\n"
-      "   <br/>\n"
-      "Aktueller Status: " + p4HtmlEscape(p4StateInfo) + "\n"
-      "   <br/>\n"
-      "   <table>\n"
-      "     <thead>\n"
-      "       <tr class=\"head\">\n"
-      "         <th><font>Zeit</font></th>\n"
-      "         <th><font>Fehler</font></th>\n"
-      "         <th><font>Status</font></th>\n"
-      "       </tr>\n"
-      "     </thead>\n"
-      "     <tbody>\n" + rows +
-      "     </tbody>\n"
-      "   </table>\n"
-      "   <br/>\n"
-      "  </body>\n"
-      "</html>\n" };
-
    tell(eloAlways, "Info: Mail for %zu errors of the S 3200 to '%s'", ids.size(), errorMailTo.c_str());
 
    return sendMail(errorMailTo.c_str(), "Heizung: STÖRUNG", p4ShellEscape(html).c_str(), "text/html");
+}
+
+//***************************************************************************
+// P4 Error Mail Html
+//   the pending (not mailed) errors, their IDs go to 'ids' (nullptr -> the last 5 errors, for a test)
+//***************************************************************************
+
+std::string HomeCtl::p4ErrorMailHtml(std::vector<long>* ids)
+{
+   const P4StateLook look {p4StateLook(0)};
+   const std::string muted {"color:#6b7280;font-size:12px;"};
+   std::string rows;
+   int n {0};
+
+   auto addRow = [&]()
+   {
+      time_t t {std::max(std::max(tableP4Errors->getTimeValue("TIME1"), tableP4Errors->getTimeValue("TIME4")), tableP4Errors->getTimeValue("TIME2"))};
+      std::string state {tableP4Errors->getStrValue("STATE")};
+      std::string color {state == "gekommen" ? "#d32f2f" : state == "gegangen" ? "#e8710a" : "#6b7280"};
+      std::string tint {state == "gekommen" ? "#fdecea" : state == "gegangen" ? "#fff1e3" : "#eef0f3"};
+      std::string bg {n++ % 2 ? "#f8f9fb" : "#ffffff"};
+
+      rows +=
+         "<tr><td bgcolor=\"" + bg + "\" style=\"padding:8px 10px;background:" + bg + ";\">"
+         "<div style=\"color:#222;font-weight:bold;\">" + p4HtmlEscape(tableP4Errors->getStrValue("TEXT")) + "</div>"
+         "<div style=\"" + muted + "\">" + l2pTime(t, "%d.%m.%Y %H:%M") + " · Fehler " + std::to_string(tableP4Errors->getIntValue("NUMBER")) + "</div></td>"
+         "<td bgcolor=\"" + bg + "\" align=\"right\" valign=\"middle\" style=\"padding:8px 10px;background:" + bg + ";\">"
+         "<span style=\"display:inline-block;padding:3px 10px;border-radius:12px;background:" + tint + ";color:" + color +
+         ";font-size:12px;font-weight:bold;white-space:nowrap;\">" + p4HtmlEscape(state) + "</span></td></tr>\n";
+   };
+
+   tableP4Errors->clear();
+
+   if (ids)
+   {
+      for (bool f = selectP4PendingErrors->find(); f; f = selectP4PendingErrors->fetch())
+      {
+         addRow();
+         ids->push_back(tableP4Errors->getIntValue("ID"));
+      }
+
+      selectP4PendingErrors->freeResult();
+   }
+   else
+   {
+      for (bool f = selectAllP4Errors->find(); f && n < 5; f = selectAllP4Errors->fetch())
+         addRow();
+
+      selectAllP4Errors->freeResult();
+   }
+
+   std::string top {
+      "<tr><td style=\"padding:8px 20px;\">"
+      "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" bgcolor=\"" + std::string(look.tint) + "\" "
+      "style=\"background:" + look.tint + ";border-radius:12px;border-collapse:separate;\"><tr>"
+      "<td width=\"64\" align=\"center\" valign=\"middle\" style=\"padding:14px 0 14px 14px;font-size:36px;\">" + look.icon + "</td>"
+      "<td valign=\"middle\" style=\"padding:14px;\">"
+      "<div style=\"font-size:18px;font-weight:bold;color:" + look.color + ";\">Störung an der Heizung</div>"
+      "<div style=\"color:#444;font-size:13px;margin-top:2px;\">Aktueller Status: <b>" +
+      p4HtmlEscape(p4StateInfo.empty() ? std::string("unbekannt") : p4StateInfo) + "</b></div>"
+      "</td></tr></table></td></tr>\n" };
+
+   std::string list;
+
+   if (!rows.empty())
+      list = "<tr><td colspan=\"2\" style=\"padding:14px 10px 4px 10px;font-size:11px;font-weight:bold;letter-spacing:0.08em;"
+         "text-transform:uppercase;color:#9aa3ad;border-bottom:1px solid #e6e9ee;\">Fehler</td></tr>\n" + rows;
+
+   return p4MailFrame(look, top, list, "Fehler Mail der Heizung");
 }
 
 bool HomeCtl::p4IsMailState(int state)
@@ -803,21 +861,248 @@ bool HomeCtl::p4IsMailState(int state)
    return false;
 }
 
-int HomeCtl::p4SendStateMail(const char* stateInfo, int state)
+//***************************************************************************
+// P4 State Mail
+//   like the HTML widget 'Heizung S 3200': state, boiler, puffer and pellets, the tiles
+//   and the list of all values; only tables and inline styles (that's what the mail
+//   clients understand), no images - the state is an emoji in a colored badge
+//***************************************************************************
+
+// color of a temperature, blue (cold) -> orange -> red (hot), in steps (a mix of the RGB values gets grey in the middle)
+
+static const char* p4TempColor(double t)
 {
-   if (!sendMails || mailScript.empty() || stateMailTo.empty())
-      return done;
+   if (t < 30) return "#3b8fd8";
+   if (t < 40) return "#26a69a";
+   if (t < 50) return "#e6a817";
+   if (t < 65) return "#f0862b";
+   if (t < 80) return "#e8590c";
 
-   std::string rows;
+   return "#d32f2f";
+}
 
-   for (const auto& [type, list] : sensors)
+static std::string p4Num(double v, int digits)
+{
+   char buf[50];
+   snprintf(buf, sizeof(buf), "%.*f", digits, v);
+   return buf;
+}
+
+static std::string p4Num(double v)        // without decimals for whole numbers
+{
+   return p4Num(v, v == (long)v ? 0 : 1);
+}
+
+// a horizontal bar (0-100%)
+
+static std::string p4MailBar(double percent, const std::string& color, int width = 120)
+{
+   int w {(int)(std::min(std::max(percent, 0.0), 100.0) * width / 100.0 + 0.5)};
+   std::string html {"<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"" + std::to_string(width) +
+      "\" style=\"border-collapse:separate;\"><tr>"};
+
+   if (w > 0)
+      html += "<td width=\"" + std::to_string(w) + "\" height=\"8\" bgcolor=\"" + color + "\" style=\"background:" + color +
+         ";height:8px;line-height:8px;font-size:0;border-radius:4px;\">&nbsp;</td>";
+
+   if (w < width)
+      html += "<td width=\"" + std::to_string(width - w) + "\" height=\"8\" bgcolor=\"#e6e9ee\" style=\"background:#e6e9ee;"
+         "height:8px;line-height:8px;font-size:0;border-radius:4px;\">&nbsp;</td>";
+
+   return html + "</tr></table>";
+}
+
+std::string HomeCtl::p4StateMailHtml(const char* stateInfo, int state)
+{
+   // the sensors of the widget template 'Heizung S 3200', a missing (inactive / invalid) one hides its element
+
+   auto get = [this](const char* type, int address) -> const SensorData*
    {
-      if (type.rfind("P4", 0) != 0)
+      auto t {sensors.find(type)};
+
+      if (t == sensors.end())
+         return nullptr;
+
+      auto s {t->second.find(address)};
+
+      if (s == t->second.end() || !s->second.active || !s->second.valid())
+         return nullptr;
+
+      return &s->second;
+   };
+
+   const SensorData* mode       {get("P4UD", 0x02)};
+   const SensorData* clock      {get("P4UD", 0x03)};
+   const SensorData* boiler     {get("P4VA", 0x00)};
+   const SensorData* load       {get("P4VA", 0x12)};
+   const SensorData* bufTop     {get("P4VA", 0x76)};
+   const SensorData* bufBottom  {get("P4VA", 0x78)};
+   const SensorData* outside    {get("P4VA", 0x04)};
+   const SensorData* flow       {get("P4VA", 0x15)};
+   const SensorData* flowSet    {get("P4VA", 0x16)};
+   const SensorData* hcPump     {get("P4DO", 0x00)};
+   const SensorData* floor      {get("P4VA", 0x19)};
+   const SensorData* floorPump  {get("P4DO", 0x01)};
+   const SensorData* exhaust    {get("P4VA", 0x01)};
+   const SensorData* hours      {get("P4VA", 0x62)};
+   const SensorData* heatToday  {get("P4SD", 0x03)};
+   const SensorData* pellets    {get("P4VA", 0x71)};
+
+   const double boilerMax {90.0};
+   const double pelletsWarn {20.0};
+   const P4StateLook look {p4StateLook(state)};
+   const std::string muted {"color:#6b7280;font-size:12px;"};
+
+   auto unit = [](const SensorData* s) { return s->unit == "°C" ? std::string("°") : " " + p4HtmlEscape(s->unit); };
+
+   // -------------------------------------------------
+   // hero: state | boiler | puffer | pellets
+
+   std::string hero;
+
+   hero +=
+      "<td valign=\"top\" align=\"center\" style=\"padding:8px;\">"
+      "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr>"
+      "<td width=\"84\" height=\"84\" align=\"center\" valign=\"middle\" bgcolor=\"" + std::string(look.tint) + "\" "
+      "style=\"width:84px;height:84px;border-radius:42px;background:" + look.tint + ";border:3px solid " + look.color + ";"
+      "font-size:40px;line-height:84px;\">" + look.icon + "</td></tr></table>"
+      "<div style=\"margin-top:8px;font-size:17px;font-weight:bold;color:" + look.color + ";\">" + p4HtmlEscape(stateInfo) + "</div>"
+      "<div style=\"" + muted + "margin-top:2px;\">seit " + l2pTime(time(0), "%H:%M") + " Uhr</div>"
+      "</td>";
+
+   if (boiler)
+   {
+      std::string color {p4TempColor(boiler->value)};
+
+      hero +=
+         "<td valign=\"top\" align=\"center\" style=\"padding:8px;\">"
+         "<div style=\"" + muted + "\">Kessel</div>"
+         "<div style=\"font-size:36px;font-weight:bold;line-height:44px;color:" + color + ";\">" + p4Num(boiler->value, 0) +
+         "<span style=\"font-size:18px;font-weight:normal;\">" + unit(boiler) + "</span></div>" +
+         p4MailBar(boiler->value / boilerMax * 100, color);
+
+      if (load)
+         hero +=
+            "<div style=\"" + muted + "margin-top:10px;\">Leistung " + p4Num(load->value, 0) + " %</div>" +
+            p4MailBar(load->value, "#f0a04b");
+
+      hero += "</td>";
+   }
+
+   if (bufTop)
+   {
+      auto half = [&](const SensorData* s, const char* radius) {
+         std::string color {p4TempColor(s->value)};
+         return "<tr><td width=\"56\" height=\"40\" align=\"center\" valign=\"middle\" bgcolor=\"" + color + "\" "
+            "style=\"width:56px;height:40px;background:" + color + ";color:#fff;font-weight:bold;font-size:14px;" + radius + "\">" +
+            p4Num(s->value, 0) + "°</td></tr>";
+      };
+
+      hero +=
+         "<td valign=\"top\" align=\"center\" style=\"padding:8px;\">"
+         "<div style=\"" + muted + "margin-bottom:4px;\">Puffer</div>"
+         "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:separate;\">" +
+         half(bufTop, bufBottom ? "border-radius:14px 14px 0 0;" : "border-radius:14px;") +
+         (bufBottom ? half(bufBottom, "border-radius:0 0 14px 14px;") : "") +
+         "</table></td>";
+   }
+
+   if (pellets)
+   {
+      bool low {pellets->value < pelletsWarn};
+      std::string color {low ? "#d32f2f" : "#a0703c"};
+      int fill {(int)(std::min(std::max(pellets->value, 0.0), 100.0) * 0.8 + 0.5)};   // 80px
+
+      hero +=
+         "<td valign=\"top\" align=\"center\" style=\"padding:8px;\">"
+         "<div style=\"" + muted + "margin-bottom:4px;\">Pellets</div>"
+         "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"36\" "
+         "style=\"border:2px solid #9aa3ad;border-radius:6px;border-collapse:separate;\">";
+
+      if (fill < 80)
+         hero += "<tr><td height=\"" + std::to_string(80 - fill) + "\" style=\"height:" + std::to_string(80 - fill) +
+            "px;line-height:0;font-size:0;\">&nbsp;</td></tr>";
+
+      if (fill > 0)
+         hero += "<tr><td height=\"" + std::to_string(fill) + "\" bgcolor=\"" + color + "\" style=\"height:" + std::to_string(fill) +
+            "px;background:" + color + ";line-height:0;font-size:0;border-radius:0 0 4px 4px;\">&nbsp;</td></tr>";
+
+      hero +=
+         "</table>"
+         "<div style=\"font-size:13px;font-weight:bold;margin-top:4px;color:" + (low ? color : std::string("#333")) + ";\">" +
+         p4Num(pellets->value, 0) + " %</div>"
+         "</td>";
+   }
+
+   // -------------------------------------------------
+   // tiles
+
+   std::string tiles;
+
+   auto tile = [&](const SensorData* s, const char* icon, const char* label, const std::string& extra)
+   {
+      if (!s)
+         return;
+
+      tiles +=
+         "<td width=\"25%\" valign=\"top\" style=\"padding:4px;\">"
+         "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" bgcolor=\"#f5f7fa\" "
+         "style=\"background:#f5f7fa;border-radius:10px;border-collapse:separate;\"><tr><td style=\"padding:10px;\">"
+         "<div style=\"font-size:18px;\">" + std::string(icon) + "</div>"
+         "<div style=\"font-size:20px;font-weight:bold;color:#222;\">" + p4Num(s->value) +
+         "<span style=\"font-size:12px;font-weight:normal;color:#6b7280;\">" + unit(s) + "</span></div>"
+         "<div style=\"" + muted + "\">" + label + extra + "</div>"
+         "</td></tr></table></td>";
+   };
+
+   auto pump = [](const SensorData* s) -> std::string {
+      if (!s)
+         return "";
+      return s->state ? " · <span style=\"color:#2e7d32;font-weight:bold;\">Pumpe an</span>" : " · Pumpe aus";
+   };
+
+   tile(outside, outside && outside->value < 3 ? "❄️" : "☀️", "Außen", "");
+   tile(flow, "🌡️", "Vorlauf", (flowSet ? " · Soll " + p4Num(flowSet->value, 0) + "°" : "") + pump(hcPump));
+   tile(floor, "♨️", "Fußboden", pump(floorPump));
+   tile(exhaust, "💨", "Abgas", "");
+
+   // -------------------------------------------------
+   // chips
+
+   std::string chips;
+
+   auto chip = [&](const std::string& text) {
+      chips += "<span style=\"display:inline-block;margin:3px 4px;padding:4px 12px;border-radius:14px;background:#eef0f3;"
+         "color:#333;font-size:12px;\">" + text + "</span>";
+   };
+
+   if (mode && !mode->text.empty())  chip("⚙️ " + p4HtmlEscape(mode->text));
+   if (hours)                        chip("⏱️ " + p4Num(hours->value, 0) + " h Betrieb");
+   if (heatToday)                    chip("🔥 " + p4Num(heatToday->value / 60, 1) + " h heute");
+   if (clock && !clock->text.empty()) chip("🕒 Steuerung " + p4HtmlEscape(clock->text));
+
+   // -------------------------------------------------
+   // all values, grouped like the sensor types
+
+   static const std::pair<const char*, const char*> groups[] {
+      { "P4VA", "Messwerte" }, { "P4DO", "Digitale Ausgänge" }, { "P4AO", "Analoge Ausgänge" },
+      { "P4DI", "Digitale Eingänge" }, { "P4SD", "Statistik" } };
+
+   std::string list;
+
+   for (const auto& [type, title] : groups)
+   {
+      auto t {sensors.find(type)};
+
+      if (t == sensors.end())
          continue;
 
-      for (const auto& [address, sensor] : list)
+      std::string rows;
+      int n {0};
+
+      for (const auto& [address, sensor] : t->second)
       {
-         if (!sensor.active || sensor.title.empty() || type == "P4SC" || type == "P4WEA")
+         if (!sensor.active || sensor.title.empty())
             continue;
 
          std::string value;
@@ -825,49 +1110,154 @@ int HomeCtl::p4SendStateMail(const char* stateInfo, int state)
          // the text of an in/output is its mode (Auto / Manual), it comes after the state or value
 
          if (sensor.kind == "text")
-            value = sensor.text;
+            value = p4HtmlEscape(sensor.text);
          else if (sensor.kind == "status")
-            value = sensor.state ? "on" : "off";
+            value = sensor.state ? "<span style=\"color:#2e7d32;font-weight:bold;\">● an</span>" : "<span style=\"color:#9aa3ad;\">○ aus</span>";
          else
-         {
-            char buf[50];
-            snprintf(buf, sizeof(buf), "%.2f %s", sensor.value, sensor.unit.c_str());
-            value = buf;
-         }
+            value = p4Num(sensor.value) + " " + p4HtmlEscape(sensor.unit);
 
          if (sensor.kind != "text" && !sensor.text.empty())
-            value += " (" + sensor.text + ")";
+            value += " <span style=\"color:#9aa3ad;\">(" + p4HtmlEscape(sensor.text) + ")</span>";
 
-         rows += "        <tr><td>" + p4HtmlEscape(sensor.title) + "</td><td>" + p4HtmlEscape(value) + "</td></tr>\n";
+         std::string bg {n++ % 2 ? "#f8f9fb" : "#ffffff"};
+
+         rows += "<tr><td bgcolor=\"" + bg + "\" style=\"padding:5px 10px;background:" + bg + ";color:#444;\">" + p4HtmlEscape(sensor.title) +
+            "</td><td bgcolor=\"" + bg + "\" align=\"right\" style=\"padding:5px 10px;background:" + bg + ";color:#222;white-space:nowrap;\">" +
+            value + "</td></tr>\n";
       }
+
+      if (rows.empty())
+         continue;
+
+      list +=
+         "<tr><td colspan=\"2\" style=\"padding:14px 10px 4px 10px;font-size:11px;font-weight:bold;letter-spacing:0.08em;"
+         "text-transform:uppercase;color:#9aa3ad;border-bottom:1px solid #e6e9ee;\">" + std::string(title) + "</td></tr>\n" + rows;
    }
 
-   loadHtmlHeader();
+   // -------------------------------------------------
+   // the mail
 
-   std::string html {
-      "<html>\n " + htmlHeader + "\n"
-      "  <body>\n"
-      "   <font face=\"Arial\"><br/>WEB Interface: <a href=\"" + webUrl + "\">" + instanceName + "</a><br/></font>\n"
-      "   <br/>\n"
-      "   <table>\n"
-      "     <thead>\n"
-      "       <tr class=\"head\">\n"
-      "         <th><font>Parameter</font></th>\n"
-      "         <th><font>Wert</font></th>\n"
-      "       </tr>\n"
-      "     </thead>\n"
-      "     <tbody>\n" + rows +
-      "     </tbody>\n"
-      "   </table>\n"
-      "   <br/>\n"
-      "  </body>\n"
-      "</html>\n" };
+   std::string top {
+      "<tr><td align=\"center\" style=\"padding:8px 12px;\">"
+      "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr>" + hero + "</tr></table>"
+      "</td></tr>\n" };
 
+   if (!tiles.empty())
+      top += "<tr><td style=\"padding:4px 16px;\"><table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr>" +
+         tiles + "</tr></table></td></tr>\n";
+
+   if (!chips.empty())
+      top += "<tr><td align=\"center\" style=\"padding:10px 16px 4px 16px;\">" + chips + "</td></tr>\n";
+
+   return p4MailFrame(look, top, list, "Status Mail der Heizung");
+}
+
+//***************************************************************************
+// P4 Mail Frame
+//   the card of the mails: accent of the state on top, title, the rows 'top', the button
+//   to the web interface and the rows of the table 'list' (two columns)
+//***************************************************************************
+
+std::string HomeCtl::p4MailFrame(const P4StateLook& look, const std::string& top, const std::string& list, const char* footer)
+{
+   const std::string font {"font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;"};
+   const std::string muted {"color:#6b7280;font-size:12px;"};
+
+   return
+      "<!DOCTYPE html>\n"
+      "<html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+      "<meta name=\"color-scheme\" content=\"light\"><meta name=\"supported-color-schemes\" content=\"light\"></head>\n"
+      "<body style=\"margin:0;padding:0;background:#eef1f5;" + font + "\">\n"
+      "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" bgcolor=\"#eef1f5\" style=\"background:#eef1f5;\">"
+      "<tr><td align=\"center\" style=\"padding:20px 10px;\">\n"
+      "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" bgcolor=\"#ffffff\" "
+      "style=\"max-width:600px;background:#ffffff;border-radius:14px;border-collapse:separate;overflow:hidden;font-size:14px;" + font + "\">\n"
+
+      // head, the accent of the state on top
+
+      "<tr><td height=\"5\" bgcolor=\"" + look.color + "\" style=\"height:5px;line-height:5px;font-size:0;background:" + look.color +
+      ";border-radius:14px 14px 0 0;\">&nbsp;</td></tr>\n"
+      "<tr><td style=\"padding:16px 20px 4px 20px;\">"
+      "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr>"
+      "<td style=\"font-size:18px;font-weight:bold;color:#222;\">" + look.icon + " Heizung S 3200</td>"
+      "<td align=\"right\" style=\"" + muted + "\">" + l2pTime(time(0), "%d.%m.%Y %H:%M") + "</td>"
+      "</tr></table></td></tr>\n" +
+
+      top +
+
+      (webUrl.empty() ? "" :
+       "<tr><td align=\"center\" style=\"padding:16px;\">"
+       "<a href=\"" + webUrl + "\" style=\"display:inline-block;padding:10px 22px;border-radius:20px;background:#004d8f;color:#ffffff;"
+       "text-decoration:none;font-weight:bold;font-size:14px;\">Visualisierung öffnen</a></td></tr>\n") +
+
+      (list.empty() ? "" :
+       "<tr><td style=\"padding:0 16px 16px 16px;\">"
+       "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"font-size:13px;\">\n" +
+       list + "</table></td></tr>\n") +
+
+      "<tr><td align=\"center\" bgcolor=\"#f5f7fa\" style=\"padding:12px;background:#f5f7fa;" + muted + "border-radius:0 0 14px 14px;\">" +
+      p4HtmlEscape(instanceName) + " · " + footer + "</td></tr>\n"
+
+      "</table>\n"
+      "</td></tr></table>\n"
+      "</body></html>\n";
+}
+
+int HomeCtl::p4SendStateMail(const char* stateInfo, int state)
+{
+   if (!sendMails || mailScript.empty() || stateMailTo.empty())
+      return done;
+
+   std::string html {p4StateMailHtml(stateInfo, state)};
    std::string subject {std::string("Heizung - Status: ") + stateInfo};
 
    tell(eloAlways, "Info: State mail '%s' (%d) to '%s'", stateInfo, state, stateMailTo.c_str());
 
    return sendMail(stateMailTo.c_str(), p4ShellEscape(subject).c_str(), p4ShellEscape(html).c_str(), "text/html");
+}
+
+//***************************************************************************
+// P4 Send Test Mail
+//   from the setup page 'Commands': the state mail with the current state or the error mail
+//   with the last 5 errors (they don't count as mailed), independent of 'p4Mail'
+//***************************************************************************
+
+int HomeCtl::p4SendTestMail(bool error, long client)
+{
+   const std::string& receiver {error ? errorMailTo : stateMailTo};
+
+   if (!p4Enabled)
+      return replyResult(fail, client, "S 3200 (p4mqttd) not enabled");
+
+   if (mailScript.empty() || !fileExists(mailScript.c_str()))
+      return replyResult(fail, client, "Missing mail script '%s'", mailScript.c_str());
+
+   if (receiver.empty())
+      return replyResult(fail, client, "Missing receiver, configure the %s", error ? "'Fehler Mail Empfänger'" : "'Status Mail Empfänger'");
+
+   std::string html;
+   std::string subject;
+
+   if (error)
+   {
+      html = p4ErrorMailHtml(nullptr);
+      subject = "TEST Heizung: STÖRUNG";
+   }
+   else
+   {
+      if (p4LastState == -1)
+         return replyResult(fail, client, "The state of the S 3200 isn't known yet (p4mqttd online?)");
+
+      html = p4StateMailHtml(p4StateInfo.c_str(), p4LastState);
+      subject = "TEST Heizung - Status: " + p4StateInfo;
+   }
+
+   tell(eloAlways, "Info: Test %s mail of the S 3200 to '%s'", error ? "error" : "state", receiver.c_str());
+
+   if (sendMail(receiver.c_str(), p4ShellEscape(subject).c_str(), p4ShellEscape(html).c_str(), "text/html") != success)
+      return replyResult(fail, client, "Sending mail failed, see the syslog and '/var/log/msmtp.log'");
+
+   return replyResult(success, client, "Mail sent to '%s'", receiver.c_str());
 }
 
 //***************************************************************************

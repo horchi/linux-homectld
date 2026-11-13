@@ -1,18 +1,24 @@
 /*
  *  alerts.js
  *
- *  (c) 2020 Jörg Wendel
+ *  (c) 2020-2026 Jörg Wendel
  *
  * This code is distributed under the terms and conditions of the
  * GNU GENERAL PUBLIC LICENSE. See the file COPYING for details.
  *
+ *  The setup page 'Alerts': a card per sensor alert, the sensor is selected from the
+ *  value facts (type and sensor), the styles are in alerts.css
  */
+
+// the placeholders of subject and body (sensorAlertCheck / performAlertCheck of the daemon)
+
+var alertPlaceholders = [ '%title%', '%value%', '%unit%', '%sensorid%', '%min%', '%max%', '%minv%', '%maxv%',
+                          '%delta%', '%range%', '%repeat%', '%time%', '%weburl%' ];
 
 function initAlerts(alerts)
 {
    $('#container').removeClass('hidden');
-   var root = document.getElementById("container");
-   root.innerHTML = '<div class="rounded-border seperatorFold">Sensor Alerts</div>';
+   $('#container').empty();
 
    prepareSetupMenu();
 
@@ -25,30 +31,21 @@ function initAlerts(alerts)
                       .html('Speichern')
                       .click(function() { storeAlerts(); })))
 
-   for (var i = 0; i < alerts.length; i++)
-   {
-      var html = printAlert(alerts[i]);
-      var elem = document.createElement("div");
-      elem.innerHTML = html;
-      root.appendChild(elem);
-   }
+   let list = $('<div></div>').addClass('alrList');
 
-   var html = printAlert({"id": -1,
-                          "type": "VA",
-                          "address": "",
-                          "state": "D",
-                          "min": "",
-                          "max": "",
-                          "rangem": "",
-                          "delta": "",
-                          "maddress": "",
-                          "msubject": "",
-                          "mbody": "",
-                          "maxrepeat": ""});
+   $('#container').append($('<div></div>')
+                          .addClass('alrPage')
+                          .append($('<div></div>').addClass('alrPageHead')
+                                  .append($('<span></span>').addClass('mdi mdi-bell-ring-outline'))
+                                  .append($('<span></span>').text('Sensor Alerts'))
+                                  .append($('<span></span>').addClass('alrCount').text(alerts.length)))
+                          .append(list));
 
-   var elem = document.createElement("div");
-   elem.innerHTML = html;
-   root.appendChild(elem);
+   for (let i = 0; i < alerts.length; i++)
+      list.append(alertCard(alerts[i]));
+
+   list.append(alertCard({ "id": -1, "type": "", "address": "", "state": "D", "min": "", "max": "", "rangem": "",
+                           "delta": "", "maddress": "", "msubject": "", "mbody": "", "maxrepeat": "" }));
 
    // calc container size
 
@@ -58,69 +55,174 @@ function initAlerts(alerts)
    };
 }
 
-function printAlert(item)
+// the sensor types with at least one value fact, title of the value type
+
+function alertSensorTypes()
 {
-   var html = "";
-   html += '<div id="row_' + item.id + '" data-id="' + item.id + '" class="rounded-border setupContainer inputTableAlert">\n';
-   html += ' <div>\n';
-   html += '   <span>Aktiv</span>\n';
-   html += '   <span><input id="state_' + item.id + '" type="checkbox" name="state" ' + (item.state == 'A' ? "checked" : "") + '></input><label for="state_' + item.id + '"></label></span>\n';
-   html += '   <span><button class="buttonOptions rounded-border" type="button" onclick="sendAlertMail(' + item.id + ')">Test Mail</button></span>\n';
-   html += '   <span><button class="buttonOptions rounded-border" type="button" onclick="deleteAlert(' + item.id +  ')">Löschen</button></span>\n';
-   html += ' </div>\n';
+   let types = {};
 
-   html += ' <div>\n';
-   html += '   <span>Intervall:</span>\n';
-   html += '   <span><input class="rounded-border inputNum" type="number" name="maxrepeat" value="' + item.maxrepeat + '"></input> Minuten</span>\n';
-   html += ' </div>\n';
+   for (let key in valueFacts)
+      types[valueFacts[key].type] = valueFacts[key].type;
 
-   html += ' <div>\n';
-   html += '   <span>Adresse:</span>\n';
-   html += '   <span><input class="rounded-border inputNum" type="number" name="address" value="' + item.address + '"></input></span>\n';
-   html += '   <span>Typ:</span>\n';
-   html += '   <span>\n';
-   html += '     <select class="rounded-border input" name="type">\n';
-   html += '       <option value="VA"' + (item.type == 'VA' ? 'SELECTED' : '') + '>VA</option>\n';
-   html += '       <option value="US"' + (item.type == 'US' ? 'SELECTED' : '') + '>UD</option>\n';
-   html += '       <option value="DI"' + (item.type == 'DI' ? 'SELECTED' : '') + '>DI</option>\n';
-   html += '       <option value="DO"' + (item.type == 'DO' ? 'SELECTED' : '') + '>DO</option>\n';
-   html += '       <option value="W1"' + (item.type == 'W1' ? 'SELECTED' : '') + '>W1</option>\n';
-   html += '     </select>\n';
-   html += '   </span>\n';
-   html += ' </div>\n';
+   for (let vt of valueTypes)
+      if (types[vt.type])
+         types[vt.type] = vt.title + ' (' + vt.type + ')';
 
-   html += ' <div>\n';
-   html += '   <span>Minimum:</span>\n';
-   html += '   <span><input class="rounded-border inputNum" type="number" name="min" value="' + item.min + '"></input></span>\n';
-   html += '   <span>Maximum:</span>\n';
-   html += '   <span><input class="rounded-border inputNum" type="number" name="max" value="' + item.max + '"></input></span>\n';
-   html += ' </div>\n';
+   return Object.keys(types).sort(function(a, b) { return types[a].localeCompare(types[b]); })
+      .map(function(t) { return { type: t, title: types[t] }; });
+}
 
-   html += ' <div>\n';
-   html += '   <span>Änderung:</span>\n';
-   html += '   <span><input class="rounded-border inputNum" type="number" name="delta" " value="' + item.delta + '"></input> %</span>\n';
-   html += '   <span>im Zeitraum:</span>\n';
-   html += '   <span><input class="rounded-border inputNum" type="number" name="rangem" value="' + item.rangem + '"></input> Minuten</span>\n';
-   html += ' </div>\n';
+function alertSensorTitle(fact)
+{
+   return (fact.usrtitle ? fact.usrtitle : fact.title).split('\n')[0];
+}
 
-   html += ' <div>\n';
-   html += '   <span>Empfänger:</span>\n';
-   html += '   <span><input class="rounded-border input" style="width:805px" type="text" name="maddress" value="' + item.maddress + '"></input></span>\n';
-   html += ' </div>\n';
-   html += ' <div>\n';
-   html += '   <span>Betreff:</span>\n';
-   html += '   <span><input class="rounded-border input" style="width:805px" type="text" name="msubject" value="' + item.msubject + '"></input></span>\n';
-   html += ' </div>\n';
+// one alert; the inputs carry the 'name' of the column, storeAlerts() collects them per card ('row_<id>')
 
-   html += ' <div>\n';
-   html += '   <span>Inhalt:</span>\n';
-   html += '   <span>\n';
-   html += '   <textarea class="rounded-border input" rows="5" style="width:805px" name="mbody">' + item.mbody + '</textarea>\n';
-   html += '   </span>\n';
-   html += ' </div>\n';
-   html += '</div>\n';
+function alertCard(item)
+{
+   let isNew = item.id == -1;
+   let key = item.type != '' && item.address !== '' ? toKey(item.type, parseInt(item.address)) : null;
+   let fact = key ? valueFacts[key] : null;
+   let known = !key || fact != null;
 
-   return html;
+   let field = function(label, input, unit = null, cls = '') {
+      return $('<label></label>').addClass('alrField ' + cls)
+         .append($('<span></span>').addClass('alrLabel').text(label))
+         .append($('<span></span>').addClass('alrInput').append(input)
+                 .append(unit ? $('<span></span>').addClass('alrUnit').text(unit) : null));
+   };
+
+   let num = function(name, value, placeholder = '') {
+      return $('<input></input>').attr({ type: 'number', name: name, placeholder: placeholder })
+         .addClass('rounded-border input').val(value);
+   };
+
+   let text = function(name, value) {
+      return $('<input></input>').attr({ type: 'text', name: name }).addClass('rounded-border input').val(value);
+   };
+
+   // sensor: type and the sensors of the type
+
+   let typeSel = $('<select></select>').attr('name', 'type').addClass('rounded-border input');
+   let addrSel = $('<select></select>').attr('name', 'address').addClass('rounded-border input');
+   let types = alertSensorTypes();
+
+   typeSel.append($('<option></option>').val('').text('– Typ –'));
+
+   for (let t of types)
+      typeSel.append($('<option></option>').val(t.type).text(t.title));
+
+   if (item.type != '' && !types.some(function(t) { return t.type == item.type; }))
+      typeSel.append($('<option></option>').val(item.type).text(item.type + ' (unbekannt)'));
+
+   let fillSensors = function(type, address) {
+      addrSel.empty().append($('<option></option>').val('').text('– Sensor –'));
+
+      let facts = Object.values(valueFacts).filter(function(f) { return f.type == type; })
+          .sort(function(a, b) { return a.address - b.address; });
+
+      for (let f of facts)
+         addrSel.append($('<option></option>').val(f.address)
+                        .text(alertSensorTitle(f) + (f.unit ? ' [' + f.unit + ']' : '') + ' · ' + f.address + (f.state ? '' : ' (inaktiv)')));
+
+      if (address !== '' && !facts.some(function(f) { return f.address == address; }))
+         addrSel.append($('<option></option>').val(address).text('Adresse ' + address + ' (unbekannt)'));
+
+      addrSel.val(address);
+   };
+
+   typeSel.val(item.type);
+   fillSensors(item.type, item.address);
+
+   // head: switch, title, the sensor id, actions
+
+   let title = $('<span></span>').addClass('alrTitle');
+   let chip = $('<span></span>').addClass('alrChip');
+
+   let updateHead = function() {
+      let t = typeSel.val();
+      let a = addrSel.val();
+      let f = t && a !== '' && a != null ? valueFacts[toKey(t, parseInt(a))] : null;
+
+      title.text(f ? alertSensorTitle(f) : (isNew ? 'Neuer Alert' : 'Sensor unbekannt'));
+      chip.text(t && a !== '' && a != null ? t + ':' + a : '').toggle(!!(t && a !== '' && a != null));
+      card.toggleClass('alrUnknown', !isNew && !f);
+   };
+
+   let card = $('<div></div>')
+       .attr('id', 'row_' + item.id)
+       .attr('data-id', item.id)
+       .addClass('alrCard')
+       .toggleClass('alrNew', isNew)
+       .toggleClass('alrOff', item.state != 'A');
+
+   let state = $('<span></span>').addClass('alrSwitch')
+       .append($('<input></input>').attr({ id: 'state_' + item.id, type: 'checkbox', name: 'state' }).prop('checked', item.state == 'A'))
+       .append($('<label></label>').attr('for', 'state_' + item.id).attr('title', 'aktiv'));
+
+   let actions = $('<span></span>').addClass('alrActions');
+
+   if (!isNew) {
+      actions
+         .append($('<button></button>').attr('type', 'button').addClass('rounded-border buttonOptions alrAction')
+                 .append($('<span></span>').addClass('mdi mdi-email-fast-outline')).append($('<span></span>').text('Test Mail'))
+                 .click(function() { sendAlertMail(item.id); }))
+         .append($('<button></button>').attr('type', 'button').addClass('rounded-border buttonOptions alrAction alrDelete')
+                 .append($('<span></span>').addClass('mdi mdi-trash-can-outline')).append($('<span></span>').text('Löschen'))
+                 .click(function() {
+                    if (confirm("Alert '" + title.text() + "' löschen?"))
+                       deleteAlert(item.id);
+                 }));
+   }
+
+   card.append($('<div></div>').addClass('alrHead')
+               .append(state)
+               .append($('<span></span>').addClass('alrIcon mdi ' + (isNew ? 'mdi-bell-plus-outline' : 'mdi-bell-outline')))
+               .append(title)
+               .append(chip)
+               .append(actions));
+
+   if (!known)
+      card.append($('<div></div>').addClass('alrWarn')
+                  .append($('<span></span>').addClass('mdi mdi-alert-outline'))
+                  .append($('<span></span>').text('Den Sensor ' + item.type + ':' + item.address + ' gibt es nicht (mehr), der Alert wird nie geprüft - bitte einen Sensor wählen.')));
+
+   // the sections
+
+   card.append($('<div></div>').addClass('alrSection')
+               .append($('<div></div>').addClass('alrSectionTitle').text('Sensor'))
+               .append($('<div></div>').addClass('alrFields')
+                       .append(field('Typ', typeSel, null, 'alrWide'))
+                       .append(field('Sensor', addrSel, null, 'alrWide'))));
+
+   card.append($('<div></div>').addClass('alrSection')
+               .append($('<div></div>').addClass('alrSectionTitle').text('Bedingung'))
+               .append($('<div></div>').addClass('alrFields')
+                       .append(field('Minimum', num('min', item.min)))
+                       .append(field('Maximum', num('max', item.max)))
+                       .append(field('Änderung', num('delta', item.delta), '%'))
+                       .append(field('im Zeitraum', num('rangem', item.rangem), 'min'))
+                       .append(field('Wiederholen nach', num('maxrepeat', item.maxrepeat), 'min'))));
+
+   card.append($('<div></div>').addClass('alrSection')
+               .append($('<div></div>').addClass('alrSectionTitle').text('Mail'))
+               .append($('<div></div>').addClass('alrFields')
+                       .append(field('Empfänger', text('maddress', item.maddress), null, 'alrFull'))
+                       .append(field('Betreff', text('msubject', item.msubject), null, 'alrFull'))
+                       .append(field('Inhalt', $('<textarea></textarea>').attr({ name: 'mbody', rows: 5 })
+                                     .addClass('rounded-border input').val(item.mbody), null, 'alrFull')))
+               .append($('<div></div>').addClass('alrHint')
+                       .text('Platzhalter: ' + alertPlaceholders.join(' '))));
+
+   typeSel.on('change', function() { fillSensors(typeSel.val(), ''); updateHead(); });
+   addrSel.on('change', updateHead);
+   card.on('input change', 'input, select, textarea', function() { card.addClass('alrChanged'); });
+   card.on('change', 'input[name="state"]', function() { card.toggleClass('alrOff', !this.checked); });
+
+   updateHead();
+
+   return card;
 }
 
 function storeAlerts()

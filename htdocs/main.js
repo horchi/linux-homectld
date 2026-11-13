@@ -172,11 +172,13 @@ function connectWebSocket(useUrl, protocol)
       autoReconnectInterval: 1000,
       onopen: function () {
          console.log("socket opened " + socket.protocol);
+         mainNavSetConn('online');
          if (isActive === null)     // wurde beim Schliessen auf null gesetzt
             onSocketConnect(protocol);
          checkWebifUpdate('connect');
       }, onclose: function () {
          isActive = null;           // auf null setzen, damit ein neues login aufgerufen wird
+         mainNavSetConn('connecting');
       }, onmessage: function (msg) {
          dispatchMessage(msg.data)
       }.bind(this)
@@ -666,6 +668,9 @@ async function showInfoDialog(object)
    newDiv.insertAfter('#infoBoxFirstElement');
    newDiv.animate({backgroundColor: 'transparent'}, 2000);
 
+   if (!$('#infoBox').hasClass('infoBox-active'))
+      mainNavMessage(object.status);
+
    if (object.status != 0) {
       viewInfoDialog();
       $("#infoBox").scrollTop(0);
@@ -694,7 +699,9 @@ function viewInfoDialog()
    $("#infoBox").css('top', $("#content").position().top);
    $('#infoBox').addClass('infoBox-active');
    $("#content").click(function() { hideInfoDialog(); });
-   $("#toggleMsgBtn").html('<svg><use xlink:href="#angle-up"></use></svg>');
+   $("#toggleMsgBtn").addClass('mainNavBellOpen');
+   mainNavUnread = { count: 0, error: false };          // read
+   mainNavUpdateBell();
 }
 
 function hideInfoDialog()
@@ -707,7 +714,7 @@ function hideInfoDialog()
    }
 
    $('#infoBox').removeClass('infoBox-active');
-   $('#toggleMsgBtn').html('<svg><use xlink:href="#angle-down"></use></svg>');
+   $('#toggleMsgBtn').removeClass('mainNavBellOpen');
    $('#action-state').animate({'opacity': '0'}, 1000);
 }
 
@@ -834,6 +841,8 @@ function dispatchMessage(message)
          updateSensorSetupValue();
       else if (currentPage == 'gpslive')
          gpsSensorUpdate(jMessage.object, event == "all");
+
+      mainNavUpdateP4();
    }
    else if (event == "p4schema") {
       p4SchemaReceived(jMessage.object);
@@ -880,6 +889,7 @@ function dispatchMessage(message)
       daemonState.timeOffset = Math.round(now/1000 - daemonState.systime);
       // console.log("timeOffset", daemonState.timeOffset, "s");
       updateFooter();
+      mainNavUpdateSetup();
    }
    else if (event == "widgettypes") {
       widgetTypes = jMessage.object;
@@ -1118,15 +1128,59 @@ function showHelp(anchor)
    mainMenuSel('readme', anchor, false);
 }
 
-function addSetupMenuButton(title, page, action = null)
+// the setup menu at its position before it was built again, the active button visible
+//   (the selection of a button scrolled off to the left jumped back to the start)
+
+function restoreSetupMenuScroll()
+{
+   let strip = document.getElementById('setupMenu');
+
+   if (!strip)
+      return;
+
+   if (setupMenuScroll != null)
+      strip.scrollLeft = setupMenuScroll;
+
+   let active = strip.querySelector('button.active');
+
+   if (active) {
+      let a = active.getBoundingClientRect();
+      let r = strip.getBoundingClientRect();
+      let arrow = 30;                                          // room for the arrows of the strip
+
+      if (a.left < r.left + arrow)
+         strip.scrollLeft -= r.left + arrow - a.left;
+      else if (a.right > r.right - arrow)
+         strip.scrollLeft += a.right - (r.right - arrow);
+   }
+
+   updateScrollStrip(strip);
+}
+
+// a tab of the setup menu: icon and title (on small displays the inactive ones show the icon only), styles in setupnav.css
+
+function addSetupMenuButton(title, page, action = null, icon = null)
 {
    $("#setupMenu")
       .append($('<button></button>')
-              .addClass('rounded-border button2' + (page == currentPage && action == lastSetupAction ? ' active' : ''))
-              .html(title)
+              .attr('type', 'button')
+              .attr('title', title)
+              .addClass('setupNavTab' + (page == currentPage && action == lastSetupAction ? ' active' : ''))
+              .append(icon ? $('<span></span>').addClass('setupNavIcon mdi ' + icon) : null)
+              .append($('<span></span>').addClass('setupNavText').text(title))
               .click(function() {
                  mainMenuSel(page, action, false);    // explizite Auswahl -> kein Recover
               }));
+}
+
+// a separator between the groups of the setup menu (not as first element, not twice)
+
+function addSetupMenuSeparator()
+{
+   let last = $("#setupMenu").children().last();
+
+   if (last.length && !last.hasClass('setupNavSep'))
+      $("#setupMenu").append($('<span></span>').addClass('setupNavSep'));
 }
 
 // the page 'Map' is only offered with a GPS receiver (sensor GPS:0x0a 'Coordinate')
@@ -1136,7 +1190,17 @@ function gpsAvailable()
    return valueFacts != null && valueFacts['GPS:0x0a'] != null;
 }
 
-function addMainMenuButton(title, page, condition = true)
+// a tab of the main menu: icon and title (small displays: the inactive ones show the icon only), styles in mainnav.css;
+//   'tabButton' stays for the states of other modules (e.g. tabRecording of gps.js)
+
+// the tab of the main menu for the current page - all setup pages belong to 'Setup'
+
+function mainTabPage()
+{
+   return setupPages.includes(currentPage) ? 'setup' : currentPage;
+}
+
+function addMainMenuButton(title, page, condition = true, icon = null)
 {
    if (!condition)
       return;
@@ -1144,9 +1208,107 @@ function addMainMenuButton(title, page, condition = true)
    $("#mainTabs")
       .append($('<button></button>')
               .attr('id', 'mainmenu_' + page)
-              .addClass('rounded-border tabButton ' + (page == currentPage ? 'active' : ''))
-              .html(title)
+              .attr('title', title)
+              .addClass('rounded-border tabButton mainNavTab ' + (page == mainTabPage() ? 'active' : ''))
+              .append(icon ? $('<span></span>').addClass('mainNavIcon mdi ' + icon) : null)
+              .append($('<span></span>').addClass('mainNavText').text(title))
               .click(function() { mainMenuSel(page); }));
+}
+
+//***************************************************************************
+// Main menu - live states
+//   the connection to the daemon (dot), the clock, the unread messages (bell),
+//   the state of the S 3200 (tab) and things in the setup which need attention (tab)
+//***************************************************************************
+
+var mainNavConn = 'connecting';         // online | connecting | offline
+var mainNavConnTimer = null;
+var mainNavUnread = { count: 0, error: false };
+var mainNavClockTimer = null;
+
+function mainNavSetConn(state)
+{
+   if (mainNavConnTimer) {
+      clearTimeout(mainNavConnTimer);
+      mainNavConnTimer = null;
+   }
+
+   mainNavConn = state;
+
+   if (state == 'connecting')            // the client reconnects every second, offline if it takes longer
+      mainNavConnTimer = setTimeout(function() { mainNavSetConn('offline'); }, 10000);
+
+   let titles = { online: 'Verbunden mit homectld', connecting: 'Verbindung wird aufgebaut ...', offline: 'Keine Verbindung zu homectld' };
+
+   $('#mainNavConn').removeClass('online connecting offline').addClass(state).attr('title', titles[state]);
+}
+
+function mainNavUpdateClock()
+{
+   let now = new Date();
+   $('#mainNavClock').text(now.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' }));
+}
+
+function mainNavMessage(status)
+{
+   if (status == 0)                       // success messages aren't counted
+      return;
+
+   mainNavUnread.count++;
+   mainNavUnread.error = mainNavUnread.error || status < 0;
+   mainNavUpdateBell();
+}
+
+function mainNavUpdateBell()
+{
+   let badge = $('#mainNavBadge');
+
+   badge.text(mainNavUnread.count > 99 ? '99+' : mainNavUnread.count)
+      .toggleClass('hidden', !mainNavUnread.count)
+      .toggleClass('mainNavBadgeError', mainNavUnread.error);
+
+   $('#toggleMsgBtn .mdi').toggleClass('mdi-bell-outline', !mainNavUnread.count).toggleClass('mdi-bell-ring', !!mainNavUnread.count);
+}
+
+// the tab of the S 3200: fire while heating, red on a fault (the state of P4UD:0x01, see p4mqttd stateImage)
+
+function mainNavUpdateP4()
+{
+   let tab = $('#mainmenu_p4menu');
+
+   if (!tab.length)
+      return;
+
+   let sensor = allSensors ? allSensors['P4UD:0x01'] : null;
+   let state = sensor && sensor.value != null ? parseInt(sensor.value) : null;
+   let fire = [2, 3, 4, 8, 9, 60, 61, 71, 72].includes(state);
+
+   tab.toggleClass('mainNavFire', fire)
+      .toggleClass('mainNavFault', state === 0)
+      .attr('title', (config.p4PageTitle || 'S3200') + (sensor && sensor.text ? ': ' + sensor.text : ''));
+}
+
+// the tab 'Setup': a dot if something needs attention (daemonstate.attention)
+
+function mainNavUpdateSetup()
+{
+   let items = daemonState && daemonState.attention ? daemonState.attention : [];
+   let tab = $('#mainmenu_setup');
+
+   tab.toggleClass('mainNavAttention', items.length > 0)
+      .attr('title', items.length ? 'Setup - ' + items.map(function(i) { return i.text; }).join(', ') : 'Setup');
+}
+
+function mainNavApplyStates()
+{
+   mainNavSetConn(mainNavConn);
+   mainNavUpdateClock();
+   mainNavUpdateBell();
+   mainNavUpdateP4();
+   mainNavUpdateSetup();
+
+   if (!mainNavClockTimer)
+      mainNavClockTimer = setInterval(mainNavUpdateClock, 15000);
 }
 
 function prepareMenu()
@@ -1167,15 +1329,15 @@ function prepareMenu()
    $("#navMenu").empty()
       .append($('<div></div>')
               .attr('id', 'mainMenu')
-              .addClass('mainMenu')
+              .addClass('mainMenu mainNav')
               .append($('<div></div>')
                       .attr('id', 'mainTabs')
                       .addClass('mainTabs')));
 
-   addMainMenuButton('Dash', 'dashboard', true);
-   addMainMenuButton('List', 'list', config.showList == '1');
-   addMainMenuButton('Map', 'gpslive', gpsAvailable());
-   addMainMenuButton('Garmin', 'activities', config.garminAvailable == '1');
+   addMainMenuButton('Dash', 'dashboard', true, 'mdi-view-dashboard-outline');
+   addMainMenuButton('List', 'list', config.showList == '1', 'mdi-format-list-bulleted');
+   addMainMenuButton('Map', 'gpslive', gpsAvailable(), 'mdi-map-marker-radius-outline');
+   addMainMenuButton('Garmin', 'activities', config.garminAvailable == '1', 'mdi-run');
 
    if (gpsAvailable()) {              // the recording state colors the 'Map' tab
       if (gpsTours)
@@ -1184,40 +1346,47 @@ function prepareMenu()
          socket.send({ "event" : "gpstour", "object" : { "action" : "list" } });
    }
 
-   addMainMenuButton('Schema', 'schema', config.schema);
-   addMainMenuButton('Music', 'lmc', config.lmcHost != '');
-   addMainMenuButton('VDR', 'vdr', config.vdr != '');
-   addMainMenuButton('Charts', 'chart');
+   addMainMenuButton('Schema', 'schema', config.schema, 'mdi-sitemap-outline');
+   addMainMenuButton('Music', 'lmc', config.lmcHost != '', 'mdi-music');
+   addMainMenuButton('VDR', 'vdr', config.vdr != '', 'mdi-television-classic');
+   addMainMenuButton('Charts', 'chart', true, 'mdi-chart-line');
 
-   addMainMenuButton(config.p4PageTitle || 'S3200', 'p4menu', config.p4Enabled == '1');     // the service menu of the S 3200 (p4/menu.js)
-   addMainMenuButton('Setup', 'setup', localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10);
+   addMainMenuButton(config.p4PageTitle || 'S3200', 'p4menu', config.p4Enabled == '1', 'mdi-fire');     // the service menu of the S 3200 (p4/menu.js)
+   addMainMenuButton('Setup', 'setup', localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10, 'mdi-cog');
 
    // burger menu
 
    $("#mainMenu")
       .append($('<div></div>')
-              .addClass('mainMenuTools')
+              .addClass('mainMenuTools mainNavTools')
+              .append($('<span></span>')
+                      .attr('id', 'mainNavConn')
+                      .addClass('mainNavConn'))
+              .append($('<span></span>')
+                      .attr('id', 'mainNavClock')
+                      .addClass('mainNavClock'))
+              .append($('<button></button>')
+                      .attr('id', 'toggleMsgBtn')
+                      .attr('type', 'button')
+                      .addClass('mainNavBell')
+                      .attr('title', 'Meldungen')
+                      .append($('<span></span>').addClass('mdi mdi-bell-outline'))
+                      .append($('<span></span>').attr('id', 'mainNavBadge').addClass('mainNavBadge hidden'))
+                      .click(function() { toggleInfoDialog(); } ))
               .append($('<button></button>')
                       .attr('id', 'burgerMenu')
                       .addClass('rounded-border button1 burgerMenu')
                       .click(function() { openMenuBurger(); } )
                       .append($('<div></div>'))
                       .append($('<div></div>'))
-                      .append($('<div></div>')))
-              .append($('<button></button>')
-                      .attr('id', 'toggleMsgBtn')
-                      .addClass('rounded-border tool-button-svg')
-                      .attr('title', 'view messages')
-                      .css('background-color', 'transparent')
-                      .css('width', '22px')
-                      .html('<svg><use xlink:href="#angle-down"></use></svg>')
-                      .click(function() { toggleInfoDialog(); } )));
+                      .append($('<div></div>'))));
 
    // scroll arrows, scroll the active tab into view (matters on phones only)
 
    initScrollStrip('mainTabs');
+   mainNavApplyStates();
 
-   let active = document.getElementById('mainmenu_' + currentPage);
+   let active = document.getElementById('mainmenu_' + mainTabPage());
 
    if (active && active.scrollIntoView)
       active.scrollIntoView({ inline: 'nearest', block: 'nearest' });
@@ -1236,9 +1405,16 @@ function setupContainerHeight(offset = 10)
    window.onresize = resize;
 }
 
+// the scroll position of the setup menu, it's built again for each page (prepareSetupMenu)
+
+var setupMenuScroll = null;
+
 function prepareSetupMenu()
 {
    // sub menu for setup
+
+   if ($('#setupMenu').length)
+      setupMenuScroll = $('#setupMenu')[0].scrollLeft;
 
    $('#confirmDiv').remove();
    $('#setupMenu').remove();
@@ -1253,34 +1429,45 @@ function prepareSetupMenu()
 
          $("#navMenu").append($('<div></div>')
                               .attr('id', 'setupMenu')
-                              .addClass('setupMenu'));
+                              .addClass('setupMenu setupNav'));
 
-         addSetupMenuButton('Konfiguration', 'setup');
-         addSetupMenuButton('Sensor Setup', 'sensorsetup');
-         addSetupMenuButton('User', 'userdetails');
-         addSetupMenuButton('Alerts', 'alerts');
-         addSetupMenuButton('Images', 'images');
-         addSetupMenuButton('HASP Panel', 'hasp');
+         // Einrichtung
+
+         addSetupMenuButton('Konfiguration', 'setup', null, 'mdi-cog-outline');
+         addSetupMenuButton('Sensor Setup', 'sensorsetup', null, 'mdi-thermometer-lines');
+         addSetupMenuButton('User', 'userdetails', null, 'mdi-account-group-outline');
+         addSetupMenuButton('Alerts', 'alerts', null, 'mdi-bell-ring-outline');
+         addSetupMenuButton('Images', 'images', null, 'mdi-image-multiple-outline');
+
+         // Integration
+
+         addSetupMenuSeparator();
+         addSetupMenuButton('HASP Panel', 'hasp', null, 'mdi-tablet-dashboard');
 
          if (localStorage.getItem(storagePrefix + 'Rights') & 0x10) {
-            addSetupMenuButton('HTML Widgets', 'htmlwidgets');
-            addSetupMenuButton('MQTT Konverter', 'mqttconverters');
+            addSetupMenuButton('HTML Widgets', 'htmlwidgets', null, 'mdi-code-tags');
+            addSetupMenuButton('MQTT Konverter', 'mqttconverters', null, 'mdi-swap-horizontal');
 
             if (!isEmpty(config.deconzHttpUrl))
-               addSetupMenuButton('Zigbee', 'zigbee');
+               addSetupMenuButton('Zigbee', 'zigbee', null, 'mdi-zigbee');
          }
 
          if (config.homeMaticBridge == 'hmmqtt')
-            addSetupMenuButton('HomeMatic', 'homematic');
+            addSetupMenuButton('HomeMatic', 'homematic', null, 'mdi-home-automation');
          // addSetupMenuButton('Baugruppen', 'groups');
-         addSetupMenuButton('Syslog', 'syslog');
-         addSetupMenuButton('Database', 'system', 'database');
-         addSetupMenuButton('Commands', 'commands');
-         addSetupMenuButton('Wifi', 'system', 'wifis');
-         addSetupMenuButton('System Services', 'system', 'system-services');
-         addSetupMenuButton('README', 'readme');
+
+         // System
+
+         addSetupMenuSeparator();
+         addSetupMenuButton('Syslog', 'syslog', null, 'mdi-text-box-search-outline');
+         addSetupMenuButton('Database', 'system', 'database', 'mdi-database');
+         addSetupMenuButton('Commands', 'commands', null, 'mdi-console-line');
+         addSetupMenuButton('Wifi', 'system', 'wifis', 'mdi-wifi');
+         addSetupMenuButton('System Services', 'system', 'system-services', 'mdi-cogs');
+         addSetupMenuButton('README', 'readme', null, 'mdi-book-open-variant');
 
          initScrollStrip('setupMenu');
+         restoreSetupMenuScroll();
       }
    }
 
@@ -1369,9 +1556,9 @@ function mainMenuSel(what, action = null, recoverSetupPage = true)
       for (let i = 0; i < children.length; i++)
          children[i].className = children[i].className.replace(" active", "");
 
-      $('#mainmenu_' + currentPage).addClass('active');
+      $('#mainmenu_' + mainTabPage()).addClass('active');
 
-      let active = document.getElementById('mainmenu_' + currentPage);
+      let active = document.getElementById('mainmenu_' + mainTabPage());
 
       if (active && active.scrollIntoView)
          active.scrollIntoView({ inline: 'nearest', block: 'nearest' });
@@ -1547,10 +1734,7 @@ function showSyslog(log)
               .html('System Log'))
       .append($('<select></select>')
               .attr('id', 'selectSyslog')
-              .addClass('input rounded-border')
-              .css('width', '-webkit-fill-available')
-              .css('width', '-moz-available')
-              .css('margin-bottom', '8px')
+              .addClass('input rounded-border syslogControl')
               .on('input', function() { updateSyslog(); }))
 
       .append($('<div></div>')
@@ -1561,14 +1745,11 @@ function showSyslog(log)
               .html('Filter'))
       .append($('<input></input>')
               .attr('id', 'syslogFilter')
-              .attr('placeholder', 'expression...')
+              .attr('placeholder', 'expression... (Enter)')
               .attr('type', 'search')
-              .addClass('input rounded-border clearableOD')
-              .css('width', '-webkit-fill-available')
-              .css('width', '-moz-available')
-              .css('margin-bottom', '8px')
-              .val(syslogFilter))
-              // .on('input', function() { updateSyslog(); }))
+              .addClass('input rounded-border clearableOD syslogControl')
+              .val(syslogFilter)
+              .on('keydown', function(e) { if (e.key == 'Enter') updateSyslog(); }))
 
       .append($('<div></div>')
               .addClass('button-group-spacing'))
@@ -1582,14 +1763,58 @@ function showSyslog(log)
    for (let i = 0; i < syslogs.length; ++i) {
       $('#selectSyslog').append($('<option></option>')
                                 .attr('selected', syslogs[i].name == log.name)
-                                .html(syslogs[i].name));
+                                .text(syslogs[i].name));
    }
 
-   $('#container').html('<div id="syslogContainer" class="setupContainer log"></div>');
-   $('#syslogContainer').css('width', 'fit-content');
+   // the lines (newest first) as text - not as HTML, a line may contain markup; colored by
+   //   their level, time and source of the syslog line separated (styles in syslog.css)
 
-   let root = document.getElementById("syslogContainer");
-   root.innerHTML = log.lines.replace(/(?:\r\n|\r|\n)/g, '<br/>');
+   let lines = (log.lines || '').split(/\r\n|\r|\n/).filter(function(l) { return l != '' && l != '...'; });
+   let list = $('<div></div>').addClass('syslogLines');
+   let counts = { error: 0, warn: 0 };
+
+   for (let line of lines) {
+      let level = /\b(fatal|error|fehler|failed|failure|abort)/i.test(line) ? 'error'
+          : /\bwarn(ing)?\b/i.test(line) ? 'warn'
+          : /\bdebug\b/i.test(line) ? 'debug' : '';
+
+      if (counts[level] != null)
+         counts[level]++;
+
+      // 'Nov 13 15:02:19 gate homectld[123]: text' or ISO '2026-11-13T15:02:19.123+01:00 gate homectld[123]: text'
+
+      let m = line.match(/^(\w{3} +\d+ [\d:]{8}|\d{4}-\d\d-\d\dT[\d:.]+(?:[+-][\d:]+|Z)?) +(\S+) +([^:]+?):\s?(.*)$/);
+      let row = $('<div></div>').addClass('syslogLine').toggleClass('syslog-' + level, level != '');
+
+      if (m) {
+         let time = m[1].replace(/^(\d{4}-\d\d-\d\d)T([\d:]{8}).*$/, '$1 $2');
+         row.append($('<span></span>').addClass('syslogTime').text(time))
+            .append($('<span></span>').addClass('syslogSource').attr('title', m[2]).text(m[3]))
+            .append($('<span></span>').addClass('syslogText').text(m[4]));
+      }
+      else
+         row.append($('<span></span>').addClass('syslogText').text(line));
+
+      list.append(row);
+   }
+
+   let head = $('<div></div>').addClass('syslogHead')
+       .append($('<span></span>').addClass('mdi mdi-text-box-search-outline'))
+       .append($('<span></span>').text(log.name || 'Syslog'))
+       .append($('<span></span>').addClass('syslogCount').text(lines.length + ' Zeilen, neueste zuerst'));
+
+   if (counts.error)
+      head.append($('<span></span>').addClass('syslogBadge syslog-error').text(counts.error + ' Fehler'));
+   if (counts.warn)
+      head.append($('<span></span>').addClass('syslogBadge syslog-warn').text(counts.warn + ' Warnungen'));
+   if (syslogFilter)
+      head.append($('<span></span>').addClass('syslogBadge').text('Filter: ' + syslogFilter));
+
+   $('#container').empty()
+      .append($('<div></div>').attr('id', 'syslogContainer').addClass('syslogPage')
+              .append(head)
+              .append(lines.length ? list : $('<div></div>').addClass('syslogEmpty').text('Keine Zeilen')));
+
    hideProgressDialog();
 
    // calc container size
@@ -1608,48 +1833,109 @@ function updateSyslog()
                  { 'log' : $('#selectSyslog').val(), 'filter' : syslogFilter } });
 }
 
+// bytes as text (like bytesPretty of the daemon)
+
+function bytesPretty(bytes, digits = 1)
+{
+   let units = ['B', 'KB', 'MB', 'GB', 'TB'];
+   let i = 0;
+
+   while (bytes >= 1024 && i < units.length - 1) {
+      bytes /= 1024;
+      i++;
+   }
+
+   return bytes.toFixed(i ? digits : 0).replace('.', ',') + ' ' + units[i];
+}
+
+// the page 'Database': sums, the file system and the tables (biggest first) with bars, styles in system.css
+
 function showDatabaseStatistic(statistic)
 {
    // console.log("DatabaseStatistic: " + JSON.stringify(statistic, undefined, 2));
 
    $('#container').removeClass('hidden');
-   $('#container').html('<div id="systemContainer"></div>');
+   $('#container').empty();
 
    prepareSetupMenu();
    setupContainerHeight();
 
-   let html = '<div>';
+   let tables = (statistic.tables || []).slice();
+   let sum = { data: 0, index: 0, rows: 0 };
 
-   html += '  <div class="rounded-border seperatorFold">Tabellen</div>';
-   html += '  <table class="tableMultiCol">' +
-      '    <thead>' +
-      '     <tr style="height:30px;font-weight:bold;">' +
-      '       <td style="width:20%;">Name</td>' +
-      '       <td style="width:10%;">Table</td>' +
-      '       <td style="width:10%;">Index</td>' +
-      '       <td style="width:10%;">Rows</td>' +
-      '     </tr>' +
-      '    </thead>' +
-      '    <tbody>';
-
-   for (let i = 0; i < statistic.tables.length; i++) {
-      let table = statistic.tables[i];
-
-      html += '<tr style="height:39px;">';
-      html += ' <td>' + table.name + '</td>';
-      html += ' <td>' + table.tblsize + '</td>';
-      html += ' <td>' + table.idxsize + '</td>';
-      html += '<td>' + table.rows.toLocaleString() + '</td>';
-      html += '</tr>';
+   for (let t of tables) {
+      sum.data += t.tblbytes || 0;
+      sum.index += t.idxbytes || 0;
+      sum.rows += t.rows || 0;
    }
 
-   html += '    </tbody>' +
-      '  </table>';
+   tables.sort(function(a, b) { return ((b.tblbytes || 0) + (b.idxbytes || 0)) - ((a.tblbytes || 0) + (a.idxbytes || 0)); });
 
-   html += '</div>';
+   let max = tables.length ? (tables[0].tblbytes || 0) + (tables[0].idxbytes || 0) : 0;
 
-   $('#systemContainer').html(html)
-      .addClass('setupContainer');
+   let tile = function(icon, value, label, extra = null) {
+      return $('<div></div>').addClass('sysTile')
+         .append($('<span></span>').addClass('sysTileIcon mdi ' + icon))
+         .append($('<div></div>').addClass('sysTileText')
+                 .append($('<div></div>').addClass('sysTileValue').text(value))
+                 .append($('<div></div>').addClass('sysTileLabel').text(label))
+                 .append(extra));
+   };
+
+   let tiles = $('<div></div>').addClass('sysTiles')
+       .append(tile('mdi-table-multiple', tables.length, 'Tabellen'))
+       .append(tile('mdi-database-outline', bytesPretty(sum.data + sum.index), 'Daten + Index',
+                    $('<div></div>').addClass('sysTileSub').text(bytesPretty(sum.data) + ' / ' + bytesPretty(sum.index))))
+       .append(tile('mdi-format-list-numbered', sum.rows.toLocaleString(dateLocale), 'Zeilen'));
+
+   for (let fs of (statistic.filesystems || [])) {
+      let used = fs.totalbytes ? (fs.totalbytes - fs.availablebytes) / fs.totalbytes * 100 : null;
+      let cls = used == null ? '' : used > 90 ? 'sysBarCrit' : used > 75 ? 'sysBarWarn' : '';
+
+      tiles.append(tile('mdi-harddisk', fs.available + ' frei', 'Dateisystem ' + fs.name + ' (' + fs.total + ')',
+                        used == null ? null : $('<div></div>').addClass('sysBar ' + cls).attr('title', Math.round(used) + ' % belegt')
+                        .append($('<span></span>').css('width', used + '%'))));
+   }
+
+   let tbody = $('<tbody></tbody>');
+
+   for (let t of tables) {
+      let size = (t.tblbytes || 0) + (t.idxbytes || 0);
+      let pData = max ? (t.tblbytes || 0) / max * 100 : 0;
+      let pIndex = max ? (t.idxbytes || 0) / max * 100 : 0;
+
+      tbody.append($('<tr></tr>')
+                   .append($('<td></td>').addClass('sysName').text(t.name))
+                   .append($('<td></td>').addClass('sysNum').text(t.tblsize))
+                   .append($('<td></td>').addClass('sysNum').text(t.idxsize))
+                   .append($('<td></td>').addClass('sysNum').text((t.rows || 0).toLocaleString(dateLocale)))
+                   .append($('<td></td>').addClass('sysSizeCell')
+                           .append($('<div></div>').addClass('sysSizeBar').attr('title', bytesPretty(size))
+                                   .append($('<span></span>').addClass('sysSizeData').css('width', pData + '%'))
+                                   .append($('<span></span>').addClass('sysSizeIndex').css('width', pIndex + '%')))));
+   }
+
+   $('#container').append($('<div></div>')
+                          .attr('id', 'systemContainer')
+                          .addClass('sysPage')
+                          .append($('<div></div>').addClass('sysPageHead')
+                                  .append($('<span></span>').addClass('mdi mdi-database'))
+                                  .append($('<span></span>').text('Database'))
+                                  .append($('<span></span>').addClass('sysCount').text(tables.length + ' Tabellen')))
+                          .append(tiles)
+                          .append($('<div></div>').addClass('sysTableWrap')
+                                  .append($('<table></table>').addClass('tableMultiCol sysTable')
+                                          .append($('<thead></thead>').append($('<tr></tr>')
+                                                                              .append($('<td></td>').text('Tabelle'))
+                                                                              .append($('<td></td>').addClass('sysNum').text('Daten'))
+                                                                              .append($('<td></td>').addClass('sysNum').text('Index'))
+                                                                              .append($('<td></td>').addClass('sysNum').text('Zeilen'))
+                                                                              .append($('<td></td>')
+                                                                                      .append($('<span></span>').addClass('sysLegend sysSizeData'))
+                                                                                      .append(' Daten ')
+                                                                                      .append($('<span></span>').addClass('sysLegend sysSizeIndex'))
+                                                                                      .append(' Index'))))
+                                          .append(tbody))));
 }
 
 var lastWifiStrengthFilter = localStorage.getItem(storagePrefix + 'wifiBarsFilter');   // the level filter survives the session
@@ -1660,7 +1946,7 @@ function showWifiList()
 
    showControlContainer();
    $('#container').removeClass('hidden');
-   $('#container').html('<div id="systemContainer"></div>');
+   $('#container').empty().append($('<div></div>').attr('id', 'systemContainer').addClass('sysPage'));
 
    prepareSetupMenu();
    setupContainerHeight();
@@ -1672,8 +1958,7 @@ function showWifiList()
               .html('Minimum Signal Strength'))
       .append($('<select></select>')
               .attr('id', 'wifiBarsFilter')
-              .addClass('input rounded-border')
-              .css('width', '100%')
+              .addClass('input rounded-border sysControl')
               .append($('<option></option>').val('all').html('All'))
               .append($('<option></option>').val('4').html('Excellent'))
               .append($('<option></option>').val('3').html('Good'))
@@ -1699,7 +1984,7 @@ function getBarCount(barString)
    // Entferne alle Unterstriche und Leerzeichen
    //   die verbleibenden Zeichen sind die Balken
 
-   return barString.replace(/[ _]/g, '').length;
+   return (barString || '').replace(/[ _]/g, '').length;
 }
 
 function wifiDeviceExists(iface)
@@ -1710,121 +1995,180 @@ function wifiDeviceExists(iface)
    return (wifis.devices || []).some(function(d) { return d.device == iface; });
 }
 
+// the page 'Wifi': the devices, the networks in range and the stored connections (styles in system.css);
+//   all texts (SSIDs!) are set as text, not as HTML
+
 function updateWifiList()
 {
-   let html = '<div>';
+   let devices = wifis.devices || [];
+   let reachable = wifis.reachable || [];
+   let known = wifis.known || [];
 
-   // the present wifi device(s) in the title - USB sticks are all 'wlan0', the MAC tells which one it is
+   lastWifiStrengthFilter = $('#wifiBarsFilter').val();
 
-   let devices = (wifis.devices || []).map(function(d) {
-      return d.device + ' \u00b7 ' + d.vendor + ' ' + d.product + ' \u00b7 ' + d.mac + ' \u00b7 ' + d.state;
-   });
+   try { localStorage.setItem(storagePrefix + 'wifiBarsFilter', lastWifiStrengthFilter); } catch (e) {}
 
-   let deviceInfo = devices.length ? ' <span style="font-weight:normal;">(' + devices.join(', ') + ')</span>'
-                                   : ' <span style="font-weight:normal;color:var(--red);">(no wifi device present)</span>';
+   let pill = function(text, cls = '') {
+      return $('<span></span>').addClass('sysPill ' + cls).text(text);
+   };
 
-   html += '  <div class="rounded-border seperatorFold">Wifi Networks' + deviceInfo + '</div>';
-   html += '  <table class="tableMultiCol">' +
-      '    <thead>' +
-      '     <tr style="height:30px;font-weight:bold;">' +
-      '       <td style="width:18%;">Network</td>' +
-      '       <td style="width:10%;">Rate</td>' +
-      '       <td style="width:8%;">Security</td>' +
-      '       <td style="width:5%;">Signal</td>' +
-      '       <td style="width:5%">Bars</td>' +
-      '       <td style="width:5%"></td>' +
-      '     </tr>' +
-      '    </thead>' +
-      '    <tbody>';
+   let section = function(icon, title, count) {
+      return $('<div></div>').addClass('sysSectionHead')
+         .append($('<span></span>').addClass('mdi ' + icon))
+         .append($('<span></span>').text(title))
+         .append($('<span></span>').addClass('sysCount').text(count));
+   };
 
-   console.log("update wifi list");
+   let table = function(columns, tbody) {
+      let tr = $('<tr></tr>');
 
-   for (let i = 0; i < wifis.reachable.length; i++) {
-      let wifi = wifis.reachable[i];
+      for (let c of columns)
+         tr.append($('<td></td>').addClass(c.cls || '').text(c.title || ''));
+
+      return $('<div></div>').addClass('sysTableWrap')
+         .append($('<table></table>').addClass('tableMultiCol sysTable wifiTable')
+                 .append($('<thead></thead>').append(tr))
+                 .append(tbody));
+   };
+
+   let empty = function(tbody, colspan, text) {
+      tbody.append($('<tr></tr>').append($('<td></td>').attr('colspan', colspan).addClass('sysEmpty').text(text)));
+   };
+
+   // head with the present wifi device(s) - USB sticks are all 'wlan0', the MAC tells which one it is
+
+   let head = $('<div></div>').addClass('sysPageHead')
+       .append($('<span></span>').addClass('mdi ' + (devices.length ? 'mdi-wifi' : 'mdi-wifi-off')))
+       .append($('<span></span>').text('Wifi'));
+
+   if (!devices.length)
+      head.append(pill('kein Wifi-Gerät vorhanden', 'sysFail'));
+
+   let deviceRow = $('<div></div>').addClass('wifiDevices');
+
+   for (let d of devices)
+      deviceRow.append($('<div></div>').addClass('wifiDevice')
+                       .append($('<span></span>').addClass('mdi mdi-usb'))
+                       .append($('<span></span>').addClass('sysName').text(d.device))
+                       .append($('<span></span>').addClass('sysSub').text([d.vendor, d.product].filter(Boolean).join(' ')))
+                       .append($('<span></span>').addClass('wifiMac').text(d.mac))
+                       .append(pill(d.state, d.state == 'connected' ? 'sysOk' : '')));
+
+   // networks in range
+
+   let tbody = $('<tbody></tbody>');
+   let shown = 0;
+
+   for (let wifi of reachable) {
       let barCount = getBarCount(wifi.bars);
-      // let selectedBars = $('#wifiBarsFilter').val();
-      lastWifiStrengthFilter = $('#wifiBarsFilter').val();
-      localStorage.setItem(storagePrefix + 'wifiBarsFilter', lastWifiStrengthFilter);
 
-      console.log("Check filter:", wifi.network, 'with', barCount, "by", lastWifiStrengthFilter, '::', wifi.bars);
-
-      if (lastWifiStrengthFilter !== 'all' && barCount < lastWifiStrengthFilter) {
-         console.log("Filter:", barCount, "by", lastWifiStrengthFilter);
+      if (lastWifiStrengthFilter && lastWifiStrengthFilter !== 'all' && barCount < parseInt(lastWifiStrengthFilter))
          continue;
-      }
 
-      let known = isWifiKnown(wifi.network);
-      let rowColor = wifi.active == 'yes' ? 'green' : '';
-      let signalColor = parseInt(wifi.signal) >= 50 ? 'lightgreen' : parseInt(wifi.signal) >= 20 ? 'orange' : '';
-      let action = wifi.active == 'yes' ? 'Disconnect' : known ? 'Connect' : 'Setup';
-      let btnColor = wifi.active == 'yes' ? 'orange' : known ? 'lightgreen' : 'yellow';
+      shown++;
 
-      html += '<tr style="height:28px;color:' + rowColor + ';">';
-      html += ' <td>' + wifi.network + '</td>';
-      html += ' <td>' + wifi.rate + '</td>';
-      html += ' <td>' + wifi.security + '</td>';
-      html += ' <td>' + wifi.signal + '</td>';
-      html += ' <td style="font-family:monospace;color:' + signalColor + ';">' + wifi.bars + '</td>';
-      html += ' <td style="white-space:nowrap;">' + '<button class="buttonOptions rounded-border" style="color:' + btnColor + ';" onclick="wifiAction(\'' + wifi.id + '\')">' + action + '</button>';
-      if (known)
-         html += ' <button class="buttonOptions rounded-border" style="color:var(--red);" title="Delete all stored profiles of this network (password)" onclick="wifiForget(\'\', \'' + wifi.network + '\')">Forget</button>';
-      html += '</td>';
-      html += '</tr>';
+      let isKnown = isWifiKnown(wifi.network);
+      let active = wifi.active == 'yes';
+      let signal = parseInt(wifi.signal) || 0;
+      let level = signal >= 50 ? 'sysOk' : signal >= 20 ? 'wifiFair' : 'sysFail';
+      let secured = !isEmpty(wifi.security) && wifi.security != '--';
+      let strength = Math.max(0, Math.min(4, barCount));
+
+      let name = $('<td></td>')
+          .append($('<div></div>').addClass('sysName').text(wifi.network || '(verborgen)'));
+
+      if (active)
+         name.append(pill('verbunden', 'sysOk'));
+      else if (isKnown)
+         name.append(pill('gespeichert', 'sysEnabled'));
+
+      let actions = $('<td></td>').addClass('wifiActions')
+          .append($('<button></button>').attr('type', 'button')
+                  .addClass('rounded-border buttonOptions wifiBtn ' + (active ? 'wifiBtnOff' : isKnown ? 'wifiBtnOn' : 'wifiBtnSetup'))
+                  .append($('<span></span>').addClass('mdi ' + (active ? 'mdi-link-variant-off' : isKnown ? 'mdi-link-variant' : 'mdi-cog-outline')))
+                  .append($('<span></span>').text(active ? 'Disconnect' : isKnown ? 'Connect' : 'Setup'))
+                  .click(function() { wifiAction(wifi.id); }));
+
+      if (isKnown)
+         actions.append($('<button></button>').attr('type', 'button').addClass('iconButton iconRed')
+                        .attr('title', 'Delete all stored profiles of this network (password)')
+                        .append($('<span></span>').addClass('mdi mdi-trash-can-outline'))
+                        .click(function() { wifiForget('', wifi.network); }));
+
+      tbody.append($('<tr></tr>')
+                   .toggleClass('wifiActive', active)
+                   .append($('<td></td>').addClass('wifiIconCell ' + level)
+                           .append($('<span></span>').addClass('mdi ' + (strength ? 'mdi-wifi-strength-' + strength : 'mdi-wifi-strength-outline')))
+                           .attr('title', wifi.bars))
+                   .append(name)
+                   .append($('<td></td>').addClass('wifiSignal')
+                           .append($('<span></span>').addClass('sysBar wifiBar ' + (level == 'sysOk' ? '' : level == 'wifiFair' ? 'sysBarWarn' : 'sysBarCrit'))
+                                   .append($('<span></span>').css('width', Math.min(100, signal) + '%')))
+                           .append($('<span></span>').addClass('sysNum').text(signal + ' %')))
+                   .append($('<td></td>').addClass('wifiHideSmall')
+                           .append($('<span></span>').addClass('mdi ' + (secured ? 'mdi-lock-outline' : 'mdi-lock-open-variant-outline')))
+                           .append(' ' + (secured ? wifi.security : 'offen')))
+                   .append($('<td></td>').addClass('wifiHideSmall sysSub').text(wifi.rate))
+                   .append(actions));
    }
 
-   html += '    </tbody>' +
-       '  </table>';
+   if (!shown)
+      empty(tbody, 6, reachable.length ? 'Keine Netze für den Filter' : 'Keine Netze in Reichweite');
+
+   let page = $('#systemContainer').empty()
+       .append(head)
+       .append(devices.length ? deviceRow : null)
+       .append(section('mdi-access-point-network', 'In Reichweite', shown + ' / ' + reachable.length))
+       .append(table([ { cls: 'wifiIconCell' }, { title: 'Netzwerk' }, { title: 'Signal' },
+                       { title: 'Sicherheit', cls: 'wifiHideSmall' }, { title: 'Rate', cls: 'wifiHideSmall' },
+                       { cls: 'wifiActionsCol' } ], tbody));
 
    // all stored profiles (also duplicates of one SSID and networks not in range)
 
-   let known = wifis.known || [];
-
    if (known.length) {
-      html += '  <div class="rounded-border seperatorFold">Stored Connections</div>';
-      html += '  <table class="tableMultiCol">' +
-         '    <thead>' +
-         '     <tr style="height:30px;font-weight:bold;">' +
-         '       <td style="width:18%;">Network</td>' +
-         '       <td style="width:10%;">Device</td>' +
-         '       <td style="width:8%;">Autoconnect</td>' +
-         '       <td style="width:5%;">Priority</td>' +
-         '       <td style="width:5%">State</td>' +
-         '       <td style="width:5%"></td>' +
-         '     </tr>' +
-         '    </thead>' +
-         '    <tbody>';
+      let kbody = $('<tbody></tbody>');
 
-      for (let i = 0; i < known.length; i++) {
-         let k = known[i];
-         let inRange = wifis.reachable.some(function(r) { return r.network == (k.ssid || k.network); });
-         let name = (k.ssid || k.network) + (k.ssid && k.ssid != k.network ? ' <span style="color:gray;">(profile: ' + k.network + ')</span>' : '');
-         let device = isEmpty(k.iface) ? 'any' : k.iface;
+      for (let k of known) {
+         let ssid = k.ssid || k.network;
+         let inRange = reachable.some(function(r) { return r.network == ssid; });
+         let active = k.active == 'yes';
+
+         let name = $('<td></td>').append($('<div></div>').addClass('sysName').text(ssid));
+
+         if (k.ssid && k.ssid != k.network)
+            name.append($('<div></div>').addClass('sysSub').text('Profil: ' + k.network));
+
+         let device = $('<td></td>');
+
          if (!wifiDeviceExists(k.iface))
-            device = '<span style="color:var(--red);" title="bound to an interface which is not present, will be unbound on connect">' + k.iface + ' (missing)</span>';
-         let state = k.active == 'yes' ? 'connected' : inRange ? 'in range' : '';
-         html += '<tr style="height:28px;color:' + (k.active == 'yes' ? 'green' : '') + ';">';
-         html += ' <td>' + name + '</td>';
-         html += ' <td>' + device + '</td>';
-         html += ' <td>' + k.autoconnect + '</td>';
-         html += ' <td>' + k.priority + '</td>';
-         html += ' <td>' + state + '</td>';
-         html += ' <td>' + '<button class="buttonOptions rounded-border" style="color:var(--red);" title="Delete this stored profile (password)" onclick="wifiForget(\'' + k.uuid + '\', \'' + (k.ssid || k.network) + '\')">Forget</button>' + '</td>';
-         html += '</tr>';
+            device.append(pill(k.iface + ' (fehlt)', 'sysFail')
+                          .attr('title', 'bound to an interface which is not present, will be unbound on connect'));
+         else
+            device.text(isEmpty(k.iface) ? 'alle' : k.iface);
+
+         kbody.append($('<tr></tr>')
+                      .toggleClass('wifiActive', active)
+                      .append(name)
+                      .append(device)
+                      .append($('<td></td>').append(pill(k.autoconnect == 'yes' ? 'auto' : 'manuell', k.autoconnect == 'yes' ? 'sysEnabled' : '')))
+                      .append($('<td></td>').addClass('sysNum wifiHideSmall').text(k.priority))
+                      .append($('<td></td>').append(active ? pill('verbunden', 'sysOk') : inRange ? pill('in Reichweite') : null))
+                      .append($('<td></td>').addClass('wifiActions')
+                              .append($('<button></button>').attr('type', 'button').addClass('iconButton iconRed')
+                                      .attr('title', 'Delete this stored profile (password)')
+                                      .append($('<span></span>').addClass('mdi mdi-trash-can-outline'))
+                                      .click(function() { wifiForget(k.uuid, ssid); }))));
       }
 
-      html += '    </tbody>' +
-         '  </table>';
+      page.append(section('mdi-content-save-outline', 'Gespeicherte Verbindungen', known.length))
+         .append(table([ { title: 'Netzwerk' }, { title: 'Gerät' }, { title: 'Verbinden' },
+                         { title: 'Priorität', cls: 'sysNum wifiHideSmall' }, { title: 'Status' }, { cls: 'wifiActionsColSmall' } ], kbody));
    }
-
-   html += '</div>';
-
-   $('#systemContainer').html(html)
-      .addClass('setupContainer');
 }
 
 function isWifiKnown(network)
 {
-   for (let i = 0; i < wifis.known.length; i++) {
+   for (let i = 0; i < (wifis.known || []).length; i++) {
       if ((wifis.known[i].ssid || wifis.known[i].network) == network)
          return true;
    }
@@ -1872,7 +2216,8 @@ function wifiForget(uuid, network)
       pingTimeoutMs = 30000;
       showProgressDialog();
       socket.send({ "event": "system", "object": { 'action': 'wifi-forget', 'uuid': uuid, 'ssid': network } });
-   }, 'Delete the stored ' + (uuid ? 'profile' : 'profiles') + ' of \'' + network + '\'?<br/>The network has to be set up again with its password.', 'Forget');
+   }, 'Delete the stored ' + (uuid ? 'profile' : 'profiles') + ' of \'' + $('<div></div>').text(network).html() +      // the SSID as text
+      '\'?<br/>The network has to be set up again with its password.', 'Forget');
 }
 
 function showSystemServicesList()
@@ -1881,10 +2226,12 @@ function showSystemServicesList()
 
    showControlContainer();
    $('#container').removeClass('hidden');
-   $('#container').html('<div id="systemContainer"></div>');
+   $('#container').empty();
 
    prepareSetupMenu();
    setupContainerHeight();
+
+   let statusFilter = $('#sysSvcStatusFilter').val() || 'all';
 
    $("#controlContainer")
       .empty()
@@ -1895,10 +2242,7 @@ function showSystemServicesList()
               .attr('id', 'sysSvcFilter')
               .attr('placeholder', 'expression...')
               .attr('type', 'search')
-              .addClass('input rounded-border clearableOD')
-              .css('width', '-webkit-fill-available')
-              .css('width', '-moz-available')
-              .css('margin-bottom', '8px')
+              .addClass('input rounded-border clearableOD sysControl')
               .val(sysSvcFilter)
               .on('input', function() { updateSystemServiceList(); }))
 
@@ -1910,177 +2254,134 @@ function showSystemServicesList()
               .html('Status'))
       .append($('<select></select>')
               .attr('id', 'sysSvcStatusFilter')
-              .addClass('input rounded-border') // Nutzt deine vorhandenen Klassen
-              .css('width', '100%')
-              .css('margin-bottom', '8px')
+              .addClass('input rounded-border sysControl')
               .append($('<option></option>').val('all').html('All'))
               .append($('<option></option>').val('active').html('Aktiv'))
+              .append($('<option></option>').val('failed').html('Failed'))
               .append($('<option></option>').val('enabled').html('Enabled'))
               .append($('<option></option>').val('disabled').html('Disabled'))
-              .append($('<option></option>').val('static').html('Static'))
               .append($('<option></option>').val('masked').html('Masked (Blocked)'))
               .append($('<option></option>').val('inactive').html('Inactive'))
+              .val(statusFilter)
               .on('change', function() { updateSystemServiceList(); }));
+
+   $('#container').append($('<div></div>').attr('id', 'systemContainer').addClass('sysPage'));
 
    updateSystemServiceList();
 }
 
 var sysSvcFilterExpression = null;
 
+// the list of the services, a row per service with its states as labels and the actions as icons (styles in system.css)
+
 function updateSystemServiceList()
 {
-   // systemServices.sort(function(a, b) {
-   //    return b.unitFileState.localeCompare(a.unitFileState);
-   // });
-
    sysSvcFilterExpression = null;
    sysSvcFilter = $('#sysSvcFilter').val();
 
-   if (sysSvcFilter != '')
-      sysSvcFilterExpression = new RegExp(sysSvcFilter);
+   try {
+      if (sysSvcFilter != '')
+         sysSvcFilterExpression = new RegExp(sysSvcFilter, 'i');
+   }
+   catch (e) {
+      sysSvcFilterExpression = null;              // incomplete expression while typing
+   }
 
-   let html = '<div>';
+   let statusFilter = $('#sysSvcStatusFilter').val();        // 'all', 'active', ...
+   const fileStates = ['enabled', 'disabled', 'generated', 'static', 'masked'];
+   let counts = { active: 0, failed: 0 };
+   let tbody = $('<tbody></tbody>');
+   let shown = 0;
 
-   html += '  <div class="rounded-border seperatorFold">System Services</div>';
-   html += '  <table class="tableMultiCol">' +
-      '    <thead>' +
-      '     <tr style="height:30px;font-weight:bold;">' +
-      '       <td style="width:8%;">Service</td>' +
-      '       <td style="width:14%;"></td>' +
-      '       <td style="width:6%;">Status</td>' +
-      '       <td style="width:3%"></td>' +
-      '     </tr>' +
-      '    </thead>' +
-      '    <tbody>';
+   for (let svc of systemServices) {
+      if (counts[svc.status] != null)
+         counts[svc.status]++;
 
-   for (let i = 0; i < systemServices.length; i++) {
-      let svc = systemServices[i];
-
-      let statusFilter = $('#sysSvcStatusFilter').val();        // 'all', 'active', ...
-
-      const fileSates = ['enabled', 'disabled', 'generated', 'static', 'masked'];
-
-      if (fileSates.includes(statusFilter)) {
-
-         // Installations-Status
-
+      if (fileStates.includes(statusFilter)) {        // installation state
          if (svc.unitFileState != statusFilter)
             continue;
       }
-      else if (statusFilter != 'all') {
-
-         // Laufzeit-Status
-
+      else if (statusFilter != 'all') {               // runtime state
          if (svc.status != statusFilter)
             continue;
       }
-
-      // filter name expression
 
       if (sysSvcFilterExpression &&
           !sysSvcFilterExpression.test(svc.service) &&
           !sysSvcFilterExpression.test(svc.title))
          continue;
 
-      let rowColor = svc.unitFileState == 'disabled' || svc.unitFileState == 'masked' ? 'gray' : svc.status == 'active' ? 'lightgreen' : 'var(--light4)';
-      // let action = svc.status == 'active' ? 'Stop' : 'Start';
-      // let btnColor = svc.status == 'active' ? 'orange' : 'lightgreen';
+      shown++;
 
-      html += '<tr style="height:28px;color:' + rowColor + ';">';
-      html += ' <td>' + svc.service + '</td>';
-      html += ' <td>' + svc.title + '</td>';
-      html += ' <td>' + svc.status + ' / ' + svc.subState + ' / ' + svc.unitFileState + '</td>';
-      html += ' <td>' + '<button id="btn_' + svc.service + '"class="rounded-border button1 burgerMenuInline" onclick="systemServiceMenu(\'' + svc.service + '\')"><div></div><div></div><div></div></button>' + '</td>';
-      html += '</tr>';
+      let active = svc.status == 'active';
+      let enabled = svc.unitFileState == 'enabled';
+      let actions = $('<td></td>').addClass('iconButtons sysActions');
+
+      let icon = function(show, mdi, color, title, action, confirmText = null) {
+         let btn = $('<button></button>').attr('type', 'button').addClass('iconButton ' + color).attr('title', title)
+             .append($('<span></span>').addClass('mdi ' + mdi));
+
+         if (!show)
+            return actions.append(btn.addClass('iconButtonSpace').attr('tabindex', -1));
+
+         btn.click(function() {
+            if (confirmText)
+               confirmDialog(function() { systemServiceAction(svc.service, action); }, confirmText, title, 'Abbrechen');
+            else
+               systemServiceAction(svc.service, action);
+         });
+
+         actions.append(btn);
+      };
+
+      icon(true, active ? 'mdi-stop-circle-outline' : 'mdi-play-circle-outline', active ? 'iconRed' : 'iconGreen',
+           active ? 'Stop' : 'Start', active ? 'sys-service-Stop' : 'sys-service-Start');
+      icon(active, 'mdi-restart', 'iconBlue', 'Restart', 'sys-service-Restart');
+      icon(svc.unitFileState == 'enabled' || svc.unitFileState == 'disabled',
+           enabled ? 'mdi-toggle-switch' : 'mdi-toggle-switch-off-outline', enabled ? 'iconGreen' : 'iconGray',
+           enabled ? 'Disable' : 'Enable', enabled ? 'sys-service-Disable' : 'sys-service-Enable',
+           enabled ? '\'' + svc.service + '\' deaktivieren (startet nicht mehr beim Booten)?' : null);
+      icon(svc.defaultFile, 'mdi-file-cog-outline', 'iconGray', 'Options (/etc/default)', 'sys-default-read');
+      icon(active, 'mdi-skull-outline', 'iconRed', 'Kill', 'sys-service-Kill', '\'' + svc.service + '\' wirklich killen?');
+
+      let state = svc.status == 'active' ? 'sysOk' : svc.status == 'failed' ? 'sysFail' : '';
+      let file = svc.unitFileState == 'enabled' ? 'sysEnabled' : svc.unitFileState == 'masked' ? 'sysFail' : '';
+
+      tbody.append($('<tr></tr>')
+                   .toggleClass('sysOff', svc.unitFileState == 'disabled' || svc.unitFileState == 'masked')
+                   .append($('<td></td>').addClass('sysDotCell').append($('<span></span>').addClass('sysDot ' + state)))
+                   .append($('<td></td>')
+                           .append($('<div></div>').addClass('sysName').text(svc.service))
+                           .append($('<div></div>').addClass('sysSub').text(svc.title)))
+                   .append($('<td></td>').addClass('sysStates')
+                           .append($('<span></span>').addClass('sysPill ' + state).text(svc.status))
+                           .append($('<span></span>').addClass('sysPill sysSubState').text(svc.subState))
+                           .append($('<span></span>').addClass('sysPill ' + file).text(svc.unitFileState)))
+                   .append(actions));
    }
 
-   html +=
-      '    </tbody>' +
-      '  </table>' +
-      '</div>';
+   if (!shown)
+      tbody.append($('<tr></tr>').append($('<td></td>').attr('colspan', 4).addClass('sysEmpty').text('Keine Dienste für den Filter')));
 
-   $('#systemContainer').html(html)
-      .addClass('setupContainer');
-}
+   let head = $('<div></div>').addClass('sysPageHead')
+       .append($('<span></span>').addClass('mdi mdi-cogs'))
+       .append($('<span></span>').text('System Services'))
+       .append($('<span></span>').addClass('sysCount').text(shown + ' / ' + systemServices.length))
+       .append($('<span></span>').addClass('sysPill sysOk').text(counts.active + ' aktiv'));
 
-function systemServiceMenu(service)
-{
-   let i = 0;
+   if (counts.failed)
+      head.append($('<span></span>').addClass('sysPill sysFail').text(counts.failed + ' failed'));
 
-   for (i = 0; i < systemServices.length; i++) {
-      if (systemServices[i].service == service)
-         break;
-   }
-
-   let active = systemServices[i].status == 'active';
-   let enabled = systemServices[i].unitFileState == 'enabled';
-   let form = document.createElement("div");
-
-   $(form)
-      .attr('id', 'actionPopup')
-      .css('display', 'grid')
-      .css('padding', '2px')
-      .append($('<button></button>')
-              .addClass('rounded-border button1')
-              .css('width', '80px')
-              .css('margin', '2px')
-              .html(active ? 'Stop' : 'Start')
-              .click({ "service" : service }, function(event) {
-                 systemServiceAction(event.data.service, active ? 'sys-service-Stop' : 'sys-service-Start');
-                 $("#actionPopup").dialog('close');
-              }))
-      .append($('<button></button>')
-              .addClass('rounded-border button1')
-              .css('width', '80px')
-              .css('margin', '2px')
-              .html('Kill')
-              .click({ "service" : service }, function(event) {
-                 systemServiceAction(event.data.service, active ? 'sys-service-Stop' : 'sys-service-Kill');
-                 $("#actionPopup").dialog('close');
-              }));
-   if (systemServices[i].unitFileState == 'enabled' || systemServices[i].unitFileState == 'disabled')
-      $(form).append($('<button></button>')
-                     .addClass('rounded-border button1')
-                     .css('width', '80px')
-                     .css('margin', '2px')
-                     .html(enabled ? 'Disable' : 'Enable')
-                     .click({ "service" : service }, function(event) {
-                        systemServiceAction(event.data.service, enabled ? 'sys-service-Disable' : 'sys-service-Enable');
-                        $("#actionPopup").dialog('close');
-                     })
-                    );
-   if (systemServices[i].defaultFile)
-      $(form).append($('<button></button>')
-                     .addClass('rounded-border button1')
-                     .css('width', '80px')
-                     .css('margin', '2px')
-                     .html('Options')
-                     .click({ "service" : service }, function(event) {
-                        showProgressDialog();
-                        systemServiceAction(event.data.service, 'sys-default-read');
-                        $("#actionPopup").dialog('close');
-                     })
-                    );
-
-   $(form).dialog({
-      position: { my: "right top", at: "left top", of: document.getElementById('btn_' + service)},
-      minHeight: "auto",
-      width: "auto",
-      dialogClass: "no-titlebar rounded-border",
-      modal: true,
-      resizable: false,
-      closeOnEscape: true,
-      hide: "fade",
-      open: function(event, ui) {
-         $(event.target).parent().css('background-color', 'var(--light1)');
-         $('.ui-widget-overlay').bind('click', function()
-                                      { $("#actionPopup").dialog('close'); });
-      },
-      close: function() {
-         $("body").off("click");
-         $(this).dialog('destroy').remove();
-      }
-   });
+   $('#systemContainer').empty()
+      .append(head)
+      .append($('<div></div>').addClass('sysTableWrap')
+              .append($('<table></table>').addClass('tableMultiCol sysTable sysServices')
+                      .append($('<thead></thead>').append($('<tr></tr>')
+                                                          .append($('<td></td>'))
+                                                          .append($('<td></td>').text('Service'))
+                                                          .append($('<td></td>').text('Status'))
+                                                          .append($('<td></td>').addClass('sysActionsCol'))))
+                      .append(tbody)));
 }
 
 function systemServiceAction(service, action)

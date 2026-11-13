@@ -204,10 +204,18 @@ class cDbValue : public cDbService
 
       void setValue(int value)
       {
-         setValue((long)value);
+         setValue((long long)value);
       }
 
       void setValue(long value)
+      {
+         setValue((long long)value);
+      }
+
+      // the implementation for all integers, also for a time_t - it's 'long long' on 32 bit
+      //   systems with 64 bit time (e.g. armhf since Debian trixie), 'long' on 64 bit
+
+      void setValue(long long value)
       {
          if (field->getFormat() == ffInt || field->getFormat() == ffUInt)
          {
@@ -238,22 +246,6 @@ class cDbValue : public cDbService
 
             if (o != getTimeValue())
                changed++;
-         }
-         else
-         {
-            tell(eloAlways, "Setting invalid field format for '%s'", field->getName());
-         }
-      }
-
-      void setValue(long long value)
-      {
-         if (field->getFormat() == ffInt || field->getFormat() == ffUInt)
-         {
-            if (numValue != value || isNull())
-               changed++;
-
-            numValue = value;
-            nullValue = 0;
          }
          else
          {
@@ -555,7 +547,7 @@ class cDbStatements
 
       void showStat(const char* name)
       {
-         tell(eloAlways, "Statement statistic of last %ld seconds from '%s':", time(0) - statisticPeriod, name);
+         tell(eloAlways, "Statement statistic of last %ld seconds from '%s':", (long)(time(0) - statisticPeriod), name);
 
          for (std::list<cDbStatement*>::iterator it = statements.begin() ; it != statements.end(); ++it)
          {
@@ -678,6 +670,7 @@ class cDbRow : public cDbService
                     int size = 0)                           { dbValues[f->getIndex()].setValue(value, size); }
       void setValue(cDbFieldDef* f, int value)              { dbValues[f->getIndex()].setValue(value); }
       void setValue(cDbFieldDef* f, long value)             { dbValues[f->getIndex()].setValue(value); }
+      void setValue(cDbFieldDef* f, long long value)        { dbValues[f->getIndex()].setValue(value); }
       void setValue(cDbFieldDef* f, double value)           { dbValues[f->getIndex()].setValue(value); }
       void setBigintValue(cDbFieldDef* f, int64_t value)    { dbValues[f->getIndex()].setBigintValue(value); }
       void setCharValue(cDbFieldDef* f, char value)         { dbValues[f->getIndex()].setCharValue(value); }
@@ -1146,6 +1139,7 @@ class cDbTable : public cDbService
       void setValue(cDbFieldDef* f, const char* value, int size = 0)  { row->setValue(f, value, size); }
       void setValue(cDbFieldDef* f, int value)                        { row->setValue(f, value); }
       void setValue(cDbFieldDef* f, long value)                       { row->setValue(f, value); }
+      void setValue(cDbFieldDef* f, long long value)                  { row->setValue(f, value); }
       void setValue(cDbFieldDef* f, double value)                     { row->setValue(f, value); }
       void setBigintValue(cDbFieldDef* f, int64_t value)              { row->setBigintValue(f, value); }
       void setCharValue(cDbFieldDef* f, char value)                   { row->setCharValue(f, value); }

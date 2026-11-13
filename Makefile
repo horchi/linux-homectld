@@ -29,29 +29,45 @@ LASTTAG      = $(shell git describe --tags --abbrev=0)
 BRANCH       = $(shell git rev-parse --abbrev-ref HEAD)
 GIT_REV      = $(shell git describe --always 2>/dev/null)
 
-# object files
+# object files, the lib objects come from the static lib (lib/Makefile)
 
-LOBJS        = lib/db.o lib/dbdict.o lib/systemdctl.o lib/common.o lib/serial.o lib/curl.o lib/thread.o lib/json.o lib/lua.o lib/tcpchannel.o
-MQTTOBJS     = lib/mqtt.o lib/mqtt_c.o lib/mqtt_pal.o
+LIBHORCHI    = lib/libhorchi.a
 
-OBJS         = $(MQTTOBJS) $(LOBJS) main.o daemon.o wsactions.o hass.o hasp.o gpstour.o sun.o shade.o lightrules.o scenes.o hmservice.o p4service.o mqttconv.o zigbee.o activities.o websock.o webservice.o deconz.o lmc.o lmccom.o
+OBJS         = main.o daemon.o wsactions.o hass.o hasp.o gpstour.o sun.o shade.o lightrules.o scenes.o hmservice.o p4service.o mqttconv.o zigbee.o activities.o websock.o webservice.o deconz.o lmc.o lmccom.o
 OBJS        += growatt.o
-OBJS        += config.o gpio.o
-
-W1OBJS       = w1.o gpio.o lib/common.o lib/json.o lib/thread.o $(MQTTOBJS)
-BMSOBJS      = bms.o lib/common.o lib/thread.o lib/serial.o $(MQTTOBJS)
-VOTROOBJS    = votro.o lib/common.o lib/thread.o lib/serial.o $(MQTTOBJS)
-VICTRONOBJS  = victron.o lib/common.o lib/thread.o lib/json.o lib/serial.o lib/victron/vecom.o lib/victron/veframehandler.o $(MQTTOBJS)
-I2COBJS      = i2cmqtt.o gpio.o lib/common.o lib/json.o lib/thread.o lib/i2c/i2c.o lib/i2c/mcp23017.o lib/i2c/ads1115.o lib/i2c/dht20.o lib/i2c/ds2484.o lib/i2c/ina219.o $(MQTTOBJS)
+OBJS        += config.o
 
 CFLAGS      += $(shell $(SQLCFG) --include)
 
-GPIOTSTOBJS   = gpio-test.o gpio.o lib/common.o lib/json.o
-GPIOTSTTARGET = gpiotst
+# MQTT services in their sub directories (see Make.module), built / installed if enabled in Make.user
+
+ALL_MODULES  = w1mqtt bmsmqtt votromqtt victronmqtt i2cmqtt
+
+ifdef W1MQTT
+   MODULES += w1mqtt
+endif
+ifdef BMSMQTT
+   MODULES += bmsmqtt
+endif
+ifdef VOTROMQTT
+   MODULES += votromqtt
+endif
+ifdef VICTRONMQTT
+   MODULES += victronmqtt
+endif
+ifdef I2CMQTT
+   MODULES += i2cmqtt
+endif
+
+# call a target in all enabled / all modules: $(call forModules,<target>[,<modules>])
+
+define forModules
+@for m in $(if $(2),$(2),$(MODULES)); do $(MAKE) -C $$m --no-print-directory $(1) || exit 1; done
+endef
 
 # main taget
 
-all: $(TARGET) $(W1TARGET) $(BMSTARGET) $(VOTROTARGET) $(VICTRONTARGET) $(I2CTARGET) $(ARDUINO_IF_CMD) htdocs/index.html
+all: $(TARGET) $(MODULES) $(ARDUINO_IF_CMD) htdocs/index.html
    ifdef HOMEMATIC
 	   @(cd homematic; $(MAKE) --no-print-directory)
    endif
@@ -81,7 +97,7 @@ DEPFILE = .dependencies
 $(DEPFILE): Makefile
 	@echo Making dependencies ...
 	@rm -f $(DEPFILE)
-	@for file in $(sort $(OBJS:%.o=%.c) $(VICTRONOBJS:%.o=%.c) $(I2COBJS:%.o=%.c) $(W1OBJS:%.o=%.c) $(BMSOBJS:%.o=%.c) $(VOTROOBJS:%.o=%.c)); do \
+	@for file in $(sort $(OBJS:%.o=%.c)); do \
 		$(MAKEDEP) $(CFLAGS) -MT $${file%.c}.o $$file >> $(DEPFILE) 2>/dev/null || true; \
 	done
 
@@ -103,30 +119,26 @@ endif
 
 # build rules
 
-$(TARGET) : $(OBJS)
-	$(doLink) $(OBJS) $(LIBS) -o $@
+$(TARGET) : $(OBJS) $(LIBHORCHI)
+	$(doLink) $(OBJS) $(LIBHORCHI) $(LIBS) -o $@
 
-$(GPIOTSTTARGET): $(GPIOTSTOBJS)
-	$(doLink) $(GPIOTSTOBJS) $(LIBS) -o $@
+# lib/Makefile decides if something is to do (FORCE), relinked only if the archive changed
 
-$(W1TARGET): $(W1OBJS)
-	$(doLink) $(W1OBJS) $(LIBS) -o $@
+.PHONY: FORCE
 
-$(BMSTARGET): $(BMSOBJS)
-	$(doLink) $(BMSOBJS) $(LIBS) -o $@
+$(LIBHORCHI): FORCE
+	@$(MAKE) -C lib --no-print-directory
 
-$(VOTROTARGET): $(VOTROOBJS)
-	$(doLink) $(VOTROOBJS) $(LIBS) -o $@
+# the modules need the lib, built here first - otherwise the sub makes would build it in parallel (-j)
 
-$(VICTRONTARGET): $(VICTRONOBJS)
-	$(doLink) $(VICTRONOBJS) $(LIBS) -o $@
+.PHONY: $(ALL_MODULES)
 
-$(I2CTARGET): $(I2COBJS)
-	$(doLink) $(I2COBJS) $(LIBS) -o $@
+$(ALL_MODULES): $(LIBHORCHI)
+	@$(MAKE) -C $@ --no-print-directory
 
 # light install
 
-linstall: $(TARGET) $(W1TARGET) $(BMSTARGET) $(VOTROTARGET) $(VICTRONTARGET) $(I2CTARGET)
+linstall: $(TARGET) $(MODULES)
 	$(MAKE) install-daemon
 	$(MAKE) install-web
 
@@ -135,6 +147,11 @@ linstall: $(TARGET) $(W1TARGET) $(BMSTARGET) $(VOTROTARGET) $(VICTRONTARGET) $(I
 
 install-dependencies:
 	@WOMO=$(WOMO) MOPEKA=$(MOPEKA) THETFORD=$(THETFORD) GARMIN=$(GARMIN) GPS=$(GPS) VDR=$(VDR) SRC_DIR=$(SRC_DIR) bash contrib/install-dependencies.sh
+
+# initial setup of the local database (database, user and grants, the tables are created by the daemon)
+
+install-db:
+	@bash scripts/create-db.sh $(NAME)
 
 # interactive configuration of Make.user (needs 'dialog')
 
@@ -187,17 +204,13 @@ install-daemon: install-config install-scripts
 	   @mkdir -p $(DESTDIR)/usr/bin
    endif
 	install --mode=755 -D $(TARGET) $(BINDEST)/
-	install --mode=755 -D $(W1TARGET) $(BINDEST)/
-	install --mode=755 -D $(BMSTARGET) $(BINDEST)/
-	install --mode=755 -D $(VOTROTARGET) $(BINDEST)/
-	install --mode=755 -D $(VICTRONTARGET) $(BINDEST)/
-	install --mode=755 -D $(I2CTARGET) $(BINDEST)/
+	$(call forModules,install-bin)
 	mkdir -p $(DESTDIR)$(PREFIX)/share/$(TARGET)/
 #	install --mode=644 -D arduino/build-nano-atmega328/ioctrl.hex $(DESTDIR)$(PREFIX)/share/$(TARGET)/nano-atmega328-ioctrl.hex
 
 # the services of this repository (restarted by 'make restart' if they are running)
 
-SERVICES = w1mqtt bmsmqtt votromqtt i2cmqtt victronmqtt
+SERVICES = $(MODULES)
 ifdef MOPEKA
    SERVICES += mopeka
 endif
@@ -240,11 +253,7 @@ lrestart: $(TARGET) slinstall
 install-systemd:
 	@echo install systemd
 	@$(call installUnit,contrib/daemon.service,$(TARGET).service)
-	@$(call installUnit,contrib/w1mqtt.service,w1mqtt.service)
-	@$(call installUnit,contrib/bmsmqtt.service,bmsmqtt.service)
-	@$(call installUnit,contrib/votromqtt.service,votromqtt.service)
-	@$(call installUnit,contrib/i2cmqtt.service,i2cmqtt.service)
-	@$(call installUnit,contrib/victronmqtt.service,victronmqtt.service)
+	$(call forModules,install-systemd)
 	@$(call installUnit,contrib/mosquitto-log.service,mosquitto-log.service)
 	@$(call installUnit,contrib/fwpn.service,fwpn.service)
    ifeq ($(DESTDIR),)
@@ -283,6 +292,7 @@ install-config:
 			cat $$f | sed s:"<SUBNET>":"$(SUBNET)":g | install --mode=644 -C -D /dev/stdin $(DESTDIR)/etc/default/$$bn; \
 		fi; \
 	done
+	$(call forModules,install-config)
 
 install-scripts:
 	@echo install scripts
@@ -322,7 +332,9 @@ dist: clean
 clean:
 	rm -f */*.o */*/*.o *.o core* *~ */*~ */*/*~ lib/t *.jpg $(DEPFILE)
 	rm -f $(TARGET) $(ARCHIVE).tgz
-	rm -f homematic/hmmqtt
+	$(MAKE) -C homematic --no-print-directory clean
+	$(MAKE) -C lib --no-print-directory clean
+	$(call forModules,clean,$(ALL_MODULES))
 	rm -rf p4mqttd/obj p4mqttd/p4mqttd p4mqttd/p4
 	rm -f com2
 
@@ -334,27 +346,13 @@ clean-install:
 	rm -rf $(CONFDEST)
 	rm -rf $(WEBDEST)
 	rm -rf $(SYSTEMDDEST)/$(TARGET).service
-	rm -rf $(SYSTEMDDEST)/w1mqtt.service
-	rm -rf $(SYSTEMDDEST)/bmsmqtt.service
-	rm -rf $(SYSTEMDDEST)/votromqtt.service
-	rm -rf $(SYSTEMDDEST)/victronmqtt.service
-	rm -rf $(SYSTEMDDEST)/i2cmqtt.service
-	rm -rf $(DESTDIR)/etc/default/w1mqtt;
-	rm -rf $(DESTDIR)/etc/default/bmsmqtt;
-	rm -rf $(DESTDIR)/etc/default/votromqtt;
-	rm -rf $(DESTDIR)/etc/default/victronmqtt;
-	rm -rf $(DESTDIR)/etc/default/i2cmqtt;
+	$(call forModules,uninstall,$(ALL_MODULES))
 	rm -rf $(SYSTEMDDEST)/p4mqttd.service
 	rm -rf $(DESTDIR)/etc/default/p4mqttd;
 	rm -rf $(BINDEST)/p4mqttd $(BINDEST)/p4
 	rm -rf $(DESTDIR)/etc/rsyslog.d/10-$(TARGET).conf
 	rm -rf $(DESTDIR)/etc/logrotate.d/$(TARGET)
 	rm -rf $(BINDEST)/$(TARGET)*
-	rm -rf $(BINDEST)/$(W1TARGET)
-	rm -rf $(BINDEST)/$(BMSTARGET)
-	rm -rf $(BINDEST)/$(VOTROTARGET)
-	rm -rf $(BINDEST)/$(VICTRONTARGET)
-	rm -rf $(BINDEST)/$(I2CTARGET)
 
 activate: install
 	systemctl restart $(TARGET)
@@ -368,7 +366,7 @@ upload:
 
 build-deb:
 	rm -rf $(DEB_DEST)
-	make -s install-daemon DESTDIR=$(DEB_DEST) PREFIX=/usr INIT_AFTER=mysql.service
+	make -s install-daemon DESTDIR=$(DEB_DEST) PREFIX=/usr INIT_AFTER=mysql.service W1MQTT=1
 	make -s install-web DESTDIR=$(DEB_DEST) PREFIX=/usr
 	dpkg-deb --build $(DEB_BASE_DIR)/$(TARGET)-$(VERSION)
 

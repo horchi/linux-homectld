@@ -1,0 +1,82 @@
+/*
+ *  setupnav.css - the menu bar of the setup pages (main.js, prepareSetupMenu / addSetupMenuButton):
+ *  tabs with icon, the active one underlined, groups with separators; on small displays the
+ *  inactive tabs show the icon only. Only the theme variables, the scroll strip (arrows) of
+ *  base.css stays as it is. The rules start with '.setupNav >', they have to win against
+ *  '.setupMenu > button' of base.css.
+ */
+
+.setupMenu.setupNav {
+   align-items: stretch;
+   gap: 2px;
+   margin-top: 2px;
+   border-bottom: 1px solid var(--neutral1);
+}
+
+.setupNav > .setupNavTab {
+   flex-shrink: 0;
+   display: inline-flex;
+   align-items: center;
+   gap: 6px;
+   height: 38px;
+   margin: 0;
+   padding: 0 12px;
+   border: none;
+   border-bottom: 3px solid transparent;
+   border-radius: 6px 6px 0 0;
+   background: transparent;
+   color: var(--neutral4);
+   font-size: 14px;
+   white-space: nowrap;
+   cursor: pointer;
+   transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.setupNav > .setupNavTab:hover {
+   color: var(--fontColor, var(--buttonFont));
+   background: var(--neutral1);
+}
+
+.setupNav > .setupNavTab.active {
+   color: var(--fontColor, var(--buttonFont));
+   font-weight: bold;
+   border-bottom-color: var(--blue);
+   background: var(--neutral1);
+}
+
+.setupNavIcon {
+   font-size: 18px;
+   line-height: 1;
+}
+
+.setupNav > .setupNavTab.active .setupNavIcon {
+   color: var(--blue);
+}
+
+.setupNav > .setupNavSep {
+   flex: 0 0 1px;
+   align-self: center;
+   height: 22px;
+   margin: 0 6px;
+   background: var(--neutral2);
+}
+
+/* small displays: the inactive tabs as icon (the title as tooltip), the active one with its title */
+
+@media (max-width: 700px) {
+   .setupNav > .setupNavTab {
+      padding: 0 9px;
+   }
+
+   .setupNav > .setupNavTab:not(.active) .setupNavText {
+      display: none;
+   }
+
+   .setupNavIcon {
+      font-size: 20px;
+   }
+
+   .setupNav > .setupNavSep {
+      margin: 0 3px;
+   }
+}

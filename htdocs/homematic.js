@@ -196,7 +196,12 @@ function initHomeMatic()
    let pairing = hm.pairing || {};
    let viaService = hm.interface && hm.bridge == 'hmmqtt';
 
-   let $page = $('<div></div>').addClass('rounded-border inputTableConfig homeMaticPage');
+   let $page = $('<div></div>').addClass('homeMaticPage');      // styles in homematic.css
+
+   $page.append($('<div></div>').addClass('homeMaticHead')
+                .append($('<span></span>').addClass('mdi mdi-home-automation'))
+                .append($('<span></span>').text('HomeMatic'))
+                .append($('<span></span>').addClass('homeMaticCount').text((hm.devices || []).length)));
 
    if (!viaService) {
       $page.append($('<div></div>').addClass('homeMaticNote')
@@ -210,13 +215,17 @@ function initHomeMatic()
 
    let online = status.state == 'online';
 
-   $page.append($('<div></div>').addClass('homeMaticState')
-                .append($('<span></span>').addClass('mdi mdi-circle')
-                        .css('color', online ? 'var(--green)' : 'var(--red)'))
-                .append($('<span></span>')
-                        .text(' Dienst hmmqtt: ' + (status.state || 'keine Meldung') +
-                              (status.cul ? ' – ' + status.cul : '') +
-                              (status.hmId ? ' – Zentrale ' + status.hmId : ''))));
+   let $state = $('<div></div>').addClass('homeMaticState')
+       .toggleClass('homeMaticOnline', online)
+       .append($('<span></span>').addClass('homeMaticDot'))
+       .append($('<span></span>').addClass('homeMaticStateText').text('Dienst hmmqtt: ' + (status.state || 'keine Meldung')));
+
+   if (status.cul)
+      $state.append($('<span></span>').addClass('homeMaticChip').append($('<span></span>').addClass('mdi mdi-usb-port')).append(' ' + status.cul));
+   if (status.hmId)
+      $state.append($('<span></span>').addClass('homeMaticChip').append($('<span></span>').addClass('mdi mdi-access-point')).append(' Zentrale ' + status.hmId));
+
+   $page.append($state);
 
    // pairing / refresh
 
@@ -259,8 +268,9 @@ function initHomeMatic()
           ? ' (' + ev.runtimeDown + ' s ab / ' + ev.runtimeUp + ' s auf)' : '';
 
       $page.append($('<div></div>').addClass('homeMaticEvent ' + (ok ? 'ok' : 'failed'))
-                   .text(when + what + ' ' + (ev.serial || '') + (ev.type ? ' (' + ev.type + ')' : '') + ': ' +
-                         (ev.text || ev.result) + times));
+                   .append($('<span></span>').addClass('mdi ' + (ok ? 'mdi-check-circle-outline' : 'mdi-alert-circle-outline')))
+                   .append($('<span></span>').text(when + what + ' ' + (ev.serial || '') + (ev.type ? ' (' + ev.type + ')' : '') + ': ' +
+                                                   (ev.text || ev.result) + times)));
    }
 
    // running times of a blind
@@ -294,16 +304,28 @@ function initHomeMatic()
       if (dev.half != null)
          runtime += ', ½ bei ' + Math.round(dev.half) + ' %';
 
+      // the position as bar, the RSSI as signal (green > -70, orange > -85, red below)
+
+      let pos = ch.value != null ? Math.max(0, Math.min(100, Math.round(ch.value))) : null;
+      let rssiCls = !dev.rssi ? '' : dev.rssi > -70 ? 'homeMaticGood' : dev.rssi > -85 ? 'homeMaticFair' : 'homeMaticPoor';
+
       $body.append($('<tr></tr>')
-                   .append($('<td></td>').text(title).attr('title', ch.key || ''))
+                   .append($('<td></td>').attr('title', ch.key || '')
+                           .append($('<div></div>').addClass('homeMaticName').text(title))
+                           .append($('<div></div>').addClass('homeMaticSub').text(ch.key || '')))
                    .append($('<td></td>').text(dev.type))
-                   .append($('<td></td>').text(dev.serial))
-                   .append($('<td></td>').text(dev.rfAddress))
+                   .append($('<td></td>').addClass('homeMaticMono').text(dev.serial))
+                   .append($('<td></td>').addClass('homeMaticMono').text(dev.rfAddress))
                    .append($('<td></td>').text(dev.firmware))
-                   .append($('<td></td>').text(ch.value != null ? Math.round(ch.value) + ' %' : '-'))
+                   .append($('<td></td>').append(pos == null ? '-' :
+                                                 $('<span></span>').addClass('homeMaticPos')
+                                                 .append($('<span></span>').addClass('homeMaticPosBar')
+                                                         .append($('<span></span>').css('width', pos + '%')))
+                                                 .append($('<span></span>').text(pos + ' %'))))
                    .append($('<td></td>').text(blind ? runtime : ''))
                    .append($('<td></td>').text(seen))
-                   .append($('<td></td>').text(dev.rssi ? dev.rssi + ' dBm' : '-'))
+                   .append($('<td></td>').addClass(rssiCls)
+                           .append(dev.rssi ? [$('<span></span>').addClass('mdi mdi-signal'), ' ' + dev.rssi + ' dBm'] : '-'))
                    .append($('<td></td>').addClass('homeMaticButtons')
                            .append(!blind ? '' : $('<button></button>').addClass('rounded-border button1')
                                    .text('Lesen')
@@ -328,8 +350,12 @@ function initHomeMatic()
                                    }))));
    }
 
+   if (!(hm.devices || []).length)
+      $body.append($('<tr></tr>').append($('<td></td>').attr('colspan', 10).addClass('homeMaticEmpty')
+                                         .text('Keine Geräte - neue mit \'Anlernen\' hinzufügen')));
+
    $table.append($body);
-   $page.append($table);
+   $page.append($('<div></div>').addClass('homeMaticTableWrap').append($table));
 
    $('#container').empty().append($page);
 }

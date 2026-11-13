@@ -10,10 +10,10 @@
 
 #include <signal.h>
 
-#include "lib/common.h"
-#include "lib/serial.h"
-#include "lib/json.h"
-#include "lib/mqtt.h"
+#include "../lib/common.h"
+#include "../lib/serial.h"
+#include "../lib/json.h"
+#include "../lib/mqtt.h"
 
 #define isBitSet(value, bit)  ((value >> bit) & 0x01)
 

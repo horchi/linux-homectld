@@ -1,0 +1,5 @@
+# rsyslog - p4mqttd in ein eigenes Log statt ins syslog
+# (installiert von 'make install' nach /etc/rsyslog.d/10-p4mqttd.conf)
+
+if $programname == "p4mqttd" then -/var/log/p4mqttd.log
+& stop

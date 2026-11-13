@@ -27,7 +27,7 @@
 #include <atomic>
 #include <map>
 
-#include "lib/common.h"
+#include "common.h"
 #include "gpio.h"
 
 //***************************************************************************

@@ -1,0 +1,273 @@
+/*
+ *  homematic.css - the setup page 'HomeMatic' (homematic.js), the devices of the service hmmqtt
+ *  (moved from base.css), cards like the other setup pages, only the theme variables
+ */
+
+.homeMaticPage {
+   padding: var(--containerPadding);
+   box-sizing: border-box;
+   display: flex;
+   flex-direction: column;
+   gap: 10px;
+}
+
+.homeMaticHead {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+   margin: 0 4px 2px 4px;
+   padding-bottom: 8px;
+   border-bottom: 1px solid var(--neutral2);
+   font-size: 18px;
+   font-weight: bold;
+   color: var(--fontColor, inherit);
+}
+
+.homeMaticHead .mdi {
+   font-size: 24px;
+   color: var(--blue);
+}
+
+.homeMaticCount {
+   font-size: 12px;
+   font-weight: normal;
+   padding: 1px 8px;
+   border-radius: 10px;
+   background: var(--neutral1);
+   color: var(--neutral4);
+}
+
+.homeMaticNote {
+   padding: 12px 14px;
+   border-radius: 8px;
+   background: var(--widgetBackground);
+   border: 1px solid var(--orange);
+   line-height: 1.5;
+}
+
+/* state of the service */
+
+.homeMaticState {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+   gap: 8px 12px;
+   padding: 10px 14px;
+   border-radius: 8px;
+   background: var(--widgetBackground);
+   border: 1px solid var(--neutral1);
+}
+
+.homeMaticDot {
+   width: 12px;
+   height: 12px;
+   border-radius: 50%;
+   background: var(--red);
+   box-shadow: 0 0 6px var(--red);
+}
+
+.homeMaticOnline .homeMaticDot {
+   background: var(--green);
+   box-shadow: 0 0 6px var(--green);
+}
+
+.homeMaticStateText {
+   font-weight: bold;
+}
+
+.homeMaticChip {
+   font-size: 12px;
+   padding: 2px 10px;
+   border-radius: 12px;
+   background: var(--neutral1);
+   color: var(--neutral4);
+}
+
+/* actions and the last event */
+
+.homeMaticActions {
+   display: flex;
+   flex-wrap: wrap;
+   align-items: center;
+   gap: 8px;
+}
+
+.homeMaticActions button,
+.homeMaticButtons button {
+   border-radius: 16px;
+   padding: 4px 14px;
+}
+
+.homeMaticPairing {
+   background-color: var(--orange) !important;
+   animation: homeMaticPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes homeMaticPulse {
+   50% { opacity: 0.7; }
+}
+
+.homeMaticHint {
+   color: var(--orange);
+}
+
+.homeMaticEvent {
+   display: flex;
+   align-items: center;
+   gap: 8px;
+   padding: 8px 12px;
+   border-radius: 6px;
+   background: var(--neutral1);
+   font-size: 13px;
+}
+
+.homeMaticEvent .mdi {
+   font-size: 18px;
+}
+
+.homeMaticEvent.ok {
+   color: var(--green);
+}
+
+.homeMaticEvent.failed {
+   color: var(--red);
+}
+
+/* the devices */
+
+.homeMaticTableWrap {
+   border-radius: 8px;
+   border: 1px solid var(--neutral1);
+   background: var(--widgetBackground);
+   overflow-x: auto;
+}
+
+table.tableMultiCol.homeMaticDevices {
+   width: 100%;
+   margin-top: 0;
+   table-layout: auto;
+   background: none;
+   color: var(--fontColor, var(--buttonFont));
+}
+
+table.tableMultiCol.homeMaticDevices thead td {
+   padding: 10px 8px;
+   font-size: 11px;
+   letter-spacing: 0.06em;
+   text-transform: uppercase;
+   white-space: nowrap;
+   color: var(--neutral4);
+   background: var(--neutral0);
+}
+
+table.tableMultiCol.homeMaticDevices tr {
+   border-bottom-color: var(--neutral1);
+}
+
+table.tableMultiCol.homeMaticDevices tbody td {
+   padding: 4px 8px;
+}
+
+table.tableMultiCol.homeMaticDevices tbody tr:hover {
+   background: var(--neutral1);
+}
+
+.homeMaticName {
+   font-weight: bold;
+}
+
+.homeMaticSub {
+   font-size: 11px;
+   color: var(--neutral4);
+}
+
+.homeMaticMono {
+   font-family: monospace;
+   font-size: 12px;
+}
+
+.homeMaticPos {
+   display: inline-flex;
+   align-items: center;
+   gap: 6px;
+   white-space: nowrap;
+}
+
+.homeMaticPosBar {
+   display: inline-block;
+   width: 60px;
+   height: 6px;
+   border-radius: 3px;
+   background: var(--neutral2);
+   overflow: hidden;
+}
+
+.homeMaticPosBar > span {
+   display: block;
+   height: 100%;
+   background: var(--blue);
+}
+
+.homeMaticGood { color: var(--green); }
+.homeMaticFair { color: var(--orange); }
+.homeMaticPoor { color: var(--red); }
+
+.homeMaticButtons {
+   white-space: nowrap;
+   text-align: right;
+}
+
+.homeMaticButtons button {
+   margin: 2px 0 2px 4px;
+}
+
+.homeMaticEmpty {
+   padding: 20px !important;
+   text-align: center;
+   color: var(--neutral4);
+}
+
+/* the panel of the running times of a blind */
+
+.homeMaticLearn {
+   padding: 12px 14px;
+   border-radius: 8px;
+   background: var(--widgetBackground);
+   border: 1px solid var(--orange) !important;
+}
+
+.homeMaticLearnTitle {
+   font-weight: bold;
+   margin-bottom: 8px;
+}
+
+.homeMaticLearnState {
+   margin-bottom: 8px;
+   font-size: 12px;
+   color: var(--neutral4);
+}
+
+.homeMaticLearnText {
+   margin-bottom: 8px;
+   line-height: 1.4;
+}
+
+.homeMaticLearnClock {
+   font-weight: bold;
+   font-size: 1.2em;
+   font-variant-numeric: tabular-nums;
+   color: var(--orange);
+}
+
+.homeMaticLearnValues {
+   margin-top: 8px;
+   display: flex;
+   flex-wrap: wrap;
+   align-items: center;
+   gap: 6px;
+}
+
+.homeMaticLearnInput {
+   width: 6em;
+   border-radius: 4px;
+}

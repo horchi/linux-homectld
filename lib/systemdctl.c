@@ -6,6 +6,8 @@
 // Date 24.02.2024 - Jörg Wendel
 //***************************************************************************
 
+#include <signal.h>
+
 #include "systemdctl.h"
 
 //***************************************************************************
@@ -130,6 +132,12 @@ int SysCtl::unitList(Services& services, const char* filter)
 
    for (auto& [id, s] : services)
    {
+      // a template unit ('user@.service') can't be loaded without an instance name,
+      //   systemd rejects it ('... is missing the instance name') - they keep the name as title
+
+      if (id.find("@.") != std::string::npos)
+         continue;
+
       if (s.humanName == s.primaryName)
       {
          std::string unitDbPath, description;
@@ -222,6 +230,23 @@ int SysCtl::unitAction(const char* command, const char* unit)
                                unit,                                //
                                false);                              // 'true' um nur für 'diese' Laufzeit zu deaktivieren
       reload();
+   }
+   else if (strcmp(command, "Kill") == 0)
+   {
+      // KillUnit(in s name, in s whom, in i signal) - no job, no response to parse
+      //   (with the signature of the other commands below systemd rejected it)
+
+      res = sd_bus_call_method(bus,
+                               "org.freedesktop.systemd1",          // service to contact
+                               "/org/freedesktop/systemd1",         // object path
+                               "org.freedesktop.systemd1.Manager",  // interface name
+                               "KillUnit",                          // method name
+                               &error,                              // object to return error in
+                               nullptr,                             // return message on success
+                               "ssi",                               // input signature
+                               unit,                                // the unit
+                               "all",                               // all processes of the unit
+                               SIGKILL);                            // signal
    }
    else
    {

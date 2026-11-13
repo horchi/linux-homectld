@@ -6,6 +6,8 @@
 lib/t
 vg.log
 lib/tst
+lib/*.d
+homematic/*.d
 core
 
 Make.user
@@ -20,14 +22,14 @@ dbchart
 .dependencies
 htdocs/stylesheet.css.save
 
-/bmsmqtt
-/w1mqtt
 /homectld
-/i2cmqtt
-/victronmqtt
+w1mqtt/w1mqtt
+bmsmqtt/bmsmqtt
+votromqtt/votromqtt
+victronmqtt/victronmqtt
+i2cmqtt/i2cmqtt
+*mqtt/*.d
 /blescan
-/votromqtt
-victronmqtt
 lib/sdclient
 gpiotst
 alpicool/config.h

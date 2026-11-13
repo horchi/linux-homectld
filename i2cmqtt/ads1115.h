@@ -6,7 +6,7 @@
 // Date 2024-2024 - Jörg Wendel
 //***************************************************************************
 
-#include "../common.h"
+#include "../lib/common.h"
 #include "i2c.h"
 
 #pragma once

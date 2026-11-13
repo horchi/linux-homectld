@@ -1,83 +1,55 @@
 #
-# Makefile
+# Makefile - libhorchi.a, the static lib of homectld and its services (modules, homematic)
 #
 # See the README file for copyright information and how to reach the author.
+#
+#  built by the main Makefile and the modules (Make.module) on demand, the linker takes
+#  only the objects of the archive which are used by the program
 #
 
 include ../Make.config
 
-LIBTARGET = libhorchi
-HLIB      = -L. -lhorchi
+LIBTARGET = libhorchi.a
 
-TEST = tst
+LIBOBJS   = common.o db.o dbdict.o systemdctl.o serial.o curl.o thread.o json.o lua.o tcpchannel.o \
+            mqtt.o mqtt_c.o mqtt_pal.o gpio.o
 
-LIBOBJS = common.o db.o dbdict.o
+CFLAGS   += $(shell $(SQLCFG) --include)
+LIBS     += $(shell $(SQLCFG) --libs_r) -lrt -lcrypto -lcurl -lpthread -luuid
 
-BASELIBS = -lrt -lz -luuid -lpthread
-BASELIBS += $(shell $(SQLCFG) --libs_r)
+# header dependencies (*.d)
 
-BASELIBS += $(shell xml2-config --libs)
-BASELIBS += $(shell pkg-config --cflags --libs jansson)
+CFLAGS   += -MMD -MP
 
-LIBOBJS += curl.o
-BASELIBS += -lcurl
+all: $(LIBTARGET)
 
-DEBUG = 1
+$(LIBTARGET): $(LIBOBJS)
+	@echo Building lib ...
+	@rm -f $@
+	@$(doLib) $@ $(LIBOBJS) 2>/dev/null
 
-ifdef DEBUG
-  CFLAGS += -ggdb -O0
-endif
+-include $(LIBOBJS:.o=.d)
 
-CFLAGS += -pthread -fPIC -Wreturn-type -Wall -Wno-parentheses -Wformat -pedantic -Wunused-variable -Wunused-label \
-          -Wunused-value -Wunused-function \
-          -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
+%.o: %.c
+	@echo Compile "lib/$*" ..
+	$(doCompile) -o $@ $<
 
-CFLAGS += $(shell $(SQLCFG) --include)
-CFLAGS += $(shell xml2-config --cflags)
+# test / tools
 
-DEFINES = $(USES)
+gpiotst: gpio-test.o $(LIBTARGET)
+	$(doLink) gpio-test.o $(LIBTARGET) $(LIBS) -o $@
 
-all: lib $(TEST)
-lib: $(LIBTARGET).a
+tst: demo.o $(LIBTARGET)
+	$(doLink) demo.o $(LIBTARGET) $(LIBS) -o $@
 
-$(LIBTARGET).a : $(LIBOBJS)
-	@echo Building Lib ...
-	$(doLib) $@ $(LIBOBJS)
+sdclient: sdclient.o $(LIBTARGET)
+	$(doLink) sdclient.o $(LIBTARGET) $(LIBS) -o $@
 
-tst: demo.o serial.o json.o lib
-	$(doLink) demo.o json.o $(HLIB) -lcrypto $(BASELIBS) -o $@
+blescan: blescan.o $(LIBTARGET)
+	$(doLink) blescan.o $(LIBTARGET) $(LIBS) -lbluetooth -o $@
 
 clean:
-	rm -f *.o *~ core $(TEST) $(DEMO) $(LIBTARGET).a
+	rm -f *.o *.d *~ core $(LIBTARGET) gpiotst tst sdclient blescan
 
 cppchk:
 	cppcheck --template="{file}:{line}:{severity}:{message}" --quiet --force *.c *.h
-
-%.o: %.c
-	@echo Compile "lib/$(*F)" ...
-	$(doCompile) $(*F).c -o $@
-
-sdclient: sdclient.c
-	g++ -std=c++11 -ggdb sdclient.c common.o systemdctl.c $(BASELIBS) -lrt -lcrypto -lpthread -luuid -lz  `pkg-config --cflags --libs libsystemd` -o $@
-
-blescan: blescan.c
-	g++ -std=c++11 -ggdb blescan.c common.o $(BASELIBS) -lbluetooth -lrt -lcrypto -lpthread -luuid -lz -o $@
-
-#--------------------------------------------------------
-# dependencies
-#--------------------------------------------------------
-
-HEADER = db.h common.h dbdict.h
-
-common.o     :  common.c      $(HEADER) common.h
-curl.o       :  curl.c        $(HEADER) curl.h
-imgtools.o   :  imgtools.c    $(HEADER) imgtools.h
-config.o     :  config.c      $(HEADER) config.h
-db.o         :  db.c          $(HEADER) db.h
-epgservice.o :  epgservice.c  $(HEADER) epgservice.h
-dbdict.o     :  dbdict.c      $(HEADER) dbdict.h
-json.o       :  json.c        $(HEADER) json.h
-serial.o     :  serial.c      $(HEADER) serial.h
-json.o       :  json.c        json.h $(HEADER)
-
-demo.o       :  demo.c        $(HEADER)

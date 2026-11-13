@@ -1,0 +1,136 @@
+/*
+ *  syslog.css - the setup page 'Syslog' (main.js, showSyslog): the lines as text, time and
+ *  source in columns, colored by their level; only the theme variables
+ */
+
+#controlContainer .syslogControl {
+   width: -webkit-fill-available;
+   width: -moz-available;
+   margin-bottom: 8px;
+}
+
+.syslogPage {
+   padding: var(--containerPadding);
+   box-sizing: border-box;
+}
+
+.syslogHead {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+   gap: 10px;
+   margin: 0 4px 10px 4px;
+   padding-bottom: 8px;
+   border-bottom: 1px solid var(--neutral2);
+   font-size: 18px;
+   font-weight: bold;
+   color: var(--fontColor, inherit);
+}
+
+.syslogHead .mdi {
+   font-size: 24px;
+   color: var(--blue);
+}
+
+.syslogCount,
+.syslogBadge {
+   font-size: 12px;
+   font-weight: normal;
+   padding: 1px 8px;
+   border-radius: 10px;
+   background: var(--neutral1);
+   color: var(--neutral4);
+}
+
+.syslogBadge.syslog-error {
+   color: #fff;
+   background: var(--red);
+}
+
+.syslogBadge.syslog-warn {
+   color: #000;
+   background: var(--orange);
+}
+
+/* the lines */
+
+.syslogLines {
+   border-radius: 8px;
+   border: 1px solid var(--neutral1);
+   background: var(--widgetBackground);
+   font-family: monospace;
+   font-size: 12px;
+   line-height: 1.45;
+   overflow-x: auto;
+}
+
+.syslogLine {
+   display: flex;
+   gap: 12px;
+   padding: 2px 10px;
+   border-left: 3px solid transparent;
+   border-bottom: 1px solid var(--neutral1);
+}
+
+.syslogLine:hover {
+   background: var(--neutral1);
+}
+
+.syslogTime {
+   flex-shrink: 0;
+   color: var(--neutral4);
+   white-space: nowrap;
+}
+
+.syslogSource {
+   flex: 0 0 130px;
+   overflow: hidden;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+   color: var(--blue);
+}
+
+.syslogText {
+   flex: 1;
+   min-width: 0;
+   white-space: pre-wrap;
+   overflow-wrap: anywhere;
+   color: var(--fontColor, inherit);
+}
+
+.syslogLine.syslog-error {
+   border-left-color: var(--red);
+}
+
+.syslogLine.syslog-error .syslogText {
+   color: var(--red);
+}
+
+.syslogLine.syslog-warn {
+   border-left-color: var(--orange);
+}
+
+.syslogLine.syslog-warn .syslogText {
+   color: var(--orange);
+}
+
+.syslogLine.syslog-debug .syslogText {
+   opacity: 0.6;
+}
+
+.syslogEmpty {
+   padding: 20px;
+   text-align: center;
+   color: var(--neutral4);
+}
+
+@media (max-width: 600px) {
+   .syslogLine {
+      flex-wrap: wrap;
+      gap: 0 10px;
+   }
+
+   .syslogText {
+      flex-basis: 100%;
+   }
+}

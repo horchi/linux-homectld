@@ -1,0 +1,198 @@
+/*
+ *  images.css - the setup page 'Images' (images.js): the user images as tiles and the
+ *  upload (click or drag & drop), only the theme variables
+ */
+
+.imgPage {
+   padding: var(--containerPadding);
+   box-sizing: border-box;
+}
+
+.imgPageHead {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+   gap: 10px;
+   margin: 0 4px 12px 4px;
+   padding-bottom: 8px;
+   border-bottom: 1px solid var(--neutral2);
+   font-size: 18px;
+   font-weight: bold;
+   color: var(--fontColor, inherit);
+}
+
+.imgPageHead .mdi {
+   font-size: 24px;
+   color: var(--blue);
+}
+
+.imgCount {
+   font-size: 12px;
+   font-weight: normal;
+   padding: 1px 8px;
+   border-radius: 10px;
+   background: var(--neutral1);
+   color: var(--neutral4);
+}
+
+.imgPath {
+   margin-left: auto;
+   font-family: monospace;
+   font-size: 12px;
+   font-weight: normal;
+   color: var(--neutral4);
+}
+
+.imgGrid {
+   display: grid;
+   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+   gap: 10px;
+}
+
+/* an image */
+
+.imgTile {
+   display: flex;
+   flex-direction: column;
+   border-radius: 8px;
+   background: var(--widgetBackground);
+   border: 1px solid var(--neutral1);
+   overflow: hidden;
+   transition: border-color 0.2s;
+}
+
+.imgTile:hover {
+   border-color: var(--blue);
+}
+
+.imgThumb {
+   aspect-ratio: 1;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   padding: 14px;
+   box-sizing: border-box;
+   /* a checkerboard, transparent images stay visible on both themes */
+   background-color: var(--neutral1);
+   background-image:
+      linear-gradient(45deg, var(--neutral0) 25%, transparent 25%, transparent 75%, var(--neutral0) 75%),
+      linear-gradient(45deg, var(--neutral0) 25%, transparent 25%, transparent 75%, var(--neutral0) 75%);
+   background-size: 16px 16px;
+   background-position: 0 0, 8px 8px;
+}
+
+.imgThumb img {
+   max-width: 100%;
+   max-height: 100%;
+   object-fit: contain;
+}
+
+.imgInfo {
+   display: flex;
+   align-items: center;
+   gap: 4px;
+   padding: 4px 4px 4px 10px;
+}
+
+.imgName {
+   flex: 1;
+   min-width: 0;
+   overflow: hidden;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+   font-size: 12px;
+   color: var(--fontColor, inherit);
+}
+
+.imgInfo .imgDelete {
+   font-size: 20px;
+   opacity: 0;
+   transition: opacity 0.2s;
+}
+
+.imgTile:hover .imgDelete,
+.imgDelete:focus {
+   opacity: 1;
+}
+
+@media (hover: none) {                 /* touch: always visible */
+   .imgInfo .imgDelete {
+      opacity: 1;
+   }
+}
+
+/* the upload tile */
+
+.imgTile.imgUpload {
+   grid-column: span 2;
+   border-style: dashed;
+   border-color: var(--neutral3);
+}
+
+.imgDrop {
+   flex: 1;
+   min-height: 120px;
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+   justify-content: center;
+   gap: 6px;
+   padding: 10px;
+   cursor: pointer;
+   color: var(--neutral4);
+   text-align: center;
+   transition: background-color 0.2s;
+}
+
+.imgDrop:hover,
+.imgDrop.imgDropOver {
+   background: var(--neutral1);
+}
+
+.imgDrop.imgDropOver {
+   color: var(--blue);
+}
+
+.imgDropIcon {
+   font-size: 36px;
+   color: var(--blue);
+}
+
+.imgDropText {
+   font-size: 12px;
+}
+
+.imgPreview {
+   max-width: 100%;
+   max-height: 120px;
+   object-fit: contain;
+}
+
+.imgUploadFields {
+   display: flex;
+   gap: 6px;
+   padding: 8px;
+}
+
+.imgUploadFields input.input {
+   flex: 1;
+   min-width: 0;
+   border-radius: 4px;
+   padding-left: 6px;
+}
+
+button.imgUploadBtn {
+   display: inline-flex;
+   align-items: center;
+   gap: 4px;
+   margin: 0;
+   border-radius: 16px;
+   padding: 4px 12px;
+   white-space: nowrap;
+}
+
+@media (max-width: 400px) {
+   .imgTile.imgUpload {
+      grid-column: 1 / -1;
+   }
+}

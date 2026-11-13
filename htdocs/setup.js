@@ -71,6 +71,31 @@ function comboResolveLabels(item)
    next();
 }
 
+// the icons of the categories (Material Design Icons), unknown ones get the default
+
+var configCategoryIcons = {
+   'Daemon'                    : 'mdi-cog-outline',
+   'WEB Interface'             : 'mdi-web',
+   'Mail'                      : 'mdi-email-outline',
+   'MQTT'                      : 'mdi-access-point-network',
+   'Heizung S 3200'            : 'mdi-fire-circle',
+   'GPS'                       : 'mdi-crosshairs-gps',
+   'Garmin'                    : 'mdi-watch',
+   'DECONZ'                    : 'mdi-zigbee',
+   'HomeMatic'                 : 'mdi-home-automation',
+   'HASP Panel'                : 'mdi-tablet-dashboard',
+   'Home Automation Interface' : 'mdi-home-assistant',
+   'Logitech Media Server'     : 'mdi-speaker',
+   'VDR'                       : 'mdi-television-classic',
+   'Sensors'                   : 'mdi-thermometer',
+   'User Defined'              : 'mdi-account-cog-outline'
+};
+
+function configCategoryIcon(category)
+{
+   return configCategoryIcons[category] || 'mdi-tune-variant';
+}
+
 function initConfig(configdetails = null)
 {
    if (configdetails)
@@ -109,28 +134,57 @@ function initConfig(configdetails = null)
                       .addClass('button-group-spacing'))
              );
 
+   // the page: head with the category and a filter, a card per item in the grid (styles in setup.css)
+
+   let filter = $('<input></input>')
+       .attr('type', 'search')
+       .attr('placeholder', 'Filter ...')
+       .addClass('rounded-border input cfgFilter')
+       .on('input', function() {
+          let f = $(this).val().toLowerCase();
+          $('#setupContainer .cfgItem[data-search]').each(function() {
+             $(this).toggle(f == '' || $(this).attr('data-search').includes(f));
+          });
+       });
+
    dlgContent = ($('<div></div>')
                  .attr('id', 'setupContainer')
-                 .addClass('inputTableConfig'));
+                 .addClass('cfgGrid'));
 
-   $('#container').append(dlgContent);
+   $('#container').append($('<div></div>')
+                          .addClass('cfgPage')
+                          .append($('<div></div>')
+                                  .addClass('cfgPageHead')
+                                  .append($('<div></div>')
+                                          .addClass('cfgPageTitle')
+                                          .append($('<span></span>').addClass('mdi ' + configCategoryIcon(setupCategory)))
+                                          .append($('<span></span>').text(setupCategory || 'Konfiguration'))
+                                          .append($('<span></span>').addClass('cfgCount')
+                                                  .text(theConfigdetails.filter(function(c) { return c.category == setupCategory; }).length)))
+                                  .append(filter))
+                          .append(dlgContent));
 
    let haveUserDefined = categories.includes('User Defined');
 
    // die Kategorie Buttons
 
-   for (const category of categories) {
+   let addCategoryButton = function(category) {
       $("#controlContainer").append($('<div></div>')
                                     .append($('<button></button>')
-                                            .addClass('rounded-border tool-button')
-                                            .css('background-color', setupCategory == category ? 'slategray' : '')
+                                            .addClass('rounded-border tool-button cfgCatButton')
+                                            .attr('title', category)
+                                            .toggleClass('cfgCatActive', setupCategory == category)
                                             .click(function(event) {
                                                setupCategory = category;
                                                localStorage.setItem(storagePrefix + 'setupCategory', setupCategory);
                                                initConfig(theConfigdetails);
                                             })
-                                            .html(category)));
-   }
+                                            .append($('<span></span>').addClass('mdi ' + configCategoryIcon(category)))
+                                            .append($('<span></span>').text(category))));
+   };
+
+   for (const category of categories)
+      addCategoryButton(category);
 
    for (var i = 0; i < theConfigdetails.length; i++) {
       let item = theConfigdetails[i];
@@ -141,35 +195,43 @@ function initConfig(configdetails = null)
          continue;
       }
 
-      let itemsDiv = null;
+      // the card: title and name, the description, the value (a bool: the switch right of the title)
+
+      let title = $('<span></span>').addClass('cfgTitle');
+      let head = $('<div></div>').addClass('cfgHead').append(title)
+          .append($('<span></span>').addClass('cfgName').attr('title', item.name).text(item.name));
+      let card = $('<div></div>')
+          .attr('id', 'div_' + item.name)
+          .attr('data-search', (item.title + ' ' + item.name + ' ' + (item.description || '')).toLowerCase())
+          .addClass('cfgItem')
+          .toggleClass('cfgWide', [4, 8, 10].includes(item.type))
+          .append(head)
+          .on('input change', function() { $(this).addClass('cfgChanged'); });
 
       if (setupCategory == "User Defined") {
-         $(dlgContent).append(itemsDiv = $('<div></div>')
-                              .attr('id', 'div_' + item.name)
-                              .attr('title', item.description)
-                              .append($('<span></span>')
-                                      .addClass('labelB1 widget-edit')
-                                      .css('cursor', 'pointer')
-                                      .on('click', function(e) {
-                                         e.preventDefault();
-                                         addEditConfigItem(item.name);
-                                      })
-                                      .append($('<i></i>')
-                                              .addClass('mdi mdi-lead-pencil')
-                                              .css({
-                                                 'color': 'orange',
-                                                 'margin-right': '6px' // Kleiner Abstand zum Text
-                                              }))
-                                      .append(document.createTextNode(item.title + ' (' + item.name + ')'))));
+         title.addClass('cfgEdit')
+            .attr('title', 'bearbeiten')
+            .on('click', function(e) {
+               e.preventDefault();
+               addEditConfigItem(item.name);
+            })
+            .append($('<i></i>').addClass('mdi mdi-lead-pencil'))
+            .append(document.createTextNode(item.title));
       }
-      else {
-         $(dlgContent).append(itemsDiv = $('<div></div>')
-                              .attr('id', 'div_' + item.name)
-                              .attr('title', item.description)
-                              .append($('<span></span>')
-                                      .addClass('labelB1')
-                                      .html(item.title + ' (' + item.name + ')')));
-      }
+      else
+         title.html(item.title);
+
+      if (item.description)
+         card.append($('<div></div>').addClass('cfgDesc').text(item.description));
+
+      let itemsDiv = $('<div></div>').addClass('cfgValue');
+
+      if (item.type == 3)       // ctBool
+         itemsDiv.insertBefore(head.find('.cfgName'));
+      else
+         card.append(itemsDiv);
+
+      $(dlgContent).append(card);
 
       switch (item.type) {
       case 0:     // ctInteger
@@ -218,21 +280,20 @@ function initConfig(configdetails = null)
       case 4:     // ctRange
       {
          $(itemsDiv).append(rangeDiv = $('<span></span>')
-                       .css('display', 'inline-grid'));
+                       .addClass('cfgRanges'));
          function appendRangeTuple(index, name, range, description = '')
          {
             var aRange = range.split("-");
 
             $(rangeDiv)
                .append($('<span></span>')
-                       .css('display', 'inline-flex')
                        .append($('<input></input>')
                                .attr('id', 'range_' + name + index + 'From')
                                .attr('type', 'search')
                                .addClass('rounded-border inputTime')
                                .val(aRange[0] ? aRange[0] : ''))
                        .append($('<span></span>')
-                               .html(' bis '))
+                               .html('bis'))
                        .append($('<input></input>')
                                .attr('id', 'range_' + name + index + 'To')
                                .attr('type', 'search')
@@ -287,6 +348,7 @@ function initConfig(configdetails = null)
          let bmGroup = null;
          $(itemsDiv)
             .append(bmGroup = $('<span></span>')
+                    .addClass('cfgBits')
                     .attr('id', 'bmaskgroup_' + item.name));
 
          var array = config[item.name].split(',');
@@ -418,30 +480,21 @@ function initConfig(configdetails = null)
       }
    }
 
-   if (!haveUserDefined) {
-      $("#controlContainer").append($('<div></div>')
-                                    .append($('<button></button>')
-                                            .addClass('rounded-border tool-button')
-                                            .css('background-color', setupCategory == "User Defined" ? 'slategray' : '')
-                                            .click(function(event) {
-                                               setupCategory = "User Defined";
-                                               localStorage.setItem(storagePrefix + 'setupCategory', setupCategory);
-                                               initConfig(theConfigdetails);
-                                            })
-                                            .html("User Defined")));
-   }
+   if (!haveUserDefined)
+      addCategoryButton("User Defined");
 
    if (setupCategory == "User Defined")
    {
       $(dlgContent)
-         .append($('<div></div>')
-                 .append($('<button></button>')
-                         .addClass('rounded-border buttonOptions mdi mdi-file-plus-outline')
-                         .css('font-size', '20px')
-                         .css('color', 'orange')
-                         .click(function() { addEditConfigItem(); })
-                        ));
+         .append($('<button></button>')
+                 .attr('type', 'button')
+                 .addClass('rounded-border cfgItem cfgAddItem')
+                 .append($('<span></span>').addClass('mdi mdi-file-plus-outline'))
+                 .append($('<span></span>').text('Neuer Eintrag'))
+                 .click(function() { addEditConfigItem(); }));
    }
+   else if (!$(dlgContent).children().length)
+      $(dlgContent).append($('<div></div>').addClass('cfgEmpty').text('Keine Einträge'));
 
    $('input[id^="mselect_"]').each(function () {
       var item = theConfigdetails[$(this).data('index')];

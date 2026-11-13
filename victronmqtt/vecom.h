@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "../serial.h"
+#include "../lib/serial.h"
 
 //***************************************************************************
 // Command Interface

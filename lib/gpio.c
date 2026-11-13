@@ -13,7 +13,7 @@
 #include <sstream>
 #include <chrono>
 
-#include "lib/json.h"
+#include "json.h"
 #include <unistd.h>
 
 #include "gpio.h"

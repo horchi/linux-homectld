@@ -18,6 +18,8 @@ PREFIX     ?= /usr/local
 BINDEST     = $(DESTDIR)$(PREFIX)/bin
 _BINDEST    = $(PREFIX)/bin
 SYSTEMDDEST = $(DESTDIR)/etc/systemd/system
+RSYSLOGDEST = $(DESTDIR)/etc/rsyslog.d
+LOGROTDEST  = $(DESTDIR)/etc/logrotate.d
 
 CPP         = g++
 DEBUG      ?= 1
@@ -91,11 +93,24 @@ install: all
 		install --mode=644 -D p4mqttd.default $(DESTDIR)/etc/default/p4mqttd; \
 		echo "!! Adjust settings in $(DESTDIR)/etc/default/p4mqttd (serial device) !!"; \
 	fi
+	@if ! cmp -s p4mqttd.rsyslog $(RSYSLOGDEST)/10-p4mqttd.conf; then \
+		install --mode=644 -D p4mqttd.rsyslog $(RSYSLOGDEST)/10-p4mqttd.conf; \
+		echo "  rsyslog config 10-p4mqttd.conf updated"; \
+		if test -z "$(DESTDIR)"; then \
+			if systemctl is-active -q rsyslog.service; then \
+				systemctl restart rsyslog.service; \
+			else \
+				echo "!! rsyslog not running, install it (apt install rsyslog) to get /var/log/p4mqttd.log !!"; \
+			fi; \
+		fi; \
+	fi
+	install --mode=644 -C -D p4mqttd.logrotate $(LOGROTDEST)/p4mqttd
 
 uninstall:
 	rm -f $(BINDEST)/$(P4DTARGET) $(BINDEST)/$(P4TARGET)
 	rm -f $(SYSTEMDDEST)/p4mqttd.service
 	rm -f $(DESTDIR)/etc/default/p4mqttd
+	rm -f $(RSYSLOGDEST)/10-p4mqttd.conf $(LOGROTDEST)/p4mqttd
 
 clean:
 	rm -rf $(OBJDIR) $(P4DTARGET) $(P4TARGET)

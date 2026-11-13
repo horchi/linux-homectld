@@ -1,0 +1,287 @@
+/*
+ *  usercfg.css - the setup page 'User' (usercfg.js, initUserConfig) and the page of the
+ *  logged in user (initUser); cards like the other setup pages, only the theme variables
+ */
+
+.usrPage {
+   padding: var(--containerPadding);
+   box-sizing: border-box;
+}
+
+.usrPageHead {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+   margin: 0 4px 12px 4px;
+   padding-bottom: 8px;
+   border-bottom: 1px solid var(--neutral2);
+   font-size: 18px;
+   font-weight: bold;
+   color: var(--fontColor, inherit);
+}
+
+.usrPageHead .mdi {
+   font-size: 24px;
+   color: var(--blue);
+}
+
+.usrCount {
+   font-size: 12px;
+   font-weight: normal;
+   padding: 1px 8px;
+   border-radius: 10px;
+   background: var(--neutral1);
+   color: var(--neutral4);
+}
+
+.usrGrid {
+   display: grid;
+   grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+   gap: 10px;
+   align-items: start;
+}
+
+/* a user */
+
+.usrCard {
+   display: flex;
+   flex-direction: column;
+   gap: 12px;
+   padding: 14px;
+   border-radius: 8px;
+   background: var(--widgetBackground);
+   border: 1px solid var(--neutral1);
+   box-sizing: border-box;
+   min-width: 0;
+   transition: border-color 0.2s;
+}
+
+.usrCard:hover,
+.usrCard:focus-within {
+   border-color: var(--blue);
+}
+
+.usrCard.usrChanged {
+   border-color: var(--orange);
+}
+
+.usrCard.usrNew {
+   border-style: dashed;
+   border-color: var(--neutral3);
+}
+
+.usrCard.usrSelf {
+   max-width: 480px;
+}
+
+.usrHead {
+   display: flex;
+   align-items: center;
+   gap: 12px;
+   min-width: 0;
+}
+
+.usrAvatar {
+   flex-shrink: 0;
+   width: 40px;
+   height: 40px;
+   border-radius: 50%;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   font-size: 18px;
+   font-weight: bold;
+   color: #fff;
+   background: var(--blue);
+}
+
+.usrNew .usrAvatar {
+   color: var(--orange);
+   background: var(--neutral1);
+   font-size: 22px;
+}
+
+.usrName {
+   flex: 1;
+   min-width: 0;
+   overflow: hidden;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+   font-size: 16px;
+   font-weight: bold;
+   color: var(--fontColor, inherit);
+}
+
+.usrBadge {
+   flex-shrink: 0;
+   font-size: 11px;
+   padding: 2px 8px;
+   border-radius: 10px;
+   color: var(--orange);
+   border: 1px solid var(--orange);
+}
+
+.usrSection {
+   font-size: 11px;
+   font-weight: bold;
+   letter-spacing: 0.06em;
+   text-transform: uppercase;
+   color: var(--neutral4);
+}
+
+/* the rights as chips (the checkbox switch of checkbox.css is replaced here) */
+
+.usrRights {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 6px;
+}
+
+.usrRight input[type="checkbox"] + label {
+   display: inline-flex;
+   align-items: center;
+   gap: 5px;
+   margin: 0;
+   padding: 4px 10px;
+   border-radius: 14px;
+   font-size: 12px;
+   color: var(--neutral4);
+   background: var(--neutral1);
+   border: 1px solid var(--neutral2);
+   transition: background-color 0.2s, color 0.2s;
+}
+
+.usrRight input[type="checkbox"] + label:before,
+.usrRight input[type="checkbox"] + label:after {
+   display: none;
+}
+
+.usrRight input[type="checkbox"]:checked + label {
+   color: #fff;
+   background: var(--blue);
+   border-color: var(--blue);
+}
+
+/* inputs and buttons */
+
+.usrFields {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 8px;
+}
+
+.usrFields input.input {
+   flex: 1 1 140px;
+   min-width: 0;
+   border-radius: 4px;
+   padding-left: 8px;
+}
+
+.usrActions {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 6px;
+}
+
+button.usrAction {
+   display: inline-flex;
+   align-items: center;
+   gap: 5px;
+   margin: 0;
+   padding: 4px 12px;
+   border-radius: 16px;
+   font-size: 13px;
+   white-space: nowrap;
+}
+
+button.usrAction.usrSave {
+   background-color: var(--blue);
+}
+
+button.usrAction.usrDelete {
+   margin-left: auto;
+   color: var(--red);
+}
+
+.usrHead button.usrLogout {
+   flex-shrink: 0;
+}
+
+/* the switch of the layout in the head */
+
+.usrLayout {
+   margin-left: auto;
+   display: inline-flex;
+   gap: 2px;
+}
+
+button.usrLayoutBtn {
+   width: 34px;
+   height: 30px;
+   padding: 0;
+   font-size: 18px;
+   color: var(--neutral4);
+   background: var(--neutral1);
+   border: none;
+   cursor: pointer;
+}
+
+button.usrLayoutBtn.usrLayoutActive {
+   color: #fff;
+   background: var(--blue);
+}
+
+/* layout 'list': one line per user over the full width - name | rights | actions */
+
+.usrGrid.usrList {
+   grid-template-columns: 1fr;
+   gap: 6px;
+}
+
+.usrList .usrCard {
+   flex-direction: row;
+   flex-wrap: wrap;
+   align-items: center;
+   gap: 10px 16px;
+   padding: 8px 14px;
+}
+
+.usrList .usrHead {
+   flex: 0 0 220px;
+   min-width: 0;
+}
+
+.usrList .usrAvatar {
+   width: 32px;
+   height: 32px;
+   font-size: 15px;
+}
+
+.usrList .usrRights,
+.usrList .usrFields {
+   flex: 1 1 300px;
+   min-width: 0;
+}
+
+.usrList .usrActions {
+   flex: 0 0 auto;
+   margin-left: auto;
+}
+
+.usrList button.usrAction.usrDelete {
+   margin-left: 0;
+}
+
+@media (max-width: 500px) {
+   .usrGrid {
+      grid-template-columns: 1fr;
+   }
+
+   button.usrAction.usrDelete {
+      margin-left: 0;
+   }
+
+   .usrList .usrHead {
+      flex-basis: 100%;
+   }
+}

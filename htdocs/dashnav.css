@@ -1,0 +1,86 @@
+/*
+ *  dashnav.css - the tabs of the dashboards (dashboard.js, initDashboard, #dashboardMenu):
+ *  rounded tabs with the symbol of the dashboard, the active one with the yellow accent (the
+ *  dashboards keep their color, the main / setup menu are blue), the tools of the setup mode
+ *  as round icon buttons. The GPS tool bar of the map uses the same bar ('.gpsToolbar'), it
+ *  stays as it is; font size and line height aren't changed, so both bars stay equally high.
+ *  The rules start with '.menuDashboard:not(.gpsToolbar)', they win against base.css (also
+ *  against its media queries for the margins).
+ */
+
+.menuDashboard:not(.gpsToolbar) {
+   align-items: center;
+   gap: 2px;
+   padding: 2px 4px 2px calc(4px + env(safe-area-inset-left));
+   border-radius: 10px;
+   box-sizing: border-box;
+}
+
+.menuDashboard:not(.gpsToolbar) > .buttonDashboard {
+   flex-shrink: 0;
+   margin: 2px 1px;
+   padding: 4px 12px;
+   border: none;
+   border-radius: 10px;
+   opacity: 0.75;
+   white-space: nowrap;
+   transition: background-color 0.2s, opacity 0.2s, box-shadow 0.2s;
+}
+
+.menuDashboard:not(.gpsToolbar) > .buttonDashboard:hover {
+   opacity: 1;
+   background-color: var(--neutral1);
+}
+
+/* the active dashboard: no border any more (it made the tab higher), the accent as inset shadow */
+
+.menuDashboard:not(.gpsToolbar) > .buttonDashboard.buttonDashboardActive {
+   opacity: 1;
+   border: none;
+   border-radius: 10px;
+   background-color: var(--neutral1);
+   box-shadow: inset 0 -3px 0 var(--yellow);
+}
+
+.menuDashboard:not(.gpsToolbar) > .buttonDashboard.buttonDashboardActive.mdi::before {
+   color: var(--yellow);
+}
+
+/* symbol and title: a bit of space between them (only if there is a title) */
+
+.menuDashboard:not(.gpsToolbar) > .buttonDashboard.mdi:not(:empty)::before {
+   margin-right: 0.3em;
+}
+
+/* the tools of the setup mode (close, edit, add) */
+
+.menuDashboard:not(.gpsToolbar) > .buttonDashboard.buttonDashboardTool,
+.menuDashboard:not(.gpsToolbar) .buttonDashboardTool {
+   opacity: 1;
+   padding: 4px 8px;
+   border-radius: 50%;
+   color: var(--orange);
+}
+
+.menuDashboard:not(.gpsToolbar) .buttonDashboardTool:hover {
+   background-color: var(--neutral1);
+}
+
+.menuDashboard:not(.gpsToolbar) input#newDashboard {
+   border-radius: 16px;
+   padding-left: 10px;
+   margin: 0 4px;
+}
+
+/* drag & drop of a dashboard / widget on a tab (setup mode) */
+
+.menuDashboard:not(.gpsToolbar) > .buttonDashboard[drop-active=true] {
+   opacity: 1;
+   box-shadow: inset 0 0 0 2px var(--orange);     /* like .widgetDropZone of base.css */
+}
+
+@media only screen and (max-width: 500px) {
+   .menuDashboard:not(.gpsToolbar) > .buttonDashboard {
+      padding: 4px 8px;
+   }
+}

@@ -69,7 +69,8 @@ built and none of its libraries (database, libwebsockets, lua, ...) is required.
 and compiled into `p4mqttd/obj`, so the whole repository has to be cloned, but only this directory is built.
 
 ```
-git clone git@github.com:horchi/linux-homectld.git
+cd /usr/src/
+git clone https://github.com/horchi/linux-homectld/
 apt install build-essential pkg-config libssl-dev libjansson-dev zlib1g-dev
 cd linux-homectld/p4mqttd
 make

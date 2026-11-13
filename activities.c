@@ -287,7 +287,7 @@ int HomeCtl::activitiesSync(const char* since, std::string& message)
 int HomeCtl::activities2Json(json_t* obj)
 {
    json_t* oActs {json_array()};
-   long newest {0};
+   time_t newest {0};
 
    // the activities with a cached track (flag in the list)
 
@@ -304,7 +304,7 @@ int HomeCtl::activities2Json(json_t* obj)
    for (bool f = selectActivities->find(); f; f = selectActivities->fetch())
    {
       json_t* oAct {json_object()};
-      long start {tableActivities->getTimeValue("START")};
+      time_t start {tableActivities->getTimeValue("START")};
       long id {(long)tableActivities->getBigintValue("GARMINID")};
 
       if (start > newest)

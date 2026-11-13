@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.54"
+#define _VERSION     "0.1.55"
 #define VERSION_DATE "13.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,9 @@
 
 /*
  * ------------------------------------
+
+2026-11-13: version 0.1.55
+    - bugfix: format / narrowing warnings on 32 bit systems with 64 bit time_t (time_t printed by %lld with cast)
 
 2026-11-13: version 0.1.54
     - change: build: the MQTT services w1mqtt, bmsmqtt, votromqtt, victronmqtt and i2cmqtt moved to sub directories

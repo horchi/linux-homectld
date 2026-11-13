@@ -1036,7 +1036,7 @@ int HomeCtl::storeHaspPages(json_t* obj, long client)
                continue;
             }
 
-            long address {strtoll(tuple[1].c_str(), nullptr, 0)};
+            long address {strtol(tuple[1].c_str(), nullptr, 0)};
             json_t* jOptsIn {getObjectFromJson(jWidget, "opts")};
             json_t* jWidgetOpts {};
 

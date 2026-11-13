@@ -749,8 +749,8 @@ int HomeCtl::initLocale()
    char strTime[64] {};
    strftime(strTime, sizeof(strTime), "%c", tmTime);
 
-   tell(eloAlways, "Daylight (glob: %d, akt: %d); Timezone offset is (%ld) now it's %ld [%s]",
-        daylight, tmTime->tm_isdst, timezone, nun, strTime);
+   tell(eloAlways, "Daylight (glob: %d, akt: %d); Timezone offset is (%ld) now it's %lld [%s]",
+        daylight, tmTime->tm_isdst, timezone, (long long)nun, strTime);
 
    return done;
 }
@@ -1188,8 +1188,8 @@ int HomeCtl::callScript(int addr, const char* command)
    {
       if (commandThreads[addr].active)
       {
-         tell(eloAlways, "Info: Skipping call of script 'SC:0x%02x', already running, timing out in %ld seconds",
-              addr, commandThreads[addr].timeoutAt - time(0));
+         tell(eloAlways, "Info: Skipping call of script 'SC:0x%02x', already running, timing out in %lld seconds",
+              addr, (long long)(commandThreads[addr].timeoutAt - time(0)));
          return done;
       }
    }
@@ -4200,11 +4200,11 @@ int HomeCtl::aggregate()
             "    samples "
             "  where "
             "    aggregate = 'S' and "
-            "    time <= from_unixtime(%ld) "
+            "    time <= from_unixtime(%lld) "
             "  group by "
             "    CONCAT(DATE(time), ' ', SEC_TO_TIME((TIME_TO_SEC(time) DIV %d) * %d)) + INTERVAL %d MINUTE, address, type;",
             aggregateInterval * tmeSecondsPerMinute, aggregateInterval * tmeSecondsPerMinute, aggregateInterval,
-            history,
+            (long long)history,
             aggregateInterval * tmeSecondsPerMinute, aggregateInterval * tmeSecondsPerMinute, aggregateInterval);
 
    tell(eloAlways, "Starting aggregation ...");
@@ -4216,7 +4216,7 @@ int HomeCtl::aggregate()
 
       // Einzelmesspunkte löschen ... (die Samples der GPS Touren (aggregate 'T') bleiben erhalten)
 
-      asprintf(&stmt, "aggregate = 'S' and time <= from_unixtime(%ld)", history);
+      asprintf(&stmt, "aggregate = 'S' and time <= from_unixtime(%lld)", (long long)history);
 
       if ((status = tableSamples->deleteWhere("%s", stmt)) == success)
          tell(eloAlways, "Aggregation with interval of %d minutes done; Created %d aggregation rows", aggregateInterval, aggCount);
@@ -6962,7 +6962,7 @@ int HomeCtl::dispatchArduinoMsg(const char* message)
 
          if (stamp < time(0)-300)
          {
-            tell(eloInfo, "Skipping old (%ld seconds) arduino value", time(0)-stamp);
+            tell(eloInfo, "Skipping old (%lld seconds) arduino value", (long long)(time(0)-stamp));
             continue;
          }
 
@@ -7163,7 +7163,7 @@ bool HomeCtl::updateW1(const char* id, double value, time_t stamp)
 
    if (stamp < time(0)-300)
    {
-      tell(eloInfo, "Skipping old (%ld seconds) value of 'W1:%d'", time(0)-stamp, address);
+      tell(eloInfo, "Skipping old (%lld seconds) value of 'W1:%d'", (long long)(time(0)-stamp), address);
       return false;
    }
 

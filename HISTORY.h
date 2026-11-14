@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.64"
+#define _VERSION     "0.1.65"
 #define VERSION_DATE "14.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,9 @@
 
 /*
  * ------------------------------------
+
+2026-11-14: version 0.1.65
+    - change: Smoother swiping of the dashboards on touch devices
 
 2026-11-14: version 0.1.64
     - change: code cleanup

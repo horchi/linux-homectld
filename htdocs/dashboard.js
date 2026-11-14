@@ -118,6 +118,8 @@ function initDashboard(update = false)
 
    dashboardGauges = {};
 
+   let menuScrollLeft = $('#dashboardMenu').scrollLeft() || 0;     // kept over the rebuild
+
    if (!update) {
       $('#container').removeClass('hidden');
       $('#dashboardMenu').removeClass('hidden gpsToolbar gpsToolbarBig');
@@ -243,6 +245,7 @@ function initDashboard(update = false)
    }
 
    initScrollStrip('dashboardMenu');
+   dashboardMenuShowActive(menuScrollLeft);
 
    // widgets
 
@@ -270,68 +273,8 @@ function initDashboard(update = false)
 
    // swipe/slide dashboard page
 
-   let isScrolling = false;
-
-   $("#container").swipe({
-      'swipeStatus': function(event, phase, direction, distance) {
-         const $widgetContainer = $("#widgetContainer");
-
-         const maxDistance = 300; // Entfernung, bei der die minimale Deckkraft erreicht ist
-         const threshold = 50; // Ab hier wird es schwerfälliger
-         const resistance = 0.3; // 30% Bewegung nach dem Schwellenwert
-
-         if (phase === 'start') {
-            isScrolling = false;
-         }
-         else if (phase === "move") {
-            let moveX = (distance > threshold) ? threshold + (distance - threshold) * resistance : distance;
-            let finalX = (direction === "left") ? -moveX : moveX;
-            let opacity = 1 - (Math.min(distance, maxDistance) / maxDistance) * 0.6;
-
-            if (direction === "left" || direction === "right") {
-               $widgetContainer.css({
-                  'transition': 'none',
-                  'transform': 'translate3d(' + finalX + 'px, 0, 0)',
-                  'opacity': opacity
-               });
-            }
-            else   // horizontal -> zurück zur Mitte
-               $widgetContainer.css("transform", "translate3d(0, 0, 0)");
-
-            // Wir erlauben eine kleine Toleranz (10px), bevor wir "Sperren"
-            if (distance > 10) {
-               isScrolling = true;
-               // Klicks auf Unterelementen während des Swipes blockieren
-               $widgetContainer.css('pointer-events', 'none');
-            }
-         }
-         else if (phase === "end") {
-            $widgetContainer.css("pointer-events", "auto");
-            // Finger losgelassen UND Schwellenwert (threshold) erreicht
-            if (direction === "left")
-               animateOut($widgetContainer, "-100%", "next");
-            else if (direction === "right")
-               animateOut($widgetContainer, "100%", "prev");
-         }
-
-         else if (phase === "cancel") {
-            // Nicht weit genug gewischt: Zurück zur Mitte (Snap-back)
-            $widgetContainer.css({
-               'transition': 'transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-               'transform': 'translate3d(0, 0, 0)',
-               'pointer-events': 'auto',
-               'opacity' : 1
-            });
-         }
-      },
-      'preventDefaultEvents': false,
-      'excludedElements': 'input, select, textarea, .noSwipe, #windywidgettable', // KEINE Buttons oder Links hier!
-      'threshold': 120,                // Mindestpixel für Seitenwechsel
-      'fingerReleaseThreshold': 30,    // Verhindert zu sensible Reaktionen
-      'allowPageScroll': 'vertical'
-   });
-
-   $('#container').swipe(setupMode ? 'disable' : 'enable');
+   initDashboardSwipe();
+   dashSwipe.enabled = !setupMode;
 
    if (dashboards[actDashboard] != null) {
       for (let key in dashboards[actDashboard].widgets) {
@@ -350,36 +293,255 @@ function initDashboard(update = false)
    scrollRestore(actDashboard, scrollPositions()[actDashboard] || 0);     // the remembered position of the dashboard
 }
 
-function animateOut($el, targetX, pageDir)
+// dashboard menu: keep its scroll position over the rebuild and bring the active dashboard into
+// view (smooth, e.g. while swiping through the dashboards), not hidden below the scroll arrows
+
+function dashboardMenuShowActive(scrollLeft)
 {
-   $el.css({
-      "transition": "transform 0.3s ease-in",
-      "transform": "translate3d(" + targetX + ", 0, 0)"
-   });
+   let strip = document.getElementById('dashboardMenu');
 
-   // Nach der Animation: Inhalt tauschen und von der anderen Seite reinholen
-   setTimeout(() => {
-      if (pageDir == 'prev') {
-         let index = actDashboardIndex;
-         if (!index)
-            index = jDashboards.length;
-         setActualDashboard(jDashboards[index-1][1], index-1);
-      }
-      else if (pageDir == 'next') {
-         let index = actDashboardIndex+1;
-         if (index == jDashboards.length)
-            index = 0;
-         setActualDashboard(jDashboards[index][1], index);
+   if (!strip)
+      return;
+
+   strip.scrollLeft = scrollLeft;
+
+   let active = strip.querySelector('.buttonDashboardActive');
+
+   if (!active)
+      return;
+
+   let arrowLeft = strip.querySelector('.stripArrowLeft');
+   let arrowRight = strip.querySelector('.stripArrowRight');
+   let marginLeft = (arrowLeft ? arrowLeft.offsetWidth : 0) + 4;
+   let marginRight = (arrowRight ? arrowRight.offsetWidth : 0) + 4;
+   let sRect = strip.getBoundingClientRect();
+   let aRect = active.getBoundingClientRect();
+   let target = strip.scrollLeft;
+
+   if (aRect.left < sRect.left + marginLeft)
+      target += aRect.left - sRect.left - marginLeft;
+   else if (aRect.right > sRect.right - marginRight)
+      target += aRect.right - sRect.right + marginRight;
+
+   if (Math.abs(target - strip.scrollLeft) > 1)
+      strip.scrollTo({ left: target, behavior: 'smooth' });
+}
+
+// swipe the dashboard pages by touch, like the home screens of a phone:
+//  - direction lock at the start: vertical gestures stay with the browser (scrolling), horizontal
+//    ones move the page 1:1 with the finger
+//  - on release the page changes by distance (> 1/3 of the width) or by a flick (velocity), the
+//    animation continues from the actual position with the speed of the finger
+//  - with only one dashboard the page moves with resistance and snaps back
+
+var dashSwipe = { 'enabled' : false, 'busy' : false };
+
+function initDashboardSwipe()
+{
+   if (initDashboardSwipe.done)
+      return;
+
+   initDashboardSwipe.done = true;
+
+   const container = document.getElementById('container');
+   const excluded = 'input, select, textarea, .noSwipe, #windywidgettable';
+   const lockDistance = 8;        // px until the direction is decided
+   const flickVelocity = 0.3;     // px/ms
+   let g = null;                  // the actual gesture
+
+   const setStyle = function(el, transition, transform, opacity) {
+      el.style.transition = transition;
+      el.style.transform = transform;
+      el.style.opacity = opacity;
+   };
+
+   const velocity = function() {
+      // over the last ~100 ms of the gesture
+      let first = g.samples[0], last = g.samples[g.samples.length-1];
+      let dt = last.t - first.t;
+      return dt > 0 ? (last.x - first.x) / dt : 0;
+   };
+
+   container.addEventListener('touchstart', function(e) {
+      g = null;
+
+      if (!dashSwipe.enabled || setupMode || dashSwipe.busy || e.touches.length != 1)
+         return;
+
+      if (e.target.closest && e.target.closest(excluded))
+         return;
+
+      let el = document.getElementById('widgetContainer');
+
+      if (!el)
+         return;
+
+      let t = e.touches[0];
+      g = { 'el' : el, 'x0' : t.clientX, 'y0' : t.clientY, 'dx' : 0, 'lock' : null,
+            'width' : container.clientWidth, 'samples' : [{ 't' : e.timeStamp, 'x' : t.clientX }] };
+   }, { passive: true });
+
+   container.addEventListener('touchmove', function(e) {
+      if (!g)
+         return;
+
+      if (e.touches.length != 1) {
+         finish(true);
+         return;
       }
 
-      // console.log("Activate dashboard", actDashboard);
+      let t = e.touches[0];
+      let dx = t.clientX - g.x0;
+      let dy = t.clientY - g.y0;
+
+      if (!g.lock) {
+         if (Math.abs(dx) < lockDistance && Math.abs(dy) < lockDistance) {
+            // tends to horizontal -> don't let the browser start scrolling yet
+            if (Math.abs(dx) > Math.abs(dy) && e.cancelable)
+               e.preventDefault();
+            return;
+         }
+
+         // vertical or the browser scrolls already -> scrolling only, no swipe
+
+         if (Math.abs(dy) >= Math.abs(dx) || !e.cancelable) {
+            g = null;
+            return;
+         }
+
+         g.lock = 'x';
+         g.overflowY = container.style.overflowY;
+         container.style.overflowY = 'hidden';   // no vertical scrolling while swiping
+         g.x0 = t.clientX - Math.sign(dx) * lockDistance;
+         g.el.style.pointerEvents = 'none';
+         g.el.style.willChange = 'transform';
+         longTouchCancel();
+      }
+
+      if (e.cancelable)
+         e.preventDefault();             // no browser scrolling / navigation
+
+      dx = t.clientX - g.x0;
+
+      if (jDashboards.length < 2)      // nothing to change to -> resistance
+         dx = Math.sign(dx) * g.width * 0.2 * (1 - 1 / (Math.abs(dx) / (g.width * 0.4) + 1));
+
+      g.dx = dx;
+      setStyle(g.el, 'none', 'translate3d(' + dx + 'px, 0, 0)', '');
+
+      g.samples.push({ 't' : e.timeStamp, 'x' : t.clientX });
+
+      while (g.samples.length > 2 && e.timeStamp - g.samples[0].t > 100)
+         g.samples.shift();
+   }, { passive: false });
+
+   container.addEventListener('touchend', function(e) {
+      if (g && g.lock && e.cancelable)
+         e.preventDefault();             // no click after the swipe
+      finish(false);
+   }, { passive: false });
+
+   container.addEventListener('touchcancel', function(e) {
+      finish(true);
+   }, { passive: true });
+
+   function finish(cancel)
+   {
+      if (!g || !g.lock) {
+         g = null;
+         return;
+      }
+
+      let el = g.el, w = g.width, dx = g.dx;
+      let overflowY = g.overflowY;
+      let v = velocity();
+      let dir = 0;
+
+      g = null;
+      el.style.pointerEvents = '';
+      el.style.willChange = '';
+
+      if (!cancel && jDashboards.length > 1) {
+         if (Math.abs(v) > flickVelocity && Math.sign(v) == Math.sign(dx) && Math.abs(dx) > 20)
+            dir = Math.sign(dx);
+         else if (Math.abs(dx) > w / 3)
+            dir = Math.sign(dx);
+      }
+
+      if (!dir) {                      // snap back
+         container.style.overflowY = overflowY;
+         setStyle(el, 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)', 'translate3d(0, 0, 0)', '');
+         return;
+      }
+
+      // render the new page at once, the old one stays as image (ghost, without ids) beside it,
+      // both move together with the speed of the finger (at least ~1.2 px/ms)
+
+      dashSwipe.busy = true;
+
+      let index = actDashboardIndex;
+
+      if (dir > 0)                   // right -> previous
+         index = index ? index-1 : jDashboards.length-1;
+      else                           // left -> next
+         index = index+1 < jDashboards.length ? index+1 : 0;
+
+      let cRect = container.getBoundingClientRect();
+      let oRect = el.getBoundingClientRect();
+      let top = oRect.top - cRect.top - container.clientTop;
+      let left = oRect.left - dx - cRect.left - container.clientLeft;
+      let width = el.offsetWidth;
+
+      el.remove();
+      el.removeAttribute('id');
+      el.querySelectorAll('[id]').forEach(function(n) { n.removeAttribute('id'); });
+
+      setActualDashboard(jDashboards[index][1], index);
       initDashboard();
 
-      const startX = (targetX === "100%") ? "-100%" : "100%";
-      $el.css({ "transition": "none", "transform": "translate3d(" + startX + ", 0, 0)" });
-      $el[0].offsetHeight; // Force Reflow
-      $el.css({ "transition": "transform 0.3s ease-out", "transform": "translate3d(0, 0, 0)" });
-   }, 300);
+      let nel = document.getElementById('widgetContainer');
+
+      // container as reference for the ghost, no horizontal scrollbar while moving
+
+      let cStyle = { 'position' : container.style.position, 'overflowX' : container.style.overflowX };
+
+      if (getComputedStyle(container).position == 'static')
+         container.style.position = 'relative';
+
+      container.style.overflowX = 'hidden';
+
+      Object.assign(el.style, { 'position' : 'absolute', 'top' : (top + container.scrollTop) + 'px',
+                                'left' : (left + container.scrollLeft) + 'px', 'width' : width + 'px',
+                                'margin' : '0', 'pointerEvents' : 'none' });
+      container.appendChild(el);
+
+      let duration = Math.round((w - Math.abs(dx)) / Math.max(Math.abs(v), 1.2));
+      duration = Math.min(Math.max(duration, 180), 350);
+
+      let transition = 'transform ' + duration + 'ms cubic-bezier(0.2, 0.8, 0.3, 1)';
+
+      if (nel)
+         setStyle(nel, 'none', 'translate3d(' + (dx - dir * w) + 'px, 0, 0)', '');
+
+      container.offsetHeight;          // force reflow
+
+      setStyle(el, transition, 'translate3d(' + (dir * w) + 'px, 0, 0)', '');
+
+      if (nel)
+         setStyle(nel, transition, 'translate3d(0, 0, 0)', '');
+
+      setTimeout(function() {
+         el.remove();
+         container.style.position = cStyle.position;
+         container.style.overflowX = cStyle.overflowX;
+         container.style.overflowY = overflowY;
+
+         if (nel)
+            nel.style.transition = '';
+
+         dashSwipe.busy = false;
+      }, duration + 30);
+   }
 }
 
 function resizeDashboard()
@@ -2450,7 +2612,7 @@ function weatherForecast(key)
 
    // dialog
 
-   let $overlay = $('<div></div>').addClass('weatherForecastOverlay');
+   let $overlay = $('<div></div>').addClass('weatherForecastOverlay noSwipe');   // noSwipe: horizontal scrolling of the day chips
    let $form = $('<div></div>').addClass('weatherForecast').attr('tabindex', 0).html(html);
    const close = () => $overlay.remove();
 

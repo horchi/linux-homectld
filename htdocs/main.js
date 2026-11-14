@@ -2543,7 +2543,8 @@ function hideAllContainer()
    $('#container').addClass('hidden');
    $('#mapcontainer').addClass('hidden');
 
-   $("#container").swipe("disable");
+   if (typeof dashSwipe !== "undefined")
+      dashSwipe.enabled = false;
    $("#mapcontainer").swipe("disable");
 }
 

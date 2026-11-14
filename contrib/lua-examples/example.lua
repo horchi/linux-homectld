@@ -1,8 +1,8 @@
 
-watch("DO", 0x15)
+watch("GPIO", 0x15)
 watch("W1", 0xf64969f1)
 
-local doFoo = sensors["DO"][0x15]
+local doFoo = sensors["GPIO"][0x15]
 local w1Bar = sensors["W1"][0xf64969f1]
 
 -- check if sensors are present

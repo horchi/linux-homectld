@@ -23,7 +23,6 @@ const char* cWebService::events[] =
    "data",
    "init",
    "toggleio",
-   "toggleionext",
    "togglemode",
    "storeconfig",
    "gettoken",

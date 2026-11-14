@@ -2442,7 +2442,7 @@ int HomeCtl::haspDispatchState(const char* topic, const char* message)
          // topic (e.g. KENWOOD, VICTRON, TASMOTA) are switched via the topic, the others via toggleIo()
 
          const char* cmdTopic {lookupCommandTopic(type.c_str(), address)};
-         bool controllable {!isEmpty(cmdTopic) || type == "DO" || type == "SC" || type == "DZL" || type == "DZLG" || type == "HMB" ||
+         bool controllable {!isEmpty(cmdTopic) || type == "SC" || type == "DZL" || type == "DZLG" || type == "HMB" ||
                             (type == "GPIO" && sensors.count(type) && sensors[type].count(address) && sensors[type][address].fct == "out")};
 
          if (controllable && val != na)

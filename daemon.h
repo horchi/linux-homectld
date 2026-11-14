@@ -306,8 +306,6 @@ class HomeCtl : public cWebInterface, public Service
 
       int initSensorByFact(myString type, uint address);
       int initGpioLine(uint physPin, const PinInfo& pinInfo);
-      int initOutput(uint pin, int outputModes, OutputMode mode, const char* name, uint rights = urControl);
-      int initInput(uint pin, const char* name);
       int cfgOutput(myString type, uint pin, json_t* jCal = nullptr);
       int cfgInput(myString type, uint pin, json_t* jCal = nullptr);
 
@@ -455,6 +453,7 @@ class HomeCtl : public cWebInterface, public Service
       void publishPin(const char* type, uint pin);
       void gpioWrite(uint pin, bool state, bool saveIoState = true);
       bool gpioRead(uint pin, bool check = false);
+      bool isActiveGpio(uint pin, const char* fct);
       virtual void logReport() { return ; }
 
       // web
@@ -917,7 +916,6 @@ class HomeCtl : public cWebInterface, public Service
       int toggleIo(uint addr, const char* type, int state = na, int bri = na, int transitiontime = na);
       int toggleColor(uint addr, const char* type, int color, int sat, int bri);
       int toggleColorTemperature(uint addr, const char* type, int ct, int bri);   // white mode of a color light, ct [mired]
-      int toggleIoNext(uint pin);
       int toggleOutputMode(json_t* oObject, long client);
 
       virtual int loadIoState(const char* type, uint address, bool& state, OutputMode& mode);

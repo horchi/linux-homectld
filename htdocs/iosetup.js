@@ -435,8 +435,7 @@ function showTable(section)
          return btn;
       };
 
-      let hasSetup = item.type == 'DO' || item.type.startsWith('MCPO') ||
-          item.type == 'DI' || item.type.startsWith('MCPI') ||
+      let hasSetup = item.type.startsWith('MCPO') || item.type.startsWith('MCPI') ||
           item.type == 'SC' || item.type == 'SCN' || item.type == 'GPIO' ||
           item.type == 'CV' || item.type == 'AI' ||
           item.type == 'DZL' || item.type == 'DZLG' || item.type == 'HMB' || item.type == 'DZS' ||
@@ -496,9 +495,9 @@ function sensorSetupDialog(type, address)
          sensorAiSetup(type, address);
       else if (type == 'CV')
          sensorCvSetup(type, address);
-      else if (type == 'DO' || type.startsWith('MCPO'))
+      else if (type.startsWith('MCPO'))
          sensorDoSetup(type, address);
-      else if (type == 'DI' || type.startsWith('MCPI'))
+      else if (type.startsWith('MCPI'))
          sensorDiSetup(type, address);
       else if (type == 'SC')
          sensorScSetup(type, address);
@@ -1491,7 +1490,7 @@ function sensorRulesSetup(type, address)
    for (const k in valueFacts) {
       let f = valueFacts[k];
 
-      if (!f.state || !(f.type == 'DZL' || f.type == 'DZLG' || f.type == 'DO' || f.type.startsWith('MCPO') || f.type == 'SCN' ||
+      if (!f.state || !(f.type == 'DZL' || f.type == 'DZLG' || f.type.startsWith('MCPO') || f.type == 'SCN' ||
                         (f.type == 'GPIO' && f.settings && f.settings.fct == 'out')))
          continue;
 
@@ -1588,22 +1587,6 @@ function sensorDiSetup(type, address)
 
    $(form).append(dlgContent);
 
-   if (type == 'DI') {
-      $(dlgContent)
-         .append($('<div></div>')
-                 .append($('<span></span>')
-                         .html('Interrupt'))
-                 .append($('<span></span>')
-                         .append($('<input></input>')
-                                 .attr('id', 'interruptDi')
-                                 .attr('type', 'checkbox')
-                                 .addClass('rounded-border inputSetting')
-                                 .prop('checked', valueFacts[key].settings ? valueFacts[key].settings.interrupt : false))
-                         .append($('<label></label>')
-                                 .attr('title', 'Neustart zum aktivieren')
-                                 .prop('for', 'interruptDi'))));
-   }
-
    var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
 
    $(form).dialog({
@@ -1627,7 +1610,6 @@ function sensorDiSetup(type, address)
                'address' : parseInt(calSensorAddress),
                'settings' : {
                   'invert' : $('#invertDi').is(':checked'),
-                  'interrupt' : $('#interruptDi').is(':checked'),
                   'pull' : parseInt($('#pullDi').val()),
                   'fct' : valueFacts[key].settings ? valueFacts[key].settings.fct : ''
                }

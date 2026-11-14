@@ -25,7 +25,6 @@ class cWebService
          evData,
          evInit,
          evToggleIo,
-         evToggleIoNext,
          evToggleMode,
          evStoreConfig,
          evGetToken,

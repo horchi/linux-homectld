@@ -359,7 +359,7 @@ int HomeCtl::sunResolve(const char* ref, int offset, uint& hhmm, const SunTimes*
 
 //***************************************************************************
 // Time Control of Actors (DZL, DZLG, HMB)
-//   unlike DO/GPIO (state forced inside the range) an actor is switched only at the
+//   unlike GPIO (state forced inside the range) an actor is switched only at the
 //   limits of its ranges, switching by hand stays as it is until the next limit;
 //   start or end of a range may be empty (e.g. only 'off' at 23:00)
 //
@@ -617,7 +617,7 @@ bool HomeCtl::actorTimesReady(time_t now)
 //     "note": "Handbetrieb",                                      why there is no automatic action (optional)
 //     "timers": [ ... ] }                                         running off timers of light rules (see below)
 //
-//   actors (DZL, DZLG, HMB) switch at each limit, DO / GPIO (out) are forced to the state of
+//   actors (DZL, DZLG, HMB) switch at each limit, GPIO (out) are forced to the state of
 //   their ranges (in auto mode) - for them the next change of this state is 'next'
 //***************************************************************************
 
@@ -652,7 +652,7 @@ int HomeCtl::nextTimeActions2Json(const char* type, uint address, json_t* obj)
    json_object_set_new(obj, "timers", jTimers);
 
    bool actor {strcmp(type, "DZL") == 0 || strcmp(type, "DZLG") == 0 || strcmp(type, "HMB") == 0};
-   bool output {strcmp(type, "DO") == 0 || (strcmp(type, "GPIO") == 0 && sensors[type][address].fct == "out")};
+   bool output {strcmp(type, "GPIO") == 0 && sensors[type][address].fct == "out"};
    cDbRow* fact {(actor || output) ? valueFactRowOf(type, address) : nullptr};
 
    if (!fact || fact->getValue("SETTINGS")->isEmpty())
@@ -751,7 +751,7 @@ int HomeCtl::nextTimeActions2Json(const char* type, uint address, json_t* obj)
          bool hasEnd {limitOf(false, hhmmEnd)};
          bool overnight {hasStart && hasEnd && hhmmEnd <= hhmmStart};
 
-         if (output && (!hasStart || !hasEnd))   // DO / GPIO need both limits
+         if (output && (!hasStart || !hasEnd))   // GPIO need both limits
             continue;
 
          for (bool in : { true, false })
@@ -782,7 +782,7 @@ int HomeCtl::nextTimeActions2Json(const char* type, uint address, json_t* obj)
 
    json_object_set_new(obj, "ranges", jRanges);
 
-   // DO / GPIO: the next change of the state the ranges force (like process(), overlapping ranges
+   // GPIO: the next change of the state the ranges force (like process(), overlapping ranges
    //   and days without a valid range don't switch)
 
    if (output)

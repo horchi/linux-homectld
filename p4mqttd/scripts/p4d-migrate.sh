@@ -6,6 +6,8 @@
 #   AO -> P4AO, UD -> P4UD, SD -> P4SD, W1 -> P4W1, SC, CV, PA (the sensors have to exist as valuefacts there, see below).
 #
 #   What is taken over:
+#     facts       the own titles of the sensors (usrtitle), only where the homectld has none; a sensor with an own title
+#                 which is missing in the homectld is created (the others are created by p4mqttd / homectld on start)
 #     samples     the measured values and states (WEA is not stored by the p4d)
 #     peaks       min / max of the sensors (merged with the ones of the homectld)
 #     errors      table errors -> p4errors (as history, they are not mailed)
@@ -21,7 +23,7 @@
 #
 #   Without --run nothing is written (dry run: shows what would be taken over).
 #
-# Usage:  p4d-migrate.sh [--run] [--only samples,peaks,errors,pellets,alerts,schema] [--from YYYY-MM-DD] [--known-only]
+# Usage:  p4d-migrate.sh [--run] [--only facts,samples,peaks,errors,pellets,alerts,schema] [--from YYYY-MM-DD] [--known-only]
 #                        [--from-db p4] [--to-db homectl] [--mysql-opts "-uroot -p..."]
 #   --run          really write
 #   --only         only these parts (comma separated), default all
@@ -45,7 +47,7 @@ TYPES="VA DI DO AO UD SD W1 SC CV PA"
 FROMDB=p4
 TODB=homectl
 RUN=no
-ONLY="samples,peaks,errors,pellets,alerts,schema"
+ONLY="facts,samples,peaks,errors,pellets,alerts,schema"
 SINCE=""
 KNOWN_ONLY=no
 MYSQL_OPTS=""
@@ -105,7 +107,7 @@ for db in "$FROMDB" "$TODB"; do
    fi
 done
 
-for t in samples peaks schemaconf p4errors p4pellets; do
+for t in valuefacts samples peaks schemaconf p4errors p4pellets; do
    if [ "$(sql "select count(*) from information_schema.tables where table_schema = '${TODB}' and table_name = '${t}'")" != "1" ]; then
       echo "table '${TODB}.${t}' is missing - start the homectld (with the S 3200 support) once, it creates the tables"; exit 1
    fi
@@ -115,6 +117,41 @@ say "from '${FROMDB}' to '${TODB}'$( [ "$RUN" = yes ] && echo ', WRITING' || ech
 
 SINCE_COND=""
 [ -n "$SINCE" ] && SINCE_COND=" and time >= '${SINCE}'"
+
+# --------------------------------------------------------
+# facts - the own titles (usrtitle), an existing one in the homectld stays;
+#   a missing sensor is created (factor 1, p4mqttd delivers the scaled values), name, title, unit, ... are
+#   updated by p4mqttd / homectld on start
+
+if has facts; then
+   say "facts ..."
+   list=$(printf "'%s'," $TYPES); list=${list%,}
+   src="from ${FROMDB}.valuefacts s where s.type in (${list}) and ifnull(s.usrtitle, '') <> ''"
+
+   n_fill=$(sql "select count(*) ${src} and exists (select 1 from ${TODB}.valuefacts t
+                    where t.address = s.address and t.type = concat('P4', s.type) and ifnull(t.usrtitle, '') = '')")
+   n_new=$(sql "select count(*) ${src} and not exists (select 1 from ${TODB}.valuefacts t
+                   where t.address = s.address and t.type = concat('P4', s.type))")
+
+   sql "select concat('  P4', s.type, ':0x', lower(hex(s.address)), '  \'', s.usrtitle, '\'',
+                      if(t.address is null, '  (new sensor)', ''))
+          from ${FROMDB}.valuefacts s left join ${TODB}.valuefacts t on t.address = s.address and t.type = concat('P4', s.type)
+         where s.type in (${list}) and ifnull(s.usrtitle, '') <> '' and ifnull(t.usrtitle, '') = ''
+          order by s.type, s.address" | while IFS= read -r line; do say "$line"; done
+
+   if [ "$RUN" = yes ]; then
+      sqlw "update ${TODB}.valuefacts t join ${FROMDB}.valuefacts s
+               on t.address = s.address and t.type = concat('P4', s.type)
+               set t.usrtitle = s.usrtitle
+             where s.type in (${list}) and ifnull(s.usrtitle, '') <> '' and ifnull(t.usrtitle, '') = ''"
+      sqlw "insert ignore into ${TODB}.valuefacts (address, type, inssp, updsp, state, record, unit, options, factor, name, title, usrtitle, rights)
+           select s.address, concat('P4', s.type), s.inssp, s.updsp, s.state, s.record, s.unit, 0, 1, s.name, s.title, s.usrtitle, 0
+             ${src}"
+      say "facts: ${n_fill} titles set, ${n_new} sensors created"
+   else
+      say "facts: ${n_fill} titles would be set, ${n_new} sensors created"
+   fi
+fi
 
 # --------------------------------------------------------
 # samples - by sensor (the primary key starts with address, type) and year

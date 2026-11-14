@@ -803,12 +803,6 @@ int HomeCtl::initLocale()
 
 int HomeCtl::exit()
 {
-   for (auto it = sensors["DO"].begin(); it != sensors["DO"].end(); ++it)
-   {
-      if (!sensors["DO"][it->first].impulse)
-         gpioWrite(it->first, false, false);
-   }
-
    for (auto& sensor : sensors["GPIO"])
    {
       if (sensor.second.fct == "out" && !sensor.second.impulse)
@@ -872,7 +866,7 @@ int HomeCtl::initSensorByFact(myString type, uint address)
    if (!fact->getValue("PARAMETER")->isEmpty())
       sensors[type][address].parameter = fact->getStrValue("PARAMETER");
 
-   if (type == "GPIO" || type == "DO" || type == "DI" || type == "DZL" || type == "DZLG" || type == "SCN")
+   if (type == "GPIO" || type == "DZL" || type == "DZLG" || type == "SCN")
       sensors[type][address].kind = "status";
 
    if (type == "SCN" && !sensors[type][address].valid())
@@ -909,7 +903,7 @@ int HomeCtl::initSensorByFact(myString type, uint address)
             aiSensorConfig[type][address].round = getDoubleFromJson(jCal, "round");
             aiSensorConfig[type][address].cutBelow = getDoubleFromJson(jCal, "cutBelow", -10000.0);
          }
-         else if (type == "DO" || type.starts_with("MCPO") || (type == "GPIO" && sensors[type][address].fct == "out"))
+         else if (type.starts_with("MCPO") || (type == "GPIO" && sensors[type][address].fct == "out"))
          {
             sensors[type][address].outputModes = getIntFromJson(jCal, "outputModes", 1);
             sensors[type][address].invert = getBoolFromJson(jCal, "invert", true);
@@ -920,7 +914,7 @@ int HomeCtl::initSensorByFact(myString type, uint address)
 
             cfgOutput(type, address, jCal);
          }
-         else if (type == "DI" || type.starts_with("MCPI") || (type == "GPIO" && sensors[type][address].fct == "in"))
+         else if (type.starts_with("MCPI") || (type == "GPIO" && sensors[type][address].fct == "in"))
          {
             sensors[type][address].invert = getBoolFromJson(jCal, "invert", true);
             sensors[type][address].pull = (Gpio::PullUpDown)getIntFromJson(jCal, "pull", 0);
@@ -973,27 +967,8 @@ int HomeCtl::initGpioLine(uint physPin, const PinInfo& pinInfo)
 }
 
 //***************************************************************************
-// Init digital Output
+// Configure Output / Input
 //***************************************************************************
-
-int HomeCtl::initOutput(uint pin, int outputModes, OutputMode mode, const char* name, uint rights)
-{
-   std::string n {std::string(name) + " " + std::to_string(pin) + "\n" + gpio->pinToName(pin)};
-   addValueFact(pin, "DO", 1, n.c_str(), "", "", rights);
-
-   // tell(eloDetail, "Info: initOutput 'DO:0x%x' to mode (%d)", pin, mode);
-
-   sensors["DO"][pin].outputModes = outputModes;
-   sensors["DO"][pin].mode = mode;
-
-   gpio->pinMode(pin, Gpio::dirOut);
-   cfgOutput("DO", pin);
-
-   if (!sensors["DO"][pin].impulse)
-      gpioWrite(pin, false, false);
-
-   return done;
-}
 
 int HomeCtl::cfgOutput(myString type, uint pin, json_t* jCal)
 {
@@ -1002,7 +977,7 @@ int HomeCtl::cfgOutput(myString type, uint pin, json_t* jCal)
       publishI2CSensorConfig(type.c_str(), pin, jCal);
    }
 
-   else if (type == "DO" || type == "GPIO")
+   else if (type == "GPIO")
    {
       if (sensors[type][pin].impulse)
       {
@@ -1014,28 +989,12 @@ int HomeCtl::cfgOutput(myString type, uint pin, json_t* jCal)
    return done;
 }
 
-//***************************************************************************
-// Init digital Input
-//***************************************************************************
-
-int HomeCtl::initInput(uint pin, const char* name)
-{
-   std::string n = std::string(name) + " " + std::to_string(pin) + "\n" + gpio->pinToName(pin);
-   addValueFact(pin, "DI", 1, n.c_str());
-
-   gpio->pinMode(pin, Gpio::dirIn);
-   cfgInput("DI", pin);
-   gpioRead(pin);
-
-   return done;
-}
-
 int HomeCtl::cfgInput(myString type, uint pin, json_t* jCal)
 {
    if (type.starts_with("MCPI"))
       publishI2CSensorConfig(type.c_str(), pin, jCal);
 
-   else if (type == "DI" || (type == "GPIO" && sensors[type][pin].fct == "in"))
+   else if (type == "GPIO" && sensors[type][pin].fct == "in")
    {
       if (sensors[type][pin].pull != Gpio::pudOff)
          gpio->pullUpDnControl(pin, sensors[type][pin].pull);
@@ -3021,7 +2980,7 @@ int HomeCtl::loop()
 
          {
             LogDuration ld("process", eloLoopTimings);
-            process();     // time ranges of the DO sensors; the LUA scripts run by their watch() / every()
+            process();     // time ranges of the GPIO sensors; the LUA scripts run by their watch() / every()
          }
 
          shadeUpdate();    // shading of the blinds
@@ -3067,15 +3026,6 @@ int HomeCtl::updateInputs(bool check)
       return done;
 
    nextInputCheckAt = time(0) + 5;
-
-   for (const auto& s : sensors["DI"])
-   {
-      if (s.second.active)
-      {
-         bool state {gpioRead(s.first, check)};
-         tell(eloDebugGpio, "Debug: GPIO: updateInputs(%d) DI 0x%x (%d)", check, s.first, state);
-      }
-   }
 
    for (const auto& s : sensors["GPIO"])
    {
@@ -3417,7 +3367,7 @@ int HomeCtl::process(bool force, bool signal)
       if (!sensors[type][address].active || sensors[type][address].mode != omAuto)
          continue;
 
-      if (type != "DO" && !gpioOut)
+      if (!gpioOut)
          continue;
 
       // output is 'pseudo validated' (stored every cycle)
@@ -3528,7 +3478,7 @@ bool HomeCtl::luaEveryDue()
 
 int HomeCtl::processLua(bool force, bool signal)
 {
-   // calculate CV and DO/GPIO(out) sensors by LUA
+   // calculate CV and GPIO(out) sensors by LUA
 
    if (!initialized)         // the GPIO setup triggers process() before the LUA bindings (watch, every, sensors) exist
       return done;
@@ -3542,10 +3492,10 @@ int HomeCtl::processLua(bool force, bool signal)
       if (!sensors[type][address].active)
          continue;
 
-      if (type != "CV" && type != "DO" && !gpioOut)
+      if (type != "CV" && !gpioOut)
          continue;
 
-      if ((gpioOut || type == "DO") && sensors[type][address].mode != omAuto)
+      if (gpioOut && sensors[type][address].mode != omAuto)
          continue;
 
       std::string expression;
@@ -3688,7 +3638,7 @@ int HomeCtl::processLua(bool force, bool signal)
 
       // tell(eloLua, "LUA '%s' changed from %f to %f", key, oldValue, sensors[type][address].value);
 
-      if (tableValueFacts->hasValue("TYPE", "DO") || gpioOut)
+      if (gpioOut)
       {
          tell(eloDebug, "Debug: Calling toggleio() to %d for '%s:0x%02lx'", sensors[type][address].state, type.c_str(), address);
          toggleIo(address, type.c_str(), sensors[type][address].state);
@@ -4440,17 +4390,8 @@ int HomeCtl::dispatchMqttHaCommandRequest(json_t* jData, const char* topic)
       if (isEmpty(state))
          return fail;
 
-      // #TODO GPIO?
-      for (auto itOutput = sensors["DO"].begin(); itOutput != sensors["DO"].end(); ++itOutput)
-      {
-         bool bState = strcmp(state, "ON") == 0;
-
-         if (it->second == itOutput->second.name)
-         {
-            gpioWrite(itOutput->first, bState);
-            break;
-         }
-      }
+      // #TODO only the deCONZ lights (DZL) get a command topic (see hass.c) - switch them here
+      //  (state "ON" / "OFF", brightness), until then the commands are ignored
    }
 
    return success;
@@ -5917,7 +5858,7 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
       {
          myString _type {itType.first};
 
-         if (!_type.starts_with("MCPO") && _type != "DO")
+         if (!_type.starts_with("MCPO"))
             continue;
 
          for (const auto& s : sensors[_type])
@@ -6460,7 +6401,7 @@ int HomeCtl::toggleIo(uint addr, const char* type, int state, int bri, int trans
    int newState {state == na ? !sensors[type][addr].state : state};
    tell(eloDebugGpio, "Debug: GPIO: toggleio() '%s:0x%02x' to '%s'", type, addr, newState ? "true" : "false");
 
-   if (strcmp(type, "DO") == 0 || strcmp(type, "GPIO") == 0)
+   if (strcmp(type, "GPIO") == 0)
       gpioWrite(addr, newState);
    else if (strcmp(type, "SC") == 0)
       callScript(addr, "toggle");
@@ -6498,12 +6439,6 @@ int HomeCtl::toggleIo(uint addr, const char* type, int state, int bri, int trans
 
       sensors[type][addr].state = newState;
       mqttNodeRedPublishAction(sensors[type][addr], value);
-
-      /* char* request {};
-      asprintf(&request, "{ \"method\" : \"getDeviceDescription\", \"parameters\" : [\"%s\"] }", uuid);
-      mqttWriter->write(INSTANCE "2mqtt/homematic/rpccall", request);
-      tell(eloHomeMatic, "-> (home-matic) '%s' to '%s'", INSTANCE "2mqtt/homematic/rpccall", request);
-      free(request);*/
    }
    else if (!commandTopicsMap[type].empty())  //  if (myString(type).starts_with("MCPO"))
    {
@@ -6511,12 +6446,6 @@ int HomeCtl::toggleIo(uint addr, const char* type, int state, int bri, int trans
 
       if (sensors[type][addr].active)
       {
-         // if (commandTopicsMap[type].empty())
-         // {
-         //    tell(eloAlways, "Error: Can't toggle %s:0x%02d, missing i2c topic", type, addr);
-         //    return done;
-         // }
-
          // newState is the logical state, the i2c process sets the level of the output pin
          //  -> invert here (the reported pin level is inverted back by the sensor update)
 
@@ -6539,21 +6468,6 @@ int HomeCtl::toggleIo(uint addr, const char* type, int state, int bri, int trans
          free(message);
       }
    }
-
-   return success;
-}
-
-int HomeCtl::toggleIoNext(uint pin)
-{
-   if (sensors["DO"][pin].state)
-   {
-      toggleIo(pin, "DO");
-      usleep(300000);
-      toggleIo(pin, "DO");
-      return success;
-   }
-
-   gpioWrite(pin, true);
 
    return success;
 }
@@ -6589,7 +6503,7 @@ int HomeCtl::toggleOutputMode(json_t* oObject, long client)
    if (sensors[type][addr].outputModes & ooAuto && sensors[type][addr].outputModes & ooUser)
    {
       OutputMode mode = sensors[type][addr].mode == omAuto ? omManual : omAuto;
-      // tell(eloDetail, "Info: Toggle output mode of 'DO:0x%x' to (%d)", addr, mode);
+      // tell(eloDetail, "Info: Toggle output mode of 'GPIO:0x%x' to (%d)", addr, mode);
       sensors[type][addr].mode = mode;
       storeIoState(type, addr);
       publishPin(type, addr);
@@ -6610,22 +6524,29 @@ void HomeCtl::onGpioChange(int physPin, bool value)
    triggerGpioPins.push(physPin);
 }
 
+// active GPIO with this function ('in' / 'out') - find, don't create a sensor for an unknown pin
+
+bool HomeCtl::isActiveGpio(uint pin, const char* fct)
+{
+   auto it = sensors.find("GPIO");
+
+   if (it == sensors.end())
+      return false;
+
+   auto itSensor = it->second.find(pin);
+
+   return itSensor != it->second.end() && itSensor->second.active && itSensor->second.fct == fct;
+}
+
 void HomeCtl::gpioWrite(uint pin, bool state, bool saveIoState)
 {
-   // #TODO for GPIO
-   // workaround! -->
+   const std::string type {"GPIO"};
 
-   std::string type {"DO"};
-
-   if (auto it = sensors.find("GPIO"); it != sensors.end())
+   if (!isActiveGpio(pin, "out"))
    {
-      auto itSensors = it->second.find(pin);
-
-      if (itSensors != it->second.end() && itSensors->second.active && itSensors->second.fct == "out")
-         type = "GPIO";
+      tell(eloDebugGpio, "Debug: GPIO: gpioWrite(0x%x) ignored, not an active output", pin);
+      return;
    }
-
-   // <--
 
    if (sensors[type][pin].impulse)
    {
@@ -6665,24 +6586,18 @@ void HomeCtl::gpioWrite(uint pin, bool state, bool saveIoState)
 
 bool HomeCtl::gpioRead(uint pin, bool check)
 {
-   int state {gpio->digitalRead(pin)};
-   bool changed {false};
+   const std::string type {"GPIO"};
 
-   // #TODO for GPIO
-   // workaround!
-   // -->
-   std::string type {"DI"};
+   // only active inputs - the ISR stays after deactivating / changing to 'out' (until restart)
 
-   if (auto it = sensors.find("GPIO"); it != sensors.end())
+   if (!isActiveGpio(pin, "in"))
    {
-      auto itSensors = it->second.find(pin);
-
-      if (itSensors != it->second.end() && itSensors->second.active && itSensors->second.fct == "in")
-         type = "GPIO";
+      tell(eloDebugGpio, "Debug: GPIO: gpioRead(0x%x) ignored, not an active input", pin);
+      return false;
    }
 
-   // <--
-
+   int state {gpio->digitalRead(pin)};
+   bool changed {false};
 
    tell(eloDebugGpio, "Debug: GPIO: gpioRead(%s:0x%x) got '%s' (%sinverted)",
         type.c_str(), pin, state ? "true" : "false", sensors[type][pin].invert ? "" : "not ");
@@ -6707,7 +6622,7 @@ bool HomeCtl::gpioRead(uint pin, bool check)
 
       // #TODO for GPIO
 
-      if (!_type.starts_with("MCPO") && _type != "DO")
+      if (!_type.starts_with("MCPO"))
           continue;
 
       for (const auto& s : sensors[_type])
@@ -7007,7 +6922,7 @@ int HomeCtl::loadIoStates()
       if (sensors[type][address].outputModes & ooAuto)
          sensors[type][address].mode = (OutputMode)tableIoStates->getIntValue("MODE");
 
-      if (type == "DO" || (type == "GPIO" && sensors[type][address].fct == "out"))
+      if (type == "GPIO" && sensors[type][address].fct == "out")
       {
          gpioWrite(address, state, false);
          tell(eloDetail, "Info: IO state of '%s:0x%02x' recovered to '%s'", type.c_str(), address, state ? "true" : "false");

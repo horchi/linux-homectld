@@ -2517,14 +2517,6 @@ function toggleIo(address, type, scale = -1)
                });
 }
 
-window.toggleIoNext = function(address, type)
-{
-   socket.send({ "event": "toggleionext", "object":
-                 { "address": address,
-                   "type": type }
-               });
-}
-
 function doLogin()
 {
    // console.log("login: " + $("#user").val() + " : " + $.md5($("#password").val()));

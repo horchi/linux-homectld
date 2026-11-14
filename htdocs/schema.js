@@ -1328,7 +1328,9 @@ function schemaLineFctExample()
    for (let key in valueFacts) {
       let fact = valueFacts[key];
 
-      if (!fact.state || (schemaSet == 'p4') != fact.type.startsWith('P4') || !fact.type.endsWith('DO'))
+      let output = fact.type == 'P4DO' || (fact.type == 'GPIO' && fact.settings && fact.settings.fct == 'out');
+
+      if (!fact.state || (schemaSet == 'p4') != fact.type.startsWith('P4') || !output)
          continue;
 
       if (!example || /pumpe/i.test(fact.usrtitle || fact.title || ''))

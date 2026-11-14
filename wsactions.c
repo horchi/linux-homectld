@@ -29,7 +29,7 @@ int HomeCtl::dispatchClientRequest()
    while (!messagesIn.empty())
    {
       // dispatch message like
-      //   => { "event" : "toggleio", "object" : { "address" : "122", "type" : "DO" } }
+      //   => { "event" : "toggleio", "object" : { "address" : "122", "type" : "GPIO" } }
 
       tell(eloWebSock, "<= '%s'", messagesIn.front().c_str());
       oData = jsonLoad(messagesIn.front().c_str());
@@ -39,7 +39,6 @@ int HomeCtl::dispatchClientRequest()
       Event event {cWebService::toEvent(getStringFromJson(oData, "event", "<null>"))};
       long client {getLongFromJson(oData, "client")};
       oObject = json_object_get(oData, "object");
-      int addr {getIntFromJson(oObject, "address")};
 
       // rights ...
 
@@ -63,7 +62,6 @@ int HomeCtl::dispatchClientRequest()
             case evData:                status = performData(client);                    break;
             case evGetToken:            status = performTokenRequest(oObject, client);   break;
             case evToggleIo:            status = performToggleIo(oObject, client);       break;
-            case evToggleIoNext:        status = toggleIoNext(addr);                     break;
             case evToggleMode:          status = toggleOutputMode(oObject, client);      break;
             case evStoreConfig:         status = storeConfig(oObject, client);           break;
             case evSetup:               status = performConfigDetails(client);           break;
@@ -147,7 +145,6 @@ bool HomeCtl::checkRights(long client, Event event, json_t* oObject)
       case evData:                return rights & urView;
       case evInit:                return rights & urView;
       case evPageChange:          return rights & urView;
-      case evToggleIoNext:        return rights & urControl;
       case evToggleMode:          return rights & urFullControl;
       case evStoreConfig:         return rights & urSettings;
       case evSetup:               return rights & urView;
@@ -418,7 +415,7 @@ int HomeCtl::performData(long client, const char* event)
          if (sensor->disabled)
             json_object_set_new(ojData, "disabled", json_boolean(true));
 
-         if (sensor->type == "DO" || (sensor->type ==  "GPIO" && sensor->fct == "out"))    // special properties for DO
+         if (sensor->type ==  "GPIO" && sensor->fct == "out")    // special properties for 'out'
          {
             pin2Json(ojData, sensor->type.c_str(), sensor->address);
             // json_object_set_new(ojData, "mode", json_string(sensor->mode == omManual ? "manual" : "auto"));
@@ -1280,8 +1277,8 @@ int HomeCtl::performChartData(json_t* oObject, long client)
 
          json_object_set_new(oRow, "x", json_string(xmlTime.getStrValue()));
 
-         if (tableValueFacts->hasValue("TYPE", "DO"))
-            json_object_set_new(oRow, "y", json_integer(maxValue.getIntValue()*10));  // *10 for DO to better scale (bad workaround)
+         if (tableValueFacts->hasValue("TYPE", "GPIO"))
+            json_object_set_new(oRow, "y", json_integer(maxValue.getIntValue()*10));  // *10 for 'ditital' to better scale (bad workaround)
          else if (selectSumOfDayMax)
             json_object_set_new(oRow, "y", json_real(maxValue.getFloatValue()));
          else
@@ -1801,9 +1798,9 @@ int HomeCtl::storeSensorSetup(json_t* obj, long client)
       status = storeAiSettings(obj, client);
    else if (type == "CV")
       status = storeIoSettings(obj, client);
-   else if (type == "DO" || type.starts_with("MCPO"))
+   else if (type.starts_with("MCPO"))
       status = storeIoSettings(obj, client);
-   else if (type == "DI" || type.starts_with("MCPI"))
+   else if (type.starts_with("MCPI"))
       status = storeIoSettings(obj, client);
    else if (type == "GPIO")
       status = storeIoSettings(obj, client);
@@ -1816,7 +1813,7 @@ int HomeCtl::storeSensorSetup(json_t* obj, long client)
    else if (type == "DZS")                                          // light rules
       status = storeIoSettings(obj, client);
    else
-      return replyResult(fail, client, "Ignoring config request, only supported for 'AI', 'DO', 'GPIO', 'W1', 'SC', 'SCN', 'CV', 'DZL', 'DZLG', 'DZS' and 'HMB' sensors");
+      return replyResult(fail, client, "Ignoring config request, only supported for 'AI', 'GPIO', 'W1', 'SC', 'SCN', 'CV', 'DZL', 'DZLG', 'DZS' and 'HMB' sensors");
 
    if (status == success)
    {

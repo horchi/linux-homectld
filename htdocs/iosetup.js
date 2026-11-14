@@ -135,12 +135,16 @@ function initSensorSetup()
               .css('width', '-webkit-fill-available')
               .css('width', '-moz-available')
               .css('margin-bottom', '8px')
-              .on('input', function() { switchTable(activeSection); }))
+              .val(localStorage.getItem(storagePrefix + 'ioFilterName') || '')
+              .on('input search change', function() {
+                 localStorage.setItem(storagePrefix + 'ioFilterName', $(this).val());
+                 switchTable(activeSection);
+              }))
       .append($('<div></div>')
               .append($('<button></button>')
                       .attr('id', 'filterSensorSetup')
                       .addClass('rounded-border tool-button')
-                      .html('[alle]')
+                      .html(filterActive ? '[aktive]' : '[alle]')
                       .click(function() { filterSensorSetup(); })))
       .append($('<div></div>')
               .addClass('button-group-spacing'))
@@ -190,7 +194,7 @@ function initSensorSetup()
    showTable(activeSection);
 }
 
-var filterActive = false;
+var filterActive = localStorage.getItem(storagePrefix + 'ioFilterActive') == '1';    // the filter of the sensor setup, kept in the browser
 
 // the icon of a sensor type, the symbol of the value type is 'mdi:mdi-<name>'
 
@@ -204,7 +208,7 @@ function filterSensorSetup()
 {
    function doProceed() {
       filterActive = !filterActive;
-      console.log("filterSensorSetup: " + filterActive);
+      localStorage.setItem(storagePrefix + 'ioFilterActive', filterActive ? '1' : '0');
       $("#filterSensorSetup").html(filterActive ? "[aktive]" : "[alle]");
       showTable(activeSection);
    }
@@ -303,8 +307,14 @@ function showTable(section)
 
    let filterSensorExpression = null;
 
-   if ($("#incSearchName").val() != "")
-      filterSensorExpression = new RegExp($("#incSearchName").val());
+   if ($("#incSearchName").val() != "") {
+      try {
+         filterSensorExpression = new RegExp($("#incSearchName").val());
+      }
+      catch (err) {
+         filterSensorExpression = null;      // incomplete while typing (e.g. '('), no filter
+      }
+   }
 
    // sort value facts
 

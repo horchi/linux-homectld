@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.58"
+#define _VERSION     "0.1.59"
 #define VERSION_DATE "14.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,9 @@
 
 /*
  * ------------------------------------
+
+2026-11-14: version 0.1.59
+    - added: HTML template for mixer
 
 2026-11-14: version 0.1.58
     - change: Improved stylesheets blue, yellow and light

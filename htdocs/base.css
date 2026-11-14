@@ -2999,6 +2999,48 @@ table.tableMultiCol td
     max-height: 100%;
 }
 
+/* blinds (HMB): the closed shutter over the open one, cut off at the position (updateBlindSymbol()) */
+
+.blindSymbol
+{
+    position: relative;
+}
+
+.blindSymbol > span
+{
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    line-height: 1;
+}
+
+.blindAnimate > .blindShutter
+{
+    transition: clip-path 1.5s linear;
+}
+
+.blindMoving > .blindShutter
+{
+    animation: blindPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes blindPulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* shading active (shade.c): small sun at the upper right */
+
+.blindSymbol > .blindShade
+{
+    font-size: 38%;
+    left: 85%;
+    top: 18%;
+    color: #f5b301;
+}
+
 .widget-main-gauge
 {
     grid-area: main;

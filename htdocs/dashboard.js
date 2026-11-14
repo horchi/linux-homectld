@@ -3039,7 +3039,11 @@ function widgetSymbolOf(fact, widget, sensor)
 {
    // a stale sensor (e.g. device offline) is displayed as 'off': symbol, color and no animation
 
-   let state = sensor.valid && (fact.type != 'HMB' ? sensor.value != 0 : sensor.value == 100);
+   // blinds (HMB): 'on' = open (position > 0 %), always the shutter symbol (the dashboard draws the position
+   //   over it, updateBlindSymbol()), the color between 'Farbe' (0 % = zu) and 'Farbe An' (100 % = auf)
+
+   let blind = fact.type == 'HMB';
+   let state = sensor.valid && (!blind ? sensor.value != 0 : sensor.value > 0);
    let image = '';
    let classes = '';
 
@@ -3049,6 +3053,8 @@ function widgetSymbolOf(fact, widget, sensor)
       else
          classes = sensor.image.replace(':', ' ');
    }
+   else if (blind)
+      classes = 'mdi ' + (state ? 'mdi-window-shutter-open' : 'mdi-window-shutter');
    else if (state && widget.symbolOn && widget.symbolOn != '')    // MDI Icon ON
       classes = widget.symbolOn.replace(':', ' ');
    else if (!state && widget.symbol && widget.symbol != '')       // MDI Icon OFF
@@ -3065,6 +3071,9 @@ function widgetSymbolOf(fact, widget, sensor)
 
    let color = state ? widget.colorOn : widget.color;
 
+   if (blind && sensor.valid && widget.color)
+      color = tinycolor.mix(widget.color, widget.colorOn, Math.max(0, Math.min(100, sensor.value))).toRgbString();
+
    color = getWidgetColor(widget, widget.colorCondition, color, sensor.value);
 
    if (sensor.hue)
@@ -3073,6 +3082,37 @@ function widgetSymbolOf(fact, widget, sensor)
       color = sensor.color;
 
    return { 'state': state, 'image': image, 'classes': classes, 'color': color };
+}
+
+//***************************************************************************
+// Blind Symbol (HMB)
+//   the closed shutter over the open one, cut off below the position (0 % = zu, 100 % = auf);
+//   glyph geometry of 'window-shutter' / 'window-shutter-open' (MDI font, 512 units per em, ascent 448,
+//   descent 64): the slats of the closed shutter reach down to y 21, the open one shows the first slat
+//   down to y 213 - the lower edge of the shutter goes from 21 (zu) to 213 (auf)
+//***************************************************************************
+
+function updateBlindSymbol(fact, sensor, widgetDiv)
+{
+   let button = $('#button' + fact.type + fact.address);
+   let pos = Math.max(0, Math.min(100, sensor.value || 0));
+   let edge = 21 + (213 - 21) * pos / 100;                       // lower edge of the shutter [font units]
+   let clip = 'inset(0 0 ' + ((edge + 64) / 512 * 100).toFixed(1) + '% 0)';
+
+   if (!button.hasClass('blindSymbol')) {
+      button.attr('class', 'widget-main blindSymbol').empty()
+         .append($('<span></span>').addClass('mdi mdi-window-shutter-open'))
+         .append($('<span></span>').addClass('mdi mdi-window-shutter blindShutter').css('clip-path', clip))
+         .append($('<span></span>').addClass('mdi mdi-white-balance-sunny blindShade'));
+
+      // move animated only after the first display (no running down at the build of the dashboard)
+      requestAnimationFrame(() => requestAnimationFrame(() => button.addClass('blindAnimate')));
+   }
+
+   button.find('.blindShutter').css('clip-path', clip);
+   button.find('.blindShade').toggle(sensor.shadeActive == true).attr('title', sensor.shade || null);
+   button.toggleClass('blindMoving', sensor.working == true);
+   button.css('font-size', Math.min(widgetDiv.height(), widgetDiv.width()) * 0.6 + 'px');
 }
 
 function updateWidget(sensor, refresh, widget)
@@ -3127,7 +3167,9 @@ function updateWidget(sensor, refresh, widget)
       if (classes != '')                                             // MDI symbol, no <img> element
          $("#widget" + fact.type + fact.address).remove();
 
-      if (image != '') {
+      if (fact.type == 'HMB' && sensor.image == null)                 // blind: shutter at the position
+         updateBlindSymbol(fact, sensor, widgetDiv);
+      else if (image != '') {
          // the image gets the size of an MDI symbol (60 % of the widget) instead of the whole button,
          //  the images (e.g. the 800 x 800 pump) have their own margin
 

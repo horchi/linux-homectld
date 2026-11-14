@@ -535,6 +535,17 @@ function widgetSetup(key, hasp)
           '#divLinefeed', '#divButtons', '#divRange', '#divColorCondition'].forEach(function(id) { $(id).css('display', 'none'); });
          $('#widthfactor, #heightfactor').parent().parent().css('display', 'none');   // the rows 'Breite' and 'Höhe'
       }
+
+      if (!hasp && item && item.type == 'HMB' && [0,9,12].includes(wType)) {
+         // blinds on the dashboard: always the shutter symbol with the position (updateBlindSymbol()),
+         //   the color mixed between 'zu' (0 %) and 'auf' (100 %) - no choice of the symbol
+
+         ['#divSymbol', '#divSymbolOn', '#divImgon', '#divImgoff', '#divSpin'].forEach(function(id) { $(id).css('display', 'none'); });
+         $('#divColor').css('display', 'flex');
+         $('.spColorOn').css('display', 'flex');
+         $('#spanColor').html("Farbe zu, auf, condition");
+         $('#colorSpan').css("margin-right", '5px');
+      }
    }
 
    var title = key.split(":")[0];

@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.55"
-#define VERSION_DATE "13.11.2026"
+#define _VERSION     "0.1.56"
+#define VERSION_DATE "14.11.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,17 @@
 
 /*
  * ------------------------------------
+
+2026-11-14: version 0.1.56
+    - change: dashboard: blinds (HMB) as Symbol / Symbol-Value / Symbol-Text: always the shutter symbol
+             (window-shutter), the shutter is drawn down to the position (the closed symbol over the open one, cut
+             off at the position, moves animated), pulses while moving; the color is mixed between 'Farbe' (0 % = zu)
+             and 'Farbe An' (100 % = auf), 'on' already at a position > 0 % (was 100 %); list page: shutter symbol
+             open / closed in the mixed color
+    - added: dashboard: blinds (HMB) with active shading show a small sun (title: state of the shading); the daemon
+             sends 'shadeActive' with the sensor data
+    - change: widget dialog of a blind (HMB, not on HASP): no choice of the symbol (Icon, Icon an, images,
+             'Aktivität anzeigen' hidden), both colors always shown as 'Farbe zu, auf, condition'
 
 2026-11-13: version 0.1.55
     - bugfix: format / narrowing warnings on 32 bit systems with 64 bit time_t (time_t printed by %lld with cast)

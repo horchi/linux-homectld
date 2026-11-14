@@ -1,0 +1,22 @@
+{
+  "type": "homectld-widgetdefaults",
+  "version": 1,
+
+  "_comment": [
+    "User widget defaults, installed only if missing, never overwritten.",
+    "Same format as widgetDefaults.json (see the comment there), all elements optional:",
+    "  properties / symbols / valueTypes: checked before the delivered ones (the first match wins)",
+    "  default / unitWidgetTypes: its elements replace those of the delivered ones",
+    "Example:",
+    "  \"properties\": [ { \"type\": \"DZS\", \"unit\": \"°C\", \"widgettype\": \"Value\", \"showpeak\": true } ],",
+    "  \"symbols\":    [ { \"title\": [\"Heizung\"], \"symbol\": \"mdi:mdi-radiator\" } ],",
+    "  \"valueTypes\": [ { \"type\": \"^DZS\", \"title\": \"Zigbee Sensoren\", \"symbol\": \"mdi:mdi-zigbee\" } ]",
+    "Reloaded on homectld restart."
+  ],
+
+  "default": {},
+  "unitWidgetTypes": {},
+  "properties": [],
+  "symbols": [],
+  "valueTypes": []
+}

@@ -27,6 +27,7 @@
  *    data-set="HMB:0x02" data-value="0"  brightness / position
  *    data-set="SAMTV:0x04" data-value="Netflix"  choice of a sensor with 'choices' (not a number)
  *    data-chart="W1:0x01"                chart dialog of the sensor
+ *    data-forecast="WEA:0x01"            weather forecast dialog (the JSON of the sensor, OpenWeatherMap)
  *  Pale display (stale sensor, e.g. device offline):
  *    the whole widget if all of its sensors are invalid (automatic)
  *    data-valid="W1:0x01"                the element if this sensor is invalid
@@ -556,7 +557,7 @@ setInterval(function() {
 
 function htmlWidgetActions($content)
 {
-   $content.on('click', '[data-toggle], [data-set], [data-chart]', function(event) {
+   $content.on('click', '[data-toggle], [data-set], [data-chart], [data-forecast]', function(event) {
       if (setupMode)
          return;
 
@@ -587,6 +588,11 @@ function htmlWidgetActions($content)
          let key = htmlWidgetKeyOf($el.attr('data-chart'), params);
          if (key && valueFacts[key])
             toggleChartDialog(valueFacts[key].type, valueFacts[key].address);
+      }
+      else if ($el.is('[data-forecast]')) {
+         let key = htmlWidgetKeyOf($el.attr('data-forecast'), params);
+         if (key)
+            weatherForecast(key);
       }
    });
 }
@@ -943,7 +949,7 @@ async function initHtmlWidgetsPage()
                      '<code>{{p.motion.changed|ago}}</code> \'vor 3 min\' (Felder age / changed: Sekunden seit Update / Änderung)<br>' +
                      '<b>Aktionen:</b> <code>data-toggle="DZL:0x03"</code> schalten, <code>data-set="HMB:0x02" data-value="0"</code> Helligkeit / Position, ' +
                      '<code>data-set="SAMTV:0x04" data-value="Netflix"</code> Auswahl (Text), ' +
-                     '<code>data-chart="W1:0x01"</code> Chart, statt des Keys auch <code>p.&lt;name&gt;</code><br>' +
+                     '<code>data-chart="W1:0x01"</code> Chart, <code>data-forecast="WEA:0x01"</code> Wettervorhersage, statt des Keys auch <code>p.&lt;name&gt;</code><br>' +
                      '<b>Blass:</b> das Widget, wenn alle seine Sensoren ungültig sind (z. B. Gerät offline), ' +
                      'ein Element mit <code>data-valid="p.temp"</code>, wenn dieser Sensor ungültig ist<br>' +
                      'Die Parameter sind die Vorgaben, im Widget-Setup des Dashboards je Widget überschreibbar. ' +

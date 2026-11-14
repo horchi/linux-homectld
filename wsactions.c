@@ -3007,23 +3007,31 @@ int HomeCtl::userDetails2Json(json_t* obj)
 
 //***************************************************************************
 // Value Types 2 Json
+//   the types of the value facts (ordered by type, case insensitive), title and symbol by the
+//   'valueTypes' of the widget defaults
 //***************************************************************************
 
 int HomeCtl::valueTypes2Json(json_t* obj)
 {
-   tableValueTypes->clear();
+   auto lessNoCase = [](const std::string& a, const std::string& b) { return strcasecmp(a.c_str(), b.c_str()) < 0; };
+   std::set<std::string,decltype(lessNoCase)> types(lessNoCase);
 
-   for (bool f = selectAllValueTypes->find(); f; f = selectAllValueTypes->fetch())
+   tableValueFacts->clear();
+
+   for (bool f = selectAllValueFacts->find(); f; f = selectAllValueFacts->fetch())
+      types.insert(tableValueFacts->getStrValue("TYPE"));
+
+   selectAllValueFacts->freeResult();
+
+   for (const auto& type : types)
    {
       json_t* oData {json_object()};
       json_array_append_new(obj, oData);
 
-      json_object_set_new(oData, "type", json_string(tableValueTypes->getStrValue("TYPE")));
-      json_object_set_new(oData, "title", json_string(tableValueTypes->getStrValue("TITLE")));
-      json_object_set_new(oData, "symbol", json_string(tableValueTypes->getStrValue("SYMBOL")));
+      json_object_set_new(oData, "type", json_string(type.c_str()));
+      json_object_set_new(oData, "title", json_string(getTitleOfType(type.c_str())));
+      json_object_set_new(oData, "symbol", json_string(getSymbolOfType(type.c_str())));
    }
-
-   selectAllValueTypes->freeResult();
 
    return done;
 }

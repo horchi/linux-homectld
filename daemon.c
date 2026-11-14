@@ -72,58 +72,22 @@ HomeCtl::WidgetType HomeCtl::toType(const char* name)
 }
 
 //***************************************************************************
-// Default Value Types
+// Value Types
+//   title and symbol of the sensor groups, 'valueTypes' of the widget defaults: the first entry
+//   whose 'type' (regular expression) matches the sensor type wins
 //***************************************************************************
 
-HomeCtl::ValueTypes HomeCtl::defaultValueTypes[] =
+json_t* HomeCtl::findValueType(const char* type)
 {
-   // expression,     title,                    symbol (first match wins!)
+   size_t index {0};
+   json_t* jValueType {};
 
-   { "^VA$",          "Messwerte",              "mdi:mdi-chart-line" },
-   { "^SD",           "Status Laufzeiten",      "mdi:mdi-timer-outline" },
-   { "^DO",           "Digitale Ausgänge",      "mdi:mdi-toggle-switch-outline" },
-   { "^MCPO",         "Digitale Ausgänge",      "mdi:mdi-toggle-switch-outline" },
-   { "^DI",           "Digitale Eingänge",      "mdi:mdi-electric-switch" },
-   { "^MCPI",         "Digitale Eingänge",      "mdi:mdi-electric-switch" },
-   { "^GPIO",         "GPIO",                   "mdi:mdi-chip" },
-   { "^W1",           "One Wire Sensoren",      "mdi:mdi-thermometer" },
-   { "^DS[0-9a-f]",   "One Wire Sensoren",      "mdi:mdi-thermometer" },   // DS18B20 via DS2484 (i2cmqtt)
-   { "^SCN$",         "Szenen",                 "mdi:mdi-play-box-multiple-outline" },
-   { "^SC",           "Skripte",                "mdi:mdi-script-text-outline" },
-   { "^AO",           "Analog Ausgänge",        "mdi:mdi-sine-wave" },
-   { "^AI",           "Analog Eingänge",        "mdi:mdi-sine-wave" },
-   { "^ADS",          "Analog Eingänge",        "mdi:mdi-sine-wave" },
-   { "^Sp",           "Weitere Sensoren",       "mdi:mdi-access-point" },
-   { "^DZLG",         "DECONZ Lampen Gruppe",   "mdi:mdi-lightbulb-group-outline" },
-   { "^DZL",          "DECONZ Lampen",          "mdi:mdi-lightbulb-outline" },
-   { "^DZS",          "DECONZ Sensoren",        "mdi:mdi-zigbee" },
-   { "^HM.*",         "Home Matic",             "mdi:mdi-home-automation" },
-   { "^P4.*",         "P4 Daemon",              "mdi:mdi-fire" },
-   { "^WEA",          "Wetter",                 "mdi:mdi-weather-partly-cloudy" },
-   { "^SUN",          "Sonne",                  "mdi:mdi-white-balance-sunny" },
-   { "^DHT",          "Wetter",                 "mdi:mdi-weather-partly-cloudy" },
-   { "^CV",           "Calculated Values",      "mdi:mdi-calculator-variant-outline" },
-   { "^PA",           "Parameter",              "mdi:mdi-tune-variant" },
-   { "^UD",           "User Defined",           "mdi:mdi-account-cog-outline" },
-   { "^VIC",          "Victron",                "mdi:mdi-battery-charging" },
-   { "^VOTRO",        "Votronic",               "mdi:mdi-battery-charging" },
-   { "^MOPEKA.*",     "Mopeka",                 "mdi:mdi-gas-cylinder" },
-   { "^TPMS",         "Reifendruck",            "mdi:mdi-car-tire-alert" },
-   { "^GROWATT",      "GROWATT",                "mdi:mdi-solar-power-variant-outline" },
-   { "^TASMOTA",      "TASMOTA",                "mdi:mdi-power-socket-de" },
-   { "^BBQ",          "BBQ",                    "mdi:mdi-grill-outline" },
-   { "^SAMTV",        "Samsung TV",             "mdi:mdi-television" },
-   { "^DENON",        "Denon AV Receiver",      "mdi:mdi-audio-video" },
-
-   { "",              "",                       "" }
-};
-
-const HomeCtl::ValueTypes* HomeCtl::findValueType(const char* type)
-{
-   for (int i = 0; defaultValueTypes[i].typeExpression != ""; i++)
+   json_array_foreach(getObjectFromJson(jWidgetDefaults, "valueTypes"), index, jValueType)
    {
-      if (rep(type, defaultValueTypes[i].typeExpression.c_str()) == success)
-         return &defaultValueTypes[i];
+      const char* expression {getStringFromJson(jValueType, "type")};
+
+      if (!isEmpty(expression) && rep(type, expression) == success)
+         return jValueType;
    }
 
    return nullptr;
@@ -131,84 +95,215 @@ const HomeCtl::ValueTypes* HomeCtl::findValueType(const char* type)
 
 const char* HomeCtl::getTitleOfType(const char* type)
 {
-   const ValueTypes* vt {findValueType(type)};
-   return vt ? vt->title.c_str() : type;
+   return getStringFromJson(findValueType(type), "title", type);
 }
 
 const char* HomeCtl::getSymbolOfType(const char* type)
 {
-   const ValueTypes* vt {findValueType(type)};
-   return vt ? vt->symbol.c_str() : "";
+   return getStringFromJson(findValueType(type), "symbol", "");
 }
 
 //***************************************************************************
 // Widgets - Default Properties
+//   the fallback of the widget properties (when the sensor brings none of its own), delivered
+//   with homectld: <confDir>/widgetDefaults.json, format see the comment there
+//   the user file <confDir>/widgetDefaults-usr.json (same format, not overwritten on install)
+//   takes precedence: its 'properties', 'symbols' and 'valueTypes' are checked before the delivered ones,
+//   the elements of its 'default' and 'unitWidgetTypes' replace those of the delivered ones
 //***************************************************************************
 
-HomeCtl::DefaultWidgetProperty HomeCtl::defaultWidgetProperties[] =
+json_t* HomeCtl::loadWidgetDefaultsFile(const char* file, bool user)
 {
-   // #TODO - auf einen JSON string umstellen
+   char* path {};
+   asprintf(&path, "%s/%s", confDir, file);
 
-   // type, address,  unit,  widgetType, minScale, maxScale scaleStep, showPeak
-
-   { "-",        na,   "*",      wtMeter,        0,        45,      10, false },
-   { "SPACER",   na,   "*",      wtSpace,        0,         0,       0, false },
-   { "TIME",     na, "txt",  wtPlainText,        0,         0,       0, true },
-   { "HTML",     na,   "*",       wtHtml,        0,         0,       0, false },
-   { "DO",       na,   "*",     wtSymbol,        0,         0,       0, false },
-   { "DI",       na,   "*",     wtSymbol,        0,         0,       0, false },
-   { "GPIO",     na,   "*",     wtSymbol,        0,         0,       0, false },
-   { "AO",       na,   "*",      wtMeter,        0,        45,      10, false },
-   { "AI",       na,   "*",      wtMeter,        0,        45,      10, false },
-   { "SD",       na,   "*",      wtChart,        0,      2000,       0, true },
-   { "SC",       na,    "",       wtText,        0,         0,       0, false },
-   { "SC",       na, "txt",       wtText,        0,         0,       0, false },
-   { "SC",       na, "stxt",wtSymbolText,        0,         0,       0, false },
-   { "SC",       na, "zst",     wtSymbol,        0,         0,       0, false },
-   { "SC",       na,   "*",      wtMeter,        0,        40,      10, true },
-   { "UD",       na, "txt",       wtText,        0,         0,       0, false },
-   { "UD",       na, "zst", wtSymbolText,        0,         0,       0, false },
-   { "UD",       na,   "*",       wtText,        0,         0,       0, false },
-   { "W1",       na,   "*", wtMeterLevel,        0,        40,      10, true },
-   { "VA",       na,   "%", wtMeterLevel,        0,       100,      20, true },
-   { "VA",       na,   "*",      wtMeter,        0,        45,      10, true },
-   { "HMB",      na,   "*",wtSymbolValue,        0,         0,       0, true },
-   { "DZL",      na,   "*",     wtSymbol,        0,         0,       0, true },
-   { "DZLG",     na,   "*",     wtSymbol,        0,         0,       0, true },
-   { "DZS",      na, "zst",     wtSymbol,        0,         0,       0, true },
-   { "DZS",      na,  "°C", wtMeterLevel,        0,        45,      10, true },
-   { "DZS",      na,   "%",      wtChart,        0,         0,       0, true },
-   { "DZS",      na, "hPa",      wtChart,        0,         0,       0, true },
-   { "DZS",      na, "mov",     wtSymbol,        0,         0,       0, true },
-   { "DZS",      na,  "lx",      wtChart,        0,         0,       0, true },
-   { "DZS",      na,   "*",      wtMeter,        0,        45,      12, true },
-   { "WEA",      na,   "*",  wtPlainText,        0,         0,       0, true },
-   { "SUN",      na,   "*",  wtPlainText,        0,         0,       0, false },
-   { "N4000",    na,   "*",      wtValue,        0,         0,       0, false },
-   { "T2090",    na,   "*",      wtValue,        0,         0,       0, true },
-   { "CV",       na, "txt",       wtText,        0,         0,       0, true },
-   { "CV",       na,  "°C",  wtMeterLevel,       0,         0,       0, true },
-   { "CV",       na,   "*",      wtSymbol,       0,         0,       0, true },
-   { "SCN",      na,   "*",      wtSymbol,       0,         0,       0, true },
-   { "TPMS",     na,   "*",       wtValue,       0,         0,       0, false },
-   { "" }
-};
-
-HomeCtl::DefaultWidgetProperty* HomeCtl::getDefalutProperty(const char* type, const char* unit, int address)
-{
-   for (int i = 0; defaultWidgetProperties[i].type != ""; i++)
+   if (!fileExists(path))
    {
-      if (defaultWidgetProperties[i].type == type)
-      {
-         bool addressMatch = defaultWidgetProperties[i].address == na || defaultWidgetProperties[i].address == address;
-         bool unitMatch = defaultWidgetProperties[i].unit == "*" || defaultWidgetProperties[i].unit == unit;
+      if (!user)
+         tell(eloAlways, "Error: Widget defaults '%s' not found", path);
 
-         if (unitMatch && addressMatch)
-            return &defaultWidgetProperties[i];
+      free(path);
+      return nullptr;
+   }
+
+   json_t* jData {jsonLoadFile(path)};
+
+   // in the delivered file 'properties' and 'symbols' are required, in the user file optional
+
+   json_t* jProperties {getObjectFromJson(jData, "properties")};
+   json_t* jSymbols {getObjectFromJson(jData, "symbols")};
+   json_t* jDefault {getObjectFromJson(jData, "default")};
+   json_t* jUnitTypes {getObjectFromJson(jData, "unitWidgetTypes")};
+   json_t* jValueTypes {getObjectFromJson(jData, "valueTypes")};
+
+   if (!json_is_object(jData)
+       || ((jProperties || !user) && !json_is_array(jProperties))
+       || ((jSymbols || !user) && !json_is_array(jSymbols))
+       || (jDefault && !json_is_object(jDefault))
+       || (jUnitTypes && !json_is_object(jUnitTypes))
+       || (jValueTypes && !json_is_array(jValueTypes)))
+   {
+      tell(eloAlways, "Error: Invalid widget defaults in '%s', ignoring", path);
+      json_decref(jData);
+      free(path);
+      return nullptr;
+   }
+
+   // check the widget type names
+
+   auto checkType = [&](const char* name, const char* what)
+   {
+      for (int t = wtUnknown+1; name && t < wtCount; t++)
+         if (strcasecmp(name, widgetTypes[t]) == 0)
+            return;
+
+      if (name)
+         tell(eloAlways, "Warning: Unknown widget type '%s' for '%s' in '%s', using 'Text'", name, what, path);
+   };
+
+   size_t index {0};
+   json_t* jProperty {};
+
+   json_array_foreach(jProperties, index, jProperty)
+   {
+      std::string what {std::string(getStringFromJson(jProperty, "type", "")) + "/" + getStringFromJson(jProperty, "unit", "*")};
+      checkType(getStringFromJson(jProperty, "widgettype"), what.c_str());
+   }
+
+   checkType(getStringFromJson(jDefault, "widgettype"), "default");
+
+   const char* unit {};
+   json_t* jType {};
+
+   json_object_foreach(jUnitTypes, unit, jType)
+      checkType(json_string_value(jType), (std::string("unit ") + unit).c_str());
+
+   tell(eloAlways, "Widget defaults '%s' loaded (%zu properties, %zu symbols, %zu value types)", path,
+        json_array_size(jProperties), json_array_size(jSymbols), json_array_size(jValueTypes));
+
+   free(path);
+   return jData;
+}
+
+int HomeCtl::loadWidgetDefaults()
+{
+   json_decref(jWidgetDefaults);
+   jWidgetDefaults = nullptr;
+
+   json_t* jDelivered {loadWidgetDefaultsFile("widgetDefaults.json", false)};
+   json_t* jUser {loadWidgetDefaultsFile("widgetDefaults-usr.json", true)};
+
+   if (!jDelivered && !jUser)
+   {
+      tell(eloAlways, "Error: No widget defaults, using the built in fallback");
+      return fail;
+   }
+
+   // merge: the user rules first (the first match wins), the user 'default' over the delivered one
+
+   jWidgetDefaults = json_object();
+
+   json_t* jDefault {json_object()};
+   json_object_update(jDefault, getObjectFromJson(jDelivered, "default"));
+   json_object_update(jDefault, getObjectFromJson(jUser, "default"));
+   json_object_set_new(jWidgetDefaults, "default", jDefault);
+
+   json_t* jUnitTypes {json_object()};
+   json_object_update(jUnitTypes, getObjectFromJson(jDelivered, "unitWidgetTypes"));
+   json_object_update(jUnitTypes, getObjectFromJson(jUser, "unitWidgetTypes"));
+   json_object_set_new(jWidgetDefaults, "unitWidgetTypes", jUnitTypes);
+
+   for (const char* name : { "properties", "symbols", "valueTypes" })
+   {
+      json_t* jList {json_array()};
+      json_array_extend(jList, getObjectFromJson(jUser, name));
+      json_array_extend(jList, getObjectFromJson(jDelivered, name));
+      json_object_set_new(jWidgetDefaults, name, jList);
+   }
+
+   json_decref(jDelivered);
+   json_decref(jUser);
+
+   return success;
+}
+
+//***************************************************************************
+// Find Widget Default Property
+//   first entry of 'properties' matching type, unit ('*' = any) and address (missing = any),
+//   none -> nullptr
+//***************************************************************************
+
+json_t* HomeCtl::findWidgetDefaultProperty(const char* type, const char* unit, int address)
+{
+   size_t index {0};
+   json_t* jProperty {};
+
+   json_array_foreach(getObjectFromJson(jWidgetDefaults, "properties"), index, jProperty)
+   {
+      const char* pType {getStringFromJson(jProperty, "type", "")};
+      const char* pUnit {getStringFromJson(jProperty, "unit", "*")};
+      int pAddress {getIntFromJson(jProperty, "address", na)};
+
+      if (strcmp(pType, type) == 0
+          && (strcmp(pUnit, "*") == 0 || strcmp(pUnit, unit) == 0)
+          && (pAddress == na || pAddress == address))
+         return jProperty;
+   }
+
+   return nullptr;
+}
+
+//***************************************************************************
+// Find Widget Default Symbol
+//   first rule of 'symbols' matching, all criteria given must match (AND), each list any of its
+//   entries (OR), 'title' as case insensitive part of the title
+//***************************************************************************
+
+const char* HomeCtl::findWidgetDefaultSymbol(const char* type, const char* usrTitle, const char* unit, bool on)
+{
+   auto matches = [](json_t* jRule, const char* name, const char* value, bool part) -> bool
+   {
+      json_t* jList {getObjectFromJson(jRule, name)};
+
+      if (!jList)
+         return true;                       // criterion not given
+
+      if (json_is_string(jList))
+         return part ? strcasestr(value, json_string_value(jList)) != nullptr : strcmp(value, json_string_value(jList)) == 0;
+
+      size_t i {0};
+      json_t* jItem {};
+
+      json_array_foreach(jList, i, jItem)
+      {
+         const char* s {json_string_value(jItem)};
+
+         if (s && (part ? strcasestr(value, s) != nullptr : strcmp(value, s) == 0))
+            return true;
+      }
+
+      return false;
+   };
+
+   size_t index {0};
+   json_t* jRule {};
+
+   json_array_foreach(getObjectFromJson(jWidgetDefaults, "symbols"), index, jRule)
+   {
+      if (!matches(jRule, "type", type, false) || !matches(jRule, "unit", unit, false)
+          || !matches(jRule, "title", usrTitle, true))
+         continue;
+
+      const char* symbol {getStringFromJson(jRule, on ? "on" : "off", getStringFromJson(jRule, "symbol"))};
+
+      if (!isEmpty(symbol))
+      {
+         tell(eloDebug, "Debug: Found default symbol for '%s/%s/%s/%d' [%s]", type, usrTitle, unit, on, symbol);
+         return symbol;
       }
    }
 
-   return &defaultWidgetProperties[0]; // the default of the defaluts
+   return on ? "mdi:mdi-toggle-switch-outline" : "mdi:mdi-toggle-switch-off-outline";
 }
 
 //***************************************************************************
@@ -217,42 +312,45 @@ HomeCtl::DefaultWidgetProperty* HomeCtl::getDefalutProperty(const char* type, co
 
 int HomeCtl::widgetDefaults2Json(json_t* jDefaults, std::string type, std::string unit, const char* usrTitle, int address)
 {
-   DefaultWidgetProperty* defProperty {getDefalutProperty(type.c_str(), unit.c_str(), address)};
+   if (!usrTitle)
+      usrTitle = "";
 
-   // #TODO move to a json config
-   //                     like /etc/homectld/widget-defaults.json
-   //   and a user config like /etc/homectld/widget-defaults-usr.json
+   json_t* jDefault {getObjectFromJson(jWidgetDefaults, "default")};
+   json_t* jProperty {findWidgetDefaultProperty(type.c_str(), unit.c_str(), address)};
 
-   const char* color {type != "HMB" ? "rgb(255, 255, 255)" : "rgb(0, 99, 162)"};
-   const char* colorOn {type != "HMB" ? "rgb(235, 197, 5)" : "rgb(255, 255, 255)"};
+   bool isDefault {!jProperty};
 
-   WidgetType widgetType {defProperty->widgetType};
+   if (!jProperty)
+      jProperty = jDefault;
 
-   if (defProperty->widgetType == wtUnknown)
-   {
-      if (unit == "°C")
-         widgetType = wtMeterLevel;
-      else if (unit == "V" || unit == "A")
-         widgetType = wtMeter;
-      else if (unit == "txt" || unit == "")
-         widgetType = wtText;
-      else if (unit == "stxt")
-         widgetType = wtSymbolText;
-      else if (unit == "sym")
-         widgetType = wtSymbol;
-   }
+   // the built in fallback for elements missing in 'default' (wtMeter, 0-45, step 10)
+   // widget type missing -> by the unit ('unitWidgetTypes', '*' for all others)
+
+   json_t* jUnitTypes {getObjectFromJson(jWidgetDefaults, "unitWidgetTypes")};
+   const char* typeName {getStringFromJson(jProperty, "widgettype")};
+
+   if (!typeName)
+      typeName = getStringFromJson(jUnitTypes, unit.c_str(), getStringFromJson(jUnitTypes, "*"));
+
+   WidgetType widgetType {typeName ? toType(typeName) : wtMeter};
+   int scaleMin {getIntFromJson(jProperty, "scalemin", 0)};
+   int scaleMax {getIntFromJson(jProperty, "scalemax", isDefault ? 45 : 0)};
+   int scaleStep {getIntFromJson(jProperty, "scalestep", isDefault ? 10 : 0)};
+   bool showPeak {getBoolFromJson(jProperty, "showpeak", false)};
+   const char* color {getStringFromJson(jProperty, "color", getStringFromJson(jDefault, "color", "rgb(255, 255, 255)"))};
+   const char* colorOn {getStringFromJson(jProperty, "colorOn", getStringFromJson(jDefault, "colorOn", "rgb(235, 197, 5)"))};
 
    json_object_set_new(jDefaults, "widgettype", json_integer(widgetType));
    json_object_set_new(jDefaults, "unit", json_string(unit.c_str()));
-   json_object_set_new(jDefaults, "scalemax", json_integer(defProperty->maxScale));
-   json_object_set_new(jDefaults, "scalemin", json_integer(defProperty->minScale));
-   json_object_set_new(jDefaults, "scalestep", json_integer(defProperty->scaleStep));
-   json_object_set_new(jDefaults, "showpeak", json_boolean(defProperty->showPeak));
+   json_object_set_new(jDefaults, "scalemax", json_integer(scaleMax));
+   json_object_set_new(jDefaults, "scalemin", json_integer(scaleMin));
+   json_object_set_new(jDefaults, "scalestep", json_integer(scaleStep));
+   json_object_set_new(jDefaults, "showpeak", json_boolean(showPeak));
    json_object_set_new(jDefaults, "color", json_string(color));
    json_object_set_new(jDefaults, "colorOn", json_string(colorOn));
 
-   const char* on {getImageFor(type, usrTitle, unit, true)};
-   const char* off {getImageFor(type, usrTitle, unit, false)};
+   const char* on {findWidgetDefaultSymbol(type.c_str(), usrTitle, unit.c_str(), true)};
+   const char* off {findWidgetDefaultSymbol(type.c_str(), usrTitle, unit.c_str(), false)};
 
    if (strstr(off, "mdi:") == off)
       json_object_set_new(jDefaults, "symbol", json_string(off));
@@ -260,66 +358,11 @@ int HomeCtl::widgetDefaults2Json(json_t* jDefaults, std::string type, std::strin
       json_object_set_new(jDefaults, "imgoff", json_string(off));
 
    if (strstr(on, "mdi:") == on)
-         json_object_set_new(jDefaults, "symbolOn", json_string(on));
+      json_object_set_new(jDefaults, "symbolOn", json_string(on));
    else
       json_object_set_new(jDefaults, "imgon", json_string(on));
 
    return done;
-}
-
-//***************************************************************************
-// Get Image For
-//***************************************************************************
-
-const char* HomeCtl::getImageFor(std::string type, const char* usrTitle, std::string unit, int value)
-{
-   // #TODO move symbol/image to getDefalutProperty() ?!!
-
-   const char* imagePath {};
-
-   if (strcasestr(usrTitle, "Pump"))
-      imagePath = value ? "img/icon/pump-on.gif" : "img/icon/pump-off.png";
-   else if (strcasestr(usrTitle, "Steckdose") || strcasestr(usrTitle, "Plug") )
-      imagePath = value ? "img/icon/plug-on.png" : "img/icon/plug-off.png";
-   else if (strcasestr(usrTitle, "UV-C") || strcasestr(usrTitle, "UVC"))
-      imagePath = value ? "img/icon/uvc-on.png" : "img/icon/uvc-off.png";
-   else if (strcasestr(usrTitle, "Shower") || strcasestr(usrTitle, "Dusche"))
-      imagePath = value ? "img/icon/shower-on.png" : "img/icon/shower-off.png";
-   else if (strcasestr(usrTitle, "VDR"))
-      imagePath = value ? "img/icon/vdr-on.png" : "img/icon/vdr-off.png";
-   else if (strcasestr(usrTitle, "VPN"))
-      imagePath = value ? "img/icon/vpn-on.png" : "img/icon/vpn-off.png";
-   else if (strcasestr(usrTitle, "SATIP"))
-      imagePath = value ? "img/icon/satip-on.png" : "img/icon/satip-off.png";
-   else if (strcasestr(usrTitle, "Music") || strcasestr(usrTitle, "Musik"))
-      imagePath = value ? "img/icon/note-on.png" : "img/icon/note-off.png";
-   else if (strcasestr(usrTitle, "Fan") || strcasestr(usrTitle, "Lüfter"))
-      imagePath = value ? "img/icon/fan-on.png" : "img/icon/fan-off.png";
-   else if (strcasestr(usrTitle, "Desktop"))
-      imagePath = value ? "img/icon/desktop-on.png" : "img/icon/desktop-off.png";
-   else if (type == "DZL" || strcasestr(usrTitle, "Licht") || strcasestr(usrTitle, "Bulb") || strcasestr(usrTitle, "Light"))
-      imagePath = value ? "mdi:mdi-lightbulb" : "mdi:mdi-lightbulb";
-   else if (type == "DI" || type == "DO" || type == "GPIO")
-      imagePath = value ? "mdi:mdi-toggle-switch-outline" : "mdi:mdi-toggle-switch-off-outline";
-   else if (unit == "mov")
-      imagePath = "mdi:mdi-walk";
-   else if (type == "TPMS" && unit == "bar")
-      imagePath = "mdi:mdi-car-tire-alert";
-   else if (unit == "bar")
-      imagePath = "mdi:mdi-gauge";
-   else if (type == "HMB")
-      imagePath = value ? "mdi:mdi-blinds-open" : "mdi:mdi-blinds";
-   else if (type == "DZL")
-      imagePath = value ? "mdi:mdi-lightbulb-variant" : "mdi:mdi-lightbulb-variant-outline";
-   else if (type == "DZLG")
-      imagePath = value ? "mdi:mdi-lightbulb-group" : "mdi:mdi-lightbulb-group-outline";
-
-   else
-      imagePath = value ? "mdi:mdi-toggle-switch-outline" : "mdi:mdi-toggle-switch-off-outline";
-
-   tell(eloDebug, "Debug: Found special image for '%s/%s/%s/%d' [%s]", type.c_str(), usrTitle, unit.c_str(), value, imagePath);
-
-   return imagePath;
 }
 
 //***************************************************************************
@@ -350,6 +393,7 @@ HomeCtl::~HomeCtl()
    cCurl::destroy();
    cDbConnection::exit();
    free(mqttUrlPlain);
+   json_decref(jWidgetDefaults);
 }
 
 //***************************************************************************
@@ -461,6 +505,8 @@ int HomeCtl::init()
 
    tell(eloAlways, "Dictionary '%s' loaded", dictPath);
    free(dictPath);
+
+   loadWidgetDefaults();
 
    while ((status = initDb()) != success && !doShutDown())
    {
@@ -1411,8 +1457,6 @@ int HomeCtl::initDb()
    tableValueFacts = new cDbTable(connection, "valuefacts");
    if (tableValueFacts->open() != success) return fail;
 
-   tableValueTypes = new cDbTable(connection, "valuetypes");
-   if (tableValueTypes->open() != success) return fail;
 
    tableSamples = new cDbTable(connection, "samples");
    if (tableSamples->open() != success) return fail;
@@ -1531,16 +1575,6 @@ int HomeCtl::initDb()
    selectMaxValueFactsByType->bind("TYPE", cDBS::bndIn | cDBS::bndSet);
 
    status += selectMaxValueFactsByType->prepare();
-
-   // ------------------
-
-   selectAllValueTypes = new cDbStatement(tableValueTypes);
-
-   selectAllValueTypes->build("select ");
-   selectAllValueTypes->bindAllOut();
-   selectAllValueTypes->build(" from %s", tableValueTypes->TableName());
-
-   status += selectAllValueTypes->prepare();
 
    // ------------------
 
@@ -2081,60 +2115,6 @@ int HomeCtl::initDb()
    int count {0};
 
    // -------------------
-   // init table valuetypes - if emty
-
-   count = 0;
-   tableValueTypes->countWhere("1=1", count);
-
-   if (!count)
-   {
-      tableValueFacts->clear();
-
-      for (bool f = selectAllValueFacts->find(); f; f = selectAllValueFacts->fetch())
-      {
-         tableValueTypes->clear();
-         tableValueTypes->setValue("TYPE", tableValueFacts->getStrValue("TYPE"));
-
-         if (!tableValueTypes->find())
-         {
-            tableValueTypes->setValue("TITLE", getTitleOfType(tableValueFacts->getStrValue("TYPE")));
-            tableValueTypes->setValue("SYMBOL", getSymbolOfType(tableValueFacts->getStrValue("TYPE")));
-            tableValueTypes->store();
-         }
-      }
-
-      selectAllValueFacts->freeResult();
-   }
-
-   // valuetypes without symbol (e.g. from before the column existed) -> default symbol
-
-   std::vector<std::string> noSymbol;
-   tableValueTypes->clear();
-
-   for (bool f = selectAllValueTypes->find(); f; f = selectAllValueTypes->fetch())
-   {
-      if (tableValueTypes->isNull("SYMBOL") || isEmpty(tableValueTypes->getStrValue("SYMBOL")))
-         noSymbol.push_back(tableValueTypes->getStrValue("TYPE"));
-   }
-
-   selectAllValueTypes->freeResult();
-
-   for (const auto& type : noSymbol)
-   {
-      if (isEmpty(getSymbolOfType(type.c_str())))
-         continue;
-
-      tableValueTypes->clear();
-      tableValueTypes->setValue("TYPE", type.c_str());
-
-      if (tableValueTypes->find())
-      {
-         tableValueTypes->setValue("SYMBOL", getSymbolOfType(type.c_str()));
-         tableValueTypes->update();
-      }
-   }
-
-   // -------------------
    // HTML widget templates delivered with homectld (before the default dashboards, they reference them by name)
 
    importHtmlWidgetTemplates();
@@ -2575,7 +2555,6 @@ int HomeCtl::exitDb()
    delete tableSamples;            tableSamples = nullptr;
    delete tablePeaks;              tablePeaks = nullptr;
    delete tableValueFacts;         tableValueFacts = nullptr;
-   delete tableValueTypes;         tableValueTypes = nullptr;
    delete tableConfig;             tableConfig = nullptr;
    delete tableUsers;              tableUsers = nullptr;
    delete tableGroups;             tableGroups = nullptr;
@@ -2596,7 +2575,6 @@ int HomeCtl::exitDb()
    delete selectMaxValueFactsByType;     selectMaxValueFactsByType = nullptr;
    delete selectValueFactsByTypeAndName; selectValueFactsByTypeAndName = nullptr;
    delete selectAllValueFacts;     selectAllValueFacts = nullptr;
-   delete selectAllValueTypes;     selectAllValueTypes = nullptr;
    delete selectAllConfig;         selectAllConfig = nullptr;
    delete selectAllUser;           selectAllUser = nullptr;
    delete selectMaxTime;           selectMaxTime = nullptr;
@@ -3140,7 +3118,7 @@ int HomeCtl::storeSamples()
       {
          SensorData* sensor = &sensorIt.second;
 
-         if (sensor->type == "WEA")
+         if (sensor->type == "WEA" && sensor->address <= 4)      // forecast (JSON) and Windy
             continue;
 
          // the coordinates of an active GPS tour are stored by gpsTourUpdate() on movement
@@ -4324,18 +4302,6 @@ int HomeCtl::addValueFact(int addr, const char* type, int factor, const char* na
 {
    const char* title {!isEmpty(aTitle) ? aTitle : name};
 
-   // check / add to valueTypes
-
-   tableValueTypes->clear();
-   tableValueTypes->setValue("TYPE", type);
-
-   if (!tableValueTypes->find())
-   {
-      tableValueTypes->setValue("TITLE", getTitleOfType(type));
-      tableValueTypes->setValue("SYMBOL", getSymbolOfType(type));
-      tableValueTypes->store();
-   }
-
    // check / add to valueFacts
 
    tableValueFacts->clear();
@@ -4386,9 +4352,10 @@ int HomeCtl::addValueFact(int addr, const char* type, int factor, const char* na
    if (strcmp(type, "DZL") == 0)
       tableValueFacts->setValue("OPTIONS", options);
 
-   // the names of the deCONZ devices (renamed in Phoscon) - the own title (usrtitle) stays
+   // the names of the deCONZ devices (renamed in Phoscon) and of the weather sensors (delivered
+   //  by the daemon) - the own title (usrtitle) stays
 
-   if (strncmp(type, "DZ", 2) == 0)
+   if (strncmp(type, "DZ", 2) == 0 || strcmp(type, "WEA") == 0)
    {
       tableValueFacts->setValue("NAME", name);
       tableValueFacts->setValue("TITLE", title);
@@ -4406,7 +4373,7 @@ int HomeCtl::addValueFact(int addr, const char* type, int factor, const char* na
       {
          tableValueFacts->store();
 
-         if (strncmp(type, "DZ", 2) == 0)
+         if (strncmp(type, "DZ", 2) == 0 || strcmp(type, "WEA") == 0)
          {
             initSensorByFact(type, addr);
 
@@ -4537,19 +4504,63 @@ int HomeCtl::dispatchNodeRedCommand(json_t* jObject)
 }
 
 //***************************************************************************
+// Weather Sensors
+//   the current weather (the first step of the forecast) as single sensors, the forecast
+//   itself (city and the 3 hour steps) as JSON text of WEA:0x01 (dialog of the WEBIF,
+//   see weatherForecast() of dashboard.js); WEA:0x02 - 0x04 are the Windy widgets
+//***************************************************************************
+
+// a coordinate for an URL, always with '.' (the daemon runs with the locale of the system, '%f'
+//  would print '50,303' with a german one)
+
+static std::string urlCoordinate(double value)
+{
+   char buf[32];
+   snprintf(buf, sizeof(buf), "%.6f", value);
+
+   for (char* p = buf; *p; p++)
+      if (*p == ',')
+         *p = '.';
+
+   return buf;
+}
+
+struct WeatherSensor
+{
+   uint address;
+   const char* name;
+   const char* unit;
+   const char* title;
+   const char* path;          // path in the OpenWeatherMap JSON
+   bool text;
+};
+
+static const WeatherSensor weatherSensors[] =
+{
+   {  1, "forecast",  "txt", "Wettervorhersage 5 Tage", nullptr,                true  },
+   {  5, "temp",      "°C",  "Temperatur",           "main/temp",               false },
+   {  6, "tempfeels", "°C",  "Gefühlte Temperatur",  "main/feels_like",         false },
+   {  7, "humidity",  "%",   "Luftfeuchte",          "main/humidity",           false },
+   {  8, "pressure",  "hPa", "Luftdruck",            "main/pressure",           false },
+   {  9, "windspeed", "m/s", "Wind",                 "wind/speed",              false },
+   { 10, "windgust",  "m/s", "Windböen",             "wind/gust",               false },
+   { 11, "winddir",   "°",   "Windrichtung",         "wind/deg",                false },
+   { 12, "detail",    "txt", "Wetterlage",           "weather[0]/description",  true  },
+   { 13, "icon",      "txt", "Wettersymbol",         "weather[0]/icon",         true  },
+   { 14, "city",      "txt", "Wetter Ort",           nullptr,                   true  }
+};
+
+//***************************************************************************
 // Update Weather
 //
-// Format:
-//   { "weather":[{"id":804,"main":"Clouds","description":"Bedeckt","icon":"04d"}],
+// Format (one step of the forecast in 'list'):
+//   { "dt":1640765212,
 //     "main":{"temp":8.49,"feels_like":8.49,"temp_min":7.1,"temp_max":9.55,"pressure":1008,"humidity":89},
-//     "visibility":10000,
-//     "wind":{"speed":0.89,"deg":238,"gust":3.58},
+//     "weather":[{"id":804,"main":"Clouds","description":"Bedeckt","icon":"04d"}],
 //     "clouds":{"all":100},
-//     "dt":1640765212,
-//     "sys":{"type":2,"id":2012565,"country":"DE","sunrise":1640762680,"sunset":1640791732},
-//     "timezone":3600, "id":2955014, "name":"Assenheim", "cod":200}
+//     "wind":{"speed":0.89,"deg":238,"gust":3.58},
+//     "visibility":10000, "pop":0.2 }
 //
-//  https://openweathermap.org/current#min
 //  https://openweathermap.org/forecast5
 //  Get the free API Key here: https://openweathermap.org/price
 //***************************************************************************
@@ -4565,7 +4576,36 @@ int HomeCtl::updateWeather()
       return done;
 
    nextWeatherAt = time(0) + weatherInterval*tmeSecondsPerMinute;
-   sensors["WEA"][1].invalidate();
+
+   // the sensors and their WS update (also to invalidate them on error)
+
+   auto publish = [this]()
+   {
+      for (const auto& ws : weatherSensors)
+      {
+         if (sensors["WEA"][ws.address].type.empty())
+            continue;
+
+         json_t* ojData {json_object()};
+         sensor2Json(ojData, "WEA", ws.address);
+         sensorValue2Json(ojData, "WEA", ws.address);
+
+         char* tuple {};
+         asprintf(&tuple, "%s:0x%02x", "WEA", ws.address);
+         jsonSensorList[tuple] = ojData;
+         free(tuple);
+      }
+
+      pushDataUpdate("update", 0L);
+   };
+
+   auto invalidate = [this, &publish]()
+   {
+      for (const auto& ws : weatherSensors)
+         sensors["WEA"][ws.address].invalidate();
+
+      publish();
+   };
 
    cCurl curl;
    curl.init();
@@ -4576,8 +4616,8 @@ int HomeCtl::updateWeather()
 
    GpsCoordinate pos {location()};
 
-   asprintf(&url, "http://api.openweathermap.org/data/2.5/forecast?appid=%s&units=metric&lang=de&lat=%f&lon=%f",
-            openWeatherApiKey.c_str(), pos.latitude, pos.longitude);
+   asprintf(&url, "https://api.openweathermap.org/data/2.5/forecast?appid=%s&units=metric&lang=de&lat=%s&lon=%s",
+            openWeatherApiKey.c_str(), urlCoordinate(pos.latitude).c_str(), urlCoordinate(pos.longitude).c_str());
 
    tell(eloWeather, "-> (openweathermap) [%s]", url);
    int status {curl.downloadFile(url, size, &data, 2)};
@@ -4586,70 +4626,152 @@ int HomeCtl::updateWeather()
    {
       tell(eloAlways, "Error: Requesting weather at '%s' failed", url);
       free(url);
+      curl.exit();
+      invalidate();
       return fail;
    }
 
    free(url);
+   curl.exit();
    tell(eloWeather, "<- (openweathermap) [%s]", data.memory);
 
    json_t* jData {jsonLoad(data.memory)};
+   json_t* jArray {jData ? getObjectFromJson(jData, "list") : nullptr};
+   json_t* jCurrent {jArray ? json_array_get(jArray, 0) : nullptr};
 
-   if (!jData)
-      return fail;
-
-   const char* city {getStringByPath(jData, "city/name")};
-   json_t* jArray {getObjectFromJson(jData, "list")};
-
-   if (!jArray)
+   if (!jCurrent)
    {
+      tell(eloAlways, "Error: Got unexpected weather data from openweathermap");
       json_decref(jData);
+      invalidate();
       return fail;
    }
+
+   // the place of OpenWeatherMap is the next bigger one of its list (e.g. 'Assenheim' for Bruchenbrücken),
+   //  the name of OpenStreetMap is more exact, OWM only as fallback
+
+   std::string city {placeName(pos)};
+
+   if (city.empty())
+      city = getStringByPath(jData, "city/name", "");
+
+   // the forecast
 
    json_t* jWeather {json_object()};
    json_t* jForecasts {json_array()};
 
+   json_object_set_new(jWeather, "city", json_string(city.c_str()));
    json_object_set_new(jWeather, "forecasts", jForecasts);
-   json_object_set_new(jWeather, "city", json_string(city));
 
    size_t index {0};
    json_t* jObj {};
 
    json_array_foreach(jArray, index, jObj)
    {
-      if (index == 0)
-         weather2json(jWeather, jObj);
-
       json_t* jFcItem {json_object()};
       json_array_append_new(jForecasts, jFcItem);
       weather2json(jFcItem, jObj);
    }
 
-   addValueFact(1, "WEA", 1, "weather", "txt", "Wetter");
-   sensors["WEA"][1].kind = "text";
-
-   char* p {json_dumps(jWeather, JSON_REAL_PRECISION(4))};
+   char* forecast {json_dumps(jWeather, JSON_REAL_PRECISION(4))};
    json_decref(jWeather);
-   sensors["WEA"][1].setText(p);
-   free(p);
 
+   // the sensors
+
+   for (const auto& ws : weatherSensors)
    {
-      json_t* ojData {json_object()};
-      sensor2Json(ojData, "WEA", 1);
-      json_object_set_new(ojData, "text", json_string(sensors["WEA"][1].text.c_str()));
+      addValueFact(ws.address, "WEA", 1, ws.name, ws.unit, ws.title);
 
-      char* tuple {};
-      asprintf(&tuple, "%s:0x%02x", "WEA", 1);
-      jsonSensorList[tuple] = ojData;
-      free(tuple);
+      if (sensors["WEA"][ws.address].type.empty())
+         initSensorByFact("WEA", ws.address);
 
-      pushDataUpdate("update", 0L);
+      SensorData& sensor {sensors["WEA"][ws.address]};
+
+      sensor.kind = ws.text ? "text" : "value";
+
+      if (ws.address == 1)
+         sensor.setText(forecast);
+      else if (strcmp(ws.name, "city") == 0)
+         sensor.setText(city);
+      else if (ws.text)
+         sensor.setText(getStringByPath(jCurrent, ws.path, ""));
+      else
+         sensor.setValue(getDoubleByPath(jCurrent, ws.path, 0.0));     // e.g. no gust at calm
+   }
+
+   free(forecast);
+   json_decref(jData);
+   publish();
+
+   return done;
+}
+
+//***************************************************************************
+// Place Name
+//   the name of the place at 'pos' by the reverse geocoding of OpenStreetMap (Nominatim, as
+//   gpsmqtt.py), requested again only if the position moved (~500m), empty on error
+//   usage policy (https://operations.osmfoundation.org/policies/nominatim/): max 1 request/s,
+//   an own user agent, cache the results
+//***************************************************************************
+
+std::string HomeCtl::placeName(const GpsCoordinate& pos)
+{
+   static GpsCoordinate lastPos {na, na};
+   static std::string lastName;
+
+   if (!lastName.empty() && fabs(pos.latitude - lastPos.latitude) < 0.005 && fabs(pos.longitude - lastPos.longitude) < 0.005)
+      return lastName;
+
+   cCurl curl;
+   curl.init();
+
+   MemoryStruct data;
+   int size {0};
+   char* url {};
+
+   asprintf(&url, "https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&accept-language=de&lat=%s&lon=%s",
+            urlCoordinate(pos.latitude).c_str(), urlCoordinate(pos.longitude).c_str());
+
+   tell(eloWeather, "-> (nominatim) [%s]", url);
+   int status {curl.downloadFile(url, size, &data, 5, "homectld")};
+   curl.exit();
+
+   if (status != success)
+   {
+      tell(eloAlways, "Info: Requesting the place name at '%s' failed", url);
+      free(url);
+      return lastName;                            // the last known one (or empty)
+   }
+
+   free(url);
+   tell(eloWeather, "<- (nominatim) [%s]", data.memory);
+
+   json_t* jData {jsonLoad(data.memory)};
+   json_t* jAddress {jData ? getObjectFromJson(jData, "address") : nullptr};
+   std::string name;
+
+   // the smallest part which is a place (a village / a district of a town before the town)
+
+   for (const char* field : { "village", "hamlet", "suburb", "town", "city", "municipality", "county" })
+   {
+      const char* value {getStringFromJson(jAddress, field)};
+
+      if (!isEmpty(value))
+      {
+         name = value;
+         break;
+      }
    }
 
    json_decref(jData);
-   curl.exit();
 
-   return done;
+   if (!name.empty())
+   {
+      lastPos = pos;
+      lastName = name;
+   }
+
+   return name;
 }
 
 //***************************************************************************
@@ -4671,6 +4793,10 @@ int HomeCtl::weather2json(json_t* jWeather, json_t* owmWeather)
    json_object_set_new(jWeather, "windspeed", json_real(getDoubleByPath(owmWeather, "wind/speed")));
    json_object_set_new(jWeather, "windgust", json_real(getDoubleByPath(owmWeather, "wind/gust")));
    json_object_set_new(jWeather, "winddir", json_real(getIntByPath(owmWeather, "wind/deg")));
+   json_object_set_new(jWeather, "clouds", json_integer(getIntByPath(owmWeather, "clouds/all", 0)));                 // [%]
+   json_object_set_new(jWeather, "pop", json_integer(lround(getDoubleByPath(owmWeather, "pop", 0.0) * 100)));       // probability of precipitation [%]
+   json_object_set_new(jWeather, "rain", json_real(getDoubleByPath(owmWeather, "rain/3h", 0.0)));                   // [mm / 3h]
+   json_object_set_new(jWeather, "snow", json_real(getDoubleByPath(owmWeather, "snow/3h", 0.0)));                   // [mm / 3h]
 
    return done;
 }

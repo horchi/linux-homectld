@@ -15,8 +15,6 @@
 
 var layout = 'flex';
 
-var weatherData = null;
-var weatherInterval = null;
 var mouseDownOn = { 'object' : null };
 var lightClickTimeout = null;
 var lightClickPosX = null;
@@ -965,25 +963,22 @@ function initWidget(key, widget, fact)
                            .addClass('widget-title ' + (setupMode ? 'mdi mdi-lead-pencil widget-edit' : ''))
                            .addClass(titleClass)
                            .css('user-select', 'none')
-                           .css('padding', fact.type == 'WEA' ? '0px' : '')
                            .click(function(event) {titleClick(event.ctrlKey, key);})
                            .html(title));
 
-         if (fact.type == 'WEA' && fact.address != 1) {
+         if (fact.type == 'WEA' && fact.address >= 2 && fact.address <= 4) {
             if (fact.address == 2 || fact.address == 4)
                initWindy(key, widget, fact);
             else if (fact.address == 3)
                initWindyMap(key, widget, fact);
          }
          else {
-            let wFact = fact;
             $(elem).append($('<div></div>')
                            .attr('id', 'widget' + fact.type + fact.address)
-                           .addClass(fact.type == 'WEA' ? 'widget-weather' : 'widget-text')
+                           .addClass('widget-text')
                            .css('user-select', 'none')
                            .css('color', widget.color)
-                           .css('height', 'inherit')
-                           .click(function() { if (wFact.type == 'WEA' && wFact.address == 1) weatherForecast(); }));
+                           .css('height', 'inherit'));
          }
          break;
       }
@@ -2336,90 +2331,147 @@ function getTimeHtml()
       + '<div style="font-size:2em">' + fmtTime(date) + '</div>';
 }
 
-function getWeatherHtml(symbolView, wfact, weather)
+// the forecast of OpenWeatherMap - the JSON of the sensor WEA:0x01 { city, forecasts: [ ... ] },
+//   opened by data-forecast of a HTML widget (htmlwidgets.js)
+//   top: one chip per day (symbol at noon, min / max, max. rain probability, click scrolls to the day),
+//   below the 3 hour steps per day, the temperature as bar within the range of the whole forecast
+
+function weatherIconUrl(icon, big)
 {
-   // https://openweathermap.org/weather-conditions#Weather-Condition-Codes-2
+   let ref = 'img/weather/' + icon + (big ? '@4x' : '') + '.png';
 
-   let html = '';
+   if (!images.find(img => img == ref))
+      ref = 'https://openweathermap.org/img/wn/' + icon + (big ? '@4x' : '@2x') + '.png';
 
-   if (symbolView) {
-      let wIconRef = 'img/weather/' + weather.icon + '@4x.png';
-      if (!images.find(img => img == wIconRef))
-         wIconRef = 'http://openweathermap.org/img/wn/' + weather.icon + '@4x.png';
-      html += '<div style="display:block;font-weight:bold;height:75%;padding-left:5px;"><span>' + weather.detail + '</span><img style="height:100%" src="' + wIconRef + '"></img></div>';
-      html += '<div style="display:flex;justify-content:space-between;padding-top:3px;">';
-      html += ' <span style="color:orange;font-weight:bold;padding-left:5px;">' + weather.temp.toFixed(1) + '°C</span>';
-      html += ' <span class="mdi mdi-walk" style="color:orange;font-weight:bold;font-size:smaller;">' + weather.tempfeels.toFixed(1) + '</span>';
-      html += '</div>';
-
-   }
-   else {
-      let wIconRef = 'img/weather/' + weather.icon + '.png';
-      if (!images.find(img => img == wIconRef))
-         wIconRef = 'http://openweathermap.org/img/wn/' + weather.icon + '.png';
-      html += '<div style="display:inline-flex;align-items:center;font-weight:bold;"><span><img src="' + wIconRef + '"></img></span><span>' + weather.detail + '</span></div>';
-      html += '<div><span style="color:orange;font-weight:bold;">' + weather.temp.toFixed(1) + '°C</span>';
-      html += '<span style="font-size:smaller;"> (' + weather.tempmin.toFixed(1) + ' / ' + weather.tempmax.toFixed(1) + ')' + '</span></div>';
-      html += '<div>Luftdruck: <span style="color:orange;font-weight:bold;">' + weather.pressure + ' hPa' + '</span></div>';
-      html += '<div>Luftfeuchte: <span style="color:orange;font-weight:bold;">' + weather.humidity + ' %' + '</span></div>';
-      html += '<div>Wind: <span style="color:orange;font-weight:bold;">' + weather.windspeed + ' m/s' + '</span></div>';
-   }
-
-   return html;
+   return ref;
 }
 
-function weatherForecast()
+function weatherTempClass(temp)
 {
-   let lastDay = '';
-   let form = document.createElement("div");
+   return temp < 0 ? 'wf-frost' : temp >= 28 ? 'wf-hot' : temp >= 20 ? 'wf-warm' : '';
+}
 
-   $(form).addClass('rounded-border weatherForecast');
-   $(form).attr('tabindex', 0);
-   $(form).click(function() { $(form).remove(); });
-   $('#container').append(form);
+function weatherForecast(key)
+{
+   let weatherData = null;
 
-   let showExtras = $(form).outerWidth() > 580;
-   let html = '<div class="rounded-border" style="justify-content:center;font-weight:bold;background-color:#2f2f2fd1;">' + weatherData.city + '</div>';
+   try {
+      weatherData = JSON.parse(allSensors[key]?.text || '');
+   }
+   catch (e) {}
 
-   for (let i = 0; i < weatherData.forecasts.length; i++) {
-      let weather = weatherData.forecasts[i];
-      let day = fmtWeekdayDayMonth(new Date(weather.time*1000));
-      let time = fmtHour(new Date(weather.time*1000));
-      let wIconRef = 'img/weather/' + weather.icon + '.png';
-
-      if (!images.find(img => img == wIconRef))
-         wIconRef = 'http://openweathermap.org/img/wn/' + weather.icon + '.png';
-
-      if (day != lastDay) {
-         lastDay = day;
-         html += '<div class="rounded-border" style="background-color:#2f2f2fd1;">' + day + '</div>';
-      }
-
-      let tempColor = weather.temp < 0 ? '#2c99eb' : (weather.temp > 20 ? 'red' : 'white');
-
-      html += '<div class="rounded-border">';
-      html += '<span>' + time + '</span>';
-      html += '<span><img src="' + wIconRef + '"></img></span>';
-      html += '<span class="mdi mdi-thermometer" style="color:' + tempColor + ';"> ' + weather.temp + ' °C</span>';
-      if (showExtras)
-         html += '<span class="mdi mdi-walk">' + weather.tempfeels + ' °C</span>';
-      html += '<span class="mdi mdi-water-percent"> ' + weather.humidity + ' %</span>';
-      html += '<span>' + weather.pressure + ' hPa</span>';
-      html += '<span class="mdi mdi-weather-windy"> ' + weather.windspeed + ' m/s</span>';
-
-      html += '</div>'
+   if (!weatherData || !Array.isArray(weatherData.forecasts) || !weatherData.forecasts.length) {
+      showInfoDialog({'message' : 'Keine Wettervorhersage vorhanden (' + key + ')'});
+      return;
    }
 
-   html += '</div>'
+   const fmt = (v, d = 0) => Number(v ?? 0).toLocaleString(dateLocale, { minimumFractionDigits: d, maximumFractionDigits: d });
+   const dayKey = (t) => new Date(t*1000).toDateString();
 
-   $(form).html(html);
-   $(form).focus();
-   $(form).keydown(function(event) {
-      if (event.which == 27 || event.which == 13) {
-         event.preventDefault();
-         $(form).remove();
+   // group by day
+
+   let days = [];
+
+   for (const w of weatherData.forecasts) {
+      let k = dayKey(w.time);
+      if (!days.length || days[days.length-1].key != k)
+         days.push({ 'key': k, 'time': w.time, 'steps': [] });
+      days[days.length-1].steps.push(w);
+   }
+
+   let tMin = Math.min(...weatherData.forecasts.map(w => w.temp));
+   let tMax = Math.max(...weatherData.forecasts.map(w => w.temp));
+   let tRange = Math.max(tMax - tMin, 1);
+
+   // head
+
+   let html = '<div class="wf-head">' +
+       '<span class="mdi mdi-map-marker-outline"></span><span class="wf-city">' + (weatherData.city || '') + '</span>' +
+       '<span class="wf-sub">Vorhersage ' + days.length + ' Tage</span>' +
+       '<span class="wf-close mdi mdi-close" title="Schließen"></span></div>';
+
+   // day chips
+
+   html += '<div class="wf-days">';
+
+   days.forEach((day, i) => {
+      let temps = day.steps.map(w => w.temp);
+      let noon = day.steps.reduce((a, w) => Math.abs(new Date(w.time*1000).getHours() - 13) < Math.abs(new Date(a.time*1000).getHours() - 13) ? w : a);
+      let pop = Math.max(...day.steps.map(w => w.pop ?? 0));
+      let rain = day.steps.reduce((a, w) => a + (w.rain ?? 0) + (w.snow ?? 0), 0);
+      let date = new Date(day.time*1000);
+
+      html += '<div class="wf-day" data-day="' + i + '">' +
+         '<div class="wf-dayname">' + (i == 0 ? 'Heute' : date.toLocaleDateString(dateLocale, { weekday: 'short' })) + '</div>' +
+         '<img src="' + weatherIconUrl(noon.icon, false) + '" alt="">' +
+         '<div><span class="wf-max ' + weatherTempClass(Math.max(...temps)) + '">' + fmt(Math.max(...temps)) + '°</span>' +
+         ' <span class="wf-min">' + fmt(Math.min(...temps)) + '°</span></div>' +
+         '<div class="wf-pop' + (pop >= 50 ? ' wf-wet' : '') + '"><span class="mdi mdi-water"></span>' + fmt(pop) + ' %' +
+         (rain >= 0.1 ? ' · ' + fmt(rain, 1) + ' mm' : '') + '</div>' +
+         '</div>';
+   });
+
+   html += '</div>';
+
+   // the steps per day
+
+   html += '<div class="wf-list">';
+
+   days.forEach((day, i) => {
+      let temps = day.steps.map(w => w.temp);
+
+      html += '<div class="wf-daytitle" id="wfDay' + i + '">' + fmtWeekdayDayMonth(new Date(day.time*1000)) +
+         '<span><span class="wf-max ' + weatherTempClass(Math.max(...temps)) + '">' + fmt(Math.max(...temps), 1) + '°</span>' +
+         ' / <span class="wf-min">' + fmt(Math.min(...temps), 1) + '°</span></span></div>';
+
+      for (const w of day.steps) {
+         let pos = (w.temp - tMin) / tRange * 100;
+         let wet = (w.rain ?? 0) + (w.snow ?? 0);
+
+         html += '<div class="wf-step">' +
+            '<span class="wf-time">' + fmtHour(new Date(w.time*1000)) + '</span>' +
+            '<img src="' + weatherIconUrl(w.icon, false) + '" alt="" title="' + (w.detail || '') + '">' +
+            '<span class="wf-detail">' + (w.detail || '') + '</span>' +
+            '<span class="wf-temp ' + weatherTempClass(w.temp) + '" title="gefühlt ' + fmt(w.tempfeels, 1) + ' °C">' + fmt(w.temp, 1) + '°</span>' +
+            '<span class="wf-bar"><span style="width:' + Math.max(3, pos) + '%"></span></span>' +
+            '<span class="wf-rain' + ((w.pop ?? 0) >= 50 ? ' wf-wet' : '') + '" title="Niederschlag">' +
+               '<span class="mdi ' + ((w.snow ?? 0) > 0 ? 'mdi-snowflake' : 'mdi-water') + '"></span>' + fmt(w.pop) + ' %' +
+               (wet >= 0.1 ? '<small> ' + fmt(wet, 1) + ' mm</small>' : '') + '</span>' +
+            '<span class="wf-wind" title="Wind, Böen ' + fmt(w.windgust, 1) + ' m/s">' +
+               '<span class="mdi mdi-navigation" style="transform:rotate(' + ((w.winddir ?? 0) + 180) + 'deg)"></span>' +
+               fmt(w.windspeed, 1) + '<small> (' + fmt(w.windgust, 0) + ')</small> m/s</span>' +
+            '<span class="wf-extra" title="Luftfeuchte / Luftdruck"><span class="mdi mdi-water-percent"></span>' + fmt(w.humidity) + ' %' +
+               ' · ' + fmt(w.pressure) + ' hPa</span>' +
+            '</div>';
       }
    });
+
+   html += '</div>';
+
+   // dialog
+
+   let $overlay = $('<div></div>').addClass('weatherForecastOverlay');
+   let $form = $('<div></div>').addClass('weatherForecast').attr('tabindex', 0).html(html);
+   const close = () => $overlay.remove();
+
+   $overlay.append($form);
+   $('#container').append($overlay);
+
+   $overlay.on('click', function(event) { if (event.target == this) close(); });
+   $form.find('.wf-close').on('click', close);
+   $form.find('.wf-day').on('click', function() {
+      let $day = $form.find('#wfDay' + $(this).attr('data-day'));
+      let $list = $form.find('.wf-list');
+      $list.animate({ scrollTop: $list.scrollTop() + $day.position().top }, 300);
+   });
+   $form.on('keydown', function(event) {
+      if (event.which == 27 || event.which == 13) {
+         event.preventDefault();
+         close();
+      }
+   });
+
+   $form.focus();
 }
 
 // ---------------------------------------------------------------------------
@@ -3149,9 +3201,6 @@ function updateWidget(sensor, refresh, widget)
    if (sensor.type == 'WEA' && (sensor.address == 2 || sensor.address == 3 || sensor.address == 4)) // Windy App
       sensor.valid = true;
 
-   if (sensor.type == 'WEA' && sensor.address == 1)
-      console.log("WEA 1: valid", String(sensor.valid));
-
    widgetDiv.css('opacity', sensor.valid ? '100%' : '45%');
    // $('#div_' + key.replace(':', '\\:')).css('opacity', sensor.valid ? '100%' : '25%');
 
@@ -3303,21 +3352,7 @@ function updateWidget(sensor, refresh, widget)
    }
    else if (widget.widgettype == 2 || widget.widgettype == 7)    // Text, PlainText
    {
-      if (sensor.type == 'WEA' && sensor.address == 1 && sensor.text != null) { // Open Weather Map
-         let bigView = false;
-         let wfact = fact;
-         weatherData = JSON.parse(sensor.text);
-         $("#widget" + fact.type + fact.address).html(getWeatherHtml(bigView, wfact, weatherData));
-         if (weatherInterval)
-            clearInterval(weatherInterval);
-         if (weatherData && config.toggleWeatherView != 0) {
-            weatherInterval = setInterval(function() {
-               bigView = !bigView;
-               $("#widget" + wfact.type + wfact.address).html(getWeatherHtml(bigView, wfact, weatherData));
-            }, 5*1000);
-         }
-      }
-      else if (sensor.type == 'WEA' && (sensor.address == 2 || sensor.address == 3)) { // Windy App
+      if (sensor.type == 'WEA' && sensor.address >= 2 && sensor.address <= 4) { // Windy App
 
       }
       else if (sensor.text != null) {

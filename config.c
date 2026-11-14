@@ -31,7 +31,6 @@ std::list<HomeCtl::ConfigItemDef> HomeCtl::configuration
 
    { "openWeatherApiKey",         ctString,  "",             "N", false, "Daemon", "Openweathermap API Key", "" },
    { "weatherInterval",           ctInteger, "15",           "N", false, "Daemon", "Weather Refresh Interval [m]", "" },
-   { "toggleWeatherView",         ctBool,    "1",            "N", false, "Daemon", "Toggle Weather Widget", "" },
 
    { "eloquence",                 ctBitSelect, "1",          "N", false, "Daemon", "Log Eloquence", "" },
 

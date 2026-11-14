@@ -286,34 +286,16 @@ class HomeCtl : public cWebInterface, public Service
          std::string description {};
       };
 
-      struct DefaultWidgetProperty
-      {
-         std::string type;
-         int address {na};
-         std::string unit;
-
-         WidgetType widgetType {wtMeter};
-         int minScale {0};
-         int maxScale {100};
-         int scaleStep {0};
-         bool showPeak {false};
-      };
-
-      static DefaultWidgetProperty defaultWidgetProperties[];
-      static DefaultWidgetProperty* getDefalutProperty(const char* type, const char* unit, int address = 0);
+      json_t* jWidgetDefaults {};   // <confDir>/widgetDefaults.json + widgetDefaults-usr.json (merged)
+      int loadWidgetDefaults();
+      json_t* loadWidgetDefaultsFile(const char* file, bool user);
+      json_t* findWidgetDefaultProperty(const char* type, const char* unit, int address);
+      const char* findWidgetDefaultSymbol(const char* type, const char* usrTitle, const char* unit, bool on);
       int widgetDefaults2Json(json_t* jDefaults, std::string type, std::string unit, const char* usrTitle, int address = 0);
 
-      struct ValueTypes
-      {
-         std::string typeExpression;
-         std::string title;
-         std::string symbol;       // e.g. 'mdi:mdi-thermometer'
-      };
-
-      static ValueTypes defaultValueTypes[];
-      static const ValueTypes* findValueType(const char* type);
-      static const char* getTitleOfType(const char* type);
-      static const char* getSymbolOfType(const char* type);
+      json_t* findValueType(const char* type);
+      const char* getTitleOfType(const char* type);
+      const char* getSymbolOfType(const char* type);
 
       virtual int exit();
       virtual int initLocale();
@@ -707,6 +689,7 @@ class HomeCtl : public cWebInterface, public Service
       };
 
       GpsCoordinate location(bool* fromGps = nullptr);        // position for sun times and weather (config or GPS)
+      std::string placeName(const GpsCoordinate& pos);       // name of the place (OpenStreetMap) for the weather
       bool sunCalc(bool force = false);                       // recalculate on a new day / moved position
       int sunUpdate(bool force = false);                      // sunCalc() and the sensor SUN:0x01
       int sun2Json(json_t* obj);
@@ -931,7 +914,6 @@ class HomeCtl : public cWebInterface, public Service
       int lmcPlaylist2Json(json_t* obj);
       int lmcMainMenu2Json(json_t* obj);
 
-      const char* getImageFor(std::string type, const char* usrTitle, std::string unit, int value);
       int toggleIo(uint addr, const char* type, int state = na, int bri = na, int transitiontime = na);
       int toggleColor(uint addr, const char* type, int color, int sat, int bri);
       int toggleColorTemperature(uint addr, const char* type, int ct, int bri);   // white mode of a color light, ct [mired]
@@ -973,7 +955,6 @@ class HomeCtl : public cWebInterface, public Service
       cDbTable* tableSamples {};
       cDbTable* tablePeaks {};
       cDbTable* tableValueFacts {};
-      cDbTable* tableValueTypes {};
       cDbTable* tableConfig {};
       cDbTable* tableSensorAlert {};
       cDbTable* tableUsers {};
@@ -995,7 +976,6 @@ class HomeCtl : public cWebInterface, public Service
 
       cDbStatement* selectTableStatistic {};
       cDbStatement* selectAllGroups {};
-      cDbStatement* selectAllValueTypes {};
       cDbStatement* selectActiveValueFacts {};
       cDbStatement* selectValueFactsByType {};
       cDbStatement* selectMaxValueFactsByType {};

@@ -278,6 +278,10 @@ install-config:
 	install --mode=644 -D ./etc/configs/*.dat $(CONFDEST)/;
 	install --mode=644 -D ./etc/configs/gpio.json $(CONFDEST)/;
 	install --mode=644 -D ./etc/configs/htmlWidgetTemplates.json $(CONFDEST)/;   # delivered, always replaced
+	install --mode=644 -D ./etc/configs/widgetDefaults.json $(CONFDEST)/;        # delivered, always replaced
+	if ! test -f $(CONFDEST)/widgetDefaults-usr.json; then \
+	   install --mode=644 -D ./etc/configs/widgetDefaults-usr.json $(CONFDEST)/; \
+	fi
 	if test -f ./etc/configs/defaultDashboards.json; then \
 	   install --mode=644 -D ./etc/configs/defaultDashboards.json $(CONFDEST)/; \
 	fi

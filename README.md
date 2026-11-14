@@ -73,6 +73,7 @@ If you like the project and want to support it
 |-------|---------|
 | [Installation](doc/installation.md) | prerequisites, database, build and install, first start, backup, MySQL hints |
 | [WEB Interface](doc/webif.md) | login, URL parameters, iOS home screen app, first steps, script sensors |
+| [Widget Defaults](doc/widget-defaults.md) | default widget type, scale, colors and symbols of new widgets, titles / symbols of the sensor groups, own rules in the user file |
 | [Hardware and Interfaces](doc/hardware.md) | One Wire, i2c bus, BMS, RTL-433, CI bus, GPIO, hardware of the pool control |
 | [deCONZ (Zigbee)](doc/deconz.md) | setup, API key, lights / groups / sensors, battery, invalid sensors |
 | [Light and Blind Control](doc/lights.md) | deCONZ lights / groups / switches / motion sensors, outputs, blinds: sun times, time control, rules, shading |

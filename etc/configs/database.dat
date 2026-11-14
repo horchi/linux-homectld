@@ -1,20 +1,5 @@
 
 // ----------------------------------------------------------------
-// Table valueTypes
-// ----------------------------------------------------------------
-
-Table valuetypes
-{
-   TYPE                 ""          type                 Ascii        8 Primary,
-
-   INSSP                ""          inssp                Int         10 Meta,
-   UPDSP                ""          updsp                Int         10 Meta,
-
-   TITLE                ""          title                Ascii       30 Data,
-   SYMBOL               "group symbol, e.g. mdi:mdi-thermometer" symbol Ascii 50 Data,
-}
-
-// ----------------------------------------------------------------
 // Table ValueFacts
 // ----------------------------------------------------------------
 

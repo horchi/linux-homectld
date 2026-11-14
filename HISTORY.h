@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.56"
+#define _VERSION     "0.1.57"
 #define VERSION_DATE "14.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,9 @@
 
 /*
  * ------------------------------------
+
+2026-11-14: version 0.1.57
+    - change: Improved weather widget
 
 2026-11-14: version 0.1.56
     - change: dashboard: blinds (HMB) as Symbol / Symbol-Value / Symbol-Text: always the shutter symbol

@@ -1,9 +1,6 @@
 
 # General
 
-- move the sensor default settings (defaultWidgetProperties in daemon.c: widget type, scale, peak per type / unit,
-  the colors in widgetDefaults2Json) out of the code into a JSON config on disk
-  (e.g. /etc/homectld/widget-defaults.json + a user file) or a table - to be decided
 - Anzeige der Widget defaults im Sensor Setup als Tab im Info Dialog
 - add write of victron registers to WEBIF
 

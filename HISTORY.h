@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.59"
+#define _VERSION     "0.1.60"
 #define VERSION_DATE "14.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,9 @@
 
 /*
  * ------------------------------------
+
+2026-11-14: version 0.1.60
+    - change: Moved HTML template for mixer to 'heizkreis'
 
 2026-11-14: version 0.1.59
     - added: HTML template for mixer

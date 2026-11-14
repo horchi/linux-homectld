@@ -21,6 +21,7 @@
  *    {{p.vl - p.rl|1}}        calculation: + - * / and ( ), numbers, refs (no eval, see htmlWidgetEval())
  *    {{p.temp > 25 ? warm : ok}}  comparison: > < >= <= == != (text compare with ==, != : {{p.x == 'auf' ? ..}})
  *    {{DZS:0x23.changed|ago}} 'vor 3 min'; fields age / changed are the seconds since the last update / change
+ *    {{DZS:0x23.changed|since}} 'seit 3 min' ({{p.pump ? an : aus}} {{p.pump.changed|since}} -> 'an seit 2 Tagen')
  *    {{w.id}}                 unique id of the widget (prefix for own ids: id="{{w.id}}-temp")
  *  Actions (attributes, the key may be a parameter 'p.<name>'):
  *    data-toggle="DZL:0x03"              switch
@@ -195,23 +196,26 @@ function htmlWidgetField(key, field, ctx)
    }
 }
 
-// seconds -> 'vor 3 min'
+// seconds -> 'vor 3 min' (since: 'seit 3 min')
 
-function htmlWidgetAgo(seconds)
+function htmlWidgetAgo(seconds, since = false)
 {
-   seconds = Number(seconds);
+   seconds = seconds == null || seconds === '' ? NaN : Number(seconds);     // no time known -> '–'
 
    if (isNaN(seconds))
       return null;
    if (seconds < 60)
-      return 'gerade eben';
+      return since ? 'seit < 1 min' : 'gerade eben';
+
+   let prefix = since ? 'seit ' : 'vor ';
+
    if (seconds < 3600)
-      return 'vor ' + Math.floor(seconds / 60) + ' min';
+      return prefix + Math.floor(seconds / 60) + ' min';
    if (seconds < 86400)
-      return 'vor ' + Math.floor(seconds / 3600) + ':' + String(Math.floor(seconds % 3600 / 60)).padStart(2, '0') + ' h';
+      return prefix + Math.floor(seconds / 3600) + ':' + String(Math.floor(seconds % 3600 / 60)).padStart(2, '0') + ' h';
 
    let days = Math.floor(seconds / 86400);
-   return 'vor ' + days + (days == 1 ? ' Tag' : ' Tagen');
+   return prefix + days + (days == 1 ? ' Tag' : ' Tagen');
 }
 
 //***************************************************************************
@@ -384,7 +388,7 @@ function htmlWidgetEval(text, ctx)
 }
 
 // one placeholder (without the braces) -> its text
-//   expr [| digits | ago]    expr ? a : b
+//   expr [| digits | ago | since]    expr ? a : b
 
 function htmlWidgetPlaceholder(expr, ctx)
 {
@@ -428,8 +432,8 @@ function htmlWidgetPlaceholder(expr, ctx)
       return htmlWidgetEscape(set ? cond[0] : cond[1]);
    }
 
-   if (format == 'ago')
-      value = htmlWidgetAgo(value);
+   if (format == 'ago' || format == 'since')
+      value = htmlWidgetAgo(value, format == 'since');
 
    if (value == null)
       return '–';
@@ -946,7 +950,7 @@ async function initHtmlWidgetsPage()
                      '<code>{{w.id}}</code> eindeutige ID des Widgets für eigene IDs (<code>id="{{w.id}}-temp"</code>)<br>' +
                      '<b>Ausdrücke:</b> <code>{{p.vl - p.rl|1}}</code> rechnen (+ - * / und Klammern), ' +
                      '<code>{{p.temp > 25 ? warm : ok}}</code> vergleichen (&gt; &lt; &gt;= &lt;= == !=, Text in \'...\'), ' +
-                     '<code>{{p.motion.changed|ago}}</code> \'vor 3 min\' (Felder age / changed: Sekunden seit Update / Änderung)<br>' +
+                     '<code>{{p.motion.changed|ago}}</code> \'vor 3 min\', <code>|since</code> \'seit 3 min\' (Felder age / changed: Sekunden seit Update / Änderung)<br>' +
                      '<b>Aktionen:</b> <code>data-toggle="DZL:0x03"</code> schalten, <code>data-set="HMB:0x02" data-value="0"</code> Helligkeit / Position, ' +
                      '<code>data-set="SAMTV:0x04" data-value="Netflix"</code> Auswahl (Text), ' +
                      '<code>data-chart="W1:0x01"</code> Chart, <code>data-forecast="WEA:0x01"</code> Wettervorhersage, statt des Keys auch <code>p.&lt;name&gt;</code><br>' +

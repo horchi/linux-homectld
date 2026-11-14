@@ -48,7 +48,7 @@ class Base64 {
     size_t in_len = data.size();
     size_t out_len = 4 * ((in_len + 2) / 3);
     std::string ret(out_len, '\0');
-    size_t i;
+    size_t i {};
     char *p = const_cast<char*>(ret.c_str());
 
     for (i = 0; i < in_len - 2; i += 3) {

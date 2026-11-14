@@ -493,7 +493,7 @@ int LmcCom::restQueryRange(std::string what, int from, int count, const char* sp
    char* request = json_dumps(jRequest, JSON_REAL_PRECISION(4));
    json_decref(jRequest);
    tell(eloDebugLmc, "[LMC/REST] -> (%s) [%s]", what.c_str(), request);
-   int res = curl->post(curlUrl, request, &lastRestResult);
+   int res {curl->post(curlUrl, request, &lastRestResult)};
    free(request);
 
    if (res != success)
@@ -564,44 +564,44 @@ int LmcCom::restQueryRange(std::string what, int from, int count, const char* sp
 
    json_array_foreach(jList, index, jObj)
    {
-      int res {fail};
+      int parseRes {fail};
       ListItem item;
 
       tell(eloLmc, "[LMC] Parsing '%s'", what.c_str());
 
       if (what == "genres")
-         res = parseGenres(jObj, item);
+         parseRes = parseGenres(jObj, item);
       else if (what == "artists")
-         res = parseArtists(jObj, item);
+         parseRes = parseArtists(jObj, item);
       else if (what == "albums")
-         res = parseAlbums(jObj, item);
+         parseRes = parseAlbums(jObj, item);
       else if (what == "newmusic")
-         res = parseNewmusic(jObj, item);
+         parseRes = parseNewmusic(jObj, item);
       else if (what == "tracks")
-         res = parseTracks(jObj, item);
+         parseRes = parseTracks(jObj, item);
       else if (what == "years")
-         res = parseYears(jObj, item);
+         parseRes = parseYears(jObj, item);
       else if (what == "playlists")
-         res = parsePlaylists(jObj, item);
+         parseRes = parsePlaylists(jObj, item);
       else if (what == "radios")
-         res = parseRadios(jObj, item);
+         parseRes = parseRadios(jObj, item);
       else if (what == "radioapps")
-         res = parseRadioapps(jObj, item);
+         parseRes = parseRadioapps(jObj, item);
       else if (what == "favorites")
-         res = parseFavorites(jObj, item);
+         parseRes = parseFavorites(jObj, item);
       else if (what == "players")
-         res = parsePlayers(jObj, item);
+         parseRes = parsePlayers(jObj, item);
       else if (what == "music")
-         res = parseMusic(jObj, item);
+         parseRes = parseMusic(jObj, item);
       else if (what == "local")
-         res = parseLocalRadio(jObj, item);
+         parseRes = parseLocalRadio(jObj, item);
       else
       {
          tell(eloDebugLmc, "[LMC] No parsing of '%s'", what.c_str());
          break;
       }
 
-      if (res == success)
+      if (parseRes == success)
          list->push_back(item);
    }
 
@@ -930,7 +930,7 @@ int LmcCom::parseMusic(json_t* jObj, ListItem& item)
 
 int LmcCom::request(const char* command)
 {
-   snprintf(lastCommand, sizeMaxCommand, "%s", command);
+   snprintf(lastCommand, sizeof(lastCommand), "%s", command);
    lastPar = "";
 
    tell(eloDebugLmc, "[LMC] Requesting '%s' with '%s', escId '%s'", lastCommand, lastPar.c_str(), escId);
@@ -1069,7 +1069,7 @@ int LmcCom::execute(const char* command)
 // Check for Notification
 //***************************************************************************
 
-int LmcCom::checkNotify(uint64_t timeout)
+int LmcCom::checkNotify(uint64_t tmo)
 {
    char buf[1000+TB] {};
    int status {wrnNoEventPending};
@@ -1119,7 +1119,7 @@ int LmcCom::checkNotify(uint64_t timeout)
 
    int res {success};
 
-   while ((res = notify->look(timeout)) == success)
+   while ((res = notify->look(tmo)) == success)
    {
       if (notify->read(buf, 1000, yes) == success)
       {

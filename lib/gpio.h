@@ -26,13 +26,13 @@
 struct PinInfo
 {
    std::string name;
-   bool gpio;
-   bool pull;              // support pull up/doen
-   bool interrupt;
+   bool gpio {};
+   bool pull {};              // support pull up/doen
+   bool interrupt {};
    std::string voltage;
    std::string description;
-   bool blocked;
-   bool usable;
+   bool blocked {};
+   bool usable {};
    std::string chipLabel;  // hardware label of gpiochip (e.g. "gpio0" on RK3568)
    int offset {-1};        // line offset within chip (hardware-fixed)
 };

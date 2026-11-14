@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.61"
+#define _VERSION     "0.1.62"
 #define VERSION_DATE "14.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,9 @@
 
 /*
  * ------------------------------------
+
+2026-11-14: version 0.1.62
+    -  Change: Code review and optimization in accordance with the C++23 standard
 
 2026-11-14: version 0.1.61
     - change: Improved schema edit

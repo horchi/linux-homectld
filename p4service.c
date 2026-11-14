@@ -1084,13 +1084,13 @@ std::string HomeCtl::p4StateMailHtml(const char* stateInfo, int state)
    // -------------------------------------------------
    // all values, grouped like the sensor types
 
-   static const std::pair<const char*, const char*> groups[] {
+   static const std::pair<const char*, const char*> p4Groups[] {
       { "P4VA", "Messwerte" }, { "P4DO", "Digitale Ausgänge" }, { "P4AO", "Analoge Ausgänge" },
       { "P4DI", "Digitale Eingänge" }, { "P4SD", "Statistik" } };
 
    std::string list;
 
-   for (const auto& [type, title] : groups)
+   for (const auto& [type, title] : p4Groups)
    {
       auto t {sensors.find(type)};
 

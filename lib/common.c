@@ -581,41 +581,36 @@ unsigned int getHostId()
 
 #if OPENSSL_VERSION_MAJOR >= 3
 
-int createMd5(const char* buf, md5* md5)
+int createMd5(const char* buf, md5* md5sum)
 {
-   EVP_MD_CTX* mdctx;
-   unsigned char* md5_digest {};
-   unsigned int md5_digest_len = EVP_MD_size(EVP_md5());
+   unsigned char digest[EVP_MAX_MD_SIZE] {};
+   unsigned int digestLen {0};
 
-   mdctx = EVP_MD_CTX_new();
-   EVP_DigestInit_ex(mdctx, EVP_md5(), NULL);
-
+   EVP_MD_CTX* mdctx {EVP_MD_CTX_new()};
+   EVP_DigestInit_ex(mdctx, EVP_md5(), nullptr);
    EVP_DigestUpdate(mdctx, buf, strlen(buf));
-
-   md5_digest = (unsigned char*)OPENSSL_malloc(md5_digest_len);
-   EVP_DigestFinal_ex(mdctx, md5_digest, &md5_digest_len);
+   EVP_DigestFinal_ex(mdctx, digest, &digestLen);
    EVP_MD_CTX_free(mdctx);
 
-   for (uint n = 0; n < md5_digest_len; n++)
-      sprintf(md5+2*n, "%02x", md5_digest[n]);
+   for (uint n = 0; n < digestLen; n++)
+      sprintf(md5sum+2*n, "%02x", digest[n]);
 
-   md5[sizeMd5] = 0;
+   md5sum[sizeMd5] = 0;
 
    return done;
 }
 
-int createMd5OfFile(const char* path, const char* name, md5* md5)
+int createMd5OfFile(const char* path, const char* name, md5* md5sum)
 {
-   EVP_MD_CTX* mdctx;
-   unsigned char* md5_digest;
-   unsigned int md5_digest_len = EVP_MD_size(EVP_md5());
-
+   unsigned char digest[EVP_MAX_MD_SIZE] {};
+   unsigned int digestLen {0};
    char* file {};
+
    asprintf(&file, "%s/%s", path, name);
 
-   FILE* f {};
+   FILE* f {fopen(file, "r")};
 
-   if (!(f = fopen(file, "r")))
+   if (!f)
    {
       tell(eloAlways, "Fatal: Cannot build MD5 of '%s'; Error was '%s'", file, strerror(errno));
       free(file);
@@ -624,32 +619,31 @@ int createMd5OfFile(const char* path, const char* name, md5* md5)
 
    free(file);
 
-   char buffer[1000];
-   int nread = 0;
+   char buffer[1000] {};
+   size_t nread {0};
 
-   mdctx = EVP_MD_CTX_new();
-   EVP_DigestInit_ex(mdctx, EVP_md5(), NULL);
+   EVP_MD_CTX* mdctx {EVP_MD_CTX_new()};
+   EVP_DigestInit_ex(mdctx, EVP_md5(), nullptr);
 
-   while ((nread = fread(buffer, 1, 1000, f)) > 0)
+   while ((nread = fread(buffer, 1, sizeof(buffer), f)) > 0)
       EVP_DigestUpdate(mdctx, buffer, nread);
 
    fclose(f);
 
-   md5_digest = (unsigned char*)OPENSSL_malloc(md5_digest_len);
-   EVP_DigestFinal_ex(mdctx, md5_digest, &md5_digest_len);
+   EVP_DigestFinal_ex(mdctx, digest, &digestLen);
    EVP_MD_CTX_free(mdctx);
 
-   for (uint n = 0; n < md5_digest_len; n++)
-      sprintf(md5+2*n, "%02x", md5_digest[n]);
+   for (uint n = 0; n < digestLen; n++)
+      sprintf(md5sum+2*n, "%02x", digest[n]);
 
-   md5[sizeMd5] = 0;
+   md5sum[sizeMd5] = 0;
 
    return success;
 }
 
 #else
 
-int createMd5(const char* buf, md5* md5)
+int createMd5(const char* buf, md5* md5sum)
 {
    MD5_CTX c;
    unsigned char out[MD5_DIGEST_LENGTH];
@@ -659,14 +653,14 @@ int createMd5(const char* buf, md5* md5)
    MD5_Final(out, &c);
 
    for (int n = 0; n < MD5_DIGEST_LENGTH; n++)
-      sprintf(md5+2*n, "%02x", out[n]);
+      sprintf(md5sum+2*n, "%02x", out[n]);
 
-   md5[sizeMd5] = 0;
+   md5sum[sizeMd5] = 0;
 
    return done;
 }
 
-int createMd5OfFile(const char* path, const char* name, md5* md5)
+int createMd5OfFile(const char* path, const char* name, md5* md5sum)
 {
    FILE* f;
    char buffer[1000];
@@ -696,9 +690,9 @@ int createMd5OfFile(const char* path, const char* name, md5* md5)
    MD5_Final(out, &c);
 
    for (int n = 0; n < MD5_DIGEST_LENGTH; n++)
-      sprintf(md5+2*n, "%02x", out[n]);
+      sprintf(md5sum+2*n, "%02x", out[n]);
 
-   md5[sizeMd5] = 0;
+   md5sum[sizeMd5] = 0;
 
    return success;
 }
@@ -866,12 +860,12 @@ void removeCharsExcept(std::string& str, const char* except)
    free(dest);
 }
 
-void removeWord(std::string& pattern, std::string word)
+void removeWord(std::string& pattern, const std::string& what)
 {
-   size_t pos;
+   size_t pos {pattern.find(what)};
 
-   if ((pos = pattern.find(word)) != std::string::npos)
-      pattern.swap(pattern.erase(pos, word.length()));
+   if (pos != std::string::npos)
+      pattern.erase(pos, what.length());
 }
 
 std::string strReplace(const std::string& what, const std::string& with, const std::string& subject)
@@ -1132,10 +1126,16 @@ char* eos(char* s)
 
 std::string l2pTime(time_t t, const char* fmt)
 {
-   char txt[300];
-   tm* tmp = localtime(&t);
+   char txt[300] {};
+   tm tmp {};
 
-   strftime(txt, sizeof(txt), fmt, tmp);
+   localtime_r(&t, &tmp);
+
+   // fmt is checked at the callers by the format(strftime) attribute of the declaration
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+   strftime(txt, sizeof(txt), fmt, &tmp);
+#pragma GCC diagnostic pop
 
    return std::string(txt);
 }
@@ -1792,10 +1792,10 @@ int gunzip(MemoryStruct* zippedData, MemoryStruct* unzippedData)
 
 int gzip(Bytef* dest, uLongf* destLen, const Bytef* source, uLong sourceLen)
 {
-    z_stream stream;
-    int res;
+    z_stream stream {};
+    int res {Z_OK};
 
-    stream.next_in = (Bytef *)source;
+    stream.next_in = const_cast<Bytef*>(source);      // zlib API is not const-correct
     stream.avail_in = (uInt)sourceLen;
     stream.next_out = dest;
     stream.avail_out = (uInt)*destLen;
@@ -1931,11 +1931,12 @@ const char* getFirstIp()
 
 int toUTF8(char* out, int outMax, const char* in, const char* from_code)
 {
-   iconv_t cd;
-   size_t ret;
-   char* toPtr;
-   char* fromPtr;
-   size_t fromLen, outlen;
+   iconv_t cd {};
+   size_t ret {0};
+   char* toPtr {};
+   char* fromPtr {};
+   size_t fromLen {0};
+   size_t outlen {0};
 
    const char* to_code = "UTF-8";
 
@@ -1956,7 +1957,7 @@ int toUTF8(char* out, int outMax, const char* in, const char* from_code)
    if (cd == (iconv_t)-1)
       return fail;
 
-   fromPtr = (char*)in;
+   fromPtr = const_cast<char*>(in);                  // iconv API is not const-correct
    toPtr = out;
    outlen = outMax;
 
@@ -2009,7 +2010,7 @@ int rep(const char* string, const char* expression, Option options)
 int rep(const char* string, const char* expression, const char*& s_location,
         Option options)
 {
-  const char* tmpA;
+  const char* tmpA {};
 
   return rep(string, expression, s_location, tmpA, options);
 }
@@ -2018,10 +2019,10 @@ int rep(const char* string, const char* expression, const char*& s_location,
 int rep(const char* string, const char* expression, const char*& s_location,
         const char*& e_location, Option options)
 {
-   regex_t reg;
-   regmatch_t rm;
-   int status;
-   int opt = 0;
+   regex_t reg {};
+   regmatch_t rm {};
+   int status {0};
+   int opt {0};
 
    // Vorbereiten von reg fuer die Expressionsuche mit regexec
    // Flags:  REG_EXTENDED = Use Extended Regular Expressions
@@ -2049,8 +2050,8 @@ int rep(const char* string, const char* expression, const char*& s_location,
    // Suche erfolgreich =>
    // Setzen der ermittelten Start- und Endpositionen
 
-   s_location = (char*)(string + rm.rm_so);
-   e_location = (char*)(string + rm.rm_eo);
+   s_location = string + rm.rm_so;
+   e_location = string + rm.rm_eo;
 
    return success;
 }

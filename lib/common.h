@@ -355,7 +355,7 @@ class cMyMutex
    private:
 
       pthread_mutex_t mutex;
-      int locked;
+      int locked {};
 };
 
 class cMyMutexLock
@@ -368,8 +368,8 @@ class cMyMutexLock
 
    private:
 
-      cMyMutex* mutex;
-      bool locked;
+      cMyMutex* mutex {};
+      bool locked {};
 };
 
 //***************************************************************************
@@ -429,7 +429,7 @@ int toUTF8(char* out, int outMax, const char* in, const char* from_code = 0);
 
 void removeChars(std::string& str, const char* ignore);
 void removeCharsExcept(std::string& str, const char* except);
-void removeWord(std::string& pattern, std::string word);
+void removeWord(std::string& pattern, const std::string& what);
 void prepareCompressed(std::string& pattern);
 std::string strReplace(const std::string& what, const std::string& with, const std::string& subject);
 std::string strReplace(const std::string& what, long with, const std::string& subject);
@@ -446,7 +446,7 @@ char* sstrcpy(char* dest, const char* src, int max);
 std::string num2Str(int num);
 std::string num2Str(double num);
 double round2(double d);
-std::string l2pTime(time_t t, const char* fmt = "%d.%m.%Y %T");
+std::string l2pTime(time_t t, const char* fmt = "%d.%m.%Y %T") __attribute__ ((format(strftime, 2, 0)));
 char* eos(char* s);
 const char* toElapsed(int seconds, char* buf);
 // #to-be-implemented: splitToInts(const char* string, char c, int& i1, int& i2);
@@ -481,10 +481,10 @@ int storeToFile(const char* filename, const char* data, int size = 0);
 
 struct FsStat
 {
-   double total;
-   double available;
-   double used;
-   unsigned int usedP;
+   double total {};
+   double available {};
+   double used {};
+   unsigned int usedP {};
 
 };
 
@@ -494,7 +494,7 @@ struct FileInfo
 {
    std::string path;
    std::string name;
-   uint type;
+   uint type {};
 };
 
 // special to get LNK and REG with one call of getFileList()
@@ -509,8 +509,8 @@ const char* getFirstIp();
 #ifdef USEMD5
   typedef char md5Buf[sizeMd5+TB];
   typedef char md5;
-  int createMd5(const char* buf, md5* md5);
-  int createMd5OfFile(const char* path, const char* name, md5* md5);
+  int createMd5(const char* buf, md5* md5sum);
+  int createMd5OfFile(const char* path, const char* name, md5* md5sum);
 #endif
 
 std::string getBacktrace(size_t steps);
@@ -537,7 +537,7 @@ class cRetBuf
 
    private:
 
-      char* s;
+      char* s {};
 };
 
 //***************************************************************************
@@ -557,7 +557,7 @@ class cTimeMs
 
    private:
 
-      uint64_t begin;
+      uint64_t begin {};
 };
 
 typedef cTimeMs cMyTimeMs;
@@ -747,7 +747,7 @@ class Sem
 
       int v()
       {
-         sembuf sops;
+         sembuf sops {};
 
          sops.sem_num = 0;
          sops.sem_op = -1;                          // release control

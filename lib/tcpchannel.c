@@ -192,7 +192,7 @@ int TcpChannel::open(unsigned short aPort, const char* aHost)
 
    // save hostname
 
-   strncpy(remoteHost, hostName, sizeof(remoteHost));
+   snprintf(remoteHost, sizeof(remoteHost), "%s", hostName);
 
    // set sockaddr
 

@@ -52,9 +52,9 @@ int HomeCtl::dispatchClientRequest()
             case evLogin:
             {
                status = performLogin(oObject);
-               long client = getLongFromJson(oObject, "client");
+               long loginClient {getLongFromJson(oObject, "client")};
                json_t* oJson {json_object()};
-               pushOutMessage(oJson, "ready", client);
+               pushOutMessage(oJson, "ready", loginClient);
                break;
             }
             case evLogout:              status = performLogout(oObject);                 break;
@@ -1145,10 +1145,10 @@ int HomeCtl::performChartData(json_t* oObject, long client)
    if (!client)
       return done;
 
-   double range = getDoubleFromJson(oObject, "range", 1);        // Anzahl der Tage
-   time_t rangeStart = getLongFromJson(oObject, "start", 0);     // Start Datum (unix timestamp)
-   const char* sensors = getStringFromJson(oObject, "sensors");  // Kommata getrennte Liste der Sensoren
-   const char* id = getStringFromJson(oObject, "id", "");
+   double range {getDoubleFromJson(oObject, "range", 1)};       // Anzahl der Tage
+   time_t rangeStart {getLongFromJson(oObject, "start", 0)};    // Start Datum (unix timestamp)
+   const char* chartSensors {getStringFromJson(oObject, "sensors")};  // Kommata getrennte Liste der Sensoren
+   const char* id {getStringFromJson(oObject, "id", "")};
 
    // the id is one of {"chart" "chartwidget" "chartdialog"}
 
@@ -1164,17 +1164,17 @@ int HomeCtl::performChartData(json_t* oObject, long client)
    {
       setConfigItem("chartRange", range);
 
-      if (!isEmpty(sensors))
+      if (!isEmpty(chartSensors))
       {
-         tell(eloDebugWebSock, "Storing sensors '%s' for chart", sensors);
-         setConfigItem("chartSensors", sensors);
+         tell(eloDebugWebSock, "Storing sensors '%s' for chart", chartSensors);
+         setConfigItem("chartSensors", chartSensors);
       }
    }
 
    std::vector<std::string> sList;
 
-   if (sensors)
-      sList = split(sensors, ',');
+   if (chartSensors)
+      sList = split(chartSensors, ',');
 
    json_t* oMain {json_object()};
    json_t* oJson {json_array()};
@@ -1186,7 +1186,7 @@ int HomeCtl::performChartData(json_t* oObject, long client)
    rangeTo.setValue(rangeStart + (int)(range*(int)tmeSecondsPerDay));
 
    tell(eloDb, "Db: Selecting chart '%s' data for sensors '%s' from (%lld) to (%lld) with range %.1f",
-        id, sensors, (long long)rangeFrom.getTimeValue(), (long long)rangeTo.getTimeValue(), range);
+        id, chartSensors, (long long)rangeFrom.getTimeValue(), (long long)rangeTo.getTimeValue(), range);
 
    tableValueFacts->clear();
 
@@ -1270,7 +1270,7 @@ int HomeCtl::performChartData(json_t* oObject, long client)
 
       uint count {0};
 
-      for (bool f = select->find(); f; f = select->fetch())
+      for (bool fs = select->find(); fs; fs = select->fetch())
       {
          // tell(eloDebugWebSock, "0x%x: '%s' : %0.2f", (uint)tableSamples->getStrValue("ADDRESS"),
          //      xmlTime.getStrValue(), tableSamples->getFloatValue("VALUE"));
@@ -1708,10 +1708,10 @@ int HomeCtl::storeConfig(json_t* obj, long client)
 
       // send the changed config to the sensor at once (else it gets it with its next init)
 
-      for (const auto& name : sensorConfigs)
+      for (const auto& cfgName : sensorConfigs)
       {
-         tell(eloAlways, "Info: Sending changed config '%s' to the sensor", name.c_str());
-         publishSensorInit(getStringBefore(name, ":").c_str(), name.c_str());
+         tell(eloAlways, "Info: Sending changed config '%s' to the sensor", cfgName.c_str());
+         publishSensorInit(getStringBefore(cfgName, ":").c_str(), cfgName.c_str());
       }
 
       json_t* oJson {json_object()};
@@ -1736,8 +1736,8 @@ int HomeCtl::checkLuaScript(json_t* obj, long client)
    const char* script {getStringFromJson(obj, "lua", "")};
 
    std::string error;
-   Lua lua;
-   int status = lua.syntaxCheck(script, error);
+   Lua checker;
+   int status {checker.syntaxCheck(script, error)};
 
    json_t* oJson {json_object()};
    json_object_set_new(oJson, "status", json_integer(status == success ? 0 : 1));
@@ -1855,16 +1855,16 @@ int HomeCtl::storeIoSettings(json_t* obj, long client)
 
    if (action == "add")
    {
-      uint address {1};
+      uint newAddress {1};
 
       for (const auto& sensor : sensors[type])
-         if (sensor.second.address >= address)
-            address = sensor.second.address + 1;
+         if (sensor.second.address >= newAddress)
+            newAddress = sensor.second.address + 1;
 
       const char* name {getStringFromJson(obj, "name", "UNNAMED")};
-      tell(eloAlways, "Add sensor '%s' - '%s:0x%x'", name, type, address);
-      std::string sensorName {std::string(name) + " " + std::to_string(address)};
-      addValueFact(address, type, 1, sensorName.c_str(), "", "", strcmp(type, "SCN") == 0 ? urControl : urNone);   // scenes are started by a click
+      tell(eloAlways, "Add sensor '%s' - '%s:0x%x'", name, type, newAddress);
+      std::string sensorName {std::string(name) + " " + std::to_string(newAddress)};
+      addValueFact(newAddress, type, 1, sensorName.c_str(), "", "", strcmp(type, "SCN") == 0 ? urControl : urNone);   // scenes are started by a click
    }
 
    else if (action == "clone" && strcmp(type, "SC") == 0)
@@ -2038,13 +2038,13 @@ int HomeCtl::storeDashboards(json_t* obj, long client)
 
       json_object_foreach(obj, dashboardIdStr, jObj)
       {
-         long dashboardId = atol(dashboardIdStr);
-         const char* dashboardTitle = getStringFromJson(jObj, "title", "<new>");
-         const char* dashboardSymbol = getStringFromJson(jObj, "symbol");
-         int group = getIntFromJson(jObj, "group", 0);
-         const char* action = getStringFromJson(jObj, "action", "store");
+         long dashboardId {atol(dashboardIdStr)};
+         const char* dashboardTitle {getStringFromJson(jObj, "title", "<new>")};
+         const char* dashboardSymbol {getStringFromJson(jObj, "symbol")};
+         int group {getIntFromJson(jObj, "group", 0)};
+         const char* dashboardAction {getStringFromJson(jObj, "action", "store")};
 
-         if (strcmp(action, "delete") == 0)
+         if (strcmp(dashboardAction, "delete") == 0)
          {
             tell(eloDebugWebSock, "Debug: Deleting dashboard '%ld'", dashboardId);
 

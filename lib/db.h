@@ -443,16 +443,16 @@ class cDbValue : public cDbService
 
    private:
 
-      cDbFieldDef* ownField;
-      cDbFieldDef* field;
-      long numValue;
-      int64_t longlongValue;
-      float floatValue;
-      MYSQL_TIME timeValue;
-      char* strValue;
-      unsigned long strValueSize;
-      my_bool nullValue;
-      int changed;
+      cDbFieldDef* ownField {};
+      cDbFieldDef* field {};
+      long numValue {};
+      int64_t longlongValue {};
+      float floatValue {};
+      MYSQL_TIME timeValue {};
+      char* strValue {};
+      unsigned long strValueSize {};
+      my_bool nullValue {};
+      int changed {};
 };
 
 //***************************************************************************
@@ -513,22 +513,22 @@ class cDbStatement : public cDbService
    private:
 
       std::string stmtTxt;
-      MYSQL_STMT* stmt;
-      int affected;
-      cDbConnection* connection;
-      cDbTable* table;
-      int inCount;
-      MYSQL_BIND* inBind;         // to db
-      int outCount;
+      MYSQL_STMT* stmt {};
+      int affected {};
+      cDbConnection* connection {};
+      cDbTable* table {};
+      int inCount {};
+      MYSQL_BIND* inBind {};         // to db
+      int outCount {};
       MYSQL_BIND* outBind;        // from db (result)
-      MYSQL_RES* metaResult;
-      const char* bindPrefix;
-      int firstExec;              // debug explain
-      int buildErrors;
+      MYSQL_RES* metaResult {};
+      const char* bindPrefix {};
+      int firstExec {};              // debug explain
+      int buildErrors {};
 
-      unsigned long callsPeriod;
-      unsigned long callsTotal;
-      double duration;
+      unsigned long callsPeriod {};
+      unsigned long callsTotal {};
+      double duration {};
 };
 
 //***************************************************************************
@@ -715,8 +715,8 @@ class cDbRow : public cDbService
 
    protected:
 
-      cDbTableDef* tableDef;
-      cDbValue* dbValues;
+      cDbTableDef* tableDef {};
+      cDbValue* dbValues {};
 };
 
 //***************************************************************************
@@ -831,7 +831,7 @@ class cDbConnection
 
       virtual int __attribute__ ((format(printf, 3, 4))) query(int& count, const char* format, ...)
       {
-         int status;
+         int status {};
          va_list more;
 
          count = 0;
@@ -843,8 +843,8 @@ class cDbConnection
 
          if ((status = vquery(format, more)) == success)
          {
-            MYSQL_RES* res;
-            MYSQL_ROW data;
+            MYSQL_RES* res {};
+            MYSQL_ROW data {};
 
             // get affected rows ..
 
@@ -869,7 +869,7 @@ class cDbConnection
 
          if (h && format)
          {
-            char* stmt;
+            char* stmt {};
 
             vasprintf(&stmt, format, more);
 
@@ -913,9 +913,9 @@ class cDbConnection
 
       virtual int executeSqlFile(const char* file)
       {
-         FILE* f;
-         int res;
-         char* buffer;
+         FILE* f {};
+         int res {};
+         char* buffer {};
          int size = 1000;
          int nread = 0;
 
@@ -1071,12 +1071,12 @@ class cDbConnection
 
    private:
 
-      MYSQL* mysql;
+      MYSQL* mysql {};
 
       // int initialized;
-      int attached;
-      int inTact;
-      int connectDropped;
+      int attached {};
+      int inTact {};
+      int connectDropped {};
 
       static cMyMutex initMutex;
       static int initThreads;
@@ -1255,7 +1255,7 @@ class cDbView : public cDbService
 
       int create(const char* path, const char* sqlFile)
       {
-         int status;
+         int status {};
          char* file = 0;
 
          asprintf(&file, "%s/%s", path, sqlFile);
@@ -1279,8 +1279,8 @@ class cDbView : public cDbService
 
    protected:
 
-      cDbConnection* connection;
-      char* name;
+      cDbConnection* connection {};
+      char* name {};
 };
 
 //***************************************************************************
@@ -1348,7 +1348,7 @@ class cDbProcedure : public cDbService
 
       int create(const char* path)
       {
-         int status;
+         int status {};
          char* file = 0;
 
          asprintf(&file, "%s/%s.sql", path, name);
@@ -1372,7 +1372,7 @@ class cDbProcedure : public cDbService
 
       static int existOnFs(const char* path, const char* name)
       {
-         int state;
+         int state {};
          char* file = 0;
 
          asprintf(&file, "%s/%s.sql", path, name);
@@ -1385,9 +1385,9 @@ class cDbProcedure : public cDbService
 
    protected:
 
-      cDbConnection* connection;
-      ProcType type;
-      char* name;
+      cDbConnection* connection {};
+      ProcType type {};
+      char* name {};
 
 };
 

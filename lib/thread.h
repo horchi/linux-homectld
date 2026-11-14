@@ -27,7 +27,7 @@ class cCondWait
 
       pthread_mutex_t mutex;
       pthread_cond_t cond;
-      bool signaled;
+      bool signaled {};
 };
 
 class cCondVar
@@ -70,11 +70,11 @@ class cThread
 
       static void* StartThread(cThread *Thread);
 
-      pthread_t childTid;
-      pid_t childThreadId;
-      char* description;
-      bool lowPriority;
-      int silent;
+      pthread_t childTid {};
+      pid_t childThreadId {};
+      char* description {};
+      bool lowPriority {};
+      int silent {};
       pthread_attr_t attr;
 
    protected:
@@ -87,6 +87,6 @@ class cThread
 
       cCondVar waitCondition;
       cMyMutex mutex;
-      bool active;
-      bool running;
+      bool active {};
+      bool running {};
 };

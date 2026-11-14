@@ -92,8 +92,8 @@ class cDbService
 
       struct TypeDef
       {
-         FieldType type;
-         const char* name;
+         FieldType type {};
+         const char* name {};
       };
 
       static const char* toString(FieldFormat t);
@@ -159,7 +159,7 @@ class cDbFieldDef : public cDbService
       const char* getDefault()       { return def ? def : ""; }
       int getFilter()                { return filter; }
       int filterMatch(int f)         { return !f || filter & f; }
-      int hasType(int types)         { return types & type; }
+      int hasType(int t)             { return t & type; }
       int hasFormat(int f)           { return format == f; }
 
       int isString()                 { return format == ffAscii || format == ffText ||
@@ -219,9 +219,9 @@ class cDbFieldDef : public cDbService
 
       void show()
       {
-         char colFmt[100];
-         char fType[100];
-         char tmp[100];
+         char colFmt[100] {};
+         char fType[100] {};
+         char tmp[100] {};
 
          sprintf(fType, "(%s)", toName((FieldType)type, tmp));
 
@@ -235,7 +235,7 @@ class cDbFieldDef : public cDbService
       char* dbname {};
       char* description {};
       char* dbdescription {};
-      FieldFormat format;
+      FieldFormat format {};
       int size {0};
       int index {0};
       int type {0};
@@ -278,8 +278,8 @@ class cDbIndexDef
 
    protected:
 
-      char* name;
-      char* description;
+      char* name {};
+      char* description {};
       std::vector<cDbFieldDef*> dfields;  // index fields
 };
 
@@ -397,7 +397,7 @@ class cDbTableDef : public cDbService
 
    private:
 
-      char* name;
+      char* name {};
       std::vector<cDbIndexDef*> indices;
 
       // FiledDefs stored as list to have access via index
@@ -461,12 +461,12 @@ class cDbDict : public cDbService
 
       // data
 
-      int inside;
-      cDbTableDef* curTable;
+      int inside {};
+      cDbTableDef* curTable {};
       std::map<std::string, cDbTableDef*, _casecmp_> tables;
-      char* path;
-      int fieldFilter;
-      FilterFromName fltFromNameFct;
+      char* path {};
+      int fieldFilter {};
+      FilterFromName fltFromNameFct {};
 };
 
 extern cDbDict dbDict;

@@ -715,7 +715,7 @@ int cWebSock::callbackWs(lws* wsi, lws_callback_reasons reason, void* user, void
 
             // on WSS connections bigger chunk sizes seems result in slow performance and locking of paket transmissions
 
-            enum {chunkSizeMax = 10*1024};
+            constexpr size_t chunkSizeMax {10*1024};
 
             if (clients[wsi].msgBufferPayloadSize)
             {

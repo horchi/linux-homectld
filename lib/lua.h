@@ -41,7 +41,7 @@ class Lua
 
       struct Result
       {
-         Type type;
+         Type type {};
          bool bValue {false};
          int iValue {0};
          double dValue {0.0};

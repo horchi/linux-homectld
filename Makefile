@@ -83,7 +83,7 @@ htdocs/index.html:
 	@(cd htdocs; $(MAKE) --no-print-directory index.html)
 
 # auto dependencies
-MAKEDEP = g++ -std=c++2a -x c++ -MM -MG
+MAKEDEP = g++ -std=c++23 -x c++ -MM -MG
 DEPFILE = .dependencies
 
 #$(DEPFILE): Makefile

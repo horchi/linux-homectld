@@ -913,7 +913,7 @@ long Deconz::addressOf(const char* kind, const char* uuid)
    const std::map<std::string,uint>& map {strcmp(kind, "light") == 0 ? lights : sensors};
    auto it {map.find(uuid)};
 
-   return it != map.end() ? (long)it->second : na;
+   return it != map.end() ? (long)it->second : (long)na;
 }
 
 time_t Deconz::knownSince(const char* kind, const char* uuid)

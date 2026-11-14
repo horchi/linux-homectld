@@ -62,7 +62,7 @@ class cCurl
 
       // data
 
-      CURL* handle;
+      CURL* handle {};
 
    // static cSystemNotification* sysNotification;
 

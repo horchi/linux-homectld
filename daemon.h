@@ -43,7 +43,7 @@ extern char dbName[];
 extern char dbUser[];
 extern char dbPass[];
 
-extern char* confDir;
+extern const char* confDir;
 extern const char* daemonVersion;     // VERSION of HISTORY.h - defined in main.c, so a version bump rebuilds main.o only
 
 //***************************************************************************
@@ -277,7 +277,7 @@ class HomeCtl : public cWebInterface, public Service
       struct ConfigItemDef
       {
          std::string name;
-         ConfigItemType type;
+         ConfigItemType type {};
          std::string def {};
          std::string kind {};
          bool internal {false};
@@ -1046,7 +1046,7 @@ class HomeCtl : public cWebInterface, public Service
       struct WsClient    // Web Socket Client
       {
          std::string user;
-         uint rights;                  // rights mask
+         uint rights {};                  // rights mask
          std::string page;
          ClientType type {ctActive};
       };

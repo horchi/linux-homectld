@@ -1663,9 +1663,9 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
 
          std::string levelColor {haspColor(getStringFromJson(jOpts, "barcolor", ""), ref.colorOn.c_str())};
 
-         auto rect = [&](int id, int parent, int x, int y, int w, int h, const char* color)
+         auto rect = [&](int id, int parent, int rx, int ry, int rw, int rh, const char* color)
          {
-            json_t* j {haspObj(pageNo, id, "obj", parent, x, y, w, h)};
+            json_t* j {haspObj(pageNo, id, "obj", parent, rx, ry, rw, rh)};
             json_object_set_new(j, "bg_color", json_string(color));
             json_object_set_new(j, "bg_grad_color", json_string(color));
             json_object_set_new(j, "bg_grad_dir", json_integer(0));
@@ -1760,9 +1760,9 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
          int zeroX {xOf(std::clamp(0.0, (double)scaleMin, (double)scaleMax))};   // fill starts at the edge if zero is outside
          bool zeroInside {scaleMin < 0 && scaleMax > 0};
 
-         auto rect = [&](int id, int parent, int x, int y, int w, int h, const char* color, int radius)
+         auto rect = [&](int id, int parent, int rx, int ry, int rw, int rh, const char* color, int radius)
          {
-            json_t* j {haspObj(pageNo, id, "obj", parent, x, y, w, h)};
+            json_t* j {haspObj(pageNo, id, "obj", parent, rx, ry, rw, rh)};
             json_object_set_new(j, "bg_color", json_string(color));
             json_object_set_new(j, "bg_grad_color", json_string(color));
             json_object_set_new(j, "bg_grad_dir", json_integer(0));

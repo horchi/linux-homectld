@@ -97,9 +97,10 @@ class LmcCom : public TcpChannel
       typedef std::list<ListItem> RangeList;
       typedef std::list<std::string> Parameters;
 
+      static constexpr int sizeMaxCommand {100};
+
       enum Misc
       {
-         sizeMaxCommand = 100,
          tmoResync = 60,          // [s] without state update forcing a resync
          tmoResyncCheck = 15,     // [s] between resync checks
          tmoNotifyStable = 30,    // [s] uptime after which notify counts as healthy
@@ -147,7 +148,7 @@ class LmcCom : public TcpChannel
 
       int startNotify();
       int stopNotify();
-      int checkNotify(uint64_t timeout = 0);
+      int checkNotify(uint64_t tmo = 0);
       int execute(const char* command);
 
       // const char* getLastQueryTitle() { return queryTitle ? queryTitle : ""; }
@@ -209,7 +210,7 @@ class LmcCom : public TcpChannel
 
       cCurl* curl {};
       char* curlUrl {};
-      char lastCommand[sizeMaxCommand+TB] {};
+      char lastCommand[sizeMaxCommand+1] {};
       std::string lastPar;
 
       TrackInfo dummyTrack;

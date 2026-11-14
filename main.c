@@ -15,7 +15,7 @@
 #include "daemon.h"
 #include "HISTORY.h"
 
-char* confDir = (char*)confDirDefault;
+const char* confDir {confDirDefault};
 const char* daemonVersion {VERSION};
 
 // defaults

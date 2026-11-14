@@ -103,7 +103,11 @@ ssize_t mqtt_pal_sendall(mqtt_pal_socket_handle fd, const char* buf, size_t len,
 
       if (tmp < 1)
       {
+#if EAGAIN == EWOULDBLOCK
+         if (errno == EAGAIN)
+#else
          if (errno == EAGAIN || errno == EWOULDBLOCK)
+#endif
          {
             usleep(100);
             continue;

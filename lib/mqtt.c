@@ -383,46 +383,42 @@ int Mqtt::write(const char* topic, const char* message, size_t len, uint8_t flag
 
 int Mqtt::openSocket(const char* addr, int port)
 {
-   struct addrinfo hints = {0};
-   int sockfd = -1;
-   int rv;
-   struct addrinfo *p, *servinfo;
-   char service[100];
+   addrinfo hints {};
+   addrinfo* servinfo {};
+   int fd {-1};
 
    hints.ai_family = AF_UNSPEC;      // IPv4 or IPv6
    hints.ai_socktype = SOCK_STREAM;  // Must be TCP
-   sprintf(service, "%d", port);
 
    // get address information
 
-   rv = getaddrinfo(addr, service, &hints, &servinfo);
-
-   if (rv != 0)
+   if (getaddrinfo(addr, std::to_string(port).c_str(), &hints, &servinfo) != 0)
       return -1;
 
    //  open first possible socket
 
-   for (p = servinfo; p != NULL; p = p->ai_next)
+   for (addrinfo* p = servinfo; p; p = p->ai_next)
    {
-      sockfd = ::socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+      fd = ::socket(p->ai_family, p->ai_socktype, p->ai_protocol);
 
-      if (sockfd == -1)
+      if (fd == -1)
          continue;
 
-      rv = ::connect(sockfd, servinfo->ai_addr, servinfo->ai_addrlen);
+      if (::connect(fd, p->ai_addr, p->ai_addrlen) == 0)
+         break;
 
-      if (rv == -1)
-         continue;
-
-      break;
+      int err {errno};             // keep the connect error for the caller
+      ::close(fd);
+      fd = -1;
+      errno = err;
    }
 
    freeaddrinfo(servinfo);
 
    // #TODO don't set O_NONBLOCK
 
-   if (sockfd != -1)
-      fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL) | O_NONBLOCK);
+   if (fd != -1)
+      fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
 
-   return sockfd;
+   return fd;
 }

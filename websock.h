@@ -22,6 +22,8 @@ class cWebInterface : public cWebService
 {
    public:
 
+      virtual ~cWebInterface() = default;
+
       virtual const char* myName() = 0;
       virtual int pushInMessage(const char* data) = 0;
 };
@@ -57,10 +59,10 @@ class cWebSock : public cWebService
 
       struct SessionData
       {
-         char* buffer;
-         int bufferSize;
-         int payloadSize;
-         int dataPending;
+         char* buffer {};
+         int bufferSize {};
+         int payloadSize {};
+         int dataPending {};
       };
 
       struct Client

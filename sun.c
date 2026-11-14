@@ -325,18 +325,18 @@ int HomeCtl::sunResolve(const char* ref, int offset, uint& hhmm, const SunTimes*
          times = &sunTimes;
       }
 
-      const SunTimes& sunTimes {*times};
+      const SunTimes& st {*times};
       bool rising {strcmp(ref, "dawn") == 0 || strcmp(ref, "sunrise") == 0};
       time_t t {0};
 
       if (strcmp(ref, "dawn") == 0)
-         t = sunTimes.dawn ? sunTimes.dawn : sunTimes.sunrise;
+         t = st.dawn ? st.dawn : st.sunrise;
       else if (strcmp(ref, "sunrise") == 0)
-         t = sunTimes.sunrise;
+         t = st.sunrise;
       else if (strcmp(ref, "sunset") == 0)
-         t = sunTimes.sunset;
+         t = st.sunset;
       else if (strcmp(ref, "dusk") == 0)
-         t = sunTimes.dusk ? sunTimes.dusk : sunTimes.sunset;
+         t = st.dusk ? st.dusk : st.sunset;
       else
          return fail;
 
@@ -344,7 +344,7 @@ int HomeCtl::sunResolve(const char* ref, int offset, uint& hhmm, const SunTimes*
       {
          // midnight sun / polar night - the sun is up or down all day, offset ignored
 
-         hhmm = rising == sunTimes.sunUp ? 0 : 2400;
+         hhmm = rising == st.sunUp ? 0 : 2400;
          return success;
       }
 

@@ -875,18 +875,13 @@ struct FieldInfo
 int cDbTable::validateStructure(int allowAlter)
 {
    std::map<std::string, FieldInfo, _casecmp_> fields;
-   MYSQL_RES* result;
-   MYSQL_ROW row;
+   MYSQL_RES* result {};
+   MYSQL_ROW sqlRow {};
    std::map<std::string, FieldInfo, _casecmp_>::iterator it;
    int needDetach = no;
 
    if (!allowAlter)
       return done;
-
-   const char* select = "select column_name, column_type, column_comment, data_type, is_nullable, "
-      " character_maximum_length, column_default, numeric_precision "
-      " from information_schema.columns "
-      " where table_name = '%s' and table_schema= '%s'";
 
    if (!isAttached())
    {
@@ -899,7 +894,11 @@ int cDbTable::validateStructure(int allowAlter)
    // ------------------------
    // execute query
 
-   if (connection->query(select, TableName(), connection->getName()) != success)
+   if (connection->query("select column_name, column_type, column_comment, data_type, is_nullable, "
+                         " character_maximum_length, column_default, numeric_precision "
+                         " from information_schema.columns "
+                         " where table_name = '%s' and table_schema= '%s'",
+                         TableName(), connection->getName()) != success)
    {
       connection->errorSql(getConnection(), "validateStructure()", 0);
       if (needDetach) detach();
@@ -916,18 +915,18 @@ int cDbTable::validateStructure(int allowAlter)
       return fail;
    }
 
-   while ((row = mysql_fetch_row(result)))
+   while ((sqlRow = mysql_fetch_row(result)))
    {
-      fields[row[0]].columnFormat = row[1];
-      fields[row[0]].description = row[2] ? row[2] : "";
-      fields[row[0]].defaulValue = row[6] ? strcasecmp(row[6], "NULL") == 0 ? "" : row[6] : "";
+      fields[sqlRow[0]].columnFormat = sqlRow[1];
+      fields[sqlRow[0]].description = sqlRow[2] ? sqlRow[2] : "";
+      fields[sqlRow[0]].defaulValue = sqlRow[6] ? strcasecmp(sqlRow[6], "NULL") == 0 ? "" : sqlRow[6] : "";
 
-      if (fields[row[0]].defaulValue.length() > 2 &&
-          fields[row[0]].defaulValue.back() == '\'' &&
-          fields[row[0]].defaulValue.front() == '\'')
+      if (fields[sqlRow[0]].defaulValue.length() > 2 &&
+          fields[sqlRow[0]].defaulValue.back() == '\'' &&
+          fields[sqlRow[0]].defaulValue.front() == '\'')
       {
-         fields[row[0]].defaulValue.pop_back();
-         fields[row[0]].defaulValue.erase(0, 1);
+         fields[sqlRow[0]].defaulValue.pop_back();
+         fields[sqlRow[0]].defaulValue.erase(0, 1);
       }
    }
 
@@ -1288,8 +1287,8 @@ int cDbTable::checkIndex(const char* idxName, int& fieldCount)
       idCount
    };
 
-   MYSQL_RES* result;
-   MYSQL_ROW row;
+   MYSQL_RES* result {};
+   MYSQL_ROW sqlRow {};
 
    fieldCount = 0;
 
@@ -1302,13 +1301,13 @@ int cDbTable::checkIndex(const char* idxName, int& fieldCount)
 
    if ((result = mysql_store_result(connection->getMySql())))
    {
-      while ((row = mysql_fetch_row(result)))
+      while ((sqlRow = mysql_fetch_row(result)))
       {
          tell(eloDebugDb, "%s:  %-20s %s %s",
-              row[idTable], row[idKeyName],
-              row[idSeqInIndex], row[idColumnName]);
+              sqlRow[idTable], sqlRow[idKeyName],
+              sqlRow[idSeqInIndex], sqlRow[idColumnName]);
 
-         if (strcasecmp(row[idKeyName], idxName) == 0)
+         if (strcasecmp(sqlRow[idKeyName], idxName) == 0)
             fieldCount++;
       }
 

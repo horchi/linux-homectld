@@ -311,7 +311,6 @@ int HomeCtl::zigbee2Json(json_t* obj)
          // new: found by the last search (while it runs and zigbeeNewFor after its end) or first seen
          //  by homectld within zigbeeNewFor (also paired in Phoscon, taken by a later read of the devices)
 
-         time_t now {time(0)};
          time_t since {deconz.knownSince(isLight ? "light" : "sensor", uuid)};
          auto itFound {zigbeeFound.find(mac)};
 
@@ -586,7 +585,7 @@ int HomeCtl::zigbeeEvent(json_t* oEvent)
       //  it can be deleted by the sensor setup
 
       const char* uuid {getStringFromJson(oEvent, "uniqueid", "")};
-      long address {isEmpty(uuid) ? na : deconz.addressOf(strcmp(resource, "lights") == 0 ? "light" : "sensor", uuid)};
+      long address {isEmpty(uuid) ? (long)na : deconz.addressOf(strcmp(resource, "lights") == 0 ? "light" : "sensor", uuid)};
 
       tell(eloAlways, "DECONZ: '%s/%s' (%s) was deleted at deCONZ%s", resource, id, uuid,
            address != na ? ", its sensor of homectld stays" : "");

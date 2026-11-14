@@ -27,7 +27,7 @@ DEBUG      ?= 1
 # the sources are C++ in files named .c (as everywhere in this repository)
 
 CFLAGS     += $(shell pkg-config --cflags jansson)
-CFLAGS     += -pipe -pthread -fPIC -std=c++2a -x c++ -MMD -MP -I..
+CFLAGS     += -pipe -pthread -fPIC -std=c++23 -x c++ -MMD -MP -I..
 CFLAGS     += -Wall -Wreturn-type -Wformat -pedantic -Wunused-variable -Wunused-label -Wunused-value -Wunused-function \
               -Wno-long-long -Wno-unused-parameter -Wno-deprecated-enum-enum-conversion -Wno-psabi
 CFLAGS     += -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE -D_GNU_SOURCE

@@ -632,11 +632,11 @@ int HomeCtl::init()
    {
       tell(eloAlways, "DECONZ: No API key for '%s' jet, try to query", deconz.getHttpUrl());
       std::string result;
-      int status {deconz.queryApiKey(result)};
+      int keyStatus {deconz.queryApiKey(result)};
 
-      if (status != success)
+      if (keyStatus != success)
       {
-         tell(eloAlways, "DECONZ: Key result was '%s' (%d)", result.c_str(), status);
+         tell(eloAlways, "DECONZ: Key result was '%s' (%d)", result.c_str(), keyStatus);
          tell(eloAlways, "ACHTUNG: Initiale Registrierung bei deconz '%s' fehlgeschlagen! "   \
               "Unlock the deCONZ gateway and use 'API-Key holen' of the WEBIF page 'Setup -> Zigbee' "   \
               "(or restart homectld) within the 60 seconds", deconz.getHttpUrl());
@@ -793,7 +793,7 @@ int HomeCtl::initLocale()
    time_t nun {time(nullptr)};
    struct tm* tmTime {localtime(&nun)};
    char strTime[64] {};
-   strftime(strTime, sizeof(strTime), "%c", tmTime);
+   strftime(strTime, sizeof(strTime), "%a %d.%m.%Y %T", tmTime);
 
    tell(eloAlways, "Daylight (glob: %d, akt: %d); Timezone offset is (%ld) now it's %lld [%s]",
         daylight, tmTime->tm_isdst, timezone, (long long)nun, strTime);
@@ -2655,18 +2655,11 @@ int HomeCtl::readConfiguration(bool initial)
    std::string tmp;
    getConfigItem("schema", tmp);
 
-   char* port {};
-   asprintf(&port, "%d", webPort);
-
-   if (webUrl.empty() || !strstr(webUrl.c_str(), port))
+   if (webUrl.empty() || webUrl.find(std::to_string(webPort)) == std::string::npos)
    {
-      char* tmp {};
-      asprintf(&tmp, "http%s://%s:%d", webSsl ? "s" : "", getFirstIp(), webPort);
-      webUrl = tmp;
-      free(tmp);
+      webUrl = std::string("http") + (webSsl ? "s" : "") + "://" + getFirstIp() + ":" + std::to_string(webPort);
       setConfigItem("webUrl", webUrl.c_str());
    }
-   free(port);
 
    std::string addrs;
    getConfigItem("addrsDashboard", addrs, "");
@@ -2995,7 +2988,7 @@ int HomeCtl::loop()
       uint64_t loopDuration {0};
 
       {
-         LogDuration ld("loop total", eloLoopTimings);
+         LogDuration ldTotal {"loop total", eloLoopTimings};
 
          // aggregate
 
@@ -3048,7 +3041,7 @@ int HomeCtl::loop()
             afterUpdate();
          }
 
-         loopDuration = ld.getDuration();
+         loopDuration = ldTotal.getDuration();
       }
 
       if (loopDuration > (uint)(interval*1000))
@@ -4493,12 +4486,12 @@ int HomeCtl::dispatchNodeRedCommands(const char* topic, json_t* jObject)
 
 int HomeCtl::dispatchNodeRedCommand(json_t* jObject)
 {
-   const char* command = getStringFromJson(jObject, "command", "set");
-   const char* key = getStringFromJson(jObject, "id");
+   const char* command {getStringFromJson(jObject, "command", "set")};
+   const char* key {getStringFromJson(jObject, "id")};
 
    if (!key)
    {
-      tell(eloAlways, "Error: Node-Red: Got unexpected id '%s' from node-red, commad was '%s'", key, command);
+      tell(eloAlways, "Error: Node-Red: Got message without id from node-red, command was '%s'", command);
       return fail;
    }
 
@@ -4620,8 +4613,8 @@ int HomeCtl::updateWeather()
       publish();
    };
 
-   cCurl curl;
-   curl.init();
+   cCurl localCurl;
+   localCurl.init();
 
    MemoryStruct data;
    int size {0};
@@ -4633,19 +4626,19 @@ int HomeCtl::updateWeather()
             openWeatherApiKey.c_str(), urlCoordinate(pos.latitude).c_str(), urlCoordinate(pos.longitude).c_str());
 
    tell(eloWeather, "-> (openweathermap) [%s]", url);
-   int status {curl.downloadFile(url, size, &data, 2)};
+   int status {localCurl.downloadFile(url, size, &data, 2)};
 
    if (status != success)
    {
       tell(eloAlways, "Error: Requesting weather at '%s' failed", url);
       free(url);
-      curl.exit();
+      localCurl.exit();
       invalidate();
       return fail;
    }
 
    free(url);
-   curl.exit();
+   localCurl.exit();
    tell(eloWeather, "<- (openweathermap) [%s]", data.memory);
 
    json_t* jData {jsonLoad(data.memory)};
@@ -4735,8 +4728,8 @@ std::string HomeCtl::placeName(const GpsCoordinate& pos)
    if (!lastName.empty() && fabs(pos.latitude - lastPos.latitude) < 0.005 && fabs(pos.longitude - lastPos.longitude) < 0.005)
       return lastName;
 
-   cCurl curl;
-   curl.init();
+   cCurl localCurl;
+   localCurl.init();
 
    MemoryStruct data;
    int size {0};
@@ -4746,8 +4739,8 @@ std::string HomeCtl::placeName(const GpsCoordinate& pos)
             urlCoordinate(pos.latitude).c_str(), urlCoordinate(pos.longitude).c_str());
 
    tell(eloWeather, "-> (nominatim) [%s]", url);
-   int status {curl.downloadFile(url, size, &data, 5, "homectld")};
-   curl.exit();
+   int status {localCurl.downloadFile(url, size, &data, 5, "homectld")};
+   localCurl.exit();
 
    if (status != success)
    {
@@ -5691,10 +5684,10 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
 
             // set (restore) the stored state
 
-            const char* topic {lookupCommandTopic(type.c_str(), address)};
+            const char* restoreTopic {lookupCommandTopic(type.c_str(), address)};
 
-            if (!isEmpty(topic))
-               switchCommand(type, address, "toggle", topic, state ? "1" : "0");
+            if (!isEmpty(restoreTopic))
+               switchCommand(type, address, "toggle", restoreTopic, state ? "1" : "0");
          }
       }
 
@@ -5739,11 +5732,11 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
 
                   if (jStored && jsonAddMissing(jStored, jParameters))
                   {
-                     char* tmp {json_dumps(jStored, JSON_REAL_PRECISION(4))};
+                     char* merged {json_dumps(jStored, JSON_REAL_PRECISION(4))};
                      tell(eloAlways, "Info: Added new parameters of '%s' to its config", name.c_str());
-                     parameters = tmp;
+                     parameters = merged;
                      changed = true;
-                     free(tmp);
+                     free(merged);
                   }
                   else
                      parameters = p;
@@ -6524,21 +6517,19 @@ int HomeCtl::toggleIo(uint addr, const char* type, int state, int bri, int trans
          //    return done;
          // }
 
-         tell(eloAlways, "Toggle %s:0x%02d to %d", type, addr, state);
+         // newState is the logical state, the i2c process sets the level of the output pin
+         //  -> invert here (the reported pin level is inverted back by the sensor update)
 
-         bool state {!sensors[type][addr].state};
+         bool pinLevel {sensors[type][addr].invert ? !newState : (bool)newState};
+         tell(eloAlways, "Toggle %s:0x%02d to %d (pin level %d)", type, addr, newState, pinLevel);
+
          json_t* obj {json_object()};
 
          json_object_set_new(obj, "type", json_string(type));
          json_object_set_new(obj, "address", json_integer(addr));
 
          if (!sensors[type][addr].impulse)
-         {
-            state = sensors["type"][addr].invert ? !state : state;
-            json_object_set_new(obj, "value", json_integer(sensors["type"][addr].invert ? !state : state));
-
-            json_object_set_new(obj, "action", json_string(state ? "set" : "clear"));  // MCP special
-         }
+            json_object_set_new(obj, "action", json_string(pinLevel ? "set" : "clear"));  // MCP special
          else
             json_object_set_new(obj, "action", json_string("impulse"));
 

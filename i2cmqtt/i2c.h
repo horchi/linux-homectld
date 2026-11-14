@@ -48,7 +48,7 @@ class I2C
       virtual int switchTcaChannel();
 
       int readRegister(uint8_t reg, uint8_t& byte1, uint8_t& byte2);
-      int readRegister(uint8_t reg, uint16_t& word);
+      int readRegister(uint8_t reg, uint16_t& value);
       int writeRegister(uint8_t reg, uint8_t value);
       int writeRegister(uint8_t reg, uint8_t byte1, uint8_t byte2);
 
@@ -56,10 +56,10 @@ class I2C
 
    protected:
 
-      virtual int readByte(uint8_t& byte);
-      virtual int writeByte(uint8_t byte);
+      virtual int readByte(uint8_t& value);
+      virtual int writeByte(uint8_t value);
 
-      static int writeByte(int fd, uint8_t byte);
+      static int writeByte(int fd, uint8_t value);
 
       Tca9548* tca {};
       int tcaChannel {0xff};

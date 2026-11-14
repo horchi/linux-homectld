@@ -223,12 +223,12 @@ int Ds2484::wireReset(bool& presenceDetected)
 // 1-Wire Write Byte
 //***************************************************************************
 
-int Ds2484::wireWriteByte(uint8_t byte)
+int Ds2484::wireWriteByte(uint8_t value)
 {
    // Korrektur: buf explizit als Array mit der Größe 2 deklarieren
    uint8_t buf[2] {};
    buf[0] = cmd1WireWriteByte;
-   buf[1] = byte;
+   buf[1] = value;
 
    uint8_t status {0};
    if (waitOnBusy(status) != success)
@@ -250,7 +250,7 @@ int Ds2484::wireWriteByte(uint8_t byte)
 // 1-Wire Read Byte
 //***************************************************************************
 
-int Ds2484::wireReadByte(uint8_t& byte)
+int Ds2484::wireReadByte(uint8_t& value)
 {
    uint8_t cmd = cmd1WireReadByte; // 0x96
    uint8_t status {0};
@@ -282,7 +282,7 @@ int Ds2484::wireReadByte(uint8_t& byte)
    }
 
    // 3. Das bereitgestellte Datenbyte aus dem Register auslesen
-   if (::read(fd, &byte, 1) != 1)
+   if (::read(fd, &value, 1) != 1)
    {
       tell(eloAlways, "Error: Fetching 1-Wire Read Byte data failed");
       return fail;

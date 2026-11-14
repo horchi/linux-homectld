@@ -1105,9 +1105,9 @@ int I2CMqtt::show()
 // Scan
 //***************************************************************************
 
-int I2CMqtt::scan(const char* device)
+int I2CMqtt::scan(const char* aDevice)
 {
-   I2C::scan(device);
+   I2C::scan(aDevice);
    return done;
 }
 

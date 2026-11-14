@@ -175,15 +175,15 @@ uint8_t Mcp23017::readRegister(Mcp23017Register reg)
 {
    ::write(fd, &reg, 1);
 
-   uint8_t byte {};
+   uint8_t value {};
 
-   if (::read(fd, &byte, 1) != 1)
+   if (::read(fd, &value, 1) != 1)
    {
       tell(eloAlways, "Error: MCP Communication failed");
       return 0;  // return fail :o
    }
 
-   return byte;
+   return value;
 }
 
 int Mcp23017::readRegister(Mcp23017Register reg, uint8_t& portA, uint8_t& portB)

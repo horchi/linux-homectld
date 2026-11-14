@@ -1,56 +1,86 @@
 
+# Make.user - local build / install settings (copy to Make.user or use 'make config')
+#
+#  A comment line directly above a variable is its short help, 'make config' shows it
+#  below the list for the selected item - keep it to one line. Further explanations
+#  are separated from the variable by an empty line.
+
 # =========================
 # specials / kind
 
+# Womo: box is the vehicle server (DB, MQTT broker, dnsmasq, netplan, LTE modem, firewall)
 #WOMO = 1
 
 # development instance (default off) - option for the developers of homectld, enables what is needed to
 #   develop the delivered parts, e.g. the delivered HTML widget templates (etc/configs/htmlWidgetTemplates.json)
 #   are editable in the WEBIF and 'Export Auslieferung' on the page 'HTML Widgets' saves them for the repository
 
+# developers only: delivered parts (e.g. HTML widget templates) editable / exportable in the WEBIF
 #DEVEL_INSTANCE = 1
 
 # =========================
 # services to build/use
 
+# Mopeka: gas bottle level sensors via Bluetooth LE (mopeka/)
 #MOPEKA = 1
+# Garmin Connect: activities of a Garmin account in the WEBIF (garmin/)
 #GARMIN = 1
+# GPS: u-blox USB GPS receiver to MQTT, service gpsmqtt (gps.u-blox/)
 #GPS = 1
-#VDR = 1
-#THETFORD = 1
-#HOMEMATIC = 1
-#SAMSUNGTV = 1
-#DENON = 1
-# P4: p4mqttd, Froeling S 3200 (P4) via serial interface to MQTT (see p4mqttd/README.md)
 
+# VDR switch: no effect on the build, the VDR page of the WEBIF only needs the config 'vdr' (URL)
+#   only with WOMO = 1 'make install' additionally installs vdrctl (+ bash completion)
+#   and the DVB firmware dvb-demod-m88ds3103.fw
+
+# VDR: with WOMO only - install vdrctl and DVB firmware (WEBIF page needs only config 'vdr')
+#VDR = 1
+# Thetford: N4000 refrigerator via CI-Bus (USB-LIN) to MQTT (thetford/)
+#THETFORD = 1
+# HomeMatic: classic BidCos-RF devices via CUL stick to MQTT, service hmmqtt (homematic/)
+#HOMEMATIC = 1
+# Samsung TV: Tizen TV (2016+) to MQTT (samsungtv/)
+#SAMSUNGTV = 1
+# Denon: Denon / Marantz AVR-X receiver to MQTT (denon/)
+#DENON = 1
+# P4: Froeling S 3200 (P4) via serial interface to MQTT, service p4mqttd (see p4mqttd/README.md)
 #P4 = 1
 
-# MQTT services in the sub directories (W1MQTT: One Wire sensors, BMSMQTT: battery management system,
-#   VOTROMQTT: Votronic, VICTRONMQTT: Victron VE.Direct, I2CMQTT: I2C sensors)
+# MQTT services in the sub directories
 
+# W1MQTT: One Wire (DS18B20 ...) sensors to MQTT (w1mqtt/)
 #W1MQTT = 1
+# BMSMQTT: battery management system to MQTT (bmsmqtt/)
 #BMSMQTT = 1
+# VOTROMQTT: Votronic devices to MQTT (votromqtt/)
 #VOTROMQTT = 1
+# VICTRONMQTT: Victron VE.Direct devices to MQTT (victronmqtt/)
 #VICTRONMQTT = 1
+# I2CMQTT: I2C sensors to MQTT (i2cmqtt/)
 #I2CMQTT = 1
 
 # =========================
 # personalization
 
+# systemd units start after this unit (e.g. mysql.service, if the database runs local)
 INIT_AFTER = mysql.service
-
 # directory for sources built by 'make install-dependencies' (libgpiod, libwebsockets)
-
 SRC_DIR = /usr/src
+# Womo: ethernet interface (currently ignored, contrib/womo/Makefile detects it itself)
 ETH_IFACE = eth0
+# first three bytes of the local network (dnsmasq, defaults of the services)
 SUBNET = 192.168.100
+# Womo: static IP of this box (netplan)
 STATIC_IP = 192.168.100.10
+# MQTT broker, also written into the ESP32 firmwares
 MQTT_HOST = 192.168.100.10
+# Womo: local domain served by dnsmasq
 DOMAIN = womo.lan
 
 # used at least for Arduinos and ESPs
 
+# WLAN name for the ESP32 firmwares
 #WIFI_SSID = xxxx
+# WLAN password for the ESP32 firmwares
 #WIFI_PWD = yyyy
 
 # =========================
@@ -62,13 +92,15 @@ DOMAIN = womo.lan
 #   (empty = none); the first upload has to be done via USB ('make upload')
 
 # -------------------------
-# parameter for alpicool ESP32 (see kenwood above for PORT / OTA)
+# parameter for alpicool ESP32
 
-# ALPI_MAC is the mac of the bluetooth interface frim the cooling box!
-
+# Alpicool: Bluetooth MAC of the cooling box
 #ALPI_MAC = FC:E4:97:72:E9:83
+# Alpicool: serial port (USB) of the ESP32 for 'make upload' / 'make monitor'
 #ALPICOOL_PORT = /dev/ttyACM0
+# Alpicool: IP of the ESP32 for 'make upload-ota' (first upload via USB)
 #ALPICOOL_OTA_HOST = 192.168.220.34
+# Alpicool: OTA password (empty = none)
 #ALPICOOL_OTA_PWD =
 
 # -------------------------
@@ -76,29 +108,32 @@ DOMAIN = womo.lan
 
 # the caps are mapped to the wheels in the WEBIF config 'TPMS:<deviceid>' (see tpms/README.md)
 
+# TPMS: serial port (USB) of the ESP32 for 'make upload' / 'make monitor'
 #TPMS_PORT = /dev/ttyACM0
+# TPMS: IP of the ESP32 for 'make upload-ota' (first upload via USB)
 #TPMS_OTA_HOST = 192.168.220.35
+# TPMS: OTA password (empty = none)
 #TPMS_OTA_PWD =
 
 # -------------------------
 # Parameter for kenwood / ESP32
 
+# Kenwood: serial port (USB) of the ESP32 for 'make upload' / 'make monitor'
 #KENWOOD_PORT = /dev/ttyACM0
+# Kenwood: IP of the ESP32 for 'make upload-ota' (first upload via USB)
 #KENWOOD_OTA_HOST = 192.168.220.33
+# Kenwood: OTA password (empty = none)
 #KENWOOD_OTA_PWD =
 
-# WLAN MAC of the remote (Super Mini)
-#  empty/unset = receiver off
-#  ALL accept all connections
+# Kenwood: WLAN MAC of the steering wheel remote, ALL = accept all, empty = receiver off
 #KENWOOD_REMOTE_MAC = ALL
 
 # -------------------------
 # Parameter for kenwood-remote / XIAO ESP32C3 (steering wheel remote, ESP-NOW)
 
-# the WIFI_CHANNEL of the access point must be set to a fixed value!
+# fixed WLAN channel of the access point (ESP-NOW needs it, set it fixed in the router!)
 #WIFI_CHANNEL = 6
-
+# Kenwood remote: serial port (USB) of the XIAO for 'make upload' / 'make monitor'
 #KENWOOD_REMOTE_PORT = /dev/ttyACM0
-
-# KENWOOD_MAC: WLAN MAC of the kenwood ESP, WIFI_CHANNEL: fixed channel of the router
+# Kenwood remote: WLAN MAC of the kenwood ESP32
 #KENWOOD_MAC = b0:cb:d8:98:6b:40

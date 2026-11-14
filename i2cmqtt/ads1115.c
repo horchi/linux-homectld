@@ -33,8 +33,8 @@ int Ads1115::init(const char* aDevice, uint8_t aAddress, uint8_t aTcaAddress)
    if (status != success)
       return status;
 
-   uint8_t hByte = omContinuous | pga1 | ai0Gnd | osNone;                               // high byte / bit 8-15
-   uint8_t lByte = compQueueDisabled | compLatOff | cpActiveLow | cmHysteresis | dr128; // low byte  / bit 0-7
+   uint8_t hByte = (uint8_t)omContinuous | (uint8_t)pga1 | (uint8_t)ai0Gnd | (uint8_t)osNone;                                        // high byte / bit 8-15
+   uint8_t lByte = (uint8_t)compQueueDisabled | (uint8_t)compLatOff | (uint8_t)cpActiveLow | (uint8_t)cmHysteresis | (uint8_t)dr128; // low byte  / bit 0-7
    uint16_t value = (hByte << 8) + lByte;
 
    writeRegister(registerConfig, value);

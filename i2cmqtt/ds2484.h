@@ -113,8 +113,8 @@ class Ds2484 : public I2C
 
       // 1-Wire Primitiven
       int wireReset(bool& presenceDetected);
-      int wireWriteByte(uint8_t byte);
-      int wireReadByte(uint8_t& byte);
+      int wireWriteByte(uint8_t value);
+      int wireReadByte(uint8_t& value);
       int wireWriteBit(bool bit);
       int wireReadBit(bool& bit);
       int wireTriplet(uint8_t searchDirection, uint8_t& status);

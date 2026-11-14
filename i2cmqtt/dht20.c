@@ -59,14 +59,14 @@ int Dht20::init(const char* aDevice, uint8_t aAddress, uint8_t aTcaAddress)
 
    switchTcaChannel();
 
-   uint16_t word {0};
+   uint16_t value {0};
 
-   if (readRegister(0x71, word) != success)
+   if (readRegister(0x71, value) != success)
       return fail;
 
-   // tell(eloDetail, "Info: Init status is '0x%04x'", word);
+   // tell(eloDetail, "Info: Init status is '0x%04x'", value);
 
-   if (word != 0x18)
+   if (value != 0x18)
    {
       if (resetSensor() != success)
          return fail;

@@ -135,16 +135,16 @@ int I2C::switchTcaChannel()
 // Read Byte
 //***************************************************************************
 
-int I2C::readByte(uint8_t& byte)
+int I2C::readByte(uint8_t& value)
 {
-   if (::read(fd, &byte, 1) != 1)
+   if (::read(fd, &value, 1) != 1)
    {
       tell(eloAlways, "Error: '%s' communication failed, result was '%s' (%d)",
            chipName(), strerror(errno), fd);
       return fail;
    }
 
-   tell(eloDebug, "Debug: i2c (0x%02x) <- 0x%02x (byte)", address, byte);
+   tell(eloDebug, "Debug: i2c (0x%02x) <- 0x%02x (byte)", address, value);
 
    return success;
 }
@@ -174,7 +174,7 @@ int I2C::readRegister(uint8_t reg, uint8_t& byte1, uint8_t& byte2)
    return success;
 }
 
-int I2C::readRegister(uint8_t reg, uint16_t& word)
+int I2C::readRegister(uint8_t reg, uint16_t& value)
 {
    uint8_t buf[2] {};
 
@@ -189,7 +189,7 @@ int I2C::readRegister(uint8_t reg, uint16_t& word)
    tell(eloDebug, "Debug: i2c (0x%02x) <- 0x%02x (byte)", address, buf[0]);
    tell(eloDebug, "Debug: i2c (0x%02x) <- 0x%02x (byte)", address, buf[1]);
 
-   word = (buf[1] << 8) + buf[0];
+   value = (buf[1] << 8) + buf[0];
 
    return success;
 }
@@ -198,23 +198,23 @@ int I2C::readRegister(uint8_t reg, uint16_t& word)
 // Write Byte
 //***************************************************************************
 
-int I2C::writeByte(uint8_t byte)
+int I2C::writeByte(uint8_t value)
 {
-   tell(eloDebug, "Debug: i2c (0x%02x) -> 0x%02x (byte)", address, byte);
+   tell(eloDebug, "Debug: i2c (0x%02x) -> 0x%02x (byte)", address, value);
 
-   if (::write(fd, &byte, 1) != 1)
+   if (::write(fd, &value, 1) != 1)
    {
       tell(eloAlways, "Error: '%s' failed to write byte 0x%02x, result was '%s' (%d)",
-           chipName(), byte, strerror(errno), fd);
+           chipName(), value, strerror(errno), fd);
       return fail;
    }
 
    return success;
 }
 
-int I2C::writeByte(int fd, uint8_t byte)
+int I2C::writeByte(int fd, uint8_t value)
 {
-   if (::write(fd, &byte, 1) != 1)
+   if (::write(fd, &value, 1) != 1)
       return fail;
 
    return success;

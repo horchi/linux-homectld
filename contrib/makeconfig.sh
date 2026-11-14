@@ -6,6 +6,10 @@
 #  values from Make.user (if present). Variables with the value 1 are switches
 #  (checklist), all others are entered in a form. An empty value writes the
 #  variable commented out (like in the template).
+#
+#  The comment lines directly above a variable in the template (no empty line
+#  between) are its help, shown as description in the checklist and in the
+#  bottom line for the selected item (checklist and form).
 # -----------------------------------------------------------------------------
 
 TEMPLATE="Make.user.template"
@@ -27,18 +31,27 @@ declare -A DEFAULT=()        # value from the template
 declare -A CURRENT=()        # value from Make.user ('' -> not set / commented)
 declare -A ENABLED=()        # switches: 1 / 0
 declare -A INTEMPLATE=()
+declare -A HELP=()           # comment directly above the variable in the template
 
-# ---- template: order, kind and defaults
+# ---- template: order, kind, defaults and help
+
+help=""
 
 while IFS= read -r line; do
    if [[ "$line" =~ ^#?([A-Z_][A-Z0-9_]*)[[:space:]]*=[[:space:]]*(.*)$ ]]; then
       var="${BASH_REMATCH[1]}"; val="${BASH_REMATCH[2]}"
       ORDER+=("$var"); INTEMPLATE[$var]=1
+      HELP[$var]="$help"; help=""
       DEFAULT[$var]="$val"
       if [ "$val" == "1" ]; then KIND[$var]=switch; else KIND[$var]=value; fi
       [[ "$line" == \#* ]] && ENABLED[$var]=0 || ENABLED[$var]=1
       CURRENT[$var]=""
       [[ "$line" != \#* ]] && CURRENT[$var]="$val"
+   elif [[ "$line" =~ ^#[[:space:]]*([=-]{3,})? ]] && [ -z "${BASH_REMATCH[1]}" ]; then
+      text="$(sed -E 's/^#[[:space:]]*//' <<< "$line")"
+      [ -n "$text" ] && help="${help:+$help }$text"
+   else
+      help=""                # empty or separator line
    fi
 done < "$TEMPLATE"
 
@@ -71,12 +84,18 @@ items=()
 for var in "${ORDER[@]}"; do
    if [ "${KIND[$var]}" == "switch" ]; then
       [ "${ENABLED[$var]}" == "1" ] && state=on || state=off
-      items+=("$var" "" "$state")
+      # description column: the help without a leading '<name>: ' (e.g. 'Mopeka: ')
+      desc="${HELP[$var]}"
+      if [[ "$desc" =~ ^([^:]{1,20}):[[:space:]]+(.*)$ ]]; then
+         label="${BASH_REMATCH[1],,}"; label="${label// /}"; name="${var,,}"
+         [[ "$label" == "$name"* || "$name" == "$label"* ]] && desc="${BASH_REMATCH[2]}"
+      fi
+      items+=("$var" "$desc" "$state" "${HELP[$var]}")
    fi
 done
 
 exec 3>&1
-selected=$(dialog --backtitle "homectld - make config" --title "Services / specials" \
+selected=$(dialog --backtitle "homectld - make config" --title "Services / specials" --item-help \
    --checklist "Space toggles, Enter continues" 0 0 0 "${items[@]}" 2>&1 1>&3)
 rc=$?
 exec 3>&-
@@ -98,14 +117,14 @@ for var in "${ORDER[@]}"; do
    if [ "${KIND[$var]}" == "value" ]; then
       val="${CURRENT[$var]}"
       [ -z "$val" ] && [ "${ENABLED[$var]}" == "1" ] && val="${DEFAULT[$var]}"
-      form+=("$var" "$row" 1 "$val" "$row" 14 40 0)
+      form+=("$var" "$row" 1 "$val" "$row" 21 40 0 "${HELP[$var]}")
       FORMVARS+=("$var")
       row=$((row + 1))
    fi
 done
 
 exec 3>&1
-values=$(dialog --backtitle "homectld - make config" --title "Personalization" \
+values=$(dialog --backtitle "homectld - make config" --title "Personalization" --item-help \
    --form "Empty = not set (written commented out). Defaults: see $TEMPLATE" 0 0 0 "${form[@]}" 2>&1 1>&3)
 rc=$?
 exec 3>&-

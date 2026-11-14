@@ -27,8 +27,75 @@ function isSchemaCN(type)  { return type == 'CN' || type == 'P4CN'; }
 
 function schemaImage()
 {
-   return schemaSet == 'p4' ? 'img/p4/schema/schema-' + config.p4Schema + '.png'
-                            : 'img/schema/schema-' + config.schema + '.png';
+   // <name>.png or <name>.svg, a value without extension (older versions) is the png
+
+   let name = (schemaSet == 'p4' ? config.p4Schema : config.schema) || '';
+
+   return (schemaSet == 'p4' ? 'img/p4/schema/schema-' : 'img/schema/schema-') + name + (/\.(png|svg)$/i.test(name) ? '' : '.png');
+}
+
+// the background color behind the picture (config, empty: the one of the style, base.css schemaBox)
+
+function schemaBackgroundName() { return schemaSet == 'p4' ? 'p4SchemaBackground' : 'schemaBackground'; }
+
+function schemaApplyBackground()
+{
+   $('#schemaContainer').css('background-color', config[schemaBackgroundName()] || '');
+}
+
+// edit mode: choose the background color, stored in the config at once
+
+function schemaEditBackground()
+{
+   let name = schemaBackgroundName();
+   let stored = config[name] || '';
+   let accepted = false;
+
+   let form = $('<div></div>')
+       .attr('id', 'settingsForm')
+       .append($('<div></div>')
+               .addClass('settingsDialogContent')
+               .append(schemaDlgRow('Farbe', $('<input></input>').attr('id', 'schemaBgColor').attr('type', 'text').val(stored)))
+               .append($('<div></div>')
+                       .addClass('schemaDlgHint')
+                       .html('Die Farbe hinter dem Bild des Schemas, sichtbar bei transparenten Bildern (SVG). ' +
+                             'Leer = die Farbe des Farbschemas.')));
+
+   let value = function() {
+      let color = $('#schemaBgColor').spectrum('get');
+      return color ? color.toRgbString() : '';
+   };
+
+   $(form).dialog({
+      modal: true,
+      title: 'Hintergrund des Schemas',
+      width: Math.min(450, $(window).width() - 20),
+      hide: 'fade',
+      buttons: {
+         'Abbrechen': function () { $(this).dialog('close'); },
+         'Ok': function () {
+            let obj = {};
+            obj[name] = value();
+            config[name] = obj[name];
+            socket.send({ 'event' : 'storeconfig', 'object' : obj });
+            accepted = true;
+            $(this).dialog('close');
+         }
+      },
+      open: function() {
+         $('#schemaBgColor').spectrum(Object.assign(schemaSpectrumOptions(true), {
+            move: function(color) { $('#schemaContainer').css('background-color', color ? color.toRgbString() : ''); },
+            change: function(color) { $('#schemaContainer').css('background-color', color ? color.toRgbString() : ''); }
+         }));
+      },
+      close: function() {
+         if (!accepted)
+            schemaApplyBackground();
+
+         $('#schemaBgColor').spectrum('destroy');
+         $(this).dialog('destroy').remove();
+      }
+   });
 }
 var properties = [ "top", "left", "color", "font-size", "color", "background-color", "border", "border-radius", "z-index"];
 
@@ -79,6 +146,8 @@ function initSchema(schemaData)
                               .attr('draggable', false)
                               .on('load', schemaFit))
                      ));
+
+   schemaApplyBackground();
 
    for (let i = 0; i < schemaData.length; i++) {
       if (!lastSchemadata[i].deleted && isSchemaPlaced(lastSchemadata[i]))
@@ -170,6 +239,7 @@ function schemaEditMenu()
    addButton('mdi-thermometer-plus', 'Sensor hinzufügen', 'Einen Sensor in das Schema aufnehmen', schemaAddSensor);
    addButton('mdi-format-text', 'Template hinzufügen', 'Ein Template (Text, Bild oder JavaScript Funktion ohne eigenen Sensor) hinzufügen', schemaAddItem);
    addButton('mdi-vector-line', 'Leitung hinzufügen', 'Eine Leitung zeichnen: Klick setzt Start und Eckpunkte, Doppelklick beendet', schemaAddLine);
+   addButton('mdi-palette', 'Hintergrund', 'Die Farbe hinter dem Bild des Schemas', schemaEditBackground);
    addButton('mdi-content-save', 'Speichern', 'Das Schema speichern', schemaStore);
    addButton('mdi-close', 'Beenden', 'Den Edit Mode verlassen', schemaLeaveEdit);
 
@@ -789,7 +859,8 @@ function setAttributeStyleByProperties(id, json)
 //***************************************************************************
 // Lines (type CN / P4CN)
 //  - a polyline with any number of points, drawn as SVG above the picture, so one line can go around corners
-//  - properties: points 'x,y x,y ...' (pixel of the picture), color, flowcolor, width, speed, z-index
+//  - properties: points 'x,y x,y ...' (pixel of the picture), color, flowcolor, width, speed, z-index,
+//     hops (1: an arc over each crossing line, see schemaLineCrossings)
 //  - kind: the direction of the flow (3 start -> end, 4 end -> start, 5 no flow)
 //  - fct (optional): JavaScript condition of the flow (also in the edit mode), false/0 stops it, a negative number reverses it
 //  - the flow is a dash pattern animated by CSS (base.css, schemaLineFlow)
@@ -800,7 +871,8 @@ var schemaLineSnap = 8;                             // pixel, snap to the horizo
 
 // the style of the next new line, the one of the last edited
 
-var schemaLineStyle = { 'color': 'rgb(70, 130, 180)', 'flowcolor': 'rgb(255, 255, 255)', 'width': 6, 'speed': 2, 'z-index': '50' };
+var schemaLineStyle = { 'color': 'rgb(70, 130, 180)', 'flowcolor': 'rgb(255, 255, 255)', 'width': 6, 'speed': 2, 'z-index': '50', 'hops': 0 };
+var schemaLineRendering = false;                    // the lines with arcs are drawn again after a change of another line
 
 function schemaLinePoints(schemaDef)
 {
@@ -846,6 +918,80 @@ function schemaLineSnapPoint(pos, prev, next)
    return point;
 }
 
+// the crossings of the segment a-b with the shown lines, as distance from a (sorted)
+//  - over each line, only if the other one has arcs too the one of the higher layer (then the higher address) jumps
+
+function schemaLineCrossings(schemaDef, a, b)
+{
+   let zIndex = function(def) { return parseInt((def.properties || {})['z-index'] || schemaLineStyle['z-index']) || 0; };
+   let z = zIndex(schemaDef);
+   let dx = b.x - a.x, dy = b.y - a.y;
+   let len = Math.hypot(dx, dy);
+   let result = [];
+
+   for (const other of lastSchemadata || []) {
+      if (other == schemaDef || !isSchemaCN(other.type) || other.deleted || other.state != 'A')
+         continue;
+
+      if (parseInt((other.properties || {})['hops']) == 1 &&
+          (zIndex(other) > z || (zIndex(other) == z && (other.address >>> 0) > (schemaDef.address >>> 0))))
+         continue;
+
+      let pts = schemaLinePoints(other);
+
+      for (let i = 0; i < pts.length - 1; i++) {
+         let c = pts[i], d = pts[i+1];
+         let ex = d.x - c.x, ey = d.y - c.y;
+         let den = dx * ey - dy * ex;
+
+         if (den == 0)              // parallel
+            continue;
+
+         let t = ((c.x - a.x) * ey - (c.y - a.y) * ex) / den;      // along a-b
+         let u = ((c.x - a.x) * dy - (c.y - a.y) * dx) / den;      // along c-d
+
+         if (t > 0 && t < 1 && u > 0 && u < 1)                     // a real crossing, not a junction at an end
+            result.push(t * len);
+      }
+   }
+
+   return result.sort(function(x, y) { return x - y; });
+}
+
+// the SVG path of the line, with 'hops' an arc (above, at vertical segments to the right) over each crossing line
+
+function schemaLinePath(schemaDef, points, width)
+{
+   let hops = parseInt((schemaDef.properties || {})['hops']) == 1;
+   let r = Math.max(8, width * 3);
+   let f = function(v) { return Math.round(v * 10) / 10; };
+   let d = points.length ? 'M' + points[0].x + ',' + points[0].y : '';
+
+   for (let i = 0; i < points.length - 1; i++) {
+      let a = points[i], b = points[i+1];
+      let len = Math.hypot(b.x - a.x, b.y - a.y);
+
+      if (hops && len > 0) {
+         let ux = (b.x - a.x) / len, uy = (b.y - a.y) / len;
+         let sweep = Math.abs(ux) >= Math.abs(uy) ? (ux > 0 ? 1 : 0) : (uy > 0 ? 1 : 0);
+         let last = 0;
+
+         for (const t of schemaLineCrossings(schemaDef, a, b)) {
+            if (t - r < last || t + r > len)     // no room (corner or the arc before)
+               continue;
+
+            d += ' L' + f(a.x + ux * (t - r)) + ',' + f(a.y + uy * (t - r)) +
+               ' A' + r + ',' + r + ' 0 0 ' + sweep + ' ' + f(a.x + ux * (t + r)) + ',' + f(a.y + uy * (t + r));
+            last = t + r;
+         }
+      }
+
+      d += ' L' + b.x + ',' + b.y;
+   }
+
+   return d;
+}
+
 // draw the line, 'points' (optional) instead of the stored ones while it is created
 
 function schemaLineRender(schemaDef, points)
@@ -873,10 +1019,11 @@ function schemaLineRender(schemaDef, points)
    let period = dash * 2.5;
    let duration = period / (schemaLineSpeeds[props['speed']] || schemaLineSpeeds[2]);
    let str = points.map(function(p) { return p.x + ',' + p.y; }).join(' ');
+   let path = schemaLinePath(schemaDef, points, width);
 
-   let html = '<polyline class="schemaLinePipe" points="' + str + '" stroke="' + attr(props['color'] || schemaLineStyle['color']) + '"' +
+   let html = '<path class="schemaLinePipe" d="' + path + '" stroke="' + attr(props['color'] || schemaLineStyle['color']) + '"' +
        ' stroke-width="' + width + '"/>' +
-       '<polyline class="schemaLineFlow" points="' + str + '" stroke="' + attr(props['flowcolor'] || schemaLineStyle['flowcolor']) + '"' +
+       '<path class="schemaLineFlow" d="' + path + '" stroke="' + attr(props['flowcolor'] || schemaLineStyle['flowcolor']) + '"' +
        ' stroke-width="' + Math.max(1, width * 0.4) + '" stroke-dasharray="' + dash + ' ' + (period - dash) + '"' +
        ' style="--schemaDash: ' + period + 'px; animation-duration: ' + duration.toFixed(2) + 's"/>';
 
@@ -905,6 +1052,26 @@ function schemaLineRender(schemaDef, points)
    svg.classList.toggle('schemaLineHidden', schemaEditActive && schemaDef.state != 'A');
 
    schemaLineUpdate(schemaDef);
+
+   schemaLineRenderHops(schemaDef);
+}
+
+// the arcs of the other lines depend on this one (moved, hidden, other layer, deleted), they are drawn again
+
+function schemaLineRenderHops(schemaDef)
+{
+   if (schemaLineRendering)
+      return;
+
+   schemaLineRendering = true;
+
+   for (const other of lastSchemadata || []) {
+      if (other != schemaDef && isSchemaCN(other.type) && !other.deleted && parseInt((other.properties || {})['hops']) == 1 &&
+          document.getElementById(schemaElementId(other)))
+         schemaLineRender(other);
+   }
+
+   schemaLineRendering = false;
 }
 
 // the state of the flow, called with every update of the sensor data
@@ -1196,7 +1363,8 @@ function editSchemaLine(schemaDef)
                             'Fluss Farbe', $('<input></input>').attr('id', 'lineFlowColor').attr('type', 'text').val(props['flowcolor'] || schemaLineStyle['flowcolor'])))
       .append(schemaDlgRow2('Breite', schemaDlgInput('lineWidth', 'number', parseInt(props['width']) || schemaLineStyle['width']).attr('min', 1).attr('step', 1),
                             'Tempo', select('lineSpeed', { 1: 'langsam', 2: 'mittel', 3: 'schnell' }, props['speed'])))
-      .append(schemaDlgRow('Layer', schemaDlgInput('zIndex', 'number', props['z-index'] || schemaLineStyle['z-index']).attr('step', 1)))
+      .append(schemaDlgRow2('Layer', schemaDlgInput('zIndex', 'number', props['z-index'] || schemaLineStyle['z-index']).attr('step', 1),
+                            'Bögen', schemaDlgCheckbox('lineHops', parseInt(props['hops']) == 1)))
       .append($('<div></div>')
               .addClass('textarea-row schemaFctRow')
               .append($('<span></span>')
@@ -1213,7 +1381,8 @@ function editSchemaLine(schemaDef)
               .addClass('schemaDlgHint')
               .html('Der Start der Leitung ist der grüne Punkt. Ohne JavaScript fließt es immer. Liefert das JavaScript false oder 0 ' +
                     'steht der Fluss, bei einem negativen Wert läuft er entgegen der gewählten Richtung, z.B. ' +
-                    'getItem(\'TYP:0xNN\').state.'));
+                    'getItem(\'TYP:0xNN\').state. Mit \'Bögen\' springt die Leitung in einem Bogen über jede kreuzende Leitung, ' +
+                    'haben beide Bögen die mit dem höheren Layer.'));
 
    let fctValue = function() { return fctEditor ? fctEditor.getValue() : $('#function').val(); };
 
@@ -1237,6 +1406,7 @@ function editSchemaLine(schemaDef)
       props['width'] = Math.max(1, parseInt($('#lineWidth').val()) || schemaLineStyle['width']);
       props['speed'] = parseInt($('#lineSpeed').val());
       props['z-index'] = $('#zIndex').val();
+      props['hops'] = $('#lineHops').is(':checked') ? 1 : 0;
       schemaDef.kind = parseInt($('#lineKind').val());
       schemaDef.state = $('#showIt').is(":checked") ? "A": "D";
       schemaDef.fct = fctValue();
@@ -1275,6 +1445,7 @@ function editSchemaLine(schemaDef)
          'Löschen': function () {
             schemaDef.deleted = true;
             $('#' + id).remove();
+            schemaLineRenderHops(schemaDef);
             schemaDirty = true;
             $(this).dialog('close');
          },

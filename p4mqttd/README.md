@@ -211,6 +211,11 @@ The values are scaled (factor of the control) and signed or unsigned as the cont
 state (1), the mode (2) and the time (3) of the control. `valid:false` is sent for a value which could not be read.
 `text` of an output is the mode: `Auto` or `Manual` (an unknown mode character of the control is passed as it is).
 
+The `title` is the name of the control. The control calls the in/outputs of every heating circuit the same
+('Heizkreispumpe', 'HK Mischer AUF'), so an in/output below a numbered level of the menu gets its name, e.g.
+'Heizen / Heizkreis 02 / Service' -> `Heizkreis 02 Pumpe`, `Heizkreis 02 Mischer AUF`. The homectld takes the
+title with every message, an own name belongs in its user title.
+
 Every sensor message also carries the default options of its dashboard widget as `parameter` (kind of widget, scale,
 peak, symbol of a switch), chosen by type, unit and title (the table `widgetRules` in `p4mqttd.c`), e.g.
 `"parameter":{"widgettype":6,"scalemin":0,"scalemax":100,"scalestep":20,"showpeak":true}`. The homectld takes them

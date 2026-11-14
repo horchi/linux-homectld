@@ -184,7 +184,6 @@ body.standalone .menu
     z-index: 10;
 }
 
-
 .menu
 {
     display: grid;
@@ -320,21 +319,6 @@ body.standalone .menu
     background-color: white;
 }
 
-.burgerMenuInline
-{
-    float: right;
-    width: 35px;
-    padding: 2px 2px !important;
-    margin-left: 8px;
-}
-
-.burgerMenuInline > div
-{
-    height: 1px;
-    margin: 4px;
-    background-color: white;
-}
-
 .footer
 {
     position: fixed;
@@ -344,8 +328,11 @@ body.standalone .menu
     padding: 3px;            /* height by content, same space above and below the text */
     margin: 2px 5px env(safe-area-inset-bottom) 5px;
     background-color: var(--menu);
+    border-radius: 8px;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
+    box-sizing: border-box;
     display: flex;
-    color: white;
+    color: var(--buttonFont);
     font-size: 12px;
     line-height: 1;          /* line boxes hug the glyphs, otherwise the font's leading shows up as space above the text (iOS) */
     align-items: center;
@@ -355,6 +342,8 @@ body.standalone .menu
 {
     padding-left: 10px;
     font-size: medium;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.85;
 }
 
 .footer :nth-child(3)
@@ -367,7 +356,7 @@ body.standalone .menu
     text-overflow: ellipsis;
     padding: 0 8px;
     box-sizing: border-box;
-    color: #4d9143;
+    color: var(--green);
     font-weight: bold;
     text-align: center;
     font-size: 16px;
@@ -380,6 +369,8 @@ body.standalone .menu
     white-space: nowrap;
     text-align: end;
     padding-right: 12px;     /* clear of the rounded display corner (iOS app) */
+    opacity: 0.55;
+    font-variant-numeric: tabular-nums;
 }
 
 .ui-dialog .ui-button-primary {
@@ -395,15 +386,6 @@ body.standalone .menu
     border-color: var(--borderColor);
     border-style: none;
     border-width: 1px;
-}
-
-.border-underline
-{
-    border-style: none;
-    border-radius: 0;
-    border-color: white;
-    border-width: 1px;
-    border-bottom-style: solid;
 }
 
 .hidden
@@ -434,26 +416,6 @@ body.standalone .menu
 @keyframes spin {  /* Safari */
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
-}
-
-.progress-small {
-  border: 5px solid #f3f3f3;
-  border-radius: 50%;
-  border-top: 5px solid var(--blue);
-  width: 40px;
-  height: 40px;
-  -webkit-animation: spin 2s linear infinite; /* Safari */
-  animation: spin 2s linear infinite;
-}
-
-.progress-smaller {
-  border: 3px solid #f3f3f3;
-  border-radius: 50%;
-  border-top: 3px solid var(--blue);
-  width: 20px;
-  height: 20px;
-  -webkit-animation: spin 2s linear infinite; /* Safari */
-  animation: spin 2s linear infinite;
 }
 /* Die Animations-Regel */
 
@@ -733,22 +695,6 @@ body.standalone .menu
     cursor: pointer;
 }
 
-.seperator
-{
-    background-color: slategray;
-    color: var(--light4);
-    padding: 5px 15px;
-    font-weight: bold;
-    margin-top: 4px;
-    margin-bottom: 4px;
-}
-
-.tableImage
-{
-    width: 80%;
-    margin: 10%;
-}
-
 .labelB1
 {
     font-size: 12px;
@@ -870,38 +816,10 @@ span > select
     width: 98%;
 }
 
-.inputComment
-{
-    font-size: 13px;
-}
-
-.time-input
-{
-    background-color: var(--light3);
-    border-width: 1px;
-    border-color: var(--neutral2);
-    border-style: solid;
-    color: var(--fontColor);
-    margin-top: 2px;
-    padding: 3px;
-    width: 45px;
-}
-
-.timepicker
-{
-    width: 110px;
-    display: flex;
-}
-
 .timerangepicker
 {
     display: flex;
     align-items: center;
-}
-
-.timepicker > input
-{
-    width: inherit;
 }
 
 .info
@@ -1146,17 +1064,6 @@ span > select
     margin-left: 50px;
 }
 
-.infoWarn
-{
-    background-color: orange;
-    color: var(--fontColor);
-    text-decoration: none;
-    font-size: 22px;
-    width: 95%;
-    padding: 15px;
-    border-radius: 5px;
-}
-
 .infoError
 {
     background-color: red;
@@ -1217,15 +1124,6 @@ span > select
     border-color: var(--borderColorSchemaValue);
     border-style: var(--borderStyleSchemaValue);
     border-width: 1px;
-}
-
-.inputTableAlert > div > span
-{
-    width: 12%;
-    min-width: 100px;
-    display: inline-table;
-    text-align: left;
-    color: var(--listFontColor);
 }
 
 .confirmDiv
@@ -1527,104 +1425,46 @@ span > select
     .listAge { display: none; }
 }
 
-/* used for p4d */
-.tableRow
-{
-    background: linear-gradient(to bottom right, var(--light3), var(--light1));
-    border-radius: var(--borderRadius);
-    margin: 2px;
-    height: 30px;
-    display: flex;
-    padding: 5px;
-}
-
-.tableRow > input
-{
-    margin-left: 15px;
-    align-self: center;
-}
-
-.tableRow > button
-{
-    margin-left: 15px;
-    align-self: center;
-    height: 25px;
-}
-
-.tableRow > input[type='search']
-{
-}
-
-.tableRow > div
-{
-    margin-left: 15px;
-    align-self: center;
-}
-
-div.redCircle
-{
-    width: 20px;
-    height: 15px;
-    border-radius: 8px;
-    margin-left: 4px;
-    background-color: red;
-}
-
-div.greenCircle
-{
-    width: 15px;
-    height: 15px;
-    border-radius: 8px;
-    margin-left: 4px;
-    background-color: green;
-}
+/* the connection dot in the footer, same look as the one of the main menu (mainnav.css, .mainNavConn) */
 
 .socketState
 {
-    min-width: 15px !important;
-    height: 15px !important;
-    align-self: center;
+    flex: none;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--neutral3);
+    cursor: pointer;
+    transition: background-color 0.3s;
 }
 
 .footer .socketState
 {
-    margin-left: 10px;       /* clear of the rounded display corner (iOS app); overrides the 4px of .greenCircle / .redCircle */
+    margin-left: 10px;       /* clear of the rounded display corner (iOS app) */
 }
 
-.greenCircle
+.socketState.online
 {
-    width: 12px;
-    height: 12px;
-    border-radius: 8px;
-    margin-left: 4px;
-    background-color: #4D9143;
+    background: var(--green);
+    animation: socketStatePulse 3s ease-in-out infinite;
 }
 
-.redCircle
+.socketState.connecting
 {
-    width: 12px;
-    height: 12px;
-    border-radius: 8px;
-    margin-left: 4px;
-    background-color: #c11010;
+    background: var(--orange);
+    animation: mainNavBlink 1s ease-in-out infinite;
 }
 
-.grayCircle
+.socketState.offline
 {
-    width: 12px;
-    height: 12px;
-    border-radius: 8px;
-    margin-left: 4px;
-    background-color: var(--neutral2);
+    background: var(--red);
+    box-shadow: 0 0 6px var(--red);
 }
 
-.yellowCircle
+@keyframes socketStatePulse
 {
-    width: 12px;
-    height: 12px;
-    border-radius: 8px;
-    margin-left: 4px;
-    background-color: var(--yellow);
+    0%, 100% { box-shadow: 0 0 3px var(--green); }
+    50%      { box-shadow: 0 0 8px 1px var(--green); }
 }
 
 .tableMultiCol
@@ -1635,7 +1475,7 @@ div.greenCircle
     margin-top: 5px;
     white-space-collapse: preserve-breaks;
     table-layout: fixed;
-    background: linear-gradient(to bottom right, #00000096, black);
+    background: var(--listBackground);
 }
 
 table.tableMultiCol thead
@@ -1670,35 +1510,6 @@ table.tableMultiCol td
     justify-content: center;
 }
 
-.imageState
-{
-    background-color: slategray;
-    padding: 7px;
-    margin: 2px;
-}
-
-.heatingState
-{
-    background-color: slategray;
-    width: 35%;
-    min-width: 145px;
-    padding: 7px;
-    margin: 2px;
-}
-
-.heatingState > div > div
-{
-    display: grid;
-}
-
-.heatingState > div > div > span
-{
-    width: 10%;
-    min-width: 215px;
-    display: table-flex;
-    text-align: left;
-}
-
 .daemonState
 {
     background-color: slategray;
@@ -1715,31 +1526,6 @@ table.tableMultiCol td
     min-width: 150px;
     display: table-cell;
     text-align: left;
-}
-
-#aStateOk
-{
-    color: #091784;
-    font-size: 24px;
-}
-
-#aStateFail
-{
-    color: red;
-    text-decoration: blink;
-    font-size: 24px;
-}
-
-#aStateHeating
-{
-    color: red;
-    font-size: 24px;
-}
-
-#aStateOther
-{
-    color: #091784;
-    font-size: 24px;
 }
 
 .markdown-body
@@ -2072,58 +1858,9 @@ table.tableMultiCol td
 /* ----------------------- */
 /* config page */
 
-.setupTabs
-{
-    display: inline-flex;
-    width: inherit;
-    background-color: var(--menu);
-    margin-left: 4px;
-    margin-right: 4px;
-}
-
-.setupTabs > span:nth-child(1)
-{
-    align-content: center;
-    margin-left: 10px;
-}
-
-.setupTabs > span:nth-child(2)
-{
-    display: flex;
-    align-content: center;
-    margin-right: 10px;
-}
-
-.setupTabs > span:nth-child(2) > button
-{
-    cursor: pointer;
-    background-color: transparent;
-    font-size: 0.9em;
-    color: var(--fontColor);
-    fill: var(--fontColor);
-    opacity: 0.6;
-    display: inline-block;
-    padding: 4px 12px;
-    margin-top: 5px;
-    text-decoration: none;
-    transition: 0.5s;
-    border: none;
-}
-
-.setupTabs > span:nth-child(2) > button:hover
-{
-    opacity: 0.9;
-}
-
-.setupTabs > span:nth-child(2) > button.active
-{
-    opacity: 1.0;
-    font-weight: bold;
-}
-
 .setupContainer
 {
-    background: linear-gradient(to bottom right, #00000096, black);
+    background: var(--listBackground);
     padding: var(--containerPadding);
     /*width: max-content;*/
     /*width: fit-content;*/
@@ -2149,7 +1886,7 @@ table.tableMultiCol td
 
 .inputTableConfig
 {
-    background: linear-gradient(to bottom right, #00000096, black);
+    background: var(--listBackground);
     padding: var(--containerPadding);
     display: table;
     /* width: 95%;*/
@@ -2345,7 +2082,8 @@ table.tableMultiCol td
     pointer-events: none;          /* only the line itself and its handles (edit mode) take the mouse */
 }
 
-.schemaLine polyline
+.schemaLine polyline,
+.schemaLine path
 {
     fill: none;
     stroke-linejoin: round;
@@ -2365,7 +2103,7 @@ table.tableMultiCol td
     to   { stroke-dashoffset: 0; }
 }
 
-.schemaLineHidden polyline
+.schemaLineHidden path
 {
     opacity: 0.4;
 }
@@ -2910,11 +2648,6 @@ table.tableMultiCol td
     box-shadow: 1px 1px 1px 0px var(--shadow);
 }
 
-.widgetManuel
-{
-    background-color: #a27373 !important;
-}
-
 .widgetGauge
 {
     display: grid;
@@ -2922,18 +2655,6 @@ table.tableMultiCol td
       'title'
       'main';
     grid-template-rows: 15% 85%;
-    grid-gap: 1px;
-    box-shadow: 1px 1px 1px 0px var(--shadow);
-}
-
-.widgetCtrl
-{
-    display: grid;
-    grid-template-areas:
-      'title title'
-      'main main'
-      'ctrl1 ctrl2';
-    grid-template-rows: 15% 73% 12%;
     grid-gap: 1px;
     box-shadow: 1px 1px 1px 0px var(--shadow);
 }
@@ -3073,11 +2794,6 @@ table.tableMultiCol td
 .widget-edit:hover
 {
     font-weight: bold;
-}
-
-.widget-mode
-{
-    font-size: 0.6em;
 }
 
 .widget-main
@@ -3557,26 +3273,6 @@ table.tableMultiCol td
     grid-area: value;
 }
 
-.widget-ctrl1 { grid-area: ctrl1; }
-.widget-ctrl2 { grid-area: ctrl2; }
-
-.widgetCtrl > div > button > img
-{
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-}
-
-.widgetCtrl > div > button
-{
-    height: 100%;
-    background-color: Transparent;
-    border: none;
-    overflow: hidden;
-    outline: none;
-    cursor: pointer;
-}
-
 .widget > button > img
 {
     max-width: 100%;
@@ -4023,7 +3719,7 @@ dialog::backdrop, #backdrop
 }
 
 .gpsTourBody {
-    background: linear-gradient(to bottom right, #00000096, black);
+    background: var(--listBackground);
     color: var(--buttonFont);
     padding: 8px;
     margin: 0px 0px 8px 0px;
@@ -4107,7 +3803,6 @@ dialog::backdrop, #backdrop
 .gpsEventTable tr.gpsEventClickable:hover td {
     background-color: var(--neutral2);
 }
-
 
 .gpsTourActions .tool-button {
     width: auto;                  /* .tool-button fills its parent otherwise */
@@ -4225,7 +3920,6 @@ dialog::backdrop, #backdrop
 .gpsToolbar.gpsToolbarBig .buttonDashboard {
     font-size: xxx-large;
 }
-
 
 /* tour events: buttons in the tool bar, markers and popups on the map */
 
@@ -4504,7 +4198,7 @@ iPhones
 }
 
 .actGroupBody {
-    background: linear-gradient(to bottom right, #00000096, black);
+    background: var(--listBackground);
     padding: var(--containerPadding);
     margin: 0px 4px 6px 4px;
 }
@@ -4546,10 +4240,6 @@ iPhones
     .actTable .actDateLong  { display: none; }      /* more specific than the .actDateShort rule below the media block */
     .actTable .actDateShort { display: inline; }
     .actActions .tool-button { min-width: 28px; padding: 0px 5px; margin: 1px; }
-}
-
-.actHighlight {
-    font-weight: bold;
 }
 
 /* config item type 'ComboChoice' (setup.js): input with datalist suggestions, the label of the
@@ -5762,11 +5452,6 @@ textarea.mqttConvMessage {
 
 .scnMessage.scnFailedText { color: #ef5350; }
 .scnMessage.scnWarnText   { color: #ffa726; }
-
-.scnTitleLabel
-{
-    margin-left: 12px;
-}
 
 .scnHead
 {

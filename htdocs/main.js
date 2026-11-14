@@ -303,7 +303,6 @@ function daemonStateDlg()
 
 }
 
-var socketStateCount = 0;
 var socketStateTimeInterval = null;
 
 function updateSocketState()
@@ -321,18 +320,6 @@ function updateSocketState()
          lastPingAt = new Date().getTime();
       }
    }
-
-   let circle = 'yellowCircle';
-
-   if (socketStateCount++ % 2)
-      circle = 'grayCircle';
-   else if (!socket || socket.ws.readyState != WebSocket.OPEN)
-      circle = 'redCircle';
-   else
-      circle = 'greenCircle';
-
-   $('#socketState').attr('class', '');
-   $('#socketState').addClass('socketState ' + circle);
 
    let now = new Date();
    $('#footerTime').html(now.toTimeLocal());
@@ -641,7 +628,7 @@ async function showInfoDialog(object)
                                    .append($('<button></button>')
                                            .addClass('rounded-border tool-button-svg-smal')
                                            .html('<svg><use xlink:href="#close"></use></svg>')
-                                           .click(function(event) { $('#infoBox').html(''); }))
+                                           .click(function(event) { $('#infoBox').html(''); mainNavUpdateBell(); }))
                                    .append($('<span></span>')
                                            .html('Clear messages'))));
 
@@ -654,7 +641,7 @@ async function showInfoDialog(object)
                .append($('<button></button>')
                        .addClass('rounded-border tool-button-svg-smal')
                        .html('<svg><use xlink:href="#close"></use></svg>')
-                       .click(function(event) { $(this).closest('div').remove(); }))
+                       .click(function(event) { $(this).closest('div').remove(); mainNavUpdateBell(); }))
                .append($('<span></span>')
                        .css('font-weight', 'bold')
                        .html(titleMsg))
@@ -670,6 +657,8 @@ async function showInfoDialog(object)
 
    if (!$('#infoBox').hasClass('infoBox-active'))
       mainNavMessage(object.status);
+   else
+      mainNavUpdateBell();                // the bell now has messages (small displays)
 
    if (object.status != 0) {
       viewInfoDialog();
@@ -865,6 +854,7 @@ function dispatchMessage(message)
    }
    else if (event == "config") {
       config = jMessage.object;
+      applyTheme(config.style);
       // console.log("config " + JSON.stringify(config, undefined, 4));
       if (config.background != '') {
          $(document.body).css('background', 'transparent url(' + config.background + ') no-repeat 50% 0 fixed');
@@ -1241,6 +1231,7 @@ function mainNavSetConn(state)
    let titles = { online: 'Verbunden mit homectld', connecting: 'Verbindung wird aufgebaut ...', offline: 'Keine Verbindung zu homectld' };
 
    $('#mainNavConn').removeClass('online connecting offline').addClass(state).attr('title', titles[state]);
+   $('#socketState').removeClass('online connecting offline').addClass(state).attr('title', titles[state]);
 }
 
 function mainNavUpdateClock()
@@ -1251,11 +1242,11 @@ function mainNavUpdateClock()
 
 function mainNavMessage(status)
 {
-   if (status == 0)                       // success messages aren't counted
-      return;
+   if (status != 0) {                     // success messages aren't counted (but shown by the bell on small displays)
+      mainNavUnread.count++;
+      mainNavUnread.error = mainNavUnread.error || status < 0;
+   }
 
-   mainNavUnread.count++;
-   mainNavUnread.error = mainNavUnread.error || status < 0;
    mainNavUpdateBell();
 }
 
@@ -1267,6 +1258,11 @@ function mainNavUpdateBell()
       .toggleClass('hidden', !mainNavUnread.count)
       .toggleClass('mainNavBadgeError', mainNavUnread.error);
 
+   let haveMessages = $('#infoBox > div').not('#infoBoxFirstElement').length > 0;
+
+   $('#toggleMsgBtn').toggleClass('mainNavBellUnread', !!mainNavUnread.count)     // orange, red on errors (mainnav.css)
+      .toggleClass('mainNavBellError', !!mainNavUnread.count && mainNavUnread.error)
+      .toggleClass('mainNavBellEmpty', !haveMessages);                            // small displays: hidden without messages
    $('#toggleMsgBtn .mdi').toggleClass('mdi-bell-outline', !mainNavUnread.count).toggleClass('mdi-bell-ring', !!mainNavUnread.count);
 }
 
@@ -3209,6 +3205,46 @@ $.widget('ui.dialog', $.ui.dialog, {
 // Load scripts / style sheets on demand (libraries needed rarely, e.g. the LUA editor)
 //   each URL is loaded once, the scripts of one call in order
 //***************************************************************************
+
+//***************************************************************************
+// Theme
+//   the style sheet of config 'style' (stylesheet-<style>.css), switched without a
+//   page reload; the new one is added and the old one removed after it is loaded
+//   (no flash). The URL carries the content hash of the theme (meta 'webif-themes',
+//   genindex.sh), a changed theme is loaded at once. index.html starts with
+//   'stylesheet.css' (link of homectld), which may come from the browser cache
+//   with the theme before a change.
+//***************************************************************************
+
+function applyTheme(style)
+{
+   let current = $('link.themeCss').last();
+
+   if (!style || current.attr('data-theme') == style)
+      return;
+
+   let initial = !current.attr('data-theme');     // first config after the page load
+   let link = document.createElement('link');
+
+   link.rel = 'stylesheet';
+   link.type = 'text/css';
+   link.className = 'themeCss';
+   let version = (($('meta[name="webif-themes"]').attr('content') || '').match(new RegExp('(?:^|,)' + style + ':([0-9a-f]+)')) || [])[1];
+
+   link.href = 'stylesheet-' + style + '.css' + (version ? '?v=' + version : '');
+   link.setAttribute('data-theme', style);
+
+   link.onload = function() {
+      $('link.themeCss').not(link).remove();
+
+      // the gauges of the dashboard took their colors at creation
+
+      if (!initial && currentPage == 'dashboard' && dashboards[actDashboard] != null)
+         initDashboard();
+   };
+
+   current.after(link);
+}
 
 var loadedAssets = {};
 

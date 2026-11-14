@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.57"
+#define _VERSION     "0.1.58"
 #define VERSION_DATE "14.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,10 @@
 
 /*
  * ------------------------------------
+
+2026-11-14: version 0.1.58
+    - change: Improved stylesheets blue, yellow and light
+    - change: Improved handling of schema 'wires'
 
 2026-11-14: version 0.1.57
     - change: Improved weather widget

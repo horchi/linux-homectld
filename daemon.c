@@ -4292,6 +4292,17 @@ int HomeCtl::loadHtmlHeader()
    return success;
 }
 
+// the types of the sensors delivered by p4mqttd (the others with the prefix P4 are the ones of the homectld)
+
+static bool isP4MqttdType(const char* type)
+{
+   for (const char* t : { "P4VA", "P4DO", "P4DI", "P4AO", "P4UD" })
+      if (strcmp(type, t) == 0)
+         return true;
+
+   return false;
+}
+
 //***************************************************************************
 // Add Value Fact
 //***************************************************************************
@@ -4352,10 +4363,12 @@ int HomeCtl::addValueFact(int addr, const char* type, int factor, const char* na
    if (strcmp(type, "DZL") == 0)
       tableValueFacts->setValue("OPTIONS", options);
 
-   // the names of the deCONZ devices (renamed in Phoscon) and of the weather sensors (delivered
-   //  by the daemon) - the own title (usrtitle) stays
+   // the names of the deCONZ devices (renamed in Phoscon), of the weather sensors (delivered by the daemon)
+   //  and of the sensors of the S 3200 (p4mqttd, e.g. 'Heizkreis 02 Pumpe') - the own title (usrtitle) stays
 
-   if (strncmp(type, "DZ", 2) == 0 || strcmp(type, "WEA") == 0)
+   bool takeName {strncmp(type, "DZ", 2) == 0 || strcmp(type, "WEA") == 0 || (isP4MqttdType(type) && !isEmpty(title))};
+
+   if (takeName)
    {
       tableValueFacts->setValue("NAME", name);
       tableValueFacts->setValue("TITLE", title);
@@ -4373,7 +4386,7 @@ int HomeCtl::addValueFact(int addr, const char* type, int factor, const char* na
       {
          tableValueFacts->store();
 
-         if (strncmp(type, "DZ", 2) == 0 || strcmp(type, "WEA") == 0)
+         if (takeName)
          {
             initSensorByFact(type, addr);
 

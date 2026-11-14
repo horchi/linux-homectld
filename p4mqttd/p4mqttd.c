@@ -189,6 +189,7 @@ class P4Mqttd
       int discover();
       int discoverValues();
       int discoverIo();
+      void nameIo();
       int loadCache();
       int saveCache();
       int pollOne(size_t index);
@@ -869,6 +870,7 @@ int P4Mqttd::discover()
 
    tell(eloAlways, "Read %zu sensor definitions and %zu menu items in %.1f s", sensors.size(), menu.size(), (cTimeMs::Now() - start) / 1000.0);
 
+   nameIo();
    cacheFirmware = currentState.version;
    saveCache();
 
@@ -1143,6 +1145,7 @@ int P4Mqttd::loadCache()
 
    json_decref(jRoot);
    cacheFirmware = firmware;
+   nameIo();                                    // also for a cache of an older version
 
    tell(eloAlways, "Loaded %zu sensors and %zu menu items from '%s' (firmware %s)", sensors.size(), menu.size(),
         sensorsFile.c_str(), firmware.c_str());
@@ -1493,6 +1496,113 @@ static std::string trimMenuTitle(const std::string& title)
       t.pop_back();
 
    return t;
+}
+
+//***************************************************************************
+// Name the in/outputs by their place in the menu
+//  - the control calls the outputs of every heating circuit 'Heizkreispumpe', 'HK Mischer AUF' ...,
+//    below 'Heizen / Heizkreis 02 / Service' the output gets the name 'Heizkreis 02 Mischer AUF'
+//  - the group is the next level above with a number at its end (Heizkreis 01, Puffer 01, Boiler 01 ...)
+//  - the name is taken from the menu items (not from the title of the sensor), so it can be done again
+//  - an in/output without such a place keeps the name of the control (its first menu item)
+//***************************************************************************
+
+static std::string menuGroup(const std::string& title)
+{
+   std::string t {trimMenuTitle(title)};
+   size_t pos {t.find_last_of(' ')};
+
+   if (pos == std::string::npos || pos == 0 || pos + 1 >= t.length())
+      return "";
+
+   for (size_t i = pos + 1; i < t.length(); i++)
+      if (!isdigit((unsigned char)t[i]))
+         return "";
+
+   return t;
+}
+
+void P4Mqttd::nameIo()
+{
+   std::map<uint,const MenuEntry*> openers;       // level -> the item which opens it
+
+   for (const auto& m : menu)
+      if (m.child && !openers.count(m.child))
+         openers[m.child] = &m;
+
+   auto groupOf = [&](const MenuEntry& m) -> std::string {
+      const MenuEntry* x {&m};
+
+      for (int depth {0}; depth < 20; depth++)
+      {
+         auto it {openers.find(x->parent)};
+
+         if (it == openers.end() || it->second == x)
+            break;
+
+         x = it->second;
+         std::string group {menuGroup(x->title)};
+
+         if (!group.empty())
+            return group;
+      }
+
+      return "";
+   };
+
+   int count {0};
+
+   for (auto& s : sensors)
+   {
+      int type {s.type == "P4DO" ? Fs::mstDigOut : s.type == "P4DI" ? Fs::mstDigIn : s.type == "P4AO" ? Fs::mstAnlOut : 0};
+
+      if (!type)
+         continue;
+
+      for (const auto& m : menu)
+      {
+         if (m.type != type || m.address != s.address)
+            continue;
+
+         std::string group {groupOf(m)};
+
+         if (group.empty())
+            continue;
+
+         // 'HK Mischer AUF' -> 'Mischer AUF', 'Heizkreispumpe' -> 'Pumpe' (the word of the group is in the name of the group)
+
+         std::string name {trimMenuTitle(m.title)};
+         std::string word {group.substr(0, group.find_last_of(' '))};
+
+         if (strncasecmp(name.c_str(), "HK ", 3) == 0)
+            name = name.substr(3);
+
+         if (strcasestr(name.c_str(), group.c_str()))
+            name.clear();                          // the group is already part of the name
+         else if (name.length() > word.length() && strncasecmp(name.c_str(), word.c_str(), word.length()) == 0)
+            name = name.substr(word.length());
+
+         while (!name.empty() && isspace((unsigned char)name[0]))
+            name.erase(0, 1);
+
+         if (!name.empty() && islower((unsigned char)name[0]))
+            name[0] = toupper((unsigned char)name[0]);
+
+         std::string title {name.empty() ? trimMenuTitle(m.title) : group + " " + name};
+
+         if (title != s.title)
+         {
+            tell(eloDetail, "%s 0x%04x '%s' -> '%s'", s.type.c_str(), s.address, s.title.c_str(), title.c_str());
+            s.title = title;
+            count++;
+         }
+
+         break;
+      }
+   }
+
+   if (count)
+      tell(eloAlways, "Named %d in/outputs by their place in the menu", count);
 }
 
 int P4Mqttd::cmdMenu(json_t* jCmd, json_t* jReply)

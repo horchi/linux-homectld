@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- schema s4-puffer-1hk-solar, without the pipes (they are the lines of the schema setup), transparent background -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1529" height="800" viewBox="0 0 1529 800">
+  <defs>
+    <linearGradient id="tankFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d0222e"/>
+      <stop offset="0.6" stop-color="#d0222e"/>
+      <stop offset="0.8" stop-color="#9a4560"/>
+      <stop offset="1" stop-color="#4a6fa8"/>
+    </linearGradient>
+    <linearGradient id="metalH" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3a3a3a"/>
+      <stop offset="0.5" stop-color="#8c8c8c"/>
+      <stop offset="0.8" stop-color="#5a5a5a"/>
+      <stop offset="1" stop-color="#363636"/>
+    </linearGradient>
+    <linearGradient id="metalV" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a3a3a"/>
+      <stop offset="0.5" stop-color="#8c8c8c"/>
+      <stop offset="1" stop-color="#3a3a3a"/>
+    </linearGradient>
+    <radialGradient id="bulb" cx="0.4" cy="0.4" r="0.6">
+      <stop offset="0" stop-color="#4fb0f0"/>
+      <stop offset="1" stop-color="#0a6cb4"/>
+    </radialGradient>
+    <linearGradient id="hkBox" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fbe3d6"/>
+      <stop offset="0.35" stop-color="#f8c08a"/>
+      <stop offset="0.7" stop-color="#f4a77c"/>
+      <stop offset="1" stop-color="#fbd9b0"/>
+    </linearGradient>
+    <linearGradient id="hkBar" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#e8102a"/>
+      <stop offset="1" stop-color="#6a1a9a"/>
+    </linearGradient>
+    <linearGradient id="cylBlack" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#1e1e1e"/>
+      <stop offset="0.35" stop-color="#3c3c3c"/>
+      <stop offset="1" stop-color="#101010"/>
+    </linearGradient>
+    <linearGradient id="cylGrey" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#9a9a9a"/>
+      <stop offset="0.3" stop-color="#d8d8d8"/>
+      <stop offset="0.7" stop-color="#c4c4c4"/>
+      <stop offset="1" stop-color="#8a8a8a"/>
+    </linearGradient>
+    <linearGradient id="tankInner" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#c8341e"/>
+      <stop offset="0.5" stop-color="#f08a6a"/>
+      <stop offset="1" stop-color="#c8341e"/>
+    </linearGradient>
+    <linearGradient id="redBox" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff1a1a"/>
+      <stop offset="1" stop-color="#d40000"/>
+    </linearGradient>
+    <linearGradient id="solar" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#a9b8f0"/>
+      <stop offset="1" stop-color="#8ea2e6"/>
+    </linearGradient>
+    <linearGradient id="vesselG" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#1a1a1a"/>
+      <stop offset="0.4" stop-color="#3a3a3a"/>
+      <stop offset="1" stop-color="#0e0e0e"/>
+    </linearGradient>
+  </defs>
+<path d="M600,110 V5 H690 V85 H620 V25 H670 V65 H640 V45 H652" fill="none" stroke="#d0222e" stroke-width="10"/><path d="M690,110 V95 H610 V15 H680 V75 H630 V35 H660 V55 H648" fill="none" stroke="#5f8fd4" stroke-width="10"/>
+<rect x="382" y="150" width="57" height="57" fill="#808080"/>
+<rect x="43" y="770" width="42" height="30" fill="#6a6a6a"/><rect x="303" y="770" width="41" height="30" fill="#6a6a6a"/><path d="M38,273 Q193,252 348,273 L348,782 Q193,808 38,782 Z" fill="url(#tankFill)" stroke="#7a7a7a" stroke-width="7" stroke-linejoin="round"/><path d="M75,276 C98,370 138,418 193,418 C248,418 288,370 308,276" fill="none" stroke="#7a7a7a" stroke-width="4"/>
+<g transform="translate(117,30) scale(-1.04,1.04)"><g fill="#000"><rect x="14" y="0" width="42" height="7" rx="3.5"/><rect x="31" y="5" width="8" height="12"/><rect x="24" y="15" width="22" height="6"/><rect x="0" y="34" width="8" height="12"/><path d="M6,32 L28,32 L28,23 L42,23 L42,32 C60,32 72,41 72,57 L54,57 C54,49 49,46 42,46 L28,46 L6,46 Z"/><rect x="46" y="59" width="32" height="4" rx="2"/><rect x="54" y="55" width="18" height="5"/></g><g fill="#d0222e"><path d="M55,73 l2,10 a2,2 0 0 1 -4,0 Z"/><path d="M62,71 l2,12 a2,2 0 0 1 -4,0 Z"/><path d="M69,73 l2,10 a2,2 0 0 1 -4,0 Z"/></g></g>
+<rect x="529" y="262" width="233" height="33" fill="#d0222e"/><path d="M529,295 L762,262 L762,295 Z" fill="#5f8fd4"/>
+<polygon points="850,70 935,64 978,137 868,139" fill="url(#solar)" stroke="#888" stroke-width="2.5"/><line x1="856" y1="93" x2="949.333" y2="88.3333" stroke="#888" stroke-width="2.5"/><line x1="862" y1="116" x2="963.667" y2="112.667" stroke="#888" stroke-width="2.5"/><line x1="868" y1="141" x2="978" y2="139" stroke="#666" stroke-width="3"/>
+<polygon points="952,62 1032,62 1097,133 992,137" fill="url(#solar)" stroke="#888" stroke-width="2.5"/><line x1="965.333" y1="87" x2="1053.67" y2="85.6667" stroke="#888" stroke-width="2.5"/><line x1="978.667" y1="112" x2="1075.33" y2="109.333" stroke="#888" stroke-width="2.5"/><line x1="992" y1="139" x2="1097" y2="135" stroke="#666" stroke-width="3"/>
+<rect x="1419" y="57" width="110" height="55" fill="url(#metalV)"/><rect x="1362" y="110" width="57" height="180" fill="url(#metalH)"/><path d="M1362,112 L1419,57 L1419,112 Z" fill="#6a6a6a"/><path d="M1362,112 L1419,57" stroke="#3a3a3a" stroke-width="2"/>
+<rect x="1130" y="290" width="314" height="53" fill="#7f7f7f"/><rect x="1130" y="343" width="314" height="457" fill="#d0222e"/>
+<g transform="translate(1224.2,297.5)"><rect x="0" y="0" width="129" height="38" fill="#777" stroke="#6a6a6a" stroke-width="2"/><g fill="#555"><circle cx="10" cy="9" r="2"/><circle cx="26" cy="9" r="2"/><circle cx="10" cy="24" r="2"/><circle cx="18" cy="24" r="2"/><circle cx="26" cy="24" r="2"/></g><circle cx="18" cy="9" r="2" fill="#e02020"/><rect x="40" y="5" width="54" height="27" fill="#5bd58a" stroke="#3a8a58" stroke-width="2"/><g stroke="#7a8a80" stroke-width="2"><line x1="46" y1="11" x2="57" y2="11"/><line x1="75" y1="11" x2="88" y2="11"/><line x1="46" y1="18" x2="57" y2="18"/><line x1="46" y1="24" x2="57" y2="24"/><line x1="71" y1="25" x2="88" y2="25"/></g><circle cx="110" cy="18" r="9" fill="none" stroke="#d0222e" stroke-width="6"/></g>
+<text transform="translate(1208,543) rotate(-90)" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="60" letter-spacing="-1" fill="#8a8a8a" opacity="0.9">froling</text>
+<g transform="translate(1233,25)"><rect x="-6" y="35" width="12" height="70" rx="6" fill="#fff" stroke="#888" stroke-width="2"/><rect x="-2" y="73" width="4" height="30" fill="#1a7cc4"/><circle cx="0" cy="103" r="13" fill="url(#bulb)" stroke="#888" stroke-width="2"/><g stroke="#000" stroke-width="1"><line x1="10" y1="40" x2="14" y2="40"/><line x1="10" y1="44" x2="13" y2="44"/><line x1="10" y1="48" x2="14" y2="48"/><line x1="10" y1="60" x2="14" y2="60"/><line x1="10" y1="64" x2="13" y2="64"/><line x1="10" y1="68" x2="14" y2="68"/><line x1="10" y1="82" x2="14" y2="82"/><line x1="10" y1="86" x2="13" y2="86"/></g></g>
+</svg>

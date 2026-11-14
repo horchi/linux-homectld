@@ -1720,8 +1720,6 @@ int HomeCtl::storeConfig(json_t* obj, long client)
 
       if (oldWebPort != webPort)
          replyResult(success, client, "Konfiguration gespeichert. Web Port geändert, bitte " TARGET " neu Starten!");
-      else if (!isEmpty(name) && name != oldStyle)
-         replyResult(success, client, "Konfiguration gespeichert. Das Farbschema wurde geändert, mit STRG-Umschalt-r neu laden!");
       else if (count > 1 || confirm)  // on drag&drop its only one parameter
          replyResult(success, client, "Konfiguration gespeichert");
    }
@@ -2831,21 +2829,22 @@ int HomeCtl::configChoice2json(json_t* obj, const char* name)
       int count {0};
       char* path {};
 
+      // the pictures of the schema: img/schema/schema-<name>.png or .svg, offered with the extension
+
       asprintf(&path, "%s/img/schema", httpPath);
 
-      if (getFileList(path, DT_REG, "png", false, &options, count) == success)
+      if (getFileList(path, DT_REG, "png svg", false, &options, count) == success)
       {
          json_t* oArray {json_array()};
+
+         sortFileList(options);
 
          for (const auto& opt : options)
          {
             if (strncmp(opt.name.c_str(), "schema-", strlen("schema-")) != 0)
                continue;
 
-            char* p = strdup(strchr(opt.name.c_str(), '-'));
-            *(strrchr(p, '.')) = '\0';
-            json_array_append_new(oArray, json_string(p+1));
-            free(p);
+            json_array_append_new(oArray, json_string(opt.name.c_str() + strlen("schema-")));
          }
 
          json_array_append_new(oArray, json_string(""));
@@ -2925,7 +2924,7 @@ int HomeCtl::configChoice2json(json_t* obj, const char* name)
    }
    else if (strcmp(name, "p4Schema") == 0)
    {
-      // the pictures of the schema of the heating: img/p4/schema/schema-<name>.png
+      // the pictures of the schema of the heating: img/p4/schema/schema-<name>.png or .svg, offered with the extension
 
       FileList options;
       int count {0};
@@ -2933,9 +2932,11 @@ int HomeCtl::configChoice2json(json_t* obj, const char* name)
 
       asprintf(&path, "%s/img/p4/schema", httpPath);
 
-      if (getFileList(path, DT_REG, "png", false, &options, count) == success)
+      if (getFileList(path, DT_REG, "png svg", false, &options, count) == success)
       {
          json_t* oArray {json_array()};
+
+         sortFileList(options);
 
          for (const auto& opt : options)
          {
@@ -2944,7 +2945,7 @@ int HomeCtl::configChoice2json(json_t* obj, const char* name)
             if (n.rfind("schema-", 0) != 0 || n.length() < 12)
                continue;
 
-            json_array_append_new(oArray, json_string(n.substr(7, n.length() - 11).c_str()));
+            json_array_append_new(oArray, json_string(n.substr(7).c_str()));
          }
 
          json_object_set_new(obj, "options", oArray);

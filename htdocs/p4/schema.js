@@ -7,7 +7,7 @@
  * GNU GENERAL PUBLIC LICENSE. See the file COPYING for details.
  *
  *  The tab 'Schema' of the page of the Fröling S 3200 (p4/page.js): an own plant picture of the heating
- *  (config 'p4Schema', img/p4/schema/schema-<name>.png) with the sensors of the heating (types P4...)
+ *  (config 'p4Schema', img/p4/schema/schema-<name>.png or <name>.svg) with the sensors of the heating (types P4...)
  *  placed on it. It is the schema of the main menu (schema.js) with the set 'p4': the elements, the editing
  *  ('Setup Schema' in the burger menu, rights settings) and the storing are the same, only the picture and
  *  the elements (types P4VA, P4DO, ..., P4UC for texts, P4CN for lines) are the ones of the heating.

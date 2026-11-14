@@ -14,11 +14,11 @@
     --light2: white;
     --light3: #396992;
     --light4: white;
-    --neutral0: #333333;
-    --neutral1: #454545;
-    --neutral2: #545454;
-    --neutral3: #696969;
-    --neutral4: #a3a3a3;
+    --neutral0: #0f2442;
+    --neutral1: #1a3358;
+    --neutral2: #26426b;
+    --neutral3: #3a5a85;
+    --neutral4: #9fb3cc;
 
     --listFontColor: white;
     --fontColor: white;
@@ -30,9 +30,9 @@
     --red: #ff5757;
     --orange: #f0a04b;
     --green: #4caf50;
-
     --containerPadding: 10px;
     --widgetBackground: #272727b8;
+    --listBackground: linear-gradient(to bottom right, #00112996, #000814);
     --dashboardMenuBackground: #7080907a;
     --caption1: #0d2546;
     --caption2: #113a77;
@@ -47,7 +47,7 @@
     --borderColor: #001129;
     --borderRadius: 3px;
 
-    --borderColorSchemaValue: blue;
+    --borderColorSchemaValue: #4d8fd6;
     --borderRadiusSchemaValue: 3px;
     --borderStyleSchemaValue: solid;
 
@@ -56,7 +56,8 @@
 
     --dialogColor: black;
     --dialogBackground: lightgray;
-
+    --dialogColorDark: lightgray;
+    --dialogBackgroundDark: #0d2546;
     --scaleText: white;
     --scale: #ccc;
 

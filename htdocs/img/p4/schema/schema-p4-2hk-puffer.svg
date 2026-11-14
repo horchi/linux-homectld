@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- schema p4-2hk-puffer, built after schema-p4-2hk-puffer.png (1700x800), without the pipes (they are the lines P4CN of schemaconf) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="800" viewBox="0 0 1700 800">
+  <defs>
+    <linearGradient id="tankFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d0222e"/>
+      <stop offset="0.55" stop-color="#d0222e"/>
+      <stop offset="0.78" stop-color="#9a4560"/>
+      <stop offset="1" stop-color="#4a6fa8"/>
+    </linearGradient>
+    <linearGradient id="metalH" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3a3a3a"/>
+      <stop offset="0.5" stop-color="#8c8c8c"/>
+      <stop offset="0.8" stop-color="#5a5a5a"/>
+      <stop offset="1" stop-color="#363636"/>
+    </linearGradient>
+    <linearGradient id="chimney" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3c3c3c"/>
+      <stop offset="0.45" stop-color="#909090"/>
+      <stop offset="0.75" stop-color="#5c5c5c"/>
+      <stop offset="1" stop-color="#3c3c3c"/>
+    </linearGradient>
+    <radialGradient id="bulb" cx="0.4" cy="0.4" r="0.6">
+      <stop offset="0" stop-color="#4fb0f0"/>
+      <stop offset="1" stop-color="#0a6cb4"/>
+    </radialGradient>
+
+    <!-- pump, flow upwards, centre 0,0 -->
+    <g id="pump">
+      <circle r="24" fill="#fff" stroke="#000" stroke-width="5"/>
+      <path d="M0,-22 L-19,11 A22,22 0 0 0 19,11 Z" fill="#000"/>
+    </g>
+    <!-- shut-off valve, vertical, centre 0,0 -->
+    <g id="valve">
+      <path d="M-14,-26 L14,-26 L0,0 Z M-14,26 L14,26 L0,0 Z" fill="#000"/>
+    </g>
+    <!-- three-way mixer, vertical with the side port to the right, centre 0,0 -->
+    <g id="mixer">
+      <path d="M-13,-25 L13,-25 L0,0 Z M-13,25 L13,25 L0,0 Z M0,0 L26,-12 L26,12 Z" fill="#000"/>
+    </g>
+    <!-- temperature probe, centre 0,0 -->
+    <g id="probe">
+      <circle r="10" fill="#fff" stroke="#000" stroke-width="3"/>
+      <line x1="0" y1="10" x2="0" y2="1" stroke="#000" stroke-width="3"/>
+    </g>
+  </defs>
+
+
+  <!-- buffer tank -->
+  <rect x="65" y="770" width="42" height="30" fill="#6a6a6a"/>
+  <rect x="325" y="770" width="41" height="30" fill="#6a6a6a"/>
+  <path d="M60,273 Q215,252 370,273 L370,782 Q215,808 60,782 Z" fill="url(#tankFill)" stroke="#7a7a7a" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M97,276 C120,370 160,418 215,418 C270,418 310,370 330,276" fill="none" stroke="#7a7a7a" stroke-width="4"/>
+
+  <!-- domestic hot water: circulation pump and tap -->
+  <use href="#pump" x="188" y="190"/>
+  <g fill="#000">
+    <rect x="410" y="125" width="42" height="7" rx="3.5"/>
+    <rect x="427" y="130" width="8" height="12"/>
+    <rect x="420" y="140" width="22" height="6"/>
+    <rect x="396" y="159" width="8" height="12"/>
+    <path d="M402,157 L424,157 L424,148 L438,148 L438,157 C456,157 468,166 468,182 L450,182 C450,174 445,171 438,171 L424,171 L402,171 Z"/>
+    <rect x="442" y="184" width="32" height="4" rx="2"/>
+    <rect x="450" y="180" width="18" height="5"/>
+  </g>
+  <g fill="#d0222e">
+    <path d="M451,198 l2,10 a2,2 0 0 1 -4,0 Z"/>
+    <path d="M458,196 l2,12 a2,2 0 0 1 -4,0 Z"/>
+    <path d="M465,198 l2,10 a2,2 0 0 1 -4,0 Z"/>
+  </g>
+
+  <!-- heating circuits 1 and 2 -->
+  <g>
+    <use href="#valve" x="614" y="63"/>
+    <use href="#valve" x="656" y="63"/>
+    <use href="#probe" x="614" y="109"/>
+    <use href="#probe" x="656" y="109"/>
+    <use href="#pump" x="615" y="157"/>
+    <use href="#mixer" x="615" y="219"/>
+  </g>
+  <g>
+    <use href="#valve" x="750" y="63"/>
+    <use href="#valve" x="792" y="63"/>
+    <use href="#probe" x="750" y="109"/>
+    <use href="#probe" x="792" y="109"/>
+    <use href="#pump" x="751" y="157"/>
+    <use href="#mixer" x="751" y="219"/>
+  </g>
+
+  <!-- distributor -->
+  <rect x="587" y="262" width="233" height="33" fill="#d0222e"/>
+  <path d="M587,295 L820,262 L820,295 Z" fill="#5f8fd4"/>
+
+  <!-- return: valves, dirt trap, boiler pump -->
+  <g transform="translate(494,749) rotate(90)"><use href="#valve"/></g>
+  <rect x="525" y="737" width="52" height="25" fill="#000"/>
+  <path d="M577,737 L577,762 L525,762 Z" fill="#444"/>
+  <g transform="translate(608,749) rotate(90)"><use href="#pump"/></g>
+  <g transform="translate(667,749) rotate(90)"><use href="#valve"/></g>
+
+  <!-- check valve -->
+  <rect x="738" y="556" width="18" height="24" fill="#fff" stroke="#000" stroke-width="3"/>
+  <line x1="741" y1="577" x2="756" y2="553" stroke="#000" stroke-width="2"/>
+  <circle cx="757" cy="553" r="3.5" fill="#000"/>
+
+  <!-- expansion vessel -->
+  <path d="M854,580 C856,566 868,559 885,559 C902,559 914,566 916,580 L916,650 C914,662 900,672 885,672 C870,672 856,662 854,650 Z" fill="#fff" stroke="#000" stroke-width="4"/>
+  <line x1="854" y1="581" x2="916" y2="581" stroke="#000" stroke-width="4"/>
+  <line x1="854" y1="650" x2="916" y2="650" stroke="#000" stroke-width="4"/>
+  <rect x="848" y="604" width="74" height="22" fill="#fff" stroke="#000" stroke-width="4"/>
+  <rect x="879" y="672" width="12" height="8" fill="#fff" stroke="#000" stroke-width="2.5"/>
+
+  <!-- boiler -->
+  <rect x="1287" y="0" width="58" height="292" fill="url(#chimney)"/>
+  <rect x="1370" y="240" width="300" height="560" fill="url(#metalH)"/>
+  <line x1="1370" y1="346" x2="1665" y2="346" stroke="#333" stroke-width="2"/>
+  <rect x="1055" y="290" width="314" height="54" fill="#7f7f7f"/>
+  <rect x="1055" y="343" width="314" height="457" fill="#d0222e"/>
+  <rect x="1148" y="297" width="129" height="38" fill="#777" stroke="#6a6a6a" stroke-width="2"/>
+  <g fill="#555">
+    <circle cx="1158" cy="306" r="2"/><circle cx="1174" cy="306" r="2"/>
+    <circle cx="1158" cy="321" r="2"/><circle cx="1166" cy="321" r="2"/><circle cx="1174" cy="321" r="2"/>
+  </g>
+  <circle cx="1166" cy="306" r="2" fill="#e02020"/>
+  <rect x="1188" y="302" width="54" height="27" fill="#5bd58a" stroke="#3a8a58" stroke-width="2"/>
+  <g stroke="#7a8a80" stroke-width="2">
+    <line x1="1194" y1="308" x2="1205" y2="308"/><line x1="1223" y1="308" x2="1236" y2="308"/>
+    <line x1="1194" y1="315" x2="1205" y2="315"/>
+    <line x1="1194" y1="321" x2="1205" y2="321"/><line x1="1219" y1="322" x2="1236" y2="322"/>
+  </g>
+  <circle cx="1258" cy="315" r="9" fill="none" stroke="#d0222e" stroke-width="6"/>
+  <text transform="translate(1133,543) rotate(-90)" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="60" letter-spacing="-1" fill="#8a8a8a" opacity="0.85">froling</text>
+
+  <!-- outside temperature -->
+  <g transform="translate(1649,0)">
+    <rect x="-6" y="35" width="12" height="70" rx="6" fill="#fff" stroke="#888" stroke-width="2"/>
+    <rect x="-2" y="73" width="4" height="30" fill="#1a7cc4"/>
+    <circle cx="0" cy="103" r="13" fill="url(#bulb)" stroke="#888" stroke-width="2"/>
+    <g stroke="#000" stroke-width="1">
+      <line x1="10" y1="40" x2="14" y2="40"/><line x1="10" y1="44" x2="13" y2="44"/><line x1="10" y1="48" x2="14" y2="48"/>
+      <line x1="10" y1="60" x2="14" y2="60"/><line x1="10" y1="64" x2="13" y2="64"/><line x1="10" y1="68" x2="14" y2="68"/>
+      <line x1="10" y1="82" x2="14" y2="82"/><line x1="10" y1="86" x2="13" y2="86"/>
+    </g>
+  </g>
+
+</svg>

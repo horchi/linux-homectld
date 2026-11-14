@@ -32,6 +32,7 @@
     --green: #4caf50;
     --containerPadding: 10px;
     --widgetBackground: #272727cc;
+    --listBackground: linear-gradient(to bottom right, #00000096, black);
     --dashboardMenuBackground: #7080907a;
     --caption1: #292929;
     --caption2: #565353;

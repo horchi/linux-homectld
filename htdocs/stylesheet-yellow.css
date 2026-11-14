@@ -14,13 +14,14 @@
     --light2: #ffffc6;
     --light3: #cccc93;
     --light4: #818382;
-    --neutral0: #333333;
-    --neutral1: #454545;
-    --neutral2: #545454;
-    --neutral3: #696969;
-    --neutral4: #a3a3a3;
+    --neutral0: #f7f7d9;
+    --neutral1: #e6e6bc;
+    --neutral2: #d4d4a4;
+    --neutral3: #a8a87c;
+    --neutral4: #5e5e45;
 
-    --listFontColor: #ffffc6;
+    --listFontColor: black;
+    --fontColor: black;
     --blue: #2177AD;
     --blueshade: #495b67;
     --yellow: #fad600;
@@ -29,9 +30,9 @@
     --red: #ff5757;
     --orange: #f0a04b;
     --green: #4caf50;
-
     --containerPadding: 10px;
-    --widgetBackground: #272727b8;
+    --widgetBackground: #fdfde6d9;
+    --listBackground: linear-gradient(to bottom right, #fdfde6e6, #f3f3cf);
     --dashboardMenuBackground: #7080907a;
     --caption1: #F90;
     --caption2: #ffc766;
@@ -41,7 +42,7 @@
     --peakColor: #ff5757;
     --peakMinColor: #4fb0ff;
     --background: #000000d1;
-    --shadow: black;
+    --shadow: #00000059;
 
     --borderColor: #000000d1;
     --borderRadius: 3px;
@@ -54,10 +55,16 @@
     --buttonFont: black;
 
     --dialogColor: black;
-    --dialogBackground: #818382;
+    --dialogBackground: #ededcc;
+    --dialogColorDark: lightgray;
+    --dialogBackgroundDark: #272727;
+    --scaleText: #333333;
+    --scale: #666666;
 
-    --scaleText: white;
-    --scale: #ccc;
+    --sat: env(safe-area-inset-top);
+    --sar: env(safe-area-inset-right);
+    --sab: env(safe-area-inset-bottom);
+    --sal: env(safe-area-inset-left);
 }
 
 @media only screen and (max-width: 500px)

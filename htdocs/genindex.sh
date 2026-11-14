@@ -34,6 +34,16 @@ while IFS= read -r line; do
    printf '%s\n' "$line"
 done < "$IN" > "$OUT"
 
+# the content hashes of the themes (stylesheet-<style>.css, loaded by main.js / applyTheme with
+# '?v=<hash>'), part of the page so a changed theme changes the build id below, too
+
+themes=""
+for f in stylesheet-*.css; do
+   t="${f#stylesheet-}"; t="${t%.css}"
+   themes="${themes:+${themes},}${t}:$(hash_of "$f")"
+done
+sed -i "s/@THEMES@/${themes}/" "$OUT"
+
 # the build id of the page (meta 'webif-build'): hash of the generated content, so it
 # changes with any of the versioned files; main.js compares it with the current
 # index.html on every connect and reloads the page on a difference

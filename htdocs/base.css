@@ -2157,6 +2157,30 @@ table.tableMultiCol td
 
 /* edit dialog of a schema element: hints and the editor of the function (outfit of the LUA editor) */
 
+/* result of the JavaScript check in the edit dialogs of the schema */
+
+.settingsDialogContent > div.schemaFctResult
+{
+    display: block;
+    margin-top: 6px;
+    font-size: smaller;
+    text-align: left;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.schemaFctResult.ok    { color: #2e8b2e; }
+.schemaFctResult.error { color: #e03030; }
+
+/* background color of the schema: the color picker shown directly in the dialog */
+
+.settingsDialogContent > div.schemaBgPicker
+{
+    display: flex;
+    justify-content: center;
+    margin: 6px 0 10px 0;
+}
+
 .schemaDlgHint
 {
     font-size: smaller;

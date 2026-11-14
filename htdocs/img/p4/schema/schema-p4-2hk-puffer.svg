@@ -104,11 +104,11 @@
   <circle cx="757" cy="553" r="3.5" fill="#000"/>
 
   <!-- expansion vessel -->
-  <path d="M854,580 C856,566 868,559 885,559 C902,559 914,566 916,580 L916,650 C914,662 900,672 885,672 C870,672 856,662 854,650 Z" fill="#fff" stroke="#000" stroke-width="4"/>
+  <path d="M854,580 C856,566 868,559 885,559 C902,559 914,566 916,580 L916,650 C914,662 900,672 885,672 C870,672 856,662 854,650 Z" fill="#8b0000" stroke="#000" stroke-width="4"/>
   <line x1="854" y1="581" x2="916" y2="581" stroke="#000" stroke-width="4"/>
   <line x1="854" y1="650" x2="916" y2="650" stroke="#000" stroke-width="4"/>
-  <rect x="848" y="604" width="74" height="22" fill="#fff" stroke="#000" stroke-width="4"/>
-  <rect x="879" y="672" width="12" height="8" fill="#fff" stroke="#000" stroke-width="2.5"/>
+  <rect x="848" y="604" width="74" height="22" fill="#8b0000" stroke="#000" stroke-width="4"/>
+  <rect x="879" y="672" width="12" height="8" fill="#8b0000" stroke="#000" stroke-width="2.5"/>
 
   <!-- boiler -->
   <rect x="1287" y="0" width="58" height="292" fill="url(#chimney)"/>

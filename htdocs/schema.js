@@ -55,7 +55,9 @@ function schemaEditBackground()
        .attr('id', 'settingsForm')
        .append($('<div></div>')
                .addClass('settingsDialogContent')
-               .append(schemaDlgRow('Farbe', $('<input></input>').attr('id', 'schemaBgColor').attr('type', 'text').val(stored)))
+               .append($('<div></div>')                  // the picker shown directly (flat), not as dropdown
+                       .addClass('schemaBgPicker')
+                       .append($('<input></input>').attr('id', 'schemaBgColor').attr('type', 'text').val(stored)))
                .append($('<div></div>')
                        .addClass('schemaDlgHint')
                        .html('Die Farbe hinter dem Bild des Schemas, sichtbar bei transparenten Bildern (SVG). ' +
@@ -69,7 +71,7 @@ function schemaEditBackground()
    $(form).dialog({
       modal: true,
       title: 'Hintergrund des Schemas',
-      width: Math.min(450, $(window).width() - 20),
+      width: Math.min(520, $(window).width() - 20),
       hide: 'fade',
       buttons: {
          'Abbrechen': function () { $(this).dialog('close'); },
@@ -84,6 +86,7 @@ function schemaEditBackground()
       },
       open: function() {
          $('#schemaBgColor').spectrum(Object.assign(schemaSpectrumOptions(true), {
+            flat: true,
             move: function(color) { $('#schemaContainer').css('background-color', color ? color.toRgbString() : ''); },
             change: function(color) { $('#schemaContainer').css('background-color', color ? color.toRgbString() : ''); }
          }));
@@ -236,9 +239,9 @@ function schemaEditMenu()
                         .attr('id', 'schemaEditMenu')
                         .addClass('setupMenu schemaEditMenu'));
 
-   addButton('mdi-thermometer-plus', 'Sensor hinzufügen', 'Einen Sensor in das Schema aufnehmen', schemaAddSensor);
-   addButton('mdi-format-text', 'Template hinzufügen', 'Ein Template (Text, Bild oder JavaScript Funktion ohne eigenen Sensor) hinzufügen', schemaAddItem);
-   addButton('mdi-vector-line', 'Leitung hinzufügen', 'Eine Leitung zeichnen: Klick setzt Start und Eckpunkte, Doppelklick beendet', schemaAddLine);
+   addButton('mdi-thermometer-plus', '+ Sensor', 'Einen Sensor in das Schema aufnehmen', schemaAddSensor);
+   addButton('mdi-format-text', '+ Template', 'Ein Template (Text, Bild oder JavaScript Funktion ohne eigenen Sensor) hinzufügen', schemaAddItem);
+   addButton('mdi-vector-line', '+ Leitung', 'Eine Leitung zeichnen: Klick setzt Start und Eckpunkte, Doppelklick beendet', schemaAddLine);
    addButton('mdi-palette', 'Hintergrund', 'Die Farbe hinter dem Bild des Schemas', schemaEditBackground);
    addButton('mdi-content-save', 'Speichern', 'Das Schema speichern', schemaStore);
    addButton('mdi-close', 'Beenden', 'Den Edit Mode verlassen', schemaLeaveEdit);
@@ -497,7 +500,9 @@ function updateSchema()
 
 // the title of an element for the mouse hint and the edit dialog: '<title> - <name of the sensor> (<id>)'
 
-function schemaElementTitle(schemaDef)
+// withId: append the ID of the sensor, the edit dialog shows it in the dialog itself
+
+function schemaElementTitle(schemaDef, withId = true)
 {
    let title = "";
 
@@ -515,7 +520,17 @@ function schemaElementTitle(schemaDef)
          title += (title != '' ? ' - ' : '') + fact.name;
    }
 
-   return (title != '' ? title + ' ' : '') + "(" + schemaDef.type + ":0x" + ((schemaDef.address)>>>0).toString(16) + ")";
+   if (!withId)
+      return title;
+
+   return (title != '' ? title + ' ' : '') + "(" + schemaSensorId(schemaDef) + ")";
+}
+
+// the ID of the sensor (TYPE:0xNN)
+
+function schemaSensorId(schemaDef)
+{
+   return schemaDef.type + ":0x" + ((schemaDef.address)>>>0).toString(16);
 }
 
 // store, the elements without a position (rows created automatically by older versions) and the deleted ones are removed
@@ -1382,17 +1397,22 @@ function editSchemaLine(schemaDef)
               .html('Der Start der Leitung ist der grüne Punkt. Ohne JavaScript fließt es immer. Liefert das JavaScript false oder 0 ' +
                     'steht der Fluss, bei einem negativen Wert läuft er entgegen der gewählten Richtung, z.B. ' +
                     'getItem(\'TYP:0xNN\').state. Mit \'Bögen\' springt die Leitung in einem Bogen über jede kreuzende Leitung, ' +
-                    'haben beide Bögen die mit dem höheren Layer.'));
+                    'haben beide Bögen die mit dem höheren Layer.'))
+      .append(schemaFctResultDiv());
 
    let fctValue = function() { return fctEditor ? fctEditor.getValue() : $('#function').val(); };
 
-   let check = function() {
+   let check = function(showResult) {
+      let code = fctValue();
+
       try {
-         eval(fctValue());
+         let result = eval(code);
+         if (showResult)
+            schemaShowFctResult(code, null, result);
          return true;
       }
       catch (err) {
-         showInfoDialog({ 'message' : "Fehler im JavaScript: '" + err.message + ", " + fctValue() + "'", 'status': -1 });
+         schemaShowFctResult(code, err);
          return false;
       }
    };
@@ -1439,8 +1459,7 @@ function editSchemaLine(schemaDef)
       hide: "fade",
       buttons: {
          'Check': function () {
-            if (check())
-               showInfoDialog({ 'message' : 'JavaScript ist gültig', 'status': 0 });
+            check(true);
          },
          'Löschen': function () {
             schemaDef.deleted = true;
@@ -1525,6 +1544,29 @@ function schemaDlgCheckbox(inputId, checked)
             .prop('for', inputId) ];
 }
 
+// the result of the JavaScript check, shown in the dialog (#schemaFctResult) instead of a message
+
+function schemaFctResultDiv()
+{
+   return $('<div></div>')
+      .attr('id', 'schemaFctResult')
+      .addClass('schemaFctResult');
+}
+
+function schemaShowFctResult(code, err, result)
+{
+   let div = $('#schemaFctResult');
+
+   div.removeClass('ok error');
+
+   if (err)
+      div.addClass('error').text('Fehler im JavaScript: ' + err.message);
+   else if (code == null || code.trim() == '')
+      div.addClass('ok').text('Kein JavaScript');
+   else
+      div.addClass('ok').text('JavaScript ist gültig, Ergebnis: ' + (result === undefined ? 'undefined' : String(result)));
+}
+
 function schemaSpectrumOptions(allowEmpty)
 {
    return {
@@ -1538,6 +1580,7 @@ function schemaSpectrumOptions(allowEmpty)
       hideAfterPaletteSelect : true,
       showInput : true,
       showButtons : false,
+      showAlpha : true,                   // transparency, stored as rgba() by toRgbString()
       allowEmpty : allowEmpty
    };
 }
@@ -1643,7 +1686,8 @@ function editSchemaValue(type, address, newUC)
        .attr('id', 'settingsForm')
        .append(content);
 
-   content.append(row('Einblenden', checkbox('showIt', schemaDef.state == 'A')))
+   content.append(row('ID', $('<span></span>').addClass('schemaDlgId').html(schemaSensorId(schemaDef))))
+      .append(row('Einblenden', checkbox('showIt', schemaDef.state == 'A')))
       .append(row('Typ', selKind));
 
    if (!isUC) {
@@ -1654,7 +1698,23 @@ function editSchemaValue(type, address, newUC)
    content.append(row2('Farbe', $('<input></input>').attr('id', 'colorFg').attr('type', 'text').val(schemaDef.properties["color"] || "white"),
                        'Hintergrund', $('<input></input>').attr('id', 'colorBg').attr('type', 'text').val(schemaDef.properties["background-color"] || "transparent")));
 
-   content.append(row('Schriftgröße', input('fontSize', 'search', schemaDef.properties["font-size"] || "16px")));
+   // font style, stored as font-weight and font-style
+
+   let fontStyles = { 'normal': 'Normal', 'bold': 'Fett', 'italic': 'Kursiv', 'bold-italic': 'Fett kursiv' };
+   let bold = schemaDef.properties["font-weight"] == 'bold';
+   let italic = schemaDef.properties["font-style"] == 'italic';
+
+   let selFontStyle = $('<select></select>')
+       .addClass('rounded-border inputSetting')
+       .attr('id', 'fontStyle');
+
+   for (let s in fontStyles)
+      selFontStyle.append($('<option></option>').val(s).html(fontStyles[s]));
+
+   selFontStyle.val(bold && italic ? 'bold-italic' : bold ? 'bold' : italic ? 'italic' : 'normal');
+
+   content.append(row2('Schriftgröße', input('fontSize', 'search', schemaDef.properties["font-size"] || "16px"),
+                       'Schriftstil', selFontStyle));
 
    content.append(row2('Rahmen', checkbox('showBorder', schemaDef.properties['border'] != 'none'),
                        'Rahmen Farbe', $('<input></input>').attr('id', 'colorBorder').attr('type', 'text').val(schemaDef.properties["border-color"] || "")))
@@ -1685,7 +1745,8 @@ function editSchemaValue(type, address, newUC)
          .append($('<div></div>')
                  .addClass('schemaDlgHint')
                  .html('JavaScript zum Berechnen des angezeigten Wertes. Die Daten des Sensors liefern item.value und item.text, ' +
-                       'Titel und Einheit fact.title und fact.unit. Andere Sensoren erhält man mit getItem(\'TYP:0xNN\')'));
+                       'Titel und Einheit fact.title und fact.unit. Andere Sensoren erhält man mit getItem(\'TYP:0xNN\')'))
+         .append(schemaFctResultDiv());
 
       content.find('#usrText').closest('div').children('span').first().attr('id', 'labelUsrText');
    }
@@ -1696,12 +1757,13 @@ function editSchemaValue(type, address, newUC)
 
    let buttons = {
       'Check': function () {
+         let code = fctValue();
+
          try {
-            eval(fctValue());
-            showInfoDialog({ 'message' : 'JavaScript ist gültig', 'status': 0 });
+            schemaShowFctResult(code, null, eval(code));
          }
          catch (err) {
-            showInfoDialog({ 'message' : "Fehler im JavaScript: '" + err.message + ", " + fctValue() + "'", 'status': -1 });
+            schemaShowFctResult(code, err);
          }
       },
       'Löschen': function () {              // a deleted sensor is offered again by 'Sensor hinzufügen'
@@ -1726,7 +1788,7 @@ function editSchemaValue(type, address, newUC)
 
    $(form).dialog({
       modal: true,
-      title: schemaElementTitle(schemaDef),
+      title: schemaElementTitle(schemaDef, false) || schemaSensorId(schemaDef),
       width: Math.min(700, $(window).width() - 20),
       hide: "fade",
       buttons: buttons,
@@ -1796,7 +1858,7 @@ function editSchemaValue(type, address, newUC)
          eval(fct);
       }
       catch (err) {
-         showInfoDialog({'message' : "Fehler im JavaScript: '" + err.message + ", " + fct + "'", 'status': -1});
+         schemaShowFctResult(fct, err);
          return -1;
       }
 
@@ -1813,6 +1875,11 @@ function editSchemaValue(type, address, newUC)
       schemaDef.state = $('#showIt').is(":checked") ? "A": "D";
 
       schemaDef.properties["font-size"] = $('#fontSize').val();
+
+      let fontStyle = $('#fontStyle').val();
+      schemaDef.properties["font-weight"] = fontStyle.startsWith('bold') ? 'bold' : 'normal';
+      schemaDef.properties["font-style"] = fontStyle.endsWith('italic') ? 'italic' : 'normal';
+
       schemaDef.usrtext = $('#usrText').val();
       schemaDef.width = parseInt($('#imgWidth').val()) || 0;
       schemaDef.height = parseInt($('#imgHeight').val()) || 0;

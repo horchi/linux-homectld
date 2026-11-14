@@ -1386,6 +1386,11 @@ function prepareMenu()
 
    if (active && active.scrollIntoView)
       active.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+
+   // the sub menus (setup, S 3200 tabs, edit mode of the schema) are gone with the empty() above,
+   //  build them again, e.g. the config is pushed again after each 'storeconfig'
+
+   prepareSetupMenu();
 }
 
 // height of the container (viewport - menu - footer) and its resize handler,
@@ -1419,6 +1424,9 @@ function prepareSetupMenu()
 
    if (currentPage == 'p4menu' && typeof p4PrepareSubMenu == 'function')
       p4PrepareSubMenu();                 // the tabs of the page of the S 3200 (p4/page.js)
+
+   if (schemaEditActive && typeof schemaEditMenu == 'function')
+      schemaEditMenu();                   // still in the edit mode of the schema, e.g. the config came again after 'storeconfig'
 
    if (setupPages.includes(currentPage)) {
       if (localStorage.getItem(storagePrefix + 'Rights') & 0x08 || localStorage.getItem(storagePrefix + 'Rights') & 0x10) {

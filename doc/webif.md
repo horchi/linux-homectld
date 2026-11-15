@@ -34,7 +34,7 @@ dash - specify the start page of the dashboard (dashbord ID)
 
 For example to start in kiosk mode 2
 
-http://your-ip:61109/index.html&kiosk=2
+http://your-ip:61109/index.html?kiosk=2
 
 ### iOS home screen app
 

@@ -3798,9 +3798,32 @@ int HomeCtl::performAlertCheck(cDbRow* alertRow, time_t now, int recurse, int fo
    tableSamples->setValue("AGGREGATE", "S");
    tableSamples->setValue("TIME", now);
 
-   if (!tableSamples->find() || !tableValueFacts->find())
+   if (!tableValueFacts->find())
    {
-      tell(eloAlways, "Info: Can't perform sensor check for %s/%d '%s'", type, addr, l2pTime(now).c_str());
+      tell(eloAlways, "Info: Can't perform sensor check for %s/%d '%s', missing value fact", type, addr, l2pTime(now).c_str());
+      return 0;
+   }
+
+   if (!tableSamples->find())
+   {
+      // no sample of this store - normal as long as the sensor had no new data (e.g. after the start
+      // the data of the interfaces arrives later), reported only when the data stays away
+
+      constexpr int missingIntervals {5};
+      const SensorData* sensor {getSensor(type, addr)};
+      time_t last {sensor ? sensor->last() : 0};
+      bool stale {(last ? last : startedAt) < now - missingIntervals * interval};
+
+      if (stale && last)
+         tell(eloAlways, "Info: Can't perform sensor check for %s/%d '%s', no data since '%s'",
+              type, addr, l2pTime(now).c_str(), l2pTime(last).c_str());
+      else if (stale)
+         tell(eloAlways, "Info: Can't perform sensor check for %s/%d '%s', no data since the start",
+              type, addr, l2pTime(now).c_str());
+      else
+         tell(eloDebug, "Debug: Skipping sensor check for %s/%d '%s', no sample of this store",
+              type, addr, l2pTime(now).c_str());
+
       return 0;
    }
 

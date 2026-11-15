@@ -182,6 +182,12 @@ ldconfig
 `-DLWS_WITHOUT_EXTENSIONS=OFF` enables the websocket extensions (needs `zlib1g-dev`), without it the
 default build has no permessage-deflate and the websocket traffic to the browser goes uncompressed.
 
+**Note:** the libwebsockets versions 4.4.0 up to 4.5.8 (and `main` from 06/2025 to 08/2026) have a bug in
+permessage-deflate: compressed messages of the browser bigger than about 2 kB are dropped with
+`lws_extension_callback_pm_deflate: rx buffer underflow` in the log, the connection is closed (e.g. storing a
+dashboard or the setup has no effect). Fixed in `main` since 30.08.2026 (commit `3e9d2ae5e`), so build the
+current `main` (or `v4.3-stable`) when the extensions are enabled. A build without extensions isn't affected.
+
 ### Build and install the homectld
 
 ```

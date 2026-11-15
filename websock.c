@@ -357,6 +357,34 @@ int cWebSock::callbackHttp(lws* wsi, lws_callback_reasons reason, void* user, vo
 
          char* file {};
          asprintf(&file, "%s/%s", httpPath, url);
+
+         // WORKAROUND (to be removed): old links / iOS home screen icons use 'index.html&kiosk=2' (the
+         //   former docu), lws before 09/2026 cut the path at the '&', now it's part of the path (404)
+         //   -> redirect a missing file with '&' to the URL with '?' instead of the first '&'
+
+         struct stat st {};
+
+         if (strchr(url, '&') && stat(file, &st) != 0)
+         {
+            std::string location {url};
+            location[location.find('&')] = '?';
+
+            if (location[0] != '/')
+               location.insert(0, "/");
+
+            free(file);
+            tell(eloAlways, "HTTP: Redirecting '%s' to '%s' (workaround for the old links)", url, location.c_str());
+
+            unsigned char headers[LWS_PRE + 512] {};
+            unsigned char* p {headers + LWS_PRE};
+            unsigned char* end {headers + sizeof(headers) - 1};
+
+            if (lws_http_redirect(wsi, HTTP_STATUS_FOUND, (const unsigned char*)location.c_str(),
+                                  (int)location.length(), &p, end) < 0)
+               return -1;
+
+            return lws_http_transaction_completed(wsi) ? -1 : 0;
+         }
          int res = serveFile(wsi, file);
          free(file);
 

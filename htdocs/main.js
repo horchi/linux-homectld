@@ -90,7 +90,7 @@ $('document').ready(function() {
 
    if (actDashboard == -1) {
       actDashboard = localStorage.getItem(storagePrefix + 'actDashboard');
-      actDashboardIndex = localStorage.getItem(storagePrefix + 'actDashboardIndex');
+      actDashboardIndex = parseInt(localStorage.getItem(storagePrefix + 'actDashboardIndex')) || 0;
    }
 
    lastSetupPage = localStorage.getItem(storagePrefix + 'lastSetupPage');

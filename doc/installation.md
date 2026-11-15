@@ -115,7 +115,7 @@ Always call it via make, the script `contrib/install-dependencies.sh` gets the s
 `DRYRUN=1 make install-dependencies` only shows the commands. The manual way:
 
 ```
-apt -y install build-essential libssl-dev libcurl4-openssl-dev uuid-dev libcap-dev libsystemd-dev cmake pkg-config net-tools nodejs
+apt -y install build-essential libssl-dev libcurl4-openssl-dev uuid-dev libcap-dev libsystemd-dev cmake pkg-config net-tools nodejs zlib1g-dev
 apt -y install libjansson-dev libmariadb-dev liblua5.3-dev mosquitto-clients jq jo bc aptitude util-linux-extra libgpiod2 libgpiod-dev
 ```
 
@@ -175,10 +175,12 @@ git clone https://github.com/warmcat/libwebsockets.git
 cd libwebsockets
 mkdir build
 cd build
-cmake ..
+cmake .. -DLWS_WITHOUT_EXTENSIONS=OFF
 make install
 ldconfig
 ```
+`-DLWS_WITHOUT_EXTENSIONS=OFF` enables the websocket extensions (needs `zlib1g-dev`), without it the
+default build has no permessage-deflate and the websocket traffic to the browser goes uncompressed.
 
 ### Build and install the homectld
 

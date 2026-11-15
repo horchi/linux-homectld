@@ -130,7 +130,7 @@ else
    echo "libwebsockets-dev of the distribution is $(aptVersion libwebsockets-dev), 4.3.0 is needed - building it from source"
    run rm -rf ${SRC_DIR}/libwebsockets
    run git clone --depth 1 https://github.com/warmcat/libwebsockets.git ${SRC_DIR}/libwebsockets
-   run bash -c "cd ${SRC_DIR}/libwebsockets && mkdir -p build && cd build && cmake .. && make -j2 && make install && ldconfig"
+   run bash -c "cd ${SRC_DIR}/libwebsockets && mkdir -p build && cd build && cmake .. -DLWS_WITHOUT_EXTENSIONS=OFF && make -j2 && make install && ldconfig"
 fi
 
 # --- optional components (Make.user) ------------------------------------

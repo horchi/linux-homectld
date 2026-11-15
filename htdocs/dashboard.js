@@ -159,6 +159,8 @@ function initDashboard(update = false)
       let did = jDashboards[i][1];
       if (actDashboard < 0)
          setActualDashboard(did, i);
+      else if (did == actDashboard)
+         actDashboardIndex = i;          // the stored index may be stale (string from the localStorage, other order / group, URL parameter 'dash')
 
       if (kioskBackTime > 0 && actDashboard != jDashboards[0][1]) {
          setTimeout(function() {
@@ -479,7 +481,10 @@ function initDashboardSwipe()
 
       dashSwipe.busy = true;
 
-      let index = actDashboardIndex;
+      let index = jDashboards.findIndex(function(d) { return d[1] == actDashboard; });
+
+      if (index < 0)
+         index = 0;
 
       if (dir > 0)                   // right -> previous
          index = index ? index-1 : jDashboards.length-1;

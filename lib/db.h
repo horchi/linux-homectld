@@ -41,7 +41,7 @@ class cDbValue : public cDbService
          ownField = 0;
          changed = 0;
 
-         if (f) setField(f);
+         if (f) cDbValue::setField(f);
       }
 
       cDbValue(const char* name, FieldFormat format, int size)
@@ -56,6 +56,8 @@ class cDbValue : public cDbService
          clear();
       }
 
+      cDbValue(const cDbValue&) = delete;
+      cDbValue& operator=(const cDbValue&) = delete;
       virtual ~cDbValue()
       {
          free();
@@ -549,10 +551,10 @@ class cDbStatements
       {
          tell(eloAlways, "Statement statistic of last %ld seconds from '%s':", (long)(time(0) - statisticPeriod), name);
 
-         for (std::list<cDbStatement*>::iterator it = statements.begin() ; it != statements.end(); ++it)
+         for (auto& statement : statements)
          {
-            if (*it)
-               (*it)->showStat();
+            if (statement)
+               statement->showStat();
          }
 
          statisticPeriod = time(0);
@@ -588,12 +590,12 @@ class cDbRow : public cDbService
 {
    public:
 
-      cDbRow(cDbTableDef* t)
+      explicit cDbRow(cDbTableDef* t)
       {
          set(t);
       }
 
-      cDbRow(const char* name)
+      explicit cDbRow(const char* name)
       {
          cDbTableDef* t = dbDict.getTable(name);
 
@@ -930,11 +932,24 @@ class cDbConnection
 
          buffer = (char*)malloc(size+1);
 
+         if (!buffer)
+         {
+            tell(eloAlways, "Fatal: Out of memory reading sql file '%s'", file);
+            fclose(f);
+            return fail;
+         }
+
          while ((res = fread(buffer+nread, 1, 1000, f)))
          {
             nread += res;
             size += 1000;
-            buffer = srealloc(buffer, size+1);
+
+            if (!(buffer = srealloc(buffer, size+1)))   // srealloc frees the old buffer on failure
+            {
+               tell(eloAlways, "Fatal: Out of memory reading sql file '%s'", file);
+               fclose(f);
+               return fail;
+            }
          }
 
          fclose(f);
@@ -983,8 +998,8 @@ class cDbConnection
          return mysql;
       }
 
-      int getAttachedCount()                         { return attached; }
-      void showStat(const char* name = "")           { statements.showStat(name); }
+      int getAttachedCount()                { return attached; }
+      void showStat(const char* name = "")  { statements.showStat(name); }
       int errorSql(cDbConnection* mysql, const char* prefix, MYSQL_STMT* stmt = 0, const char* stmtTxt = 0);
 
       // data
@@ -1237,6 +1252,8 @@ class cDbView : public cDbService
          name = strdup(aName);
       }
 
+      cDbView(const cDbView&) = delete;
+      cDbView& operator=(const cDbView&) = delete;
       ~cDbView() { free(name); }
 
       int exist()
@@ -1298,6 +1315,8 @@ class cDbProcedure : public cDbService
          name = strdup(aName);
       }
 
+      cDbProcedure(const cDbProcedure&) = delete;
+      cDbProcedure& operator=(const cDbProcedure&) = delete;
       ~cDbProcedure() { free(name); }
 
       const char* getName() { return name; }

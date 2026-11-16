@@ -144,7 +144,9 @@ class cDbFieldDef : public cDbService
          def = 0;
       }
 
-   ~cDbFieldDef()  { free(name); free(dbname); free(description); free(dbdescription); free(def); }
+      cDbFieldDef(const cDbFieldDef&) = delete;
+      cDbFieldDef& operator=(const cDbFieldDef&) = delete;
+      ~cDbFieldDef()  { free(name); free(dbname); free(description); free(dbdescription); free(def); }
 
       int getIndex()                 { return index; }
       const char* getName()          { return name; }
@@ -172,6 +174,13 @@ class cDbFieldDef : public cDbService
       void setDescription(const char* desc)
       {
          description = strdup(desc);
+
+         if (!description)
+         {
+            tell(eloAlways, "Fatal: Out of memory, can't set description of '%s'", name);
+            return;
+         }
+
          dbdescription = strdup(strReplace("'", "\\'", description).c_str());
       }
 
@@ -252,6 +261,8 @@ class cDbIndexDef
    public:
 
       cDbIndexDef()  { name = 0; description = 0; }
+      cDbIndexDef(const cDbIndexDef&) = delete;
+      cDbIndexDef& operator=(const cDbIndexDef&) = delete;
       ~cDbIndexDef() { free(name); free(description); }
 
       void setName(const char* n) { free(name); name = strdup(n); }
@@ -295,8 +306,10 @@ class cDbTableDef : public cDbService
       friend class cDbTable;
       friend class cDbStatement;
 
-      cDbTableDef(const char* n)       { name = strdup(n); }
+      explicit cDbTableDef(const char* n)     { name = strdup(n); }
 
+      cDbTableDef(const cDbTableDef&) = delete;
+      cDbTableDef& operator=(const cDbTableDef&) = delete;
       ~cDbTableDef()
       {
          for (uint i = 0; i < indices.size(); i++)
@@ -329,12 +342,10 @@ class cDbTableDef : public cDbService
 
       cDbFieldDef* getFieldByDbName(const char* dbname)
       {
-         std::map<std::string, cDbFieldDef*, _casecmp_>::iterator it;
-
-         for (it = dfields.begin(); it != dfields.end(); ++it)
+         for (auto& dField : dfields)
          {
-            if (it->second->hasDbName(dbname))
-               return it->second;
+            if (dField.second->hasDbName(dbname))
+               return dField.second;
          }
 
          tell(eloDebug, "Fatal: Missing definition of field '%s.%s' in dictionary!", name, dbname);
@@ -350,7 +361,10 @@ class cDbTableDef : public cDbService
             _dfields.push_back(f);       // add to indexed list
          }
          else
+         {
             tell(eloAlways, "Fatal: Field '%s.%s' doubly defined", getName(), f->getName());
+            delete f;
+         }
       }
 
       int indexCount()                    { return indices.size(); }

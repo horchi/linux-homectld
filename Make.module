@@ -13,6 +13,7 @@
 include ../Make.config
 
 LIBHORCHI = ../lib/libhorchi.a
+MODOBJS  := $(addprefix $(OBJDIR)/,$(MODOBJS))
 
 LIBS     += $(shell $(SQLCFG) --libs_r) -lrt -lcrypto -lcurl -lpthread -luuid
 CFLAGS   += $(shell $(SQLCFG) --include)
@@ -56,4 +57,5 @@ uninstall:
 	rm -f $(SYSTEMDDEST)/$(MODTARGET).service $(DESTDIR)/etc/default/$(MODTARGET) $(BINDEST)/$(MODTARGET)
 
 clean:
+	rm -rf $(OBJDIR)
 	rm -f *.o *.d $(MODTARGET)

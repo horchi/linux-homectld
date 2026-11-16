@@ -214,7 +214,14 @@ int cDbStatement::build(const char* format, ...)
 
       va_list more;
       va_start(more, format);
-      vasprintf(&tmp, format, more);
+      int res = vasprintf(&tmp, format, more);
+      va_end(more);
+
+      if (res < 0)
+      {
+         tell(eloAlways, "Fatal: Out of memory building statement");
+         return fail;
+      }
 
       stmtTxt += tmp;
       free(tmp);

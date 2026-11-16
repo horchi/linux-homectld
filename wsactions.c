@@ -22,7 +22,7 @@
 int HomeCtl::dispatchClientRequest()
 {
    int status {fail};
-   json_t *oData {}, *oObject {};
+   json_t* oData {};
 
    cMyMutexLock lock(&messagesInMutex);
 
@@ -38,7 +38,7 @@ int HomeCtl::dispatchClientRequest()
 
       Event event {cWebService::toEvent(getStringFromJson(oData, "event", "<null>"))};
       long client {getLongFromJson(oData, "client")};
-      oObject = json_object_get(oData, "object");
+      json_t* oObject {json_object_get(oData, "object")};
 
       // rights ...
 
@@ -105,6 +105,7 @@ int HomeCtl::dispatchClientRequest()
             case evP4Errors:            status = performP4Errors(oObject, client);       break;
             case evP4Pellets:           status = performP4Pellets(oObject, client);      break;
             case evP4PelletsAdd:        status = performP4PelletsAdd(oObject, client);   break;
+            case evVdrWakeup:           status = performVdrWakeup(oObject, client);      break;
             default:
             {
                if (dispatchSpecialRequest(event,oObject, client) == ignore)
@@ -177,6 +178,7 @@ bool HomeCtl::checkRights(long client, Event event, json_t* oObject)
       case evP4Menu:              return rights & urView;      // the service menu of the S 3200
       case evP4Pellets:           return rights & urControl;   // the pellet deliveries of the S 3200 (like the p4d)
       case evP4PelletsAdd:        return rights & urFullControl;
+      case evVdrWakeup:           return rights & urControl;
       case evP4Errors:            return rights & urView;      // the error list of the S 3200
       case evP4Raw:               return rights & urView;      // a command as JSON to the service p4mqttd, writing is checked in performP4Raw()
       case evP4Cmd:               return rights & urSettings;  // writes to the heating control (parameters, time programs), reads the menu again
@@ -1006,11 +1008,10 @@ int HomeCtl::performSyslog(json_t* oObject, long client)
       json_object_set_new(oJson, "name", json_string((std::string(TARGET) + ".log").c_str()));
    }
 
-   size_t count {0};
-
-   // if (loadTailLinesFromFile(name.c_str(), 150, lines) == success)
    if (loadLinesFromFile(name.c_str(), lines, true, 500000, filter) == success)
    {
+      size_t count {0};
+
       for (auto it = lines.rbegin(); count < 150 && it != lines.rend(); ++it)
       {
          result += *it + "\n";
@@ -1701,6 +1702,13 @@ int HomeCtl::storeConfig(json_t* obj, long client)
          free(target);
       }
 
+      // VDR list: look up the missing MACs
+
+      std::string vdrInfo;
+
+      if (json_object_get(obj, "vdr"))
+         vdrLearnMacs(vdrInfo);
+
       readConfiguration(false);
 
       // send the changed config to the sensor at once (else it gets it with its next init)
@@ -1718,7 +1726,7 @@ int HomeCtl::storeConfig(json_t* obj, long client)
       if (oldWebPort != webPort)
          replyResult(success, client, "Konfiguration gespeichert. Web Port geändert, bitte " TARGET " neu Starten!");
       else if (count > 1 || confirm)  // on drag&drop its only one parameter
-         replyResult(success, client, "Konfiguration gespeichert");
+         replyResult(success, client, "Konfiguration gespeichert%s", vdrInfo.c_str());
    }
 
    return done;
@@ -2092,18 +2100,19 @@ int HomeCtl::storeDashboards(json_t* obj, long client)
 
          // the widgets
 
-         int ord {0};
          const char* id {};
-         json_t* jData {};
          json_t* jWidgets = getObjectFromJson(jObj, "widgets");
 
          if (jWidgets)
          {
+            json_t* jData {};
+
             tell(eloDebugWebSock, "Debug: Storing widgets of dashboard '%s'", dashboardTitle);
             tableDashboardWidgets->deleteWhere("%s = %ld", tableDashboardWidgets->getField("DASHBOARDID")->getDbName(), dashboardId);
 
             json_object_foreach(jWidgets, id, jData)
             {
+               int ord {0};
                auto tuple = split(id, ':');
 
                tableDashboardWidgets->clear();
@@ -2812,6 +2821,13 @@ int HomeCtl::configChoice2json(json_t* obj, const char* name)
                continue;
 
             char* p = strdup(strchr(opt.name.c_str(), '-'));
+
+            if (!p)
+            {
+               tell(eloAlways, "Fatal: Out of memory");
+               break;
+            }
+
             *(strrchr(p, '.')) = '\0';
             json_array_append_new(oArray, json_string(p+1));
             free(p);
@@ -3707,12 +3723,12 @@ int HomeCtl::performGpioData(json_t* /*oObject*/, long client)
 // Web File Exists
 //***************************************************************************
 
-bool HomeCtl::webFileExists(const char* file, const char* base)
-{
-   char* path {};
-   asprintf(&path, "%s/%s/%s", httpPath, base ? base : "", file);
-   bool exist {fileExists(path)};
-   free(path);
+// bool HomeCtl::webFileExists(const char* file, const char* base)
+// {
+//    char* path {};
+//    asprintf(&path, "%s/%s/%s", httpPath, base ? base : "", file);
+//    bool exist {fileExists(path)};
+//    free(path);
 
-   return exist;
-}
+//    return exist;
+// }

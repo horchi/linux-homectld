@@ -152,7 +152,7 @@ int HomeCtl::lightCheckCommands()
    {
       LightCommand& cmd {it->second};
       uint address {(uint)strtoul(it->first.c_str() + 4, nullptr, 0)};
-      SensorData& sensor {sensors["DZL"][address]};
+      const SensorData& sensor {sensors["DZL"][address]};
       time_t elapsed {now - cmd.sentAt};
 
       if (sensor.state == cmd.on)
@@ -320,13 +320,16 @@ int HomeCtl::lightRuleApply(const char* key, json_t* jRule, const LightRuleEvent
 
    std::vector<std::string> targets;
    json_t* jTargets {getObjectFromJson(jRule, "targets")};
-   size_t index {0};
-   json_t* jTarget {};
 
    if (jTargets && json_is_array(jTargets))
+   {
+      size_t index {0};
+      json_t* jTarget {};
+
       json_array_foreach(jTargets, index, jTarget)
          if (json_is_string(jTarget))
             targets.push_back(json_string_value(jTarget));
+   }
 
    if (targets.empty())
       return done;
@@ -771,8 +774,6 @@ int HomeCtl::lightRuleTimersLoad()
    {
       LightRuleTimer timer;
       json_t* oTargets {getObjectFromJson(oTimer, "switchedOn")};
-      const char* target {};
-      json_t* jSeen {};
 
       timer.offAt = getIntFromJson(oTimer, "offAt", 0);
       timer.transition = getIntFromJson(oTimer, "transition", na);
@@ -784,8 +785,13 @@ int HomeCtl::lightRuleTimersLoad()
       //  off shortly after the start (deCONZ ready)
 
       if (oTargets && json_is_object(oTargets))
+      {
+         const char* target {};
+         const json_t* jSeen {};
+
          json_object_foreach(oTargets, target, jSeen)
             timer.switchedOn[target] = false;
+      }
 
       timer.offAt = std::max(timer.offAt, time(0) + 15);
 

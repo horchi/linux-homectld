@@ -845,7 +845,7 @@ int HomeCtl::performActivities(json_t* obj, long client)
 
       const char* type {getStringFromJson(obj, "type", "")};
       const char* name {getStringFromJson(obj, "name", "")};
-      const char* location {getStringFromJson(obj, "location", "")};
+      const char* loc {getStringFromJson(obj, "location", "")};
       json_t* jIds {json_object_get(obj, "ids")};
       json_t* jOwnIds {};
       std::string message;
@@ -869,14 +869,14 @@ int HomeCtl::performActivities(json_t* obj, long client)
             return replyResult(fail, client, "Aktivität nicht gefunden");
          }
 
-         if (strcmp(type, tableActivities->getStrValue("TYPE")) == 0)         type = "";
-         if (strcmp(name, tableActivities->getStrValue("NAME")) == 0)         name = "";
-         if (strcmp(location, tableActivities->getStrValue("LOCATION")) == 0) location = "";
+         if (strcmp(type, tableActivities->getStrValue("TYPE")) == 0)    type = "";
+         if (strcmp(name, tableActivities->getStrValue("NAME")) == 0)    name = "";
+         if (strcmp(loc, tableActivities->getStrValue("LOCATION")) == 0) loc = "";
 
          tableActivities->reset();
       }
 
-      int status {activitiesEdit(jIds, type, name, location, message)};
+      int status {activitiesEdit(jIds, type, name, loc, message)};
 
       if (jOwnIds)
          json_decref(jOwnIds);

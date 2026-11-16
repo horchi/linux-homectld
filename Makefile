@@ -35,7 +35,8 @@ LIBHORCHI    = lib/libhorchi.a
 
 OBJS         = main.o daemon.o wsactions.o hass.o hasp.o gpstour.o sun.o shade.o lightrules.o scenes.o hmservice.o p4service.o mqttconv.o zigbee.o activities.o websock.o webservice.o deconz.o lmc.o lmccom.o
 OBJS        += growatt.o
-OBJS        += config.o
+OBJS        += config.o p4fill.o vdr.o
+OBJS        := $(addprefix $(OBJDIR)/,$(OBJS))
 
 CFLAGS      += $(shell $(SQLCFG) --include)
 
@@ -82,28 +83,11 @@ all: $(TARGET) $(MODULES) $(ARDUINO_IF_CMD) htdocs/index.html
 htdocs/index.html:
 	@(cd htdocs; $(MAKE) --no-print-directory index.html)
 
-# auto dependencies
-MAKEDEP = g++ -std=c++23 -x c++ -MM -MG
-DEPFILE = .dependencies
+# header dependencies (obj/*.d, as in lib and the modules)
 
-#$(DEPFILE): Makefile
-#	@echo Making dependencies "$(*F)" ...
-#	$(MAKEDEP) $(CFLAGS) $(OBJS:%.o=%.c) $(VICTRONOBJS:%.o=%.c) > $@
+CFLAGS      += -MMD -MP
 
-
-# -MT keeps the directory in the target (lib/common.o instead of common.o), otherwise the
-# rules for the lib/ objects never match and header changes there don't rebuild them
-
-$(DEPFILE): Makefile
-	@echo Making dependencies ...
-	@rm -f $(DEPFILE)
-	@for file in $(sort $(OBJS:%.o=%.c)); do \
-		$(MAKEDEP) $(CFLAGS) -MT $${file%.c}.o $$file >> $(DEPFILE) 2>/dev/null || true; \
-	done
-
-ifeq ($(filter clean dist build,$(MAKECMDGOALS)),)
--include $(DEPFILE)
-endif
+-include $(OBJS:.o=.d)
 
 # git revision
 
@@ -334,7 +318,8 @@ dist: clean
 	@echo Distribution package created as $(ARCHIVE).tgz
 
 clean:
-	rm -f */*.o */*/*.o *.o core* *~ */*~ */*/*~ lib/t *.jpg $(DEPFILE)
+	rm -rf $(OBJDIR)
+	rm -f */*.o */*/*.o *.o core* *~ */*~ */*/*~ lib/t *.jpg .dependencies
 	rm -f $(TARGET) $(ARCHIVE).tgz
 	$(MAKE) -C homematic --no-print-directory clean
 	$(MAKE) -C lib --no-print-directory clean
@@ -363,7 +348,7 @@ activate: install
 #	tail -f /var/log/$(TARGET).log
 
 cppchk:
-	cppcheck --enable=all $(CPPCHECK_SUPPRESS) --language=c++ --template="{file}:{line}:1 {severity}:{id}:{message}" --quiet --force --std=c++20 *.c; \
+	cppcheck --enable=all $(CPPCHECK_SUPPRESS) --library=contrib/cppcheck.cfg $(DEFINES) --language=c++ --template="{file}:{line}:1 {severity}:{id}:{message}" --quiet --force --std=c++23 *.c
 
 upload:
 	avrdude -q -V -p atmega328p -D -c arduino -b 57600 -P $(AVR_DEVICE) -U flash:w:arduino/build-nano-atmega328/ioctrl.hex:i

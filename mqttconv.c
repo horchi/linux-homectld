@@ -87,13 +87,12 @@ void HomeCtl::mqttConverterSeen(const char* topic, const char* message)
 int HomeCtl::performMqttConverters(json_t* obj, long client)
 {
    std::string action {getStringFromJson(obj, "action", "list")};
-   int status {success};
 
    if (action == "store")
    {
       std::string error;
 
-      if ((status = mqttConverterStore(obj, error)) != success)
+      if (mqttConverterStore(obj, error) != success)
          return replyResult(fail, client, "%s", error.c_str());
 
       replyResult(success, client, "Konverter für '%s' gespeichert", getStringFromJson(obj, "topic", ""));
@@ -102,7 +101,7 @@ int HomeCtl::performMqttConverters(json_t* obj, long client)
    {
       std::string error;
 
-      if ((status = mqttConverterDelete(getStringFromJson(obj, "file", ""), error)) != success)
+      if (mqttConverterDelete(getStringFromJson(obj, "file", ""), error) != success)
          return replyResult(fail, client, "%s", error.c_str());
 
       replyResult(success, client, "Konverter '%s' gelöscht", getStringFromJson(obj, "file", ""));
@@ -485,8 +484,8 @@ static std::string shellQuote(const std::string& s)
 
 int HomeCtl::mqttConverterTest(json_t* obj, json_t* oJson)
 {
-   static const char* testDir {"/var/cache/homectld/mqtttest"};
-   static const char* separator {"\x1e"};                  // between the noted messages
+   constexpr const char* testDir {"/var/cache/homectld/mqtttest"};
+   constexpr const char* separator {"\x1e"};                  // between the noted messages
 
    std::string topic {getStringFromJson(obj, "topic", "")};
    std::string message {getStringFromJson(obj, "message", "")};

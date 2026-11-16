@@ -44,6 +44,8 @@ bool HomeCtl::p4ReadConfig()
    getConfigItem("p4TimeSync", p4TimeSync, false);
    getConfigItem("p4MaxTimeLeak", p4MaxTimeLeak, 10);
 
+   p4FillReadConfig();
+
    // the config is sent (again) to the service with the next check
 
    p4ConfigSent.clear();
@@ -127,6 +129,8 @@ int HomeCtl::p4Check()
    if (!p4Enabled || !mqttWriter || !mqttWriter->isConnected())
       return done;
 
+   p4FillCheck();
+
    if (time(0) < lastCheck + 5)
       return done;
 
@@ -188,7 +192,9 @@ int HomeCtl::p4CheckPending()
       if (time(0) - it->second.at > it->second.timeout)
       {
          tell(eloAlways, "Warning: p4mqttd didn't answer '%s' (%s)", it->second.cmd.c_str(), it->first.c_str());
-         if (it->second.raw)
+         if (it->second.fill)
+            p4FillTimes[0] = p4FillTimes[1] = -1;        // read them again, the next check does it
+         else if (it->second.raw)
             p4RawAnswer(it->second.client, it->second.tag.c_str(), "Keine Antwort des Dienstes p4mqttd");
          else
             p4Answer(it->second.client, "Keine Antwort des Dienstes p4mqttd", it->second.cmd == "errors" ? "p4errors" : "p4menu");
@@ -300,6 +306,13 @@ int HomeCtl::dispatchP4Mqtt(const char* topic, const char* message)
          P4Pending pending {it->second};
 
          p4Pending.erase(it);
+
+         if (pending.fill)
+         {
+            p4FillReply(cmd, pending.slot, pending.reason, jMsg);
+            json_decref(jMsg);
+            return done;
+         }
 
          std::string status {getStringFromJson(jMsg, "status", "")};
          std::string text {getStringFromJson(jMsg, "message", "")};
@@ -1519,6 +1532,7 @@ int HomeCtl::p4Pellets2Json(json_t* obj)
    json_object_set_new(oSum, "consumptionDelta", json_integer(consumptionH * sinceLast));
 
    json_object_set_new(obj, "pellets", jList);
+   p4Fill2Json(obj);
 
    return done;
 }

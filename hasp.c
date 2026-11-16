@@ -1491,7 +1491,7 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
 
          int scaleX {barX + barWidth + 4};
          int labelWidth {small ? 40 : 56};
-         int marks[3] {scaleMax, (scaleMin + scaleMax) / 2, scaleMin};
+         const int marks[3] {scaleMax, (scaleMin + scaleMax) / 2, scaleMin};
 
          for (int i = 0; i < 3; i++)
          {
@@ -2321,7 +2321,7 @@ int HomeCtl::haspPublishAllValues()
    {
       static const char* weekdays[] { "Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag" };
       time_t now {time(0)};
-      tm* t {localtime(&now)};
+      const tm* t {localtime(&now)};
       char date[60];
       char obj[30];
 

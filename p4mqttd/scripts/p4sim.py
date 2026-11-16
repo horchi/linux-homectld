@@ -51,12 +51,16 @@ MENU = [
     (0x11, 6, 0, 0x0002, '', 'Zuendung'),
     (0x13, 6, 0, 0x0003, '', 'Tuer Kontakt'),
     (0x12, 6, 0, 0x0004, '', 'Saugzug Leistung'),
+    (0x0a, 5, 0, 0x003c, '', 'Start der 1. Pelletsbefuellung'),
+    (0x0a, 5, 0, 0x0204, '', 'Start der 2. Pelletsbefuellung'),
 ]
 
 # parameters: address -> unit, digits, factor, value, min, max, default
 PARAMS = {
     0x01e0: ['°', 0, 1, 78, 65, 85, 78],
     0x01e1: ['', 0, 1, 1, 0, 1, 1],
+    0x003c: [' ', 0, 1, 0, 0, 2400, 900],       # time [min of the day], 0 = off
+    0x0204: [' ', 0, 1, 0, 0, 2400, 1500],
 }
 
 # error list: number, info, state (1 came, 4 gone, 2 acknowledged), time (y, m, d, h, min, s), text

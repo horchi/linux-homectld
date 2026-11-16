@@ -513,7 +513,7 @@ int HomeCtl::sceneSet(json_t* step, std::string& error)
       else if (sensor->choices.empty() && (strcasecmp(text.c_str(), "on") == 0 || strcasecmp(text.c_str(), "off") == 0))
       {
          kind = vkState;
-         number = strcasecmp(text.c_str(), "on") == 0;
+         number = (double)(strcasecmp(text.c_str(), "on") == 0);
       }
       else
          kind = vkText;

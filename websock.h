@@ -67,6 +67,9 @@ class cWebSock : public cWebService
 
       struct Client
       {
+         Client() = default;
+         Client(const Client&) = delete;
+         Client& operator=(const Client&) = delete;
          ~Client() { free(msgBuffer); }
 
          ClientType type {ctWithLogin};
@@ -108,6 +111,8 @@ class cWebSock : public cWebService
       };
 
       cWebSock(cWebInterface* aProcess, const char* aHttpPath);
+      cWebSock(const cWebSock&) = delete;
+      cWebSock& operator=(const cWebSock&) = delete;
       virtual ~cWebSock();
 
       int init(int aPort, int aTimeout, const char* confDir, bool ssl = false);
@@ -117,8 +122,8 @@ class cWebSock : public cWebService
 
       // static interface
 
-      void pushOutMessage(const char* p, lws* wsi = 0);
-      void setClientType(lws* wsi, ClientType type);
+      static void pushOutMessage(const char* p, lws* wsi = 0);
+      static void setClientType(lws* wsi, ClientType type);
 
    private:
 
@@ -136,7 +141,7 @@ class cWebSock : public cWebService
       static void writeLog(int level, const char* line);
 
       static int serveFile(lws* wsi, const char* path);
-      static int dispatchDataRequest(lws* wsi, SessionData* sessionData, const char* url);
+   static int dispatchDataRequest(const lws* wsi, const SessionData* sessionData, const char* url);
 
       static const char* methodOf(const char* url);
       static const char* getStrParameter(lws* wsi, const char* name, const char* def = 0);

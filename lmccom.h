@@ -114,7 +114,9 @@ class LmcCom : public TcpChannel
          ifoPlayer
       };
 
-      LmcCom(const char* aMac = nullptr);
+      explicit LmcCom(const char* aMac = nullptr);
+      LmcCom(const LmcCom&) = delete;
+      LmcCom& operator=(const LmcCom&) = delete;
       ~LmcCom();
 
       void setMac(const char* aMac)
@@ -186,19 +188,19 @@ class LmcCom : public TcpChannel
 
    private:
 
-      int parseLocalRadio(json_t* jObj, ListItem& item);
-      int parseArtists(json_t* jObj, ListItem& item);
-      int parseAlbums(json_t* jObj, ListItem& item);
-      int parseNewmusic(json_t* jObj, ListItem& item);
-      int parseTracks(json_t* jObj, ListItem& item);
-      int parseYears(json_t* jObj, ListItem& item);
-      int parsePlaylists(json_t* jObj, ListItem& item);
-      int parseRadios(json_t* jObj, ListItem& item);
-      int parseRadioapps(json_t* jObj, ListItem& item);
-      int parseFavorites(json_t* jObj, ListItem& item);
-      int parsePlayers(json_t* jObj, ListItem& item);
-      int parseMusic(json_t* jObj, ListItem& item);
-      int parseGenres(json_t* jObj, ListItem& item);
+      static int parseLocalRadio(json_t* jObj, ListItem& item);
+      static int parseArtists(json_t* jObj, ListItem& item);
+      static int parseAlbums(json_t* jObj, ListItem& item);
+      static int parseNewmusic(json_t* jObj, ListItem& item);
+      static int parseTracks(json_t* jObj, ListItem& item);
+      static int parseYears(json_t* jObj, ListItem& item);
+      static int parsePlaylists(json_t* jObj, ListItem& item);
+      static int parseRadios(json_t* jObj, ListItem& item);
+      static int parseRadioapps(json_t* jObj, ListItem& item);
+      static int parseFavorites(json_t* jObj, ListItem& item);
+      static int parsePlayers(json_t* jObj, ListItem& item);
+      static int parseMusic(json_t* jObj, ListItem& item);
+      static int parseGenres(json_t* jObj, ListItem& item);
 
       // void setQueryTitle(const char* title) { free(queryTitle); queryTitle = strdup(title); }
       // char* queryTitle {};

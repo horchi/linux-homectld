@@ -84,10 +84,8 @@ int HomeCtl::mqttHaPublishSensor(SensorData& sensor, bool forceConfig)
    // check if state topic already exists
 
    MemoryStruct message;
-   std::string tp;
-   std::string sName = sensor.name;
-
-   IoType iot = sensor.type == "DZL" ? iotLight : iotSensor;
+   std::string sName {sensor.name};
+   IoType iot {sensor.type == "DZL" ? iotLight : iotSensor};
 
    sName = strReplace("ß", "ss", sName);
    sName = strReplace("ü", "ue", sName);
@@ -343,9 +341,6 @@ int HomeCtl::mqttDisconnect()
 
 int HomeCtl::mqttCheckConnection()
 {
-   const char* mqttPingTopic = INSTANCE "2mqtt/ping";
-   static time_t lastMqttPing {0};
-
    if (mqttUrl.empty())
       return done;
 
@@ -357,8 +352,11 @@ int HomeCtl::mqttCheckConnection()
 
    if (mqttReader->isConnected() && mqttWriter->isConnected())
    {
+      static time_t lastMqttPing {0};
+
       if (lastMqttPing < time(0)-30)
       {
+         const char* mqttPingTopic {INSTANCE "2mqtt/ping"};
          lastMqttPing = time(0);
          mqttWriter->write(mqttPingTopic, "{\"ping\" : true, \"sender\" : \"" INSTANCE "\"}");
       }
@@ -527,10 +525,8 @@ int HomeCtl::jsonAddValue(json_t* obj, SensorData& sensor, bool forceConfig)
    free(key);
 
    if (!mqttHaSendWithKeyPrefix.empty())
-   {
-      obj = oSensor;
       return success;
-   }
+
    if (mqttHaInterfaceStyle == misSingleTopic)
    {
       json_object_set_new(oGroup, sName.c_str(), oSensor);

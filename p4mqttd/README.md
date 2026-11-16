@@ -251,6 +251,7 @@ and are **not** blocked by the read only mode of the daemon.
 - The lists of the control (values, menu, time programs, errors) are read in one piece while the daemon holds the serial
   line: the control keeps a position in such a list and a request of another process in between would throw it off
   (the old p4d polls, too). During the first start (about a minute, 1276 menu items on a P4) the p4d waits.
+  If reading fails, it is repeated after 5 minutes (or at once with `kill -USR1`), the p4d gets the line in between.
 - `comm` in `p4/status` is not `ok`: the device name (use `/dev/serial/by-id/...`), the rights of the user for the device
   (`dialout`), another program which has the line open without the semaphore.
 - No sensors in the homectld: the service is not switched on there (`p4Enabled`), the MQTT topic differs (`-T`) or the broker.

@@ -9,6 +9,7 @@
  *  The tab 'Pellets' of the page of the Fröling S 3200 (p4/page.js): the pellet deliveries with the
  *  days and the stoker hours between them and the consumption per stoker hour (see p4service.c).
  *  Everybody with the right 'control' sees the list, adding, changing and deleting needs 'full control'.
+ *  Above the list the state of the dynamic pellet filling (p4fill.c), configured in the setup.
  */
 
 p4RegisterTab({ id: 'pellets', title: 'Pellets', show: p4ShowPellets, rights: 0x02 });
@@ -62,6 +63,10 @@ function p4PelletsReceived(data)
       $body.append(p4PelletRow({ id: -1, time: Math.floor(Date.now() / 1000), amount: 0, price: 0, comment: '' }, edit));
 
    $table.append($body);
+
+   if (data.fill)
+      $page.append(p4FillBlock(data.fill));
+
    $page.append($table);
    $('#container').empty().append($page);
    setupContainerHeight();
@@ -127,4 +132,49 @@ function p4PelletRow(p, edit)
    }
 
    return $row.append($actions);
+}
+
+// the dynamic pellet filling: times of the control, last empty container and the last changes
+
+function p4FillBlock(fill)
+{
+   let $block = $('<div></div>').addClass('rounded-border p4Fill');
+   let date = (t) => new Date(t * 1000).toLocaleString(dateLocale, { day: '2-digit', month: '2-digit', year: 'numeric',
+                                                                     hour: '2-digit', minute: '2-digit' });
+   let day = (t) => new Date(t * 1000).toLocaleDateString(dateLocale);
+   let time = (t) => t == null ? '?' : (t == '00:00' ? 'aus' : t);
+
+   $block.append($('<div></div>').addClass('p4FillTitle').text('Dynamische Befüllung')
+                 .append($('<span></span>').addClass(fill.enabled ? 'p4FillOn' : 'p4FillOff')
+                         .text(fill.enabled ? (fill.toZero ? 'Leerfahrt' : 'aktiv') : 'aus (Setup -> Heizung S 3200)')));
+
+   let $info = $('<div></div>').addClass('p4FillInfo');
+   let item = (label, value, title) => $info.append($('<span></span>').attr('title', title || '')
+                                                    .append($('<span></span>').addClass('p4FillLabel').text(label + ': '))
+                                                    .append($('<span></span>').text(value)));
+
+   item('Befüllung 1 / 2', time(fill.times[0]) + ' / ' + time(fill.times[1]),
+        'Zeiten der Heizung, Standard ' + time(fill.stdTimes[0]) + ' / ' + time(fill.stdTimes[1]));
+   item('Füllstand', fill.level != null ? Math.round(fill.level) + ' %' : '-', 'sofort befüllen unter ' + fill.minLevel + ' % bei Betriebsbereit');
+   item('Zustand', fill.state || '-');
+
+   if (fill.lastZero)
+      item('Zuletzt leer', day(fill.lastZero));
+
+   if (fill.nextZero && fill.enabled)
+      item('Leerfahrt', fill.toZero ? 'läuft' : 'ab ' + day(fill.nextZero), 'nach ' + fill.daysToZero + ' Tagen ohne leeren Behälter');
+
+   $block.append($info);
+
+   if (fill.log && fill.log.length) {
+      let $log = $('<div></div>').addClass('p4FillLog');
+
+      for (const l of fill.log)
+         $log.append($('<div></div>').append($('<span></span>').addClass('p4FillLabel').text(date(l.time)))
+                     .append($('<span></span>').text(l.text)));
+
+      $block.append($log);
+   }
+
+   return $block;
 }

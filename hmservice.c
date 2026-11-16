@@ -205,7 +205,7 @@ int HomeCtl::dispatchHmMqtt(const char* topic, const char* message)
 // Blind Action via the Service (set level / stop)
 //***************************************************************************
 
-int HomeCtl::homeMaticServiceAction(SensorData& sensor, double value, bool noStop)
+int HomeCtl::homeMaticServiceAction(const SensorData& sensor, double value, bool noStop)
 {
    if (!mqttWriter || !mqttWriter->isConnected())
       return fail;

@@ -13,6 +13,7 @@ LIBTARGET = libhorchi.a
 
 LIBOBJS   = common.o db.o dbdict.o systemdctl.o serial.o curl.o thread.o json.o lua.o tcpchannel.o \
             mqtt.o mqtt_c.o mqtt_pal.o gpio.o
+LIBOBJS  := $(addprefix $(OBJDIR)/,$(LIBOBJS))
 
 CFLAGS   += $(shell $(SQLCFG) --include)
 LIBS     += $(shell $(SQLCFG) --libs_r) -lrt -lcrypto -lcurl -lpthread -luuid
@@ -30,26 +31,28 @@ $(LIBTARGET): $(LIBOBJS)
 
 -include $(LIBOBJS:.o=.d)
 
-%.o: %.c
+$(OBJDIR)/%.o: %.c
+	@mkdir -p $(@D)
 	@echo Compile "lib/$*" ..
 	$(doCompile) -o $@ $<
 
 # test / tools
 
-gpiotst: gpio-test.o $(LIBTARGET)
-	$(doLink) gpio-test.o $(LIBTARGET) $(LIBS) -o $@
+gpiotst: $(OBJDIR)/gpio-test.o $(LIBTARGET)
+	$(doLink) $(OBJDIR)/gpio-test.o $(LIBTARGET) $(LIBS) -o $@
 
-tst: demo.o $(LIBTARGET)
-	$(doLink) demo.o $(LIBTARGET) $(LIBS) -o $@
+tst: $(OBJDIR)/demo.o $(LIBTARGET)
+	$(doLink) $(OBJDIR)/demo.o $(LIBTARGET) $(LIBS) -o $@
 
-sdclient: sdclient.o $(LIBTARGET)
-	$(doLink) sdclient.o $(LIBTARGET) $(LIBS) -o $@
+sdclient: $(OBJDIR)/sdclient.o $(LIBTARGET)
+	$(doLink) $(OBJDIR)/sdclient.o $(LIBTARGET) $(LIBS) -o $@
 
-blescan: blescan.o $(LIBTARGET)
-	$(doLink) blescan.o $(LIBTARGET) $(LIBS) -lbluetooth -o $@
+blescan: $(OBJDIR)/blescan.o $(LIBTARGET)
+	$(doLink) $(OBJDIR)/blescan.o $(LIBTARGET) $(LIBS) -lbluetooth -o $@
 
 clean:
+	rm -rf $(OBJDIR)
 	rm -f *.o *.d *~ core $(LIBTARGET) gpiotst tst sdclient blescan
 
 cppchk:
-	cppcheck --template="{file}:{line}:{severity}:{message}" --quiet --force *.c *.h
+	cppcheck --language=c++ --std=c++23 --inline-suppr --suppress="*:thirdparty/*" -ithirdparty --template="{file}:{line}:{severity}:{message}" --quiet --force *.c *.h

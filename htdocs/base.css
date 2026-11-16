@@ -1559,163 +1559,546 @@ table.tableMultiCol td
 
 .vdrContent
 {
-    margin: 0px 5px 0px 5px;
-    /*background-color: var(--background); */
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: 100%;
+    margin: 0px 5px;
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
 }
+
+/* now / next */
 
 .vdrPresent
 {
+    flex: none;
     display: flex;
-    padding: var(--containerPadding);
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    max-width: 440px;
+    margin: 0px auto;
+    padding: 8px 12px;
+    box-sizing: border-box;
+    border-radius: 16px;
     background-color: var(--background);
+    color: var(--fontColor);
 }
 
 .vdrChannel
 {
+    flex: none;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 0px 30px 0px 0px;
-    font-weight:bold;
-    color:#ede800;
+    min-width: 64px;
+    max-width: 30%;
+    text-align: center;
 }
 
 .vdrChannelLogo
 {
-    max-height: 60px;
-    max-width: 120px;
-    margin-bottom: 4px;
+    max-height: 40px;
+    max-width: 100%;
+    margin-bottom: 2px;
     object-fit: contain;
+}
+
+.vdrChannelName
+{
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--yellow);
+}
+
+.vdrEpg
+{
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
+}
+
+.vdrEpgLine
+{
+    display: flex;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.vdrTitle
+{
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: bold;
+}
+
+.vdrEpgNext
+{
+    opacity: .65;
+}
+
+.vdrEpgNext .vdrTitle
+{
+    font-weight: normal;
+}
+
+.vdrShorttext
+{
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 12px;
+    opacity: .75;
 }
 
 .vdrTime
 {
-    font-weight:bold;
-    color:#ede800;
+    flex: none;
+    font-weight: bold;
+    color: var(--yellow);
 }
 
-.vdrFbContainer
+.vdrProgress
 {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    margin: 5px;
-/*    width: 90%;
-    max-width: 450px;*/
-}
-
-.vdrFbContainer > div
-{
-    display: block;
+    height: 3px;
+    margin: 5px 0px;
+    border-radius: 2px;
+    background-color: color-mix(in srgb, var(--fontColor) 18%, transparent);
     overflow: hidden;
-    width: 31%;
-    height: 80vh;
-    margin: 2px;
 }
 
-@media only screen and (orientation:portrait)
+.vdrProgress > div
 {
-    .vdrFbContainer > div { width: 99%; height: 25vh; }
+    width: 0%;
+    height: 100%;
+    background-color: var(--yellow);
+    transition: width .5s;
 }
 
-.vdrFbContainer > div > div
+/* remote body */
+
+.vdrRemote
+{
+    --rcBody: var(--neutral0);
+    --rcKey: var(--neutral1);
+    --rcKeyActive: var(--neutral3);
+    --rcIcon: var(--fontColor);
+    --rcAccent: var(--yellow);
+
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    max-width: 440px;
+    margin: 0px auto;
+    padding: 14px 16px;
+    box-sizing: border-box;
+
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto minmax(0, 3fr) minmax(0, 2fr) auto;
+    grid-template-areas: "head" "fn" "pad" "rock" "color";
+    row-gap: 12px;
+
+    border-radius: 34px;
+    background: linear-gradient(160deg,
+                                color-mix(in srgb, var(--rcBody) 85%, white),
+                                var(--rcBody) 40%,
+                                color-mix(in srgb, var(--rcBody) 80%, black));
+    box-shadow: 0px 10px 30px rgba(0,0,0,.45),
+                inset 0px 1px 0px rgba(255,255,255,.12),
+                inset 0px -2px 6px rgba(0,0,0,.35);
+}
+
+/* keys */
+
+.vdrKey
 {
     display: flex;
-    height: 32%;
+    align-items: center;
+    justify-content: center;
+    padding: 0px;
+    border: none;
+    color: var(--rcIcon);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--rcKey) 88%, white), var(--rcKey));
+    box-shadow: 0px 3px 6px rgba(0,0,0,.35), inset 0px 1px 0px rgba(255,255,255,.10);
+    font-family: inherit;
+    font-weight: bold;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .08s, background .08s, box-shadow .08s;
 }
 
-.vdrFbContainer > div > div > div
+.vdrKey:active
 {
-    display: block;
-    margin: 2px;
-    width: 32% !important;
-/*    aspect-ratio : 1 / 1;*/
+    transform: scale(.94);
+    background: var(--rcKeyActive);
+    box-shadow: 0px 1px 2px rgba(0,0,0,.35);
 }
+
+.vdrIcon
+{
+    width: 46%;
+    height: 46%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    pointer-events: none;
+}
+
+.vdrRound
+{
+    border-radius: 50%;
+    aspect-ratio: 1;
+}
+
+/* head row: VDR selection, connection state and power */
+
+.vdrHeadRow
+{
+    grid-area: head;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 0px 2%;
+}
+
+.vdrSelectWrap
+{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--rcBody) 70%, black);
+    box-shadow: inset 0px 1px 3px rgba(0,0,0,.4);
+}
+
+.vdrSelect
+{
+    min-width: 0;
+    max-width: 100%;
+    padding: 2px 16px 2px 0px;
+    border: none;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    color: var(--rcIcon);
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.vdrSelect option
+{
+    color: var(--fontColor);
+    background-color: var(--neutral1);
+}
+
+.vdrSelectWrap:not(.vdrSingle)
+{
+    background-image: linear-gradient(45deg, transparent 50%, var(--rcIcon) 50%),
+                      linear-gradient(135deg, var(--rcIcon) 50%, transparent 50%);
+    background-position: right 14px center, right 9px center;
+    background-size: 5px 5px;
+    background-repeat: no-repeat;
+    background-color: color-mix(in srgb, var(--rcBody) 70%, black);
+}
+
+.vdrSingle .vdrSelect
+{
+    padding-right: 0px;
+    cursor: default;
+    opacity: 1;
+}
+
+.vdrState
+{
+    flex: none;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background-color: var(--red);
+}
+
+.vdrPower
+{
+    flex: none;
+    width: clamp(38px, 12vmin, 48px);
+    color: var(--red);
+}
+
+.vdrRemote[data-state="online"] .vdrState   { background-color: var(--green); box-shadow: 0px 0px 6px var(--green); }
+.vdrRemote[data-state="online"] .vdrPower   { color: var(--green); }
+.vdrRemote[data-state="waking"] .vdrState,
+.vdrRemote[data-state="waking"] .vdrPower   { animation: vdrPulse 1.2s ease-in-out infinite; }
+.vdrRemote[data-state="waking"] .vdrState   { background-color: var(--orange); }
+.vdrRemote[data-state="waking"] .vdrPower   { color: var(--orange); }
+
+.vdrPower.vdrPowerLocked   { opacity: .3; cursor: default; }
+
+/* the keys are without function while not connected */
+
+.vdrRemote:not([data-state="online"]) .vdrKey[data-key] { opacity: .45; }
+
+@keyframes vdrPulse
+{
+    50% { opacity: .35; }
+}
+
+/* function row */
+
+.vdrFnRow
+{
+    grid-area: fn;
+    display: flex;
+    justify-content: space-between;
+    padding: 0px 4%;
+}
+
+.vdrFnRow .vdrKey
+{
+    width: clamp(40px, 15vmin, 60px);
+}
+
+/* d-pad */
+
+.vdrPadArea
+{
+    grid-area: pad;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+}
+
+.vdrDpad
+{
+    position: relative;
+    height: 100%;
+    max-height: 290px;
+    max-width: 100%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--rcBody) 70%, black);
+    box-shadow: 0px 6px 16px rgba(0,0,0,.45), inset 0px 0px 0px 1px rgba(255,255,255,.06);
+}
+
+.vdrWedge
+{
+    position: absolute;
+    inset: 0px;
+    width: 100%;
+    height: 100%;
+    border-radius: 0px;
+    box-shadow: none;
+    background: radial-gradient(circle at 50% 50%, var(--rcKey) 30%, color-mix(in srgb, var(--rcKey) 80%, white) 100%);
+}
+
+.vdrWedge:active
+{
+    transform: none;
+    box-shadow: none;
+    background: var(--rcKeyActive);
+}
+
+.vdrWedge .vdrIcon
+{
+    position: absolute;
+    width: 17%;
+    height: 17%;
+}
+
+.vdrWedgeUp            { clip-path: polygon(50% 48%, 3% 0%, 97% 0%); }
+.vdrWedgeUp .vdrIcon   { top: 8%; left: 41.5%; }
+.vdrWedgeDown          { clip-path: polygon(50% 52%, 3% 100%, 97% 100%); }
+.vdrWedgeDown .vdrIcon { bottom: 8%; left: 41.5%; }
+.vdrWedgeLeft          { clip-path: polygon(48% 50%, 0% 3%, 0% 97%); }
+.vdrWedgeLeft .vdrIcon { left: 8%; top: 41.5%; }
+.vdrWedgeRight          { clip-path: polygon(52% 50%, 100% 3%, 100% 97%); }
+.vdrWedgeRight .vdrIcon { right: 8%; top: 41.5%; }
+
+.vdrOk
+{
+    position: absolute;
+    top: 30%;
+    left: 30%;
+    width: 40%;
+    height: 40%;
+    border-radius: 50%;
+    font-size: clamp(16px, 6vmin, 26px);
+    letter-spacing: 1px;
+    box-shadow: 0px 0px 0px 3px color-mix(in srgb, var(--rcAccent) 55%, transparent),
+                0px 4px 10px rgba(0,0,0,.5);
+}
+
+/* volume / channel rocker */
+
+.vdrRockRow
+{
+    grid-area: rock;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 0;
+    padding: 0px 4%;
+}
+
+.vdrRocker
+{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: clamp(54px, 19vmin, 76px);
+    height: 100%;
+    max-height: 210px;
+    border-radius: 40px;
+    overflow: hidden;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--rcKey) 88%, white), var(--rcKey));
+    box-shadow: 0px 3px 8px rgba(0,0,0,.4), inset 0px 1px 0px rgba(255,255,255,.10);
+}
+
+.vdrRocker .vdrKey
+{
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    border-radius: 0px;
+    background: transparent;
+    box-shadow: none;
+}
+
+.vdrRocker .vdrKey:active
+{
+    transform: none;
+    background: var(--rcKeyActive);
+}
+
+.vdrRocker .vdrIcon
+{
+    width: 42%;
+    height: auto;
+    max-height: 60%;
+}
+
+.vdrRockerLabel
+{
+    flex: none;
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    opacity: .6;
+    color: var(--rcIcon);
+}
+
+.vdrRockMid
+{
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    align-items: center;
+}
+
+.vdrRockMid .vdrKey
+{
+    width: clamp(40px, 14vmin, 56px);
+}
+
+/* number pad (portrait: shown instead of d-pad/rocker) */
+
+.vdrNumPad
+{
+    grid-area: pad-start / pad-start / rock-end / rock-end;
+    display: none;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    min-height: 0;
+    padding: 0px 6%;
+}
+
+.vdrNumKey
+{
+    height: 100%;
+    max-height: 64px;
+    width: 100%;
+    max-width: 84px;
+    justify-self: center;
+    align-self: center;
+    border-radius: 20px;
+    font-size: clamp(18px, 6vmin, 26px);
+}
+
+.vdrShowNum .vdrNumPad      { display: grid; }
+.vdrShowNum .vdrPadArea,
+.vdrShowNum .vdrRockRow     { visibility: hidden; }
+.vdrShowNum .vdrNumToggle   { color: var(--rcAccent); }
+
+/* color keys */
+
+.vdrColorRow
+{
+    grid-area: color;
+    display: flex;
+    gap: 10px;
+    padding: 0px 2%;
+}
+
+.vdrColor
+{
+    flex: 1;
+    height: clamp(30px, 8vmin, 42px);
+    border-radius: 15px;
+}
+
+.vdrRed     { --rcKey: #d32f2f; }
+.vdrGreen   { --rcKey: #2e7d32; }
+.vdrYellow  { --rcKey: #f9a825; }
+.vdrBlue    { --rcKey: #1565c0; }
+
+/* landscape: number pad | d-pad | rocker, all visible */
 
 @media only screen and (orientation:landscape)
 {
-    .vdrFbContainer > div > div > div { width: 32%; }
-    .vdrButtonColorDiv { width: 23% !important; }
+    .vdrContent    { flex-direction: row; align-items: stretch; }
+    .vdrPresent    { display: none; }
+
+    .vdrRemote
+    {
+        max-width: 900px;
+        grid-template-columns: 1fr 1.2fr 1fr;
+        grid-template-rows: auto auto minmax(0, 1fr) auto;
+        grid-template-areas: "head head head"
+                             "num  fn   rock"
+                             "num  pad  rock"
+                             "num  pad  color";
+        column-gap: 20px;
+    }
+
+    .vdrNumPad              { display: grid; grid-area: num; padding: 0px; }
+    .vdrNumToggle           { display: none; }
+    .vdrShowNum .vdrPadArea,
+    .vdrShowNum .vdrRockRow { visibility: visible; }
+    .vdrColorRow            { align-self: end; }
 }
 
-@media only screen and (orientation:portrait)
+/* landscape with enough height: show now / next above the remote */
+
+@media only screen and (orientation:landscape) and (min-height: 700px)
 {
-/*    .vdrFbContainer > div > div > div { height: 32% !important; }*/
-    .vdrButtonColorDiv { width: 10% !important; }
-}
-
-.vdrButton
-{
-    border-radius: 15px;
-    border-color: var(--borderColor);
-    background-color: var(--background);
-    color: var(--light4);
-    text-decoration: none;
-    font-size: 5.0vh;
-    height: 100%;
-    width: 100%;
-    padding: 0px;
-}
-
-.vdrButton:active {
-    background-color: var(--neutral2);
-    transform: translateY(2px);
-}
-
-.vdrButton:hover
-{
-/*    background-color: var(--neutral2); */
-}
-
-.vdrButtonRound
-{
-    border-radius: 100px;
-}
-
-.vdrArrowButton
-{
-    color: lightblue;
-}
-
-.vdrArrowButtonUp
-{
-    border-radius: 100px 100px 15px 15px;
-}
-
-.vdrArrowButtonDown
-{
-    border-radius: 15px 15px 100px 100px;
-}
-
-.vdrArrowButtonLeft
-{
-    border-radius: 100px 15px 15px 100px;
-}
-
-.vdrArrowButtonRight
-{
-    border-radius: 15px 100px 100px 15px;
-}
-
-.vdrColorButtonRed
-{
-    background-color: red;
-}
-
-.vdrColorButtonGreen
-{
-    background-color: green;
-}
-
-.vdrColorButtonYellow
-{
-    background-color: darkgoldenrod;
-}
-
-.vdrColorButtonBlue
-{
-    background-color: darkblue;
+    .vdrContent    { flex-direction: column; }
+    .vdrPresent    { display: flex; max-width: 900px; }
 }
 
 /* ----------------------- */

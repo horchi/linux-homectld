@@ -45,7 +45,14 @@ TcpChannel::TcpChannel(int aTimeout, int aHandle)
 
    readBufferSize = 2048;
    readBuffer = (char*)malloc(readBufferSize+TB);
-   *readBuffer = 0;
+
+   if (!readBuffer)
+   {
+      tell(eloAlways, "Fatal: Out of memory, can't allocate read buffer");
+      readBufferSize = 0;                // readln() will try to allocate again
+   }
+   else
+      *readBuffer = 0;
    readBufferPending = 0;
 }
 
@@ -423,7 +430,13 @@ char* TcpChannel::readln()
          resizeStep = resizeStep * 2;
          readBufferSize = ((nReceived+resizeStep) / resizeStep + 1) * resizeStep;
 
-         readBuffer = (char*)realloc(readBuffer, readBufferSize+TB);
+         if (!(readBuffer = srealloc(readBuffer, readBufferSize+TB)))   // srealloc frees the old buffer on failure
+         {
+            tell(eloAlways, "Fatal: Out of memory, can't resize read buffer to %d bytes", readBufferSize+TB);
+            readBufferSize = 0;
+            readBufferPending = 0;
+            return 0;
+         }
       }
 
       // read data

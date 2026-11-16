@@ -14,7 +14,13 @@ extern "C" {
 }
 
 #include "common.h"
-#include "thirdparty/sol/sol.hpp"
+#ifndef __CPPCHECK__
+#  include "thirdparty/sol/sol.hpp"
+#else
+   // cppcheck can't preprocess sol3 (#error on unknown Lua version, '#if defined(X != 0)')
+   // -> only forward declarations for the static analysis
+   namespace sol { class state; class object; }
+#endif
 
 //**************************************************************************
 // Lua
@@ -24,8 +30,8 @@ class Lua
 {
    public:
 
-      Lua()             { init(); }
-      virtual ~Lua()    { exit(); }
+      Lua()             { Lua::init(); }      // qualified, no dynamic binding in ctor/dtor anyway
+      virtual ~Lua()    { Lua::exit(); }
 
       virtual int init();
       virtual int exit();
@@ -90,8 +96,8 @@ class LuaSol
 {
    public:
 
-      LuaSol()          { init(); }
-      virtual ~LuaSol() { exit(); }
+      LuaSol()          { LuaSol::init(); }
+      virtual ~LuaSol() { LuaSol::exit(); }
 
       virtual int init();
       virtual int exit();

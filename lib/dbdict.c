@@ -402,10 +402,10 @@ int cDbDict::parseField(const char* line)
    char token[sizeTokenMax+TB];
    const char* p = line;
 
-   cDbFieldDef* f = new cDbFieldDef;
-
    if (!curTable)
       return fail;
+
+   cDbFieldDef* f = new cDbFieldDef;
 
    // first parse fixed part of field definition up to the 'type'
 
@@ -440,6 +440,7 @@ int cDbDict::parseField(const char* line)
    {
       tell(eloAlways, "Error: Can't parse line [%s], invalid field configuration", line);
       delete f;
+      // cppcheck-suppress memleak ; false positive, ~cDbFieldDef() frees name and dbname
       return fail;
    }
 

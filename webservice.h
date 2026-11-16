@@ -70,6 +70,7 @@ class cWebService
          evP4Errors,
          evP4Pellets,
          evP4PelletsAdd,
+         evVdrWakeup,
 
          evCount
       };

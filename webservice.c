@@ -68,6 +68,7 @@ const char* cWebService::events[] =
    "p4errors",
    "p4pellets",
    "p4pelletsadd",
+   "vdrwakeup",
 
    0
 };

@@ -87,6 +87,57 @@
    background-color: var(--editadd);
 }
 
+/* the dynamic pellet filling above the deliveries (p4/pellets.js) */
+
+.p4Fill {
+   display: flex;
+   flex-direction: column;
+   gap: 6px;
+   padding: 8px 10px;
+   margin-bottom: 8px;
+   border: 1px solid var(--blue);
+}
+
+.p4FillTitle {
+   display: flex;
+   gap: 12px;
+   font-weight: bold;
+}
+
+.p4FillOn {
+   color: var(--green);
+}
+
+.p4FillOff {
+   color: var(--orange);
+   font-weight: normal;
+}
+
+.p4FillInfo {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 4px 24px;
+}
+
+.p4FillLabel {
+   opacity: 0.7;
+}
+
+.p4FillLog {
+   max-height: 160px;
+   overflow-y: auto;
+   font-size: smaller;
+}
+
+.p4FillLog div {
+   display: flex;
+   gap: 12px;
+}
+
+.p4FillLog div span:first-child {
+   flex: none;
+}
+
 /* small displays (phones): one card per delivery instead of a wide table */
 
 @media (max-width: 940px) {

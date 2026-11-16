@@ -1046,7 +1046,7 @@ const char* cWebSock::methodOf(const char* url)
 // Dispatch Data Request
 //***************************************************************************
 
-int cWebSock::dispatchDataRequest(lws* wsi, SessionData* sessionData, const char* url)
+int cWebSock::dispatchDataRequest(const lws* wsi, const SessionData* sessionData, const char* url)
 {
    int statusCode = HTTP_STATUS_NOT_FOUND;
 

@@ -780,11 +780,6 @@ function dispatchMessage(message)
    let jMessage = JSON.parse(message);
    let event = jMessage.event;
 
-   if (currentPage == "vdr") {
-      dispatchVdrMessage(event, jMessage);
-      return ;
-   }
-
    // if (event != "chartdata" && event != "ping")
    //    console.log("got event: " + event);
 
@@ -1568,25 +1563,12 @@ function mainMenuSel(what, action = null, recoverSetupPage = true)
          active.scrollIntoView({ inline: 'nearest', block: 'nearest' });
    }
 
-   if (currentPage != lastPage && (currentPage == "vdr" || lastPage == "vdr")) {
-      console.log("closing socket " + socket.protocol);
-      socket.close();
-      socket = null;         // delete socket;
+   // the VDR remote has its own socket to osd2web (vdr.js), the one to homectld stays
 
-      let protocol = myProtocol;
-      let url = "ws://" + location.hostname + ":" + location.port;
+   if (lastPage == "vdr" && currentPage != "vdr")
+      vdrDisconnect();
 
-      if (currentPage == "vdr") {
-         protocol = "osd2vdr";
-         url = "ws://" + config.vdr;
-      }
-
-      console.log("connecting ", url);
-      connectWebSocket(url, protocol);
-   }
-
-   if (currentPage != "vdr")
-      socket.send({ "event" : "pagechange", "object" : { "page"  : currentPage }});
+   socket.send({ "event" : "pagechange", "object" : { "page"  : currentPage }});
 
    // dispatch
 

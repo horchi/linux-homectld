@@ -10,6 +10,7 @@ LIBS     += $(shell $(SQLCFG) --libs_r) -lrt -lcrypto -lcurl -lpthread -luuid
 CFLAGS   += $(shell $(SQLCFG) --include)
 
 HMOBJS    = hmmqtt.o bidcos.o cul.o devices.o
+HMOBJS   := $(addprefix $(OBJDIR)/,$(HMOBJS))
 LIBHORCHI = ../lib/libhorchi.a
 LFLAGS   += -Wl,--as-needed
 
@@ -45,4 +46,5 @@ install: $(HMTARGET)
 	fi
 
 clean:
+	rm -rf $(OBJDIR)
 	rm -f *.o *.d $(HMTARGET)

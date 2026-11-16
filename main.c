@@ -39,7 +39,7 @@ int atConfigItem(const char* Name, const char* Value)
    else if (!strcasecmp(Name, "dbName")) sstrcpy(dbName, Value, sizeof(dbName));
    else if (!strcasecmp(Name, "dbUser")) sstrcpy(dbUser, Value, sizeof(dbUser));
    else if (!strcasecmp(Name, "dbPass")) sstrcpy(dbPass, Value, sizeof(dbPass));
-   else return false;
+   else return fail;
 
    return success;
 }
@@ -79,7 +79,16 @@ int readConfig()
          std::string s = strReplace("\\#", "#", line);
          free(line);
          line = strdup(s.c_str());
-         size = strlen(line+TB);
+
+         if (!line)
+         {
+            tell(eloAlways, "Fatal: Out of memory reading '%s'", fileName);
+            fclose(f);
+            free(fileName);
+            return fail;
+         }
+
+         size = strlen(line) + TB;
       }
 
       allTrim(line);

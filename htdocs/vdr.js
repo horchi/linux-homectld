@@ -8,79 +8,175 @@
  *
  */
 
+// SVG icons (stroke based, follow currentColor)
+
+const vdrIcons = {
+   menu:  '<path d="M4 7h16M4 12h16M4 17h16"/>',
+   info:  '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/>',
+   back:  '<path d="M9 14l-5-5 5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
+   up:    '<path d="M6 15l6-6 6 6"/>',
+   down:  '<path d="M6 9l6 6 6-6"/>',
+   left:  '<path d="M15 6l-6 6 6 6"/>',
+   right: '<path d="M9 6l6 6-6 6"/>',
+   plus:  '<path d="M12 5v14M5 12h14"/>',
+   minus: '<path d="M5 12h14"/>',
+   mute:  '<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9l5 6M21 9l-5 6"/>',
+   power: '<path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/>',
+   num:   '<circle cx="6" cy="6" r="1.3"/><circle cx="12" cy="6" r="1.3"/><circle cx="18" cy="6" r="1.3"/>' +
+          '<circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/>' +
+          '<circle cx="6" cy="18" r="1.3"/><circle cx="12" cy="18" r="1.3"/><circle cx="18" cy="18" r="1.3"/>'
+};
+
+var vdrProgressTimer = null;
+var vdrActual = null;
+var vdrSocket = null;          // own socket to osd2web, the one to homectld stays open
+var vdrCurrent = null;         // the selected VDR { name, url, mac }
+var vdrOnline = false;
+var vdrWakingSince = 0;
+
+// config 'vdr' (ctStringSet): 'Name;Host:Port;MAC,...', the fields are recognized by their
+//   content (like vdr.c), name and MAC are optional, 'OFF' allows the power off by the remote
+
+function vdrList()
+{
+   let list = [];
+
+   for (let entry of (config.vdr || '').split(',')) {
+      let vdr = { name: '', url: '', mac: '', powerOff: false };
+      let rest = [];
+
+      for (let p of entry.split(';').map(s => s.trim()).filter(s => s != '')) {
+         if (p.toUpperCase() == 'OFF')
+            vdr.powerOff = true;
+         else if (vdr.mac == '' && /^[0-9a-f]{2}([:-][0-9a-f]{2}){5}$/i.test(p))
+            vdr.mac = p;
+         else if (vdr.url == '' && /^[^:]+:[0-9]+$/.test(p))
+            vdr.url = p;
+         else
+            rest.push(p);
+      }
+
+      if (vdr.url == '' && rest.length)
+         vdr.url = rest.shift();
+
+      if (rest.length)
+         vdr.name = rest[0];
+
+      if (vdr.name == '')
+         vdr.name = vdr.url.split(':')[0];
+
+      if (vdr.url != '')
+         list.push(vdr);
+   }
+
+   return list;
+}
+
+function vdrIcon(name)
+{
+   return '<svg class="vdrIcon" viewBox="0 0 24 24" aria-hidden="true">' + vdrIcons[name] + '</svg>';
+}
+
+// key button, 'repeat' keys repeat while pressed
+
+function vdrKey(key, content, cls, repeat, title)
+{
+   return '<button type="button" class="vdrKey ' + (cls || '') + '" data-key="' + key + '"' +
+      (repeat ? ' data-repeat="1"' : '') + ' title="' + (title || key) + '">' + content + '</button>';
+}
+
 function initVdr()
 {
    $('#container').removeClass('hidden');
 
-   // if ($(window).height() < $(window).width())
-   //    console.log("horizontally !!");
+   let num = '';
+
+   for (const k of ['1','2','3','4','5','6','7','8','9'])
+      num += vdrKey(k, k, 'vdrNumKey');
+
+   num += '<span></span>' + vdrKey('0', '0', 'vdrNumKey') + '<span></span>';
+
+   const vdrs = vdrList();
+   let selected = null;
+
+   try { selected = localStorage.getItem(storagePrefix + 'Vdr'); } catch (e) {}
+
+   vdrCurrent = vdrs.find(v => v.name == selected) || vdrs[0] || null;
+
+   let select = '';
+
+   for (const v of vdrs)
+      select += '<option value="' + v.name + '"' + (v == vdrCurrent ? ' selected' : '') + '>' + v.name + '</option>';
 
    document.getElementById("container").innerHTML =
       '<div class="vdrContent">' +
-      '  <div class="vdrPresent rounded-border">' +
+      '  <div class="vdrPresent">' +
       '    <div class="vdrChannel">' +
       '      <img id="vdrChannelLogo" class="vdrChannelLogo" style="display:none;" onerror="this.style.display=\'none\'" onload="this.style.display=\'\'"/>' +
-      '      <div id="vdrChannel"></div>' +
+      '      <div id="vdrChannel" class="vdrChannelName"></div>' +
       '    </div>' +
-      '    <div>' +
-      '      <span id="vdrStartTime" class="vdrTime"></span>' +
-      '      <span id="vdrTitle"></span>' +
-      '      <div id="vdrShorttext"></div>' +
-      '      <span id="vdrStartTimeNext" class="vdrTime"></span>' +
-      '      <span id="vdrTitleNext"></span>' +
-      '      <div id="vdrShorttextNext"></div>' +
+      '    <div class="vdrEpg">' +
+      '      <div class="vdrEpgLine"><span id="vdrStartTime" class="vdrTime"></span><span id="vdrTitle" class="vdrTitle"></span></div>' +
+      '      <div id="vdrShorttext" class="vdrShorttext"></div>' +
+      '      <div class="vdrProgress"><div id="vdrProgressBar"></div></div>' +
+      '      <div class="vdrEpgLine vdrEpgNext"><span id="vdrStartTimeNext" class="vdrTime"></span><span id="vdrTitleNext" class="vdrTitle"></span></div>' +
       '    </div>' +
       '  </div>' +
-      '  <div id="vdrFbContainer" class="vdrFbContainer">' +
-      '    <div>' +
-      '       <div>' +
-      '         <div class="vdrButtonDiv"><button class="vdrButton" type="button" onclick="vdrKeyPress(\'1\')">1</button></div>' +
-      '         <div class="vdrButtonDiv"><button class="vdrButton" type="button" onclick="vdrKeyPress(\'2\')">2</button></div>' +
-      '         <div class="vdrButtonDiv"><button class="vdrButton" type="button" onclick="vdrKeyPress(\'3\')">3</button></div>' +
-      '       </div>' +
-      '       <div>' +
-      '         <div class="vdrButtonDiv"><button class="vdrButton" type="button" onclick="vdrKeyPress(\'4\')">4</button></div>' +
-      '         <div class="vdrButtonDiv"><button class="vdrButton" type="button" onclick="vdrKeyPress(\'5\')">5</button></div>' +
-      '         <div class="vdrButtonDiv"><button class="vdrButton" type="button" onclick="vdrKeyPress(\'6\')">6</button></div>' +
-      '       </div>' +
-      '       <div>' +
-      '         <div class="vdrButtonDiv"><button class="vdrButton" type="button" onclick="vdrKeyPress(\'7\')">7</button></div>' +
-      '         <div class="vdrButtonDiv"><button class="vdrButton" type="button" onclick="vdrKeyPress(\'8\')">8</button></div>' +
-      '         <div class="vdrButtonDiv"><button class="vdrButton" type="button" onclick="vdrKeyPress(\'9\')">9</button></div>' +
-      '       </div>' +
+      '  <div id="vdrRemote" class="vdrRemote">' +
+      '    <div class="vdrHeadRow">' +
+      '      <span class="vdrSelectWrap' + (vdrs.length > 1 ? '' : ' vdrSingle') + '">' +
+      '        <span id="vdrState" class="vdrState"></span>' +
+      '        <select id="vdrSelect" class="vdrSelect" onchange="vdrSelect(this.value)"' + (vdrs.length > 1 ? '' : ' disabled') + '>' + select + '</select>' +
+      '      </span>' +
+      '      <button type="button" id="vdrPower" class="vdrKey vdrRound vdrPower" title="Power" onclick="vdrPower()">' + vdrIcon('power') + '</button>' +
       '    </div>' +
-      '    <div>' +
-      '       <div>' +
-      '         <div class="vdrButtonDiv"><button class="vdrButton vdrButtonRound" type="button" onclick="vdrKeyPress(\'menu\')">&#9776;</button></div>' +
-      '         <div class="vdrButtonDiv"><button class="vdrButton vdrArrowButton vdrArrowButtonUp" type="button" onclick="vdrKeyPress(\'up\')">&uparrow;</button></div>' +
-      '         <div class="vdrButtonDiv"><button class="vdrButton vdrButtonRound" type="button" onclick="vdrKeyPress(\'back\')">↵</button></div>' +
-      '       </div>' +
-      '       <div>' +
-      '         <div class="vdrButtonDiv"><button class="vdrButton vdrArrowButton vdrArrowButtonLeft" type="button" onclick="vdrKeyPress(\'left\')">&leftarrow;</button></div>' +
-      '         <div class="vdrButtonDiv"><button class="vdrButton vdrArrowButton vdrButtonRound" type="button" onclick="vdrKeyPress(\'ok\')">ok</button></div>' +
-      '         <div class="vdrButtonDiv"><button class="vdrButton vdrArrowButton vdrArrowButtonRight" type="button" onclick="vdrKeyPress(\'right\')">&rightarrow;</button></div>' +
-      '       </div>' +
-      '       <div>' +
-      '         <div class="vdrButtonDiv"><button class="vdrButton vdrButtonRound" type="button" onclick="vdrKeyPress(\'mute\')">🔇</button></div>' +
-      '         <div class="vdrButtonDiv"><button class="vdrButton vdrArrowButton vdrArrowButtonDown" type="button" onclick="vdrKeyPress(\'down\')">&downarrow;</button></div>' +
-      '         <div class="vdrButtonDiv"><button class="vdrButton vdrButtonRound" type="button" onclick="vdrKeyPress(\'info\')">ℹ</button></div>' +
-      '       </div>' +
+      '    <div class="vdrFnRow">' +
+             vdrKey('Menu', vdrIcon('menu'), 'vdrRound', false, 'Menü') +
+             vdrKey('Info', vdrIcon('info'), 'vdrRound', false, 'Info') +
+             vdrKey('Back', vdrIcon('back'), 'vdrRound', false, 'Zurück') +
+      '      <button type="button" class="vdrKey vdrRound vdrNumToggle" title="Ziffern" onclick="vdrToggleNum()">' + vdrIcon('num') + '</button>' +
       '    </div>' +
-      '    <div>' +
-      '       <div>' +
-      '         <div><button class="vdrButton vdrButtonRound glyphicon glyphicon-volume-up" type="button" onclick="vdrKeyPress(\'volume-\')">🔉</button></div>' +
-      '         <div><button class="vdrButton" type="button" onclick="vdrKeyPress(\'0\')">0</button></div>' +
-      '         <div><button class="vdrButton vdrButtonRound" type="button" onclick="vdrKeyPress(\'volume+\')">🔊</button></div>' +
-      '       </div>' +
-      '       <div>' +
-      '         <div class="vdrButtonColorDiv"><button class="vdrButton vdrColorButtonRed" type="button" onclick="vdrKeyPress(\'red\')"></button></div>' +
-      '         <div class="vdrButtonColorDiv"><button class="vdrButton vdrColorButtonGreen" type="button" onclick="vdrKeyPress(\'green\')"></button></div>' +
-      '         <div class="vdrButtonColorDiv"><button class="vdrButton vdrColorButtonYellow" type="button" onclick="vdrKeyPress(\'yellow\')"></button></div>' +
-      '         <div class="vdrButtonColorDiv"><button class="vdrButton vdrColorButtonBlue" type="button" onclick="vdrKeyPress(\'blue\')"></button></div>' +
-      '       </div>' +
+      '    <div class="vdrPadArea">' +
+      '      <div class="vdrDpad">' +
+               vdrKey('Up', vdrIcon('up'), 'vdrWedge vdrWedgeUp', true) +
+               vdrKey('Down', vdrIcon('down'), 'vdrWedge vdrWedgeDown', true) +
+               vdrKey('Left', vdrIcon('left'), 'vdrWedge vdrWedgeLeft', true) +
+               vdrKey('Right', vdrIcon('right'), 'vdrWedge vdrWedgeRight', true) +
+               vdrKey('Ok', 'OK', 'vdrOk') +
+      '      </div>' +
       '    </div>' +
-      '  </div>' +  // vdrFbContainer
+      '    <div class="vdrRockRow">' +
+      '      <div class="vdrRocker">' +
+               vdrKey('Volume+', vdrIcon('plus'), '', true, 'Lauter') +
+      '        <span class="vdrRockerLabel">VOL</span>' +
+               vdrKey('Volume-', vdrIcon('minus'), '', true, 'Leiser') +
+      '      </div>' +
+      '      <div class="vdrRockMid">' +
+               vdrKey('Mute', vdrIcon('mute'), 'vdrRound', false, 'Stumm') +
+      '      </div>' +
+      '      <div class="vdrRocker">' +
+               vdrKey('Channel+', vdrIcon('up'), '', true, 'Kanal +') +
+      '        <span class="vdrRockerLabel">CH</span>' +
+               vdrKey('Channel-', vdrIcon('down'), '', true, 'Kanal -') +
+      '      </div>' +
+      '    </div>' +
+      '    <div class="vdrNumPad">' + num + '</div>' +
+      '    <div class="vdrColorRow">' +
+             vdrKey('Red', '', 'vdrColor vdrRed', false, 'Rot') +
+             vdrKey('Green', '', 'vdrColor vdrGreen', false, 'Grün') +
+             vdrKey('Yellow', '', 'vdrColor vdrYellow', false, 'Gelb') +
+             vdrKey('Blue', '', 'vdrColor vdrBlue', false, 'Blau') +
+      '    </div>' +
+      '  </div>' +  // vdrRemote
       '</div>';
+
+   vdrInitKeys(document.getElementById('vdrRemote'));
+   vdrConnect();
+
+   if (vdrProgressTimer)
+      clearInterval(vdrProgressTimer);
+
+   vdrProgressTimer = setInterval(vdrUpdateProgress, 30000);
 
    // calc container size
 
@@ -88,6 +184,85 @@ function initVdr()
    window.onresize = function() {
       $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('dashboardMenu') - getTotalHeightOf('footer') - sab - 15);
    };
+}
+
+function vdrToggleNum()
+{
+   $('#vdrRemote').toggleClass('vdrShowNum');
+   vdrHaptic();
+}
+
+function vdrHaptic()
+{
+   if (navigator.vibrate)
+      navigator.vibrate(8);
+}
+
+// pointer handling: send on press, keys with data-repeat repeat while hold
+
+function vdrInitKeys(remote)
+{
+   let timer = null;
+
+   const stop = function() {
+      if (timer) {
+         clearTimeout(timer);
+         timer = null;
+      }
+   };
+
+   remote.addEventListener('pointerdown', function(ev) {
+      const btn = ev.target.closest('.vdrKey[data-key]');
+
+      if (!btn || ev.button > 0)
+         return;
+
+      ev.preventDefault();
+      stop();
+      vdrHaptic();
+      vdrKeyPress(btn.dataset.key);
+
+      if (btn.dataset.repeat) {
+         const repeat = function() {
+            vdrKeyPress(btn.dataset.key);
+            timer = setTimeout(repeat, 150);
+         };
+         timer = setTimeout(repeat, 450);
+      }
+   });
+
+   for (const evName of ['pointerup', 'pointercancel', 'pointerleave'])
+      remote.addEventListener(evName, stop);
+
+   remote.addEventListener('pointerout', function(ev) {
+      if (ev.target.closest('.vdrKey[data-repeat]'))
+         stop();
+   });
+
+   remote.addEventListener('contextmenu', function(ev) { ev.preventDefault(); });
+}
+
+function vdrUpdateProgress()
+{
+   const bar = document.getElementById('vdrProgressBar');
+
+   if (!bar) {
+      clearInterval(vdrProgressTimer);
+      vdrProgressTimer = null;
+      return;
+   }
+
+   const present = vdrActual ? vdrActual.present : null;
+
+   if (!present || !present.starttime || !present.duration) {
+      bar.parentNode.style.visibility = 'hidden';
+      return;
+   }
+
+   let pct = (Date.now() / 1000 - present.starttime) * 100 / present.duration;
+   pct = Math.max(0, Math.min(100, pct));
+   bar.parentNode.style.visibility = '';
+   bar.style.width = pct + '%';
 }
 
 function dispatchVdrMessage(event, jMessage)
@@ -109,7 +284,8 @@ function dispatchVdrMessage(event, jMessage)
 
       $('#vdrStartTimeNext').html(startNext.toTimeLocal());
       $('#vdrTitleNext').html(actual.following.title);
-      $('#vdrShorttextNext').html(actual.following.shorttext);
+      vdrActual = actual;
+      vdrUpdateProgress();
 
    }
 }
@@ -129,7 +305,10 @@ function vdrSetChannelLogo(channel)
       return;
    }
 
-   const src = 'http://' + config.vdr + '/data/channellogo?name=' + encodeURIComponent(channel.channelname) +
+   if (!vdrCurrent)
+      return;
+
+   const src = 'http://' + vdrCurrent.url + '/data/channellogo?name=' + encodeURIComponent(channel.channelname) +
       '&id=' + encodeURIComponent(channel.channelid || '');
 
    if (logo.getAttribute('src') != src)
@@ -141,7 +320,152 @@ function vdrKeyPress(key)
    if (key == undefined || key == "")
       return;
 
-   socket.send({ "event": "keypress",
-                 "object": { "key": key, "repeat": 1 }
-               });
+   if (!vdrSocket || !vdrOnline)
+      return;
+
+   vdrSocket.send({ "event": "keypress",
+                    "object": { "key": key, "repeat": 1 }
+                  });
+}
+
+//***************************************************************************
+// Connection to osd2web of the selected VDR
+//***************************************************************************
+
+function vdrSelect(name)
+{
+   vdrCurrent = vdrList().find(v => v.name == name) || null;
+
+   try { localStorage.setItem(storagePrefix + 'Vdr', name); } catch (e) {}
+
+   vdrConnect();
+}
+
+function vdrConnect()
+{
+   vdrDisconnect();
+   vdrClearEpg();
+
+   if (!vdrCurrent)
+      return;
+
+   const vdr = vdrCurrent;
+   console.log("VDR: connecting", vdr.name, vdr.url);
+
+   // a reconnect already scheduled by WebSocketClient may open a closed client again,
+   //   therefore each callback checks if its client is still the current one
+
+   const sock = new WebSocketClient({
+      url: 'ws://' + vdr.url,
+      protocol: 'osd2vdr',
+      autoReconnectInterval: 2000,   // keeps trying, after a wakeup it connects by itself
+      onopen: function() {
+         if (sock !== vdrSocket) {
+            sock.autoReconnectInterval = 0;
+            sock.close();
+            return;
+         }
+
+         vdrOnline = true;
+         vdrWakingSince = 0;
+         vdrUpdateState();
+
+         let token = '', user = '';
+
+         try {
+            token = localStorage.getItem(storagePrefix + 'Token') || '';
+            user = localStorage.getItem(storagePrefix + 'User') || '';
+         } catch (e) {}
+
+         sock.send({ "event" : "login", "object" :
+                          { "type" : "active",
+                            "user" : user,
+                            "page" : currentPage,
+                            "token" : token,
+                            "url" : window.location.href }
+                        });
+      },
+      onclose: function() {
+         if (sock !== vdrSocket)
+            return;
+
+         vdrOnline = false;
+         vdrUpdateState();
+      },
+      onmessage: function(msg) {
+         if (sock !== vdrSocket)
+            return;
+
+         let jMessage = JSON.parse(msg.data);
+         dispatchVdrMessage(jMessage.event, jMessage);
+      }
+   });
+
+   vdrSocket = sock;
+   vdrUpdateState();
+}
+
+function vdrDisconnect()
+{
+   if (vdrSocket) {
+      vdrSocket.autoReconnectInterval = 0;
+      try { vdrSocket.close(); } catch (e) {}
+      vdrSocket = null;
+   }
+
+   vdrOnline = false;
+}
+
+function vdrClearEpg()
+{
+   vdrActual = null;
+
+   for (const id of ['vdrChannel', 'vdrStartTime', 'vdrTitle', 'vdrShorttext', 'vdrStartTimeNext', 'vdrTitleNext'])
+      $('#' + id).html('');
+
+   vdrSetChannelLogo(null);
+   vdrUpdateProgress();
+}
+
+function vdrUpdateState()
+{
+   const waking = !vdrOnline && vdrWakingSince && Date.now() - vdrWakingSince < 120000;
+   const state = vdrOnline ? 'online' : waking ? 'waking' : 'offline';
+
+   $('#vdrRemote').attr('data-state', state);
+   $('#vdrState').attr('title', state == 'online' ? 'verbunden' : waking ? 'wird geweckt ...' : 'nicht erreichbar');
+   const offLocked = vdrOnline && vdrCurrent && !vdrCurrent.powerOff;
+
+   $('#vdrPower')
+      .toggleClass('vdrPowerLocked', !!offLocked)
+      .attr('title', offLocked ? 'Ausschalten nicht freigegeben (Option OFF)'
+            : vdrOnline ? 'VDR ausschalten' : 'VDR einschalten (Wake-on-LAN)');
+
+   if (waking)
+      setTimeout(vdrUpdateState, 5000);
+}
+
+// power: offline -> wakeup by homectld (Wake-on-LAN), online -> 'Power' key to the VDR
+
+function vdrPower()
+{
+   if (!vdrCurrent)
+      return;
+
+   vdrHaptic();
+
+   if (vdrOnline) {
+      if (!vdrCurrent.powerOff)
+         return;
+
+      confirmDialog(function() {
+         vdrSocket.send({ "event": "keypress", "object": { "key": "Power", "repeat": 1 } });
+         socket.send({ "event" : "vdrwakeup", "object" : { "name" : vdrCurrent.name, "action" : "poweroff" } });   // for the log
+      }, "VDR '" + vdrCurrent.name + "' ausschalten?", 'Ausschalten', 'Abbrechen');
+      return;
+   }
+
+   socket.send({ "event" : "vdrwakeup", "object" : { "name" : vdrCurrent.name } });
+   vdrWakingSince = Date.now();
+   vdrUpdateState();
 }

@@ -3,7 +3,7 @@
 // File daemon.c
 // This code is distributed under the terms and conditions of the
 // GNU GENERAL PUBLIC LICENSE. See the file LICENSE for details.
-// Date 2010 - 2024  Jörg Wendel
+// Date 2010 - 2026  Jörg Wendel
 //***************************************************************************
 
 #include <syslog.h>
@@ -370,10 +370,9 @@ int HomeCtl::widgetDefaults2Json(json_t* jDefaults, std::string type, std::strin
 //***************************************************************************
 
 HomeCtl::HomeCtl()
+   : nextRefreshAt(time(0) + 5),
+     startedAt(time(0))
 {
-   nextRefreshAt = time(0) + 5;
-   startedAt = time(0);
-
    cDbConnection::init();
    cDbConnection::setEncoding("utf8");
    cDbConnection::setHost(dbHost);
@@ -388,7 +387,7 @@ HomeCtl::HomeCtl()
 
 HomeCtl::~HomeCtl()
 {
-   exit();
+   HomeCtl::exit();
    delete webSock;
    cCurl::destroy();
    cDbConnection::exit();
@@ -447,8 +446,7 @@ int HomeCtl::pushDataUpdate(const char* event, long client)
 
    if (client)
    {
-      auto cl {wsClients[(void*)client]};
-         json_t* oJson {json_object()};
+      json_t* oJson {json_object()};
 
       for (auto& sj : jsonSensorList)
          json_object_set(oJson, sj.first.c_str(), sj.second);
@@ -803,7 +801,7 @@ int HomeCtl::initLocale()
 
 int HomeCtl::exit()
 {
-   for (auto& sensor : sensors["GPIO"])
+   for (const auto& sensor : sensors["GPIO"])
    {
       if (sensor.second.fct == "out" && !sensor.second.impulse)
          gpioWrite(sensor.first, false, false);
@@ -1369,7 +1367,7 @@ int HomeCtl::initDb()
 
       for (auto t = dbDict.getFirstTableIterator(); t != dbDict.getTableEndIterator(); t++)
       {
-         cDbTable* table = new cDbTable(connection, t->first.c_str());
+         cDbTable* table {new cDbTable(connection, t->first.c_str())};
 
          if (strstr(table->TableName(), "information_schema"))
          {
@@ -1384,8 +1382,8 @@ int HomeCtl::initDb()
          {
             if ((status += table->createTable()) != success)
             {
-               continue;
                delete table;
+               continue;
             }
          }
          else
@@ -2188,7 +2186,7 @@ int HomeCtl::importHtmlWidgetTemplates()
 
       if (it != existing.end())
       {
-         Snippet& old {it->second};
+         const Snippet& old {it->second};
          json_t* jOld {jsonLoad(old.parameters.c_str(), 0, true)};
          bool sameParameters {(!hasParameters && (!jOld || !json_object_size(jOld))) ||
                               (hasParameters && jOld && json_equal(jOld, jParameters))};
@@ -2454,11 +2452,12 @@ int HomeCtl::loadDefaultDashboards()
 
       int ord {0};
       const char* key {};
-      json_t* jWidget {};
       json_t* jWidgets {getObjectFromJson(jDashboard, "widgets")};
 
       if (json_is_object(jWidgets))
       {
+         json_t* jWidget {};
+
          json_object_foreach(jWidgets, key, jWidget)
          {
             auto tuple = split(key, ':');
@@ -2595,7 +2594,7 @@ int HomeCtl::readConfiguration(bool initial)
    {
       std::string elo;
       getConfigItem("eloquence", elo, "");
-      eloquence = Elo::stringToEloquence(elo.c_str());
+      eloquence = Elo::stringToEloquence(elo);
       tell(eloDetail, "Info: Eloquence configured to '%s' => 0x%04x", elo.c_str(), eloquence);
    }
 
@@ -2622,7 +2621,7 @@ int HomeCtl::readConfiguration(bool initial)
 
    std::string addrs;
    getConfigItem("addrsDashboard", addrs, "");
-   addrsDashboard = split(addrs.c_str(), ',');
+   addrsDashboard = split(addrs, ',');
 
    getConfigItem("mail", sendMails, no);
    getConfigItem("mailScript", mailScript);
@@ -3059,7 +3058,7 @@ int HomeCtl::storeSamples()
    {
       for (auto& sensorIt : typeSensorsIt.second)
       {
-         SensorData* sensor = &sensorIt.second;
+         SensorData* sensor {&sensorIt.second};
 
          if (sensor->type == "WEA" && sensor->address <= 4)      // forecast (JSON) and Windy
             continue;
@@ -3778,8 +3777,8 @@ int HomeCtl::performAlertCheck(cDbRow* alertRow, time_t now, int recurse, int fo
 
    int minIsNull = alertRow->getValue("MIN")->isNull();
    int maxIsNull = alertRow->getValue("MAX")->isNull();
-   int min = alertRow->getIntValue("MIN");
-   int max = alertRow->getIntValue("MAX");
+   int alertMin = alertRow->getIntValue("MIN");
+   int alertMax = alertRow->getIntValue("MAX");
 
    int range = alertRow->getIntValue("RANGEM");
    int delta = alertRow->getIntValue("DELTA");
@@ -3839,10 +3838,10 @@ int HomeCtl::performAlertCheck(cDbRow* alertRow, time_t now, int recurse, int fo
 
    if (!minIsNull || !maxIsNull)
    {
-      if (force || (!minIsNull && value < min) || (!maxIsNull && value > max))
+      if (force || (!minIsNull && value < alertMin) || (!maxIsNull && value > alertMax))
       {
          tell(eloAlways, "%d) Alert for sensor %s/0x%x, value %.2f not in range (%d - %d)",
-              id, type, addr, value, min, max);
+              id, type, addr, value, alertMin, alertMax);
 
          // max one alert mail per maxRepeat [minutes]
 
@@ -3952,18 +3951,6 @@ int HomeCtl::performAlertCheck(cDbRow* alertRow, time_t now, int recurse, int fo
 
 int HomeCtl::add2AlertMail(cDbRow* alertRow, const char* title, double value, const char* unit)
 {
-   char* sensor {};
-
-   std::string subject = alertRow->getStrValue("MSUBJECT");
-   std::string body = alertRow->getStrValue("MBODY");
-   int addr = alertRow->getIntValue("ADDRESS");
-   const char* type = alertRow->getStrValue("TYPE");
-
-   int min = alertRow->getIntValue("MIN");
-   int max = alertRow->getIntValue("MAX");
-   int range = alertRow->getIntValue("RANGEM");
-   int delta = alertRow->getIntValue("DELTA");
-   int maxRepeat = alertRow->getIntValue("MAXREPEAT");
    double minv {0};
    double maxv {0};
 
@@ -3979,47 +3966,35 @@ int HomeCtl::add2AlertMail(cDbRow* alertRow, const char* title, double value, co
 
    tablePeaks->reset();
 
-   if (!body.length())
-      body = "- undefined -";
-
-   // prepare
-
-   asprintf(&sensor, "%s/0x%x", type, addr);
+   char sensor[100] {};
+   snprintf(sensor, sizeof(sensor), "%s/0x%lx", alertRow->getStrValue("TYPE"), alertRow->getIntValue("ADDRESS"));
+   const std::string now {l2pTime(time(0))};
 
    // templating
 
-   subject = strReplace("%sensorid%", sensor, subject);
-   subject = strReplace("%value%", value, subject);
-   subject = strReplace("%unit%", unit, subject);
-   subject = strReplace("%title%", title, subject);
-   subject = strReplace("%min%", (long)min, subject);
-   subject = strReplace("%max%", (long)max, subject);
-   subject = strReplace("%range%", (long)range, subject);
-   subject = strReplace("%delta%", (long)delta, subject);
-   subject = strReplace("%time%", l2pTime(time(0)).c_str(), subject);
-   subject = strReplace("%repeat%", (long)maxRepeat, subject);
-   subject = strReplace("%weburl%", webUrl, subject);
-   subject = strReplace("%minv%", minv, subject);
-   subject = strReplace("%maxv%", maxv, subject);
+   auto applyTemplate = [&](std::string text) -> std::string
+   {
+      text = strReplace("%sensorid%", sensor, text);
+      text = strReplace("%value%", value, text);
+      text = strReplace("%unit%", unit, text);
+      text = strReplace("%title%", title, text);
+      text = strReplace("%min%", alertRow->getIntValue("MIN"), text);
+      text = strReplace("%max%", alertRow->getIntValue("MAX"), text);
+      text = strReplace("%range%", alertRow->getIntValue("RANGEM"), text);
+      text = strReplace("%delta%", alertRow->getIntValue("DELTA"), text);
+      text = strReplace("%time%", now, text);
+      text = strReplace("%repeat%", alertRow->getIntValue("MAXREPEAT"), text);
+      text = strReplace("%weburl%", webUrl, text);
+      text = strReplace("%minv%", minv, text);
+      text = strReplace("%maxv%", maxv, text);
 
-   body = strReplace("%sensorid%", sensor, body);
-   body = strReplace("%value%", value, body);
-   body = strReplace("%unit%", unit, body);
-   body = strReplace("%title%", title, body);
-   body = strReplace("%min%", (long)min, body);
-   body = strReplace("%max%", (long)max, body);
-   body = strReplace("%range%", (long)range, body);
-   body = strReplace("%delta%", (long)delta, body);
-   body = strReplace("%time%", l2pTime(time(0)).c_str(), body);
-   body = strReplace("%repeat%", (long)maxRepeat, body);
-   body = strReplace("%weburl%", webUrl, body);
-   body = strReplace("%minv%", minv, body);
-   body = strReplace("%maxv%", maxv, body);
+      return text;
+   };
 
-   alertMailSubject += std::string(" ") + subject;
-   alertMailBody += std::string("\n") + body;
+   const char* body {alertRow->getStrValue("MBODY")};
 
-   free(sensor);
+   alertMailSubject += " " + applyTemplate(alertRow->getStrValue("MSUBJECT"));
+   alertMailBody += "\n" + applyTemplate(*body ? body : "- undefined -");
 
    return success;
 }
@@ -4188,74 +4163,6 @@ int HomeCtl::sendMail(const char* receiver, const char* subject, const char* bod
       tell(eloInfo, "Send mail '%s' to '%s'", subject, receiver);
 
    return result;
-}
-
-//***************************************************************************
-// Load HTML Mail Header
-//***************************************************************************
-
-int HomeCtl::loadHtmlHeader()
-{
-   char* file {};
-
-   // load only once at first call
-
-   if (htmlHeader.length())
-      return done;
-
-   asprintf(&file, "%s/mail-head.html", confDir);
-
-   if (fileExists(file))
-   {
-      MemoryStruct data;
-
-      if (loadFromFile(file, &data) == success)
-      {
-         data.append("\0");
-         htmlHeader = data.memory;
-      }
-   }
-
-   free(file);
-
-   if (htmlHeader.length())
-      return success;
-
-   htmlHeader =
-      "  <head>\n"
-      "    <style type=\"text/css\">\n"
-      "      table {"
-      "        border: 1px solid #d2d2d2;\n"
-      "        border-collapse: collapse;\n"
-      "      }\n"
-      "      table tr.head {\n"
-      "        background-color: #004d8f;\n"
-      "        color: #fff;\n"
-      "        font-weight: bold;\n"
-      "        font-family: Helvetica, Arial, sans-serif;\n"
-      "        font-size: 12px;\n"
-      "      }\n"
-      "      table tr th,\n"
-      "      table tr td {\n"
-      "        padding: 4px;\n"
-      "        text-align: left;\n"
-      "      }\n"
-      "      table tr:nth-child(1n) td {\n"
-      "        background-color: #fff;\n"
-      "      }\n"
-      "      table tr:nth-child(2n+2) td {\n"
-      "        background-color: #eee;\n"
-      "      }\n"
-      "      td {\n"
-      "        color: #333;\n"
-      "        font-family: Helvetica, Arial, sans-serif;\n"
-      "        font-size: 12px;\n"
-      "        border: 1px solid #D2D2D2;\n"
-      "      }\n"
-      "      </style>\n"
-      "  </head>\n";
-
-   return success;
 }
 
 // the types of the sensors delivered by p4mqttd (the others with the prefix P4 are the ones of the homectld)
@@ -4846,7 +4753,7 @@ int HomeCtl::dispatchDeconz()
          //  without 'value' was shown as motion, the list of all sensors as none)
 
          sensor->setState(getBoolFromJson(oData, "presence"), now);
-         sensor->value = sensor->state;
+         sensor->value = (double)sensor->state;
       }
 
 
@@ -5196,23 +5103,23 @@ int HomeCtl::dispatchHomematicEvents(const char* message)
    return done;
 }
 
-std::string buildStringFromCamelCase(std::string camelCaseStr)
-{
-   size_t n {0};
+// std::string buildStringFromCamelCase(std::string camelCaseStr)
+// {
+//    size_t n {0};
 
-   while (n+1 < camelCaseStr.length())
-   {
-      if ((islower(camelCaseStr[n]) || isdigit(camelCaseStr[n])) && isupper(camelCaseStr[n+1]))
-      {
-         camelCaseStr = camelCaseStr.substr(0,n+1) + " " + camelCaseStr.substr(n+1);
-         n++;
-      }
+//    while (n+1 < camelCaseStr.length())
+//    {
+//       if ((islower(camelCaseStr[n]) || isdigit(camelCaseStr[n])) && isupper(camelCaseStr[n+1]))
+//       {
+//          camelCaseStr = camelCaseStr.substr(0,n+1) + " " + camelCaseStr.substr(n+1);
+//          n++;
+//       }
 
-      n++;
-   }
+//       n++;
+//    }
 
-   return camelCaseStr;
-}
+//    return camelCaseStr;
+// }
 
 //***************************************************************************
 // GroWatt Interface
@@ -5358,17 +5265,16 @@ int HomeCtl::dispatchRtl433(const char* message)
       return fail;
    }
 
-   std::string  kind = "value";
-   const char* type = "RTL433";
+   const char* type {"RTL433"};
    int address = getIntFromJson(jData, "id");
    const char* unit = "°C";
-   // const char* timeStr = getStringFromJson(jData, "time");
-   const char* title = getStringFromJson(jData, "model");
-   double value = getDoubleFromJson(jData, "temperature_C");
+   // const char* timeStr {getStringFromJson(jData, "time")};
+   const char* title {getStringFromJson(jData, "model")};
+   double value {getDoubleFromJson(jData, "temperature_C")};
 
    addValueFact(address, type, 1, title, unit, title);
 
-   sensors[type][address].kind = kind;
+   sensors[type][address].kind = "value";
    sensors[type][address].setValue(value);
    sensors[type][address].setLastJson("rtl_433", message);
 
@@ -5377,11 +5283,7 @@ int HomeCtl::dispatchRtl433(const char* message)
       json_t* ojData {json_object()};
       sensor2Json(ojData, type, address);
 
-      if (kind == "status")
-         json_object_set_new(ojData, "value", json_integer(sensors[type][address].state));
-      else
-         json_object_set_new(ojData, "value", json_real(sensors[type][address].value));
-
+      json_object_set_new(ojData, "value", json_real(sensors[type][address].value));
       json_object_set_new(ojData, "text", json_string(sensors[type][address].text.c_str()));
 
       if (sensors[type][address].image.length())
@@ -5581,7 +5483,6 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
    const char* choices = getStringFromJson(jData, "choices", nullptr);
    json_t* jParameter = getObjectFromJson(jData, "parameter");
    const char* cmdTopic = getStringFromJson(jData, "topic");
-   std::string deviceId = getStringFromJson(jData, "deviceid", "");
 
    if (type.empty())
    {
@@ -6248,7 +6149,7 @@ int HomeCtl::getConfigItem(const char* name, int& value, int def)
 
    if (!txt.empty())
       value = atoi(txt.c_str());
-   else if (txt.empty() && def != na)
+   else if (def != na)
    {
       value = def;
       setConfigItem(name, (long)value);
@@ -6267,7 +6168,7 @@ int HomeCtl::getConfigItem(const char* name, long& value, long def)
 
    if (!txt.empty())
       value = atol(txt.c_str());
-   else if (txt.empty() && def != na)
+   else if (def != na)
    {
       value = def;
       setConfigItem(name, value);
@@ -6295,7 +6196,7 @@ int HomeCtl::getConfigItem(const char* name, double& value, double def)
 
    if (!txt.empty())
       value = strtod(txt.c_str(), nullptr);
-   else if (txt.empty() && def != naf)
+   else if (def != naf)
    {
       value = def;
       setConfigItem(name, value);
@@ -6323,7 +6224,7 @@ int HomeCtl::getConfigItem(const char* name, bool& value, bool def)
 
    if (!txt.empty())
       value = atoi(txt.c_str());
-   else if (txt.empty())
+   else
    {
       value = def;
       setConfigItem(name, value);
@@ -6386,7 +6287,7 @@ int HomeCtl::toggleColorTemperature(uint addr, const char* type, int ct, int bri
    if (strcmp(type, "DZL") != 0 || !valueFactRowOf(type, addr))
       return fail;
 
-   SensorData& sensor {sensors[type][addr]};
+   const SensorData& sensor {sensors[type][addr]};
 
    if (sensor.ctMin > 0 && sensor.ctMax > sensor.ctMin)
       ct = std::max(sensor.ctMin, std::min(ct, sensor.ctMax));
@@ -6396,7 +6297,7 @@ int HomeCtl::toggleColorTemperature(uint addr, const char* type, int ct, int bri
 
 int HomeCtl::toggleColor(uint addr, const char* type, int hue, int sat, int bri)
 {
-   cDbRow* fact {valueFactRowOf(type, addr)};
+   const cDbRow* fact {valueFactRowOf(type, addr)};
 
    if (!fact)
       return fail;
@@ -6447,7 +6348,7 @@ int HomeCtl::toggleIo(uint addr, const char* type, int state, int bri, int trans
    }
    else if (strcmp(type, "HMB") == 0)
    {
-      double value = sensors[type][addr].value;
+      double value {sensors[type][addr].value};
       tell(eloDebug, "Debug: toggleIo - last direction = '%s', level was %d",
            sensors[type][addr].lastDir == dirOpen ? "open" : "close", (int)sensors[type][addr].value);
 
@@ -7273,26 +7174,6 @@ void HomeCtl::cleanupW1()
          detached++;
       }
    }
-}
-
-bool HomeCtl::existW1(uint address)
-{
-   auto it = sensors["W1"].find(address);
-   return it != sensors["W1"].end();
-}
-
-double HomeCtl::valueOfW1(uint address, time_t& last)
-{
-   last = 0;
-
-   auto it = sensors["W1"].find(address);
-
-   if (it == sensors["W1"].end())
-      return 0;
-
-   last = sensors["W1"][address].last();
-
-   return sensors["W1"][address].value;
 }
 
 uint HomeCtl::toW1Id(const char* name)

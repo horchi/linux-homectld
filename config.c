@@ -130,9 +130,24 @@ std::list<HomeCtl::ConfigItemDef> HomeCtl::configuration
    { "p4TimeSync",                ctBool,    "0",                  "N", false, "Heizung S 3200", "Zeitsynchronisation", "Die Uhr der Heizung wird (frühestens um 3:00, höchstens einmal täglich) auf die Systemzeit gesetzt, wenn die Abweichung größer als die unten genannte ist. Nicht im Nur-Lesen-Modus von p4mqttd" },
    { "p4MaxTimeLeak",             ctInteger, "10",                 "N", false, "Heizung S 3200", "Zeitsynchronisation bei Abweichung über [s]", "Mindestabweichung für die Synchronisation in Sekunden" },
 
+   { "p4FillEnabled",             ctBool,    "0",                  "N", false, "Heizung S 3200", "Dynamische Pelletbefüllung", "Die Zeiten der 1. und 2. Pelletsbefüllung werden automatisch gesetzt: täglich die Standardzeiten, bei Betriebsbereit und niedrigem Füllstand sofort befüllen, eine Befüllung während die Heizung heizt verschieben, nach N Tagen den Behälter leer fahren (Ablösung von DynamischePelletaustragung.py). Status und Änderungen auf der Seite Pellets" },
+   { "p4FillTime1",               ctString,  "16:00",              "N", false, "Heizung S 3200", "Befüllung: Standardzeit 1. Befüllung", "HH:MM, wird täglich gesetzt, 00:00 = aus" },
+   { "p4FillTime2",               ctString,  "00:00",              "N", false, "Heizung S 3200", "Befüllung: Standardzeit 2. Befüllung", "HH:MM, wird täglich gesetzt, 00:00 = aus" },
+   { "p4FillMinLevel",            ctInteger, "20",                 "N", false, "Heizung S 3200", "Befüllung: sofort unter Füllstand [%]", "Ist die Heizung im Zustand Betriebsbereit und der Füllstand darunter, wird sofort befüllt (in 5 Minuten)" },
+   { "p4FillHold",                ctInteger, "5",                  "N", false, "Heizung S 3200", "Befüllung: sofort nach Wartezeit [min]", "So lange muss Betriebsbereit und der niedrige Füllstand anstehen, bevor sofort befüllt wird" },
+   { "p4FillDaysToZero",          ctInteger, "8",                  "N", false, "Heizung S 3200", "Befüllung: Leerfahrt nach [Tage]", "War der Behälter so lange nicht leer, werden beide Zeiten auf 00:00 gesetzt bis er leer ist (Feinanteil), 0 = nie" },
+   { "p4FillDelayStates",         ctString,  "Vorbereitung,Vorwärmen,Zünden,Heizen", "N", false, "Heizung S 3200", "Befüllung: verschieben bei Zuständen", "Steht in diesen Zuständen eine Befüllung innerhalb von 15 Minuten an, wird sie um 30 Minuten verschoben (Komma getrennt, Text des Zustands)" },
+   { "p4FillAddress1",            ctInteger, "60",                 "N", false, "Heizung S 3200", "Befüllung: Adresse 1. Befüllung", "Parameter 'Start der 1. Pelletsbefüllung' im Service Menü (dezimal)" },
+   { "p4FillAddress2",            ctInteger, "516",                "N", false, "Heizung S 3200", "Befüllung: Adresse 2. Befüllung", "Parameter 'Start der 2. Pelletsbefüllung' im Service Menü (dezimal)" },
+   { "p4FillLevelAddress",        ctInteger, "113",                "N", false, "Heizung S 3200", "Befüllung: Sensor Füllstand", "Adresse des P4VA Sensors 'Füllstand im Pelletsbehälter' (dezimal, muss aktiv sein)" },
+   { "p4FillLastZero",            ctInteger, "0",                  "N", true,  "Heizung S 3200", "", "" },
+   { "p4FillResetDay",            ctString,  "",                   "N", true,  "Heizung S 3200", "", "" },
+   { "p4FillToZero",              ctBool,    "0",                  "N", true,  "Heizung S 3200", "", "" },
+   { "p4FillLog",                 ctText,    "[]",                 "N", true,  "Heizung S 3200", "", "" },
+
    // VDR
 
-   { "vdr",                       ctString,  "",                   "N", false, "VDR", "URL des VDR WEB Interfaces (Video Disk Recorder)", "Beispiel: vdr:4444" },
+   { "vdr",                       ctStringSet, "",                 "N", false, "VDR", "VDRs (Video Disk Recorder)", "Ein Eintrag je VDR: 'Name;Host:Port;MAC', Host:Port ist das osd2web Plugin, Beispiel: 'Wohnzimmer;vdr:4444;00:1e:06:43:48:8e'. Host als Name oder IP. Die MAC (für Wake-on-LAN) kann fehlen, sie wird beim Speichern ermittelt wenn der VDR läuft. Mit ';OFF' am Ende darf die FB den VDR ausschalten, sonst nur einschalten" },
 
    // LMC (Logitec Media Server)
 

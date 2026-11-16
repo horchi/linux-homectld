@@ -17,6 +17,8 @@
 #include "lib/mqtt.h"
 #include "lib/lua.h"
 
+#include "p4fill.h"
+
 
 #include "service.h"
 
@@ -55,13 +57,15 @@ class HomeCtl : public cWebInterface, public Service
    public:
 
       HomeCtl();
-      virtual ~HomeCtl();
+      HomeCtl(const HomeCtl&) = delete;
+      HomeCtl& operator=(const HomeCtl&) = delete;
+      virtual ~HomeCtl() override;
 
       int loop();
       virtual int init();
 
       const char* myName() override  { return TARGET; }
-      const char* myTitle()          { return "HomeCtl"; }
+      static const char* myTitle()          { return "HomeCtl"; }
       static void downF(int aSignal) { shutdown = true; }
 
       int addValueFact(int addr, const char* type, int factor, const char* name, const char* unit = "",
@@ -288,7 +292,7 @@ class HomeCtl : public cWebInterface, public Service
 
       json_t* jWidgetDefaults {};   // <confDir>/widgetDefaults.json + widgetDefaults-usr.json (merged)
       int loadWidgetDefaults();
-      json_t* loadWidgetDefaultsFile(const char* file, bool user);
+      static json_t* loadWidgetDefaultsFile(const char* file, bool user);
       json_t* findWidgetDefaultProperty(const char* type, const char* unit, int address);
       const char* findWidgetDefaultSymbol(const char* type, const char* usrTitle, const char* unit, bool on);
       int widgetDefaults2Json(json_t* jDefaults, std::string type, std::string unit, const char* usrTitle, int address = 0);
@@ -311,7 +315,7 @@ class HomeCtl : public cWebInterface, public Service
 
       int initScripts();
 
-      void doSleep(int t);
+      static void doSleep(int t);
       int standby(int t);
       virtual int standbyUntil();
       int meanwhile();
@@ -352,7 +356,7 @@ class HomeCtl : public cWebInterface, public Service
       int deconzCheckOutdated();
       int mqttCheckOutdated();
       static constexpr time_t deconzMaxAge {3 * 60 * 60};      // [s] measuring sensors without data that long are invalid
-      int homeMaticServiceAction(SensorData& sensor, double value, bool noStop);
+      int homeMaticServiceAction(const SensorData& sensor, double value, bool noStop);
       int homeMatic2Json(json_t* obj);
       int performHomeMatic(json_t* obj, long client);
       bool homeMaticViaService() { return homeMaticInterface && homeMaticBridge == "hmmqtt"; }
@@ -384,22 +388,32 @@ class HomeCtl : public cWebInterface, public Service
       int p4RawAnswer(long client, const char* tag, const char* error);
       int p4SendCommand(json_t* oCmd, long client, const char* what, int parent, int timeout, const char* rawTag = nullptr);
       int p4Answer(long client, const char* error, const char* event = "p4menu");
+
+      // dynamic pellet filling of the S 3200 (p4fill.c / p4fill.h)
+
+      int p4FillReadConfig();
+      int p4FillCheck();
+      int p4FillSend(const char* cmd, int slot, int minutes, const std::string& reason);
+      int p4FillReply(const std::string& cmd, int slot, const std::string& reason, json_t* jMsg);
+      int p4FillAddLog(const std::string& text);
+      int p4FillPersist();
+      int p4Fill2Json(json_t* obj);
       virtual int dispatchGrowattEvents(const char* message);
       virtual int dispatchRtl433(const char* message);
       virtual int dispatchOther(const char* topic, const char* message);
-      int dispatchEspLog(const char* topic, const char* message);
+      static int dispatchEspLog(const char* topic, const char* message);
       const char* lookupCommandTopic(const char* type, int address);
       bool checkRights(long client, Event event, json_t* oObject);
       virtual bool onCheckRights(long client, Event event, uint rights) { return false; }
       int callScript(int addr, const char* command);
       int switchCommand(std::string type, int addr, std::string action, const char* topic, const char* value = nullptr);
 
-      bool isInTimeRange(const std::vector<Range>* ranges, time_t t);
+      static bool isInTimeRange(const std::vector<Range>* ranges, time_t t);
 
       int updateWeather();
-      int weather2json(json_t* jWeather, json_t* owmWeather);
+      static int weather2json(json_t* jWeather, json_t* owmWeather);
 
-      int storable(const SensorData* sensor);
+      static int storable(const SensorData* sensor);
       int store(time_t now, const SensorData* sensor);
       int storePeaks(time_t now, const SensorData* sensor);
 
@@ -421,7 +435,6 @@ class HomeCtl : public cWebInterface, public Service
       int scheduleAggregate();
       int aggregate();
 
-      int loadHtmlHeader();
       int sendMail(const char* receiver, const char* subject, const char* body, const char* mimeType);
 
       int initConfigTable();
@@ -444,7 +457,7 @@ class HomeCtl : public cWebInterface, public Service
 
       int getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges);
 
-      bool doShutDown() { return shutdown; }
+      static bool doShutDown() { return shutdown; }
 
       void publishVictronInit(const char* type);
       void requestSensorInit(const char* type);
@@ -510,8 +523,8 @@ class HomeCtl : public cWebInterface, public Service
       int mqttConverterStore(json_t* obj, std::string& error);
       int mqttConverterDelete(const std::string& file, std::string& error);
       int mqttConverterTest(json_t* obj, json_t* oJson);
-      std::vector<std::string> mqttConverterAliasesOf(const std::string& file);
-      std::string mqttConverterFile(const std::string& topic);
+      static std::vector<std::string> mqttConverterAliasesOf(const std::string& file);
+      static std::string mqttConverterFile(const std::string& topic);
       void mqttConverterSeen(const char* topic, const char* message);
       std::map<std::string,MqttSeenTopic> mqttSeenTopics;      // topics received by dispatchOther()
       int storeHtmlWidget(json_t* obj, std::string& error);
@@ -548,10 +561,12 @@ class HomeCtl : public cWebInterface, public Service
       int storeAiSettings(json_t* oObject, long client);
       int storeIoSettings(json_t* oObject, long client);
       int performLmcAction(json_t* oObject, long client);
+      int performVdrWakeup(json_t* obj, long client);
+      int vdrLearnMacs(std::string& info);
       virtual int performCommand(json_t* obj, long client);
       virtual const char* getTextImage(const char* key, const char* text) { return nullptr; }
 
-      int widgetTypes2Json(json_t* obj);
+      static int widgetTypes2Json(json_t* obj);
       int config2Json(json_t* obj);
       int environment2Json(json_t* obj);
       int configDetails2Json(json_t* obj);
@@ -625,13 +640,13 @@ class HomeCtl : public cWebInterface, public Service
 
       std::string haspPanelIp;     // from the panel's statusupdate (WEBIF: screenshot link)
       static const char* haspWidgetTypeNames[];
-      int haspWidgetTypes2Json(json_t* obj);
+      static int haspWidgetTypes2Json(json_t* obj);
       int haspSendPages();
       int haspPublish(const char* command, const char* payload);
       int haspPublishJsonl(json_t* jObj);
       int haspBuildPage(int pageNo, const std::vector<int>& layout, json_t* jWidgets, int nextPage, int prevPage);
       int haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, int h, const char* key, json_t* jOpts);
-      std::vector<int> haspLayoutOf(const char* opts, int rows, int cols);
+      static std::vector<int> haspLayoutOf(const char* opts, int rows, int cols);
       static HaspWidgetType haspTypeOfDashboardType(int dashboardWidgetType);
       int haspLoadMdiCodepoints();
       int haspPublishSensor(const SensorData& sensor);      // value/state of one sensor -> panel
@@ -688,13 +703,13 @@ class HomeCtl : public cWebInterface, public Service
       };
 
       GpsCoordinate location(bool* fromGps = nullptr);        // position for sun times and weather (config or GPS)
-      std::string placeName(const GpsCoordinate& pos);       // name of the place (OpenStreetMap) for the weather
+      static std::string placeName(const GpsCoordinate& pos);       // name of the place (OpenStreetMap) for the weather
       bool sunCalc(bool force = false);                       // recalculate on a new day / moved position
       int sunUpdate(bool force = false);                      // sunCalc() and the sensor SUN:0x01
       int sun2Json(json_t* obj);
-      void sunTimesOf(time_t day, SunTimes& st);              // the sun times of a day at the position of 'st'
+      static void sunTimesOf(time_t day, SunTimes& st);              // the sun times of a day at the position of 'st'
       int sunResolve(const char* ref, int offset, uint& hhmm, const SunTimes* times = nullptr);   // "HH:MM" or dawn|sunrise|sunset|dusk + offset -> HHMM (times of today or of 'times')
-      bool rangeDateValid(json_t* jRange, time_t t);          // time range valid on this day ("dateFrom" / "dateTo")
+      static bool rangeDateValid(json_t* jRange, time_t t);          // time range valid on this day ("dateFrom" / "dateTo")
 
       static void sunPosition(time_t t, double lat, double lng, double& azimuth, double& elevation);
 
@@ -815,7 +830,7 @@ class HomeCtl : public cWebInterface, public Service
       std::string sceneDescribe(json_t* step);
       bool sceneCondition(json_t* cond);
       int sceneSet(json_t* step, std::string& error);
-      bool sceneShellAllowed(const std::string& program, std::string& error);
+      static bool sceneShellAllowed(const std::string& program, std::string& error);
       int lightRuleDim(const char* key, const std::vector<std::string>& targets, int transition);
       int lightRuleDimStop(const char* key, const std::vector<std::string>& targets);
       int lightRuleDimSend(const std::vector<std::string>& targets, int dir, int transitionTime, bool switchOn);
@@ -865,8 +880,8 @@ class HomeCtl : public cWebInterface, public Service
 
       // Garmin activities (activities.c)
 
-      json_t* garminCall(const char* args, int timeout, std::string& error, const char* input = nullptr);
-      bool garminConfigured();
+      static json_t* garminCall(const char* args, int timeout, std::string& error, const char* input = nullptr);
+      static bool garminConfigured();
       int activityStore(json_t* jAct);
       int activitiesSync(const char* since, std::string& message);
       int activities2Json(json_t* obj);
@@ -898,20 +913,20 @@ class HomeCtl : public cWebInterface, public Service
       std::vector<std::pair<int,int>> haspDateLabels;             // (page, id) of date labels (Time widget), text set by us (weekday in german)
       int groups2Json(json_t* obj);
       virtual int commands2Json(json_t* obj);
-      int syslogs2Json(json_t* obj);
+      static int syslogs2Json(json_t* obj);
       int daemonState2Json(json_t* obj);
       int sensor2Json(json_t* obj, const char* type, uint address);
       int sensorValue2Json(json_t* obj, const char* type, uint address);
-      int systemServices2Json(json_t* obj);
+      static int systemServices2Json(json_t* obj);
       int images2Json(json_t* obj);
       void pin2Json(json_t* ojData, const char* type, uint pin);
-      bool webFileExists(const char* file, const char* base = nullptr);
+      // bool webFileExists(const char* file, const char* base = nullptr);
 
       int lmcTrack2Json(json_t* obj, TrackInfo* track);
       int lmcPlayerState2Json(json_t* obj);
       int lmcPlayers2Json(json_t* obj);
       int lmcPlaylist2Json(json_t* obj);
-      int lmcMainMenu2Json(json_t* obj);
+      static int lmcMainMenu2Json(json_t* obj);
 
       int toggleIo(uint addr, const char* type, int state = na, int bri = na, int transitiontime = na);
       int toggleColor(uint addr, const char* type, int color, int sat, int bri);
@@ -937,10 +952,8 @@ class HomeCtl : public cWebInterface, public Service
 
       // W1
 
-      bool existW1(uint address);
       int dispatchW1Msg(const char* message);
-      double valueOfW1(uint address, time_t& last);
-      uint toW1Id(const char* name);
+      static uint toW1Id(const char* name);
       bool updateW1(const char* id, double value, time_t stamp);
       void cleanupW1();
 
@@ -1180,9 +1193,21 @@ class HomeCtl : public cWebInterface, public Service
          std::string tag;                                   //   its tag, returned with the answer
          std::string request;                               //   the message which was sent to the service
          std::string user;
+         bool fill {false};                                 // request of the pellet filling (p4fill.c), no WEBIF client
+         int slot {-1};                                     //   0 / 1 -> 1. / 2. filling
+         std::string reason;                                //   why the time is set
       };
 
       std::map<std::string,P4Pending> p4Pending;            // rid -> request
+
+      P4Fill::Config p4FillConfig;                          // dynamic pellet filling (p4fill.c)
+      P4Fill::State p4FillState;
+      int p4FillLevelAddress {0x71};                        // P4VA 'Füllstand im Pelletsbehälter'
+      int p4FillTimes[2] {-1, -1};                          // times of the control [min of the day], -1 unknown
+      time_t p4FillTimesAt {0};                             // .. read at
+      time_t p4FillCheckAt {0};
+      bool p4FillNoLevel {false};                           // the missing level is told once
+      std::string p4FillLog;                                // JSON array of the last changes (hidden config item)
       uint p4Rid {0};
 
       std::string lmcHost {};
@@ -1272,12 +1297,12 @@ class HomeCtl : public cWebInterface, public Service
          std::atomic<bool> cancel{false};
       };
 
-      int connectWifi(const char* ssid, std::string& result, const char* pwd = nullptr);
-      int disconnectWifi(const char* ssid, std::string& result);
-      int forgetWifi(const char* uuid, const char* ssid, std::string& result);
-      bool wifiDeviceExists(const char* iface);
-      void tidyWifiProfileName(const char* ssid);
-      int executeNmcli(const std::vector<std::string>& cmdArgs, std::string& result);
+      static int connectWifi(const char* ssid, std::string& result, const char* pwd = nullptr);
+      static int disconnectWifi(const char* ssid, std::string& result);
+      static int forgetWifi(const char* uuid, const char* ssid, std::string& result);
+      static bool wifiDeviceExists(const char* iface);
+      static void tidyWifiProfileName(const char* ssid);
+      static int executeNmcli(const std::vector<std::string>& cmdArgs, std::string& result);
 
       int executeCommandAsync(uint address, const char* cmd);
       std::map<uint,ThreadControl> commandThreads;

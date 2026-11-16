@@ -80,7 +80,7 @@ bool HomeCtl::shadeConditions(json_t* jShade, std::string& text)
 
    if (!isEmpty(luxSensor))
    {
-      SensorData* sensor {sensorOfKey(luxSensor)};
+      const SensorData* sensor {sensorOfKey(luxSensor)};
 
       if (!sensor || !sensor->valid())
       {
@@ -99,7 +99,7 @@ bool HomeCtl::shadeConditions(json_t* jShade, std::string& text)
 
    if (!isEmpty(tempSensor))
    {
-      SensorData* sensor {sensorOfKey(tempSensor)};
+      const SensorData* sensor {sensorOfKey(tempSensor)};
 
       if (!sensor || !sensor->valid())
       {

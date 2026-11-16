@@ -191,12 +191,26 @@ class MemoryStruct
       explicit MemoryStruct(const MemoryStruct* o)
       {
          size = o->size;
-         memory = (char*)malloc(size);
-         memcpy(memory, o->memory, size);
+         memory = static_cast<char*>(malloc(size));
+
+         if (!memory && size)
+         {
+            tell(eloAlways, "Fatal: Out of memory, can't allocate %zu bytes", size);
+            size = 0;
+         }
+         else if (memory)
+            memcpy(memory, o->memory, size);
 
          zsize = o->zsize;
-         zmemory = (char*)malloc(zsize);
-         memcpy(zmemory, o->zmemory, zsize);
+         zmemory = static_cast<Bytef*>(malloc(zsize));
+
+         if (!zmemory && zsize)
+         {
+            tell(eloAlways, "Fatal: Out of memory, can't allocate %zu bytes", zsize);
+            zsize = 0;
+         }
+         else if (zmemory)
+            memcpy(zmemory, o->zmemory, zsize);
 
          copyAttributes(o);
       }
@@ -259,9 +273,9 @@ class MemoryStruct
             return fail;
 
          zsize = gzipBound(size) + 512;  // the maximum calculated by the lib, will adusted at gzip() call
-         zmemory = (char*)malloc(zsize);
+         zmemory = static_cast<Bytef*>(malloc(zsize));
 
-         if (gzip((Bytef*)zmemory, &zsize, (Bytef*)memory, size) != success)
+         if (gzip(zmemory, &zsize, reinterpret_cast<const Bytef*>(memory), size) != success)
          {
             free(zmemory);
             zsize = 0;
@@ -300,7 +314,7 @@ class MemoryStruct
       char* memory {};
       long unsigned int size {0};
 
-      char* zmemory {};
+      Bytef* zmemory {};
       long unsigned int zsize {0};
 
       // tag attribute
@@ -386,9 +400,11 @@ class myString : public std::string
    public:
 
       myString() : std::string() { }
+      // cppcheck-suppress noExplicitConstructor ; implicit conversion is intended
       myString(const std::string& s) : std::string(s) {}
       myString(const std::string& s, std::size_t n) : std::string(s, n) {}
       myString(const char *s, std::size_t n) : std::string(s, n) {}
+      // cppcheck-suppress noExplicitConstructor ; implicit conversion is intended
       myString(const char *s) : std::string(s) {}
       myString(std::size_t n, char c) : std::string (n, c) {}
       template <class InputIterator>
@@ -523,7 +539,7 @@ class cRetBuf
 {
    public:
 
-      cRetBuf(const char* buf = 0);
+      explicit cRetBuf(const char* buf = 0);
       cRetBuf(const cRetBuf& buf);
       virtual ~cRetBuf();
 
@@ -548,7 +564,7 @@ class cTimeMs
 {
    public:
 
-      cTimeMs(int Ms = 0);
+      explicit cTimeMs(int Ms = 0);
       static uint64_t Now();
       static uint64_t now() { return Now(); }
       void Set(int Ms = 0);
@@ -580,7 +596,7 @@ class char_smart
 {
    public:
 
-      char_smart(const char* s = nullptr)  { set(s); }
+      explicit char_smart(const char* s = nullptr)  { set(s); }
       ~char_smart() { free(); }
 
       inline void operator = (const char* s) { set(s); }
@@ -623,7 +639,7 @@ class LogDuration
 {
    public:
 
-      LogDuration(const char* aMessage, Eloquence aLogLevel = eloDetail);
+      explicit LogDuration(const char* aMessage, Eloquence aLogLevel = eloDetail);
       ~LogDuration();
 
       void show(const char* label = "");
@@ -647,7 +663,7 @@ class Sem
 {
    public:
 
-      Sem(int aKey)
+      explicit Sem(int aKey)
       {
          key = aKey;
 
@@ -777,7 +793,7 @@ class SemLock
 {
    public:
 
-      SemLock(Sem* aSem) : sem(aSem) { sem->p(); }
+      explicit SemLock(Sem* aSem) : sem(aSem) { sem->p(); }
       ~SemLock() { sem->v(); }
 
    private:

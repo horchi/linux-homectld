@@ -111,8 +111,8 @@ void Deconz::setHttpUrl(const char* url)
 {
    httpUrl = url;
 
-   if (httpUrl.find("http://") == 0)
-      httpUrl = httpUrl.substr(strlen("http://"));
+   if (httpUrl.starts_with("http://"))
+      httpUrl.erase(0, strlen("http://"));
 
    while (!httpUrl.empty() && httpUrl.back() == '/')
       httpUrl.pop_back();
@@ -518,8 +518,8 @@ int Deconz::toggle(const char* type, uint address, bool state, int bri, int tran
 
    if (bri != na && state)
    {
-      int dim = (int)((255 / 100.0) * bri);
-      json_object_set_new(jObj, "bri", json_integer(dim));
+      int dimValue = (int)((255 / 100.0) * bri);
+      json_object_set_new(jObj, "bri", json_integer(dimValue));
    }
 
    int status {success};

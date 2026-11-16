@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.66"
-#define VERSION_DATE "14.11.2026"
+#define _VERSION     "0.1.67"
+#define VERSION_DATE "15.11.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,10 @@
 
 /*
  * ------------------------------------
+
+2026-11-15: version 0.1.67
+    - change: code improvements, fixed cppcheck findings
+    - added:  dynamische Pelletbefüllung (Based on a script by David92)
 
 2026-11-14: version 0.1.66
     - change: minor dashboards swipe fix
@@ -41,7 +45,7 @@
     - change: Moved HTML template for mixer to 'heizkreis'
 
 2026-11-14: version 0.1.59
-    - added: HTML template for mixer
+    - added:  HTML template for mixer
 
 2026-11-14: version 0.1.58
     - change: Improved stylesheets blue, yellow and light

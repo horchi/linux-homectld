@@ -285,6 +285,7 @@ class P4Mqttd
       std::map<int,Fs::TimeRanges> times;       // the time programs by address (0 - 0xdf)
       bool timesLoaded {false};
       bool sensorsReady {false};
+      time_t discoverRetryAt {0};               // a failed reading of the lists is repeated not before
       std::string cacheFirmware;
 
       Mqtt* mqttWriter {};
@@ -493,6 +494,7 @@ static std::string stateImage(int state, const std::string& iconSet)
 static constexpr int maxFailures {5};          // failed transactions in a row -> reopen the line
 static constexpr int maxListItems {20000};     // a list of the control which doesn't end (a menu has about 1300 entries)
 static constexpr int busGapMs {30};            // pause between two transactions (the others get their turn)
+static constexpr int discoverRetryDelay {300}; // [s] a failed reading of the lists is repeated after this time
 
 //***************************************************************************
 // Object
@@ -578,15 +580,23 @@ int P4Mqttd::loop()
          continue;
       }
 
-      if (haveState && (!sensorsReady || rediscover))
+      if (haveState && (rediscover || (!sensorsReady && time(0) >= discoverRetryAt)))
       {
          // reading the lists of the control (one request after the other, without polling
-         //  in between) takes a while, but only at the first start or after a firmware change
+         //  in between) takes a while, but only at the first start or after a firmware change,
+         //  it holds the serial line all the time -> after a failure wait a while, the old p4d
+         //  (parallel mode) gets the line in between
 
-         if (rediscover || loadCache() != success)
-            discover();
+         if ((rediscover || loadCache() != success) && discover() != success)
+         {
+            rediscover = false;
+            discoverRetryAt = time(0) + discoverRetryDelay;
+            tell(eloAlways, "Retrying to read the sensor definitions in %d seconds (or on SIGUSR1)", discoverRetryDelay);
+            continue;
+         }
 
          rediscover = false;
+         discoverRetryAt = 0;
          sensorsReady = true;
          announceSweep = true;
          nextSweepAt = 0;
@@ -1340,7 +1350,8 @@ int P4Mqttd::cmdInitMenu(json_t* jReply)
 {
    if (discover() != success)
    {
-      sensorsReady = menu.size() > 0;
+      sensorsReady = false;            // the lists are gone, read again later (see loop)
+      discoverRetryAt = time(0) + discoverRetryDelay;
       return reply(jReply, "error", "Lesen der Menüstruktur fehlgeschlagen");
    }
 

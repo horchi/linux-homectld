@@ -368,7 +368,7 @@ int HomeCtl::zigbee2Json(json_t* obj)
          {
             json_object_set_new(jRes, "address", json_integer(address));
 
-            cDbRow* fact {valueFactRowOf(type, address)};
+            const cDbRow* fact {valueFactRowOf(type, address)};
 
             if (fact)
             {
@@ -668,7 +668,7 @@ int HomeCtl::zigbeeCheckNew()
       }
 
       const char* id {};
-      json_t* jItem {};
+      const json_t* jItem {};
 
       json_object_foreach(jNew, id, jItem)
       {
@@ -738,7 +738,7 @@ int HomeCtl::zigbeeStartSearch(std::string& message)
       if (deconz.rest("GET", resource, nullptr, jData) == success && json_is_object(jData))
       {
          const char* id {};
-         json_t* jItem {};
+         const json_t* jItem {};
 
          json_object_foreach(jData, id, jItem)
             zigbeeKnownIds.insert(std::string(resource) + "/" + id);

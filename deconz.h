@@ -37,9 +37,9 @@ class Deconz
       int query(json_t*& jResult, const char* method, const char* apiKey);
       int put(const std::string& type, json_t*& jResult, const char* uuid, json_t* jData);
       int post(json_t*& jResult, const char* method, const char* payload);
-      int checkResult(json_t* jArray);
+      static int checkResult(json_t* jArray);
       int rest(const char* method, const char* path, json_t* jData, json_t*& jResult);   // GET|PUT|POST|DELETE /api/<key>/<path>, jData taken
-      std::string resultError(json_t* jArray);   // the description of the first error of a REST result, empty if none
+      static std::string resultError(json_t* jArray);   // the description of the first error of a REST result, empty if none
 
       int queryApiKey(std::string& result);
       int initDevices();

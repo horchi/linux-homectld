@@ -709,7 +709,15 @@ void toUpper(std::string& str)
    const char* s = str.c_str();
    int lenSrc = str.length();
 
-   char* dest = (char*)malloc(lenSrc+TB); *dest = 0;
+   char* dest = (char*)malloc(lenSrc+TB);
+
+   if (!dest)
+   {
+      tell(eloAlways, "Fatal: Out of memory, can't allocate %d bytes", lenSrc+TB);
+      return;
+   }
+
+   *dest = 0;
    char* d = dest;
 
    int csSrc;  // size of character
@@ -780,7 +788,15 @@ void removeChars(std::string& str, const char* ignore)
    int lenSrc = str.length();
    int lenIgn = strlen(ignore);
 
-   char* dest = (char*)malloc(lenSrc+TB); *dest = 0;
+   char* dest = (char*)malloc(lenSrc+TB);
+
+   if (!dest)
+   {
+      tell(eloAlways, "Fatal: Out of memory, can't allocate %d bytes", lenSrc+TB);
+      return;
+   }
+
+   *dest = 0;
    char* d = dest;
 
    int csSrc;  // size of character
@@ -823,7 +839,15 @@ void removeCharsExcept(std::string& str, const char* except)
    int lenSrc = str.length();
    int lenIgn = strlen(except);
 
-   char* dest = (char*)malloc(lenSrc+TB); *dest = 0;
+   char* dest = (char*)malloc(lenSrc+TB);
+
+   if (!dest)
+   {
+      tell(eloAlways, "Fatal: Out of memory, can't allocate %d bytes", lenSrc+TB);
+      return;
+   }
+
+   *dest = 0;
    char* d = dest;
 
    int csSrc;  // size of character

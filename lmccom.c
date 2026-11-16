@@ -316,14 +316,12 @@ int LmcCom::update(int stateOnly)
       return fail;
    }
 
-   TrackInfo t {};
-
    size_t index {0};
    json_t* jItem {};
 
    json_array_foreach(jPlaylist, index, jItem)
    {
-      t = {};
+      TrackInfo t {};
 
       t.updatedAt = cTimeMs::Now();
       t.index = getNumberFromJson(jItem, "playlist index", na);
@@ -364,9 +362,9 @@ int LmcCom::update(int stateOnly)
 int LmcCom::queryPlayers(RangeList* list)
 {
    std::string sOutput;
-   const char* request {"{ \"method\": \"slim.request\", \"params\":[\"00:00:00:00:00:00\", [\"players\", \"0\", \"20\"]]}"};
+   const char* requestStr {"{ \"method\": \"slim.request\", \"params\":[\"00:00:00:00:00:00\", [\"players\", \"0\", \"20\"]]}"};
 
-   if (curl->post(curlUrl, request, &sOutput) != success)
+   if (curl->post(curlUrl, requestStr, &sOutput) != success)
       return fail;
 
    tell(eloDebugLmc, "[LMC/REST] <- (players) [%s]", sOutput.c_str());
@@ -435,12 +433,12 @@ int LmcCom::restQuery(const std::string& what, const Parameters& pars)
    for (const auto& par : pars)
       json_array_append_new(jParameter, json_string(par.c_str()));
 
-   char* request = json_dumps(jRequest, JSON_REAL_PRECISION(4));
+   char* requestStr = json_dumps(jRequest, JSON_REAL_PRECISION(4));
    json_decref(jRequest);
-   tell(eloDebugLmc, "[LMC/REST] -> (%s) [%s]", what.c_str(), request);
+   tell(eloDebugLmc, "[LMC/REST] -> (%s) [%s]", what.c_str(), requestStr);
 
-   int res = curl->post(curlUrl, request, &lastRestResult);
-   free(request);
+   int res = curl->post(curlUrl, requestStr, &lastRestResult);
+   free(requestStr);
 
    if (res == success)
       tell(eloDebugLmc, "[LMC/REST] <- '%s' (%s) [%s]", curlUrl, what.c_str(), lastRestResult.c_str());
@@ -490,11 +488,11 @@ int LmcCom::restQueryRange(std::string what, int from, int count, const char* sp
          json_array_append_new(jParameter, json_string(par.c_str()));
    }
 
-   char* request = json_dumps(jRequest, JSON_REAL_PRECISION(4));
+   char* requestStr {json_dumps(jRequest, JSON_REAL_PRECISION(4))};
    json_decref(jRequest);
-   tell(eloDebugLmc, "[LMC/REST] -> (%s) [%s]", what.c_str(), request);
-   int res {curl->post(curlUrl, request, &lastRestResult)};
-   free(request);
+   tell(eloDebugLmc, "[LMC/REST] -> (%s) [%s]", what.c_str(), requestStr);
+   int res {curl->post(curlUrl, requestStr, &lastRestResult)};
+   free(requestStr);
 
    if (res != success)
       return fail;
@@ -1076,7 +1074,6 @@ int LmcCom::checkNotify(uint64_t tmo)
    static time_t checkPlayersNext {time(0)};
    static time_t resyncCheckNext {0};
    static time_t notifyStartedAt {0};
-   static int notifyRetryDelay {0};
 
    // check if 'my' player is connected
 
@@ -1153,6 +1150,8 @@ int LmcCom::checkNotify(uint64_t tmo)
       // a channel that was up long enough counts as healthy, retry at once.
       //   one dying right after opening gets an exponential backoff, we must not
       //   hammer the server
+
+      static int notifyRetryDelay {0};
 
       if (notifyStartedAt && time(0) - notifyStartedAt >= tmoNotifyStable)
          notifyRetryDelay = 0;

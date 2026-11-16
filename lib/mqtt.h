@@ -31,10 +31,10 @@ class Mqtt
          wrnEmptyMessage
       };
 
-      Mqtt(int aHeartBeat = 400);
+      explicit Mqtt(int aHeartBeat = 400);
       virtual ~Mqtt();
 
-      const char* nameOf()  { return "Mqtt"; }
+      static const char* nameOf()  { return "Mqtt"; }
 
       // connect / disconnect
 

@@ -7,7 +7,9 @@
 #
 #   What is taken over:
 #     facts       the own titles of the sensors (usrtitle), only where the homectld has none; a sensor with an own title
-#                 which is missing in the homectld is created (the others are created by p4mqttd / homectld on start)
+#                 which is missing in the homectld is created (the others are created by p4mqttd / homectld on start);
+#                 the settings 'aktiv' (state) and 'Aufzeichnung' (record) - a sensor active / recorded in the p4d
+#                 gets this in the homectld, too (only switched on, nothing is switched off), also for WEA
 #     samples     the measured values and states (WEA is not stored by the p4d)
 #     peaks       min / max of the sensors (merged with the ones of the homectld)
 #     errors      table errors -> p4errors (as history, they are not mailed)
@@ -150,6 +152,37 @@ if has facts; then
       say "facts: ${n_fill} titles set, ${n_new} sensors created"
    else
       say "facts: ${n_fill} titles would be set, ${n_new} sensors created"
+   fi
+fi
+
+# --------------------------------------------------------
+# facts - active (state) and recording (record), only switched on (what is on in the p4d is on in the homectld),
+#   what was switched on in the homectld in the meantime stays
+
+if has facts; then
+   list=$(printf "'%s'," $TYPES WEA); list=${list%,}
+   join="from ${TODB}.valuefacts t join ${FROMDB}.valuefacts s on t.address = s.address and t.type = concat('P4', s.type)
+          where s.type in (${list})"
+   on_state="s.state = 'A' and ifnull(t.state, 'D') <> 'A'"
+   on_record="s.record = 'A' and ifnull(t.record, 'D') <> 'A'"
+
+   sql "select concat('  ', t.type, ':0x', lower(hex(t.address)), '  \'', ifnull(nullif(t.usrtitle, ''), t.title), '\'',
+                      if(${on_state}, '  aktiv', ''), if(${on_record}, '  Aufzeichnung', ''))
+          ${join} and ((${on_state}) or (${on_record}))
+          order by t.type, t.address" | while IFS= read -r line; do say "$line"; done
+
+   n_state=$(sql "select count(*) ${join} and ${on_state}")
+   n_record=$(sql "select count(*) ${join} and ${on_record}")
+
+   if [ "$RUN" = yes ]; then
+      sqlw "update ${TODB}.valuefacts t join ${FROMDB}.valuefacts s
+               on t.address = s.address and t.type = concat('P4', s.type)
+               set t.state  = if(s.state = 'A', 'A', t.state),
+                   t.record = if(s.record = 'A', 'A', t.record)
+             where s.type in (${list}) and ((${on_state}) or (${on_record}))"
+      say "facts: ${n_state} sensors activated, ${n_record} recordings switched on"
+   else
+      say "facts: ${n_state} sensors would be activated, ${n_record} recordings switched on"
    fi
 fi
 

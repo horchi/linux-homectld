@@ -2796,22 +2796,68 @@ function drawChartDialog(dataObject)
       theChart = null;
    }
 
+   // Farben aus dem aktiven Theme
+
+   let style = getComputedStyle(document.documentElement);
+   let cssVar = function(name, def) { let v = style.getPropertyValue(name).trim(); return v != '' ? v : def; };
+   let fontColor = cssVar('--fontColor', 'white');
+   let gridColor = cssVar('--neutral2', '#545454');
+   let mutedColor = cssVar('--neutral4', '#a3a3a3');
+   let tipBackground = cssVar('--neutral1', '#454545');
+   let lineColor = '#3498db';
+
+   let canvas = root.querySelector("#chartDialog");
+
+   let row = dataObject.rows[0];       // der Dialog zeigt genau einen Sensor
+   let key = row.key;
+   let fact = valueFacts[key] || {};
+   let logical = row.logical || '';    // 'state' (0/1) oder 'duty' (Einschaltdauer 0..1), siehe wsactions.c
+   let unit = logical == 'duty' ? '%' : logical ? '' : (fact.unit || '');
+   let points = row.data || [];
+
+   if (logical == 'duty')
+      points = points.map(function(p) { return { x: p.x, y: Math.round(p.y * 1000) / 10 }; });
+
    let data = {
       type: "line",
       data: {
          datasets: []
       },
       options: {
+         animation: { duration: 300 },
          tooltips: {
             mode: "index",
             intersect: false,
+            backgroundColor: tipBackground,
+            titleFontColor: fontColor,
+            bodyFontColor: fontColor,
+            borderColor: gridColor,
+            borderWidth: 1,
+            xPadding: 10,
+            yPadding: 8,
+            caretPadding: 6,
+            cornerRadius: 6,
+            displayColors: false,
+            callbacks: {
+               title: function(items) { return moment(items[0].xLabel).format('dd DD.MM. HH:mm'); },
+               label: function(item) {
+                  if (logical == 'state')
+                     return item.yLabel > 0 ? 'An' : 'Aus';
+                  if (logical == 'duty')
+                     return item.yLabel.toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' % an';
+                  return item.yLabel.toLocaleString(undefined, { maximumFractionDigits: 2 }) + (unit != '' ? ' ' + unit : '');
+               }
+            }
          },
          legend: {
-            display: true
+            display: false        // der Titel steht im Dialog-Kopf
          },
          hover: {
-            mode: "nearest",
-            intersect: true
+            mode: "index",
+            intersect: false
+         },
+         layout: {
+            padding: { right: 8 }
          },
          responsive: true,
          maintainAspectRatio: false,
@@ -2824,109 +2870,133 @@ function drawChartDialog(dataObject)
                   unitStepSize: 1,
                   displayFormats: {
                      hour: 'HH:mm',
-                     day: 'HH:mm',
+                     day: 'DD.MM.',
                   }},
                distribution: "linear",
                display: true,
                ticks: {
-                  maxTicksLimit: 12,
-                  padding: 5,
+                  autoSkip: true,          // Anzahl aus Breite / Labelgröße, auch nach Drehen
+                  autoSkipPadding: 30,
+                  padding: 6,
                   maxRotation: 0,
-                  fontColor: "white"
+                  fontColor: mutedColor
                },
                gridLines: {
-                  color: "gray",
-                  borderDash: [5,5]
-               },
-               scaleLabel: {
-                  display: true,
-                  fontColor: "white",
-                  labelString: "Zeit"
+                  color: gridColor,
+                  drawBorder: false,
+                  drawTicks: false,
+                  borderDash: [3,4]
                }
             }],
             yAxes: [{
                display: true,
                ticks: {
-                  padding: 5,
-                  maxTicksLimit: 20,
-                  fontColor: "white"
+                  padding: 8,
+                  maxTicksLimit: 10,
+                  fontColor: mutedColor
                },
                gridLines: {
-                  color: "gray",
-                  zeroLineColor: 'gray',
-                  borderDash: [5,5]
+                  color: gridColor,
+                  zeroLineColor: mutedColor,
+                  drawBorder: false,
+                  drawTicks: false,
+                  borderDash: [3,4]
                },
                scaleLabel: {
-                  display: true,
-                  fontColor: "white",
-                  labelString: "Temperatur [°C]"
+                  display: unit != '',
+                  fontColor: mutedColor,
+                  labelString: unit
                }
             }]
          }
       }
    };
 
-   let key = '';
+   // logische Werte: An / Aus bzw. Einschaltdauer in %
 
-   for (let i = 0; i < dataObject.rows.length; i++)
-   {
-      let dataset = {};
+   if (logical) {
+      let y = data.options.scales.yAxes[0];
+      y.ticks.min = 0;
+      y.ticks.max = logical == 'state' ? 1 : 100;
+      y.ticks.stepSize = logical == 'state' ? 1 : 25;
 
-      dataset["data"] = dataObject.rows[i].data;
-      dataset["backgroundColor"] = "#3498db33";  // fill color
-      dataset["borderColor"] = "#3498db";      // line color
-      dataset["borderWidth"] = 1;
-      dataset["fill"] = true;
-      dataset["label"] = dataObject.rows[i].title;
-      dataset["pointRadius"] = 0;
-      data.data.datasets.push(dataset);
-
-      key = dataObject.rows[i].key;  // we have olny one row here!
+      if (logical == 'state')
+         y.ticks.callback = function(v) { return v == 1 ? 'An' : v == 0 ? 'Aus' : ''; };
+      else
+         y.scaleLabel.labelString = 'Einschaltdauer [%]';
    }
 
-   data.options.scales.yAxes[0].scaleLabel.labelString = '[' + valueFacts[key].unit + ']';
+   // bei mehr als zwei Tagen ein Tick pro Tag
 
-//   const _values = {
-//      labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-//      datasets: [{
-//         label: 'Weekly Sales',
-//         data: [18, 12, 6, 9, 12, 3, 9],
-//         backgroundColor: [
-//            'rgba(255, 26, 104, 0.2)',
-//            'rgba(54, 162, 235, 0.2)',
-//            'rgba(255, 206, 86, 0.2)',
-//            'rgba(75, 192, 192, 0.2)',
-//            'rgba(153, 102, 255, 0.2)',
-//            'rgba(100, 0, 5, 0.2)',
-//            'rgba(255, 159, 64, 0.2)'
-//         ],
-//         borderColor: [
-//            'rgba(255, 26, 104, 1)',
-//            'rgba(54, 162, 235, 1)',
-//            'rgba(255, 206, 86, 1)',
-//            'rgba(75, 192, 192, 1)',
-//            'rgba(153, 102, 255, 1)',
-//            'rgba(0, 200, 15, 1)',
-//            'rgba(255, 159, 64, 1)'
-//         ],
-//         borderWidth: 1
-//      }]
-//   };
-//
-//   const data = {
-//      type: 'bar',
-//      data: _values,
-//      options: {
-//         indexAxis: 'y',
-//         scales: {
-//            'y': {
-//               beginAtZero: true
-//            }
-//         }
-//      }
-//   };
+   if (points.length > 1) {
+      let span = new Date(points[points.length-1].x) - new Date(points[0].x);
+      if (span > 2*24*60*60*1000)
+         data.options.scales.xAxes[0].time.unit = 'day';
+   }
 
-   let canvas = root.querySelector("#chartDialog");
+   // Verlauf als Füllung
+
+   let height = canvas.parentNode.clientHeight || 400;
+   let gradient = canvas.getContext('2d').createLinearGradient(0, 0, 0, height);
+   gradient.addColorStop(0, lineColor + '66');
+   gradient.addColorStop(1, lineColor + '05');
+
+   data.data.datasets.push({
+      data: points,
+      label: row.title,
+      backgroundColor: gradient,
+      borderColor: lineColor,
+      borderWidth: 2,
+      fill: true,
+      lineTension: logical ? 0 : 0.2,
+      steppedLine: logical ? 'after' : false,   // Wert gilt bis zum nächsten Sample
+      pointRadius: 0,
+      pointHoverRadius: 5,
+      pointHoverBackgroundColor: lineColor,
+      pointHoverBorderColor: fontColor,
+      pointHoverBorderWidth: 2
+   });
+
+   // Kopf: Titel + aktueller Wert, Fuß: Min / Max / Durchschnitt
+
+   let fmt = function(v) { return v.toLocaleString(undefined, { maximumFractionDigits: 2 }) + (unit != '' ? '&nbsp;' + unit : ''); };
+   let title = fact.usrtitle ? fact.usrtitle : (fact.title || row.title);
+
+   $('#chartDialogTitle').text(title);
+   let sensor = allSensors[key];
+   let current = sensor && sensor.value != null && !isNaN(sensor.value) ? Number(sensor.value) : null;
+
+   if (logical)
+      $('#chartDialogCurrent').html(current != null ? (current > 0 ? 'An' : 'Aus') : '');
+   else
+      $('#chartDialogCurrent').html(current != null ? fmt(current) : '');
+
+   $('#chartDialogStats').html('');
+
+   let values = points.map(function(p) { return p.y; }).filter(function(v) { return typeof v === 'number'; });
+   let pct = function(v) { return v.toLocaleString(undefined, { maximumFractionDigits: 1 }) + '&nbsp;%'; };
+
+   if (values.length && logical == 'state') {
+      let on = values.filter(function(v) { return v > 0; }).length;
+      let switches = values.filter(function(v, i) { return i > 0 && v > 0 && !(values[i-1] > 0); }).length;
+      $('#chartDialogStats').html('<span>An <b>' + pct(on * 100 / values.length) + '</b> der Zeit</span>'
+                                  + '<span>Einschaltungen <b>' + switches + '</b></span>');
+   }
+   else if (values.length && logical == 'duty') {
+      let max = Math.max.apply(null, values);
+      let avg = values.reduce(function(s, v) { return s + v; }, 0) / values.length;
+      $('#chartDialogStats').html('<span>&Oslash; Einschaltdauer <b>' + pct(avg) + '</b></span>'
+                                  + '<span>Max <b>' + pct(max) + '</b></span>');
+   }
+   else if (values.length) {
+      let min = Math.min.apply(null, values);
+      let max = Math.max.apply(null, values);
+      let avg = values.reduce(function(s, v) { return s + v; }, 0) / values.length;
+      $('#chartDialogStats').html('<span>Min <b>' + fmt(min) + '</b></span>'
+                                  + '<span>Max <b>' + fmt(max) + '</b></span>'
+                                  + '<span>&Oslash; <b>' + fmt(avg) + '</b></span>');
+   }
+
    theChart = new Chart(canvas, data);
 }
 

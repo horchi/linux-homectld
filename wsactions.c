@@ -1235,6 +1235,18 @@ int HomeCtl::performChartData(json_t* oObject, long client)
       free(key);
 
       json_object_set_new(oSample, "sensor", json_string(sensor));
+
+      // logische Werte (an/aus) für Chart-Seite und Chart-Dialog als Statusband:
+      //   bis 7 Tage 0/1 (an im Intervall), darüber die Einschaltdauer 0..1
+
+      SensorData* sd {getSensor(tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"))};
+      bool logical {(strcmp(id, "chart") == 0 || strcmp(id, "chartdialog") == 0)
+                    && ((sd && sd->kind == "status") || tableValueFacts->hasValue("UNIT", "mov"))};
+      bool duty {logical && range > 7};
+
+      if (logical)
+         json_object_set_new(oSample, "logical", json_string(duty ? "duty" : "state"));
+
       json_t* oData {json_array()};
       json_object_set_new(oSample, "data", oData);
       free(sensor);
@@ -1278,7 +1290,11 @@ int HomeCtl::performChartData(json_t* oObject, long client)
 
          json_object_set_new(oRow, "x", json_string(xmlTime.getStrValue()));
 
-         if (tableValueFacts->hasValue("TYPE", "GPIO"))
+         if (duty)
+            json_object_set_new(oRow, "y", json_real(std::clamp(avgValue.getFloatValue(), 0.0f, 1.0f)));
+         else if (logical)
+            json_object_set_new(oRow, "y", json_integer(maxValue.getFloatValue() > 0 ? 1 : 0));
+         else if (tableValueFacts->hasValue("TYPE", "GPIO"))
             json_object_set_new(oRow, "y", json_integer(maxValue.getIntValue()*10));  // *10 for 'ditital' to better scale (bad workaround)
          else if (selectSumOfDayMax)
             json_object_set_new(oRow, "y", json_real(maxValue.getFloatValue()));

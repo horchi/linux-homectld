@@ -3901,6 +3901,11 @@ function toggleChartDialog(type, address)
       chartDialogKey = toKey(type, address);
       chartDialogDayOffset = 0;
 
+      let fact = valueFacts[chartDialogKey];
+      $('#chartDialogTitle').text(fact ? (fact.usrtitle ? fact.usrtitle : fact.title) : '');
+      $('#chartDialogCurrent').html('');
+      $('#chartDialogStats').html('');
+
       // show the dialog
 
       dialog.setAttribute('open', 'open');
@@ -3916,6 +3921,7 @@ function toggleChartDialog(type, address)
 
       let div = document.createElement('div');
       div.id = 'backdrop';
+      div.onclick = function() { toggleChartDialog('', 0); };
       document.body.appendChild(div);
    }
    else {
@@ -3925,7 +3931,8 @@ function toggleChartDialog(type, address)
       document.removeEventListener('keydown', chartDialogKeyDown);
       dialog.removeAttribute('open');
       let div = document.querySelector('#backdrop');
-      div.parentNode.removeChild(div);
+      if (div)
+         div.parentNode.removeChild(div);
    }
 }
 
@@ -3972,7 +3979,7 @@ function updateChartDialogRange(start, range)
    let format = { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' };
 
    $("#chartDialogRange").html(from.toLocaleString([], format) + ' &ndash; ' + to.toLocaleString([], format)
-                               + (chartDialogDayOffset == 0 ? ' (aktuell)' : ''));
+                               + (chartDialogDayOffset == 0 ? ' &bull; aktuell' : ''));
    $("#chartDialogNext").prop('disabled', chartDialogDayOffset == 0);
 }
 

@@ -54,6 +54,8 @@
     --buttonAction: #818382;
     --buttonFont: black;
 
+    --lmcAccent: var(--blue);       /* LMC: aktiver Titel / Buttons, --yellow2 ist auf hell unlesbar */
+
     --dialogColor: black;
     --dialogBackground: #ededcc;
     --dialogColorDark: lightgray;

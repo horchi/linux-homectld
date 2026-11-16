@@ -2106,136 +2106,413 @@ table.tableMultiCol td
 
 .chartCanvas
 {
-    background-color: var(--background);
+    background-color: transparent;
+}
+
+.chartCard
+{
+    display: flex;
+    flex-direction: column;
+    height: 80%;
+    min-height: 460px;
+    margin: 8px;
+    padding: 12px 12px 10px 12px;
+    box-sizing: border-box;
+    color: var(--fontColor);
+    background-color: var(--neutral0);
+    border: 1px solid var(--neutral2);
+    border-radius: 12px;
 }
 
 .chartContainer
 {
-    margin: 8px;
-    height: 75%;
-    min-height: 400px;
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
-.chartDialogCanvas
+/* Chart Dialog (Dashboard) */
+
+.chartDialogHeader
 {
-    background-color: black;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 0 10px 0;
+    border-bottom: 1px solid var(--neutral2);
 }
 
-.chartDialogNav
+.chartDialogTitle
 {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 34px;
-    height: 60px;
-    font-size: large;
-    color: white;
-    background-color: rgba(80, 80, 80, 0.7);
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    font-size: larger;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chartDialogCurrent
+{
+    font-weight: normal;
+    color: var(--neutral4);
+}
+
+.chartDialogNavBar
+{
+    display: flex;
+    gap: 4px;
+    flex: 0 0 auto;
+}
+
+.chartDialogBtn
+{
+    min-width: 36px;
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid var(--neutral3);
+    border-radius: 8px;
+    color: var(--fontColor);
+    background-color: var(--neutral1);
+    font-size: medium;
     cursor: pointer;
-    z-index: 1003;
+    transition: background-color .15s, border-color .15s;
 }
 
-.chartDialogNav:disabled
+.chartDialogBtn:hover:not(:disabled)
 {
-    opacity: 0.3;
+    background-color: var(--neutral2);
+    border-color: var(--neutral4);
+}
+
+.chartDialogBtn:disabled
+{
+    opacity: 0.35;
     cursor: default;
-}
-
-.chartDialogNavLeft
-{
-    left: 1em;
-}
-
-.chartDialogNavRight
-{
-    right: 1em;
 }
 
 .chartDialogRange
 {
-    position: absolute;
-    top: 1em;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 2px 8px;
-    color: white;
-    background-color: rgba(80, 80, 80, 0.7);
-    cursor: pointer;
-    z-index: 1003;
+    font-size: small;
+    font-variant-numeric: tabular-nums;
+}
+
+.chartDialogClose
+{
+    flex: 0 0 auto;
+    min-width: 34px;
+    padding: 0;
+}
+
+.chartDialogBody
+{
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding-top: 10px;
+}
+
+.chartDialogCanvas
+{
+    background-color: transparent;
+}
+
+.chartDialogStats
+{
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px 24px;
+    padding-top: 8px;
+    font-size: small;
+    color: var(--neutral4);
+    font-variant-numeric: tabular-nums;
+}
+
+.chartDialogStats:empty
+{
+    display: none;
+}
+
+.chartDialogStats b
+{
+    color: var(--fontColor);
+    font-weight: 600;
+}
+
+@media only screen and (max-width: 700px)
+{
+    .chartDialogHeader { flex-wrap: wrap; }
+    .chartDialogTitle  { flex-basis: calc(100% - 50px); }
+    .chartDialogNavBar { order: 3; width: 100%; }
+    .chartDialogRange  { flex: 1; }
+}
+
+.chartHeader
+{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin: 6px 8px;
+    padding: 8px 12px;
+    color: var(--fontColor);
+    background-color: var(--neutral0);
+    border: 1px solid var(--neutral2);
+    border-radius: 12px;
 }
 
 .chartTitle
 {
-    text-align: center;
-    font-size: x-large;
-    padding: 4px;
-    margin: 5px;
-    background-color: slategray;
-}
-
-.chartButtons
-{
-    display: flow;
-    justify-content: center;
-    align-items: center;
-    padding: 5px;
-    background-color: var(--background);
-    margin: 0px 8px 0px 8px;
-    text-align: center;
-}
-
-.chartButton
-{
-    display: inline;
-    width: 80px;
-    padding: 2px;
-    margin: 2px;
-    color: var(--buttonFont);
+    flex: 1 1 auto;
     font-size: large;
-    background-color: slategray;
-}
-
-.chartButton:hover
-{
-    background-color: darkslategray;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
 .chartBookmarks
 {
     display: flex;
-    padding: 5px;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
 }
 
-.chartBookmarkButton
+.chartBookmarkButton,
+.chartButton
 {
-    display: inline;
-    min-width: 76px;
-    padding: 2px;
-    margin: 2px;
-    color: var(--buttonFont);
-    height: 28px;
-    background-color: slategray;
+    height: 32px;
+    padding: 0 12px;
+    color: var(--fontColor);
+    background-color: var(--neutral1);
+    border: 1px solid var(--neutral3);
+    border-radius: 8px;
+    font-size: small;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color .15s, border-color .15s;
 }
 
-.chartBookmarkButton:hover
+.chartBookmarkButton:hover,
+.chartButton:hover
 {
-    background-color: darkslategray;
+    background-color: var(--neutral2);
+    border-color: var(--neutral4);
+}
+
+.chartBookmarkIcon
+{
+    min-width: 34px;
+    padding: 0;
+}
+
+.chartBookmarkSep
+{
+    width: 1px;
+    height: 24px;
+    margin: 0 4px;
+    background-color: var(--neutral3);
+}
+
+.chartRefresh
+{
+    display: flex;
+    align-items: center;
+    margin-left: 8px;
+    font-size: small;
+}
+
+.chartRefresh label
+{
+    align-items: center;
+}
+
+.chartButtons
+{
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 8px 12px;
+    padding-top: 10px;
+    margin-top: 8px;
+    border-top: 1px solid var(--neutral2);
+}
+
+.chartNav
+{
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.chartSegment
+{
+    display: inline-flex;
+}
+
+.chartShort
+{
+    display: none;
+}
+
+.chartSegment .chartButton
+{
+    border-radius: 0;
+    margin-left: -1px;
+}
+
+.chartSegment .chartButton:first-child
+{
+    border-radius: 8px 0 0 8px;
+    margin-left: 0;
+}
+
+.chartSegment .chartButton:last-child
+{
+    border-radius: 0 8px 8px 0;
+}
+
+.chartButtonNow
+{
+    font-weight: 600;
+    color: white;
+    background-color: var(--blue);
+    border-color: var(--blue);
+}
+
+.chartButtonNow:hover
+{
+    background-color: var(--blue);
+    border-color: var(--fontColor);
+}
+
+.chartInputs
+{
+    display: inline-flex;
+    gap: 12px;
+}
+
+.chartField
+{
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: small;
+    color: var(--neutral4);
+}
+
+.chartInput
+{
+    height: 32px;
+    box-sizing: border-box;
+    padding: 0 8px;
+    color: var(--fontColor);
+    background-color: var(--neutral1);
+    border: 1px solid var(--neutral3);
+    border-radius: 8px;
+    font-size: small;
+    color-scheme: light dark;
+}
+
+.chartInputRange
+{
+    width: 70px;
 }
 
 .chartSelectors
 {
     display: flex;
     flex-wrap: wrap;
-    padding: 6px;
-    background-color: var(--background);
+    gap: 6px;
     margin: 8px;
+    padding: 10px;
+    background-color: var(--neutral0);
+    border: 1px solid var(--neutral2);
+    border-radius: 12px;
 }
 
 .chartSel
 {
-    display: inline;
-    width: 300px;
-    padding: 0px;
+    display: inline-flex;
+}
+
+/* Sensorauswahl als Chips statt Schalter, aktive mit der Linienfarbe */
+
+.chartSel input[type="checkbox"] + label
+{
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    padding: 5px 12px 5px 10px;
+    font-size: small;
+    color: var(--neutral4);
+    background-color: var(--neutral1);
+    border: 1px solid var(--neutral2);
+    border-radius: 16px;
+    transition: background-color .15s, border-color .15s, color .15s;
+}
+
+.chartSel input[type="checkbox"] + label:before
+{
+    width: 10px;
+    height: 10px;
+    margin: 0;
+    border-radius: 50%;
+    border: 1px solid var(--neutral3);
+    background-color: transparent;
+    transition: none;
+}
+
+.chartSel input[type="checkbox"] + label:after
+{
+    display: none;
+}
+
+.chartSel input[type="checkbox"]:checked + label
+{
+    color: var(--fontColor);
+    border-color: var(--selColor, var(--blue));
+    background-color: var(--neutral2);
+}
+
+.chartSel input[type="checkbox"]:checked + label:before
+{
+    height: 10px;
+    border-color: var(--selColor, var(--blue));
+    background-color: var(--selColor, var(--blue));
+}
+
+.chartSel input[type="checkbox"] + label:hover
+{
+    border-color: var(--neutral4);
+}
+
+.chartSelUnit
+{
+    color: var(--neutral4);
+}
+
+@media only screen and (max-width: 700px)
+{
+    .chartCard     { min-height: 360px; padding: 8px; }
+    .chartTitle    { font-size: medium; white-space: normal; }
+    .chartButton   { padding: 0 8px; }
+
+    /* Blättern in einer Zeile über die volle Breite, Kurzlabels */
+
+    .chartNav      { width: 100%; gap: 6px; }
+    .chartSegment  { flex: 1 1 0; }
+    .chartSegment .chartButton { flex: 1 1 0; min-width: 0; padding: 0 4px; }
+    .chartButtonNow { flex: 0 0 auto; padding: 0 10px; }
+    .chartLong     { display: none; }
+    .chartShort    { display: inline; }
 }
 
 /* ----------------------- */
@@ -3736,19 +4013,50 @@ table.tableMultiCol td
 /* -------------- */
 /* LMC */
 
-.lmcButton
+/* Akzent (aktiver Titel, aktive Buttons, Fortschritt), helle Themes setzen --lmcAccent selbst */
+
+.lmcContainer
 {
-    margin: 1px;
+    --lmcAcc: var(--lmcAccent, var(--yellow2));
+
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    height: 100%;
+    padding: 6px;
     color: var(--fontColor);
-    padding: 0px;
-    background-color: transparent;
-    cursor: pointer;
-    font-size: 3em;
 }
 
-.lmcButton:hover
+.lmcLeftColumn
 {
-    opacity: 0.6;
+    flex: 1 1 50%;
+    min-width: 0;
+    display: flex;
+    flex-flow: column;
+    height: 100%;
+}
+
+.lmcRightColumn
+{
+    flex: 1 1 50%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0;
+}
+
+/* Karten */
+
+.lmcNowPlaying,
+.lmcControl,
+.lmcMenu
+{
+    box-sizing: border-box;
+    background-color: var(--neutral0);
+    border: 1px solid var(--neutral2);
+    border-radius: 12px;
 }
 
 .lmcWidget
@@ -3758,74 +4066,84 @@ table.tableMultiCol td
     padding: 4px;
 }
 
-.lmcContainer
-{
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: row;
-    height: 100%;
-}
+/* Now playing */
 
-.lmcLeftColumn
+.lmcNowPlaying
 {
-    width: 50%;
-    display: flex;
-    flex-flow: column;
-    height: 100%;
-}
-
-.lmcRightColumn
-{
-    width: 50%;
     display: flex;
     flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    height: 100%;
+    min-height: 0;
+    padding: 20px;
 }
 
-.lmcControl
+.lmcCover
 {
+    flex: 1 1 auto;
+    min-height: 120px;
+    width: 100%;
     display: flex;
-    flex-wrap: wrap;
-    margin: 2px;
-    background-color: var(--widgetBackground);
-    box-shadow: 1px 1px 1px 0px var(--shadow);
+    justify-content: center;
+    align-items: center;
 }
 
-.lmcControl > div > span
+.lmcCover > img
 {
-    align-self: center;
-    margin: 2px;
-    font-size: large;
+    max-width: 100%;
+    max-height: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+    transition: filter .3s, opacity .3s;
+}
+
+.lmcPaused .lmcCover > img
+{
+    filter: grayscale(.6);
+    opacity: .75;
 }
 
 .lmcCurrentTrack
 {
-    font-size: x-large;
-    margin: 2px;
-    background-color: var(--widgetBackground);
-    padding: 4px;
-    box-shadow: 1px 1px 1px 0px var(--shadow);
-}
-
-.lmcCurrentTrack > div
-{
-}
-
-.lmcCurrentTrack > div:nth-child(n+2)
-{
-    white-space: nowrap;
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 640px;
+    text-align: center;
 }
 
 .lmcCurrentTitle
 {
     font-size: xx-large;
-    font-weight: bold;
-    color: var(--yellow2);
-    line-height: 1.1em;
+    font-weight: 700;
+    line-height: 1.15em;
+    color: var(--fontColor);
 }
 
-/* wrap instead of running out of the column. Addressed by id on purpose: a class
-   selector would lose against the nowrap of .lmcCurrentTrack > div:nth-child(n+2).
-   'break-word' first as fallback, safari knows 'anywhere' only from 15.4 on */
+.lmcCurrentArtist
+{
+    margin-top: 4px;
+    font-size: x-large;
+    color: var(--lmcAcc);
+}
+
+.lmcCurrentLine
+{
+    margin-top: 6px;
+    font-size: large;
+    color: var(--neutral4);
+}
+
+.lmcLineIcon
+{
+    margin-right: 6px;
+    opacity: .8;
+}
+
+/* wrap instead of running out of the column, 'break-word' first as fallback,
+   safari knows 'anywhere' only from 15.4 on */
 
 #lmcCurrentTitle,
 #lmcCurrentArtist,
@@ -3837,143 +4155,337 @@ table.tableMultiCol td
     overflow-wrap: anywhere;
 }
 
-#lmcDivCurrentGenreYear,
-#lmcDivCurrentStream
-{
-    font-size: large;
-}
-
-/* dim the text only. On the div itself the opacity would apply to its border-top
-   as well and wash out the hairline below */
-
-#lmcDivCurrentGenreYear > span,
-#lmcDivCurrentStream > span
-{
-    opacity: 0.7;
-}
-
-/* hairline separating the metadata from title/station/album above. Semi transparent
-   grey instead of var(--borderColor), that one is near black in both themes and
-   would be invisible on the dark widget background */
-
-#lmcDivCurrentGenreYear
-{
-    border-top: 1px solid rgba(128, 128, 128, 0.3);
-    margin-top: 3px;
-    padding-top: 3px;
-}
-
-.lmcCurrentArtist
-{
-    font-size: xx-large;
-    color: var(--yellow2);
-}
-
-.lmcPlaylist
-{
-    white-space: nowrap;
-    overflow: auto;
-    flex-grow: 1;
-    margin: 2px;
-}
-
-.lmcPlaylist > div
+.lmcMeta
 {
     display: flex;
-    background-color: var(--widgetBackground);
-    margin: 2px;
-    padding: 2px;
-    height: 60px;
-    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 10px;
 }
 
-.lmcPlaylist > div > span:nth-child(1)
+.lmcChip
 {
-    width: 55px;
-    text-align: center;
+    padding: 2px 10px;
+    font-size: small;
+    color: var(--neutral4);
+    background-color: var(--neutral1);
+    border: 1px solid var(--neutral2);
+    border-radius: 12px;
 }
 
-.lmcPlaylist > div > span:nth-child(2)
+.lmcTrackProgress
 {
-    width: 100%;
-    margin-left: 10px;
+    margin-top: 16px;
+    height: 6px;
+    background-color: var(--neutral2);
+    border-radius: 3px;
+    cursor: pointer;
     overflow: hidden;
 }
 
-.lmcPlaylist > div > span:nth-child(3)
+.lmcTrackProgress:hover
 {
-    font-size: xxx-large;
-    color: var(--yellow2);
+    height: 8px;
+    margin-top: 15px;
 }
 
-.lmcPlaylist > div > span > img
+.lmcTrackProgressBar
 {
-    height: 55px;
-    width: auto;
+    width: 0%;
+    height: 100%;
+    background-color: var(--lmcAcc);
+    border-radius: 3px;
 }
 
-.lmcPlaylist > div > span > div:nth-child(1)
+.lmcTrackTimes
 {
-    font-size: large;
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+    font-size: small;
+    color: var(--neutral4);
+    font-variant-numeric: tabular-nums;
 }
+
+/* Bedienung */
+
+.lmcControl
+{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+}
+
+.lmcTransport
+{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+}
+
+.lmcOptions
+{
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px solid var(--neutral2);
+}
+
+.lmcGroup
+{
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.lmcButton
+{
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 52px;
+    height: 52px;
+    margin: 0;
+    padding: 0;
+    font-size: 30px;
+    color: var(--fontColor);
+    background-color: transparent;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background-color .15s, color .15s;
+}
+
+.lmcButton:hover
+{
+    background-color: var(--neutral1);
+}
+
+.lmcButton.hidden
+{
+    display: none;
+}
+
+.lmcButtonMain
+{
+    width: 68px;
+    height: 68px;
+    font-size: 38px;
+    color: var(--neutral0);
+    background-color: var(--fontColor);
+}
+
+.lmcButtonMain:hover
+{
+    background-color: var(--neutral4);
+}
+
+.lmcButtonSmall
+{
+    width: 40px;
+    height: 40px;
+    font-size: 22px;
+}
+
+.lmcButton.lmcActive
+{
+    color: var(--lmcAcc);
+}
+
+.lmcVolumeValue
+{
+    min-width: 44px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.lmcPlayerSelect
+{
+    height: 34px;
+    max-width: 100%;
+    padding: 0 8px;
+    color: var(--fontColor);
+    background-color: var(--neutral1);
+    border: 1px solid var(--neutral3);
+    border-radius: 8px;
+}
+
+.lmcPlayerSelect option
+{
+    color: var(--fontColor);
+    background-color: var(--neutral1);
+}
+
+/* Playlist */
+
+.lmcPlaylist
+{
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    white-space: nowrap;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.lmcPlItem
+{
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 60px;
+    box-sizing: border-box;
+    padding: 4px 12px 4px 4px;
+    background-color: var(--neutral0);
+    border: 1px solid transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background-color .15s;
+}
+
+.lmcPlItem:hover
+{
+    background-color: var(--neutral1);
+}
+
+.lmcPlCurrent
+{
+    border-color: var(--lmcAcc);
+    background-color: var(--neutral1);
+}
+
+.lmcPlItem > span:nth-child(1)
+{
+    flex: 0 0 52px;
+    height: 52px;
+}
+
+.lmcPlItem > span > img
+{
+    width: 52px;
+    height: 52px;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+.lmcPlItem > span:nth-child(2)
+{
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.lmcPlItem > span:nth-child(2) > div
+{
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.lmcPlItem > span:nth-child(2) > div:nth-child(1)
+{
+    font-size: medium;
+    font-weight: 600;
+}
+
+.lmcPlItem > span:nth-child(2) > div:nth-child(2)
+{
+    margin-top: 2px;
+    font-size: small;
+    color: var(--neutral4);
+}
+
+.lmcPlCurrent > span:nth-child(2) > div:nth-child(1),
+.lmcPlItem > span:nth-child(3)
+{
+    color: var(--lmcAcc);
+}
+
+.lmcPlItem > span:nth-child(3)
+{
+    font-size: 24px;
+}
+
+/* Menü (ersetzt die linke Spalte) */
 
 .lmcMenu
 {
     white-space: nowrap;
     overflow: auto;
     flex-grow: 1;
-    margin: 2px;
+    padding: 6px;
 }
 
-.lmcMenu > div
+.lmcMenuTitle
 {
-    height: 20px;
-    margin: 2px;
-    padding: 12px;
-    background-color: var(--widgetBackground);
-    align-items: center;
+    position: sticky;
+    top: -6px;
+    z-index: 1;
     display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: -6px -6px 6px -6px;
+    padding: 6px 10px 6px 6px;
+    font-size: x-large;
+    font-weight: 700;
+    background-color: var(--neutral0);
+    border-bottom: 1px solid var(--neutral2);
+    border-radius: 12px 12px 0 0;
+}
+
+.lmcMenu > div:not(.lmcMenuTitle)
+{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 8px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.lmcMenu > div:not(.lmcMenuTitle):hover
+{
+    background-color: var(--neutral1);
 }
 
 .lmcMenu > div > span
 {
     height: 100%;
+    display: inline-flex;
+    align-items: center;
 }
 
 .lmcMenu > div > span > img
 {
-    height: 100%;
+    height: 36px;
+    border-radius: 4px;
 }
 
-.lmcCover
+.lmcMenu > div > span > img:not([src]),
+.lmcMenu > div > span > img[src=""]
 {
-    margin: 5%;
-    height: -webkit-fill-available;
-    height: -moz-available;
+    display: none;
 }
 
-.lmcCover > img
+.lmcMenuName
 {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: max(6px, min(14px, 7%)) !important;
-    box-shadow: rgba(0, 0, 0, 0.25) 0px 0px 25px;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.lmcTrackProgress
+.lmcMenuArrow
 {
-  background-color: var(--light3);
-  border-radius: 10px;
-  margin-top: 8px;
-}
-
-.lmcTrackProgressBar
-{
-  width: 0%;
-  height: 10px;
-  background-color: var(--yellow2);
-  border-radius: 10px;
+    color: var(--neutral4);
+    font-size: 20px;
 }
 
 .lmcContextMenu > button
@@ -3983,6 +4495,39 @@ table.tableMultiCol td
     margin: 4px;
 }
 
+/* Handy / schmal: untereinander, Cover klein neben dem Titel, Seite scrollt */
+
+@media only screen and (max-width: 900px)
+{
+    .lmcContainer          { flex-direction: column; height: auto; min-height: 100%; }
+    .lmcLeftColumn         { height: auto; flex: 0 0 auto; }
+    .lmcRightColumn        { flex: 0 0 auto; }
+    .lmcMenu               { max-height: 70vh; }
+
+    .lmcNowPlaying         { flex-direction: row; align-items: center; gap: 14px; padding: 12px; height: auto; }
+    .lmcCover              { flex: 0 0 110px; width: 110px; height: 110px; min-height: 0; }
+    .lmcCover > img        { width: 110px; height: 110px; border-radius: 8px; }
+    .lmcCurrentTrack       { text-align: left; min-width: 0; }
+    .lmcCurrentTitle       { font-size: x-large; }
+    .lmcCurrentArtist      { font-size: large; }
+    .lmcCurrentLine        { font-size: medium; }
+    .lmcMeta               { justify-content: flex-start; }
+    .lmcTrackProgress      { margin-top: 10px; }
+
+    .lmcPlaylist           { overflow: visible; }
+}
+
+@media only screen and (max-width: 500px)
+{
+    .lmcNowPlaying         { flex-direction: column; text-align: center; }
+    .lmcCover              { flex-basis: auto; width: 60vw; height: 60vw; max-width: 260px; max-height: 260px; }
+    .lmcCover > img        { width: 100%; height: 100%; }
+    .lmcCurrentTrack       { text-align: center; }
+    .lmcMeta               { justify-content: center; }
+    .lmcOptions            { justify-content: center; }
+    .lmcPlayerSelect       { width: 100%; }
+}
+
 /* -------------- */
 /* chart dialog box */
 
@@ -3990,20 +4535,34 @@ dialog
 {
     display: none;
     position: absolute;
-    top: 10%;
-    left: 5%;
-    width: 80%;
-    background: white;
-    border: 1px solid grey;
-    border-radius: 0 .5em .5em;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(1400px, calc(100vw - 32px));
+    height: min(800px, calc(100vh - 64px));
+    height: min(800px, calc(100dvh - 64px));
+    box-sizing: border-box;
+    margin: 0;
+    color: var(--fontColor);
+    background: var(--neutral0);
+    border: 1px solid var(--neutral2);
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
     z-index: 1002;
-    padding: .5em 1em;
-    height: 80%;
+    padding: 14px 16px 10px 16px;
 }
 
 dialog[open="open"]
 {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    animation: chartDialogIn .18s ease-out;
+}
+
+@keyframes chartDialogIn
+{
+    from { opacity: 0; transform: translate(-50%, -48%) scale(.98); }
+    to   { opacity: 1; transform: translate(-50%, -50%); }
 }
 
 dialog::backdrop, #backdrop
@@ -4015,7 +4574,10 @@ dialog::backdrop, #backdrop
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1001;
+    background-color: rgba(0, 0, 0, 0.6);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
 }
 
 /* -------------- */

@@ -145,11 +145,23 @@
       <span id="version">Version 2.0</span>
     </div>
 
-    <dialog role="dialog">
-      <canvas id="chartDialog" class="chartDialogCanvas" onclick="toggleChartDialog('',0)"></canvas>
-      <button id="chartDialogPrev" class="rounded-border chartDialogNav chartDialogNavLeft" title="Tag zurück" onclick="chartDialogPage(-1)">&#10094;</button>
-      <button id="chartDialogNext" class="rounded-border chartDialogNav chartDialogNavRight" title="Tag vor" onclick="chartDialogPage(1)">&#10095;</button>
-      <div id="chartDialogRange" class="rounded-border chartDialogRange" title="zurück zum aktuellen Zeitraum" onclick="chartDialogPage(0)"></div>
+    <dialog role="dialog" class="chartDialog">
+      <div class="chartDialogHeader">
+        <div class="chartDialogTitle">
+          <span id="chartDialogTitle"></span>
+          <span id="chartDialogCurrent" class="chartDialogCurrent"></span>
+        </div>
+        <div class="chartDialogNavBar">
+          <button id="chartDialogPrev" class="chartDialogBtn" title="Tag zurück (&larr;)" onclick="chartDialogPage(-1)">&#10094;</button>
+          <button id="chartDialogRange" class="chartDialogBtn chartDialogRange" title="zurück zum aktuellen Zeitraum" onclick="chartDialogPage(0)"></button>
+          <button id="chartDialogNext" class="chartDialogBtn" title="Tag vor (&rarr;)" onclick="chartDialogPage(1)">&#10095;</button>
+        </div>
+        <button class="chartDialogBtn chartDialogClose" title="Schließen (Esc)" onclick="toggleChartDialog('',0)">&#10005;</button>
+      </div>
+      <div class="chartDialogBody">
+        <canvas id="chartDialog" class="chartDialogCanvas"></canvas>
+      </div>
+      <div id="chartDialogStats" class="chartDialogStats"></div>
     </dialog>
 
     <svg display="none">

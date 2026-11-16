@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.67"
-#define VERSION_DATE "15.11.2026"
+#define _VERSION     "0.1.68"
+#define VERSION_DATE "16.11.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,10 @@
 
 /*
  * ------------------------------------
+
+2026-11-16: version 0.1.68
+    - change: redesigned chart dialog of the dashboard
+    - added:  logical values as status bands in charts
 
 2026-11-15: version 0.1.67
     - change: code improvements, fixed cppcheck findings

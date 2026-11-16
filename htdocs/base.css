@@ -1559,6 +1559,7 @@ table.tableMultiCol td
 
 .vdrContent
 {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -1678,6 +1679,196 @@ table.tableMultiCol td
     background-color: var(--yellow);
     transition: width .5s;
 }
+
+.vdrPresent { cursor: pointer; }
+
+/* EPG list, overlays the remote */
+
+.vdrEpgList
+{
+    position: absolute;
+    inset: 0px;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 900px;
+    margin: 0px auto;
+    box-sizing: border-box;
+    border-radius: 16px;
+    overflow: hidden;
+    background-color: var(--background);
+    color: var(--fontColor);
+    box-shadow: 0px 10px 30px rgba(0,0,0,.45);
+}
+
+.vdrEpgHead
+{
+    --rcKey: var(--neutral1);
+    --rcKeyActive: var(--neutral3);
+    --rcIcon: var(--fontColor);
+
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-bottom: 1px solid color-mix(in srgb, var(--fontColor) 15%, transparent);
+}
+
+.vdrEpgHead .vdrKey
+{
+    flex: none;
+    width: 38px;
+}
+
+.vdrEpgTitle
+{
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--yellow);
+}
+
+.vdrEpgTitleLogo
+{
+    max-height: 28px;
+    max-width: 70px;
+    object-fit: contain;
+}
+
+.vdrEpgRows
+{
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.vdrEpgInfo
+{
+    padding: 20px;
+    text-align: center;
+    opacity: .65;
+}
+
+.vdrEpgDay
+{
+    position: sticky;
+    top: 0px;
+    z-index: 1;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--yellow);
+    background-color: var(--neutral1);
+}
+
+.vdrEpgRow
+{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--fontColor) 8%, transparent);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.vdrEpgRow:active
+{
+    background-color: color-mix(in srgb, var(--fontColor) 12%, transparent);
+}
+
+.vdrEpgCurrent
+{
+    box-shadow: inset 3px 0px 0px var(--yellow);
+    background-color: color-mix(in srgb, var(--yellow) 8%, transparent);
+}
+
+.vdrEpgLogo
+{
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    min-height: 34px;
+    padding: 3px;
+    box-sizing: border-box;
+    border-radius: 8px;
+    background-color: color-mix(in srgb, var(--fontColor) 6%, transparent);
+    text-align: center;
+}
+
+.vdrEpgLogo img
+{
+    max-width: 100%;
+    max-height: 30px;
+    object-fit: contain;
+}
+
+.vdrEpgLogo span
+{
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 10px;
+    opacity: .75;
+}
+
+.vdrEpgLogo img + span
+{
+    display: none;
+}
+
+.vdrEpgEvent
+{
+    flex: 1;
+    min-width: 0;
+}
+
+.vdrEpgEvent .vdrProgress
+{
+    margin: 4px 0px 0px 0px;
+}
+
+.vdrEpgList .vdrEpgRow:not(.vdrEpgRunning) .vdrTitle
+{
+    font-weight: normal;
+}
+
+.vdrEpgTimer
+{
+    flex: none;
+    display: flex;
+    margin-left: auto;
+    color: var(--red);
+}
+
+.vdrEpgTimer .vdrIcon
+{
+    width: 16px;
+    height: 16px;
+}
+
+.vdrEpgPartial
+{
+    opacity: .5;
+}
+
+.vdrRemote:not([data-state="online"]) .vdrEpgKey { opacity: .45; }
 
 /* remote body */
 

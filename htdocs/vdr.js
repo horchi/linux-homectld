@@ -21,6 +21,9 @@ const vdrIcons = {
    plus:  '<path d="M12 5v14M5 12h14"/>',
    minus: '<path d="M5 12h14"/>',
    mute:  '<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9l5 6M21 9l-5 6"/>',
+   list:  '<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01"/>',
+   close: '<path d="M6 6l12 12M18 6L6 18"/>',
+   timer: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/>',
    power: '<path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/>',
    num:   '<circle cx="6" cy="6" r="1.3"/><circle cx="12" cy="6" r="1.3"/><circle cx="18" cy="6" r="1.3"/>' +
           '<circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/>' +
@@ -33,6 +36,7 @@ var vdrSocket = null;          // own socket to osd2web, the one to homectld sta
 var vdrCurrent = null;         // the selected VDR { name, url, mac }
 var vdrOnline = false;
 var vdrWakingSince = 0;
+var vdrEpgView = null;         // open EPG list { mode: 'now'|'schedule', channelid }
 
 // config 'vdr' (ctStringSet): 'Name;Host:Port;MAC,...', the fields are recognized by their
 //   content (like vdr.c), name and MAC are optional, 'OFF' allows the power off by the remote
@@ -110,7 +114,7 @@ function initVdr()
 
    document.getElementById("container").innerHTML =
       '<div class="vdrContent">' +
-      '  <div class="vdrPresent">' +
+      '  <div class="vdrPresent" onclick="vdrEpgOpen(\'schedule\')" title="Programm des Kanals">' +
       '    <div class="vdrChannel">' +
       '      <img id="vdrChannelLogo" class="vdrChannelLogo" style="display:none;" onerror="this.style.display=\'none\'" onload="this.style.display=\'\'"/>' +
       '      <div id="vdrChannel" class="vdrChannelName"></div>' +
@@ -134,6 +138,7 @@ function initVdr()
              vdrKey('Menu', vdrIcon('menu'), 'vdrRound', false, 'Menü') +
              vdrKey('Info', vdrIcon('info'), 'vdrRound', false, 'Info') +
              vdrKey('Back', vdrIcon('back'), 'vdrRound', false, 'Zurück') +
+      '      <button type="button" class="vdrKey vdrRound vdrEpgKey" title="Was läuft jetzt" onclick="vdrEpgOpen(\'now\')">' + vdrIcon('list') + '</button>' +
       '      <button type="button" class="vdrKey vdrRound vdrNumToggle" title="Ziffern" onclick="vdrToggleNum()">' + vdrIcon('num') + '</button>' +
       '    </div>' +
       '    <div class="vdrPadArea">' +
@@ -168,7 +173,17 @@ function initVdr()
              vdrKey('Blue', '', 'vdrColor vdrBlue', false, 'Blau') +
       '    </div>' +
       '  </div>' +  // vdrRemote
+      '  <div id="vdrEpgList" class="vdrEpgList" style="display:none;">' +
+      '    <div class="vdrEpgHead">' +
+      '      <button type="button" id="vdrEpgBack" class="vdrKey vdrRound" title="Zurück" onclick="vdrEpgBack()">' + vdrIcon('back') + '</button>' +
+      '      <div id="vdrEpgTitle" class="vdrEpgTitle"></div>' +
+      '      <button type="button" class="vdrKey vdrRound" title="Schließen" onclick="vdrEpgClose()">' + vdrIcon('close') + '</button>' +
+      '    </div>' +
+      '    <div id="vdrEpgRows" class="vdrEpgRows"></div>' +
+      '  </div>' +
       '</div>';
+
+   document.getElementById('vdrEpgRows').addEventListener('click', vdrEpgClick);
 
    vdrInitKeys(document.getElementById('vdrRemote'));
    vdrConnect();
@@ -286,7 +301,10 @@ function dispatchVdrMessage(event, jMessage)
       $('#vdrTitleNext').html(actual.following.title);
       vdrActual = actual;
       vdrUpdateProgress();
-
+      vdrEpgMarkCurrent();
+   }
+   else if (event == 'epg') {
+      vdrEpgShow(jMessage.object);
    }
 }
 
@@ -308,11 +326,16 @@ function vdrSetChannelLogo(channel)
    if (!vdrCurrent)
       return;
 
-   const src = 'http://' + vdrCurrent.url + '/data/channellogo?name=' + encodeURIComponent(channel.channelname) +
-      '&id=' + encodeURIComponent(channel.channelid || '');
+   const src = vdrLogoUrl(channel);
 
    if (logo.getAttribute('src') != src)
       logo.setAttribute('src', src);
+}
+
+function vdrLogoUrl(channel)
+{
+   return 'http://' + vdrCurrent.url + '/data/channellogo?name=' + encodeURIComponent(channel.channelname) +
+      '&id=' + encodeURIComponent(channel.channelid || '');
 }
 
 function vdrKeyPress(key)
@@ -419,6 +442,7 @@ function vdrDisconnect()
 function vdrClearEpg()
 {
    vdrActual = null;
+   vdrEpgClose();
 
    for (const id of ['vdrChannel', 'vdrStartTime', 'vdrTitle', 'vdrShorttext', 'vdrStartTimeNext', 'vdrTitleNext'])
       $('#' + id).html('');
@@ -468,4 +492,159 @@ function vdrPower()
    socket.send({ "event" : "vdrwakeup", "object" : { "name" : vdrCurrent.name } });
    vdrWakingSince = Date.now();
    vdrUpdateState();
+}
+
+//***************************************************************************
+// EPG list (osd2web 'epg' request)
+//   'now'      - what's on now, all channels; click on the logo -> schedule of the channel
+//   'schedule' - events of one channel
+//   click on an event switches to its channel
+//***************************************************************************
+
+function vdrEscape(s)
+{
+   return String(s == undefined ? '' : s).replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+}
+
+function vdrEpgOpen(mode, channelid)
+{
+   if (!vdrSocket || !vdrOnline)
+      return;
+
+   vdrHaptic();
+
+   if (mode == 'schedule' && !channelid)
+      channelid = vdrActual && vdrActual.channel ? vdrActual.channel.channelid : '';
+
+   vdrEpgView = { mode: mode, channelid: channelid || '' };
+
+   $('#vdrEpgTitle').html(mode == 'now' ? 'Was läuft jetzt' : '');
+   $('#vdrEpgBack').css('visibility', mode == 'schedule' ? 'visible' : 'hidden');
+   $('#vdrEpgRows').html('<div class="vdrEpgInfo">lade ...</div>');
+   $('#vdrEpgList').css('display', '');
+
+   let request = { "mode": mode };
+
+   if (mode == 'schedule' && channelid)
+      request.channelid = channelid;
+
+   vdrSocket.send({ "event": "epg", "object": request });
+}
+
+function vdrEpgClose()
+{
+   vdrEpgView = null;
+   $('#vdrEpgList').css('display', 'none');
+   $('#vdrEpgRows').html('');
+}
+
+function vdrEpgBack()
+{
+   if (vdrEpgView && vdrEpgView.mode == 'schedule')
+      vdrEpgOpen('now');
+   else
+      vdrEpgClose();
+}
+
+function vdrEpgShow(epg)
+{
+   if (!vdrEpgView || !epg || epg.mode != vdrEpgView.mode)
+      return;
+
+   const now = Date.now() / 1000;
+   const currentId = vdrActual && vdrActual.channel ? vdrActual.channel.channelid : '';
+   const days = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+   let html = '';
+   let lastDay = '';
+
+   if (epg.mode == 'schedule') {
+      if (!epg.channel || (vdrEpgView.channelid && epg.channel.channelid != vdrEpgView.channelid))
+         return;
+
+      vdrEpgView.channelid = epg.channel.channelid;
+      $('#vdrEpgTitle').html('<img class="vdrEpgTitleLogo" src="' + vdrLogoUrl(epg.channel) + '" onerror="this.remove()"/>' +
+                             '<span>' + vdrEscape(epg.channel.channelname) + '</span>');
+   }
+
+   for (const ev of epg.events || []) {
+      const channel = epg.mode == 'now' ? ev.channel : epg.channel;
+
+      if (!channel)
+         continue;
+
+      const start = new Date(ev.starttime * 1000);
+      const end = new Date(ev.endtime * 1000);
+      const running = ev.starttime <= now && ev.endtime > now;
+      const timer = ev.timermatch == 'full' || ev.timermatch == 'partial' || ev.hastimer;
+      let pct = running && ev.duration ? Math.max(0, Math.min(100, (now - ev.starttime) * 100 / ev.duration)) : 0;
+
+      if (epg.mode == 'schedule') {
+         const day = days[start.getDay()] + ' ' + start.getDate() + '.' + (start.getMonth() + 1) + '.';
+
+         if (day != lastDay) {
+            html += '<div class="vdrEpgDay">' + day + '</div>';
+            lastDay = day;
+         }
+      }
+
+      html += '<div class="vdrEpgRow' + (epg.mode == 'now' && channel.channelid == currentId ? ' vdrEpgCurrent' : '') +
+         (running ? ' vdrEpgRunning' : '') + '" data-channelid="' + vdrEscape(channel.channelid) + '">';
+
+      if (epg.mode == 'now')
+         html += '<div class="vdrEpgLogo" data-schedule="' + vdrEscape(channel.channelid) + '" title="Programm von ' + vdrEscape(channel.channelname) + '">' +
+            '<img loading="lazy" src="' + vdrLogoUrl(channel) + '" onerror="this.remove()"/>' +
+            '<span>' + vdrEscape(channel.channelname) + '</span></div>';
+
+      html += '<div class="vdrEpgEvent">' +
+         '<div class="vdrEpgLine"><span class="vdrTime">' + start.toTimeLocal() +
+         (epg.mode == 'now' ? ' - ' + end.toTimeLocal() : '') + '</span>' +
+         '<span class="vdrTitle">' + vdrEscape(ev.title) + '</span>' +
+         (timer ? '<span class="vdrEpgTimer' + (ev.timermatch == 'partial' ? ' vdrEpgPartial' : '') + '" title="Timer">' + vdrIcon('timer') + '</span>' : '') +
+         '</div>' +
+         (ev.shorttext && ev.shorttext != ev.title ? '<div class="vdrShorttext">' + vdrEscape(ev.shorttext) + '</div>' : '') +
+         (running ? '<div class="vdrProgress"><div style="width:' + pct + '%"></div></div>' : '') +
+         '</div></div>';
+   }
+
+   if (html == '')
+      html = '<div class="vdrEpgInfo">keine EPG Daten</div>';
+
+   const rows = document.getElementById('vdrEpgRows');
+   rows.innerHTML = html;
+   rows.scrollTop = 0;
+
+   const current = rows.querySelector('.vdrEpgCurrent');
+
+   if (current)
+      current.scrollIntoView({ block: 'center' });
+}
+
+// mark the current channel in the 'now' list (after switching)
+
+function vdrEpgMarkCurrent()
+{
+   if (!vdrEpgView || vdrEpgView.mode != 'now' || !vdrActual || !vdrActual.channel)
+      return;
+
+   for (const row of document.querySelectorAll('#vdrEpgRows .vdrEpgRow'))
+      row.classList.toggle('vdrEpgCurrent', row.dataset.channelid == vdrActual.channel.channelid);
+}
+
+function vdrEpgClick(ev)
+{
+   const logo = ev.target.closest('[data-schedule]');
+
+   if (logo) {
+      vdrEpgOpen('schedule', logo.dataset.schedule);
+      return;
+   }
+
+   const row = ev.target.closest('.vdrEpgRow');
+
+   if (!row || !vdrSocket || !vdrOnline)
+      return;
+
+   vdrHaptic();
+   vdrSocket.send({ "event": "switch", "object": { "channelid": row.dataset.channelid } });
 }

@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.69"
-#define VERSION_DATE "16.11.2026"
+#define _VERSION     "0.1.70"
+#define VERSION_DATE "17.11.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,9 @@
 
 /*
  * ------------------------------------
+
+2026-11-17: version 0.1.70
+    - bugfix: widget order of dashboards was lost on store
 
 2026-11-16: version 0.1.69
     - added:  VDR remote: EPG list (what's on now / schedule of a channel) with channel switch, needs osd2web >= 0.3.4

@@ -2126,9 +2126,10 @@ int HomeCtl::storeDashboards(json_t* obj, long client)
             tell(eloDebugWebSock, "Debug: Storing widgets of dashboard '%s'", dashboardTitle);
             tableDashboardWidgets->deleteWhere("%s = %ld", tableDashboardWidgets->getField("DASHBOARDID")->getDbName(), dashboardId);
 
+            int ord {0};
+
             json_object_foreach(jWidgets, id, jData)
             {
-               int ord {0};
                auto tuple = split(id, ':');
 
                tableDashboardWidgets->clear();

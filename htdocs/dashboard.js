@@ -3406,8 +3406,8 @@ function updateWidget(sensor, refresh, widget)
 
       $("#button" + fact.type + fact.address).css('background-color', sensor.working ? '#7878787878' : 'transparent');
 
-      // $('#div_'+key.replace(':', '\\:')).css('background-color', (fact.outputModes == 3 && sensor.mode == 'manual') ? '#a27373' : '');
-      widgetDiv.css('background-color', (fact.outputModes == 3 && sensor.mode == 'manual') ? '#a27373' : '');
+      // manual mode: hand symbol in the corner and a frame (class 'widget-manual' in base.css)
+      widgetDiv.toggleClass('widget-manual', fact.outputModes == 3 && sensor.mode == 'manual');
 
       $("#button" + fact.type + fact.address).css('color', sym.color);
 

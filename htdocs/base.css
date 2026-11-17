@@ -3637,6 +3637,28 @@ table.tableMultiCol td
     color: orange;
 }
 
+/* manual mode of an output (dashboard.js): frame and hand symbol instead of a red background,
+     box-shadow instead of border - the size of the widget (symbol size calculation) stays the same */
+
+.widget-manual
+{
+    position: relative;
+    box-shadow: inset 0 0 0 2px var(--manualColor, #e0a030), 1px 1px 1px 0px var(--shadow);
+}
+
+.widget-manual::after
+{
+    content: "\F0E47";                  /* mdi-hand-back-right */
+    font-family: "Material Design Icons";
+    position: absolute;
+    top: 3px;
+    right: 5px;
+    font-size: 1.1em;
+    line-height: 1;
+    color: var(--manualColor, #e0a030);
+    pointer-events: none;
+}
+
 .widget-orphaned
 {
     border: 2px dashed var(--red);

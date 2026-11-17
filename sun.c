@@ -425,7 +425,7 @@ bool HomeCtl::rangeDateValid(json_t* jRange, time_t t)
 int HomeCtl::actorTimesDue(const char* type, uint address, json_t* oSettings, time_t from, time_t to,
                            std::vector<ActorTimeAction>& actions)
 {
-   json_t* jTimes {getObjectFromJson(oSettings, "times")};
+   const json_t* jTimes {getObjectFromJson(oSettings, "times")};
 
    if (!getBoolFromJson(oSettings, "timesEnabled", true) || !jTimes || !json_is_array(jTimes))
       return done;

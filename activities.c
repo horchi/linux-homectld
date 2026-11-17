@@ -222,7 +222,7 @@ int HomeCtl::activitiesSync(const char* since, std::string& message)
       return fail;
    }
 
-   json_t* jActs {getObjectFromJson(jResult, "activities")};
+   const json_t* jActs {getObjectFromJson(jResult, "activities")};
    int added {0};
    int updated {0};
    int removed {0};
@@ -525,7 +525,7 @@ double HomeCtl::activityTrackDistance(json_t* jPoints)
    GpsCoordinate last {};
    bool haveLast {false};
    size_t i {0};
-   json_t* jPoint {};
+   const json_t* jPoint {};
 
    json_array_foreach(jPoints, i, jPoint)
    {
@@ -675,7 +675,7 @@ int HomeCtl::activitiesEdit(json_t* jIds, const char* type, const char* name, co
 
    std::string ids;
    size_t i {0};
-   json_t* jId {};
+   const json_t* jId {};
 
    json_array_foreach(jIds, i, jId)
       ids += std::to_string(json_integer_value(jId)) + "\n";
@@ -692,8 +692,8 @@ int HomeCtl::activitiesEdit(json_t* jIds, const char* type, const char* name, co
 
    // update the succeeded ones locally
 
-   json_t* jOk {json_object_get(jResult, "ok")};
-   json_t* jItem {};
+   const json_t* jOk {json_object_get(jResult, "ok")};
+   const json_t* jItem {};
    int changed {0};
 
    json_array_foreach(jOk, i, jItem)
@@ -726,7 +726,7 @@ int HomeCtl::activitiesEdit(json_t* jIds, const char* type, const char* name, co
       if (setLocation) activityDetailsPatch(id, "location", location);
    }
 
-   json_t* jFailed {json_object_get(jResult, "failed")};
+   const json_t* jFailed {json_object_get(jResult, "failed")};
    size_t failed {json_array_size(jFailed)};
 
    tell(eloAlways, "Info: Garmin: edit (%s) of %zu activities, %d changed, %zu failed", what.c_str(), count, changed, failed);

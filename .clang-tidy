@@ -1,0 +1,40 @@
+# clang-tidy configuration for 'make tidychk'
+#
+# disabled as noise for this code base:
+#   bugprone-easily-swappable-parameters          - nearly every function with two ints
+#   bugprone-narrowing-conversions                - int/long/double mix everywhere
+#   bugprone-branch-clone                         - intended identical branches
+#   bugprone-pointer-arithmetic-on-polymorphic-object - dbValues[] array of cDbValue (no subclasses)
+#   bugprone-macro-parentheses                    - GET_FIELD* and other macros in lib
+#   bugprone-assignment-in-if-condition           - style, 'if ((p = ...))' intended
+#   bugprone-implicit-widening-of-multiplication-result - constants like 3 * 60 * 60
+#   bugprone-reserved-identifier                  - include guards '__XXX_H'
+#   performance-enum-size                         - enums as plain int
+#   performance-no-int-to-ptr                     - client ids (long) as lws* / void*
+#   performance-inefficient-string-concatenation  - only small loops / error paths, "+" reads better
+
+Checks: >
+  -*,
+  bugprone-*,
+  performance-*,
+  misc-const-correctness,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  -bugprone-branch-clone,
+  -bugprone-pointer-arithmetic-on-polymorphic-object,
+  -bugprone-macro-parentheses,
+  -bugprone-assignment-in-if-condition,
+  -bugprone-implicit-widening-of-multiplication-result,
+  -bugprone-reserved-identifier,
+  -performance-enum-size,
+  -performance-no-int-to-ptr,
+  -performance-inefficient-string-concatenation
+
+CheckOptions:
+  misc-const-correctness.AnalyzeValues: false
+  misc-const-correctness.WarnPointersAsValues: false
+
+# only the own headers, not the system ones and not lib/thirdparty
+
+HeaderFilterRegex: '.*homectld/.*'
+ExcludeHeaderFilterRegex: '.*/thirdparty/.*'

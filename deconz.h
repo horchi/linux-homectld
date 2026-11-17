@@ -43,7 +43,7 @@ class Deconz
 
       int queryApiKey(std::string& result);
       int initDevices();
-      int processDevices(json_t* jData, std::string kind);
+      int processDevices(json_t* jData, const std::string& kind);
 
       std::string macOf(const char* type, uint address);   // MAC of a light / sensor (as in the deCONZ log)
       long addressOf(const char* kind, const char* uuid);  // address of a 'light' / 'sensor' by its uniqueid, na if unknown

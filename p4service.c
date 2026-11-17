@@ -20,6 +20,9 @@
  *                      so they get known here and can be activated in the sensor setup)
  */
 
+#include <algorithm>
+#include <cmath>
+
 #include "daemon.h"
 
 //***************************************************************************
@@ -910,7 +913,7 @@ static std::string p4Num(double v)        // without decimals for whole numbers
 
 static std::string p4MailBar(double percent, const std::string& color, int width = 120)
 {
-   int w {(int)(std::min(std::max(percent, 0.0), 100.0) * width / 100.0 + 0.5)};
+   const int w {static_cast<int>(std::lround(std::clamp(percent, 0.0, 100.0) * width / 100.0))};
    std::string html {"<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"" + std::to_string(width) +
       "\" style=\"border-collapse:separate;\"><tr>"};
 
@@ -1024,7 +1027,7 @@ std::string HomeCtl::p4StateMailHtml(const char* stateInfo, int state)
    {
       bool low {pellets->value < pelletsWarn};
       std::string color {low ? "#d32f2f" : "#a0703c"};
-      int fill {(int)(std::min(std::max(pellets->value, 0.0), 100.0) * 0.8 + 0.5)};   // 80px
+      const int fill {static_cast<int>(std::lround(std::clamp(pellets->value, 0.0, 100.0) * 0.8))};   // 80px
 
       hero +=
          "<td valign=\"top\" align=\"center\" style=\"padding:8px;\">"
@@ -1396,7 +1399,7 @@ int HomeCtl::p4CalcStateDuration()
 
       sensor.kind = "value";
 
-      if (sensor.setValue(seconds / 60, now))
+      if (sensor.setValue(seconds / 60.0, now))
       {
          json_t* ojData {json_object()};
 

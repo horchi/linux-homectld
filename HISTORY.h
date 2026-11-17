@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.70"
+#define _VERSION     "0.1.71"
 #define VERSION_DATE "17.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,10 @@
 
 /*
  * ------------------------------------
+
+2026-11-17: version 0.1.71
+    - added: clang-tity code checker
+    - change: fixed minor check findings (improvements)
 
 2026-11-17: version 0.1.70
     - bugfix: widget order of dashboards was lost on store

@@ -50,7 +50,7 @@ int HomeCtl::mqttHaPublish(SensorData& sensor, bool forceConfig)
    {
       tell(eloDebug2, "Debug: Writing MQTT for %zu groups", groups.size());
 
-      for (auto it : groups)
+      for (const auto& it : groups)
       {
          if (it.second.oHaJson)
          {

@@ -153,7 +153,6 @@ class cWebSock : public cWebService
       char* certFile {};
       char* certKeyFile {};
       lws_protocols protocols[3];
-      lws_http_mount mounts[1];
 #if defined (LWS_LIBRARY_VERSION_MAJOR) && (LWS_LIBRARY_VERSION_MAJOR >= 4)
       lws_retry_bo_t retry;
 #endif

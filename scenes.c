@@ -73,7 +73,7 @@ static bool sceneParseKey(const char* key, std::string& type, uint& address)
    if (!colon || colon == key || !*(colon+1))
       return false;
 
-   char* end {};
+   char* end {};   // NOLINT(misc-const-correctness) - strtol() needs char**
    long a {strtol(colon+1, &end, 0)};
 
    if (*end || a < 0)
@@ -84,7 +84,6 @@ static bool sceneParseKey(const char* key, std::string& type, uint& address)
 
    return true;
 }
-
 
 //***************************************************************************
 // Split Command Line into Arguments (no shell: no expansion, pipes, ...)
@@ -164,7 +163,7 @@ bool HomeCtl::sceneShellAllowed(const std::string& program, std::string& error)
    else
    {
       size_t i {0};
-      json_t* e {};
+      const json_t* e {};
 
       json_array_foreach(list, i, e)
          if (json_is_string(e) && program == json_string_value(e))
@@ -188,8 +187,9 @@ static void sceneRunCommand(std::vector<std::string> args)
    extern char** environ;
 
    std::vector<char*> argv;
+   argv.reserve(args.size() + 1);
 
-   for (auto& a : args)
+   for (auto& a : args)                 // cppcheck-suppress constVariableReference ; posix_spawn() needs char*, a.data() must be non-const
       argv.push_back(a.data());
 
    argv.push_back(nullptr);
@@ -350,7 +350,7 @@ std::string HomeCtl::sceneDescribe(json_t* step)
 
    if (sceneParseKey(key.c_str(), type, address))
    {
-      SensorData* sensor {getSensor(type.c_str(), address)};
+      const SensorData* sensor {getSensor(type.c_str(), address)};
 
       if (sensor && !sensor->title.empty())
          key = sensor->title;
@@ -377,14 +377,14 @@ bool HomeCtl::sceneCondition(json_t* cond)
    if (!sceneParseKey(getStringFromJson(cond, "key", ""), type, address))
       return false;
 
-   SensorData* sensor {getSensor(type.c_str(), address)};
+   const SensorData* sensor {getSensor(type.c_str(), address)};
 
    if (!sensor || !sensor->valid())
       return false;
 
    std::string op {getStringFromJson(cond, "op", "==")};
    std::string field {getStringFromJson(cond, "field", "")};
-   json_t* jv {json_object_get(cond, "value")};
+   const json_t* jv {json_object_get(cond, "value")};
 
    if (!jv)
       return false;
@@ -456,7 +456,7 @@ int HomeCtl::sceneSet(json_t* step, std::string& error)
       return fail;
    }
 
-   SensorData* sensor {getSensor(type.c_str(), address)};
+   const SensorData* sensor {getSensor(type.c_str(), address)};
 
    if (!sensor)
    {
@@ -492,7 +492,7 @@ int HomeCtl::sceneSet(json_t* step, std::string& error)
    enum { vkToggle, vkState, vkNumber, vkText } kind {vkToggle};
    double number {0};
    std::string text;
-   json_t* jv {json_object_get(step, "value")};
+   const json_t* jv {json_object_get(step, "value")};
 
    if (jv && json_is_boolean(jv))
    {
@@ -862,6 +862,7 @@ int HomeCtl::sceneProcess()
    // copy, a step can start or stop other scenes
 
    std::vector<uint> addresses;
+   addresses.reserve(sceneRuns.size());
 
    for (const auto& [address, run] : sceneRuns)
       addresses.push_back(address);

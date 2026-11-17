@@ -96,27 +96,6 @@ int cWebSock::init(int aPort, int aTimeout, const char* confDir, bool ssl)
 
    protocols[2] = LWS_PROTOCOL_LIST_TERM;
 
-   // mounts
-
-   bool noStore {false};       // for debugging on iOS
-   lws_http_mount mount {0};
-
-   mount.mount_next = (lws_http_mount*)nullptr;
-   mount.mountpoint = "/";
-   mount.origin = httpPath;
-   mount.mountpoint_len = 1;
-   mount.cache_max_age = noStore ? 0 : 600;    // 10 min - after an update all browsers see the new files soon, without asking on every load
-   mount.cache_reusable = !noStore;       // 0 => no-store
-   mount.cache_revalidate = 1;
-   mount.cache_intermediaries = 1;
-
-#ifdef LWS_FEATURE_MOUNT_NO_CACHE
-   mount.cache_no = noStore ? 0 : 1;
-#endif
-   mount.origin_protocol = LWSMPRO_FILE;
-   mount.basic_auth_login_file = nullptr;
-   mounts[0] = mount;
-
    // setup websocket context info
 
    memset(&info, 0, sizeof(info));
@@ -376,7 +355,7 @@ int cWebSock::callbackHttp(lws* wsi, lws_callback_reasons reason, void* user, vo
             tell(eloAlways, "HTTP: Redirecting '%s' to '%s' (workaround for the old links)", url, location.c_str());
 
             unsigned char headers[LWS_PRE + 512] {};
-            unsigned char* p {headers + LWS_PRE};
+            unsigned char* p {headers + LWS_PRE};   // NOLINT(misc-const-correctness) - written by lws via &p
             unsigned char* end {headers + sizeof(headers) - 1};
 
             if (lws_http_redirect(wsi, HTTP_STATUS_FOUND, (const unsigned char*)location.c_str(),
@@ -959,7 +938,7 @@ void cWebSock::atLogout(lws* wsi, const char* message, const char* clientInfo)
 // Client Count
 //***************************************************************************
 
-int cWebSock::getClientCount()
+int cWebSock::getClientCount() // cppcheck-suppress unusedFunction
 {
    int count = 0;
 
@@ -1008,7 +987,7 @@ void cWebSock::pushOutMessage(const char* message, lws* wsi)
 // Get Integer Parameter
 //***************************************************************************
 
-int cWebSock::getIntParameter(lws* wsi, const char* name, int def)
+int cWebSock::getIntParameter(lws* wsi, const char* name, int def) // cppcheck-suppress unusedFunction
 {
    char buf[100] {};
    const char* arg = lws_get_urlarg_by_name(wsi, name, buf, 100);
@@ -1020,7 +999,7 @@ int cWebSock::getIntParameter(lws* wsi, const char* name, int def)
 // Get String Parameter
 //***************************************************************************
 
-const char* cWebSock::getStrParameter(lws* wsi, const char* name, const char* def)
+const char* cWebSock::getStrParameter(lws* wsi, const char* name, const char* def) // cppcheck-suppress unusedFunction
 {
    static char buf[512+TB] {};
    const char* arg = lws_get_urlarg_by_name(wsi, name, buf, 512);
@@ -1032,7 +1011,7 @@ const char* cWebSock::getStrParameter(lws* wsi, const char* name, const char* de
 // Method Of
 //***************************************************************************
 
-const char* cWebSock::methodOf(const char* url)
+const char* cWebSock::methodOf(const char* url) // cppcheck-suppress unusedFunction
 {
    const char* p {};
 
@@ -1046,7 +1025,7 @@ const char* cWebSock::methodOf(const char* url)
 // Dispatch Data Request
 //***************************************************************************
 
-int cWebSock::dispatchDataRequest(const lws* wsi, const SessionData* sessionData, const char* url)
+int cWebSock::dispatchDataRequest(const lws* wsi, const SessionData* sessionData, const char* url) // cppcheck-suppress unusedFunction
 {
    int statusCode = HTTP_STATUS_NOT_FOUND;
 

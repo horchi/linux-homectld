@@ -130,11 +130,11 @@ json_t* HomeCtl::loadWidgetDefaultsFile(const char* file, bool user)
 
    // in the delivered file 'properties' and 'symbols' are required, in the user file optional
 
-   json_t* jProperties {getObjectFromJson(jData, "properties")};
-   json_t* jSymbols {getObjectFromJson(jData, "symbols")};
+   const json_t* jProperties {getObjectFromJson(jData, "properties")};
+   const json_t* jSymbols {getObjectFromJson(jData, "symbols")};
    json_t* jDefault {getObjectFromJson(jData, "default")};
    json_t* jUnitTypes {getObjectFromJson(jData, "unitWidgetTypes")};
-   json_t* jValueTypes {getObjectFromJson(jData, "valueTypes")};
+   const json_t* jValueTypes {getObjectFromJson(jData, "valueTypes")};
 
    if (!json_is_object(jData)
        || ((jProperties || !user) && !json_is_array(jProperties))
@@ -173,7 +173,7 @@ json_t* HomeCtl::loadWidgetDefaultsFile(const char* file, bool user)
    checkType(getStringFromJson(jDefault, "widgettype"), "default");
 
    const char* unit {};
-   json_t* jType {};
+   const json_t* jType {};
 
    json_object_foreach(jUnitTypes, unit, jType)
       checkType(json_string_value(jType), (std::string("unit ") + unit).c_str());
@@ -263,7 +263,7 @@ const char* HomeCtl::findWidgetDefaultSymbol(const char* type, const char* usrTi
 {
    auto matches = [](json_t* jRule, const char* name, const char* value, bool part) -> bool
    {
-      json_t* jList {getObjectFromJson(jRule, name)};
+      const json_t* jList {getObjectFromJson(jRule, name)};
 
       if (!jList)
          return true;                       // criterion not given
@@ -272,7 +272,7 @@ const char* HomeCtl::findWidgetDefaultSymbol(const char* type, const char* usrTi
          return part ? strcasestr(value, json_string_value(jList)) != nullptr : strcmp(value, json_string_value(jList)) == 0;
 
       size_t i {0};
-      json_t* jItem {};
+      const json_t* jItem {};
 
       json_array_foreach(jList, i, jItem)
       {
@@ -310,7 +310,7 @@ const char* HomeCtl::findWidgetDefaultSymbol(const char* type, const char* usrTi
 // Widget Defaults 2 Json
 //***************************************************************************
 
-int HomeCtl::widgetDefaults2Json(json_t* jDefaults, std::string type, std::string unit, const char* usrTitle, int address)
+int HomeCtl::widgetDefaults2Json(json_t* jDefaults, const std::string& type, const std::string& unit, const char* usrTitle, int address)
 {
    if (!usrTitle)
       usrTitle = "";
@@ -472,7 +472,7 @@ int HomeCtl::pushDataUpdate(const char* event, long client)
    //  by calling json_object_set instead of json_object_set_new
    //  therefore we have to free it by json_decref()
 
-   for (auto sj : jsonSensorList)
+   for (const auto& sj : jsonSensorList)
       json_decref(sj.second);
 
    jsonSensorList.clear();
@@ -691,7 +691,7 @@ int HomeCtl::init()
 
       // Hook für den Zugriff: config["optionFooBar"]
 
-      configMetatable[sol::meta_function::index] = [this](sol::table t, const std::string& key) -> sol::object {
+      configMetatable[sol::meta_function::index] = [this](const sol::table& t, const std::string& key) -> sol::object {
          sol::state_view luaState = t.lua_state();
 
          // Suche das Config-Item in der config Tabelle
@@ -789,7 +789,7 @@ int HomeCtl::initLocale()
       tell(eloInfo, "Detected UTF-8");
 
    time_t nun {time(nullptr)};
-   struct tm* tmTime {localtime(&nun)};
+   const struct tm* tmTime {localtime(&nun)};
    char strTime[64] {};
    strftime(strTime, sizeof(strTime), "%a %d.%m.%Y %T", tmTime);
 
@@ -841,7 +841,7 @@ int HomeCtl::applyConfigurationSpecials()
 // Init Sensor
 //***************************************************************************
 
-int HomeCtl::initSensorByFact(myString type, uint address)
+int HomeCtl::initSensorByFact(const myString& type, uint address)
 {
    cDbRow* fact {valueFactRowOf(type.c_str(), address)};
 
@@ -968,7 +968,7 @@ int HomeCtl::initGpioLine(uint physPin, const PinInfo& pinInfo)
 // Configure Output / Input
 //***************************************************************************
 
-int HomeCtl::cfgOutput(myString type, uint pin, json_t* jCal)
+int HomeCtl::cfgOutput(const myString& type, uint pin, json_t* jCal)
 {
    if (type.starts_with("MCPO"))
    {
@@ -987,7 +987,7 @@ int HomeCtl::cfgOutput(myString type, uint pin, json_t* jCal)
    return done;
 }
 
-int HomeCtl::cfgInput(myString type, uint pin, json_t* jCal)
+int HomeCtl::cfgInput(const myString& type, uint pin, json_t* jCal)
 {
    if (type.starts_with("MCPI"))
       publishI2CSensorConfig(type.c_str(), pin, jCal);
@@ -1054,7 +1054,7 @@ int HomeCtl::initScripts()
    FileList scripts;
    char* path {};
    asprintf(&path, "%s/scripts.d", confDir);
-   int status = getFileList(path, DT_REG, "sh", false, &scripts, count);
+   int status {getFileList(path, DT_REG, "sh", false, &scripts, count)};
 
    if (status != success)
    {
@@ -1124,14 +1124,14 @@ int HomeCtl::initScripts()
 
       // parsing result to initialize script sensor
 
-      std::string kind = getStringFromJson(oData, "kind", "status");
-      const char* title = getStringFromJson(oData, "title");
-      const char* unit = getStringFromJson(oData, "unit");
-      const char* choices = getStringFromJson(oData, "choices");
-      double value = getDoubleFromJson(oData, "value");
-      const char* text = getStringFromJson(oData, "text");
-      bool valid = getBoolFromJson(oData, "valid", true);
-      json_t* jParameter = getObjectFromJson(oData, "parameter");
+      std::string kind {getStringFromJson(oData, "kind", "status")};
+      const char* title {getStringFromJson(oData, "title")};
+      const char* unit {getStringFromJson(oData, "unit")};
+      const char* choices {getStringFromJson(oData, "choices")};
+      double value {getDoubleFromJson(oData, "value")};
+      const char* text {getStringFromJson(oData, "text")};
+      bool valid {getBoolFromJson(oData, "valid", true)};
+      const json_t* jParameter {getObjectFromJson(oData, "parameter")};
 
       if (isEmpty(unit))
       {
@@ -1243,7 +1243,7 @@ int HomeCtl::callScript(int addr, const char* command)
 // Send Command via MQTT
 //***************************************************************************
 
-int HomeCtl::switchCommand(std::string type, int addr, std::string action, const char* topic, const char* value)
+int HomeCtl::switchCommand(const std::string& type, int addr, const std::string& action, const char* topic, const char* value)
 {
    // prepare command
 
@@ -1291,7 +1291,7 @@ int HomeCtl::switchCommand(std::string type, int addr, std::string action, const
 // Value Fact Of
 //***************************************************************************
 
-cDbRow* HomeCtl::valueFactRowOf(std::string type, uint addr)
+cDbRow* HomeCtl::valueFactRowOf(const std::string& type, uint addr)
 {
    tableValueFacts->clear();
    tableValueFacts->setValue("ADDRESS", (long)addr);
@@ -2120,7 +2120,7 @@ int HomeCtl::importHtmlWidgetTemplates()
    }
 
    json_t* jData {jsonLoadFile(path)};
-   json_t* jList {!jData ? nullptr : json_is_array(jData) ? jData : getObjectFromJson(jData, "snippets")};
+   const json_t* jList {!jData ? nullptr : json_is_array(jData) ? jData : getObjectFromJson(jData, "snippets")};
 
    if (!json_is_array(jList))
    {
@@ -2331,7 +2331,7 @@ int HomeCtl::htmlWidgetDefaultsToWidgets(long snippetId, json_t* jOld, json_t* j
 
       json_object_foreach(jOld, key, jOldValue)
       {
-         json_t* jNewValue {jNew ? json_object_get(jNew, key) : nullptr};
+         const json_t* jNewValue {jNew ? json_object_get(jNew, key) : nullptr};
 
          if (!jNewValue || json_equal(jOldValue, jNewValue) || json_object_get(jParams, key))
             continue;                    // not used any more, unchanged or set by the widget
@@ -2397,7 +2397,7 @@ int HomeCtl::loadDefaultDashboards()
       return 0;
    }
 
-   json_t* jList {json_is_array(jData) ? jData : getObjectFromJson(jData, "dashboards")};
+   const json_t* jList {json_is_array(jData) ? jData : getObjectFromJson(jData, "dashboards")};
 
    if (!json_is_array(jList))
    {
@@ -2432,7 +2432,7 @@ int HomeCtl::loadDefaultDashboards()
       if (isEmpty(title) && isEmpty(symbol))
          continue;
 
-      json_t* jOptions {getObjectFromJson(jDashboard, "options")};
+      const json_t* jOptions {getObjectFromJson(jDashboard, "options")};
       char* options {json_is_object(jOptions) ? json_dumps(jOptions, JSON_REAL_PRECISION(4)) : nullptr};
 
       tableDashboards->clear();
@@ -2456,7 +2456,7 @@ int HomeCtl::loadDefaultDashboards()
 
       if (json_is_object(jWidgets))
       {
-         json_t* jWidget {};
+         const json_t* jWidget {};
 
          json_object_foreach(jWidgets, key, jWidget)
          {
@@ -3054,9 +3054,9 @@ int HomeCtl::storeSamples()
    if (mqttHaInterfaceStyle == misSingleTopic)
        oHaJson = json_object();
 
-   for (auto& typeSensorsIt : sensors)
+   for (auto& typeSensorsIt : sensors)                   // cppcheck-suppress constVariableReference ; sensor->markStored() modifies the sensor
    {
-      for (auto& sensorIt : typeSensorsIt.second)
+      for (auto& sensorIt : typeSensorsIt.second)        // cppcheck-suppress constVariableReference ; sensor->markStored() modifies the sensor
       {
          SensorData* sensor {&sensorIt.second};
 
@@ -3383,7 +3383,7 @@ int HomeCtl::process(bool force, bool signal)
          if (!o)
             continue;
 
-         json_t* jTimes {getObjectFromJson(o, "times")};
+         const json_t* jTimes {getObjectFromJson(o, "times")};
 
          if (jTimes && json_is_array(jTimes))
          {
@@ -3768,18 +3768,13 @@ int HomeCtl::performAlertCheck(cDbRow* alertRow, time_t now, int recurse, int fo
    // data from alert row
 
    int addr = alertRow->getIntValue("ADDRESS");
-   const char* type = alertRow->getStrValue("TYPE");
-
+   const char* type {alertRow->getStrValue("TYPE")};
    int id = alertRow->getIntValue("ID");
    int lgop = alertRow->getIntValue("LGOP");
-   time_t lastAlert = alertRow->getIntValue("LASTALERT");
+   time_t lastAlert {alertRow->getIntValue("LASTALERT")};
    int maxRepeat = alertRow->getIntValue("MAXREPEAT");
-
    int minIsNull = alertRow->getValue("MIN")->isNull();
    int maxIsNull = alertRow->getValue("MAX")->isNull();
-   int alertMin = alertRow->getIntValue("MIN");
-   int alertMax = alertRow->getIntValue("MAX");
-
    int range = alertRow->getIntValue("RANGEM");
    int delta = alertRow->getIntValue("DELTA");
 
@@ -3828,19 +3823,21 @@ int HomeCtl::performAlertCheck(cDbRow* alertRow, time_t now, int recurse, int fo
 
    // data from samples and value facts
 
-   double value = tableSamples->getFloatValue("VALUE");
-
-   const char* title = tableValueFacts->getStrValue("TITLE");
-   const char* unit = tableValueFacts->getStrValue("UNIT");
+   double value {tableSamples->getFloatValue("VALUE")};
+   const char* title {tableValueFacts->getStrValue("TITLE")};
+   const char* unit {tableValueFacts->getStrValue("UNIT")};
 
    // -------------------------------
    // check min / max threshold
 
    if (!minIsNull || !maxIsNull)
    {
+      long alertMin {alertRow->getIntValue("MIN")};
+      long alertMax {alertRow->getIntValue("MAX")};
+
       if (force || (!minIsNull && value < alertMin) || (!maxIsNull && value > alertMax))
       {
-         tell(eloAlways, "%d) Alert for sensor %s/0x%x, value %.2f not in range (%d - %d)",
+         tell(eloAlways, "%d) Alert for sensor %s/0x%x, value %.2f not in range (%ld - %ld)",
               id, type, addr, value, alertMin, alertMax);
 
          // max one alert mail per maxRepeat [minutes]
@@ -3917,6 +3914,7 @@ int HomeCtl::performAlertCheck(cDbRow* alertRow, time_t now, int recurse, int fo
                case loOr:     alert = alert ||  sAlert; break;
                case loAndNot: alert = alert && !sAlert; break;
                case loOrNot:  alert = alert || !sAlert; break;
+               default: break;
             }
          }
       }
@@ -3949,7 +3947,7 @@ int HomeCtl::performAlertCheck(cDbRow* alertRow, time_t now, int recurse, int fo
 // Add To Alert Mail
 //***************************************************************************
 
-int HomeCtl::add2AlertMail(cDbRow* alertRow, const char* title, double value, const char* unit)
+int HomeCtl::add2AlertMail(const cDbRow* alertRow, const char* title, double value, const char* unit)
 {
    double minv {0};
    double maxv {0};
@@ -4513,7 +4511,7 @@ int HomeCtl::updateWeather()
    tell(eloWeather, "<- (openweathermap) [%s]", data.memory);
 
    json_t* jData {jsonLoad(data.memory)};
-   json_t* jArray {jData ? getObjectFromJson(jData, "list") : nullptr};
+   const json_t* jArray {jData ? getObjectFromJson(jData, "list") : nullptr};
    json_t* jCurrent {jArray ? json_array_get(jArray, 0) : nullptr};
 
    if (!jCurrent)
@@ -5188,7 +5186,7 @@ int HomeCtl::dispatchGrowattEvents(const char* message)
          }
 
          std::string text = getStringFromJson(jObj, "text", "");
-         json_t* jValue  = getObjectFromJson(jObj, "val");
+         const json_t* jValue  = getObjectFromJson(jObj, "val");
          double value = json_is_integer(jValue) ? json_integer_value(jValue) : json_real_value(jValue);
 
          sensors[type][address].kind = "value";
@@ -5354,7 +5352,8 @@ int HomeCtl::dispatchEspLog(const char* topic, const char* message)
 
    // name by the topic: 'homectld2mqtt/tpms/log' -> 'tpms'
 
-   name = name.substr(0, name.length() - strlen("/log"));
+   if (name.length() >= strlen("/log"))
+      name.resize(name.length() - strlen("/log"));
 
    if (name.rfind('/') != std::string::npos)
       name = name.substr(name.rfind('/') + 1);
@@ -5474,15 +5473,15 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
       newTime -= age;
 
    bool valid {getBoolFromJson(jData, "valid", true)};
-   const char* unit = getStringFromJson(jData, "unit");
-   const char* title = getStringFromJson(jData, "title");
-   const char* color = getStringFromJson(jData, "color", "");
-   std::string kind = getStringFromJson(jData, "kind", "");
+   const char* unit {getStringFromJson(jData, "unit")};
+   const char* title {getStringFromJson(jData, "title")};
+   const char* color {getStringFromJson(jData, "color", "")};
+   std::string kind {getStringFromJson(jData, "kind", "")};
    uint rights = getIntFromJson(jData, "rights", 0);
-   const char* image = getStringFromJson(jData, "image", "");
-   const char* choices = getStringFromJson(jData, "choices", nullptr);
-   json_t* jParameter = getObjectFromJson(jData, "parameter");
-   const char* cmdTopic = getStringFromJson(jData, "topic");
+   const char* image {getStringFromJson(jData, "image", "")};
+   const char* choices {getStringFromJson(jData, "choices", nullptr)};
+   const json_t* jParameter {getObjectFromJson(jData, "parameter")};
+   const char* cmdTopic {getStringFromJson(jData, "topic")};
 
    if (type.empty())
    {
@@ -6246,7 +6245,7 @@ int HomeCtl::setConfigItem(const char* name, bool value, const char* kind)
 // Get Config Time Range Item
 //***************************************************************************
 
-int HomeCtl::getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges)
+int HomeCtl::getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges) // cppcheck-suppress unusedFunction
 {
    std::string tmp;
    getConfigItem(name, tmp, "");
@@ -6261,8 +6260,8 @@ int HomeCtl::getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges
 
       if (sscanf(r, "%u:%u-%u:%u", &fromHH, &fromMM, &toHH, &toMM) == 4)
       {
-         uint from = fromHH*100 + fromMM;
-         uint to = toHH*100 + toMM;
+         uint from {fromHH*100 + fromMM};
+         uint to {toHH*100 + toMM};
 
          ranges.push_back({from, to});
          tell(eloDebug2, "Schedule range %d - %d for '%s'", from, to, name);
@@ -6314,7 +6313,7 @@ int HomeCtl::toggleColor(uint addr, const char* type, int hue, int sat, int bri)
 
 int HomeCtl::toggleIo(uint addr, const char* type, int state, int bri, int transitiontime)
 {
-   cDbRow* fact {valueFactRowOf(type, addr)};
+   const cDbRow* fact {valueFactRowOf(type, addr)};
 
    if (!fact)
    {
@@ -6726,37 +6725,6 @@ void HomeCtl::publishPin(const char* type, uint pin)
 }
 
 //***************************************************************************
-// Publish Special Value
-//***************************************************************************
-
-// void HomeCtl::publishSpecialValue(int addr)
-// {
-//    cDbRow* fact = valueFactRowOf("SP", addr);
-
-//    if (!fact)
-//       return ;
-
-//    json_t* ojData {json_object()};
-
-//    sensor2Json(ojData, "SP", addr);
-
-//    if (sensors["SP"][addr].kind == "text")
-//       json_object_set_new(ojData, "text", json_string(sensors["SP"][addr].text.c_str()));
-//    else if (sensors["SP"][addr].kind == "value")
-//       json_object_set_new(ojData, "value", json_real(sensors["SP"][addr].value));
-
-//    if (sensors["SP"][addr].disabled)
-//       json_object_set_new(ojData, "disabled", json_boolean(true));
-
-//    char* tuple {};
-//    asprintf(&tuple, "SP:0x%02x", addr);
-//    jsonSensorList[tuple] = ojData;
-//    free(tuple);
-
-//    pushDataUpdate("update", 0L);
-// }
-
-//***************************************************************************
 // Store/Load Output State
 //***************************************************************************
 
@@ -6913,7 +6881,7 @@ int HomeCtl::dispatchArduinoMsg(const char* message)
    if (strcmp(event, "update") == 0)
    {
       bool changed {false};
-      json_t* jArray = getObjectFromJson(jObject, "analog");
+      const json_t* jArray = getObjectFromJson(jObject, "analog");
       size_t index {0};
       json_t* jValue {};
 

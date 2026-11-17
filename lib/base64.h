@@ -50,9 +50,9 @@ class Base64 {
     size_t out_len = 4 * ((in_len + 2) / 3);
     std::string ret(out_len, '\0');
     size_t i {};
-    char *p = const_cast<char*>(ret.c_str());
+    char* p {ret.data()}; // NOLINT(misc-const-correctness)
 
-    for (i = 0; i < in_len - 2; i += 3) {
+    for (i = 0; i + 2 < in_len; i += 3) {
       *p++ = sEncodingTable[(data[i] >> 2) & 0x3F];
       *p++ = sEncodingTable[((data[i] & 0x3) << 4) | ((int) (data[i + 1] & 0xF0) >> 4)];
       *p++ = sEncodingTable[((data[i + 1] & 0xF) << 2) | ((int) (data[i + 2] & 0xC0) >> 6)];
@@ -95,6 +95,8 @@ class Base64 {
     };
 
     size_t in_len = input.size();
+    out.clear();
+    if (in_len == 0) return "";
     if (in_len % 4 != 0) return "Input data size is not a multiple of 4";
 
     size_t out_len = in_len / 4 * 3;
@@ -104,10 +106,10 @@ class Base64 {
     out.resize(out_len);
 
     for (size_t i = 0, j = 0; i < in_len;) {
-      uint32_t a = input[i] == '=' ? 0 & i++ : kDecodingTable[static_cast<int>(input[i++])];
-      uint32_t b = input[i] == '=' ? 0 & i++ : kDecodingTable[static_cast<int>(input[i++])];
-      uint32_t c = input[i] == '=' ? 0 & i++ : kDecodingTable[static_cast<int>(input[i++])];
-      uint32_t d = input[i] == '=' ? 0 & i++ : kDecodingTable[static_cast<int>(input[i++])];
+      uint32_t a = input[i] == '=' ? 0 & i++ : kDecodingTable[static_cast<unsigned char>(input[i++])];
+      uint32_t b = input[i] == '=' ? 0 & i++ : kDecodingTable[static_cast<unsigned char>(input[i++])];
+      uint32_t c = input[i] == '=' ? 0 & i++ : kDecodingTable[static_cast<unsigned char>(input[i++])];
+      uint32_t d = input[i] == '=' ? 0 & i++ : kDecodingTable[static_cast<unsigned char>(input[i++])];
 
       uint32_t triple = (a << 3 * 6) + (b << 2 * 6) + (c << 1 * 6) + (d << 0 * 6);
 

@@ -308,7 +308,7 @@ int LmcCom::update(int stateOnly)
    playerState.mode =  getStringFromJson(jResult, "mode", "");
    playerState.plName = getStringFromJson(jResult, "player_name", "");
 
-   json_t* jPlaylist = getObjectFromJson(jResult, "playlist_loop");
+   const json_t* jPlaylist = getObjectFromJson(jResult, "playlist_loop");
 
    if (!jPlaylist)
    {
@@ -374,7 +374,7 @@ int LmcCom::queryPlayers(RangeList* list)
    if (!oData)
       return fail;
 
-   json_t* oResult = getObjectByPath(oData, "result/players_loop");
+   const json_t* oResult = getObjectByPath(oData, "result/players_loop");
 
    if (!oResult)
       return fail;
@@ -390,9 +390,9 @@ int LmcCom::queryPlayers(RangeList* list)
       const char* playerindex = getStringFromJson(jObj, "playerindex");
 
       if (!isEmpty(playerindex))
-         item.id = atoi(playerindex);
+         item.id = playerindex;
       else
-         item.id = getIntFromJson(jObj, "playerindex");
+         item.id = std::to_string(getIntFromJson(jObj, "playerindex"));
 
       item.content = getStringFromJson(jObj, "playerid");
       item.command = getStringFromJson(jObj, "name");
@@ -462,8 +462,8 @@ json_t* LmcCom::getRestResult()
 // Query Range via REST
 //***************************************************************************
 
-int LmcCom::restQueryRange(std::string what, int from, int count, const char* special,
-                           RangeList* list, int& total, std::string& title, Parameters* pars)
+int LmcCom::restQueryRange(const std::string& what, int from, int count, const char* special,
+                           RangeList* list, int& total, std::string& title, const Parameters* pars)
 {
    json_t* jRequest {json_object()};
    json_object_set_new(jRequest, "method", json_string("slim.request"));
@@ -509,12 +509,12 @@ int LmcCom::restQueryRange(std::string what, int from, int count, const char* sp
 
    if (title.empty())
    {
-      json_t* jParams = getObjectByPath(jData, "params[1]");
+      const json_t* jParams = getObjectByPath(jData, "params[1]");
 
       if (jParams && json_is_array(jParams))
       {
          size_t index {0};
-         json_t* jObj {};
+         const json_t* jObj {};
 
          json_array_foreach(jParams, index, jObj)
          {
@@ -538,9 +538,9 @@ int LmcCom::restQueryRange(std::string what, int from, int count, const char* sp
       title[0] = toupper(title[0]);
    }
 
-   json_t* jList {};
+   const json_t* jList {};
    const char* key {};
-   json_t* jValue {};
+   const json_t* jValue {};
 
    json_object_foreach(jResult, key, jValue)
    {
@@ -656,11 +656,11 @@ int LmcCom::parseLocalRadio(json_t* jObj, ListItem& item)
       item.id = getStringByPath(jObj, "params/item_id", "");
 
    item.content = getStringFromJson(jObj, "text", "");
-   json_t* jCmdArray = getObjectByPath(jObj, "actions/go/cmd");
+   const json_t* jCmdArray {getObjectByPath(jObj, "actions/go/cmd")};
 
    if (jCmdArray)
    {
-      json_t* j = json_array_get(jCmdArray, 0);
+      const json_t* j {json_array_get(jCmdArray, 0)};
       item.command = json_string_value(j);
       j = json_array_get(jCmdArray, 1);
       item.commandSpecial = json_string_value(j);
@@ -909,11 +909,11 @@ int LmcCom::parseMusic(json_t* jObj, ListItem& item)
    item.content = getStringFromJson(jObj, "text", "");
    item.icon = getStringFromJson(jObj, "icon", "");
 
-   json_t* jCmdArray = getObjectByPath(jObj, "actions/go/cmd");
+   const json_t* jCmdArray {getObjectByPath(jObj, "actions/go/cmd")};
 
    if (jCmdArray)
    {
-      json_t* j = json_array_get(jCmdArray, 0);
+      const json_t* j {json_array_get(jCmdArray, 0)};
       item.command = json_string_value(j);
       j = json_array_get(jCmdArray, 1);
       item.commandSpecial = json_string_value(j);
@@ -1012,11 +1012,7 @@ char* LmcCom::unescape(char* buf)
 
 char* LmcCom::escape(const char* buf)
 {
-   char* res {};
-
-   res = curl_easy_escape(curl , buf, strlen(buf));
-
-   return res;
+   return curl_easy_escape(curl , buf, strlen(buf));
 }
 
 //***************************************************************************
@@ -1202,7 +1198,7 @@ int LmcCom::checkNotify(uint64_t tmo)
 //   /imageproxy/http%3A%2F%2Fcdn-profiles.tunein.com%2Fs312162%2Fimages%2Flogoq.png%3Ft%3D484/image_1024x1024_f.png
 //***************************************************************************
 
-int LmcCom::getCurrentCover(MemoryStruct* cover, TrackInfo* track, bool big)
+int LmcCom::getCurrentCover(MemoryStruct* cover, TrackInfo* track, bool big) // cppcheck-suppress unusedFunction
 {
    char* tmp {};
    int status {fail};
@@ -1276,7 +1272,7 @@ int LmcCom::getCurrentCoverUrl(TrackInfo* track, std::string& coverUrl, bool big
 // Get Cover
 //***************************************************************************
 
-int LmcCom::getCover(MemoryStruct* cover, TrackInfo* track)
+int LmcCom::getCover(MemoryStruct* cover, TrackInfo* track) // cppcheck-suppress unusedFunction
 {
    char* url {};
    int status {fail};

@@ -119,7 +119,7 @@ class LmcCom : public TcpChannel
       LmcCom& operator=(const LmcCom&) = delete;
       ~LmcCom();
 
-      void setMac(const char* aMac)
+      void setMac(const char* aMac) // cppcheck-suppress unusedFunction
       {
          free(mac);
          mac = strdup(aMac);
@@ -132,8 +132,8 @@ class LmcCom : public TcpChannel
       int restQuery(const std::string& what);
       int restQuery(const std::string& what,  const Parameters& pars);
 
-      int restQueryRange(std::string what, int from, int count, const char* special,
-                         RangeList* list, int& total, std::string& title, Parameters* pars = nullptr);
+      int restQueryRange(const std::string& what, int from, int count, const char* special,
+                         RangeList* list, int& total, std::string& title, const Parameters* pars = nullptr);
 
       json_t* getRestResult();
 
@@ -174,7 +174,7 @@ class LmcCom : public TcpChannel
          return &dummyTrack;
       }
 
-      bool hasMetadataChanged() { return metaDataChanged; }
+      bool hasMetadataChanged() { return metaDataChanged; } // cppcheck-suppress unusedFunction
 
       PlayerState* getPlayerState() { return &playerState; }
 

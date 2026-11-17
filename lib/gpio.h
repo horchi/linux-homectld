@@ -80,7 +80,7 @@ class Gpio
 
       int  init();
 
-      std::string getBoardType() { return modelName; }
+      const std::string& getBoardType() const { return modelName; }
       int setupPin(int physPin, Direction dir, Edge edge, PullUpDown pud);
       bool pinAvailable(int physPin);
       bool digitalRead(int physPin);

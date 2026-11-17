@@ -144,7 +144,7 @@ int HomeCtl::mqttConverters2Json(json_t* obj)
    {
       std::vector<std::string> files;
 
-      while (struct dirent* entry = readdir(d))
+      while (const struct dirent* entry = readdir(d))
       {
          std::string name {entry->d_name};
 
@@ -157,7 +157,9 @@ int HomeCtl::mqttConverters2Json(json_t* obj)
 
       for (const auto& name : files)
       {
-         std::string path {dir + "/" + name};
+         std::string path {dir};
+         path += "/"; path += name;
+
          struct stat st {};
 
          if (lstat(path.c_str(), &st) != 0)
@@ -484,8 +486,8 @@ static std::string shellQuote(const std::string& s)
 
 int HomeCtl::mqttConverterTest(json_t* obj, json_t* oJson)
 {
-   constexpr const char* testDir {"/var/cache/homectld/mqtttest"};
-   constexpr const char* separator {"\x1e"};                  // between the noted messages
+   constexpr const char* testDir {"/var/cache/homectld/mqtttest"};  // cppcheck-suppress variableScope ; between the noted messages
+   constexpr const char* separator {"\x1e"};                        // cppcheck-suppress variableScope ; between the noted messages
 
    std::string topic {getStringFromJson(obj, "topic", "")};
    std::string message {getStringFromJson(obj, "message", "")};

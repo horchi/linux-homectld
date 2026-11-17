@@ -141,7 +141,7 @@ int HomeCtl::lmcPlayerState2Json(json_t* obj)
    json_t* state = json_object();
    json_object_set_new(obj, "state", state);
 
-   PlayerState* currentState = lmc->getPlayerState();
+   const PlayerState* currentState {lmc->getPlayerState()};
 
    // json_object_set_new(state, "updatedAtMs", json_integer(currentState->updatedAt));
 

@@ -361,7 +361,7 @@ int HomeCtl::performLogin(json_t* oObject)
 
 int HomeCtl::performData(long client, const char* event)
 {
-   for (auto sj : jsonSensorList)
+   for (const auto& sj : jsonSensorList)
       json_decref(sj.second);
 
    jsonSensorList.clear();
@@ -666,7 +666,7 @@ int HomeCtl::storeAlerts(json_t* oObject, long client)
 
    else if (strcmp(action, "store") == 0)
    {
-      json_t* array {json_object_get(oObject, "alerts")};
+      const json_t* array {json_object_get(oObject, "alerts")};
       size_t index {0};
       json_t* jObj {};
 
@@ -1239,7 +1239,7 @@ int HomeCtl::performChartData(json_t* oObject, long client)
       // logische Werte (an/aus) für Chart-Seite und Chart-Dialog als Statusband:
       //   bis 7 Tage 0/1 (an im Intervall), darüber die Einschaltdauer 0..1
 
-      SensorData* sd {getSensor(tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"))};
+      const SensorData* sd {getSensor(tableValueFacts->getStrValue("TYPE"), tableValueFacts->getIntValue("ADDRESS"))};
       bool logical {(strcmp(id, "chart") == 0 || strcmp(id, "chartdialog") == 0)
                     && ((sd && sd->kind == "status") || tableValueFacts->hasValue("UNIT", "mov"))};
       bool duty {logical && range > 7};
@@ -1588,7 +1588,7 @@ int HomeCtl::storeSchema(json_t* oObject, long client)
       tableSchemaConf->setValue("SHOWUNIT", getIntFromJson(jObj, "showunit"));
       tableSchemaConf->setValue("STATE", getStringFromJson(jObj, "state"));
 
-      json_t* jProp {json_object_get(jObj, "properties")};
+      const json_t* jProp {json_object_get(jObj, "properties")};
       char* p {json_dumps(jProp, JSON_REAL_PRECISION(4))};
 
       if (tableSchemaConf->getField("PROPERTIES")->getSize() < (int)strlen(p))
@@ -1667,7 +1667,7 @@ int HomeCtl::storeConfig(json_t* obj, long client)
       bool confirm {isElementSet(obj, "action")};   // the config page sends 'action' explicit -> confirm also a single item
 
       const char* key {};
-      json_t* jValue {};
+      const json_t* jValue {};
 
       getConfigItem("style", oldStyle, "");
 
@@ -1791,7 +1791,7 @@ int HomeCtl::gpsLive(json_t* obj, long client)
 
    char latBuf[32];
    char lngBuf[32];
-   char* oldLocale {setlocale(LC_NUMERIC, nullptr)};
+   const char* oldLocale {setlocale(LC_NUMERIC, nullptr)};
    std::string savedLocale {oldLocale ? oldLocale : "C"};
 
    setlocale(LC_NUMERIC, "C");
@@ -1908,7 +1908,7 @@ int HomeCtl::storeIoSettings(json_t* obj, long client)
    {
       // store to valuefacts
 
-      json_t* settings {getObjectFromJson(obj, "settings")};
+      const json_t* settings {getObjectFromJson(obj, "settings")};
 
       if (!settings)
       {
@@ -2004,8 +2004,8 @@ int HomeCtl::storeDashboards(json_t* obj, long client)
       // {"action": "order", "order": ["16", "25", "14", "27"]},
 
       size_t index {0};
-      json_t* jId {};
-      json_t* array = getObjectFromJson(obj, "order");
+      const json_t* jId {};
+      const json_t* array = getObjectFromJson(obj, "order");
 
       json_array_foreach(array, index, jId)
       {
@@ -2098,7 +2098,7 @@ int HomeCtl::storeDashboards(json_t* obj, long client)
 
          // dashboard settings
 
-         json_t* jOptions = getObjectFromJson(jObj, "options");
+         const json_t* jOptions = getObjectFromJson(jObj, "options");
          char* options = json_dumps(jOptions, JSON_REAL_PRECISION(4));
 
          tableDashboards->setValue("TITLE", dashboardTitle);
@@ -2121,7 +2121,7 @@ int HomeCtl::storeDashboards(json_t* obj, long client)
 
          if (jWidgets)
          {
-            json_t* jData {};
+            const json_t* jData {};
 
             tell(eloDebugWebSock, "Debug: Storing widgets of dashboard '%s'", dashboardTitle);
             tableDashboardWidgets->deleteWhere("%s = %ld", tableDashboardWidgets->getField("DASHBOARDID")->getDbName(), dashboardId);
@@ -2246,7 +2246,7 @@ int HomeCtl::storeHtmlWidgets(json_t* obj, long client)
    }
    else if (action == "import")
    {
-      json_t* jSnippets {getObjectFromJson(obj, "snippets")};
+      const json_t* jSnippets {getObjectFromJson(obj, "snippets")};
       size_t index {0};
       json_t* jSnippet {};
       int count {0};
@@ -2439,7 +2439,7 @@ int HomeCtl::storeGroups(json_t* oObject, long client)
 
    if (strcmp(action, "store") == 0)
    {
-      json_t* array {json_object_get(oObject, "groups")};
+      const json_t* array {json_object_get(oObject, "groups")};
       json_t* jObj {};
       size_t index {0};
 
@@ -2514,6 +2514,10 @@ int HomeCtl::performImageConfig(json_t* obj, long client)
    if (strcmp(action, "delete") == 0)
    {
       const char* path = getStringFromJson(obj, "path");
+
+      if (isEmpty(path) || strncmp(path, "img/", 4) != 0 || strstr(path, ".."))
+         return replyResult(fail, client, "Ungültiger Bildpfad '%s'", path ? path : "");
+
       char* tmp {};
       asprintf(&tmp, "%s/%s", httpPath, path);
       tell(eloAlways, "Deleting image '%s'", tmp);
@@ -2524,16 +2528,26 @@ int HomeCtl::performImageConfig(json_t* obj, long client)
    {
       const char* name {getStringFromJson(obj, "name")};
       const char* data {getStringFromJson(obj, "data")};
-      const char* p {strchr(data, ',')};
+      const char* p {data ? strchr(data, ',') : nullptr};
+
+      if (isEmpty(name) || strchr(name, '/') || strstr(name, ".."))
+         return replyResult(fail, client, "Ungültiger Bildname '%s'", name ? name : "");
 
       if (p)
       {
          // "data:image/png;base64,/9j/4AAQSkZJRg........."
 
-         const char* mediaTpe {strchr(data, '/')};
-         mediaTpe++;
-         char suffix[20];
-         sprintf(suffix, "%.*s", (int)(strchr(mediaTpe, ';') - mediaTpe), mediaTpe);
+         const char* mediaType {strchr(data, '/')};
+         const char* semicolon {mediaType ? strchr(mediaType, ';') : nullptr};
+
+         if (!mediaType || !semicolon || semicolon > p)
+            return replyResult(fail, client, "Ungültiger Bild-Header");
+
+         const std::string suffix(mediaType+1, semicolon);
+
+         if (suffix.empty() || suffix.length() > 20 ||
+             !std::all_of(suffix.begin(), suffix.end(), [](unsigned char c) { return isalnum(c) || c == '+' || c == '-'; }))
+            return replyResult(fail, client, "Ungültiger Bildtyp '%s'", suffix.c_str());
 
          p++;
 
@@ -2541,7 +2555,7 @@ int HomeCtl::performImageConfig(json_t* obj, long client)
          macaron::Base64::Decode(p, out);
 
          char* tmp {};
-         asprintf(&tmp, "%s/img/user/%s.%s", httpPath, name, suffix);
+         asprintf(&tmp, "%s/img/user/%s.%s", httpPath, name, suffix.c_str());
 
          if (out.size())
          {

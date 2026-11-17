@@ -169,6 +169,9 @@ int main(int argc, char** argv)
          case 'n': nofork = true;                           break;
          case 'c': if (argv[i+1]) confDir = argv[i+1];      break;
          case 'v': printf("Version %s\n", VERSION);         return 1;
+         default:
+            printf("Unexpected option '-%c'", argv[i][1]);
+            ::exit(1);
       }
    }
 

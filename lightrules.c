@@ -240,7 +240,7 @@ int HomeCtl::performLightRules()
       if (!oSettings)
          continue;
 
-      json_t* jRules {getObjectFromJson(oSettings, "rules")};
+      const json_t* jRules {getObjectFromJson(oSettings, "rules")};
 
       if (jRules && json_is_array(jRules))
       {
@@ -319,12 +319,12 @@ int HomeCtl::lightRuleApply(const char* key, json_t* jRule, const LightRuleEvent
       return done;
 
    std::vector<std::string> targets;
-   json_t* jTargets {getObjectFromJson(jRule, "targets")};
+   const json_t* jTargets {getObjectFromJson(jRule, "targets")};
 
    if (jTargets && json_is_array(jTargets))
    {
       size_t index {0};
-      json_t* jTarget {};
+      const json_t* jTarget {};
 
       json_array_foreach(jTargets, index, jTarget)
          if (json_is_string(jTarget))

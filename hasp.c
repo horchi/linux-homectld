@@ -278,12 +278,12 @@ std::vector<int> HomeCtl::haspLayoutOf(const char* opts, int rows, int cols)
 {
    std::vector<int> layout;
    json_t* jOpts {isEmpty(opts) ? nullptr : jsonLoad(opts, 0, true)};
-   json_t* jLayout {jOpts ? json_object_get(jOpts, "layout") : nullptr};
+   const json_t* jLayout {jOpts ? json_object_get(jOpts, "layout") : nullptr};
 
    if (jLayout && json_is_array(jLayout))
    {
       size_t index {0};
-      json_t* jCols {};
+      const json_t* jCols {};
 
       json_array_foreach(jLayout, index, jCols)
       {
@@ -892,9 +892,9 @@ int HomeCtl::storeHaspPages(json_t* obj, long client)
 
    if (action == "order")
    {
-      json_t* jOrder {getObjectFromJson(obj, "order")};
+      const json_t* jOrder {getObjectFromJson(obj, "order")};
       size_t index {0};
-      json_t* jId {};
+      const json_t* jId {};
 
       json_array_foreach(jOrder, index, jId)
       {
@@ -945,12 +945,12 @@ int HomeCtl::storeHaspPages(json_t* obj, long client)
          // layout: columns per row
 
          std::vector<int> layout;
-         json_t* jLayout {getObjectFromJson(jPage, "layout")};
+         const json_t* jLayout {getObjectFromJson(jPage, "layout")};
 
          if (jLayout && json_is_array(jLayout))
          {
             size_t index {0};
-            json_t* jCols {};
+            const json_t* jCols {};
 
             json_array_foreach(jLayout, index, jCols)
             {
@@ -1037,7 +1037,7 @@ int HomeCtl::storeHaspPages(json_t* obj, long client)
             }
 
             long address {strtol(tuple[1].c_str(), nullptr, 0)};
-            json_t* jOptsIn {getObjectFromJson(jWidget, "opts")};
+            const json_t* jOptsIn {getObjectFromJson(jWidget, "opts")};
             json_t* jWidgetOpts {};
 
             // the complete options come from the WEBIF (dialog), seeded there once from the
@@ -1791,7 +1791,7 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
 
          // crit limits as red marks (-1 / unset = off)
 
-         const char* critKeys[2] {"critmin", "critmax"};
+         const char* const critKeys[2] {"critmin", "critmax"};
 
          for (int i = 0; i < 2; i++)
          {
@@ -1978,8 +1978,8 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
          // the choices of the valuefact as button matrix, the current value is the checked
          // button (one_check), a touch sends the choice like the dashboard choice widget
 
-         auto tuple = split(key, ':');
-         std::string type {tuple[0]};
+         auto tuple {split(key, ':')};
+         const std::string& type {tuple[0]};
          uint address {tuple.size() > 1 ? (uint)strtoul(tuple[1].c_str(), nullptr, 0) : 0};
 
          if (sensors.count(type) && sensors[type].count(address))
@@ -2319,7 +2319,7 @@ int HomeCtl::haspPublishAllValues()
 
    if (!haspDateLabels.empty())
    {
-      static const char* weekdays[] { "Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag" };
+      static const char* const weekdays[] { "Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag" };
       time_t now {time(0)};
       const tm* t {localtime(&now)};
       char date[60];
@@ -2405,7 +2405,7 @@ int HomeCtl::haspDispatchState(const char* topic, const char* message)
          if (tuple.size() < 2)
             return fail;
 
-         std::string type {tuple[0]};
+         const std::string& type {tuple[0]};
          uint address {(uint)strtoul(tuple[1].c_str(), nullptr, 0)};
 
          // Choice: the selected text to the command topic (like the dashboard choice widget sends

@@ -263,7 +263,7 @@ int HomeCtl::homeMatic2Json(json_t* obj)
    if (homeMaticServiceDevices)
    {
       size_t index {0};
-      json_t* jDev {};
+      const json_t* jDev {};
 
       json_array_foreach(homeMaticServiceDevices, index, jDev)
       {

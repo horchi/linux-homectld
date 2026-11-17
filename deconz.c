@@ -202,7 +202,7 @@ int Deconz::initDevices()
 // Process Devices
 //***************************************************************************
 
-int Deconz::processDevices(json_t* jData, std::string kind)
+int Deconz::processDevices(json_t* jData, const std::string& kind)
 {
    const char* sid {};   // sensor id
    json_t* jItem {};
@@ -889,7 +889,7 @@ std::string Deconz::resultError(json_t* jArray)
       return "";
 
    size_t i {0};
-   json_t* jItem {};
+   const json_t* jItem {};
 
    json_array_foreach(jArray, i, jItem)
    {

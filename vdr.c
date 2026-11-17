@@ -245,7 +245,7 @@ static bool interfaceFor(const in_addr& addr, std::string& ifName, in_addr& bcas
    if (getifaddrs(&ifaddr) == -1)
       return false;
 
-   for (ifaddrs* ifa = ifaddr; ifa; ifa = ifa->ifa_next)
+   for (const ifaddrs* ifa = ifaddr; ifa; ifa = ifa->ifa_next)
    {
       if (!ifa->ifa_addr || !ifa->ifa_netmask || ifa->ifa_addr->sa_family != AF_INET)
          continue;

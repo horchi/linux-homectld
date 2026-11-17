@@ -113,8 +113,8 @@ class cDbValue : public cDbService
 
       void setNull()
       {
-         int c = changed;
-         int n = nullValue;
+         int c {changed};
+         const bool n {nullValue != 0};
 
          clear();
          changed = c;
@@ -545,7 +545,7 @@ class cDbStatements
       ~cDbStatements() {}
 
       void append(cDbStatement* s)  { statements.push_back(s); }
-      void remove(cDbStatement* s)  { statements.remove(s); }
+      void remove(const cDbStatement* s)  { std::erase(statements, s); }
 
       void showStat(const char* name)
       {

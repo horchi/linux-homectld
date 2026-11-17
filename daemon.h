@@ -295,7 +295,7 @@ class HomeCtl : public cWebInterface, public Service
       static json_t* loadWidgetDefaultsFile(const char* file, bool user);
       json_t* findWidgetDefaultProperty(const char* type, const char* unit, int address);
       const char* findWidgetDefaultSymbol(const char* type, const char* usrTitle, const char* unit, bool on);
-      int widgetDefaults2Json(json_t* jDefaults, std::string type, std::string unit, const char* usrTitle, int address = 0);
+      int widgetDefaults2Json(json_t* jDefaults, const std::string& type, const std::string& unit, const char* usrTitle, int address = 0);
 
       json_t* findValueType(const char* type);
       const char* getTitleOfType(const char* type);
@@ -308,10 +308,10 @@ class HomeCtl : public cWebInterface, public Service
       virtual int readConfiguration(bool initial);
       virtual int applyConfigurationSpecials();
 
-      int initSensorByFact(myString type, uint address);
+      int initSensorByFact(const myString& type, uint address);
       int initGpioLine(uint physPin, const PinInfo& pinInfo);
-      int cfgOutput(myString type, uint pin, json_t* jCal = nullptr);
-      int cfgInput(myString type, uint pin, json_t* jCal = nullptr);
+      int cfgOutput(const myString& type, uint pin, json_t* jCal = nullptr);
+      int cfgInput(const myString& type, uint pin, json_t* jCal = nullptr);
 
       int initScripts();
 
@@ -330,7 +330,7 @@ class HomeCtl : public cWebInterface, public Service
 
       void sensorAlertCheck(time_t now);
       int performAlertCheck(cDbRow* alertRow, time_t now, int recurse = 0, int force = no);
-      int add2AlertMail(cDbRow* alertRow, const char* title, double value, const char* unit);
+      int add2AlertMail(const cDbRow* alertRow, const char* title, double value, const char* unit);
       int sendAlertMail(const char* to);
 
       virtual int process(bool force = false, bool signal = false);
@@ -406,7 +406,7 @@ class HomeCtl : public cWebInterface, public Service
       bool checkRights(long client, Event event, json_t* oObject);
       virtual bool onCheckRights(long client, Event event, uint rights) { return false; }
       int callScript(int addr, const char* command);
-      int switchCommand(std::string type, int addr, std::string action, const char* topic, const char* value = nullptr);
+      int switchCommand(const std::string& type, int addr, const std::string& action, const char* topic, const char* value = nullptr);
 
       static bool isInTimeRange(const std::vector<Range>* ranges, time_t t);
 
@@ -417,10 +417,8 @@ class HomeCtl : public cWebInterface, public Service
       int store(time_t now, const SensorData* sensor);
       int storePeaks(time_t now, const SensorData* sensor);
 
-      cDbRow* valueFactRowOf(std::string type, uint addr);
+      cDbRow* valueFactRowOf(const std::string& type, uint addr);
       SensorData* getSensor(const char* type, int addr);
-      // void setSpecialValue(uint addr, double value, const std::string& text = "");
-      // void publishSpecialValue(int addr);
 
       int performMqttRequests();
       int mqttCheckConnection();

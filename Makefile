@@ -350,6 +350,15 @@ activate: install
 cppchk:
 	cppcheck --enable=all $(CPPCHECK_SUPPRESS) --library=contrib/cppcheck.cfg $(DEFINES) --language=c++ --template="{file}:{line}:1 {severity}:{id}:{message}" --quiet --force --std=c++23 *.c
 
+# clang-tidy (checks in .clang-tidy), compiler flags without the GCC only ones and the dependency files
+#   one line per finding, the findings in headers only once (they are reported by each including file)
+
+TIDY_CFLAGS  = $(filter-out -MMD -MP -pipe -Wno-psabi -Wlogical-op -Wduplicated-cond -Wduplicated-branches,$(CFLAGS))
+
+tidychk:
+	@ls *.c | xargs -P4 -I{} clang-tidy --quiet {} -- $(TIDY_CFLAGS) $(DEFINES) 2>&1 \
+		| grep -E ': (warning|error):' | sed -E 's|^.*homectld/||' | sort -u -t: -k1,1 -k2,2n
+
 upload:
 	avrdude -q -V -p atmega328p -D -c arduino -b 57600 -P $(AVR_DEVICE) -U flash:w:arduino/build-nano-atmega328/ioctrl.hex:i
 

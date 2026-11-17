@@ -459,7 +459,7 @@ int HomeCtl::zigbeeDeviceMacs(std::set<std::string>& macs)
    }
 
    size_t i {};
-   json_t* jMac {};
+   const json_t* jMac {};
 
    json_array_foreach(jData, i, jMac)
    {
@@ -680,7 +680,7 @@ int HomeCtl::zigbeeCheckNew()
 
          if (deconz.rest("GET", path, nullptr, jRes) == success && json_is_object(jRes))
          {
-            if (zigbeeAdded(resource, id, jRes) == success)
+            if (zigbeeAdded(resource, id, jRes) == success) // cppcheck-suppress knownConditionTrueFalse
                count++;
          }
          else

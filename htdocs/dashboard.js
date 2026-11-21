@@ -2798,8 +2798,8 @@ function sensorInfoDialog(key, widget)
    let updBefore = prettyDuration(Math.round((now - (daemonState.timeOffset || 0) * 1000 - lastUpd)/1000));
    let changedAt = new Date(sensor.changedAt * 1000);
    let chgBefore = prettyDuration(Math.round((now - (daemonState.timeOffset || 0) * 1000 - changedAt)/1000));
-   let peakMaxTime = new Date(sensor.peakmaxtime * 1000);
-   let peakMinTime = new Date(sensor.peakmintime * 1000);
+   let peakMaxTime = sensor.peakmaxtime ? new Date(sensor.peakmaxtime * 1000).toLocaleString('de-DE') : '';
+   let peakMinTime = sensor.peakmintime ? new Date(sensor.peakmintime * 1000).toLocaleString('de-DE') : '';
    let form = document.createElement("div");
 
    // time control (ranges of the outputs / actors) -> tab 'Regeln'
@@ -2963,7 +2963,7 @@ function sensorInfoDialog(key, widget)
                                           .append($('<span></span>')
                                                   .css('font-size', 'smaller')
                                                   .css('color', '#3d3737')
-                                                  .html(peakMinTime.toLocaleString('de-DE')))
+                                                  .html(peakMinTime))
                                          )))
                   .append($('<div></div>')
                           .css('display', !isNil(sensor.peakmax) ? 'flex' : 'none')
@@ -2981,7 +2981,7 @@ function sensorInfoDialog(key, widget)
                                           .append($('<span></span>')
                                                   .css('font-size', 'smaller')
                                                   .css('color', '#3d3737')
-                                                  .html(peakMaxTime.toLocaleString('de-DE')))
+                                                  .html(peakMaxTime))
                                          )))
                   .append($('<div></div>')
                           .css('display', 'flex')
@@ -3455,6 +3455,10 @@ function updateWidget(sensor, refresh, widget)
          if (!widget.range)
             widget.range = 1;
          prepareChartRequest(jsonRequest, toKey(fact.type, fact.address), 0, widget.range, widget.widgettype == 13 ? "chartwidgetbar" : "chartwidget");
+         if (widget.widgettype == 13) {
+            jsonRequest["barunit"] = widget.barunit || 'month';
+            jsonRequest["baragg"] = widget.baragg || 'avg';
+         }
          socket.send({ "event" : "chartdata", "object" : jsonRequest });
       }
    }
@@ -3945,8 +3949,7 @@ function requestChartDialogData()
    // der Sensor muss nicht selbst als Widget auf dem Dashboard liegen
    // (z.B. data-chart eines HTML Widgets) -> dann Default 1 Tag
 
-   let widget = dashboards[actDashboard].widgets[chartDialogKey];
-   let range = parseFloat(widget && widget.range) || 1;
+   let range = chartDialogRange();
    let start = 0;    // 0 -> der Server nimmt 'jetzt - range'
 
    if (chartDialogDayOffset > 0)
@@ -3959,6 +3962,14 @@ function requestChartDialogData()
    updateChartDialogRange(start, range);
 }
 
+// der angezeigte Zeitraum in Tagen (Einstellung 'Chart Bereich' des Widgets, sonst 1 Tag)
+
+function chartDialogRange()
+{
+   let widget = dashboards[actDashboard].widgets[chartDialogKey];
+   return parseFloat(widget && widget.range) || 1;
+}
+
 function chartDialogPage(direction)
 {
    if (chartDialogKey == "")
@@ -3966,8 +3977,8 @@ function chartDialogPage(direction)
 
    if (direction == 0)                    // zurück zum aktuellen Zeitraum
       chartDialogDayOffset = 0;
-   else
-      chartDialogDayOffset = Math.max(0, chartDialogDayOffset - direction);
+   else                                   // um den angezeigten Zeitraum blättern
+      chartDialogDayOffset = Math.max(0, chartDialogDayOffset - direction * chartDialogRange());
 
    requestChartDialogData();
 }
@@ -3977,9 +3988,15 @@ function updateChartDialogRange(start, range)
    let to = start == 0 ? new Date() : new Date(start.getTime() + range*24*60*60*1000);
    let from = start == 0 ? new Date(to.getTime() - range*24*60*60*1000) : start;
    let format = { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' };
+   let thisYear = new Date().getFullYear();
 
-   $("#chartDialogRange").html(from.toLocaleString([], format) + ' &ndash; ' + to.toLocaleString([], format)
-                               + (chartDialogDayOffset == 0 ? ' &bull; aktuell' : ''));
+   // the year only if the range is not (completely) in the current year
+
+   if (from.getFullYear() != thisYear || to.getFullYear() != thisYear)
+      format.year = 'numeric';
+
+   $("#chartDialogRange").html(from.toLocaleString([], format) + ' &ndash; '
+                               + (chartDialogDayOffset == 0 ? 'jetzt' : to.toLocaleString([], format)));
    $("#chartDialogNext").prop('disabled', chartDialogDayOffset == 0);
 }
 

@@ -432,15 +432,44 @@ function widgetSetup(key, hasp)
                   .append($('<div></div>')
                           .attr('id', 'divRange')
                           .append($('<span></span>')
-                                  .html('Chart Bereich'))
+                                  .html('Chart Bereich (Tage)'))
                           .append($('<span></span>')
                                   .append($('<input></input>')
                                           .addClass('rounded-border inputSetting')
-                                          .attr('title', 'Tage')
+                                          .attr('title', 'Zeitraum des Charts in Tagen, z. B. 30 oder 365 (Balken: auf ganze Balken gerundet, der laufende ist der letzte)')
                                           .attr('id', 'range')
                                           .attr('type', 'number')
                                           .attr('step', '0.5')
                                           .val(widget.range)
+                                         )))
+                  .append($('<div></div>')
+                          .attr('id', 'divBarUnit')
+                          .append($('<span></span>')
+                                  .html('Ein Balken je'))
+                          .append($('<span></span>')
+                                  .append($('<select></select>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'barunit')
+                                          .append($('<option></option>').val('hour').html('Stunde'))
+                                          .append($('<option></option>').val('day').html('Tag'))
+                                          .append($('<option></option>').val('week').html('Woche'))
+                                          .append($('<option></option>').val('month').html('Monat'))
+                                          .val(widget.barunit || 'month')
+                                         )))
+                  .append($('<div></div>')
+                          .attr('id', 'divBarAgg')
+                          .append($('<span></span>')
+                                  .html('Balkenwert'))
+                          .append($('<span></span>')
+                                  .append($('<select></select>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'baragg')
+                                          .attr('title', 'Summe der Tagesendwerte: für Zähler, die über den Tag wachsen und um Mitternacht neu beginnen (z. B. Heizminuten oder kWh pro Tag)')
+                                          .append($('<option></option>').val('avg').html('Durchschnitt'))
+                                          .append($('<option></option>').val('max').html('Maximum'))
+                                          .append($('<option></option>').val('daymax').html('Summe der Tagesendwerte (Tageszähler)'))
+                                          .val(widget.baragg || 'avg')
+                                          .change(function() { barAggChanged(); })
                                          )))
                   .append($('<div></div>')
                           .append($('<span></span>')
@@ -492,6 +521,8 @@ function widgetSetup(key, hasp)
       $("#divMinutes").css("display", [17].includes(wType) ? 'flex' : 'none');
       $("#divSteps").css("display", [17].includes(wType) ? 'flex' : 'none');
       $("#divRange").css("display", [1,5,6,13].includes(wType) ? 'flex' : 'none');
+      $("#divBarUnit, #divBarAgg").css("display", [13].includes(wType) ? 'flex' : 'none');
+      barAggChanged();
       $("#divHtml").css("display", [18].includes(wType) && !hasp ? 'contents' : 'none');
 
       if (wType == 18 && !hasp)
@@ -532,7 +563,7 @@ function widgetSetup(key, hasp)
          // settings without meaning for the HASP panel
 
          ['#divRescale', '#divScalestep', ...(wType == 16 ? [] : ['#divBarWidth']), '#divImgon', '#divImgoff', '#divPeak', '#divPeakMin', '#divShowValue',
-          '#divLinefeed', '#divButtons', '#divRange', '#divColorCondition'].forEach(function(id) { $(id).css('display', 'none'); });
+          '#divLinefeed', '#divButtons', '#divRange', '#divBarUnit', '#divBarAgg', '#divColorCondition'].forEach(function(id) { $(id).css('display', 'none'); });
          $('#widthfactor, #heightfactor').parent().parent().css('display', 'none');   // the rows 'Breite' and 'Höhe'
       }
 
@@ -745,6 +776,8 @@ function widgetSetup(key, hasp)
             widget.widthfactor = $("#widthfactor").val();
             widget.heightfactor = $("#heightfactor").val();
             widget.range = $("#range").val();
+            widget.barunit = $("#barunit").val();
+            widget.baragg = $("#baragg").val();
 
             if (widget.widgettype == 18)
                htmlWidgetSetupStore(widget);
@@ -783,6 +816,8 @@ function widgetSetup(key, hasp)
             widget.widthfactor = $("#widthfactor").val();
             widget.heightfactor = $("#heightfactor").val();
             widget.range = $("#range").val();
+            widget.barunit = $("#barunit").val();
+            widget.baragg = $("#baragg").val();
 
             var json = {};
 
@@ -830,6 +865,10 @@ function widgetSetup(key, hasp)
             json[key]["widthfactor"] = parseFloat($("#widthfactor").val());
             json[key]["heightfactor"] = parseFloat($("#heightfactor").val());
             json[key]["range"] = parseFloat($("#range").val());
+            if ($("#barunit").length)
+               json[key]["barunit"] = $("#barunit").val();
+            if ($("#baragg").length)
+               json[key]["baragg"] = $("#baragg").val();
             json[key]["widgettype"] = parseInt($("#widgettype").val());
             json[key]["rescale"] = $("#rescale").is(':checked');
             json[key]["showpeak"] = $("#peak").is(':checked');
@@ -1018,4 +1057,18 @@ function dashboardSetup(did)
 
       close: function() { $(this).dialog('destroy').remove(); }
    });
+}
+
+//***************************************************************************
+// Bar Chart Widget - the sum of the day values needs bars of at least a day
+//***************************************************************************
+
+function barAggChanged()
+{
+   let dayMax = $('#baragg').val() == 'daymax';
+
+   $('#barunit option[value="hour"]').prop('disabled', dayMax);
+
+   if (dayMax && $('#barunit').val() == 'hour')
+      $('#barunit').val('day');
 }

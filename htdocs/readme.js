@@ -79,13 +79,7 @@ async function loadAndRenderReadme(file = 'README.md', anchor = null)
 
         readmeFile = file;
 
-        // give the headings ids (slug of the text) so links and the help buttons can jump to them
-
-        container.querySelectorAll('h1, h2, h3, h4').forEach(function(h) {
-            if (!h.id)
-                h.id = h.textContent.trim().toLowerCase().replace(/[^a-z0-9äöüß]+/g, '-').replace(/^-+|-+$/g, '');
-        });
-
+        readmeHeadingIds(container);
         readmeLinks(container, file);
 
         if (anchor) {
@@ -109,10 +103,21 @@ async function loadAndRenderReadme(file = 'README.md', anchor = null)
     }
 }
 
+// give the headings ids (slug of the text) so links and the help buttons can jump to them
+
+function readmeHeadingIds(container)
+{
+    container.querySelectorAll('h1, h2, h3, h4').forEach(function(h) {
+        if (!h.id)
+            h.id = h.textContent.trim().toLowerCase().replace(/[^a-z0-9äöüß]+/g, '-').replace(/^-+|-+$/g, '');
+    });
+}
+
 // images and links of the markdown: files of the repository are opened in the viewer (images full size in a
 //   new tab), anchors scroll in the page; absolute links (/...) are opened at GitHub
+//   openFile(path, anchor): how a linked file of the repository is opened (the help dialog opens the viewer)
 
-function readmeLinks(container, file)
+function readmeLinks(container, file, openFile = loadAndRenderReadme)
 {
     // images relative to the markdown file (e.g. 'img/x.jpg' in doc/*.md)
 
@@ -158,8 +163,122 @@ function readmeLinks(container, file)
         else {
             a.addEventListener('click', function(event) {
                 event.preventDefault();
-                loadAndRenderReadme(path, anchor);
+                openFile(path, anchor);
             });
+        }
+    });
+}
+
+// the section of a rendered markdown starting at the anchor (an id of a heading or an <a id="..."> in front of it):
+//   the heading and everything up to the next heading of the same or a higher level, of a h1 only the
+//   introduction up to the next heading; null if the anchor isn't found
+
+function readmeSection(container, anchor)
+{
+    let node = anchor ? Array.from(container.querySelectorAll('[id]')).find(function(e) { return e.id == anchor; }) : null;
+
+    if (!node)
+        return null;
+
+    while (node.parentNode != container)              // <a id> is wrapped in a <p>
+        node = node.parentNode;
+
+    while (node && !/^H[1-6]$/.test(node.nodeName))   // the heading following the <a id>
+        node = node.nextElementSibling;
+
+    if (!node)
+        return null;
+
+    const level = parseInt(node.nodeName[1]);
+    let section = [node];
+
+    for (let n = node.nextElementSibling; n; n = n.nextElementSibling) {
+        if (/^H[1-6]$/.test(n.nodeName) && (level == 1 || parseInt(n.nodeName[1]) <= level))
+            break;
+        section.push(n);
+    }
+
+    return section;
+}
+
+// the explanation of a setting in a dialog: the section of the help page 'target' ('<file>#<anchor>'),
+//   the paragraphs / list entries naming one of 'terms' (name and title of the setting) are highlighted
+
+async function showHelpDialog(target, title, terms = [])
+{
+    let [file, anchor] = target.split('#');
+    let box = $('<div></div>').addClass('markdown-body helpDialog');
+
+    try {
+        const response = await fetch(readmeUrl(file), { cache: 'no-store' });
+
+        if (!response.ok)
+            throw new Error(`Server lieferte HTTP-Status ${response.status} für '${file}'`);
+
+        let doc = document.createElement('div');
+        doc.innerHTML = window.marked.parse(await response.text());
+        readmeHeadingIds(doc);
+
+        let section = readmeSection(doc, anchor) || Array.from(doc.children);
+        section.forEach(function(n) { box.append(n); });
+
+        readmeLinks(box[0], file, function(path, anchor) {
+            box.dialog('close');
+            showHelp(anchor ? path + '#' + anchor : path);
+        });
+
+        terms = terms.filter(function(t) { return t && t.length >= 3; })
+           .map(function(t) { return t.toLowerCase(); });
+
+        // first the entries naming a term as code (`interval`, exact), else the ones containing it in the text
+        //   (short names like 'mail' are part of many entries)
+
+        let candidates = box.find('p, li, td').toArray();
+
+        let matches = candidates.filter(function(el) {
+           return $(el).find('code').toArray().some(function(c) { return terms.includes(c.textContent.trim().toLowerCase()); });
+        });
+
+        if (!matches.length)
+           matches = candidates.filter(function(el) {
+              let text = el.textContent.toLowerCase().replace(/\s+/g, ' ');
+              return terms.some(function(t) { return text.includes(t); });
+           });
+
+        // only the innermost (a list entry, not the list entry around its sub list)
+
+        matches.filter(function(el) { return !matches.some(function(o) { return o !== el && el.contains(o); }); })
+           .forEach(function(el) { $(el).addClass('helpMatch'); });
+    }
+    catch (error) {
+        console.error('Fehler beim Laden von ' + file + ':', error);
+        box.text('Fehler beim Laden der Dokumentation: ' + error.message);
+    }
+
+    box.dialog({
+        modal: true,
+        resizable: false,
+        closeOnEscape: true,
+        hide: 'fade',
+        width: Math.min(900, window.innerWidth * 0.95),
+        maxHeight: window.innerHeight * 0.85,
+        title: title,
+        open: function() {
+            let first = box.find('.helpMatch').first();
+            if (first.length)
+                box.scrollTop(first.position().top + box.scrollTop() - 40);
+        },
+        buttons: {
+            'In der Hilfe öffnen': function() {
+                $(this).dialog('close');
+                showHelp(target);
+            },
+            'Schließen': function() {
+                $(this).dialog('close');
+            }
+        },
+        close: function() {
+            $(this).dialog('destroy').remove();
         }
     });
 }

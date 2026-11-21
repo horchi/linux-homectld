@@ -49,6 +49,24 @@ extern const char* confDir;
 extern const char* daemonVersion;     // VERSION of HISTORY.h - defined in main.c, so a version bump rebuilds main.o only
 
 //***************************************************************************
+// Bar Chart Widget - unit of the bars
+//***************************************************************************
+
+enum BarUnit
+{
+   buHour,
+   buDay,
+   buWeek,
+   buMonth,
+
+   barUnitCount
+};
+
+BarUnit toBarUnit(const char* name);           // { hour | day | week | month }, default month
+const char* barUnitExpression(BarUnit unit);   // SQL expression of the bar's start time
+time_t barRangeStart(BarUnit unit, double range);
+
+//***************************************************************************
 // Class HomeCtl
 //***************************************************************************
 
@@ -288,6 +306,8 @@ class HomeCtl : public cWebInterface, public Service
          std::string category {};
          std::string title {};
          std::string description {};
+         std::string help {};          // explanation on the help page '<file>#<anchor>' (the '?' of the setup page),
+                                       //   not stored in the config table, see configDetails2Json()
       };
 
       json_t* jWidgetDefaults {};   // <confDir>/widgetDefaults.json + widgetDefaults-usr.json (merged)
@@ -997,8 +1017,8 @@ class HomeCtl : public cWebInterface, public Service
       cDbStatement* selectSamplesRange {};              // for chart
       cDbStatement* selectSamplesRange60 {};            // for chart
       cDbStatement* selectSamplesRange360 {};           // for chart
-      cDbStatement* selectSamplesRangeMonth {};         // for chart
-      cDbStatement* selectSamplesRangeMonthOfDayMax {}; // for chart
+      cDbStatement* selectSamplesBar[barUnitCount] {};        // for the bar chart widget
+      cDbStatement* selectSamplesBarDayMax[barUnitCount] {}; //   .. sum of the day values (max of the day)
       cDbStatement* selectAllIoStates {};
       cDbStatement* selectSensorAlerts {};
       cDbStatement* selectAllSensorAlerts {};
@@ -1085,7 +1105,6 @@ class HomeCtl : public cWebInterface, public Service
       std::string mqttPassword;
 
       std::string mqttHaDataTopic;                       // for home automation interface
-      std::string mqttHaSendWithKeyPrefix;               // for home automation interface
       bool mqttHaHaveConfigTopic {false};                // for home automation interface
       MqttInterfaceStyle mqttHaInterfaceStyle {misNone}; // for home automation interface
 

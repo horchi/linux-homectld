@@ -72,6 +72,64 @@ HomeCtl::WidgetType HomeCtl::toType(const char* name)
 }
 
 //***************************************************************************
+// Bar Chart Widget - unit of the bars
+//***************************************************************************
+
+BarUnit toBarUnit(const char* name)
+{
+   if (!isEmpty(name))
+   {
+      if (strcmp(name, "hour") == 0) return buHour;
+      if (strcmp(name, "day") == 0)  return buDay;
+      if (strcmp(name, "week") == 0) return buWeek;
+   }
+
+   return buMonth;
+}
+
+const char* barUnitExpression(BarUnit unit)
+{
+   switch (unit)
+   {
+      case buHour: return "date_format(time, '%Y-%m-%dT%H:00')";
+      case buDay:  return "date_format(time, '%Y-%m-%d')";
+      case buWeek: return "date_format(time - interval weekday(time) day, '%Y-%m-%d')";   // monday
+      default:     return "date_format(time, '%Y-%m-01')";
+   }
+}
+
+//***************************************************************************
+// Bar Range Start
+//   the range (days) as a whole number of bars, the current (running) unit is the last one,
+//   e.g. 365 days in months -> the 1st of the month 11 months ago
+//***************************************************************************
+
+time_t barRangeStart(BarUnit unit, double range)
+{
+   static constexpr double unitDays[barUnitCount] {1.0/24, 1, 7, 365.25/12};
+
+   int bars = std::max(1L, std::lround(range / unitDays[unit]));
+   time_t now {time(0)};
+   struct tm tm {};
+
+   localtime_r(&now, &tm);
+   tm.tm_sec = 0;
+   tm.tm_min = 0;
+
+   switch (unit)
+   {
+      case buHour:  tm.tm_hour -= bars-1; break;
+      case buDay:   tm.tm_hour = 0; tm.tm_mday -= bars-1; break;
+      case buWeek:  tm.tm_hour = 0; tm.tm_mday -= (tm.tm_wday + 6) % 7 + 7*(bars-1); break;
+      default:      tm.tm_hour = 0; tm.tm_mday = 1; tm.tm_mon -= bars-1; break;
+   }
+
+   tm.tm_isdst = -1;   // DST auto detect
+
+   return mktime(&tm);
+}
+
+//***************************************************************************
 // Value Types
 //   title and symbol of the sensor groups, 'valueTypes' of the widget defaults: the first entry
 //   whose 'type' (regular expression) matches the sensor type wins
@@ -1675,56 +1733,62 @@ int HomeCtl::initDb()
    status += selectSamplesRange360->prepare();
 
    // ------------------
-   // select samples for chart data
-   // ein sample avg / month
+   // select samples for the bar chart widget, one bar per unit (hour, day, week, month)
+   //  selectSamplesBar:       avg / max of all samples of the bar
+   //  selectSamplesBarDayMax: sum of the day values for counters which grow over the day like
+   //                          'Heizen / Tag' or the kWh of the day; the end value of the day is
+   //                          its maximum - also if the counter of the device resets some minutes
+   //                          before midnight (clock of the boiler), the last sample would be 0 then
+   //
+   // select address, type, date_format(time, '%Y-%m-01'), sum(value) from
+   //   (select address, type, min(time) time, max(value) value from samples
+   //      where address = ? and type = ? and time >= ? and time <= ? group by date(time)) t
+   //   group by date_format(time, '%Y-%m-01') order by min(time);
 
-   selectSamplesRangeMonth = new cDbStatement(tableSamples);
+   for (uint u = 0; u < barUnitCount; u++)
+   {
+      const char* expr = barUnitExpression((BarUnit)u);
 
-   selectSamplesRangeMonth->build("select ");
-   selectSamplesRangeMonth->bind("ADDRESS", cDBS::bndOut);
-   selectSamplesRangeMonth->bind("TYPE", cDBS::bndOut, ", ");
-   selectSamplesRangeMonth->bindTextFree("date_format(time, '%Y-%m')", &xmlTime, ", ", cDBS::bndOut);
-   selectSamplesRangeMonth->bindTextFree("avg(value)", &avgValue, ", ", cDBS::bndOut);
-   selectSamplesRangeMonth->bindTextFree("max(value)", &maxValue, ", ", cDBS::bndOut);
-   selectSamplesRangeMonth->build(" from %s where ", tableSamples->TableName());
-   selectSamplesRangeMonth->bind("ADDRESS", cDBS::bndIn | cDBS::bndSet);
-   selectSamplesRangeMonth->bind("TYPE", cDBS::bndIn | cDBS::bndSet, " and ");
-   selectSamplesRangeMonth->bindCmp(0, "TIME", &rangeFrom, ">=", " and ");
-   selectSamplesRangeMonth->bindCmp(0, "TIME", &rangeTo, "<=", " and ");
-   selectSamplesRangeMonth->build(" group by year(time), month(time)");
-   selectSamplesRangeMonth->build(" order by time");
+      selectSamplesBar[u] = new cDbStatement(tableSamples);
 
-   status += selectSamplesRangeMonth->prepare();
+      selectSamplesBar[u]->build("select ");
+      selectSamplesBar[u]->bind("ADDRESS", cDBS::bndOut);
+      selectSamplesBar[u]->bind("TYPE", cDBS::bndOut, ", ");
+      selectSamplesBar[u]->bindTextFree(expr, &xmlTime, ", ", cDBS::bndOut);
+      selectSamplesBar[u]->bindTextFree("avg(value)", &avgValue, ", ", cDBS::bndOut);
+      selectSamplesBar[u]->bindTextFree("max(value)", &maxValue, ", ", cDBS::bndOut);
+      selectSamplesBar[u]->build(" from %s where ", tableSamples->TableName());
+      selectSamplesBar[u]->bind("ADDRESS", cDBS::bndIn | cDBS::bndSet);
+      selectSamplesBar[u]->bind("TYPE", cDBS::bndIn | cDBS::bndSet, " and ");
+      selectSamplesBar[u]->bindCmp(0, "TIME", &rangeFrom, ">=", " and ");
+      selectSamplesBar[u]->bindCmp(0, "TIME", &rangeTo, "<=", " and ");
+      selectSamplesBar[u]->build(" group by %s", expr);
+      selectSamplesBar[u]->build(" order by min(time)");
 
-   // ------------------
-   // ein sample (Summe) pro Monat für den Tages 'max Wert'
+      status += selectSamplesBar[u]->prepare();
 
-   // select date_format(time, '%Y-%m'), sum(value) from samples
-   //  where type = '?' and address = ?
-   //   and time in (select max(time) from samples where
-   //     type = 'GROWATT' and address = 53
-   //    group by year(time), month(time), day(time)) group by year(time), month(time);
+      if (u == buHour)
+         continue;     // the sum of the day values needs at least days
 
-   selectSamplesRangeMonthOfDayMax = new cDbStatement(tableSamples);
+      selectSamplesBarDayMax[u] = new cDbStatement(tableSamples);
 
-   selectSamplesRangeMonthOfDayMax->build("select ");
-   selectSamplesRangeMonthOfDayMax->bind("ADDRESS", cDBS::bndOut);
-   selectSamplesRangeMonthOfDayMax->bind("TYPE", cDBS::bndOut, ", ");
-   selectSamplesRangeMonthOfDayMax->bindTextFree("date_format(time, '%Y-%m')", &xmlTime, ", ", cDBS::bndOut);
-   selectSamplesRangeMonthOfDayMax->bindTextFree("sum(value)", &maxValue, ", ", cDBS::bndOut);
-   selectSamplesRangeMonthOfDayMax->build(" from %s where ", tableSamples->TableName());
-   selectSamplesRangeMonthOfDayMax->bind("ADDRESS", cDBS::bndIn | cDBS::bndSet);
-   selectSamplesRangeMonthOfDayMax->bind("TYPE", cDBS::bndIn | cDBS::bndSet, " and ");
-   selectSamplesRangeMonthOfDayMax->bindCmp(0, "TIME", &rangeFrom, ">=", " and ");
-   selectSamplesRangeMonthOfDayMax->bindCmp(0, "TIME", &rangeTo, "<=", " and ");
-   selectSamplesRangeMonthOfDayMax->build(" and time in (select max(time) from %s where ", tableSamples->TableName());
-   selectSamplesRangeMonthOfDayMax->bind("ADDRESS", cDBS::bndIn | cDBS::bndSet);
-   selectSamplesRangeMonthOfDayMax->bind("TYPE", cDBS::bndIn | cDBS::bndSet, " and ");
-   selectSamplesRangeMonthOfDayMax->build(" group by year(time), month(time), day(time))");
-   selectSamplesRangeMonthOfDayMax->build(" group by year(time), month(time)");
-   selectSamplesRangeMonthOfDayMax->build(" order by time");
+      selectSamplesBarDayMax[u]->build("select ");
+      selectSamplesBarDayMax[u]->bind("ADDRESS", cDBS::bndOut);
+      selectSamplesBarDayMax[u]->bind("TYPE", cDBS::bndOut, ", ");
+      selectSamplesBarDayMax[u]->bindTextFree(expr, &xmlTime, ", ", cDBS::bndOut);
+      selectSamplesBarDayMax[u]->bindTextFree("sum(value)", &maxValue, ", ", cDBS::bndOut);
+      selectSamplesBarDayMax[u]->build(" from (select address, type, min(time) time, max(value) value from %s where ",
+                                       tableSamples->TableName());
+      selectSamplesBarDayMax[u]->bind("ADDRESS", cDBS::bndIn | cDBS::bndSet);
+      selectSamplesBarDayMax[u]->bind("TYPE", cDBS::bndIn | cDBS::bndSet, " and ");
+      selectSamplesBarDayMax[u]->bindCmp(0, "TIME", &rangeFrom, ">=", " and ");
+      selectSamplesBarDayMax[u]->bindCmp(0, "TIME", &rangeTo, "<=", " and ");
+      selectSamplesBarDayMax[u]->build(" group by date(time)) t");
+      selectSamplesBarDayMax[u]->build(" group by %s", expr);
+      selectSamplesBarDayMax[u]->build(" order by min(time)");
 
-   status += selectSamplesRangeMonthOfDayMax->prepare();
+      status += selectSamplesBarDayMax[u]->prepare();
+   }
 
    // ------------------
 
@@ -2540,8 +2604,13 @@ int HomeCtl::exitDb()
    delete selectSamplesRange;      selectSamplesRange = nullptr;
    delete selectSamplesRange60;    selectSamplesRange60 = nullptr;
    delete selectSamplesRange360;   selectSamplesRange360 = nullptr;
-   delete selectSamplesRangeMonth; selectSamplesRangeMonth = nullptr;
-   delete selectSamplesRangeMonthOfDayMax; selectSamplesRangeMonthOfDayMax = nullptr;
+
+   for (uint u = 0; u < barUnitCount; u++)
+   {
+      delete selectSamplesBar[u];        selectSamplesBar[u] = nullptr;
+      delete selectSamplesBarDayMax[u]; selectSamplesBarDayMax[u] = nullptr;
+   }
+
    delete selectSampleInRange;     selectSampleInRange = nullptr;
    delete selectSensorAlerts;      selectSensorAlerts = nullptr;
    delete selectAllIoStates;       selectAllIoStates = nullptr;
@@ -2604,7 +2673,7 @@ int HomeCtl::readConfiguration(bool initial)
    getConfigItem("arduinoInterval", arduinoInterval, arduinoInterval);
    getConfigItem("webPort", webPort, webPort);
    getConfigItem("webUrl", webUrl);
-   getConfigItem("webSsl", webSsl);
+   getConfigItem("webSSL", webSsl);
    getConfigItem("iconSet", iconSet, "light");
    getConfigItem("windyAppSpotID", windyAppSpotID, "5247411");
    getConfigItem("windyAppID", windyAppID, "");
@@ -2768,7 +2837,6 @@ int HomeCtl::readConfiguration(bool initial)
    // Home Automation MQTT
 
    getConfigItem("mqttHaDataTopic", mqttHaDataTopic, INSTANCE "2mqtt/<TYPE>/<NAME>/state");
-   getConfigItem("mqttHaSendWithKeyPrefix", mqttHaSendWithKeyPrefix, "");
    getConfigItem("mqttHaHaveConfigTopic", mqttHaHaveConfigTopic, false);
 
    mqttHaInterfaceStyle = misNone;
@@ -3186,6 +3254,11 @@ int HomeCtl::store(time_t now, const SensorData* sensor)
 
 int HomeCtl::storePeaks(time_t now, const SensorData* sensor)
 {
+   // no min / max for the text sensors (unit 'txt'), their value is e.g. a timestamp
+
+   if (sensor->kind == "text")
+      return done;
+
    tablePeaks->clear();
 
    tablePeaks->setValue("ADDRESS", (long)sensor->address);
@@ -3936,7 +4009,13 @@ int HomeCtl::performAlertCheck(cDbRow* alertRow, time_t now, int recurse, int fo
             tableSensorAlert->update();
          }
 
-         sendAlertMail(tableSensorAlert->getStrValue("MADDRESS"));
+         // 'Mail Benachrichtigung' switches all mails, the test mail (force) is sent anyway
+
+         if (sendMails || force)
+            sendAlertMail(tableSensorAlert->getStrValue("MADDRESS"));
+         else
+            tell(eloInfo, "Info: Alert (%d) '%s' not mailed, mails are switched off (config 'mail')",
+                 id, alertMailSubject.c_str());
       }
    }
 

@@ -141,6 +141,31 @@
    margin-right: 6px;
 }
 
+/* the '?' of an item with an explanation on the help page (dialog: showHelpDialog in readme.js) */
+
+.cfgHelp {
+   margin-left: 6px;
+   font-weight: normal;
+   color: var(--blue);
+   cursor: pointer;
+   opacity: 0.8;
+}
+
+.cfgHelp:hover {
+   opacity: 1;
+}
+
+.helpDialog.markdown-body {
+   padding: 4px 8px;
+}
+
+.helpDialog .helpMatch {
+   background: var(--neutral1);
+   border-left: 3px solid var(--blue);
+   padding-left: 6px;
+   border-radius: 2px;
+}
+
 .cfgName {
    flex-shrink: 0;
    max-width: 45%;

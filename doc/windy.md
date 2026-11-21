@@ -32,7 +32,7 @@ The weather widgets require a free Application ID from **Windy.app**. You do not
 3. Click the button to generate the HTML code.
 4. Extract the hex string found inside the `data-appid` field from the generated code block.
 
-Copy this number and paste it into your configuration (Setup -> WEB Interface -> Windy App Spot ID).
+Copy this ID and paste it into your configuration (Setup -> WEB Interface -> Windy App ID).
 > ⚠️ **Note on the `widgets_` prefix:** If this application automatically prepends `widgets_` to the key in the frontend, you only need to provide the raw 32-character key in your configuration file. Do not include the `widgets_` prefix yourself.
 
 ## How to Find a Specific Windsurf Spot ID

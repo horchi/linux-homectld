@@ -152,9 +152,9 @@
           <span id="chartDialogCurrent" class="chartDialogCurrent"></span>
         </div>
         <div class="chartDialogNavBar">
-          <button id="chartDialogPrev" class="chartDialogBtn" title="Tag zurück (&larr;)" onclick="chartDialogPage(-1)">&#10094;</button>
+          <button id="chartDialogPrev" class="chartDialogBtn" title="Zeitraum zurück (&larr;)" onclick="chartDialogPage(-1)">&#10094;</button>
           <button id="chartDialogRange" class="chartDialogBtn chartDialogRange" title="zurück zum aktuellen Zeitraum" onclick="chartDialogPage(0)"></button>
-          <button id="chartDialogNext" class="chartDialogBtn" title="Tag vor (&rarr;)" onclick="chartDialogPage(1)">&#10095;</button>
+          <button id="chartDialogNext" class="chartDialogBtn" title="Zeitraum vor (&rarr;)" onclick="chartDialogPage(1)">&#10095;</button>
         </div>
         <button class="chartDialogBtn chartDialogClose" title="Schließen (Esc)" onclick="toggleChartDialog('',0)">&#10005;</button>
       </div>

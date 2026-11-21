@@ -2676,41 +2676,29 @@ function drawChartWidget(dataObject)
 
 function drawBarChartWidget(dataObject)
 {
-   // #TODO
-   // Bar chart nur für monatlich implementiert,
-   // hier fehlt noch die Konfiguration (widget.interval) für die Zusammenfassung auf z.B.:
-   // ..., jährlich, monatlich, wöchentlich, täglich, stündlich, ...
-   // nebst passendem 'group by' select seitens des daemon mit Auswahl ob avg oder max verwendet werden soll
-   //  letzteres ist derzeit krude hardcoded
-   // soiwie die Anpassung der Axis im chart hier
+   // one bar per unit (widget.barunit: hour, day, week, month), the value (widget.baragg) is the
+   // average, the maximum or the sum of the day values - selected by the daemon
 
    let root = document.getElementById("container");
    let id = "widget" + dataObject.rows[0].sensor;
+   let widget = dashboards[actDashboard] ? dashboards[actDashboard].widgets[dataObject.rows[0].key] : null;
+   let unit = (widget && widget.barunit) || 'month';
+   let valueUnit = widget && widget.unit ? ' ' + widget.unit : '';
+
+   if (widget && widget.baragg == 'daymax' && unit == 'hour')
+      unit = 'day';
+
+   const timeFormats = {
+      hour:  { display: 'HH:mm',  tooltip: 'dd DD.MM.YYYY HH:mm' },
+      day:   { display: 'DD.MM.', tooltip: 'dd DD.MM.YYYY' },
+      week:  { display: 'DD.MM.', tooltip: '[KW] W, [ab] DD.MM.YYYY' },
+      month: { display: 'MMMM',   tooltip: 'MMMM YYYY' }
+   };
 
    if (widgetCharts[id] != null) {
       widgetCharts[id].destroy();
       widgetCharts[id] = null;
    }
-
-   const _config = {
-      type: 'bar',
-      data: {
-         datasets: []
-      },
-      options: {
-         responsive: true,
-         maintainAspectRatio: false,
-         plugins: {
-            legend: {
-               position: 'top',
-            },
-            title: {
-               display: true,
-               text: 'Chart.js Bar Chart'
-            }
-         }
-      },
-   };
 
    const config = {
       type: "bar",
@@ -2724,15 +2712,24 @@ function drawBarChartWidget(dataObject)
          responsive: true,
          maintainAspectRatio: false,
          aspectRatio: false,
+         tooltips: {
+            callbacks: {
+               label: function(item) {
+                  return Number(item.yLabel).toLocaleString('de-DE', { maximumFractionDigits: 2 }) + valueUnit;
+               }
+            }
+         },
          scales: {
             xAxes: [{
                type: "time",
+               offset: true,
                time: {
-                  unit: 'month',
+                  unit: unit,
                   unitStepSize: 1,
+                  isoWeekday: true,
+                  tooltipFormat: timeFormats[unit].tooltip,
                   displayFormats: {
-                     month: 'MMMM',
-                     day: 'HH'
+                     [unit]: timeFormats[unit].display
                   }},
                gridLines: {
                   display: false,

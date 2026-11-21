@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.71"
-#define VERSION_DATE "17.11.2026"
+#define _VERSION     "0.1.72"
+#define VERSION_DATE "21.11.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,12 @@
 
 /*
  * ------------------------------------
+
+2026-11-21: version 0.1.72
+    - added:  help dialog for the configuration settings
+    - added:  documentation of all configuration settings
+    - change: 'Mail Benachrichtigung' switches all mails
+    - bugfix: config 'webSSL' was not read
 
 2026-11-17: version 0.1.71
     - added: clang-tity code checker

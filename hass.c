@@ -496,12 +496,7 @@ int HomeCtl::jsonAddValue(json_t* obj, SensorData& sensor, bool forceConfig)
 
    // create json
 
-   std::string kType = sensor.type;
-
-   if (!mqttHaSendWithKeyPrefix.empty())
-      kType = mqttHaSendWithKeyPrefix + sensor.type;
-
-   json_object_set_new(oSensor, "type", json_string(kType.c_str()));
+   json_object_set_new(oSensor, "type", json_string(sensor.type.c_str()));
    json_object_set_new(oSensor, "address", json_integer(sensor.address));
    json_object_set_new(oSensor, "unit", json_string(sensor.unit.c_str()));
    json_object_set_new(oSensor, "title", json_string(sensor.title.c_str()));
@@ -523,9 +518,6 @@ int HomeCtl::jsonAddValue(json_t* obj, SensorData& sensor, bool forceConfig)
    if (!isEmpty(image))
       json_object_set_new(oSensor, "image", json_string(image));
    free(key);
-
-   if (!mqttHaSendWithKeyPrefix.empty())
-      return success;
 
    if (mqttHaInterfaceStyle == misSingleTopic)
    {

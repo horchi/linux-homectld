@@ -2440,7 +2440,7 @@ table.tableMultiCol td
     .chartDialogHeader { flex-wrap: wrap; }
     .chartDialogTitle  { flex-basis: calc(100% - 50px); }
     .chartDialogNavBar { order: 3; width: 100%; }
-    .chartDialogRange  { flex: 1; }
+    .chartDialogRange  { flex: 1; min-width: 0; height: auto; min-height: 34px; padding: 3px 6px; line-height: 1.25; white-space: normal; }
 }
 
 .chartHeader

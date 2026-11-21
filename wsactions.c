@@ -1148,7 +1148,7 @@ int HomeCtl::performChartData(json_t* oObject, long client)
    const char* chartSensors {getStringFromJson(oObject, "sensors")};  // Kommata getrennte Liste der Sensoren
    const char* id {getStringFromJson(oObject, "id", "")};
 
-   // the id is one of {"chart" "chartwidget" "chartdialog"}
+   // the id is one of {"chart" "chartwidget" "chartwidgetbar" "chartdialog"}
 
    bool widget {strcmp(id, "chart") != 0};
 
@@ -1177,11 +1177,28 @@ int HomeCtl::performChartData(json_t* oObject, long client)
    json_t* oMain {json_object()};
    json_t* oJson {json_array()};
 
-   if (!rangeStart)
-      rangeStart = time(0) - (range*(int)tmeSecondsPerDay);
+   // bar chart widget: unit of the bars and the aggregation { avg | max | daymax }
 
-   rangeFrom.setValue(rangeStart);
-   rangeTo.setValue(rangeStart + (int)(range*(int)tmeSecondsPerDay));
+   bool bar {strcmp(id, "chartwidgetbar") == 0};
+   BarUnit barUnit {toBarUnit(getStringFromJson(oObject, "barunit", "month"))};
+   std::string barAgg {getStringFromJson(oObject, "baragg", "avg")};
+
+   if (barAgg == "daymax" && barUnit == buHour)
+      barUnit = buDay;                       // the sum of the day values needs at least days
+
+   if (bar)
+   {
+      rangeFrom.setValue(barRangeStart(barUnit, range));   // whole bars, the last one is the running unit
+      rangeTo.setValue(time(0));
+   }
+   else
+   {
+      if (!rangeStart)
+         rangeStart = time(0) - (range*(int)tmeSecondsPerDay);
+
+      rangeFrom.setValue(rangeStart);
+      rangeTo.setValue(rangeStart + (int)(range*(int)tmeSecondsPerDay));
+   }
 
    tell(eloDb, "Db: Selecting chart '%s' data for sensors '%s' from (%lld) to (%lld) with range %.1f",
         id, chartSensors, (long long)rangeFrom.getTimeValue(), (long long)rangeTo.getTimeValue(), range);
@@ -1263,14 +1280,11 @@ int HomeCtl::performChartData(json_t* oObject, long client)
       // which select to be used ..
 
       cDbStatement* select = selectSamplesRange;
-      bool selectSumOfDayMax = strcmp(id, "chartwidgetbar") == 0 && tableValueFacts->hasValue("TYPE", "GROWATT") && tableValueFacts->hasValue("ADDRESS", 53L);
 
-      if (selectSumOfDayMax)
-         select = selectSamplesRangeMonthOfDayMax;
+      if (bar)
+         select = barAgg == "daymax" ? selectSamplesBarDayMax[barUnit] : selectSamplesBar[barUnit];
       else if (strcmp(id, "chartwidget") == 0)
          select = selectSamplesRange60;
-      else if (strcmp(id, "chartwidgetbar") == 0)
-         select = selectSamplesRangeMonth;
       else if (range > 20)
          select = selectSamplesRange360;
       else if (range > 3)
@@ -1296,8 +1310,11 @@ int HomeCtl::performChartData(json_t* oObject, long client)
             json_object_set_new(oRow, "y", json_integer(maxValue.getFloatValue() > 0 ? 1 : 0));
          else if (tableValueFacts->hasValue("TYPE", "GPIO"))
             json_object_set_new(oRow, "y", json_integer(maxValue.getIntValue()*10));  // *10 for 'ditital' to better scale (bad workaround)
-         else if (selectSumOfDayMax)
-            json_object_set_new(oRow, "y", json_real(maxValue.getFloatValue()));
+         else if (bar)
+         {
+            double v = barAgg == "avg" ? avgValue.getFloatValue() : maxValue.getFloatValue();
+            json_object_set_new(oRow, "y", json_real(std::round(v * 100) / 100));   // 2 decimals
+         }
          else
          {
             // double avg = avgValue.getFloatValue();
@@ -2663,6 +2680,14 @@ int HomeCtl::configDetails2Json(json_t* obj)
       json_object_set_new(oDetail, "description", json_string(it.description.c_str()));
       json_object_set_new(oDetail, "value", json_string(it.value.c_str()));
 
+      // the link to the help page is taken from the definition (config.c)
+
+      auto def = std::find_if(configuration.begin(), configuration.end(),
+                              [&it](const ConfigItemDef& d) { return d.name == it.name; });
+
+      if (def != configuration.end() && !def->help.empty())
+         json_object_set_new(oDetail, "help", json_string(def->help.c_str()));
+
       if (it.type == ctChoice || it.type == ctMultiSelect || it.type == ctBitSelect)
          configChoice2json(oDetail, it.name.c_str());
       else if (it.type == ctComboChoice)
@@ -2726,10 +2751,14 @@ int HomeCtl::comboHistoryStore(const char* name, json_t* jHistory)
    std::string key {std::string(name) + "History"};
    char* dump {json_dumps(jHistory, JSON_COMPACT | JSON_ENSURE_ASCII)};
 
+   // kind 'I' (internal): an item of kind 'N' which isn't part of the configuration definition (config.c)
+   //   is removed as obsolete at the start, the suggestions were lost on every restart;
+   //   the kind is also set on update to repair the items stored with 'N' before
+
    if (!configItemExists(key.c_str()))
-      addConfigItem(key.c_str(), ctText, dump, "N", true /*internal*/, "", key.c_str(), "");
+      addConfigItem(key.c_str(), ctText, dump, "I", true /*internal*/, "", key.c_str(), "");
    else
-      setConfigItem(key.c_str(), dump);
+      setConfigItem(key.c_str(), dump, "I");
 
    free(dump);
 
@@ -3550,9 +3579,14 @@ int HomeCtl::sensor2Json(json_t* obj, const char* type, uint address)
    if (tablePeaks->find())
    {
       json_object_set_new(obj, "peakmax", json_real(tablePeaks->getFloatValue("MAX")));
-      json_object_set_new(obj, "peakmaxtime", json_integer(tablePeaks->getTimeValue("TIMEMAX")));
+
+      if (!tablePeaks->isNull("TIMEMAX"))
+         json_object_set_new(obj, "peakmaxtime", json_integer(tablePeaks->getTimeValue("TIMEMAX")));
+
       json_object_set_new(obj, "peakmin", json_real(tablePeaks->getFloatValue("MIN")));
-      json_object_set_new(obj, "peakmintime", json_integer(tablePeaks->getTimeValue("TIMEMIN")));
+
+      if (!tablePeaks->isNull("TIMEMIN"))
+         json_object_set_new(obj, "peakmintime", json_integer(tablePeaks->getTimeValue("TIMEMIN")));
    }
 
    tablePeaks->reset();

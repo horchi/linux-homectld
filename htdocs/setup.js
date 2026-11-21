@@ -96,6 +96,33 @@ function configCategoryIcon(category)
    return configCategoryIcons[category] || 'mdi-tune-variant';
 }
 
+// the '?' button of a config item, null if there is no explanation: 'help' of the item is the section of the
+//   help page ('<file>#<anchor>', defined in config.c), highlighted in the dialog are the name and the title
+//   (without the unit '[..]', also without a prefix like 'Tour: ')
+
+function configHelpButton(item)
+{
+   let target = item.help;
+
+   if (!target)
+      return null;
+
+   let title = $('<div></div>').html(item.title).text().replace(/\s*\[.*?\]\s*/g, ' ').trim();
+   let terms = [item.name, title];
+
+   if (title.includes(': '))
+      terms.push(title.substring(title.indexOf(': ') + 2));
+
+   return $('<span></span>')
+      .addClass('mdi mdi-help-circle-outline cfgHelp')
+      .attr('title', 'Hilfe')
+      .click(function(e) {
+         e.preventDefault();
+         e.stopPropagation();
+         showHelpDialog(target, title, terms);
+      });
+}
+
 function initConfig(configdetails = null)
 {
    if (configdetails)
@@ -220,6 +247,8 @@ function initConfig(configdetails = null)
       }
       else
          title.html(item.title);
+
+      title.append(configHelpButton(item));
 
       if (item.description)
          card.append($('<div></div>').addClass('cfgDesc').text(item.description));

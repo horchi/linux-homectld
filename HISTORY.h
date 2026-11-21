@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.72"
+#define _VERSION     "0.1.73"
 #define VERSION_DATE "21.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,11 @@
 
 /*
  * ------------------------------------
+
+2026-11-21: version 0.1.73
+    - bugfix: make install-dependencies hung (endless recursion)
+    - bugfix: make install-dependencies: apt version check failed with non-English locale
+    - change: installation doc: package list fixed for Ubuntu 26.04
 
 2026-11-21: version 0.1.72
     - added:  help dialog for the configuration settings

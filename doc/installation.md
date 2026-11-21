@@ -116,7 +116,7 @@ Always call it via make, the script `contrib/install-dependencies.sh` gets the s
 
 ```
 apt -y install build-essential libssl-dev libcurl4-openssl-dev uuid-dev libcap-dev libsystemd-dev cmake pkg-config net-tools nodejs zlib1g-dev
-apt -y install libjansson-dev libmariadb-dev liblua5.3-dev mosquitto-clients jq jo bc aptitude util-linux-extra libgpiod2 libgpiod-dev
+apt -y install libjansson-dev libmariadb-dev liblua5.3-dev mosquitto-clients jq jo bc aptitude util-linux-extra libgpiod-dev gpiod libwebsockets-dev git
 ```
 
 ### Bluetooth devices (optional)

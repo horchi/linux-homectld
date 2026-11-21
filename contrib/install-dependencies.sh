@@ -53,7 +53,7 @@ fi
 
 aptVersion()
 {
-   apt-cache policy "$1" 2>/dev/null | sed -n 's/^  Candidate: //p' | sed 's/^\([0-9][0-9.]*\).*/\1/'
+   LC_ALL=C apt-cache policy "$1" 2>/dev/null | sed -n 's/^  Candidate: //p' | sed 's/^\([0-9][0-9.]*\).*/\1/'
 }
 
 # version compare: versionAtLeast <version> <minimum>
@@ -88,7 +88,7 @@ aptInstall()
       APT_UPDATED="yes"
    fi
 
-   aptInstall --no-upgrade ${missing}
+   run apt-get install -y --no-upgrade ${missing}
 }
 
 # --- build tools and libraries (all platforms) ---------------------------

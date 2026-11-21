@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.74"
+#define _VERSION     "0.1.75"
 #define VERSION_DATE "21.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,9 @@
 
 /*
  * ------------------------------------
+
+2026-11-21: version 0.1.75
+    - bugfix: web: login page disappeared again after a reload without login
 
 2026-11-21: version 0.1.74
     - change: installation doc: aptitude removed, libwebsockets note (package or self built)

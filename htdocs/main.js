@@ -908,6 +908,7 @@ function dispatchMessage(message)
          window.location.replace("index.html");
       }
       else {
+         startPage = null;          // the following 'ready' must not switch away from the login page
          currentPage = 'login';
          initLogin();
          if (document.getElementById("confirm"))

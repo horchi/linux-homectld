@@ -116,8 +116,16 @@ Always call it via make, the script `contrib/install-dependencies.sh` gets the s
 
 ```
 apt -y install build-essential libssl-dev libcurl4-openssl-dev uuid-dev libcap-dev libsystemd-dev cmake pkg-config net-tools nodejs zlib1g-dev
-apt -y install libjansson-dev libmariadb-dev liblua5.3-dev mosquitto-clients jq jo bc aptitude util-linux-extra libgpiod-dev gpiod libwebsockets-dev git
+apt -y install libjansson-dev libmariadb-dev liblua5.3-dev mosquitto-clients jq jo bc util-linux-extra libgpiod-dev gpiod git
 ```
+
+libwebsockets (at least version 4.3.0) is needed as well, either the package of the distribution
+```
+apt -y install libwebsockets-dev
+```
+or self built (if the version of the distribution is too old), don't install both. For permessage-deflate
+(compressed websocket traffic) build it with `-DLWS_WITHOUT_EXTENSIONS=OFF`, see
+[Get and install libwebsockets](#get-and-install-libwebsockets).
 
 ### Bluetooth devices (optional)
 

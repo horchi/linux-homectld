@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.73"
+#define _VERSION     "0.1.74"
 #define VERSION_DATE "21.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,9 @@
 
 /*
  * ------------------------------------
+
+2026-11-21: version 0.1.74
+    - change: installation doc: aptitude removed, libwebsockets note (package or self built)
 
 2026-11-21: version 0.1.73
     - bugfix: make install-dependencies hung (endless recursion)

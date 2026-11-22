@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.75"
-#define VERSION_DATE "21.11.2026"
+#define _VERSION     "0.1.76"
+#define VERSION_DATE "22.11.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,9 @@
 
 /*
  * ------------------------------------
+
+2026-11-22: version 0.1.76
+    - bugfix: web: failed login showed no message
 
 2026-11-21: version 0.1.75
     - bugfix: web: login page disappeared again after a reload without login

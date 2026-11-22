@@ -1702,6 +1702,7 @@ function initLogin()
       '    </tr>' +
       '  </table>' +
       '  <button class="rounded-border button1" type="submit">Anmelden</button>' +
+      '  <div id="confirm"></div>' +
       '</form>';
 
    document.getElementById("user").focus();

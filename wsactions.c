@@ -489,7 +489,7 @@ int HomeCtl::performTokenRequest(json_t* oObject, long client)
       }
       else
       {
-         tell(eloWebSock, "Token request for user '%s' failed, wrong password", user);
+         tell(eloAlways, "Warning: Token request for user '%s' failed, wrong password", user);
          json_object_set_new(oJson, "user", json_string(user));
          json_object_set_new(oJson, "rights", json_integer(0));
          json_object_set_new(oJson, "state", json_string("reject"));
@@ -499,7 +499,7 @@ int HomeCtl::performTokenRequest(json_t* oObject, long client)
    }
    else
    {
-      tell(eloWebSock, "Token request for user '%s' failed, unknown user", user);
+      tell(eloAlways, "Warning: Token request for user '%s' failed, unknown user", user);
       json_object_set_new(oJson, "user", json_string(user));
       json_object_set_new(oJson, "rights", json_integer(0));
       json_object_set_new(oJson, "state", json_string("reject"));

@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.76"
+#define _VERSION     "0.1.77"
 #define VERSION_DATE "22.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,9 @@
 
 /*
  * ------------------------------------
+
+2026-11-22: version 0.1.77
+    - change: failed login (wrong password / unknown user) always logged
 
 2026-11-22: version 0.1.76
     - bugfix: web: failed login showed no message

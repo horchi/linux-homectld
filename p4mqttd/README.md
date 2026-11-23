@@ -123,9 +123,15 @@ with the same `rid`:
 |---|---|
 | `{"cmd":"menu","rid":"m1","parent":1}` | the items of one level of the menu with their **current values** (they are read from the control, a level takes a moment). `parent` is the level, 1 is the top. The answer has `items` (`id`, `parent`, `child`, `type`, `address`, `title`, `unit`, `digits`, `value`, `editable`), `parent`, `last` (the level above) and `title` |
 | `{"cmd":"errors","rid":"m3"}` | reads the error list from the control now and publishes it, the answer has the list (`errors`), too |
-| `{"cmd":"initmenu","rid":"m2"}` | reads the menu and the sensor definitions from the control again (takes a while, the answer comes when it is done: `menuItems`, `sensors`), the same as `kill -USR1`, `initsensors` is an alias |
+| `{"cmd":"initall","rid":"m2"}` | reads the menu and the sensor definitions from the control again (takes a while, the answer comes when it is done: `menuItems`, `sensors`), the same as `kill -USR1`, `initsensors` is an alias |
+| `{"cmd":"initmenu","rid":"m4"}` | reads only the menu structure and the in/outputs (P4DO, P4DI, P4AO, they are part of the menu) again |
+| `{"cmd":"initvalues","rid":"m5"}` | reads only the list of the values (P4VA) again |
 
-`status` in the answer is `ok`, `notready` (no communication with the control yet) or `error` (with `message`).
+If reading fails, the lists read before are kept.
+
+`status` in the answer is `ok`, `notready` (no communication with the control, the lists are read at the moment or the
+line is held by another process, the reason in `message`) or `error` (with `message`). Commands are answered at once in
+these cases, `parlist` is answered from the cache even without communication.
 Commands which were retained are ignored. The weekday lists of the time programs ('Zeiten') are part of the
 menu answer: for each weekday a head (an item without value) and four ranges (`range` 1 to 4, `address` is the address of the
 time program of this weekday, `value` is `hh:mm - hh:mm` or `nn:nn - nn:nn` for a range which is not set).
@@ -191,7 +197,7 @@ Retained:
 |---|---|
 | `p4/config` | written by the homectld: `{"pollInterval":60,"stateInterval":10,"tsync":true,"maxTimeLeak":10,"active":{"P4VA":[0,1],"P4DO":[1],"P4DI":[],"P4AO":[]}}`, without `active` all sensors are polled |
 | `p4/cmd`, `p4/reply`, `p4/reply/<name>` | commands to the daemon and its answers (on `p4/reply/<name>` with `replyTo`), not retained, see above |
-| `p4/status` | `{"online":true,"comm":"ok","tty":"/dev/ttyUSB0","lastOk":1788000000,"firmware":"50.04.00.01","version":"p4mqttd 0.9.0","readonly":true,"parallel":false}`, the last will of the connection sets `online` to `false` |
+| `p4/status` | `{"online":true,"comm":"ok","tty":"/dev/ttyUSB0","lastOk":1788000000,"firmware":"50.04.00.01","version":"p4mqttd 0.9.0","readonly":true,"parallel":false,"reason":""}`, the last will of the connection sets `online` to `false`, `reason`: why there is no communication or why commands are answered with `notready` at the moment |
 | `p4/errors` | the error list of the control as it keeps it (oldest first), `{"errors":[{"number":16,"info":163,"state":1,"time":1788000000,"text":"Raumaustragung kontrollieren"},...],"read":1788000100}`, `state` is 1 came, 4 gone, 2 acknowledged. The three entries of one error are merged by the homectld. Read at the start, if the state changes from or to an error state, every 10 minutes and on the command `errors` |
 | `p4/state` | `{"state":3,"stateinfo":"Heizen","mode":1,"modeinfo":"Automatik","time":1788000000,"error":false}` |
 
@@ -252,8 +258,10 @@ and are **not** blocked by the read only mode of the daemon.
   line: the control keeps a position in such a list and a request of another process in between would throw it off
   (the old p4d polls, too). During the first start (about a minute, 1276 menu items on a P4) the p4d waits.
   If reading fails, it is repeated after 5 minutes (or at once with `kill -USR1`), the p4d gets the line in between.
-- `comm` in `p4/status` is not `ok`: the device name (use `/dev/serial/by-id/...`), the rights of the user for the device
-  (`dialout`), another program which has the line open without the semaphore.
+- `comm` in `p4/status` is not `ok`: `reason` tells why. The device name (use `/dev/serial/by-id/...`), the rights of the user for the device
+  (`dialout`), another program which has the line open without the semaphore. A failed request is checked at once
+  with a check request, if the control doesn't answer it the line is reopened.
+- `reason` 'line held by another process': the old p4d or the tool `p4` holds the semaphore longer than 5 seconds.
 - No sensors in the homectld: the service is not switched on there (`p4Enabled`), the MQTT topic differs (`-T`) or the broker.
   `mosquitto_sub -t 'p4/#' -v` tells which side is silent.
 

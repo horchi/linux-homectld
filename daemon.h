@@ -282,7 +282,9 @@ class HomeCtl : public cWebInterface, public Service
          ctBitSelect,
          ctText,
          ctComboChoice,   // text input with the values stored before as suggestions (by label), see comboHistoryAdd()
-         ctStringSet      // list of strings, stored comma separated, see getConfigItem(name, std::vector<std::string>&)
+         ctStringSet,     // list of strings, stored comma separated, see getConfigItem(name, std::vector<std::string>&)
+         ctButton         // no value, a button of the setup page which sends a message to the daemon: the value (taken
+                          //   from the definition) is JSON {"event":"..","object":{..},"confirm":"..","progress":<s>}
       };
 
       // ORD of config items created at runtime (sensor and user defined options),
@@ -407,6 +409,7 @@ class HomeCtl : public cWebInterface, public Service
       int performP4Raw(json_t* obj, long client);
       int p4RawAnswer(long client, const char* tag, const char* error);
       int p4SendCommand(json_t* oCmd, long client, const char* what, int parent, int timeout, const char* rawTag = nullptr);
+      std::string p4OfflineText();
       int p4Answer(long client, const char* error, const char* event = "p4menu");
 
       // dynamic pellet filling of the S 3200 (p4fill.c / p4fill.h)
@@ -1198,6 +1201,11 @@ class HomeCtl : public cWebInterface, public Service
       std::string p4HeatingType {"P4"};                     // picture of the heating (img/p4/type)
       std::string p4PageTitle {"S3200"};                    // name of the page in the main menu
       bool p4Online {false};                                // p4mqttd is running and talks to the control
+      bool p4ServiceSeen {false};                           // a status of p4mqttd arrived (it ran at least once)
+      bool p4ServiceRunning {false};                        //   and it is running ('online' of the status)
+      std::string p4Comm;                                   //   the state of its line ('ok', 'lost', 'closed')
+      std::string p4Reason;                                 //   why there is no communication / it can't execute commands now
+      time_t p4LastOk {0};                                  //   the last successful contact to the control
 
       struct P4Pending                                      // requests to p4mqttd waiting for the answer
       {

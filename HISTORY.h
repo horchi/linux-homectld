@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.77"
-#define VERSION_DATE "22.11.2026"
+#define _VERSION     "0.1.78"
+#define VERSION_DATE "23.11.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,16 @@
 
 /*
  * ------------------------------------
+
+2026-11-23: version 0.1.78
+    - change: p4mqttd: commands answered at once while busy or without connection ('notready' with reason)
+    - change: p4mqttd: status with 'reason', line held by another process detected
+    - change: p4mqttd: lost line detected faster
+    - change: p4mqttd: read menu or values separately (initmenu / initvalues / initall), lists kept on failure
+    - bugfix: p4mqttd: addresses delivered several times by the control polled several times
+    - change: p4mqttd: short name as title if the control has no description (like p4d)
+    - change: S3200: reason shown if p4mqttd is not reachable
+    - added:  config item type ctButton, S3200 read buttons moved from the service menu to the setup
 
 2026-11-22: version 0.1.77
     - change: failed login (wrong password / unknown user) always logged

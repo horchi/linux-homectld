@@ -5994,7 +5994,7 @@ int HomeCtl::initConfigTable()
       tableConfig->setValue("KIND", it.kind.c_str());
       tableConfig->setValue("ORD", ord++);
 
-      if (insert)
+      if (insert || it.type == ctButton)                // a button: its action comes always from the definition
          tableConfig->setValue("VALUE", it.def.c_str());
 
       tableConfig->store();

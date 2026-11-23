@@ -145,6 +145,13 @@ remaining items:
   the heating (state changes, faults).
 - **Zeitsynchronisation bei Abweichung über [s]** (`p4MaxTimeLeak`, default 10): minimal drift of the clock of the
   heating for the time synchronization (*Zeitsynchronisation*).
+- Buttons (need the right *settings*), `p4mqttd` answers no other requests while reading:
+  - **Menü neu lesen**: reads the menu structure of the service menu and the in/outputs (pumps, mixers, ...) from the
+    control again, e.g. after a firmware update (takes some minutes).
+  - **Sensoren neu lesen**: reads the list of the values (temperatures, level, ...) again.
+  - **Zeitprogramme neu lesen**: takes over the time programs of the control (if they were changed there).
+
+  If reading fails, `p4mqttd` keeps the lists read before.
 
 ### Dynamic pellet filling
 

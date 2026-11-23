@@ -197,10 +197,22 @@ int HomeCtl::p4CheckPending()
          tell(eloAlways, "Warning: p4mqttd didn't answer '%s' (%s)", it->second.cmd.c_str(), it->first.c_str());
          if (it->second.fill)
             p4FillTimes[0] = p4FillTimes[1] = -1;        // read them again, the next check does it
-         else if (it->second.raw)
-            p4RawAnswer(it->second.client, it->second.tag.c_str(), "Keine Antwort des Dienstes p4mqttd");
          else
-            p4Answer(it->second.client, "Keine Antwort des Dienstes p4mqttd", it->second.cmd == "errors" ? "p4errors" : "p4menu");
+         {
+            // the last status of the service tells why (if it knows)
+
+            std::string text {"Keine Antwort des Dienstes p4mqttd"};
+
+            if (!p4Online)
+               text += " - " + p4OfflineText();
+            else if (!p4Reason.empty())
+               text += " - " + p4Reason;
+
+            if (it->second.raw)
+               p4RawAnswer(it->second.client, it->second.tag.c_str(), text.c_str());
+            else
+               p4Answer(it->second.client, text.c_str(), it->second.cmd == "errors" ? "p4errors" : "p4menu");
+         }
          it = p4Pending.erase(it);
       }
       else
@@ -262,6 +274,11 @@ int HomeCtl::dispatchP4Mqtt(const char* topic, const char* message)
               getStringFromJson(jMsg, "comm", ""));
 
       p4Online = online;
+      p4ServiceSeen = true;
+      p4ServiceRunning = getBoolFromJson(jMsg, "online", false);
+      p4Comm = getStringFromJson(jMsg, "comm", "");
+      p4Reason = getStringFromJson(jMsg, "reason", "");
+      p4LastOk = getIntFromJson(jMsg, "lastOk", 0);
    }
 
    else if (sub == "state")
@@ -388,10 +405,11 @@ int HomeCtl::dispatchP4Mqtt(const char* topic, const char* message)
                else
                   replyResult(fail, client, "%s", text.empty() ? ("Fehler: " + status).c_str() : text.c_str());
             }
-            else if (cmd == "initmenu")
+            else if (cmd == "initmenu" || cmd == "initvalues" || cmd == "initall")
             {
                if (status == "ok")
-                  replyResult(success, client, "Menü und Sensoren neu gelesen (%d Menüeinträge, %d Sensoren)",
+                  replyResult(success, client, "%s neu gelesen (%d Menüeinträge, %d Sensoren)",
+                              cmd == "initmenu" ? "Menü" : cmd == "initvalues" ? "Sensoren" : "Menü und Sensoren",
                               getIntFromJson(jMsg, "menuItems", 0), getIntFromJson(jMsg, "sensors", 0));
                else
                   replyResult(fail, client, "%s", text.empty() ? ("Fehler: " + status).c_str() : text.c_str());
@@ -404,11 +422,16 @@ int HomeCtl::dispatchP4Mqtt(const char* topic, const char* message)
                   replyResult(fail, client, "%s", text.empty() ? ("Fehler: " + status).c_str() : text.c_str());
             }
 
-            json_t* oMenu {json_object()};
+            // the service menu shows its level again ('parent' 0: from the setup page, nothing to show)
 
-            json_object_set_new(oMenu, "parent", json_integer(pending.parent));
-            performP4Menu(oMenu, client);
-            json_decref(oMenu);
+            if (pending.parent > 0)
+            {
+               json_t* oMenu {json_object()};
+
+               json_object_set_new(oMenu, "parent", json_integer(pending.parent));
+               performP4Menu(oMenu, client);
+               json_decref(oMenu);
+            }
          }
       }
    }
@@ -491,6 +514,30 @@ int HomeCtl::performP4Raw(json_t* obj, long client)
 }
 
 //***************************************************************************
+// P4 Offline Text
+//   why a request can't be sent to the service, from its last status
+//***************************************************************************
+
+std::string HomeCtl::p4OfflineText()
+{
+   std::string text;
+
+   if (!p4ServiceSeen)
+      text = "Vom Dienst p4mqttd liegt kein Status vor (läuft er, stimmt das MQTT Topic '" + p4Topic + "'?)";
+   else if (!p4ServiceRunning)
+      text = "Der Dienst p4mqttd läuft nicht (bzw. hat die Verbindung zum MQTT Broker verloren)";
+   else if (!p4Reason.empty())
+      text = "Der Dienst p4mqttd hat keine Verbindung zur Heizung: " + p4Reason;
+   else
+      text = "Der Dienst p4mqttd hat keine Verbindung zur Heizung";
+
+   if (p4LastOk > 0)
+      text += ", letzter erfolgreicher Kontakt " + l2pTime(p4LastOk, "%d.%m.%Y %H:%M:%S");
+
+   return text;
+}
+
+//***************************************************************************
 // P4 Send Command
 //   to the service, the answer is handled in dispatchP4Mqtt(), takes the reference of oCmd
 //   rawTag: a request of the tab 'Kommandos' (performP4Raw), answered with the event 'p4raw'
@@ -513,7 +560,7 @@ int HomeCtl::p4SendCommand(json_t* oCmd, long client, const char* what, int pare
       return failed("MQTT nicht verbunden");
 
    if (!p4Online)
-      return failed("Der Dienst p4mqttd ist nicht erreichbar oder hat keine Verbindung zur Heizung");
+      return failed(p4OfflineText().c_str());
 
    // the prefix is reserved for the homectld, so the 'rid' of a script can't collide with it
 
@@ -558,8 +605,9 @@ int HomeCtl::p4SendCommand(json_t* oCmd, long client, const char* what, int pare
 //   change is logged with the user:
 //   { "what": "parset",  "address": 480, "value": "72", "parent": 5 }
 //   { "what": "timeset", "address": 3, "range": 1, "value": "06:00 - 22:00", "parent": 5 }
-//   { "what": "initmenu" } | { "what": "inittimes" }      (read again from the control, takes a while)
-//   the result comes as 'result' message followed by the menu level (event 'p4menu')
+//   { "what": "initmenu" | "initvalues" | "initall" | "inittimes" }      (read again from the control, takes a while)
+//   the result comes as 'result' message followed by the menu level (event 'p4menu'), with 'parent' 0
+//   (the buttons of the setup page) only the result
 //***************************************************************************
 
 int HomeCtl::performP4Cmd(json_t* obj, long client)
@@ -592,7 +640,7 @@ int HomeCtl::performP4Cmd(json_t* obj, long client)
       tell(eloAlways, "P4: user '%s' writes '%s' to %s 0x%x%s", user.c_str(), value.c_str(), what.c_str(),
            getIntFromJson(obj, "address", -1), what == "timeset" ? (" range " + std::to_string(getIntFromJson(obj, "range", 0))).c_str() : "");
    }
-   else if (what == "initmenu" || what == "inittimes")
+   else if (what == "initmenu" || what == "initvalues" || what == "initall" || what == "inittimes")
    {
       tell(eloAlways, "P4: user '%s' requests '%s'", user.c_str(), what.c_str());
    }
@@ -606,7 +654,7 @@ int HomeCtl::performP4Cmd(json_t* obj, long client)
 
    // reading the whole menu and sensors takes minutes
 
-   int timeout {what == "initmenu" ? 900 : what == "inittimes" ? 180 : 60};
+   int timeout {what == "initmenu" || what == "initall" ? 900 : what == "initvalues" ? 300 : what == "inittimes" ? 180 : 60};
 
    return p4SendCommand(oCmd, client, what.c_str(), parent, timeout);
 }

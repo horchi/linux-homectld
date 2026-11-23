@@ -705,6 +705,39 @@ class Sem
          return success;
       }
 
+      // ----------------------
+      // get lock, waiting at most timeoutMs
+      //   fail with errno EAGAIN if the lock isn't free in time
+
+      int p(int timeoutMs)
+      {
+         sembuf sops[2];
+         timespec timeout {timeoutMs / 1000, (timeoutMs % 1000) * 1000000L};
+
+         sops[0].sem_num = 0;
+         sops[0].sem_op = 0;                        // wait for lock
+         sops[0].sem_flg = SEM_UNDO;
+
+         sops[1].sem_num = 0;
+         sops[1].sem_op = 1;                        // increment
+         sops[1].sem_flg = SEM_UNDO | IPC_NOWAIT;
+
+         if (semtimedop(id, sops, 2, &timeout) == -1)
+         {
+            int error {errno};
+
+            if (error != EAGAIN && error != EINTR)
+               tell(eloAlways, "Error: Can't lock semaphore '0x%x', errno (%d) '%s'", key, error, strerror(error));
+
+            errno = error == EINTR ? EAGAIN : error;  // interrupted -> just try again
+            return fail;
+         }
+
+         locked = true;
+
+         return success;
+      }
+
       int inc()
       {
          sembuf sops[1];

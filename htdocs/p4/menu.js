@@ -41,7 +41,7 @@ function p4MenuRequest(parent)
 
 function p4Command(what, extra = {})
 {
-   showProgressDialog(what == 'initmenu' ? 900000 : 180000);   // closed when the menu level comes again
+   showProgressDialog(180000);                // closed when the menu level comes again
    socket.send({ 'event': 'p4cmd', 'object': Object.assign({ 'what': what, 'parent': p4Parent }, extra) });
 }
 
@@ -54,8 +54,14 @@ function p4MenuReceived(menu)
 {
    hideProgressDialog();
 
-   if (currentPage != 'p4menu' || p4Tab != 'menu')
+   if (currentPage != 'p4menu' || p4Tab != 'menu') {
+      // an error of a request of another page (the buttons of the setup page, ctButton)
+
+      if (menu.error && currentPage == 'setup')
+         showInfoDialog({ 'status': -1, 'message': menu.error });
+
       return;
+   }
 
    if (menu.error) {
       $('#container').empty().append($('<div></div>').addClass('p4Menu')
@@ -116,23 +122,6 @@ function p4MenuReceived(menu)
 
    if (!(menu.items || []).length)
       $menu.append($('<div></div>').addClass('menuButtonHead rounded-border').text('Keine Einträge'));
-
-   // read again from the control
-
-   if (p4MayWrite() && menu.parent == 1) {
-      $menu.append($('<div></div>').addClass('p4MenuActions')
-                   .append($('<button></button>').addClass('rounded-border button1')
-                           .text('Menü und Sensoren neu lesen')
-                           .attr('title', 'Liest die Menüstruktur und die Sensoren aus der Steuerung (dauert einige Zeit, z. B. nach einem Firmware Update)')
-                           .click(function() {
-                              confirmDialog(function() { p4Command('initmenu'); },
-                                            'Menüstruktur und Sensoren neu aus der Steuerung lesen? Das dauert einige Zeit.', 'Lesen', 'Abbrechen');
-                           }))
-                   .append($('<button></button>').addClass('rounded-border button1')
-                           .text('Zeitprogramme neu lesen')
-                           .attr('title', 'Übernimmt die Zeitprogramme aus der Steuerung (wenn sie dort geändert wurden)')
-                           .click(function() { p4Command('inittimes'); })));
-   }
 
    $('#container').empty().append($menu);
    setupContainerHeight();

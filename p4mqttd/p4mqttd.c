@@ -24,8 +24,11 @@
 //
 //    cmd 'menu'       the items of one level of the service menu with their current values
 //                     (the structure is cached in the cache file, the values are read from the control)
-//    cmd 'initmenu'   (alias 'initsensors') read the menu and the sensor definitions from the control again,
+//    cmd 'initall'    (alias 'initsensors') read the menu and the sensor definitions from the control again,
 //                     takes a while, the reply comes when it is done: {"menuItems":1234,"sensors":87}
+//    cmd 'initmenu'   only the menu structure and the in/outputs (P4DO, P4DI, P4AO, they are part of the menu)
+//    cmd 'initvalues' only the list of the values (P4VA)
+//                     if reading fails, the lists read before are kept
 //
 // Phase 4 (this state): writing, never in the read only mode (-r, -P) and only for the parameters
 // and time ranges of the service menu:
@@ -61,8 +64,11 @@
 //
 //  service -> clients (retained, base topic default 'p4')
 //    <base>/status   {"online":true,"comm":"ok|lost|closed","tty":"/dev/ttyUSB0","lastOk":1788000000,
-//                     "firmware":"50.04.xx.xx","version":"p4mqttd 0.2.0","readonly":false,"parallel":false}
+//                     "firmware":"50.04.xx.xx","version":"p4mqttd 0.2.0","readonly":false,"parallel":false,
+//                     "reason":""}
 //                    (the last will of the connection sets "online":false)
+//                    'reason': why there is no communication (comm != ok) or why commands are answered
+//                    with 'notready' at the moment (the lists are read, the line is held by another process)
 //    <base>/state    {"state":3,"stateinfo":"Heizen","mode":1,"modeinfo":"Automatik","time":1788000000}
 //
 //  homectld -> service (retained)
@@ -93,6 +99,8 @@
 #include <sys/stat.h>
 #include <set>
 #include <deque>
+#include <algorithm>
+#include <iterator>
 #include <jansson.h>
 
 #include "lib/common.h"
@@ -164,6 +172,8 @@ class P4Mqttd
       int serialConnection();
       int busFailed(const char* what);
       void busOk()  { failures = 0; }
+      void serveBusy();
+      void waitBus();
       void lockBus();
       void unlockBus()  { sem->v(); }
 
@@ -186,7 +196,14 @@ class P4Mqttd
 
       // sensors
 
-      int discover();
+      enum DiscoverPart
+      {
+         dpValues = 0x01,                       // the value list (P4VA)
+         dpMenu   = 0x02,                       // the menu with the in/outputs (P4DO, P4DI, P4AO)
+         dpAll    = dpValues | dpMenu
+      };
+
+      int discover(int parts = dpAll);
       int discoverValues();
       int discoverIo();
       void nameIo();
@@ -213,7 +230,7 @@ class P4Mqttd
 
       int dispatchCommands();
       int cmdMenu(json_t* jCmd, json_t* jReply);
-      int cmdInitMenu(json_t* jReply);
+      int cmdInit(json_t* jReply, int parts);
       int menuItemValue(const MenuEntry& m, json_t* jItem, std::string& value);
       int cmdParList(json_t* jReply);
       int cmdParGet(json_t* jCmd, json_t* jReply);
@@ -285,6 +302,10 @@ class P4Mqttd
       std::map<int,Fs::TimeRanges> times;       // the time programs by address (0 - 0xdf)
       bool timesLoaded {false};
       bool sensorsReady {false};
+      std::string busyWith;                     // why commands can't be executed now (a long walk through a list of the
+                                                //  control, the line is held by another process), see serveBusy
+      std::string commReason;                   // why there is no communication with the control (status 'reason')
+      time_t serveBusyAt {0};
       time_t discoverRetryAt {0};               // a failed reading of the lists is repeated not before
       std::string cacheFirmware;
 
@@ -493,7 +514,8 @@ static std::string stateImage(int state, const std::string& iconSet)
 
 static constexpr int maxFailures {5};          // failed transactions in a row -> reopen the line
 static constexpr int maxListItems {20000};     // a list of the control which doesn't end (a menu has about 1300 entries)
-static constexpr int busGapMs {30};            // pause between two transactions (the others get their turn)
+static constexpr int busGapMs {30};
+static constexpr int busyAnnounceDelay {5};    // [s] the line is held by another process this long -> status            // pause between two transactions (the others get their turn)
 static constexpr int discoverRetryDelay {300}; // [s] a failed reading of the lists is repeated after this time
 
 //***************************************************************************
@@ -564,6 +586,12 @@ int P4Mqttd::loop()
 
       if (serialConnection() != success)
       {
+         // the commands are answered anyway ('notready', 'parlist' from the cache), the
+         //  WEBIF of the homectld shouldn't wait for its timeout
+
+         while (!commands.empty())
+            dispatchCommands();
+
          sleep(1);
          continue;
       }
@@ -671,23 +699,85 @@ void P4Mqttd::lockBus()
 {
    byte b {0};
 
-   sem->p();
+   waitBus();
 
    while (serial->look(b, 10) == success)
       tell(eloDebug, "-> 0x%2.2x", b);
 }
 
 //***************************************************************************
+// Wait Bus
+//   takes the semaphore of the line, another process (the old p4d, the tool 'p4') may hold
+//   it for a long time (p4 for its whole run): after a few seconds this is announced in the
+//   status and the commands are answered with 'notready' while waiting
+//***************************************************************************
+
+void P4Mqttd::waitBus()
+{
+   if (sem->p(1000) == success || errno != EAGAIN)
+      return;                                  // free (or no semaphore at all, as sem->p() does)
+
+   time_t since {time(0)};
+   std::string before {busyWith};
+   bool announced {false};
+
+   while (sem->p(1000) != success)
+   {
+      if (errno != EAGAIN)
+         break;
+
+      if (!announced && time(0) - since >= busyAnnounceDelay)
+      {
+         busyWith = "Die Leitung zur Heizung ist seit " + l2pTime(since, "%H:%M:%S") +
+            " durch einen anderen Prozess belegt (alter p4d, Programm p4?)";
+         tell(eloAlways, "Warning: The serial line is held by another process since %d seconds (old p4d, the tool p4?)",
+              (int)(time(0) - since));
+         announced = true;
+         publishStatus(true);
+      }
+
+      if (announced)
+         serveBusy();
+   }
+
+   if (announced)
+   {
+      tell(eloAlways, "Info: The serial line is free again after %d seconds", (int)(time(0) - since));
+      busyWith = before;
+      publishStatus(true);
+   }
+}
+
+//***************************************************************************
 // Bus Failed
-//   a number of failed transactions in a row means the line is gone
+//   a failed transaction may be a single disturbance, but if the control doesn't answer the
+//   check right after it, the line is gone (so it isn't noticed only after maxFailures
+//   transactions, which can take a minute) - also a number of failed transactions in a row
+//   means the line is gone, never call it while holding the bus
 //***************************************************************************
 
 int P4Mqttd::busFailed(const char* what)
 {
-   if (++failures < maxFailures)
-      return fail;
+   if (!commOk)
+      return fail;                             // already noticed
 
-   tell(eloAlways, "Error: %d transactions failed in a row (last: %s), reopen the line", failures, what);
+   if (++failures < maxFailures)
+   {
+      lockBus();
+      int status {request->check()};
+      unlockBus();
+
+      if (status == success)
+         return fail;
+
+      tell(eloAlways, "Error: Reading '%s' failed and the control doesn't answer the check, reopen the line", what);
+      commReason = "Keine Antwort der S 3200 (zuletzt beim Lesen von '" + std::string(what) + "')";
+   }
+   else
+   {
+      tell(eloAlways, "Error: %d transactions failed in a row (last: %s), reopen the line", failures, what);
+      commReason = std::to_string(failures) + " Abfragen in Folge fehlgeschlagen (zuletzt '" + std::string(what) + "')";
+   }
 
    failures = 0;
    commOk = false;
@@ -714,13 +804,19 @@ int P4Mqttd::serialConnection()
 
    serialRetryAt = now + 5;
 
-   sem->p();
+   waitBus();
    serial->close();
 
    if (serial->open(opt.tty.c_str()) != success)
    {
       sem->v();
       tell(eloAlways, "Error: Opening '%s' failed", opt.tty.c_str());
+
+      if (access(opt.tty.c_str(), F_OK) != 0)
+         commReason = "Die Schnittstelle '" + opt.tty + "' existiert nicht (USB Adapter gesteckt, Gerätename richtig?)";
+      else
+         commReason = "Öffnen der Schnittstelle '" + opt.tty + "' fehlgeschlagen (Rechte?)";
+
       publishStatus(true);
       return fail;
    }
@@ -734,6 +830,7 @@ int P4Mqttd::serialConnection()
    if (status != success)
    {
       tell(eloAlways, "Error: No answer from the S 3200 at '%s'", opt.tty.c_str());
+      commReason = "Keine Antwort der S 3200 an '" + opt.tty + "' (Kabel, Schnittstelle, Steuerung aus?)";
       serial->close();
       publishStatus(true);
       return fail;
@@ -741,6 +838,7 @@ int P4Mqttd::serialConnection()
 
    tell(eloAlways, "Communication with the S 3200 at '%s' established", opt.tty.c_str());
    commOk = true;
+   commReason.clear();
    failures = 0;
    lastOk = now;
    nextStateAt = 0;
@@ -860,21 +958,57 @@ int P4Mqttd::checkTimeSync()
 //   the value specs and the in/outputs of the menu, the same as p4d does
 //***************************************************************************
 
-int P4Mqttd::discover()
+int P4Mqttd::discover(int parts)
 {
-   tell(eloAlways, "Reading the sensor definitions from the S 3200 ...");
+   // a part alone only with the other one from before (cache)
+
+   if (sensors.empty() || menu.empty())
+      parts = dpAll;
+
+   tell(eloAlways, "Reading the %s from the S 3200 ...",
+        parts == dpAll ? "sensor definitions and the menu" : parts == dpMenu ? "menu and the in/outputs" : "value list");
+
+   // the lists of before are kept if reading fails
 
    uint64_t start {cTimeMs::Now()};
-   sensors.clear();
-   menu.clear();
+   std::vector<Sensor> oldSensors {sensors};
+   std::vector<MenuEntry> oldMenu {menu};
+   int status {success};
 
-   if (discoverValues() != success || discoverIo() != success)
-   {
-      tell(eloAlways, "Error: Reading the sensor definitions failed, retry later");
-      sensors.clear();
+   sensors.clear();
+
+   if (parts & dpMenu)
       menu.clear();
-      sensorsReady = false;
-      cacheFirmware.clear();
+
+   busyWith = parts == dpValues ? "Die Sensoren werden gerade von der Steuerung gelesen"
+      : "Die Menüstruktur wird gerade von der Steuerung gelesen";
+
+   if (parts & dpValues)
+      status = discoverValues();
+   else
+      std::copy_if(oldSensors.begin(), oldSensors.end(), std::back_inserter(sensors), [](const Sensor& s) { return s.type == "P4VA"; });
+
+   if (status == success)
+   {
+      if (parts & dpMenu)
+         status = discoverIo();
+      else
+         std::copy_if(oldSensors.begin(), oldSensors.end(), std::back_inserter(sensors), [](const Sensor& s) { return s.type != "P4VA"; });
+   }
+
+   busyWith.clear();
+
+   if (status != success)
+   {
+      sensors = oldSensors;
+      menu = oldMenu;
+      sensorsReady = !sensors.empty() && !menu.empty();
+
+      tell(eloAlways, "Error: Reading the sensor definitions failed%s", sensorsReady ? ", keeping the lists read before" : ", retry later");
+
+      if (!sensorsReady)
+         cacheFirmware.clear();
+
       return fail;
    }
 
@@ -892,11 +1026,15 @@ int P4Mqttd::discoverValues()
    Fs::ValueSpec v;
    int fails {0};
    int count {0};
+   int doubles {0};
+   std::map<uint,size_t> seen;                  // the control delivers some addresses several times (e.g. 19 x 'Außentemperatur')
+   std::set<uint> shortName;                    // titled by the short name, a later description is better
    int status {success};
    BusGuard guard(this);
 
    for (bool first {true}; !doShutDown(); first = false)
    {
+      serveBusy();
       status = first ? request->getFirstValueSpec(&v) : request->getNextValueSpec(&v);
 
       if (status == Fs::wrnLast)
@@ -917,20 +1055,39 @@ int P4Mqttd::discoverValues()
 
       fails = 0;
 
-      if (isEmpty(v.description))
+      // without description the short name is taken (like the p4d does), e.g. 'Kesseltemp.'
+
+      bool haveDescription {!isEmpty(v.description)};
+
+      if (!haveDescription && isEmpty(v.name))
          continue;
+
+      if (seen.count(v.address))
+      {
+         doubles++;
+
+         if (haveDescription && shortName.erase(v.address))
+            sensors[seen[v.address]].title = v.description;
+
+         continue;
+      }
+
+      if (!haveDescription)
+         shortName.insert(v.address);
+
+      seen[v.address] = sensors.size();
 
       Sensor s;
       s.type = "P4VA";
       s.address = v.address;
-      s.title = v.description;
+      s.title = haveDescription ? v.description : v.name;
       s.unit = strcmp(v.unit, "°") == 0 ? "°C" : v.unit;
       s.factor = v.factor ? v.factor : 1;
       s.dataType = v.type;
       sensors.push_back(s);
       count++;
 
-      tell(eloDebug, "Value 0x%04x '%s' factor %d unit '%s' type %d", v.address, v.description, v.factor, v.unit, v.type);
+      tell(eloDebug, "Value 0x%04x '%s' factor %d unit '%s' type %d", v.address, s.title.c_str(), v.factor, v.unit, v.type);
 
       if (count > maxListItems)
       {
@@ -939,7 +1096,8 @@ int P4Mqttd::discoverValues()
       }
    }
 
-   tell(eloAlways, "Found %d values", count);
+   tell(eloAlways, "Found %d values (%zu of them only with the short name, %d addresses delivered more than once ignored)",
+        count, shortName.size(), doubles);
 
    return doShutDown() ? fail : success;
 }
@@ -950,11 +1108,13 @@ int P4Mqttd::discoverIo()
    int fails {0};
    int count {0};
    int items {0};
+   std::set<std::string> noDescription;         // "<type>:<address>" titled by the address
    int status {success};
    BusGuard guard(this);
 
    for (bool first {true}; !doShutDown(); first = false)
    {
+      serveBusy();
       status = first ? request->getFirstMenuItem(&m) : request->getNextMenuItem(&m);
 
       if (status == Fs::wrnLast)
@@ -1002,22 +1162,35 @@ int P4Mqttd::discoverIo()
          case Fs::mstAnlOut: type = "P4AO"; break;
       }
 
-      if (!type || isEmpty(m.description))
+      if (!type)
          continue;
 
-      bool known {false};
+      // an in/output without description gets a title of its address (the p4d took '_0x..'), a later
+      //  item of it with description gives the title (nameIo() names them by their place in the menu)
 
-      for (const auto& s : sensors)
-         if (s.type == type && s.address == m.address)
-            known = true;
+      bool haveDescription {!isEmpty(m.description)};
+      auto known = std::find_if(sensors.begin(), sensors.end(),
+                                [&](const Sensor& o) { return o.type == type && o.address == m.address; });
 
-      if (known)
+      if (known != sensors.end())
+      {
+         if (haveDescription && noDescription.erase(std::string(type) + ":" + std::to_string(m.address)))
+            known->title = m.description;
+
          continue;
+      }
+
+      char title[50];
+      snprintf(title, sizeof(title), "%s 0x%x", strcmp(type, "P4DO") == 0 ? "Ausgang" : strcmp(type, "P4DI") == 0 ? "Eingang" : "Analogausgang",
+               m.address);
+
+      if (!haveDescription)
+         noDescription.insert(std::string(type) + ":" + std::to_string(m.address));
 
       Sensor s;
       s.type = type;
       s.address = m.address;
-      s.title = m.description;
+      s.title = haveDescription ? m.description : title;
       s.unit = m.unit ? m.unit : "";
 
       if (s.unit.empty() && s.type == "P4AO")
@@ -1027,7 +1200,7 @@ int P4Mqttd::discoverIo()
       count++;
    }
 
-   tell(eloAlways, "Found %d in/outputs in %d menu items", count, items);
+   tell(eloAlways, "Found %d in/outputs in %d menu items (%zu of them without description)", count, items, noDescription.size());
 
    return doShutDown() ? fail : success;
 }
@@ -1134,8 +1307,15 @@ int P4Mqttd::loadCache()
       s.factor = getIntFromJson(jS, "factor", 1);
       s.dataType = getIntFromJson(jS, "dataType", 0);
 
-      if (!s.type.empty() && !s.title.empty())
-         sensors.push_back(s);
+      if (s.type.empty() || s.title.empty())
+         continue;
+
+      // a cache of an older version may have an address more than once (see discoverValues)
+
+      if (std::any_of(sensors.begin(), sensors.end(), [&s](const Sensor& o) { return o.type == s.type && o.address == s.address; }))
+         continue;
+
+      sensors.push_back(s);
    }
 
    menu.clear();
@@ -1286,6 +1466,32 @@ int P4Mqttd::reply(json_t* jReply, const char* status, const char* message)
    return publish(replyTopic.empty() ? (opt.topic + "/reply").c_str() : replyTopic.c_str(), jReply, false);
 }
 
+//***************************************************************************
+// Serve Busy
+//   while a list of the control is read (minutes at the first start), the commands are
+//   answered with 'notready' instead of being answered after the timeout of the client,
+//   called from the loops of these walks, at most once a second
+//***************************************************************************
+
+void P4Mqttd::serveBusy()
+{
+   if (busyWith.empty() || time(0) == serveBusyAt)
+      return;
+
+   serveBusyAt = time(0);
+   mqttRead();
+
+   if (commands.empty())
+      return;
+
+   std::string topic {replyTopic};             // may be the one of the command in work (initmenu, inittimes, menu)
+
+   while (!commands.empty())
+      dispatchCommands();                      // only 'notready', nothing is executed while busy
+
+   replyTopic = topic;
+}
+
 int P4Mqttd::dispatchCommands()
 {
    std::string message {commands.front()};
@@ -1320,12 +1526,22 @@ int P4Mqttd::dispatchCommands()
 
    if (!replyToOk)
       reply(jReply, "error", ("'replyTo' has to be a topic below '" + replyBase + "' without wildcards").c_str());
-   else if (!commOk || !sensorsReady)
-      reply(jReply, "notready", "Keine Verbindung zur Steuerung bzw. die Menüstruktur ist noch nicht gelesen");
+   else if (cmd == "parlist" && sensorsReady)
+      cmdParList(jReply);                       // from the cache, the control isn't needed (not while the menu is read)
+   else if (!busyWith.empty())
+      reply(jReply, "notready", busyWith.c_str());
+   else if (!commOk)
+      reply(jReply, "notready", ("Keine Verbindung zur Steuerung" + (commReason.empty() ? "" : ": " + commReason)).c_str());
+   else if (!sensorsReady)
+      reply(jReply, "notready", "Die Menüstruktur ist noch nicht gelesen");
    else if (cmd == "menu")
       cmdMenu(jCmd, jReply);
-   else if (cmd == "initmenu" || cmd == "initsensors")
-      cmdInitMenu(jReply);
+   else if (cmd == "initall" || cmd == "initsensors")
+      cmdInit(jReply, dpAll);
+   else if (cmd == "initmenu")
+      cmdInit(jReply, dpMenu);
+   else if (cmd == "initvalues")
+      cmdInit(jReply, dpValues);
    else if (cmd == "inittimes")
       cmdInitTimes(jReply);
    else if (cmd == "errors")
@@ -1346,19 +1562,24 @@ int P4Mqttd::dispatchCommands()
    return done;
 }
 
-int P4Mqttd::cmdInitMenu(json_t* jReply)
+int P4Mqttd::cmdInit(json_t* jReply, int parts)
 {
-   if (discover() != success)
+   if (discover(parts) != success)
    {
-      sensorsReady = false;            // the lists are gone, read again later (see loop)
-      discoverRetryAt = time(0) + discoverRetryDelay;
-      return reply(jReply, "error", "Lesen der Menüstruktur fehlgeschlagen");
+      if (!sensorsReady)
+         discoverRetryAt = time(0) + discoverRetryDelay;   // the lists are gone, read again later (see loop)
+
+      return reply(jReply, "error", sensorsReady ? "Lesen aus der Steuerung fehlgeschlagen, die bisherigen Listen bleiben erhalten"
+                   : "Lesen aus der Steuerung fehlgeschlagen");
    }
 
+   sensorsReady = true;
    announceSweep = true;
    nextSweepAt = 0;
    sweeping = false;
-   timesLoaded = false;                // the time programs belong to the firmware, too
+
+   if (parts & dpMenu)
+      timesLoaded = false;             // the time programs belong to the firmware, too
 
    json_object_set_new(jReply, "menuItems", json_integer(menu.size()));
    json_object_set_new(jReply, "sensors", json_integer(sensors.size()));
@@ -1369,7 +1590,8 @@ int P4Mqttd::cmdInitMenu(json_t* jReply)
 //***************************************************************************
 // Menu Item Value
 //   the value of an item of the menu as the p4d shows it, returns 'success' if the item
-//   has a value, 'ignore' if it hasn't (groups and so on) or fail on a communication error
+//   has a value, 'ignore' if it hasn't (groups and so on), 'errWrongAddress' if the control
+//   answered without a parameter or fail on a communication error
 //***************************************************************************
 
 int P4Mqttd::menuItemValue(const MenuEntry& m, json_t* jItem, std::string& value)
@@ -1466,6 +1688,9 @@ int P4Mqttd::menuItemValue(const MenuEntry& m, json_t* jItem, std::string& value
       lockBus();
       status = request->getParameter(&p);
       unlockBus();
+
+      if (status == Fs::errWrongAddress)
+         return Fs::errWrongAddress;         // the control answered, but without a parameter (no bus error)
 
       if (status != success)
          return fail;
@@ -1572,8 +1797,8 @@ void P4Mqttd::nameIo()
 
       for (const auto& m : menu)
       {
-         if (m.type != type || m.address != s.address)
-            continue;
+         if (m.type != type || m.address != s.address || trimMenuTitle(m.title).empty())
+            continue;                              // without a text it can't name it
 
          std::string group {groupOf(m)};
 
@@ -1644,6 +1869,9 @@ int P4Mqttd::cmdMenu(json_t* jCmd, json_t* jReply)
 
    for (const auto& m : menu)
    {
+      if (!commOk)
+         break;                       // the line is gone (busFailed), the rest would fail, too
+
       if (m.parent != parent || doShutDown())
          continue;
 
@@ -1682,10 +1910,15 @@ int P4Mqttd::cmdMenu(json_t* jCmd, json_t* jReply)
          json_object_set_new(jItem, "value", json_string(value.c_str()));
          usleep(busGapMs * 1000);
       }
-      else if (status == fail)
+      else if (status == fail || status == Fs::errWrongAddress)
       {
          failed++;
-         busFailed(t.c_str());
+
+         if (status == fail)
+            busFailed(t.c_str());
+         else
+            busOk();
+
          json_object_set_new(jItem, "error", json_true());
          json_object_set_new(jItem, "unit", json_string(""));
          usleep(busGapMs * 1000);
@@ -1703,6 +1936,9 @@ int P4Mqttd::cmdMenu(json_t* jCmd, json_t* jReply)
 
    if (failed)
       tell(eloAlways, "Warning: %d values of the menu level %u couldn't be read", failed, parent);
+
+   if (!commOk)
+      return reply(jReply, "comm", ("Verbindung zur Heizung verloren: " + commReason).c_str());
 
    return reply(jReply, "ok");
 }
@@ -1723,10 +1959,13 @@ int P4Mqttd::readTimes()
 
    tell(eloAlways, "Reading the time programs from the S 3200 ...");
 
+   struct Busy { std::string& w; ~Busy() { w.clear(); } } busy {busyWith = "Die Zeitprogramme werden gerade von der Steuerung gelesen"};
+
    for (bool first {true}; !doShutDown(); first = false)
    {
       Fs::TimeRanges t;
 
+      serveBusy();
       status = first ? request->getFirstTimeRanges(&t) : request->getNextTimeRanges(&t);
 
       if (status == Fs::wrnLast)
@@ -2601,6 +2840,7 @@ std::string P4Mqttd::statusJson(bool online)
 
    json_object_set_new(obj, "online", json_boolean(online));
    json_object_set_new(obj, "comm", json_string(commOk ? "ok" : (serial && serial->isOpen() ? "lost" : "closed")));
+   json_object_set_new(obj, "reason", json_string(!commOk ? commReason.c_str() : busyWith.c_str()));
    json_object_set_new(obj, "tty", json_string(opt.tty.c_str()));
    json_object_set_new(obj, "lastOk", json_integer(lastOk));
    json_object_set_new(obj, "firmware", json_string(haveState ? currentState.version : ""));

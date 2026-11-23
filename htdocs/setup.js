@@ -487,6 +487,35 @@ function initConfig(configdetails = null)
          break;
       }
 
+      case 11:    // ctButton - sends the message of its value (JSON: event, object, confirm, progress [s])
+      {
+         let action = null;
+
+         try { action = JSON.parse(item.value || config[item.name]); }
+         catch (e) { console.log('ctButton', item.name, e.message); }
+
+         if (!action || !action.event)
+            break;
+
+         let send = function() {
+            if (action.progress)
+               showProgressDialog(action.progress * 1000);   // closed by the result
+            socket.send({ 'event': action.event, 'object': action.object || {} });
+         };
+
+         $(itemsDiv)
+            .append($('<button></button>')
+                    .attr('type', 'button')
+                    .addClass('rounded-border button1')
+                    .text(item.title)
+                    .click(function() {
+                       if (action.confirm)
+                          confirmDialog(send, action.confirm, 'Ausführen', 'Abbrechen');
+                       else
+                          send();
+                    }));
+         break;
+      }
       case 8:     // ctText
       {
          // the parameters of the MQTT sensors (category 'Sensors') are JSON, shown structured

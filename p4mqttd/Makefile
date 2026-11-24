@@ -88,6 +88,7 @@ install: all
 	@echo install $(P4DTARGET) and $(P4TARGET)
 	install --mode=755 -D $(P4DTARGET) $(BINDEST)/$(P4DTARGET)
 	install --mode=755 -D $(P4TARGET) $(BINDEST)/$(P4TARGET)
+	install --mode=755 -D scripts/p4d-migrate.sh $(BINDEST)/p4d-migrate.sh
 	@$(call installUnit,p4mqttd.service,p4mqttd.service)
 	if ! test -f $(DESTDIR)/etc/default/p4mqttd; then \
 		install --mode=644 -D p4mqttd.default $(DESTDIR)/etc/default/p4mqttd; \
@@ -107,7 +108,7 @@ install: all
 	install --mode=644 -C -D p4mqttd.logrotate $(LOGROTDEST)/p4mqttd
 
 uninstall:
-	rm -f $(BINDEST)/$(P4DTARGET) $(BINDEST)/$(P4TARGET)
+	rm -f $(BINDEST)/$(P4DTARGET) $(BINDEST)/$(P4TARGET) $(BINDEST)/p4d-migrate.sh
 	rm -f $(SYSTEMDDEST)/p4mqttd.service
 	rm -f $(DESTDIR)/etc/default/p4mqttd
 	rm -f $(RSYSLOGDEST)/10-p4mqttd.conf $(LOGROTDEST)/p4mqttd

@@ -571,7 +571,7 @@ int HomeCtl::init()
       doSleep(10);
    }
 
-   deconz.init(this, connection);
+   deconz.init(this);
    lightRuleTimersLoad();          // the off timers of the light rules before the stop / crash
    actorTimesLoad();               // the time control catches up the limits missed meanwhile
 
@@ -1465,6 +1465,8 @@ int HomeCtl::initDb()
    // ------------------------
    // create/open tables
    // ------------------------
+
+   if (deconz.initDb(connection) != success) return fail;
 
    tableTableStatistics = new cDbTable(connection, "information_schema.TABLES", true /*read-only*/);
    if (tableTableStatistics->open() != success) return fail;
@@ -2573,6 +2575,8 @@ int HomeCtl::loadDefaultDashboards()
 
 int HomeCtl::exitDb()
 {
+   deconz.exitDb();
+
    delete tableTableStatistics;    tableTableStatistics = nullptr;
    delete tableSamples;            tableSamples = nullptr;
    delete tablePeaks;              tablePeaks = nullptr;

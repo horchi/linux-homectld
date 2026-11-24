@@ -25,8 +25,10 @@ class Deconz
       Deconz();
       ~Deconz();
 
-      int init(HomeCtl* parent, cDbConnection* connection);
+      int init(HomeCtl* parent);
       int exit();
+      int initDb(cDbConnection* connection);
+      int exitDb();
 
       void setApiKey(const char* key)  { apiKey = key; }
       void setHttpUrl(const char* url);   // 'host:port' of the REST API, an 'http://' in front is skipped

@@ -50,12 +50,33 @@ Deconz::~Deconz()
 // Init / Exit
 //***************************************************************************
 
-int Deconz::init(HomeCtl* parent, cDbConnection* connection)
+int Deconz::init(HomeCtl* parent)
+{
+   daemon = parent;
+   curl.init();
+
+   return success;
+}
+
+int Deconz::exit()
+{
+   exitDb();
+   curl.exit();
+
+   return success;
+}
+
+//***************************************************************************
+// Init / Exit Db
+//   called with each (re)connect of the database, the tables must not refer
+//   to the connection of a previous connect
+//***************************************************************************
+
+int Deconz::initDb(cDbConnection* connection)
 {
    int status {success};
 
-   daemon = parent;
-   curl.init();
+   exitDb();
 
    tableDeconzLights = new cDbTable(connection, "deconzl");
    if (tableDeconzLights->open() != success) return fail;
@@ -90,10 +111,8 @@ int Deconz::init(HomeCtl* parent, cDbConnection* connection)
    return status;
 }
 
-int Deconz::exit()
+int Deconz::exitDb()
 {
-   curl.exit();
-
    delete tableDeconzLights;  tableDeconzLights = nullptr;
    delete tableDeconzSensors; tableDeconzSensors = nullptr;
    delete selectLightByUuid;  selectLightByUuid = nullptr;
@@ -246,6 +265,12 @@ int Deconz::processDevices(json_t* jData, const std::string& kind)
       cDbTable* table = kind == "light" ? tableDeconzLights : tableDeconzSensors;
       cDbStatement* select = kind == "light" ? selectLightByUuid : selectSensorByUuid;
 
+      if (!table || !select)
+      {
+         free(type);
+         return fail;
+      }
+
       table->clear();
       table->setValue("UUID", uuid);
 
@@ -262,6 +287,14 @@ int Deconz::processDevices(json_t* jData, const std::string& kind)
       }
 
       uint address = table->getIntValue("ADDRESS");
+
+      if (!address)   // database not available, keep the known address instead of mapping the device to 0
+      {
+         tell(eloAlways, "DECONZ: Error: Can't get the address of %s '%s' from the database", kind.c_str(), uuid);
+         table->reset();
+         free(type);
+         continue;
+      }
 
       if (getObjectFromJson(jItem, "ctmin"))
       {
@@ -921,6 +954,9 @@ time_t Deconz::knownSince(const char* kind, const char* uuid)
    cDbTable* table {strcmp(kind, "light") == 0 ? tableDeconzLights : tableDeconzSensors};
    cDbStatement* select {strcmp(kind, "light") == 0 ? selectLightByUuid : selectSensorByUuid};
 
+   if (!table || !select)
+      return 0;
+
    table->clear();
    table->setValue("UUID", uuid);
 
@@ -945,6 +981,9 @@ void Deconz::forget(const char* kind, const char* uuid)
 
    cDbTable* table {strcmp(kind, "light") == 0 ? tableDeconzLights : tableDeconzSensors};
    cDbStatement* select {strcmp(kind, "light") == 0 ? selectLightByUuid : selectSensorByUuid};
+
+   if (!table || !select)
+      return;
 
    table->clear();
    table->setValue("UUID", uuid);

@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.78"
+#define _VERSION     "0.1.79"
 #define VERSION_DATE "23.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,9 @@
 
 /*
  * ------------------------------------
+
+2026-11-23: version 0.1.79
+    - bugfix: deCONZ lights could no longer be switched after a reconnect to the database
 
 2026-11-23: version 0.1.78
     - change: p4mqttd: commands answered at once while busy or without connection ('notready' with reason)

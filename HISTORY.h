@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.79"
-#define VERSION_DATE "23.11.2026"
+#define _VERSION     "0.1.80"
+#define VERSION_DATE "24.11.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,10 @@
 
 /*
  * ------------------------------------
+
+2026-11-24: version 0.1.80
+    - bugfix: p4d-migrate.sh: failed if the databases have different collations
+    - change: p4d-migrate.sh: stops on any SQL error, also in the dry run
 
 2026-11-23: version 0.1.79
     - bugfix: deCONZ lights could no longer be switched after a reconnect to the database

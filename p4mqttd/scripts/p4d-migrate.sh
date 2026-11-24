@@ -71,19 +71,23 @@ while [ $# -gt 0 ]; do
 done
 
 
+# a failing statement stops the script, also when called in $(...) or a pipe (subshell -> signal to the script);
+#   the statements before are committed, a new run continues
+
+trap 'exit 1' TERM
+
 sql()
 {
-   mysql ${MYSQL_OPTS} -N -B -e "$1"
+   if ! mysql ${MYSQL_OPTS} -N -B -e "$1"; then
+      echo "ERROR: the SQL statement failed, stopped$( [ "$RUN" = yes ] && echo ' (the parts before are done, run it again to continue)')" >&2
+      kill -TERM $$
+      exit 1
+   fi
 }
-
-# a statement which writes: a failure stops the script (the statements before are committed, a new run continues)
 
 sqlw()
 {
-   if ! mysql ${MYSQL_OPTS} -N -B -e "$1"; then
-      echo "ERROR: the SQL statement failed, stopped (the parts before are done, run it again to continue)" >&2
-      exit 1
-   fi
+   sql "$1"
 }
 
 has()
@@ -131,19 +135,19 @@ if has facts; then
    src="from ${FROMDB}.valuefacts s where s.type in (${list}) and ifnull(s.usrtitle, '') <> ''"
 
    n_fill=$(sql "select count(*) ${src} and exists (select 1 from ${TODB}.valuefacts t
-                    where t.address = s.address and t.type = concat('P4', s.type) and ifnull(t.usrtitle, '') = '')")
+                    where t.address = s.address and t.type = binary concat('P4', s.type) and ifnull(t.usrtitle, '') = '')")
    n_new=$(sql "select count(*) ${src} and not exists (select 1 from ${TODB}.valuefacts t
-                   where t.address = s.address and t.type = concat('P4', s.type))")
+                   where t.address = s.address and t.type = binary concat('P4', s.type))")
 
    sql "select concat('  P4', s.type, ':0x', lower(hex(s.address)), '  \'', s.usrtitle, '\'',
                       if(t.address is null, '  (new sensor)', ''))
-          from ${FROMDB}.valuefacts s left join ${TODB}.valuefacts t on t.address = s.address and t.type = concat('P4', s.type)
+          from ${FROMDB}.valuefacts s left join ${TODB}.valuefacts t on t.address = s.address and t.type = binary concat('P4', s.type)
          where s.type in (${list}) and ifnull(s.usrtitle, '') <> '' and ifnull(t.usrtitle, '') = ''
           order by s.type, s.address" | while IFS= read -r line; do say "$line"; done
 
    if [ "$RUN" = yes ]; then
       sqlw "update ${TODB}.valuefacts t join ${FROMDB}.valuefacts s
-               on t.address = s.address and t.type = concat('P4', s.type)
+               on t.address = s.address and t.type = binary concat('P4', s.type)
                set t.usrtitle = s.usrtitle
              where s.type in (${list}) and ifnull(s.usrtitle, '') <> '' and ifnull(t.usrtitle, '') = ''"
       sqlw "insert ignore into ${TODB}.valuefacts (address, type, inssp, updsp, state, record, unit, options, factor, name, title, usrtitle, rights)
@@ -161,7 +165,7 @@ fi
 
 if has facts; then
    list=$(printf "'%s'," $TYPES WEA); list=${list%,}
-   join="from ${TODB}.valuefacts t join ${FROMDB}.valuefacts s on t.address = s.address and t.type = concat('P4', s.type)
+   join="from ${TODB}.valuefacts t join ${FROMDB}.valuefacts s on t.address = s.address and t.type = binary concat('P4', s.type)
           where s.type in (${list})"
    on_state="s.state = 'A' and ifnull(t.state, 'D') <> 'A'"
    on_record="s.record = 'A' and ifnull(t.record, 'D') <> 'A'"
@@ -176,7 +180,7 @@ if has facts; then
 
    if [ "$RUN" = yes ]; then
       sqlw "update ${TODB}.valuefacts t join ${FROMDB}.valuefacts s
-               on t.address = s.address and t.type = concat('P4', s.type)
+               on t.address = s.address and t.type = binary concat('P4', s.type)
                set t.state  = if(s.state = 'A', 'A', t.state),
                    t.record = if(s.record = 'A', 'A', t.record)
              where s.type in (${list}) and ((${on_state}) or (${on_record}))"
@@ -313,8 +317,8 @@ if has alerts; then
    say "alerts ..."
    list=$(printf "'%s'," $TYPES); list=${list%,}
    cond="from ${FROMDB}.sensoralert a where a.type in (${list}) and ifnull(a.subid, 0) = 0 and not exists
-            (select 1 from ${TODB}.sensoralert x where x.type = concat('P4', a.type) and x.address = a.address
-                and x.min = a.min and x.max = a.max and ifnull(x.msubject, '') = ifnull(a.msubject, ''))"
+            (select 1 from ${TODB}.sensoralert x where x.type = binary concat('P4', a.type) and x.address = a.address
+                and x.min = a.min and x.max = a.max and ifnull(x.msubject, '') = binary ifnull(a.msubject, ''))"
    n=$(sql "select count(*) ${cond}")
    linked=$(sql "select count(*) from ${FROMDB}.sensoralert where type in (${list}) and ifnull(subid, 0) <> 0")
    [ "$linked" != "0" ] && say "alerts: ${linked} alerts with a link to another alert are not taken"
@@ -343,14 +347,14 @@ if has schema; then
    REWRITE="regexp_replace(s.function, '([\\\\x22\\\\x27])(VA|DI|DO|AO|UD|SD|W1|SC|CV|PA):0x', '\\\\1P4\\\\2:0x')"
 
    n_fill=$(sql "select count(*) from ${FROMDB}.schemaconf s join ${TODB}.schemaconf t
-                  on t.address = s.address and t.type = concat('P4', s.type)
+                  on t.address = s.address and t.type = binary concat('P4', s.type)
                  where s.type in (${list}) and s.properties is not null and ifnull(t.properties, '') = ''")
    n_new=$(sql "select count(*) from ${FROMDB}.schemaconf s where s.type in (${list}) and not exists
-                  (select 1 from ${TODB}.schemaconf x where x.address = s.address and x.type = concat('P4', s.type))")
+                  (select 1 from ${TODB}.schemaconf x where x.address = s.address and x.type = binary concat('P4', s.type))")
 
    if [ "$RUN" = yes ]; then
       sqlw "update ${TODB}.schemaconf t join ${FROMDB}.schemaconf s
-               on t.address = s.address and t.type = concat('P4', s.type)
+               on t.address = s.address and t.type = binary concat('P4', s.type)
                set t.state = s.state, t.kind = s.kind, t.width = s.width, t.height = s.height, t.showunit = s.showunit,
                    t.showtitle = s.showtitle, t.usrtext = s.usrtext, t.function = ${REWRITE}, t.properties = s.properties
              where s.type in (${list}) and s.properties is not null and ifnull(t.properties, '') = ''"

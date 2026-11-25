@@ -1142,7 +1142,7 @@ class HomeCtl : public cWebInterface, public Service
 
       // Zigbee (zigbee.c)
 
-      std::queue<std::string> deconzEvents;        // 'added' / 'deleted' of deCONZ, see dispatchDeconz()
+      std::queue<std::string> deconzEvents;        // 'added' / 'deleted' / 'reachable' of deCONZ, see dispatchDeconz()
       time_t zigbeeSearchUntil {0};                // end of the running search (permit join), 0 if none
       int zigbeeSearchDuration {180};              // [s] of the running search (reported by deCONZ)
       time_t deconzReinitAt {0};                   // read the devices again (deCONZ creates some late after its start)

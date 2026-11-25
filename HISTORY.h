@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.80"
-#define VERSION_DATE "24.11.2026"
+#define _VERSION     "0.1.81"
+#define VERSION_DATE "25.11.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,11 @@
 
 /*
  * ------------------------------------
+
+2026-11-25: version 0.1.81
+    - bugfix: Zigbee page: reachable state of a device updated without reload
+    - change: dashboard: turning ring instead of a gray background while a scene / script is running
+    - bugfix: dashboard: image of a symbol widget not vertically centered
 
 2026-11-24: version 0.1.80
     - bugfix: p4d-migrate.sh: failed if the databases have different collations

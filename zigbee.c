@@ -541,7 +541,7 @@ int HomeCtl::zigbeeService()
 
 //***************************************************************************
 // Zigbee Event
-//   { "dzevent": "added" | "deleted", "resource": "lights" | "sensors", "id": "41", "uniqueid": "...", "item": {...} }
+//   { "dzevent": "added" | "deleted" | "reachable", "resource": "lights" | "sensors", "id": "41", "uniqueid": "...", "item": {...} }
 //***************************************************************************
 
 int HomeCtl::zigbeeEvent(json_t* oEvent)
@@ -592,6 +592,8 @@ int HomeCtl::zigbeeEvent(json_t* oEvent)
 
       zigbeeKnownIds.erase(std::string(resource) + "/" + id);
    }
+
+   // "reachable": changed - nothing to do here, the caller pushes the page 'Zigbee' again
 
    return done;
 }

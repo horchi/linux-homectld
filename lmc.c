@@ -10,6 +10,33 @@
 #include "daemon.h"
 
 //***************************************************************************
+// LMS Image Url
+//   the images of LMS are delivered via the image proxy of homectld ('/lmsimage/<hex path>',
+//   see cWebSock::serveLmsImage) - the browser blocks the plain http url of LMS on a
+//   HTTPS page (mixed content)
+//***************************************************************************
+
+static std::string lmsImageUrl(const std::string& url)
+{
+   size_t pos {url.find("://")};
+   pos = pos != std::string::npos ? url.find('/', pos + 3) : std::string::npos;
+
+   if (pos == std::string::npos)
+      return url;
+
+   static const char* hexDigits {"0123456789abcdef"};
+   std::string proxyUrl {"/lmsimage/"};
+
+   for (size_t i = pos; i < url.length(); ++i)
+   {
+      proxyUrl += hexDigits[((unsigned char)url[i]) >> 4];
+      proxyUrl += hexDigits[((unsigned char)url[i]) & 0x0f];
+   }
+
+   return proxyUrl;
+}
+
+//***************************************************************************
 // Init / Exit
 //***************************************************************************
 
@@ -24,6 +51,8 @@ int HomeCtl::lmcInit(bool force)
       return done;
 
    lastTryAt = time(0);
+
+   cWebSock::setLmsBaseUrl("http://" + lmcHost + ":9000");
 
    if (!lmc)
       lmc = new LmcCom(lmcPlayerMac.c_str());
@@ -129,7 +158,7 @@ int HomeCtl::lmcTrack2Json(json_t* obj, TrackInfo* track)
    lmc->getCurrentCoverUrl(track, url, true);
 
    tell(eloDebugLmc, "[LMC] Using artworkurl '%s'", track->artworkUrl.c_str());
-   json_object_set_new(current, "cover", json_string(url.c_str()));
+   json_object_set_new(current, "cover", json_string(lmsImageUrl(url).c_str()));
 
    return success;
 }
@@ -215,7 +244,7 @@ int HomeCtl::lmcPlaylist2Json(json_t* obj)
       //   twice that for high density displays instead of the full size cover
 
       if (lmc->getCoverUrl(track, url, "110x110_f") == success)
-         json_object_set_new(oTrack, "cover", json_string(url.c_str()));
+         json_object_set_new(oTrack, "cover", json_string(lmsImageUrl(url).c_str()));
    }
 
    return success;
@@ -491,7 +520,7 @@ int HomeCtl::performLmcAction(json_t* oObject, long client)
                   asprintf(&tmp, "http://%s:%d%s", lmcHost.c_str(), 9000, (*it).icon.c_str());
                else
                   asprintf(&tmp, "http://%s:%d/%s", lmcHost.c_str(), 9000, (*it).icon.c_str());
-               json_object_set_new(oItem, "icon", json_string(tmp));
+               json_object_set_new(oItem, "icon", json_string(lmsImageUrl(tmp).c_str()));
                free(tmp);
             }
          }

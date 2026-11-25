@@ -3404,7 +3404,17 @@ function updateWidget(sensor, refresh, widget)
          $("#button" + fact.type + fact.address).css('font-size', fontSize + 'px');
       }
 
-      $("#button" + fact.type + fact.address).css('background-color', sensor.working ? '#7878787878' : 'transparent');
+      // scene / script running: a turning arc in the 'on' color around the symbol (class 'widget-working' in base.css),
+      //   not for blinds, they pulse while moving ('blindMoving')
+
+      let working = sensor.working == true && fact.type != 'HMB';
+      $("#button" + fact.type + fact.address).toggleClass('widget-working', working);
+
+      if (working)
+         $("#button" + fact.type + fact.address).css({
+            '--workingColor': widget.colorOn || symbolOnColorDefault,
+            '--workingSize': Math.round(Math.min(widgetDiv.height(), widgetDiv.width()) * 0.75) + 'px'
+         });
 
       // manual mode: hand symbol in the corner and a frame (class 'widget-manual' in base.css)
       widgetDiv.toggleClass('widget-manual', fact.outputModes == 3 && sensor.mode == 'manual');

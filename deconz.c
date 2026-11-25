@@ -324,6 +324,13 @@ int Deconz::processDevices(json_t* jData, const std::string& kind)
          }
          else
             sensors[uuid] = address;
+
+         // the start value to detect a change of 'reachable' by the websocket events (groups have none)
+
+         json_t* jReachable {getObjectByPath(jItem, kind == "light" ? "state/reachable" : "config/reachable")};
+
+         if (json_is_boolean(jReachable))
+            reachables[uuid] = json_is_true(jReachable);
       }
 
       tell(eloDebugDeconz, "DECONZ: Found '%s' %d with uuid '%s'", kind.c_str(), address, uuid);
@@ -1193,6 +1200,7 @@ int Deconz::atInMessage(const char* data, size_t size)
    const char* event = getStringFromJson(obj, "e");
 
    long address {na};
+   bool reachableChanged {false};
 
    // a new light / sensor ({"e":"added","r":"sensors","id":"41","sensor":{...},"t":"event","uniqueid":"..."})
    //  resp. a deleted one ({"e":"deleted","r":"lights","id":"7","t":"event","uniqueid":"..."}) - paired / removed
@@ -1255,6 +1263,44 @@ int Deconz::atInMessage(const char* data, size_t size)
       address = it->second;
 
       tell(eloDebugDeconz, "DECONZ: Got address %ld for uuid '%s'", address, uuid);
+
+      // 'reachable' changed -> the page 'Zigbee' has to be updated (lights 'state', sensors 'config')
+
+      json_t* jReachable {resource == "groups" ? nullptr :
+         getObjectByPath(obj, resource == "lights" ? "state/reachable" : "config/reachable")};
+
+      if (json_is_boolean(jReachable))
+      {
+         bool reachable {(bool)json_is_true(jReachable)};
+         auto itR {reachables.find(uuid)};
+         reachableChanged = itR != reachables.end() && itR->second != reachable;
+         reachables[uuid] = reachable;
+      }
+   }
+
+   // processed by the main thread as the 'added' / 'deleted' events, see HomeCtl::zigbeeService()
+
+   if (reachableChanged)
+   {
+      bool reachable {getBoolByPath(obj, resource == "lights" ? "state/reachable" : "config/reachable")};
+
+      tell(eloDetail, "DECONZ: '%s' (%s) is %sreachable now", getStringFromJson(obj, "id", ""), uuid, reachable ? "" : "not ");
+
+      json_t* jEvent {json_object()};
+      json_object_set_new(jEvent, "dzevent", json_string("reachable"));
+      json_object_set_new(jEvent, "resource", json_string(resource.c_str()));
+      json_object_set_new(jEvent, "id", json_string(getStringFromJson(obj, "id", "")));
+      json_object_set_new(jEvent, "uniqueid", json_string(uuid));
+
+      char* p {json_dumps(jEvent, JSON_REAL_PRECISION(4))};
+
+      {
+         cMyMutexLock lock(&messagesInMutex);
+         messagesIn.push(p);
+      }
+
+      free(p);
+      json_decref(jEvent);
    }
 
    // state changes, for sensors also changes of the battery ({"config":{"battery":..}})

@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 
 #include "lib/json.h"
+#include "lib/curl.h"
 
 #include "websock.h"
 
@@ -39,6 +40,8 @@ std::map<void*,cWebSock::Client> cWebSock::clients;
 std::map<std::string, std::string> cWebSock::htmlTemplates;
 cMyMutex cWebSock::clientsMutex;
 char* cWebSock::httpPath {};
+std::string cWebSock::lmsBaseUrl;
+cMyMutex cWebSock::lmsMutex;
 
 cWebInterface* cWebSock::singleton {};
 
@@ -332,6 +335,12 @@ int cWebSock::callbackHttp(lws* wsi, lws_callback_reasons reason, void* user, vo
          if (strcmp(url, "/") == 0)
             url = "index.html";
 
+         // images of the music server (LMS) are proxied, the browser would block
+         //   them as mixed content on a HTTPS page
+
+         if (strncmp(url, "/lmsimage/", strlen("/lmsimage/")) == 0)
+            return serveLmsImage(wsi, url + strlen("/lmsimage/")) == success ? 0 : -1;
+
          // security, force httpPath path to inhibit access to the whole filesystem
 
          char* file {};
@@ -493,6 +502,134 @@ int cWebSock::callbackHttp(lws* wsi, lws_callback_reasons reason, void* user, vo
    }
 
    return 0;
+}
+
+//***************************************************************************
+// LMS Image Proxy
+//   the browser requests '/lmsimage/<hex encoded path>', the image is fetched from
+//   '<lmsBaseUrl><path>'. Hex since lws decodes the url, the paths of LMS contain
+//   encoded urls (/imageproxy/https%3A%2F%2F...) and query parameters.
+//   Only the path is taken from the browser, the host is always the configured LMS
+//   and only image data is passed through.
+//***************************************************************************
+
+void cWebSock::setLmsBaseUrl(const std::string& url)
+{
+   cMyMutexLock lock(&lmsMutex);
+   lmsBaseUrl = url;
+}
+
+int cWebSock::serveLmsImage(lws* wsi, const char* hexPath)
+{
+   std::string base;
+
+   {
+      cMyMutexLock lock(&lmsMutex);
+      base = lmsBaseUrl;
+   }
+
+   std::string path;
+   size_t len {strlen(hexPath)};
+
+   for (size_t i = 0; i + 1 < len; i += 2)
+   {
+      if (!isxdigit(hexPath[i]) || !isxdigit(hexPath[i+1]))
+         break;
+
+      char hex[3] {hexPath[i], hexPath[i+1], 0};
+      path += (char)strtol(hex, nullptr, 16);
+   }
+
+   if (base.empty() || path.empty() || path[0] != '/' || path.length() != len/2 || len % 2)
+   {
+      tell(eloAlways, "HTTP: Rejecting LMS image request '%s'", hexPath);
+      return lws_return_http_status(wsi, HTTP_STATUS_NOT_FOUND, nullptr) ? fail : success;
+   }
+
+   std::string url {base + path};
+   MemoryStruct data;
+   int size {0};
+   cCurl lmsCurl;
+
+   // LMS runs in the LAN - short timeout, it blocks the web socket thread meanwhile
+
+   if (lmsCurl.downloadFile(url.c_str(), size, &data, 3) != success || data.statusCode != 200 || !data.memory || size < 4)
+   {
+      lmsCurl.exit();
+      tell(eloWebSock, "HTTP: LMS image '%s' not available", url.c_str());
+      return lws_return_http_status(wsi, HTTP_STATUS_NOT_FOUND, nullptr) ? fail : success;
+   }
+
+   lmsCurl.exit();
+
+   // mime type by the magic bytes, anything else than an image isn't passed through
+
+   const unsigned char* m {(const unsigned char*)data.memory};
+   const char* mime {};
+
+   if (m[0] == 0xff && m[1] == 0xd8)
+      mime = "image/jpeg";
+   else if (memcmp(m, "\x89PNG", 4) == 0)
+      mime = "image/png";
+   else if (memcmp(m, "GIF8", 4) == 0)
+      mime = "image/gif";
+   else if (size >= 12 && memcmp(m, "RIFF", 4) == 0 && memcmp(m+8, "WEBP", 4) == 0)
+      mime = "image/webp";
+
+   if (!mime)
+   {
+      tell(eloAlways, "HTTP: LMS answered '%s' with non image data, ignoring", url.c_str());
+      return lws_return_http_status(wsi, HTTP_STATUS_NOT_FOUND, nullptr) ? fail : success;
+   }
+
+   // serve it via a temporary file, lws then sends it in chunks as for any other
+   //   file. The file is opened by lws_serve_http_file() and can be removed directly after
+
+   char tmpFile[] {"/tmp/homectld-lmsimage-XXXXXX"};
+   int fd {mkstemp(tmpFile)};
+
+   if (fd < 0 || write(fd, data.memory, size) != size)
+   {
+      tell(eloAlways, "Error: Can't write temporary file '%s'; %s", tmpFile, strerror(errno));
+
+      if (fd >= 0)
+      {
+         close(fd);
+         unlink(tmpFile);
+      }
+
+      return lws_return_http_status(wsi, HTTP_STATUS_INTERNAL_SERVER_ERROR, nullptr) ? fail : success;
+   }
+
+   close(fd);
+
+   unsigned char headers[LWS_PRE + 256] {};
+   unsigned char* p {headers + LWS_PRE};
+   unsigned char* start {p};
+   unsigned char* end {headers + sizeof(headers) - 1};
+   char cacheControl[40] {};
+
+   sprintf(cacheControl, "max-age=%d", tmoCacheMaxAge);
+
+   if (lws_add_http_header_by_name(wsi, (const unsigned char*)"cache-control:",
+                                   (const unsigned char*)cacheControl, (int)strlen(cacheControl), &p, end) != 0)
+   {
+      unlink(tmpFile);
+      return fail;
+   }
+
+   int res = lws_serve_http_file(wsi, tmpFile, mime, (const char*)start, lws_ptr_diff(p, start));
+   unlink(tmpFile);
+
+   if (res < 0)
+   {
+      tell(eloAlways, "HTTP: Failed to serve LMS image '%s' (%d)", url.c_str(), res);
+      return fail;
+   }
+
+   tell(eloWebSock, "-> HTTP LMS image '%s' served (%d bytes, %s)", url.c_str(), size, mime);
+
+   return success;
 }
 
 //***************************************************************************

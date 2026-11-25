@@ -124,6 +124,7 @@ class cWebSock : public cWebService
 
       static void pushOutMessage(const char* p, lws* wsi = 0);
       static void setClientType(lws* wsi, ClientType type);
+      static void setLmsBaseUrl(const std::string& url);
 
    private:
 
@@ -141,6 +142,7 @@ class cWebSock : public cWebService
       static void writeLog(int level, const char* line);
 
       static int serveFile(lws* wsi, const char* path);
+      static int serveLmsImage(lws* wsi, const char* hexPath);
    static int dispatchDataRequest(const lws* wsi, const SessionData* sessionData, const char* url);
 
       static const char* methodOf(const char* url);
@@ -184,4 +186,6 @@ class cWebSock : public cWebService
       static cMyMutex clientsMutex;
       static MsgType msgType;
       static std::map<std::string, std::string> htmlTemplates;
+      static std::string lmsBaseUrl;           // 'http://<lms>:9000', images of LMS are proxied (see serveLmsImage)
+      static cMyMutex lmsMutex;
 };

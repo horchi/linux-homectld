@@ -78,6 +78,7 @@ class Deconz
 
       std::map<std::string,uint> lights;
       std::map<std::string,uint> sensors;
+      std::map<std::string,bool> reachables;    // uuid -> last 'reachable' (lights 'state', sensors 'config')
       static cMyMutex mapsMutex;
 
       cDbTable* tableDeconzLights {};

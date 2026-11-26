@@ -2496,6 +2496,13 @@ table.tableMultiCol td
     border-color: var(--neutral4);
 }
 
+.chartBookmarkActive,
+.chartBookmarkActive:hover
+{
+    border-color: var(--blue);
+    box-shadow: inset 0 -2px 0 var(--blue);
+}
+
 .chartBookmarkIcon
 {
     min-width: 34px;
@@ -3086,7 +3093,48 @@ table.tableMultiCol td
     margin-top: 6px;
 }
 
-.schemaFctRow .lua-cm-editor
+.schemaFctRow /* help of the script arguments dialog */
+
+.settingsDialogContent > div.scriptHelpTitle
+{
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.settingsDialogContent > div.scriptHelp
+{
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    column-gap: 16px;
+    row-gap: 3px;
+    padding: 6px 10px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    background-color: color-mix(in srgb, var(--fontColor) 8%, transparent);
+    text-align: left;
+}
+
+.scriptHelp > div.scriptHelpKey
+{
+    font-family: monospace;
+    color: var(--blue);
+    font-weight: bold;
+}
+
+.scriptHelp > div.scriptHelpText
+{
+    grid-column: 1 / -1;
+    white-space: pre-wrap;
+}
+
+.scriptHelp span.scriptHelpOptional
+{
+    margin-left: 8px;
+    font-size: smaller;
+    opacity: 0.65;
+}
+
+.lua-cm-editor
 {
     flex: none;
     height: 160px;
@@ -4221,19 +4269,19 @@ table.tableMultiCol td
 {
     text-align: center;
     font-size: 3.0em;
-    fill: white;
+    fill: var(--scaleText, white);
 }
 
 .gauge-value
 {
     text-align: center;
-    fill: white;
+    fill: var(--widgetFontColor, white);
 }
 
 .widgetGauge path
 {
     stroke-width: 55;
-    stroke: #ecf0f1;
+    stroke: var(--gaugeTrack, #ecf0f1);
     fill: none;
 }
 

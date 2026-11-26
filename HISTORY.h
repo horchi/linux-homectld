@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.81"
-#define VERSION_DATE "25.11.2026"
+#define _VERSION     "0.1.82"
+#define VERSION_DATE "26.11.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,17 @@
 
 /*
  * ------------------------------------
+
+2026-11-26: version 0.1.82
+    - added: script lms-folder.sh to enable / disable a music folder in LMS
+    - change: script setup dialog: help shown as table, JSON editor for the arguments
+    - bugfix: chart page: 'Invalid date' in the tooltip
+    - change: chart page: grid lines in the color of the left scale, active bookmark highlighted
+    - bugfix: chart page: selected sensors lost after a page change
+    - bugfix: dashboard: date of the time widget in English on some browsers
+    - change: light themes: widget font, gauge scale and chart widget scale in a darker gray
+    - added: dashboard: color of the meter widget selectable
+    - change: images of the heating state follow the color scheme, config 'iconSet' removed
 
 2026-11-25: version 0.1.81
     - bugfix: Zigbee page: reachable state of a device updated without reload

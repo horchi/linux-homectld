@@ -2975,26 +2975,6 @@ int HomeCtl::configChoice2json(json_t* obj, const char* name)
 
       free(path);
    }
-   else if (strcmp(name, "iconSet") == 0)
-   {
-      FileList options;
-      int count {0};
-      char* path {};
-
-      asprintf(&path, "%s/img/state", httpPath);
-
-      if (getFileList(path, DT_DIR, nullptr, false, &options, count) == success)
-      {
-         json_t* oArray {json_array()};
-
-         for (const auto& opt : options)
-            json_array_append_new(oArray, json_string(opt.name.c_str()));
-
-         json_object_set_new(obj, "options", oArray);
-      }
-
-      free(path);
-   }
    else if (strcmp(name, "p4Schema") == 0)
    {
       // the pictures of the schema of the heating: img/p4/schema/schema-<name>.png or .svg, offered with the extension

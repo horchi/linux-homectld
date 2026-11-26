@@ -2678,7 +2678,6 @@ int HomeCtl::readConfiguration(bool initial)
    getConfigItem("webPort", webPort, webPort);
    getConfigItem("webUrl", webUrl);
    getConfigItem("webSSL", webSsl);
-   getConfigItem("iconSet", iconSet, "light");
    getConfigItem("windyAppSpotID", windyAppSpotID, "5247411");
    getConfigItem("windyAppID", windyAppID, "");
    comboHistoryAdd("windyAppSpotID", windyAppSpotID.c_str());     // the current spot is a suggestion from the start

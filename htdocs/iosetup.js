@@ -1651,8 +1651,13 @@ function sensorScClone(type, address)
    }});
 }
 
-function sensorScSetup(type, address)
+async function sensorScSetup(type, address)
 {
+   if (!await loadCodeMirror())
+      return;
+
+   defineHtmlWidgetModes();     // the 'jsonsimple' mode
+
    calSensorType = type;
    calSensorAddress = parseInt(address);
 
@@ -1675,26 +1680,53 @@ function sensorScSetup(type, address)
    if (valueFacts[key].parameter && valueFacts[key].parameter.options)
       note = valueFacts[key].parameter.options.note;
 
-   $(form).append($('<div></div>')
-                  .addClass('settingsDialogContent')
-                  .append($('<span></sOptionspan>')
-                          .html('Help'))
-                  .append($('<span></span>')
-                          .css('padding', '8px')
-                          .css('white-space', 'pre-wrap')
-                          .text(note))
+   // help: one argument per line 'key: description (optional, default: x)',
+   //   shown as table, lines without key span both columns
+
+   const help = $('<div></div>').addClass('scriptHelp');
+
+   for (const line of (note || '').split('\n')) {
+      if (line.trim() == '')
+         continue;
+
+      const m = line.match(/^\s*([\w.-]+)\s*:\s*(.*)$/);
+
+      if (!m) {
+         help.append($('<div></div>').addClass('scriptHelpText').text(line));
+         continue;
+      }
+
+      const opt = m[2].match(/^(.*?)\s*\((optional[^)]*)\)\s*$/);
+      const desc = $('<div></div>').text(opt ? opt[1] : m[2]);
+
+      if (opt)
+         desc.append($('<span></span>').addClass('scriptHelpOptional').text(opt[2]));
+
+      help.append($('<div></div>').addClass('scriptHelpKey').text(m[1]))
+         .append(desc);
+   }
+
+   const content = $('<div></div>').addClass('settingsDialogContent');
+
+   if (help.children().length)
+      content.append($('<div></div>').addClass('scriptHelpTitle').text('Help'))
+         .append(help);
+
+   $(form).append(content
                   .append($('<div></div>')
                           .addClass('textarea-row')
                           .append($('<span></span>')
                                   .html('Argumente (JSON)'))
                           .append($('<span></span>')
-                                  .append($('<textarea></textarea>')
-                                          .attr('id', 'settings')
-                                          .addClass('rounded-border inputSetting inputSettingScript')
-                                          .css('resize', 'none')
-                                          .val(JSON.stringify(settings, undefined, 3))
-                                         )))
+                                  .append($('<div></div>')
+                                          .addClass('lua-cm-editor'))))
+                  .append($('<div></div>')
+                          .attr('id', 'scArgsResult')
+                          .css('margin-top', '8px')
+                          .addClass('luaCheckResult'))
                  );
+
+   let argsEditor = null;
 
    var title = valueFacts[key].usrtitle != '' ? valueFacts[key].usrtitle : valueFacts[key].title;
 
@@ -1709,22 +1741,46 @@ function sensorScSetup(type, address)
       open: function() {
          calSensorType = type;
          calSensorAddress = parseInt(address);
+         argsEditor = CodeMirror($(form).find('.lua-cm-editor')[0], {
+            value:          JSON.stringify(settings, undefined, 3) || '',
+            mode:           'jsonsimple',
+            lineNumbers:    true,
+            indentUnit:     3,
+            tabSize:        3,
+            indentWithTabs: false,
+            lineWrapping:   false,
+            autofocus:      true,
+            extraKeys:      { 'Esc': () => $(form).dialog('close') },
+         });
+         argsEditor.setSize('100%', '100%');
+         setTimeout(() => argsEditor.refresh(), 50);
       },
       buttons: {
          'Abbrechen': function () {
             $(this).dialog('close');
          },
          'Speichern': function () {
+            let args;
+
+            try {
+               args = JSON.parse(argsEditor.getValue());
+            }
+            catch (e) {
+               $('#scArgsResult').text('Ungültiges JSON: ' + e.message).css('color', 'red');
+               return;
+            }
+
             socket.send({ "event" : "storesensorsetup", "object" : {
                'type':     calSensorType,
                'address':  calSensorAddress,
-               'settings': JSON.parse($('#settings').val().replace(/\s\s+/g, ' '))
+               'settings': args
             }});
 
             $(this).dialog('close');
          }
       },
       close: function() {
+         argsEditor = null;
          calSensorType = '';
          calSensorAddress = -1;
          $(this).dialog('destroy').remove();

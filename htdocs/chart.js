@@ -95,7 +95,6 @@ function drawCharts(dataObject)
             caretPadding: 6,
             cornerRadius: 6,
             callbacks: {
-               title: function(items) { return items.length ? moment(items[0].xLabel).format('dd DD.MM.YYYY HH:mm') : ''; },
                label: function(item, d) {
                   var ds = d.datasets[item.datasetIndex];
                   if (ds.logical == 'state')
@@ -128,7 +127,7 @@ function drawCharts(dataObject)
                distribution: "linear",
                display: true,
                time: {
-                  tooltipFormat: 'DD.MM.YYYY HH:mm',
+                  tooltipFormat: 'dd DD.MM.YYYY HH:mm',      // Tooltip-Titel
                   displayFormats: {
                      millisecond: 'HH:mm:ss',
                      second: 'HH:mm:ss',
@@ -196,7 +195,7 @@ function drawCharts(dataObject)
       }
 
       if (knownUnits[unit] == null) {
-         // eine Y-Achse pro Einheit, abwechselnd links / rechts, Gitter nur von der ersten
+         // eine Y-Achse pro Einheit, abwechselnd links / rechts, Gitter nur von der ersten (in deren Farbe)
 
          knownUnits[unit] = true;
          yAxes.push({
@@ -204,8 +203,8 @@ function drawCharts(dataObject)
             display: true,
             position: yAxes.length % 2 ? 'right' : 'left',
             ticks: { padding: 8, maxTicksLimit: 10, fontColor: color },
-            gridLines: { color: gridColor, zeroLineColor: mutedColor, drawBorder: false, drawTicks: false,
-                         borderDash: [3,4], drawOnChartArea: yAxes.length == 0 },
+            gridLines: { color: color + '80', zeroLineColor: mutedColor, drawBorder: false, drawTicks: false,
+                         borderDash: [5,5], drawOnChartArea: yAxes.length == 0 },
             scaleLabel: { display: unit != '', fontColor: color, labelString: unit }
          });
       }
@@ -410,6 +409,14 @@ function refresh()
    }
 }
 
+function sameSensors(a, b)
+{
+   // Sensorlisten 'T:0x1,T:0x2,' unabhängig von Reihenfolge und leeren Einträgen vergleichen
+
+   var norm = function(s) { return (s || '').split(',').filter(function(e) { return e != ''; }).sort().join(','); };
+   return norm(a) != '' && norm(a) == norm(b);
+}
+
 function updateChartBookmarks()
 {
    var html = '';
@@ -421,7 +428,8 @@ function updateChartBookmarks()
 
    if (chartBookmarks != null) {
       for (var i = 0; i < chartBookmarks.length; i++)
-         html += '<button class="chartBookmarkButton" ondragstart="dragBm(event, \'' + chartBookmarks[i].name + '\')" draggable="true" onclick="chartSelectBookmark(\'' + chartBookmarks[i].sensors + '\')">' + chartBookmarks[i].name + '</button>';
+         html += '<button class="chartBookmarkButton' + (sameSensors(chartBookmarks[i].sensors, config.chartSensors) ? ' chartBookmarkActive' : '')
+            + '" ondragstart="dragBm(event, \'' + chartBookmarks[i].name + '\')" draggable="true" onclick="chartSelectBookmark(\'' + chartBookmarks[i].sensors + '\')">' + chartBookmarks[i].name + '</button>';
    }
 
    html += '<div class="chartRefresh"><input id="refresh" type="checkbox"' + (refreshTimer != null ? ' checked' : '') + '/><label for="refresh">Refresh</label></div>';
@@ -500,6 +508,8 @@ function chartSelect(action)
 
    // console.log("sensors:  '" + sensors + "'" + ' Range:' + theChartRange);
 
+   config.chartSensors = sensors;        // wird vom Server ebenfalls gespeichert, ohne Reload aber nicht neu geliefert
+
    var jsonRequest = {};
    prepareChartRequest(jsonRequest, sensors, theChartStart, theChartRange, "chart");
    currentRequest = jsonRequest;
@@ -510,6 +520,8 @@ function chartSelect(action)
 function chartSelectBookmark(sensors)
 {
    console.log("bookmark: " + sensors);
+
+   config.chartSensors = sensors;        // wird vom Server ebenfalls gespeichert, ohne Reload aber nicht neu geliefert
 
    var jsonRequest = {};
    prepareChartRequest(jsonRequest, sensors, theChartStart, theChartRange, "chart");

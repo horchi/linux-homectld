@@ -64,7 +64,6 @@ std::list<HomeCtl::ConfigItemDef> HomeCtl::configuration
    { "webPort",                   ctInteger, "61109",        "N", false, "WEB Interface", "Port des Web Interfaces", "", "doc/configuration.md#web-interface" },
    { "webSSL",                    ctBool,    "",             "N", false, "WEB Interface", "Use SSL for WebInterface", "", "doc/configuration.md#web-interface" },
    { "style",                     ctChoice,  "dark",         "N", false, "WEB Interface", "Farbschema", "", "doc/configuration.md#web-interface" },
-   { "iconSet",                   ctChoice,  "light",        "N", true,  "WEB Interface", "Status Icon Set", "" },
    { "background",                ctChoice,  "",             "N", false, "WEB Interface", "Background image", "", "doc/configuration.md#web-interface" },
    { "schema",                    ctChoice,  "default.svg",  "N", false, "WEB Interface", "Schematische Darstellung", "Das Bild des Schemas (img/schema/schema-<Name>.png oder .svg)", "doc/configuration.md#web-interface" },
    { "schemaBackground",          ctString,  "",             "N", false, "WEB Interface", "Hintergrundfarbe des Schemas", "CSS Farbe hinter dem Bild des Schemas (wirkt bei transparenten Bildern wie den SVGs), leer = die des Farbschemas, auch im Schema-Setup über 'Hintergrund' einstellbar", "doc/configuration.md#web-interface" },

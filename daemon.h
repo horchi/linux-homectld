@@ -1158,7 +1158,6 @@ class HomeCtl : public cWebInterface, public Service
       int webPort {61109};
       std::string webUrl;
       bool webSsl {false};
-      std::string iconSet;
       int aggregateInterval {15};         // aggregate interval in minutes
       int aggregateHistory {0};           // history in days
 

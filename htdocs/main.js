@@ -334,16 +334,27 @@ function sleep(ms) {
 
 const dateLocale = 'de-DE';
 
+// names of our own, browsers without the German locale data of Intl
+//   (some kiosk / WebView browsers) would fall back to 'Thursday', 'November', ...
+
+const fmtWeekdayNames = [ 'Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag' ];
+const fmtMonthNames = [ 'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli',
+                     'August', 'September', 'Oktober', 'November', 'Dezember' ];
+
+function fmtWeekdayShort(date) {          // 'Di.'
+   return fmtWeekdayNames[date.getDay()].substring(0, 2) + '.';
+}
+
 function fmtWeekdayDay(date) {            // 'Dienstag 4.'
-   return date.toLocaleDateString(dateLocale, { weekday: 'long' }) + ' ' + date.getDate() + '.';
+   return fmtWeekdayNames[date.getDay()] + ' ' + date.getDate() + '.';
 }
 
 function fmtWeekdayDayMonth(date) {       // 'Dienstag 4. August'
-   return fmtWeekdayDay(date) + ' ' + date.toLocaleDateString(dateLocale, { month: 'long' });
+   return fmtWeekdayDay(date) + ' ' + fmtMonthNames[date.getMonth()];
 }
 
 function fmtMonthYear(date) {             // 'August 2026'
-   return date.toLocaleDateString(dateLocale, { month: 'long', year: 'numeric' });
+   return fmtMonthNames[date.getMonth()] + ' ' + date.getFullYear();
 }
 
 function fmtTime(date) {                  // '15:26:41'
@@ -1021,7 +1032,7 @@ function dispatchMessage(message)
       hideProgressDialog();
       let id = jMessage.object.id;
 
-      if (currentPage == 'chart') {                                      // the charts page
+      if (currentPage == 'chart' && id == "chart") {                     // the charts page (a late answer of a dashboard widget has no 'sensors')
          drawCharts(jMessage.object);
       }
       else if (currentPage == 'dashboard' && id == "chartwidget") {      // the dashboard widget
@@ -2591,6 +2602,14 @@ function prepareChartRequest(jRequest, sensors, start, range, id)
 // Chart Widget
 //***************************************************************************
 
+// labels of the axes of the chart widgets (darkgray on the dark themes, like --widgetFontColor on the light ones)
+
+function chartWidgetScaleColor()
+{
+   let v = getComputedStyle(document.documentElement).getPropertyValue('--chartScaleText').trim();
+   return v != '' ? v : 'darkgray';
+}
+
 function drawChartWidget(dataObject)
 {
    let root = document.getElementById("container");
@@ -2632,7 +2651,7 @@ function drawChartWidget(dataObject)
                   padding: 0,
                   maxTicksLimit: 6,
                   maxRotation: 0,
-                  fontColor: "darkgray"
+                  fontColor: chartWidgetScaleColor()
                }
 
             }],
@@ -2645,7 +2664,7 @@ function drawChartWidget(dataObject)
                ticks: {
                   padding: 5,
                   maxTicksLimit: 5,
-                  fontColor: "darkgray"
+                  fontColor: chartWidgetScaleColor()
                }
             }]
          }
@@ -2739,7 +2758,7 @@ function drawBarChartWidget(dataObject)
                },
                ticks: {
                   padding: 0,
-                  fontColor: "darkgray"
+                  fontColor: chartWidgetScaleColor()
                }
             }],
             yAxes: [{
@@ -2751,7 +2770,7 @@ function drawBarChartWidget(dataObject)
                ticks: {
                   padding: 5,
                   maxTicksLimit: 5,
-                  fontColor: "darkgray"
+                  fontColor: chartWidgetScaleColor()
                }
             }]
          }
@@ -2838,7 +2857,7 @@ function drawChartDialog(dataObject)
             cornerRadius: 6,
             displayColors: false,
             callbacks: {
-               title: function(items) { return moment(items[0].xLabel).format('dd DD.MM. HH:mm'); },
+               title: function(items, d) { return items.length ? moment(d.datasets[items[0].datasetIndex].data[items[0].index].x).format('dd DD.MM. HH:mm') : ''; },
                label: function(item) {
                   if (logical == 'state')
                      return item.yLabel > 0 ? 'An' : 'Aus';

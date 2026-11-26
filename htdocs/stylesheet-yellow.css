@@ -62,6 +62,10 @@
     --dialogBackgroundDark: #272727;
     --scaleText: #333333;
     --scale: #666666;
+    --widgetFontColor: #4f4f3a;   /* widgets without own color (setup 'white') */
+    --gaugeTrack: #d3d3b8;
+    --chartScaleText: #4f4f3a;   /* axis labels of the chart widgets */
+    --stateIconSet: dark;    /* img/state/<set> of the heating state, dark = black symbols */
 
     --sat: env(safe-area-inset-top);
     --sar: env(safe-area-inset-right);

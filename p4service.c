@@ -79,7 +79,6 @@ std::string HomeCtl::p4Config2Json()
    json_object_set_new(jConfig, "stateInterval", json_integer(p4StateInterval));
    json_object_set_new(jConfig, "tsync", json_boolean(p4TimeSync));
    json_object_set_new(jConfig, "maxTimeLeak", json_integer(p4MaxTimeLeak));
-   json_object_set_new(jConfig, "iconSet", json_string(iconSet.empty() ? "light" : iconSet.c_str()));     // the images of the state of the control
    json_object_set_new(jConfig, "heatingType", json_string(p4HeatingType.c_str()));
    json_object_set_new(jConfig, "active", jActive);
 

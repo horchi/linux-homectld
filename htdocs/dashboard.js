@@ -668,12 +668,38 @@ function newDashboard()
    }
 }
 
+// the widget color 'white' is the default (stored so by the setup dialog, initWidget sets it for
+//   unset colors), shown in the font color of the theme (--widgetFontColor, a gray on the light themes)
+
+// the images of the state of the heating (P4UD:1 of p4mqttd, 'img/state/light/...'): the set
+//   of the theme - light symbols for the dark themes, dark ones for the light themes (--stateIconSet)
+
+function themedStateImage(image)
+{
+   let set = getComputedStyle(document.documentElement).getPropertyValue('--stateIconSet').trim() || 'light';
+   return image.replace(/^img\/state\/(light|dark)\//, 'img/state/' + set + '/');
+}
+
+function isDefaultWidgetColor(color)
+{
+   return !color || color == 'white' || tinycolor.equals(color, 'white');
+}
+
+function widgetColor(widget)
+{
+   if (!isDefaultWidgetColor(widget.color))
+      return widget.color;
+
+   let v = getComputedStyle(document.documentElement).getPropertyValue('--widgetFontColor').trim();
+   return v != '' ? v : 'white';
+}
+
 function getWidgetColor(widget, colorCondition, defaultColor, value)
 {
    if (colorCondition == null || colorCondition == '') {
       if (defaultColor != null)
          return defaultColor;
-      return 'white';
+      return widgetColor({});
    }
    else {
       let conditions = colorCondition.split(",");
@@ -974,7 +1000,7 @@ function initWidget(key, widget, fact)
             .append($('<button></button>')
                     .attr('id', 'button' + fact.type + fact.address)
                     .attr('type', 'button')
-                    .css('color', widget.color)
+                    .css('color', widgetColor(widget))
                     .css('user-select', 'none')
                     .css('border-radius', '100%')
                     .css('width', '100%')
@@ -1011,7 +1037,7 @@ function initWidget(key, widget, fact)
          let eValue = document.createElement("div");
          eValue.setAttribute('id', 'value' + fact.type + fact.address);
          eValue.className = "chart-value";
-         eValue.style.color = widget.color;
+         eValue.style.color = widgetColor(widget);
          elem.appendChild(eValue);
 
          let eChart = document.createElement("div");
@@ -1043,7 +1069,7 @@ function initWidget(key, widget, fact)
                     .attr('id', 'widget' + fact.type + fact.address)
                     .addClass('widget-value')
                     .css('user-select', 'none')
-                    .css('color', widget.color)
+                    .css('color', widgetColor(widget))
                     .css('cursor', !setupMode && fact.record ? 'pointer' : '')
                     .click(function() {
                        let cFact = fact;
@@ -1086,6 +1112,7 @@ function initWidget(key, widget, fact)
                             .append($('<text></text>')
                                     .attr('id', 'value' + fact.type + fact.address)
                                     .addClass('gauge-value')
+                                    .css('fill', widgetColor(widget))
                                     .attr('font-size', "140")
                                     .attr('font-weight', 'bold')
                                     .attr('text-anchor', 'middle')
@@ -1144,7 +1171,7 @@ function initWidget(key, widget, fact)
                            .attr('id', 'widget' + fact.type + fact.address)
                            .addClass('widget-text')
                            .css('user-select', 'none')
-                           .css('color', widget.color)
+                           .css('color', widgetColor(widget))
                            .css('height', 'inherit'));
          }
          break;
@@ -1164,7 +1191,7 @@ function initWidget(key, widget, fact)
             .append($('<div></div>')
                     .attr('id', 'choice' + fact.type + fact.address)
                     .addClass('widget-choice rounded-border')
-                    .css('color', widget.color))
+                    .css('color', widgetColor(widget)))
          let choices = fact.choices.split(",");
 
          // option 'buttons': less than 5 choices stacked, otherwise a grid of equally wide buttons
@@ -1214,7 +1241,7 @@ function initWidget(key, widget, fact)
                     .attr('id', 'button' + fact.type + fact.address)
                     .addClass('widget-main')
                     .attr('type', 'button')
-                    .css('color', widget.color)
+                    .css('color', widgetColor(widget))
                     .css('user-select', 'none')
                     .css('border-radius', '100%')
                     .append($('<img></img>')
@@ -1293,7 +1320,7 @@ function initWidget(key, widget, fact)
          $(elem).append($('<div></div>')
                         .attr('id', 'widget' + key)
                         .addClass('widget-time')
-                        .css('color', widget.color)
+                        .css('color', widgetColor(widget))
                         .css('user-select', 'none')
                         .html(getTimeHtml()));
          setInterval(function() {
@@ -1351,15 +1378,15 @@ function initWidget(key, widget, fact)
                // äußerer Rahmen
                '  <rect x="' + xPos + '"   y="10"    width="' + symbolWidth + '" rx="5" ry="5" height="180" fill="white" style="fill:white;stroke:black;stroke-width:5" />' +
                // untere permanente Füllung wegen der Rundung in widget Farbe
-               '  <rect x="' + (xPos +0.5) + '" y="178.5" width="' + (symbolWidth - 3) + '" rx="4.5" height="10" fill="' + widget.color + '" />' +
+               '  <rect x="' + (xPos +0.5) + '" y="178.5" width="' + (symbolWidth - 3) + '" rx="4.5" height="10" fill="' + widgetColor(widget) + '" />' +
                // Rest weiß - leer
                '  <rect x="' + (xPos +0.5) + '" y="14"    width="' + (symbolWidth - 3) + '" height="169" fill="rgb(255 255 255)" />' +
                // Füllung in widget Farbe
-               '  <rect id="svg' + key + '" x="' + (xPos +0.5) + '" y="14" width="' + (symbolWidth - 3) + '" height="170" fill="' + widget.color + '" />' +
+               '  <rect id="svg' + key + '" x="' + (xPos +0.5) + '" y="14" width="' + (symbolWidth - 3) + '" height="170" fill="' + widgetColor(widget) + '" />' +
                // die Oberfläche mit 3D Effekt
-               '  <ellipse id="svgEllipse' + key + '" rx="' + ((symbolWidth-6)/2) + '" ry="' + 8 + '" cx="' + (xPos + symbolWidth/2) + '" cy="100" stroke="' + widget.color + '" fill="' + alterColor(widget.color, 'lighten', 100) + '" style="stroke-width:2" />' +
+               '  <ellipse id="svgEllipse' + key + '" rx="' + ((symbolWidth-6)/2) + '" ry="' + 8 + '" cx="' + (xPos + symbolWidth/2) + '" cy="100" stroke="' + widgetColor(widget) + '" fill="' + alterColor(widgetColor(widget), 'lighten', 100) + '" style="stroke-width:2" />' +
                // Text
-               '  <ellipse rx="40" ry="20" cx="' + (xPos + symbolWidth - 20) + '" cy="10" stroke="' + widget.color + '" style="fill:white;stroke-width:2" />' +
+               '  <ellipse rx="40" ry="20" cx="' + (xPos + symbolWidth - 20) + '" cy="10" stroke="' + widgetColor(widget) + '" style="fill:white;stroke-width:2" />' +
                '  <text id="value' + key + '" x="' + (xPos + symbolWidth - 20) + '" y="11" fill="black" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="18">--</text>' +
                '</svg>';
          }
@@ -1395,7 +1422,7 @@ function initWidget(key, widget, fact)
             .append($('<div></div>')
                     .attr('id', 'widget' + fact.type + fact.address)
                     .css('user-select', 'none')
-                    .css('color', widget.color)
+                    .css('color', widgetColor(widget))
                     .addClass('widget-txt'));
 
          let cFact = fact;
@@ -1636,7 +1663,7 @@ function initLevel(key, widget, fact)
       'size' : Math.round(size * dpr),
       'fontPx' : Math.round((size - 4) * dpr),
       'colorFill' : widget.barcolor ? widget.barcolor : '#059eeb',
-      'colorFrame' : widget.color && widget.color != 'white' ? widget.color : 'var(--fontColor)',
+      'colorFrame' : !isDefaultWidgetColor(widget.color) ? widget.color : 'var(--fontColor)',
       'ink' : null,
       'pct' : null
    });
@@ -1770,7 +1797,7 @@ function initBalance(key, widget, fact)
 
    // the dashboard defaults an unset color to 'white' (initWidget), the dialog sets red / green on choosing the type
 
-   let colorNeg = widget.color && widget.color != 'white' ? widget.color : '#ff5757';
+   let colorNeg = !isDefaultWidgetColor(widget.color) ? widget.color : '#ff5757';
    let colorPos = widget.colorOn ? widget.colorOn : '#4caf50';
    let pctOf = function(v) { return (v - scaleMin) / (scaleMax - scaleMin) * 100; };
    let zeroPct = Math.min(100, Math.max(0, pctOf(0)));      // fill starts at the edge if zero is outside the range
@@ -1937,7 +1964,7 @@ function initMeter(key, widget, fact, neededScaleMax, value)
       _value.setAttribute('id', 'widgetValue' + fact.type + fact.address);
       _value.className = "widget-main-value-lin";
       elem.appendChild(_value);
-      $("#widgetValue" + fact.type + fact.address).css('color', widget.color);
+      $("#widgetValue" + fact.type + fact.address).css('color', widgetColor(widget));
       let ePeak = document.createElement("div");
       ePeak.setAttribute('id', 'peak' + fact.type + fact.address);
       ePeak.className = "widget-main-peak-lin";
@@ -2054,7 +2081,7 @@ function initMeter(key, widget, fact, neededScaleMax, value)
       valueBox: radial && showValue,
       valueInt: 0,
       valueDec: widget.unit == '%' ? 0 : 2,
-      colorValueText: colorStyle.getPropertyValue('--scale'),
+      colorValueText: widgetColor(widget),
       colorValueBoxBackground: 'transparent',
       valueBoxStroke: 0,
       fontValueSize: 45,
@@ -2569,7 +2596,7 @@ function weatherForecast(key)
       let date = new Date(day.time*1000);
 
       html += '<div class="wf-day" data-day="' + i + '">' +
-         '<div class="wf-dayname">' + (i == 0 ? 'Heute' : date.toLocaleDateString(dateLocale, { weekday: 'short' })) + '</div>' +
+         '<div class="wf-dayname">' + (i == 0 ? 'Heute' : fmtWeekdayShort(date)) + '</div>' +
          '<img src="' + weatherIconUrl(noon.icon, false) + '" alt="">' +
          '<div><span class="wf-max ' + weatherTempClass(Math.max(...temps)) + '">' + fmt(Math.max(...temps)) + '°</span>' +
          ' <span class="wf-min">' + fmt(Math.min(...temps)) + '°</span></div>' +
@@ -3207,7 +3234,8 @@ function nextActionTime(at, withSeconds)
    if (days == 1)
       return 'morgen ' + time;
 
-   return d.toLocaleDateString(dateLocale, { weekday: 'short', day: '2-digit', month: '2-digit' }) + ' ' + time;
+   return fmtWeekdayShort(d) + ', ' + String(d.getDate()).padStart(2, '0') + '.'
+      + String(d.getMonth() + 1).padStart(2, '0') + '. ' + time;
 }
 
 // event 'sensorjson' - the last raw message of a sensor (info dialog, tab JSON)
@@ -3268,7 +3296,7 @@ function widgetSymbolOf(fact, widget, sensor)
 
    if (sensor.image != null) {                                    // own image got by data
       if (sensor.image.indexOf('mdi:') != 0)
-         image = sensor.image;
+         image = themedStateImage(sensor.image);
       else
          classes = sensor.image.replace(':', ' ');
    }
@@ -3288,10 +3316,10 @@ function widgetSymbolOf(fact, widget, sensor)
 
    widget.colorOn = widget.colorOn == null ? symbolOnColorDefault : widget.colorOn;
 
-   let color = state ? widget.colorOn : widget.color;
+   let color = state ? widget.colorOn : widgetColor(widget);
 
    if (blind && sensor.valid && widget.color)
-      color = tinycolor.mix(widget.color, widget.colorOn, Math.max(0, Math.min(100, sensor.value))).toRgbString();
+      color = tinycolor.mix(widgetColor(widget), widget.colorOn, Math.max(0, Math.min(100, sensor.value))).toRgbString();
 
    color = getWidgetColor(widget, widget.colorCondition, color, sensor.value);
 
@@ -3537,7 +3565,7 @@ function updateWidget(sensor, refresh, widget)
 
       }
       else if (sensor.text != null) {
-         $("#widget" + fact.type + fact.address).css('color', getWidgetColor(widget, widget.colorCondition, widget.color, sensor.text));
+         $("#widget" + fact.type + fact.address).css('color', getWidgetColor(widget, widget.colorCondition, widgetColor(widget), sensor.text));
          if (widget.widgettype == 7 && sensor.text.indexOf('\n') != -1) {
             // show plain with tabs text as table
 
@@ -3562,7 +3590,7 @@ function updateWidget(sensor, refresh, widget)
    }
    else if (widget.widgettype == 3)      // Value
    {
-      $("#widget" + fact.type + fact.address).css('color', getWidgetColor(widget, widget.colorCondition, widget.color, sensor.value));
+      $("#widget" + fact.type + fact.address).css('color', getWidgetColor(widget, widget.colorCondition, widgetColor(widget), sensor.value));
       $("#widget" + fact.type + fact.address).html(sensor.value + " " + widget.unit);
       if (widget.showpeak || widget.showpeakmin)
          $("#peak" + fact.type + fact.address).html(peakHtml(widget, sensor, ' ', true));
@@ -3643,7 +3671,7 @@ function updateWidget(sensor, refresh, widget)
             initMeter(key, widget, fact, widgetDiv.data('scalemax'), sensor.value);
 
          if (widget.widgettype == 6) {
-            $("#widgetValue" + fact.type + fact.address).css('color', getWidgetColor(widget, widget.colorCondition, widget.color, value));
+            $("#widgetValue" + fact.type + fact.address).css('color', getWidgetColor(widget, widget.colorCondition, widgetColor(widget), value));
             $('#widgetValue' + fact.type + fact.address).html(value.toFixed(widget.unit == '%' ? 0 : 1) + ' ' + widget.unit);
          }
 

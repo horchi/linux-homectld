@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.82"
-#define VERSION_DATE "26.11.2026"
+#define _VERSION     "0.1.83"
+#define VERSION_DATE "27.11.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,12 @@
 
 /*
  * ------------------------------------
+
+2026-11-27: version 0.1.83
+    - change: HASP panel: make switch HASP, file upload (scripts, MDI subset), crash fixes, font size, color condition, swipe, card color
+    - added: setup page: config 'hiddenCategories' to hide unused categories
+    - added: setup page: user defined config items can be deleted
+    - bugfix: setup page: multi select values containing blanks
 
 2026-11-26: version 0.1.82
     - added: script lms-folder.sh to enable / disable a music folder in LMS

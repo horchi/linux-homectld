@@ -36,6 +36,9 @@ The settings of some categories are explained with their topic, they are only li
   `Detail`, `Debug` / `Debug2`, `WebSock`, `Mqtt`, `Db`, `Deconz`, `Weather`, `HomeMatic`, `Lua`, `Lmc`, `Script`,
   `Gps`, ... (the `Debug...` ones are very verbose). Errors are always logged. The option `-l` at the start of
   homectld has priority.
+- **Ausgeblendete Kategorien** (`hiddenCategories`): categories of the setup page *Konfiguration* which are not needed
+  (e.g. `GPS`, `Garmin`, `Heizung S 3200`) get no button, their settings are kept. `Daemon` and `User Defined` can't be
+  hidden.
 
 ## GPS
 

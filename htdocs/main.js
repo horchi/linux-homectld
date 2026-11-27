@@ -972,6 +972,13 @@ function dispatchMessage(message)
       if (currentPage == "hasp")
          initHaspSetup();
    }
+   else if (event == "haspstatus") {           // memory and messages of the panel (no rebuild of the page)
+      haspPages.memory = jMessage.object.memory;
+      haspPages.log = jMessage.object.log;
+
+      if (currentPage == "hasp")
+         haspRenderStatus();
+   }
    else if (event == "valuefacts") {
       let hadGps = gpsAvailable();
       valueFacts = jMessage.object;
@@ -1453,7 +1460,9 @@ function prepareSetupMenu()
          // Integration
 
          addSetupMenuSeparator();
-         addSetupMenuButton('HASP Panel', 'hasp', null, 'mdi-tablet-dashboard');
+
+         if (config.haspAvailable == '1')         // make switch HASP (Make.user)
+            addSetupMenuButton('HASP Panel', 'hasp', null, 'mdi-tablet-dashboard');
 
          if (localStorage.getItem(storagePrefix + 'Rights') & 0x10) {
             addSetupMenuButton('HTML Widgets', 'htmlwidgets', null, 'mdi-code-tags');

@@ -9,12 +9,20 @@ small wall or vehicle display. The pages of the panel are configured in the WEBI
 
 ## Prerequisites
 
+- make switch `HASP = 1` in `Make.user`: only then the setup page *HASP Panel* and its configuration items are
+  offered, the panel topics are subscribed and `make install` installs the scripts for the panel
+  (`openHASP/data-files/idle_*.cmd` and the empty `mqtt_on.cmd` -> `/etc/homectld/hasp/`, existing ones are kept)
 - openHASP firmware on the panel, MQTT configured to the same broker as homectld
   (the group topic of the panel is `hasp/plates` by default)
 - configuration item *HASP Panel -> haspMqttTopic* (`hasp/plates` or `hasp/<hostname>`); empty = disabled
-- for MDI symbols the complete Material Design Icons font has to be uploaded to the panel once as `/mdi.ttf`
-  (the file of the WEBIF: `htdocs/mds/fonts/materialdesignicons-webfont.ttf`), e.g.
-  `curl -F "data=@materialdesignicons-webfont.ttf;filename=/mdi.ttf" http://<panel-ip>/edit`, then reboot the panel
+- the scripts `idle_*.cmd` and the font for the MDI symbols (`/mdi.ttf`) have to be on the panel: button
+  *Dateien hochladen* on the setup page (uploads them via the web editor of the panel with the display off -
+  writing the flash makes the RGB display flicker - then the panel is rebooted). The font is a subset of the
+  WEBIF font with only the symbols of the pages (`python3 -m fontTools.subset`, package `python3-fonttools`,
+  installed by `make install-dependencies` with `HASP = 1`); with the complete font (1.3 MB, 7447 symbols) the
+  panel runs out of memory (`MQTT RCV: Out of memory`, objects missing). After changing symbols upload again
+- recommended: the firmware from `openHASP/` (see its README): LVGL objects in the PSRAM instead of a fixed
+  64 KB block of internal RAM (about 11 KB per page), memory values and warnings / errors of the panel via MQTT
 
 ## Pages and widgets
 
@@ -44,6 +52,11 @@ small wall or vehicle display. The pages of the panel are configured in the WEBI
   the board buzzer beeps for a minute when the time is up, any touch on the card stops it; a touch on the
   time starts/stops, a long press resets to the configured minutes; needs the custom firmware >= 0.7.0.2,
   see openHASP/README.md)
+  and **Weather** (pseudo sensor *Wetter* in the sensor list, offered when the forecast sensor `WEA:0x01` of
+  OpenWeatherMap is active: symbol, temperature and description of the current weather, below today's
+  max / min and the rain probability (from 10 %); wide cards (one or two per row) show the next days as
+  columns with symbol and max / min. The title is the place of the forecast unless one is set. All weather
+  symbols are part of the font subset, a new card needs *Dateien hochladen* once)
 - the pages are sent after saving, with the button *An Panel senden* and automatically whenever the panel
   comes online (openHASP forgets objects received via MQTT on reboot); further buttons: *Panel wecken*
   (display on, the idle cycle restarts), *Panel neu starten* and *Screenshot* (the screenshot page of the
@@ -54,5 +67,12 @@ small wall or vehicle display. The pages of the panel are configured in the WEBI
   items *haspIdleShort* / *haspIdleLong* and sent with the pages (`config/gui`, `idle1` / `idle2`);
   0 switches a stage off, both 0 leaves the panel's own setting untouched
 - values are pushed on every sensor change; openHASP has no chart object, so charts are not available
+- *Speicher Panel* in the tool panel: free internal RAM, largest free block, fragmentation and free PSRAM from the
+  panel's status report (requested when the page is opened and with the refresh button; PSRAM and largest block
+  only with the firmware from `openHASP/`). The internal RAM is shown in red below about 40 KB
+- *Meldungen des Panels* above the pages: the last 50 warnings / errors the panel sends on `<topic>/state/log`
+  (firmware from `openHASP/`, no USB needed), also in the journal (`HASP: Panel warning: ...`). Messages
+  within 15 s after *Speichern* / *An Panel senden* (e.g. unknown attributes, lost MQTT messages) are shown
+  as error dialog to the browser that sent the pages
 
 [← Back to the overview](../README.md)

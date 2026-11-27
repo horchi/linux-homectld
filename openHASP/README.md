@@ -3,7 +3,8 @@
 Eigenes openHASP-Build, da die offiziellen Elecrow-Builds nur die alte (nicht-Advance) Serie unterstützen.
 
 * `upstream.conf`                          openHASP-Commit, von dem die Firmware gebaut wird
-* `patches/openhasp.patch`                 unsere Änderungen an Upstream-Dateien (esp32.cpp/.h, device.h, platformio.ini)
+* `patches/openhasp.patch`                 unsere Änderungen an Upstream-Dateien (esp32.cpp/.h, device.h, platformio.ini,
+  LVGL im PSRAM, Log per MQTT, statusupdate mit PSRAM, MQTT-Warteschlange, siehe *Speicher und Meldungen*)
 * `overlay/`                               unsere eigenen Dateien, werden über den Upstream-Baum kopiert
   (`user_setups/custom/crowpanel-advance.ini` Pinout/Panel/Touch der Advance 5.0, `platformio_override.ini`,
   `src/custom/my_custom.*` Summer und Timer)
@@ -14,12 +15,21 @@ Eigenes openHASP-Build, da die offiziellen Elecrow-Builds nur die alte (nicht-Ad
 * `firmware/`                              fertige Binaries (`*_full_*` für Offset 0x0, `*_ota_*` für OTA-Update)
 * `flash.sh`                               erase + write-flash seriell (nur beim ersten Mal / Partitionswechsel)
 * `ota.sh`                                 Firmware-Update über WLAN (Web-Updater des Panels)
-* `data-files/`                            Dateien fuer das Geraet (pages.jsonl, online.cmd, idle_*.cmd) und MQTT-Beispiele
+* `data-files/`                            Dateien fuer das Geraet (pages.jsonl, online.cmd, idle_*.cmd, mqtt_on.cmd leer) und MQTT-Beispiele
 
 ## Bauen
 
     ./build.sh            # nach dem Clone: holt openHASP, wendet unsere Änderungen an, baut (~15 min)
     ./ota.sh <ip>         # Firmware über WLAN auf das Panel
+
+Oder wie bei den anderen ESP32-Projekten über make (Port, IP und Web-Passwort aus `Make.user`:
+`HASP_PORT`, `HASP_OTA_HOST`, `HASP_OTA_PWD`):
+
+    make install-deps     # venv mit PlatformIO und esptool
+    make                  # build.sh
+    make upload           # flash.sh über USB (löscht den Flash komplett, nur beim ersten Mal)
+    make upload-ota       # ota.sh über WLAN
+    make monitor          # serielle Konsole (picocom)
 
 Nur `overlay/` und `patches/` sind im homectld-Repo versioniert, der openHASP-Klon in `src/` nicht.
 Änderungen an der Firmware werden in `src/` gemacht und mit `./export.sh` zurück nach `overlay/` und
@@ -69,6 +79,21 @@ Nach dem Hochladen der cmd-Dateien ist kein Neustart noetig, sie werden beim nae
 * Rev. V1.0 der Advance hat statt des STC8-MCU einen PCA9557 IO-Expander an 0x18; dafuer ist der
   Treiber nicht gebaut (Board-Revision steht auf der Platine).
 * Getestet 2026-09-06 auf echter Hardware: Display, Touch (GT911) und Backlight (backlight 20 / off / on) funktionieren.
+
+## Speicher und Meldungen
+
+* LVGL-Objekte liegen im PSRAM (`-D LV_MEM_CUSTOM=1` in `crowpanel-advance.ini`, Allokation über
+  `hasp_malloc()`). Upstream nutzt einen festen 64-KB-Block im internen RAM, der mit 3 homectld-Seiten schon
+  etwa zur Hälfte belegt war (~11 KB pro Seite). Freier interner RAM mit 3 Seiten: vorher ~80 KB, jetzt ~150 KB.
+  Die Zeile *LVGL Memory* der Info-Seite des Panels entfällt damit.
+* `statusupdate` enthält zusätzlich `heapMaxBlock`, `psramFree` und `psramSize` (homectld zeigt sie auf der
+  Seite *HASP Panel*).
+* Warnungen und Fehler gehen als JSON auf `<node>/state/log` (`{"level","tag","text"}`, Log-Slot 2, ersetzt
+  durch Syslog, wenn ein Syslog-Host gesetzt ist; gleiche Zeilen höchstens alle 10 s). Kein USB nötig.
+  Reine Debug-Ausgaben (`QUE jsonl`, Schrift-Metriken der FreeType-Lib) sind dafür auf VERBOSE/INFO gesetzt.
+* MQTT-Warteschlange 256 statt 64 Einträge (nur Zeiger, Nachrichten im PSRAM). Läuft sie über, weil die GUI
+  beschäftigt ist, meldet das Panel `Queue full, message lost: <topic>` statt `Out of memory` (upstream
+  hatten beide Fälle dieselbe Meldung). Vorher trat das auf, wenn homectld bei laufendem Panel neu startete.
 
 ## Firmware-Update über WLAN
 
@@ -152,6 +177,11 @@ MDI-Symbole, zwei Wege:
    Hochladen: `curl -F "data=@mqttdemo/mdi.ttf;filename=/mdi.ttf" http://<panel-ip>/edit`
    Weitere Icons aufnehmen (Codepunkte von pictogrammers.com/library/mdi):
    `./venv/bin/pyftsubset src/src/font/MaterialDesign-Webfont/materialdesignicons-webfont.ttf --unicodes=F15F9,F028F,... --output-file=mqttdemo/mdi.ttf --no-hinting`
+
+Achtung: mit der kompletten MDI-Schrift (unten) meldete das Panel laufend `MQTT RCV: Out of memory` und
+verlor Objekte (getestet 2026-11-27, Firmware noch ohne PSRAM-Patch). Die Meldung stand upstream auch für eine
+volle Warteschlange; vermutlich war die GUI mit der großen Schrift zu lange blockiert. homectld lädt deshalb
+beim Button *Dateien hochladen* eine Teilmenge mit den Symbolen seiner Seiten hoch (siehe doc/hasp.md).
 
 Fuer den Betrieb mit homectld (Symbole benutzerkonfigurierbar) statt Teilmenge die komplette MDI-Schrift laden,
 dieselbe Datei wie das Webinterface (7.4.47, 7447 Symbole, 1,3 MB; die FS-Partition hat ~12 MB):

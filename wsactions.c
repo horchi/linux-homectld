@@ -1658,6 +1658,37 @@ int HomeCtl::storeConfig(json_t* obj, long client)
       pushOutMessage(oJson, "config", client);
       performConfigDetails(client);
    }
+   else if (action == "delete")
+   {
+      // only the user defined items (kind 'U'), the others are created again at the next start
+
+      const char* key {getStringFromJson(obj, "name", "")};
+
+      tableConfig->clear();
+      tableConfig->setValue("OWNER", myName());
+      tableConfig->setValue("NAME", key);
+
+      if (isEmpty(key) || !tableConfig->find())
+      {
+         tableConfig->reset();
+         return replyResult(fail, client, "Löschen fehlgeschlagen, Option '%s' nicht gefunden", key);
+      }
+
+      bool userDefined {tableConfig->hasValue("KIND", "U") != 0};
+      tableConfig->reset();
+
+      if (!userDefined)
+         return replyResult(fail, client, "Nur selbst angelegte Optionen können gelöscht werden");
+
+      tableConfig->deleteWhere("owner = '%s' and name = '%s'", myName(), connection->escapeSqlString(key).c_str());
+      tell(eloAlways, "Info: Config item '%s' deleted", key);
+
+      readConfiguration(false);
+      json_t* oJson {json_object()};
+      config2Json(oJson);
+      pushOutMessage(oJson, "config", client);
+      performConfigDetails(client);
+   }
    else if (action == "label")
    {
       // ctComboChoice: the WEBIF resolved the label of a remembered value (silent, no config push)
@@ -2624,6 +2655,10 @@ int HomeCtl::config2Json(json_t* obj)
 
    json_object_set_new(obj, "garminAvailable", json_string(garminConfigured() ? "1" : "0"));
 
+   // not a config item - the setup page 'HASP Panel' is offered with the make switch HASP
+
+   json_object_set_new(obj, "haspAvailable", json_string(haspAvailable ? "1" : "0"));
+
    return done;
 }
 
@@ -2654,6 +2689,9 @@ int HomeCtl::configDetails2Json(json_t* obj)
    for (bool f = selectAllConfig->find(); f; f = selectAllConfig->fetch())
    {
       if (tableConfig->hasValue("INTERNAL", "Y"))
+         continue;
+
+      if (!haspAvailable && tableConfig->hasValue("CATEGORY", "HASP Panel"))   // make switch HASP not set
          continue;
 
       items.push_back({tableConfig->getStrValue("NAME"),
@@ -3034,6 +3072,39 @@ int HomeCtl::configChoice2json(json_t* obj, const char* name)
       }
 
       free(path);
+   }
+   else if (strcmp(name, "hiddenCategories") == 0)
+   {
+      // the categories of the setup page which can be hidden, not 'Daemon' (holds this item)
+      //   and not 'User Defined' (its '+' adds items)
+
+      std::vector<std::string> categories;
+
+      tableConfig->clear();
+      tableConfig->setValue("OWNER", myName());
+
+      for (bool f = selectAllConfig->find(); f; f = selectAllConfig->fetch())
+      {
+         std::string category {tableConfig->getStrValue("CATEGORY")};
+
+         if (tableConfig->hasValue("INTERNAL", "Y") || category.empty() || category == "Daemon" || category == "User Defined")
+            continue;
+
+         if (!haspAvailable && category == "HASP Panel")
+            continue;
+
+         if (std::find(categories.begin(), categories.end(), category) == categories.end())
+            categories.push_back(category);
+      }
+
+      selectAllConfig->freeResult();
+
+      json_t* oArray {json_array()};
+
+      for (const auto& category : categories)
+         json_array_append_new(oArray, json_string(category.c_str()));
+
+      json_object_set_new(obj, "options", oArray);
    }
 
    return done;
@@ -3440,7 +3511,7 @@ int HomeCtl::widgetTypes2Json(json_t* obj)
 {
    for (int type = wtUnknown+1; type < wtCount; type++)
    {
-      if (type == wtTimer)                          // HASP only, see haspWidgetTypes2Json()
+      if (type == wtTimer || type == wtWeather)     // HASP only, see haspWidgetTypes2Json()
          continue;
 
       json_object_set_new(obj, toName((WidgetType)type), json_integer(type));

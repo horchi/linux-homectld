@@ -32,6 +32,9 @@
 #include <sstream>
 #include <algorithm>
 #include <cmath>
+#include <thread>
+#include <filesystem>
+#include <curl/curl.h>
 
 #include "lib/json.h"
 #include "daemon.h"
@@ -88,6 +91,75 @@ namespace
       { "orange", "#ffa500" }, { "darkorange", "#ff8c00" }, { "brown", "#a52a2a" }, { "maroon", "#800000" },
       { "chocolate", "#d2691e" }, { "tan", "#d2b48c" }, { "wheat", "#f5deb3" }, { "beige", "#f5f5dc" }
    };
+
+   // '#rrggbb' lighter (factor > 1) or darker (factor < 1)
+
+   std::string haspShade(const std::string& color, double factor)
+   {
+      unsigned r {0}, g {0}, b {0};
+
+      if (sscanf(color.c_str(), "#%02x%02x%02x", &r, &g, &b) != 3)
+         return color;
+
+      auto f = [factor](unsigned c) { return (unsigned)std::clamp((int)lround(c * factor + (factor > 1 ? 8 : 0)), 0, 255); };
+      char hex[10];
+      snprintf(hex, sizeof(hex), "#%02x%02x%02x", f(r), f(g), f(b));
+
+      return hex;
+   }
+
+   // MDI symbol and color of the weather icon of OpenWeatherMap ('01d' .. '50n', 'n' = night)
+
+   struct HaspWeatherSymbol { const char* symbol; const char* color; };
+
+   const std::map<std::string,HaspWeatherSymbol>& haspWeatherSymbols()
+   {
+      static const std::map<std::string,HaspWeatherSymbol> symbols
+      {
+         { "01d", { "weather-sunny", "#ffc107" } },          { "01n", { "weather-night", "#b0bec5" } },
+         { "02d", { "weather-partly-cloudy", "#ffd54f" } },  { "02n", { "weather-night-partly-cloudy", "#b0bec5" } },
+         { "03d", { "weather-cloudy", "#cfd8dc" } },         { "03n", { "weather-cloudy", "#cfd8dc" } },
+         { "04d", { "weather-cloudy", "#90a4ae" } },         { "04n", { "weather-cloudy", "#90a4ae" } },
+         { "09d", { "weather-pouring", "#4fc3f7" } },        { "09n", { "weather-pouring", "#4fc3f7" } },
+         { "10d", { "weather-partly-rainy", "#4fc3f7" } },   { "10n", { "weather-rainy", "#4fc3f7" } },
+         { "11d", { "weather-lightning-rainy", "#ffd54f" } }, { "11n", { "weather-lightning-rainy", "#ffd54f" } },
+         { "13d", { "weather-snowy", "#ffffff" } },          { "13n", { "weather-snowy", "#ffffff" } },
+         { "50d", { "weather-fog", "#9e9e9e" } },            { "50n", { "weather-fog", "#9e9e9e" } }
+      };
+
+      return symbols;
+   }
+
+   HaspWeatherSymbol haspWeatherSymbol(const std::string& icon)
+   {
+      auto it = haspWeatherSymbols().find(icon);
+      return it != haspWeatherSymbols().end() ? it->second : HaspWeatherSymbol { "weather-cloudy", "#cfd8dc" };
+   }
+
+   // small MDI symbol in front of the card title, by the unit of the sensor (widgets without an own symbol)
+
+   std::string haspValueText(const std::string& value, const char* unit)
+   {
+      if (isEmpty(unit))
+         return value;
+
+      return value + " " + colorDim + " " + unit + "#";        // '#a3a3a3 °C#' -> unit in grey
+   }
+
+   const char* haspTitleSymbol(const char* unit)
+   {
+      static const std::map<std::string,const char*> symbols
+      {
+         { "°C", "thermometer" }, { "°F", "thermometer" }, { "W", "flash" }, { "kW", "flash" },
+         { "kWh", "lightning-bolt" }, { "Wh", "lightning-bolt" }, { "hPa", "gauge" }, { "A", "current-ac" },
+         { "V", "sine-wave" }, { "m/s", "weather-windy" }, { "km/h", "speedometer" }, { "l", "water" },
+         { "lx", "brightness-5" }, { "ppm", "molecule-co2" }
+      };
+
+      auto it = symbols.find(isEmpty(unit) ? "" : unit);
+
+      return it != symbols.end() ? it->second : nullptr;
+   }
 
    std::string haspColor(const char* color, const char* def)
    {
@@ -220,6 +292,7 @@ const char* HomeCtl::haspWidgetTypeNames[] =
    "Choice",
    "Balance",
    "Timer",
+   "Weather",
    nullptr
 };
 
@@ -239,6 +312,7 @@ int HomeCtl::haspWidgetTypes2Json(json_t* obj)
    json_object_set_new(obj, "Choice", json_integer(wtChoice));
    json_object_set_new(obj, "Balance", json_integer(wtBalance));
    json_object_set_new(obj, "Timer", json_integer(wtTimer));
+   json_object_set_new(obj, "Weather", json_integer(wtWeather));
 
    return done;
 }
@@ -265,6 +339,7 @@ HomeCtl::HaspWidgetType HomeCtl::haspTypeOfDashboardType(int dashboardWidgetType
       case wtLevel:     return hwtLevel;
       case wtBalance:   return hwtBalance;
       case wtTimer:     return hwtTimer;
+      case wtWeather:   return hwtWeather;
       default:              return hwtValue;
    }
 }
@@ -273,6 +348,21 @@ HomeCtl::HaspWidgetType HomeCtl::haspTypeOfDashboardType(int dashboardWidgetType
 // Layout
 //   {"layout":[3,2]} -> columns per row; fallback to the rows/cols columns
 //***************************************************************************
+
+// option 'cardColor' of the page (hasppages.OPTS: {"layout":[3,2],"cardColor":"#272727"}), empty = default
+
+std::string HomeCtl::haspCardColorOf(const char* opts)
+{
+   json_t* jOpts {isEmpty(opts) ? nullptr : jsonLoad(opts, 0, true)};
+   std::string color {jOpts ? getStringFromJson(jOpts, "cardColor", "") : ""};
+
+   if (jOpts)
+      json_decref(jOpts);
+
+   unsigned r, g, b;
+
+   return sscanf(color.c_str(), "#%02x%02x%02x", &r, &g, &b) == 3 ? color : "";
+}
 
 std::vector<int> HomeCtl::haspLayoutOf(const char* opts, int rows, int cols)
 {
@@ -641,7 +731,10 @@ std::string HomeCtl::haspMdiChar(const char* symbol)
    }
 
    if (it != mdiCodepoints.end())
+   {
       utf8Append(out, it->second);
+      haspUsedCodepoints.insert(it->second);     // the font for the panel gets only these, see haspUploadThread()
+   }
 
    return out;
 }
@@ -667,6 +760,13 @@ json_t* HomeCtl::haspWidgetDefaults(const char* type, long address)
       {
          json_object_set_new(jDefaults, "title", json_string("Uhrzeit"));
          json_object_set_new(jDefaults, "widgettype", json_integer(wtTime));
+         return jDefaults;
+      }
+
+      if (strcmp(type, "WEATHER") == 0)  // title empty -> the place of the forecast
+      {
+         json_object_set_new(jDefaults, "title", json_string(""));
+         json_object_set_new(jDefaults, "widgettype", json_integer(wtWeather));
          return jDefaults;
       }
 
@@ -766,6 +866,13 @@ int HomeCtl::haspPages2Json(json_t* obj)
    json_t* oPages {json_object()};
    json_object_set_new(obj, "pages", oPages);
    json_object_set_new(obj, "ip", json_string(haspPanelIp.c_str()));
+   json_object_set_new(obj, "fontOutdated", json_boolean(haspFontOutdated()));
+
+   json_t* oFiles {json_array()};                          // for the confirmation of 'Dateien hochladen'
+   json_object_set_new(obj, "uploadFiles", oFiles);
+
+   for (const auto& f : haspUploadFileList())
+      json_array_append_new(oFiles, json_string(f.second.substr(1).c_str()));
 
    tableHaspPages->clear();
 
@@ -780,6 +887,7 @@ int HomeCtl::haspPages2Json(json_t* obj)
 
       json_object_set_new(oPage, "title", json_string(tableHaspPages->getStrValue("TITLE")));
       json_object_set_new(oPage, "order", json_integer(tableHaspPages->getIntValue("ORDER")));
+      json_object_set_new(oPage, "cardColor", json_string(haspCardColorOf(tableHaspPages->getStrValue("OPTS")).c_str()));
 
       json_t* oLayout {json_array()};
 
@@ -829,12 +937,57 @@ int HomeCtl::haspPages2Json(json_t* obj)
    json_object_set_new(obj, "idleShort", json_integer(idleShort));
    json_object_set_new(obj, "idleLong", json_integer(idleLong));
 
+   haspStatus2Json(obj);
+
    return done;
+}
+
+//***************************************************************************
+// Hasp Status to Json
+//   memory of the panel (last statusupdate) and its last warnings / errors,
+//   with 'hasppages' and as event 'haspstatus' on each update
+//***************************************************************************
+
+void HomeCtl::haspStatus2Json(json_t* obj)
+{
+   json_t* oMemory {json_object()};
+   json_object_set_new(obj, "memory", oMemory);
+
+   if (haspMemory.at)
+   {
+      json_object_set_new(oMemory, "at", json_integer(haspMemory.at));
+
+      auto addValue = [oMemory](const char* name, long value) {
+         if (value != na)
+            json_object_set_new(oMemory, name, json_integer(value));
+      };
+
+      addValue("heapFree", haspMemory.heapFree);
+      addValue("heapFrag", haspMemory.heapFrag);
+      addValue("heapMaxBlock", haspMemory.heapMaxBlock);
+      addValue("psramFree", haspMemory.psramFree);
+      addValue("psramSize", haspMemory.psramSize);
+      addValue("uptime", haspMemory.uptime);
+   }
+
+   json_t* oLog {json_array()};
+   json_object_set_new(obj, "log", oLog);
+
+   for (const auto& entry : haspLog)
+   {
+      json_t* oEntry {json_object()};
+      json_object_set_new(oEntry, "time", json_integer(entry.time));
+      json_object_set_new(oEntry, "level", json_string(entry.level.c_str()));
+      json_object_set_new(oEntry, "tag", json_string(entry.tag.c_str()));
+      json_object_set_new(oEntry, "text", json_string(entry.text.c_str()));
+      json_array_append_new(oLog, oEntry);
+   }
 }
 
 //***************************************************************************
 // Perform Hasp Pages (WEBIF request)
 //   { "action": "send" } -> send pages to the panel
+//   { "action": "upload" } -> upload the scripts and the MDI font to the panel
 //   otherwise the configuration is sent to the client
 //***************************************************************************
 
@@ -847,7 +1000,10 @@ int HomeCtl::performHaspPages(json_t* obj, long client)
       int status {haspSendPages()};
 
       if (status == success)
+      {
+         haspPagesSentClient = client;     // messages of the panel while it builds the pages -> this client
          return replyResult(success, client, "Seiten an das Panel gesendet");
+      }
 
       return replyResult(fail, client, "%s", status == ignore ? "HASP Panel nicht konfiguriert (haspMqttTopic)" : "Senden fehlgeschlagen, MQTT nicht verbunden?");
    }
@@ -871,11 +1027,320 @@ int HomeCtl::performHaspPages(json_t* obj, long client)
       return replyResult(fail, client, "%s", status == ignore ? "HASP Panel nicht konfiguriert (haspMqttTopic)" : "Senden fehlgeschlagen, MQTT nicht verbunden?");
    }
 
+   if (action == "upload")
+      return haspUploadFiles(client);
+
+   if (action == "statusupdate")         // the answer of the panel comes as event 'haspstatus'
+      return haspPublish("statusupdate", "");
+
+   if (action == "clearlog")
+   {
+      haspLog.clear();
+
+      json_t* oJson {json_object()};
+      haspStatus2Json(oJson);
+      pushOutMessage(oJson, "haspstatus");
+
+      return done;
+   }
+
    json_t* oJson {json_object()};
    haspPages2Json(oJson);
    pushOutMessage(oJson, "hasppages", client);
 
+   haspPublish("statusupdate", "");      // current memory values for the page (event 'haspstatus')
+
    return done;
+}
+
+//***************************************************************************
+// Upload Files to the Panel (WEBIF button 'Dateien hochladen')
+//   the scripts <confDir>/hasp/*.cmd (idle_short/_long/_off, installed by
+//   'make install' with the make switch HASP) and the MDI font as /mdi.ttf
+//   via the web editor of the panel (multipart POST to http://<ip>/edit).
+//   The font is a subset of the WEBIF font with the symbols of the pages
+//   only (python3 -m fontTools.subset, package python3-fonttools): with the complete font (1.3 MB,
+//   7447 symbols) the panel runs out of memory ('MQTT RCV: Out of memory').
+//   After a change of the symbols it has to be uploaded again. Runs in a thread (the font has ~1.3 MB), the result
+//   is reported by haspCheckUpload(), afterwards the panel is rebooted to
+//   load the font (the pages are sent again when it is online).
+//   The backlight is off during the upload: writing the flash blocks the
+//   PSRAM framebuffer of the RGB display, the picture flickers heavily
+//***************************************************************************
+
+//***************************************************************************
+// Font Outdated
+//   the pages use MDI symbols which are not in the font uploaded last
+//   (config 'haspFontCodepoints', written after a successful upload)
+//***************************************************************************
+
+bool HomeCtl::haspFontOutdated()
+{
+   if (haspUsedCodepoints.empty())
+      return false;                      // pages not built yet (e.g. right after the start)
+
+   std::string stored;
+   getConfigItem("haspFontCodepoints", stored, "");
+   std::set<uint32_t> uploaded;
+
+   for (const auto& hex : split(stored, ','))
+      if (!hex.empty())
+         uploaded.insert((uint32_t)strtoul(hex.c_str(), nullptr, 16));
+
+   return !std::includes(uploaded.begin(), uploaded.end(), haspUsedCodepoints.begin(), haspUsedCodepoints.end());
+}
+
+std::vector<std::pair<std::string,std::string>> HomeCtl::haspUploadFileList()
+{
+   std::vector<std::pair<std::string,std::string>> files;    // local path, name on the panel
+   std::error_code ec;
+
+   for (const auto& entry : std::filesystem::directory_iterator(std::string(confDir) + "/hasp", ec))
+   {
+      if (entry.is_regular_file() && entry.path().extension() == ".cmd")
+         files.emplace_back(entry.path().string(), "/" + entry.path().filename().string());
+   }
+
+   std::sort(files.begin(), files.end());
+
+   std::string font {std::string(httpPath) + "/mds/fonts/materialdesignicons-webfont.ttf"};
+
+   if (fileExists(font.c_str()))
+      files.emplace_back(font, "/mdi.ttf");
+
+   return files;
+}
+
+int HomeCtl::haspUploadFiles(long client)
+{
+   if (haspMqttTopic.empty())
+      return replyResult(fail, client, "HASP Panel nicht konfiguriert (haspMqttTopic)");
+
+   if (haspUpload.active)
+      return replyResult(fail, client, "Upload an das Panel läuft bereits");
+
+   if (haspPanelIp.empty())
+   {
+      haspPublish("statusupdate", "");
+      return replyResult(fail, client, "IP des Panels noch nicht bekannt, Status angefordert - bitte gleich erneut versuchen");
+   }
+
+   auto files {haspUploadFileList()};
+
+   if (files.empty())
+      return replyResult(fail, client, "Keine Dateien gefunden (%s/hasp/*.cmd, %s/mds/fonts/materialdesignicons-webfont.ttf)", confDir, httpPath);
+
+   if (haspUsedCodepoints.empty())
+      haspSendPages();                   // the codepoints are collected while the pages are built
+
+   haspUpload.active = true;
+   haspUpload.done = false;
+   haspUpload.client = client;
+
+   haspPublish("backlight", "off");      // hide the flicker while the flash is written
+
+   try
+   {
+      haspUpload.codepoints = haspUsedCodepoints;
+      std::thread(&HomeCtl::haspUploadThread, this, haspPanelIp, files, haspUsedCodepoints).detach();
+   }
+   catch (const std::system_error& e)
+   {
+      haspUpload.active = false;
+      haspPublish("idle", "off");        // display on again
+      return replyResult(fail, client, "Upload Thread konnte nicht gestartet werden");
+   }
+
+   std::string names;
+
+   for (const auto& f : files)
+      names += (names.empty() ? "" : ", ") + f.second.substr(1);
+
+   return replyResult(success, client, "Upload an %s gestartet: %s ...", haspPanelIp.c_str(), names.c_str());
+}
+
+void HomeCtl::haspUploadThread(std::string ip, std::vector<std::pair<std::string,std::string>> files, std::set<uint32_t> codepoints)
+{
+   std::string url {"http://" + ip + "/edit"};
+   std::string failed;
+   std::string uploaded;
+   std::string subset {"/tmp/" TARGET "-hasp-mdi-" + std::to_string(getpid()) + ".ttf"};
+
+   // the font: subset with the used symbols instead of the complete WEBIF font
+
+   for (auto& [path, name] : files)
+   {
+      if (name != "/mdi.ttf")
+         continue;
+
+      std::string unicodes;
+
+      for (uint32_t cp : codepoints)
+      {
+         char hex[16];
+         snprintf(hex, sizeof(hex), "%s%X", unicodes.empty() ? "" : ",", cp);
+         unicodes += hex;
+      }
+
+      std::string cmd {"python3 -m fontTools.subset '" + path + "' --unicodes=" + (unicodes.empty() ? std::string("F02D7") : unicodes) +
+                       " --output-file='" + subset + "' --no-hinting 2>&1"};
+
+      unlink(subset.c_str());
+      std::string out {executeCommand("%s", cmd.c_str())};
+
+      if (!fileExists(subset.c_str()))
+      {
+         tell(eloAlways, "HASP: Building the MDI subset failed (package python3-fonttools installed?): %s", out.c_str());
+         haspUpload.status = fail;
+         haspUpload.message = "MDI Schrift konnte nicht erzeugt werden (python3 -m fontTools.subset, Paket python3-fonttools installiert?)";
+         haspUpload.done = true;
+         return;
+      }
+
+      tell(eloInfo, "HASP: Built MDI subset with %zu symbols", codepoints.size());
+      path = subset;
+   }
+
+   CURL* handle {curl_easy_init()};
+
+   for (const auto& [path, name] : files)
+   {
+      if (!handle)
+         break;
+
+      curl_easy_reset(handle);
+
+      curl_mime* mime {curl_mime_init(handle)};
+      curl_mimepart* part {curl_mime_addpart(mime)};
+      curl_mime_name(part, "data");
+      curl_mime_filedata(part, path.c_str());
+      curl_mime_filename(part, name.c_str());      // the panel stores the file under this name
+
+      curl_easy_setopt(handle, CURLOPT_URL, url.c_str());
+      curl_easy_setopt(handle, CURLOPT_MIMEPOST, mime);
+      curl_easy_setopt(handle, CURLOPT_TIMEOUT, 120L);
+      curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT, 10L);
+      curl_easy_setopt(handle, CURLOPT_NOSIGNAL, 1L);
+      curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, +[](char*, size_t size, size_t nmemb, void*) { return size * nmemb; });
+
+      CURLcode res {curl_easy_perform(handle)};
+      long httpCode {0};
+      curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &httpCode);
+      curl_mime_free(mime);
+
+      if (res != CURLE_OK || httpCode != 200)
+      {
+         tell(eloAlways, "HASP: Upload of '%s' to %s failed (%s, HTTP %ld)", path.c_str(), url.c_str(),
+              res != CURLE_OK ? curl_easy_strerror(res) : "-", httpCode);
+         failed += (failed.empty() ? "" : ", ") + name;
+         continue;
+      }
+
+      tell(eloInfo, "HASP: Uploaded '%s' as '%s' to %s", path.c_str(), name.c_str(), ip.c_str());
+      uploaded += (uploaded.empty() ? "" : ", ") + name.substr(1);
+   }
+
+   if (handle)
+      curl_easy_cleanup(handle);
+
+   unlink(subset.c_str());
+
+   if (failed.empty() && handle)
+   {
+      haspUpload.status = success;
+      haspUpload.message = "Übertragen: " + uploaded + " - das Panel wird neu gestartet";
+   }
+   else
+   {
+      haspUpload.status = fail;
+      haspUpload.message = !handle ? std::string("Upload fehlgeschlagen (curl)")
+         : "Upload an " + ip + " fehlgeschlagen: " + failed + (uploaded.empty() ? "" : " (übertragen: " + uploaded + ")");
+   }
+
+   haspUpload.done = true;
+}
+
+void HomeCtl::haspCheckPageChange()
+{
+   if (!haspPageChangeAt || time(0) < haspPageChangeAt)
+      return;
+
+   haspPageChangeAt = 0;
+   haspPublish("page", "1");
+}
+
+//***************************************************************************
+// Check Send Result
+//   some seconds after the pages were sent: the warnings / errors the panel
+//   reported meanwhile (e.g. unknown attribute, out of memory) to the WEBIF
+//   client which saved / sent the pages
+//***************************************************************************
+
+void HomeCtl::haspCheckSendResult()
+{
+   constexpr time_t collectTime {15};   // [s] the panel needs some seconds to build the pages
+   constexpr size_t maxShown {10};
+
+   if (!haspPagesSentAt || time(0) < haspPagesSentAt + collectTime)
+      return;
+
+   haspPagesSentAt = 0;
+   size_t count {std::min(haspLogTotal - haspLogAtSend, haspLog.size())};
+
+   if (!count)
+      return;
+
+   tell(eloAlways, "HASP: The panel reported %zu warning(s) / error(s) while building the pages", count);
+
+   if (!haspPagesSentClient)
+      return;
+
+   std::string text;
+   size_t first {haspLog.size() - count};
+
+   for (size_t i = first; i < haspLog.size() && i < first + maxShown; i++)
+      text += "<br/>" + haspLog[i].tag + ": " + haspLog[i].text;
+
+   if (count > maxShown)
+      text += "<br/>... und " + std::to_string(count - maxShown) + " weitere (Liste auf der Seite HASP Panel)";
+
+   replyResult(fail, haspPagesSentClient, "Das Panel meldet beim Aufbau der Seiten %zu Fehler/Warnung(en):%s", count, text.c_str());
+   haspPagesSentClient = 0;
+}
+
+void HomeCtl::haspCheckUpload()
+{
+   haspCheckPageChange();
+   haspCheckSendResult();
+
+   if (!haspUpload.done)
+      return;
+
+   haspUpload.done = false;
+   haspUpload.active = false;
+
+   if (haspUpload.status == success)
+   {
+      std::string hex;
+
+      for (uint32_t cp : haspUpload.codepoints)
+      {
+         char buf[16];
+         snprintf(buf, sizeof(buf), "%s%X", hex.empty() ? "" : ",", cp);
+         hex += buf;
+      }
+
+      setConfigItem("haspFontCodepoints", hex.c_str());   // no more hint 'new symbols'
+      haspPublish("reboot", "");          // load the font, the pages are sent again when the panel is online
+
+      json_t* oJson {json_object()};
+      haspPages2Json(oJson);
+      pushOutMessage(oJson, "hasppages");
+   }
+   else
+      haspPublish("idle", "off");         // no reboot -> display on again (and restart the idle cycle)
+
+   replyResult(haspUpload.status, haspUpload.client, "%s", haspUpload.message.c_str());
 }
 
 //***************************************************************************
@@ -970,6 +1435,12 @@ int HomeCtl::storeHaspPages(json_t* obj, long client)
             json_array_append_new(jLayoutOut, json_integer(cols));
 
          json_object_set_new(jOpts, "layout", jLayoutOut);
+
+         const char* cardColor {getStringFromJson(jPage, "cardColor", "")};
+
+         if (!isEmpty(cardColor))
+            json_object_set_new(jOpts, "cardColor", json_string(cardColor));
+
          char* options {json_dumps(jOpts, JSON_COMPACT)};
          json_decref(jOpts);
 
@@ -1066,18 +1537,28 @@ int HomeCtl::storeHaspPages(json_t* obj, long client)
       }
    }
 
-   // publish the new configuration to all clients and the pages to the panel
+   // the pages to the panel and the new configuration to all clients (after sending: the hint
+   //   'new symbols' compares the symbols collected while building the pages)
+
+   int status {haspSendPages()};
+
+   if (status == success)
+      haspPagesSentClient = client;        // messages of the panel while it builds the pages -> this client
 
    json_t* oJson {json_object()};
    haspPages2Json(oJson);
    pushOutMessage(oJson, "hasppages");
 
-   int status {haspSendPages()};
-
    if (status == fail)
       return replyResult(fail, client, "Konfiguration gespeichert, Senden an das Panel fehlgeschlagen (MQTT nicht verbunden?)");
 
-   return replyResult(success, client, status == ignore ? "Konfiguration gespeichert (kein Panel konfiguriert)" : "Konfiguration gespeichert und an das Panel gesendet");
+   if (status == ignore)
+      return replyResult(success, client, "Konfiguration gespeichert (kein Panel konfiguriert)");
+
+   if (haspFontOutdated())               // the hint in the tool panel is easily overlooked
+      return replyResult(success, client, "Konfiguration gespeichert und an das Panel gesendet - neue Symbole, bitte 'Dateien hochladen'");
+
+   return replyResult(success, client, "Konfiguration gespeichert und an das Panel gesendet");
 }
 
 //***************************************************************************
@@ -1118,6 +1599,16 @@ int HomeCtl::haspPublishJsonl(json_t* jObj)
 
    if (jObj)
    {
+      // touchable objects get the swipe of the page ('swipe':true -> left / right = next / previous
+      //   page): in the firmware a swipe starting on a button stays at the button (no page change)
+      //   and switches it on release. With the swipe the page changes and haspDispatchState()
+      //   ignores the release right after the page change
+
+      json_t* jClick {json_object_get(jObj, "click")};
+
+      if (json_object_get(jObj, "obj") && !json_is_false(jClick) && !json_object_get(jObj, "swipe"))
+         json_object_set_new(jObj, "swipe", json_true());
+
       char* line {json_dumps(jObj, JSON_COMPACT | JSON_REAL_PRECISION(2))};
       json_decref(jObj);
 
@@ -1154,7 +1645,10 @@ int HomeCtl::haspSendPages()
    if (haspMqttTopic.empty())
       return ignore;
 
-   struct Page { long id; std::string title; std::vector<int> layout; json_t* widgets; };
+   haspUsedCodepoints.clear();                   // filled again by haspMdiChar() while the pages are built
+   haspLogAtSend = haspLogTotal;                 // messages of the panel from now on belong to these pages
+
+   struct Page { long id; std::string title; std::vector<int> layout; json_t* widgets; std::string cardColor; };
    std::vector<Page> pages;
 
    tableHaspPages->clear();
@@ -1166,6 +1660,7 @@ int HomeCtl::haspSendPages()
       page.id = tableHaspPages->getIntValue("ID");
       page.title = tableHaspPages->getStrValue("TITLE");
       page.layout = haspLayoutOf(tableHaspPages->getStrValue("OPTS"), tableHaspPages->getIntValue("ROWS"), tableHaspPages->getIntValue("COLUMNS"));
+      page.cardColor = haspCardColorOf(tableHaspPages->getStrValue("OPTS"));
       page.widgets = json_object();
 
       tableHaspPageWidgets->clear();
@@ -1200,7 +1695,16 @@ int HomeCtl::haspSendPages()
    haspPending.clear();
    haspDateLabels.clear();
 
-   int status {haspPublish("clearpage", "all")};
+   // clear page by page, not 'clearpage all': in the firmware 'all' creates all page screens anew
+   // (hasp_init), the active one is deleted async and the new one loaded by an animation - two sends
+   // in short succession delete the new screen before it is loaded, the active screen of LVGL is
+   // NULL afterwards and the next touch / page change crashes the panel (lv_obj_hittest,
+   // 'lv_scr_get_disp: screen not found')
+
+   int status {success};
+
+   for (int p = 1; p <= maxPages && status == success; p++)
+      status = haspPublish("clearpage", std::to_string(p).c_str());
 
    if (status != success)
    {
@@ -1210,6 +1714,12 @@ int HomeCtl::haspSendPages()
       return status;
    }
 
+   // the panel queues 'clearpage' and may execute it later than the next jsonl message (serial log:
+   // 'QUE clearpage', 'QUE jsonl', then 'RCV: clearpage') -> without a pause the first objects
+   // (page 1 settings 'swipe/next/prev' and the first card) are deleted again
+
+   usleep(1000 * 1000);
+
    int count {(int)pages.size()};
 
    for (int i = 0; i < count; i++)
@@ -1218,14 +1728,19 @@ int HomeCtl::haspSendPages()
       int next {i+1 < count ? pageNo+1 : 1};
       int prev {i > 0 ? pageNo-1 : count};
 
+      haspCardColor = pages[i].cardColor;          // used by haspBuildWidget()
       haspBuildPage(pageNo, pages[i].layout, pages[i].widgets, next, prev);
       json_decref(pages[i].widgets);
    }
 
    haspPublishJsonl(nullptr);
 
+   // show page 1, delayed (haspCheckPageChange()): without it the panel doesn't show the new
+   // objects, right after the objects it crashed the firmware 0.7.0.2 in the start phase
+   // ('lv_scr_get_disp: screen not found', LoadStoreError) -> boot loop
+
    if (count)
-      haspPublish("page", "1");
+      haspPageChangeAt = time(0) + 3;
 
    // the idle times (config 'haspIdleShort' / 'haspIdleLong'): short -> the panel dims (its
    // script idle_short.cmd), long -> display off (idle_long.cmd); both 0 -> the panel keeps its own
@@ -1244,6 +1759,9 @@ int HomeCtl::haspSendPages()
    }
 
    tell(eloAlways, "HASP: Sent %d pages with %zu sensor widgets to '%s'", count, haspObjects.size(), haspMqttTopic.c_str());
+
+   haspPagesSentAt = time(0);            // collect the messages of the panel, see haspCheckSendResult()
+   haspPagesSentClient = 0;              // set by the caller (WEBIF request)
 
    haspPublish("statusupdate", "");       // the panel answers with its IP, version, ... (statusupdate on its state topic)
 
@@ -1311,9 +1829,21 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
    int base {10 + (row * maxCols + col) * 20};    // up to 20 object ids per card (max 12 cards -> id 250)
    bool small {h < 160};                     // 4 rows -> small fonts
    int titleFont {small ? 16 : 24};
-   int valueFont {small ? 24 : 32};
    int smallFont {small ? 12 : 16};
    HaspWidgetType widgetType {haspTypeOfDashboardType(getIntFromJson(jOpts, "widgettype", wtValue))};
+
+   // value / text font: the widget option 'fontsize' (widget dialog 'Schriftgröße', 0 = default);
+   // 12, 16, 24 and 32 are bitmap fonts of the firmware, other sizes are rendered by FreeType (RAM!)
+
+   int valueFont {small && widgetType != hwtValue ? 24 : 32};
+   int textFont {h < 140 ? 16 : 24};
+   int fontSize {getIntFromJson(jOpts, "fontsize", 0)};
+
+   if (fontSize > 0)
+   {
+      valueFont = std::clamp(fontSize, 10, 96);
+      textFont = valueFont;
+   }
    int titleHeight {widgetType == hwtTime ? 0 : titleFont + 14};   // enough for the font incl. line spacing, otherwise 'dots' truncates
 
    // the title: the dialog stores an empty title if the user didn't set one -> title of the valuefact
@@ -1332,6 +1862,14 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
          titleStr = !tableValueFacts->getValue("USRTITLE")->isEmpty() ? tableValueFacts->getStrValue("USRTITLE") : tableValueFacts->getStrValue("TITLE");
       else
          titleStr = tuple[0] == "TIMER" ? "Timer" : tuple[0] == "TIME" ? "Uhrzeit" : key;
+
+      if (tuple[0] == "WEATHER")           // the place of the forecast (WEA:0x0e)
+      {
+         titleStr = "Wetter";
+
+         if (sensors.count("WEA") && sensors["WEA"].count(0x0e) && !sensors["WEA"][0x0e].text.empty())
+            titleStr = sensors["WEA"][0x0e].text;
+      }
 
       tableValueFacts->reset();
    }
@@ -1360,19 +1898,44 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
 
    // container and title
 
-   json_t* jCard {haspObj(pageNo, base, "obj", 0, x, y, w, h)};
+   // the card: color of the page (option 'Kachelfarbe'), rounded with a fine lighter border;
+   //   no gradient: the display has 16 bit colors (RGB565) and LVGL 7 no dithering, a gradient
+   //   shows as horizontal stripes
 
-   json_object_set_new(jCard, "bg_color", json_string(colorCard));
-   json_object_set_new(jCard, "bg_grad_color", json_string(colorCard));
+   json_t* jCard {haspObj(pageNo, base, "obj", 0, x, y, w, h)};
+   std::string cardColor {haspCardColor.empty() ? colorCard : haspCardColor};
+
+   json_object_set_new(jCard, "bg_color", json_string(cardColor.c_str()));
+   json_object_set_new(jCard, "bg_grad_color", json_string(cardColor.c_str()));
    json_object_set_new(jCard, "bg_grad_dir", json_integer(0));
-   json_object_set_new(jCard, "radius", json_integer(3));
-   json_object_set_new(jCard, "border_width", json_integer(0));
+   json_object_set_new(jCard, "radius", json_integer(10));
+   json_object_set_new(jCard, "border_width", json_integer(1));
+   json_object_set_new(jCard, "border_color", json_string(haspShade(cardColor, 1.35).c_str()));
    json_object_set_new(jCard, "click", json_false());
    haspPublishJsonl(jCard);
 
+   // small symbol in front of the title for the widgets without an own symbol, by the unit
+
+   int titleX {8};
+
+   if (widgetType != hwtTime && widgetType != hwtSymbol && widgetType != hwtSymbolValue && widgetType != hwtLevel && widgetType != hwtTimer && widgetType != hwtWeather)
+   {
+      const char* symbol {haspTitleSymbol(unit)};
+
+      if (symbol && haspMdiExists(symbol))
+      {
+         char font[20];
+         snprintf(font, sizeof(font), "mdi_%d", titleFont);
+         json_t* jIcon {haspLabel(pageNo, base+19, base, 8, 4, titleFont + 4, titleHeight, haspMdiChar(symbol).c_str(), 0, colorDim)};
+         json_object_set_new(jIcon, "text_font", json_string(font));      // MDI font instead of the size
+         haspPublishJsonl(jIcon);
+         titleX += titleFont + 8;
+      }
+   }
+
    if (widgetType != hwtTime)
    {
-      json_t* jTitle {haspLabel(pageNo, base+1, base, 8, 4, w-16, titleHeight, title, titleFont, colorText)};
+      json_t* jTitle {haspLabel(pageNo, base+1, base, titleX, 4, w-8-titleX, titleHeight, title, titleFont, colorText)};
       json_object_set_new(jTitle, "pad_top", json_integer(0));
       json_object_set_new(jTitle, "pad_bottom", json_integer(0));
       json_object_set_new(jTitle, "mode", json_string("dots"));
@@ -1394,6 +1957,7 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
    ref.symbolOff = haspMdiChar(getStringFromJson(jOpts, "symbol", ""));
    ref.symbolOn = haspMdiChar(getStringFromJson(jOpts, "symbolOn", getStringFromJson(jOpts, "symbol", "")));
    ref.colorOff = haspColor(getStringFromJson(jOpts, "color", ""), colorText);
+   ref.colorCondition = getStringFromJson(jOpts, "colorCondition", "");
    ref.colorOn = haspColor(getStringFromJson(jOpts, "colorOn", ""), colorOn);
    ref.scaleMin = scaleMin;
    ref.scaleMax = scaleMax;
@@ -1521,7 +2085,7 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
 
       case hwtText:
       {
-         json_t* jText {haspLabel(pageNo, base+2, base, ix, iy + 4, iw, ih - 8, "--", titleFont, colorText)};
+         json_t* jText {haspLabel(pageNo, base+2, base, ix, iy + 4, iw, ih - 8, "--", textFont, colorText)};
          json_object_set_new(jText, "mode", json_string("break"));
          haspPublishJsonl(jText);
          ref.valueId = base + 2;
@@ -1553,8 +2117,13 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
          json_object_set_new(jBtn, "text_color03", json_string(colorFill));
          json_object_set_new(jBtn, "bg_opa", json_integer(0));
          json_object_set_new(jBtn, "bg_opa01", json_integer(0));
-         json_object_set_new(jBtn, "bg_opa02", json_integer(0));
-         json_object_set_new(jBtn, "bg_opa03", json_integer(0));
+         json_object_set_new(jBtn, "bg_color02", json_string("#ffffff"));     // pressed: light circle behind the symbol
+         json_object_set_new(jBtn, "bg_grad_color02", json_string("#ffffff"));
+         json_object_set_new(jBtn, "bg_opa02", json_integer(40));
+         json_object_set_new(jBtn, "bg_color03", json_string("#ffffff"));
+         json_object_set_new(jBtn, "bg_grad_color03", json_string("#ffffff"));
+         json_object_set_new(jBtn, "bg_opa03", json_integer(40));
+         json_object_set_new(jBtn, "radius", json_integer(size / 2));
          json_object_set_new(jBtn, "border_width", json_integer(0));
          json_object_set_new(jBtn, "outline_width", json_integer(0));
          json_object_set_new(jBtn, "shadow_width", json_integer(0));
@@ -1606,6 +2175,76 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
 
          haspPublishJsonl(haspLabel(pageNo, base+3, base, ix, iy + (ih - clockFont - dateFont - 20) / 2 + clockFont + 16, iw, dateFont + 8, "", dateFont, colorDim, "center"));
          haspDateLabels.push_back({ pageNo, base+3 });
+         break;
+      }
+
+      case hwtWeather:
+      {
+         // left the current weather: symbol, temperature, description and today's max / min plus the
+         //   rain probability; right (if the card is wide enough) one column per next day.
+         //   The values come from the forecast JSON of WEA:0x01, see haspPublishSensor()
+
+         for (const auto& ws : haspWeatherSymbols())     // the symbol changes with the weather -> all into the font subset
+            haspMdiChar(ws.second.symbol);
+
+         int dayW {small ? 72 : 92};
+         int days {iw >= 360 ? std::min(4, (iw - 230) / dayW) : 0};
+         int cw {iw - days * dayW};
+         int size {std::min({ih, cw * 2 / 5, maxGlyphSize + 8})};
+         int tempFont {small ? 32 : 48};
+         int lineH {smallFont + 6};
+         bool showInfo {ih >= tempFont + 8 + 2 * lineH};
+         int textH {tempFont + 8 + lineH + (showInfo ? lineH : 0)};
+         int tx {ix + size + 8};
+         int tw {cw - size - 8};
+         int ty {iy + (ih - textH) / 2};
+         char font[20];
+
+         snprintf(font, sizeof(font), "mdi_%d", size - 8);
+         json_t* jSym {haspLabel(pageNo, base+2, base, ix, iy + (ih - size) / 2, size, size, "", 0, colorText, "center")};
+         json_object_set_new(jSym, "text_font", json_string(font));
+         haspPublishJsonl(jSym);
+
+         haspPublishJsonl(haspLabel(pageNo, base+3, base, tx, ty, tw, tempFont + 8, "--", tempFont, colorText, "left"));
+
+         json_t* jDetail {haspLabel(pageNo, base+4, base, tx, ty + tempFont + 8, tw, lineH, "", smallFont, colorDim, "left")};
+         json_object_set_new(jDetail, "mode", json_string("dots"));
+         haspPublishJsonl(jDetail);
+
+         if (showInfo)
+         {
+            json_t* jInfo {haspLabel(pageNo, base+5, base, tx, ty + tempFont + 8 + lineH, tw, lineH, "", smallFont, colorText, "left")};
+            json_object_set_new(jInfo, "mode", json_string("dots"));
+            haspPublishJsonl(jInfo);
+            ref.infoId = base + 5;
+         }
+
+         // the next days: name, symbol, max / min
+
+         int daySize {std::min({ih - 2 * lineH - 4, dayW - 16, 72})};
+         int dayY {iy + (ih - 2 * lineH - daySize) / 2};
+
+         snprintf(font, sizeof(font), "mdi_%d", daySize - 4);
+
+         for (int d = 0; d < days; d++)
+         {
+            int dx {ix + cw + d * dayW};
+            int id {base + 6 + d * 3};
+
+            haspPublishJsonl(haspLabel(pageNo, id, base, dx, dayY, dayW, lineH, "", smallFont, colorDim, "center"));
+
+            json_t* jDaySym {haspLabel(pageNo, id+1, base, dx + (dayW - daySize) / 2, dayY + lineH, daySize, daySize, "", 0, colorText, "center")};
+            json_object_set_new(jDaySym, "text_font", json_string(font));
+            haspPublishJsonl(jDaySym);
+
+            haspPublishJsonl(haspLabel(pageNo, id+2, base, dx, dayY + lineH + daySize, dayW, lineH, "", smallFont, colorText, "center"));
+         }
+
+         ref.objId = base + 2;
+         ref.valueId = base + 3;
+         ref.extraId = base + 4;
+         ref.dayId = base + 6;
+         ref.days = days;
          break;
       }
 
@@ -2034,15 +2673,22 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
       case hwtValue:
       default:
       {
-         int valueY {iy + (ih - valueFont - smallFont - 14) / 2};
-         haspPublishJsonl(haspLabel(pageNo, base+2, base, ix, valueY, iw, valueFont + 8, "--", valueFont, colorText, "center"));
-         haspPublishJsonl(haspLabel(pageNo, base+3, base, ix, valueY + valueFont + 8, iw, smallFont + 6, unit, smallFont, colorDim, "center"));
+         // value and unit in one line (the unit is appended by haspPublishSensor())
+
+         // the unit dimmed by the LVGL recolor syntax '#rrggbb text#' (see haspValueText()), openHASP
+         //   enables recolor for all labels (there is no attribute 'recolor')
+
+         int valueY {iy + (ih - valueFont - 8) / 2};
+         json_t* jValue {haspLabel(pageNo, base+2, base, ix, valueY, iw, valueFont + 8, haspValueText("--", unit).c_str(), valueFont, colorText, "center")};
+         haspPublishJsonl(jValue);
          ref.valueId = base + 2;
          break;
       }
    }
 
-   if (widgetType != hwtTime)
+   if (widgetType == hwtWeather)
+      haspObjects["WEA:0x01"].push_back(ref);     // updated with the forecast
+   else if (widgetType != hwtTime)
       haspObjects[key].push_back(ref);
 
    haspPublishJsonl(nullptr);     // one message per card
@@ -2059,6 +2705,66 @@ int HomeCtl::haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, 
 
 namespace
 {
+   // the option 'colorCondition', same syntax and meaning as on the dashboard (getWidgetColor() of
+   //   dashboard.js): comma separated '<val><op><color>', op one of <>, <=, >=, <, >, =, ~
+   //   ('~': the text contains val); compared is 'val op value', e.g. '30<#ff0000' -> red if
+   //   30 < value. The first matching item wins, empty if none matches
+
+   std::string haspConditionColor(const std::string& condition, double value, const std::string& text, bool isText)
+   {
+      static const char* const ops[] {"<>", "<=", ">=", "<", ">", "=", "~"};
+
+      auto trimmed = [](std::string s) {
+         s.erase(0, s.find_first_not_of(" \t"));
+         s.erase(s.find_last_not_of(" \t") + 1);
+         return s;
+      };
+
+      for (const auto& item : split(condition, ','))
+      {
+         for (const char* op : ops)
+         {
+            size_t pos {item.find(op)};
+
+            if (pos == std::string::npos)
+               continue;
+
+            std::string val {trimmed(item.substr(0, pos))};
+            std::string color {trimmed(item.substr(pos + strlen(op)))};
+            std::string sop {op};
+            bool match {false};
+
+            char* end {};
+            double threshold {strtod(val.c_str(), &end)};
+            bool numeric {!val.empty() && end && *end == 0};
+            double actual {value};
+
+            if (isText && numeric)                         // a text sensor with a number
+            {
+               char* tend {};
+               actual = strtod(text.c_str(), &tend);
+               numeric = !text.empty() && tend && *tend == 0;
+            }
+
+            if (sop == "~")
+               match = text.find(val) != std::string::npos;
+            else if (!numeric)
+               match = sop == "=" ? text == val : sop == "<>" ? text != val
+                  : sop == "<" ? val < text : sop == ">" ? val > text : sop == "<=" ? val <= text : val >= text;
+            else
+               match = sop == "=" ? threshold == actual : sop == "<>" ? threshold != actual
+                  : sop == "<" ? threshold < actual : sop == ">" ? threshold > actual : sop == "<=" ? threshold <= actual : threshold >= actual;
+
+            if (match)
+               return color;
+
+            break;                                         // only the first operator of the item counts
+         }
+      }
+
+      return "";
+   }
+
    std::string haspFormatValue(double value)
    {
       char buf[50];
@@ -2156,7 +2862,7 @@ int HomeCtl::haspPublishSensor(const SensorData& sensor)
 
          case hwtValue:
             snprintf(obj, sizeof(obj), "p%db%d.text", ref.page, ref.valueId);
-            haspQueueCommand(obj, sensor.kind == "text" && !sensor.text.empty() ? sensor.text : number);
+            haspQueueCommand(obj, sensor.kind == "text" && !sensor.text.empty() ? sensor.text : haspValueText(number, ref.unit.c_str()));
             break;
 
          case hwtText:
@@ -2241,6 +2947,10 @@ int HomeCtl::haspPublishSensor(const SensorData& sensor)
             break;
          }
 
+         case hwtWeather:
+            haspPublishWeather(ref, sensor);
+            break;
+
          case hwtChoice:
          {
             // the checked button is the one with the sensor text, -1 = none
@@ -2282,9 +2992,155 @@ int HomeCtl::haspPublishSensor(const SensorData& sensor)
          default:
             break;
       }
+
+      // option 'colorCondition': like on the dashboard the symbol (Symbol, SymbolValue) resp. the
+      //   value / text (Value, Text, MeterLevel) gets the color of the first matching condition,
+      //   otherwise its normal color
+
+      if (!ref.colorCondition.empty())
+      {
+         bool isText {ref.widgetType == hwtText || sensor.kind == "text"};
+         std::string text {isText ? sensor.text : number};
+         std::string color {haspConditionColor(ref.colorCondition, isStatus ? (double)sensor.state : sensor.value, text, isText)};
+         std::string matched {color.empty() ? "" : haspColor(color.c_str(), colorText)};
+
+         switch (ref.widgetType)
+         {
+            case hwtSymbol:
+               snprintf(obj, sizeof(obj), "p%db%d.text_color", ref.page, ref.objId);
+               haspQueueCommand(obj, !matched.empty() ? matched : ref.colorOff);
+               snprintf(obj, sizeof(obj), "p%db%d.text_color01", ref.page, ref.objId);   // state checked (on)
+               haspQueueCommand(obj, !matched.empty() ? matched : ref.colorOn);
+               break;
+
+            case hwtSymbolValue:
+               snprintf(obj, sizeof(obj), "p%db%d.text_color", ref.page, ref.objId);
+               haspQueueCommand(obj, !matched.empty() ? matched : isStatus && on ? ref.colorOn : ref.colorOff);
+               break;
+
+            case hwtValue:
+            case hwtText:
+            case hwtMeterLevel:
+               snprintf(obj, sizeof(obj), "p%db%d.text_color", ref.page, ref.valueId);
+               haspQueueCommand(obj, !matched.empty() ? matched : colorText);
+               break;
+
+            default:
+               break;
+         }
+      }
    }
 
    return haspFlushCommands();
+}
+
+//***************************************************************************
+// Publish Weather (card 'Weather')
+//   sensor WEA:0x01: { "city": "...", "forecasts": [ { time, icon, detail, temp, pop, ... }, ... ] }
+//   in 3 hour steps; the first step is the current weather (like the other WEA sensors)
+//***************************************************************************
+
+void HomeCtl::haspPublishWeather(const HaspObjRef& ref, const SensorData& sensor)
+{
+   static const char* const weekdays[] { "So", "Mo", "Di", "Mi", "Do", "Fr", "Sa" };
+
+   json_t* jWeather {sensor.valid() ? jsonLoad(sensor.text.c_str(), 0, true) : nullptr};
+   json_t* jForecasts {jWeather ? json_object_get(jWeather, "forecasts") : nullptr};
+   char obj[30];
+
+   auto set = [&](int id, const char* attr, const std::string& value) {
+      snprintf(obj, sizeof(obj), "p%db%d.%s", ref.page, id, attr);
+      haspQueueCommand(obj, value);
+   };
+
+   if (!json_is_array(jForecasts) || !json_array_size(jForecasts))
+   {
+      set(ref.valueId, "text", "--");
+      set(ref.extraId, "text", "keine Vorhersage");
+      json_decref(jWeather);
+      return;
+   }
+
+   auto dayOf = [](time_t t) { tm tmBuf; localtime_r(&t, &tmBuf); return (tmBuf.tm_year + 1900) * 1000 + tmBuf.tm_yday; };
+   auto hourOf = [](time_t t) { tm tmBuf; localtime_r(&t, &tmBuf); return tmBuf.tm_hour; };
+   auto temp = [](double t) { return haspFormatValue(round(t)) + "°"; };
+
+   // per day: max, min, max. rain probability and the symbol around noon
+
+   struct Day { int key {0}; time_t time {0}; double max {-100}; double min {100}; int pop {0}; std::string icon; int iconHourDiff {24}; };
+   std::vector<Day> days;
+
+   size_t index {0};
+   json_t* jStep {};
+
+   json_array_foreach(jForecasts, index, jStep)
+   {
+      time_t t {(time_t)getIntFromJson(jStep, "time", 0)};
+      double tmp {getDoubleFromJson(jStep, "temp", 0.0)};
+
+      if (days.empty() || days.back().key != dayOf(t))
+         days.push_back({ dayOf(t), t });
+
+      Day& day {days.back()};
+      day.max = std::max(day.max, tmp);
+      day.min = std::min(day.min, tmp);
+      day.pop = std::max(day.pop, (int)getIntFromJson(jStep, "pop", 0));
+
+      if (abs(hourOf(t) - 13) < day.iconHourDiff)
+      {
+         day.iconHourDiff = abs(hourOf(t) - 13);
+         day.icon = getStringFromJson(jStep, "icon", "");
+      }
+   }
+
+   // now (the first step)
+
+   json_t* jNow {json_array_get(jForecasts, 0)};
+   HaspWeatherSymbol ws {haspWeatherSymbol(getStringFromJson(jNow, "icon", ""))};
+
+   set(ref.objId, "text", haspMdiChar(ws.symbol));
+   set(ref.objId, "text_color", ws.color);
+   set(ref.valueId, "text", haspValueText(haspFormatValue(getDoubleFromJson(jNow, "temp", 0.0)), "°C"));
+   set(ref.extraId, "text", getStringFromJson(jNow, "detail", ""));
+
+   if (ref.infoId)
+   {
+      const Day& today {days.front()};
+      std::string info {temp(today.max) + " " + colorDim + " / " + temp(today.min) + "#"};
+
+      if (today.pop >= 10)
+         info += "   Regen " + std::to_string(today.pop) + " %";
+
+      set(ref.infoId, "text", info);
+   }
+
+   // the next days
+
+   for (int d = 0; d < ref.days; d++)
+   {
+      int id {ref.dayId + d * 3};
+
+      if (d + 1 >= (int)days.size())       // the forecast covers 5 days, the last one partly
+      {
+         set(id, "text", "");
+         set(id+1, "text", "");
+         set(id+2, "text", "");
+         continue;
+      }
+
+      const Day& day {days[d + 1]};
+      time_t t {day.time};
+      tm tmBuf;
+      localtime_r(&t, &tmBuf);
+      HaspWeatherSymbol dws {haspWeatherSymbol(day.icon)};
+
+      set(id, "text", weekdays[tmBuf.tm_wday]);
+      set(id+1, "text", haspMdiChar(dws.symbol));
+      set(id+1, "text_color", dws.color);
+      set(id+2, "text", temp(day.max) + " " + colorDim + " " + temp(day.min) + "#");
+   }
+
+   json_decref(jWeather);
 }
 
 int HomeCtl::haspPublishAllValues()
@@ -2371,9 +3227,58 @@ int HomeCtl::haspDispatchState(const char* topic, const char* message)
             haspPanelIp = ip;
          }
 
+         // memory: psram* and heapMaxBlock only with our firmware patch (openHASP/patches)
+
+         haspMemory.heapFree = getIntFromJson(jStatus, "heapFree", na);
+         haspMemory.heapFrag = getIntFromJson(jStatus, "heapFrag", na);
+         haspMemory.heapMaxBlock = getIntFromJson(jStatus, "heapMaxBlock", na);
+         haspMemory.psramFree = getIntFromJson(jStatus, "psramFree", na);
+         haspMemory.psramSize = getIntFromJson(jStatus, "psramSize", na);
+         haspMemory.uptime = getIntFromJson(jStatus, "uptime", na);
+         haspMemory.at = time(0);
+
          json_decref(jStatus);
+
+         json_t* oJson {json_object()};
+         haspStatus2Json(oJson);
+         pushOutMessage(oJson, "haspstatus");
       }
 
+      return done;
+   }
+
+   if (obj && strcmp(obj, "/log") == 0)             // warning / error of the panel (firmware patch, log slot 2)
+   {
+      json_t* jLog {jsonLoad(message, 0, true)};
+
+      if (!jLog)
+         return ignore;
+
+      HaspLogEntry entry;
+      entry.time = time(0);
+      entry.level = getStringFromJson(jLog, "level", "error");
+      entry.tag = getStringFromJson(jLog, "tag", "");
+      entry.text = getStringFromJson(jLog, "text", "");
+      json_decref(jLog);
+
+      tell(eloAlways, "HASP: Panel %s: %s: %s", entry.level.c_str(), entry.tag.c_str(), entry.text.c_str());
+
+      haspLog.push_back(entry);
+      haspLogTotal++;
+
+      while (haspLog.size() > haspMaxLog)
+         haspLog.pop_front();
+
+      json_t* oJson {json_object()};
+      haspStatus2Json(oJson);
+      pushOutMessage(oJson, "haspstatus");
+
+      return done;
+   }
+
+   if (obj && strcmp(obj, "/page") == 0)            // page change (e.g. by a swipe), see the 'up' below
+   {
+      haspPageChangedAt = cTimeMs::Now();
       return done;
    }
 
@@ -2393,6 +3298,11 @@ int HomeCtl::haspDispatchState(const char* topic, const char* message)
    if (event != "up")
       return done;
 
+   // the release of a swipe: the page changed while the finger was on the object -> no switching,
+   //   the object (toggled by the panel itself) gets the state of the sensor again
+
+   bool swiped {cTimeMs::Now() - haspPageChangedAt < 1000};
+
    for (const auto& it : haspObjects)
    {
       for (const auto& ref : it.second)
@@ -2407,6 +3317,20 @@ int HomeCtl::haspDispatchState(const char* topic, const char* message)
 
          const std::string& type {tuple[0]};
          uint address {(uint)strtoul(tuple[1].c_str(), nullptr, 0)};
+
+         if (swiped)
+         {
+            tell(eloDetail, "HASP: Touch on '%s' (p%db%d) ignored, end of a swipe (page change)", it.first.c_str(), page, id);
+
+            char attr[30];
+            snprintf(attr, sizeof(attr), "p%db%d.val", page, id);
+            haspLastSent.erase(attr);
+
+            if (sensors.count(type) && sensors[type].count(address))
+               haspPublishSensor(sensors[type][address]);
+
+            return done;
+         }
 
          // Choice: the selected text to the command topic (like the dashboard choice widget sends
          // 'toggleio' with action 'switch' and the value), without a topic the selection is reverted

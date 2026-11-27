@@ -33,6 +33,7 @@ std::list<HomeCtl::ConfigItemDef> HomeCtl::configuration
    { "weatherInterval",           ctInteger, "15",           "N", false, "Daemon", "Weather Refresh Interval [m]", "", "doc/configuration.md#daemon" },
 
    { "eloquence",                 ctBitSelect, "1",          "N", false, "Daemon", "Log Eloquence", "", "doc/configuration.md#daemon" },
+   { "hiddenCategories",          ctMultiSelect, "",         "N", false, "Daemon", "Ausgeblendete Kategorien", "Kategorien dieser Seite die nicht benötigt werden (z.B. GPS, Garmin), ihre Einstellungen bleiben erhalten", "doc/configuration.md#daemon" },
 
    // GPS tour recording
 
@@ -92,6 +93,7 @@ std::list<HomeCtl::ConfigItemDef> HomeCtl::configuration
 
    { "haspMqttTopic",             ctString,  "hasp/plates", "N", false, "HASP Panel", "MQTT Basis-Topic des openHASP Panels", "Kommandos gehen an &lt;Topic&gt;/command/..., z.B. 'hasp/plates' (Gruppe) oder 'hasp/&lt;hostname&gt;'. Leer = Panel-Anbindung aus", "doc/hasp.md#prerequisites" },
    { "haspIdleShort",             ctInteger, "0", "N", false, "HASP Panel", "Leerlauf kurz [s]", "Nach dieser Zeit ohne Berührung dunkelt das Panel ab (Skript idle_short.cmd im Panel), 0 = aus. Wird mit den Seiten an das Panel gesendet (config/gui), beide Zeiten 0 = die Einstellung des Panels bleibt unverändert", "doc/hasp.md#pages-and-widgets" },
+   { "haspFontCodepoints",        ctString,  "",             "N", true,  "HASP Panel", "", "" },   // MDI symbols of the last font upload (hint 'new symbols')
    { "haspIdleLong",              ctInteger, "0", "N", false, "HASP Panel", "Leerlauf lang [s]", "Nach dieser Zeit ohne Berührung schaltet das Panel das Display aus (Skript idle_long.cmd im Panel), 0 = aus", "doc/hasp.md#pages-and-widgets" },
 
    // mail

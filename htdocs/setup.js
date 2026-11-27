@@ -138,8 +138,12 @@ function initConfig(configdetails = null)
 
    let categories = [];
 
+   // die in 'hiddenCategories' (Daemon) abgewählten Kategorien bekommen keinen Button
+
+   let hidden = (config.hiddenCategories || '').split(',').filter(c => c != '' && c != 'Daemon');
+
    for (var i = 0; i < theConfigdetails.length; i++)
-      if (!categories.includes(theConfigdetails[i].category))
+      if (!categories.includes(theConfigdetails[i].category) && !hidden.includes(theConfigdetails[i].category))
          categories.push(theConfigdetails[i].category);
 
    if (setupCategory == '')
@@ -667,6 +671,13 @@ function addEditConfigItem(name = null)
       open: function() {
       },
       buttons: {
+         ...(isEditMode && { 'Löschen': function () {
+            let dlg = $(this);
+            confirmDialog(function() {
+               socket.send({ "event" : "storeconfig", "object" : { 'action': 'delete', 'name': name }});
+               dlg.dialog('close');
+            }, 'Option \'' + name + '\' löschen?', 'Löschen', 'Abbrechen');
+         }}),
          'Abbrechen': function () {
             $(this).dialog('close');
          },
@@ -881,9 +892,7 @@ function storeConfig()
 
    for (var i = 0; i < elements.length; i++) {
       var name = elements[i].id.substring(elements[i].id.indexOf("_") + 1);
-      var value = getAutoCompleteValues($("#mselect_" + name));
-      value = value.replace(/ /g, ',');
-      jsonObj[name] = value;
+      jsonObj[name] = getAutoCompleteValues($("#mselect_" + name));   // comma separated, a value may contain blanks
    }
 
    // ctStringSet -> as comma separated string

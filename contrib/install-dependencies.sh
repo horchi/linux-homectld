@@ -3,7 +3,7 @@
 # install-dependencies.sh - install the build and runtime dependencies of homectld
 #
 # contrib/install-dependencies.sh, called by 'make install-dependencies', the feature switches of Make.user are passed
-# as environment variables (WOMO, MOPEKA, THETFORD, GARMIN, GPS, VDR).
+# as environment variables (WOMO, MOPEKA, THETFORD, GARMIN, GPS, VDR, HASP).
 #
 # Supports Armbian (Debian / Ubuntu based) and Ubuntu (24.04, 26.04).
 # The ESP / Arduino sketches (kenwood, alpicool, arduino) are not covered,
@@ -40,7 +40,7 @@ if [ -f /etc/armbian-release ]; then
 fi
 
 echo "Distribution: ${PRETTY_NAME} (${DIST} ${DIST_VERSION}${ARMBIAN:+, Armbian})"
-echo "Switches:     WOMO=${WOMO:-0} MOPEKA=${MOPEKA:-0} THETFORD=${THETFORD:-0} GARMIN=${GARMIN:-0} GPS=${GPS:-0} VDR=${VDR:-0}"
+echo "Switches:     WOMO=${WOMO:-0} MOPEKA=${MOPEKA:-0} THETFORD=${THETFORD:-0} GARMIN=${GARMIN:-0} GPS=${GPS:-0} VDR=${VDR:-0} HASP=${HASP:-0}"
 echo "Source dir:   ${SRC_DIR} (for libraries built from source)"
 echo
 
@@ -169,6 +169,12 @@ if [ "${GPS}" = "1" ]; then
    echo
    echo "GPS: python with pyserial, pynmea2, paho-mqtt and geopy (gps.u-blox/gpsmqtt.py)"
    aptInstall python3 python3-serial python3-nmea2 python3-paho-mqtt python3-geopy
+fi
+
+if [ "${HASP}" = "1" ]; then
+   echo
+   echo "HASP: fonttools (fontTools.subset builds the MDI font for the panel with the used symbols only)"
+   aptInstall python3-fonttools
 fi
 
 # VDR: the SVDRP connection needs no additional packages

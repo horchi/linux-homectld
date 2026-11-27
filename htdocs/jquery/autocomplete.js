@@ -153,7 +153,7 @@ function setAutoCompleteValuesDirect(ac, values)
    if (values) {
       for (i = 0; i < values.length; i++) {
          item = null;
-         matcher = new RegExp($.ui.autocomplete.escapeRegex(values[i]), "i");
+         matcher = new RegExp("^" + $.ui.autocomplete.escapeRegex(values[i]) + "$", "i");   // exact, not a part of another value
          $.each(ac.options.source, function () {
             if (matcher.test(this.value || this.label || this))
                return !(item = this);
@@ -176,7 +176,7 @@ function getAutoCompleteValues(element)
    try {
       ac = element.autocomplete("instance").selectedItems;
       for (key in ac)
-         values += ' ' + ac[key].value;
+         values += ',' + ac[key].value;
    } catch (e) {}
 
    return values.slice(1);

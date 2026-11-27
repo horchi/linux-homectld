@@ -16,6 +16,7 @@
 
 var haspPages = {};          // filled by event 'hasppages'
 var haspDeletedPages = [];   // ids removed in the UI, sent with 'action: delete' on save
+var haspSavedState = null;   // the pages as stored (JSON of haspCollectPages()) -> unsaved changes on 'An Panel senden'
 var haspNewPageId = -1;      // negative ids -> new pages
 var haspMaxRows = 4;
 var haspMaxCols = 3;
@@ -31,6 +32,9 @@ function haspSeedOpts(key)
 
    if (key.startsWith('TIMER:'))
       return { 'widgettype': 17, 'title': 'Timer', 'minutes': 10, 'steps': '-1,1,5' };
+
+   if (key.startsWith('WEATHER:'))
+      return { 'widgettype': 19, 'title': '' };          // empty title -> the place of the forecast
 
    for (let did in dashboards) {
       let w = dashboards[did].widgets ? dashboards[did].widgets[key] : null;
@@ -70,6 +74,7 @@ function haspReducedType(wt)
       case 15:                          return 15;   // Level
       case 16:                          return 16;   // Balance
       case 17:                          return 17;   // Timer
+      case 19:                          return 19;   // Weather
       default:                          return 3;    // Value, Chart, Space, ...
    }
 }
@@ -136,13 +141,15 @@ function initHaspSetup()
       .append($('<div></div>')
               .addClass('button-group-spacing'))
       .append(toolButton('send', 'An Panel senden', 'Den gespeicherten Stand erneut an das Panel senden (z.B. nach einem Neustart des Panels), speichert nicht',
-                         function() { socket.send({ "event": "hasppages", "object": { "action": "send" } }); }))
+                         function() { haspSendStored(); }))
       .append(toolButton('lightbulb-on-outline', 'Panel wecken', 'Display einschalten und den Leerlauf-Zyklus (Dimmen / Aus) neu starten (sendet idle off)',
                          function() { socket.send({ "event": "hasppages", "object": { "action": "wake" } }); }))
       .append(toolButton('camera', 'Screenshot', 'Aktuelles Bild des Panels anzeigen (vom Web-Server des Panels)',
                          function() { haspScreenshot(); }))
       .append(toolButton('restart', 'Panel booten', 'Das Panel rebooten, die Seiten werden danach automatisch neu gesendet',
                          function() { if (confirm('Das Panel jetzt neu starten?')) socket.send({ "event": "hasppages", "object": { "action": "reboot" } }); }))
+      .append(toolButton('upload', 'Dateien hochladen', 'Die Skripte (idle_*.cmd) und die MDI Schrift (mdi.ttf) auf das Panel laden, das Display ist währenddessen aus, danach startet das Panel neu',
+                         function() { haspUploadFiles(); }))
 
       .append($('<div></div>')
               .addClass('button-group-spacing'))
@@ -197,13 +204,28 @@ function initHaspSetup()
       $('#controlContainer').append($('<div></div>').addClass('labelB1').css('color', 'var(--peakColor)')
                                     .html('Kein MQTT Topic konfiguriert (Konfiguration -> HASP Panel)'));
 
-   $('#container').empty().append($('<div></div>').attr('id', 'haspPages'));
+   if (haspPages.fontOutdated)
+      $('#controlContainer').append($('<div></div>').addClass('labelB1').css({ 'color': 'var(--peakColor)', 'white-space': 'normal' })
+                                    .attr('title', 'Die Seiten verwenden MDI Symbole, die in der Schrift auf dem Panel fehlen - sie bleiben dort unsichtbar')
+                                    .html('Neue Symbole - bitte Dateien hochladen'));
+
+   $('#controlContainer')
+      .append($('<div></div>')
+              .addClass('button-group-spacing'))
+      .append($('<div></div>').attr('id', 'haspMemory'));
+
+   $('#container').empty()
+      .append($('<div></div>').attr('id', 'haspLog'))
+      .append($('<div></div>').attr('id', 'haspPages'));
 
    let pages = haspPages.pages ? haspPages.pages : {};
    let ids = Object.keys(pages).sort(function(a, b) { return pages[a].order - pages[b].order; });
 
    for (let i = 0; i < ids.length; i++)
       haspRenderPage(ids[i], pages[ids[i]]);
+
+   haspSavedState = JSON.stringify(haspCollectPages());
+   haspRenderStatus();
 
    $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('footer') - sab - 10);
    window.onresize = function() {
@@ -233,6 +255,14 @@ function haspRenderPage(id, page)
               .attr('type', 'text')
               .css('width', '200px')
               .val(page.title))
+      .append($('<span></span>').html('Kachelfarbe').css('color', 'var(--neutral4)'))
+      .append($('<input></input>')
+              .attr('id', 'haspCardColor_' + id)
+              .attr('type', 'color')
+              .attr('title', 'Farbe der Kacheln dieser Seite auf dem Panel')
+              .css({ 'width': '40px', 'height': '28px', 'padding': '0', 'border': 'none', 'background': 'none', 'cursor': 'pointer' })
+              .val(page.cardColor ? page.cardColor : '#272727')
+              .on('input change', function() { $('#haspPage_' + id + ' .haspSlot').css('background', $(this).val()); }))
       .append($('<button></button>').addClass('rounded-border buttonOptions').html('&#9650;').attr('title', 'Seite nach oben')
               .click(function() { let p = $('#haspPage_' + id); p.prev('.haspPage').before(p); }))
       .append($('<button></button>').addClass('rounded-border buttonOptions').html('&#9660;').attr('title', 'Seite nach unten')
@@ -260,6 +290,8 @@ function haspRenderPage(id, page)
 
    for (let r = 0; r < layout.length && r < haspMaxRows; r++)
       haspRenderRow(id, r, layout[r], widgets);
+
+   $('#haspPage_' + id + ' .haspSlot').css('background', $('#haspCardColor_' + id).val());   // the cards in the color of the page
 }
 
 // one row: number of columns select, delete button and the slots
@@ -305,6 +337,7 @@ function haspRenderRow(pageId, row, cols, widgets)
 function haspRenderSlots(rowDiv, cols, rowWidgets)
 {
    let slots = rowDiv.find('.haspSlots');
+   let cardColor = rowDiv.closest('.haspPage').find('input[type=color]').val() || '#272727';
    slots.empty();
 
    for (let c = 0; c < cols; c++) {
@@ -312,12 +345,14 @@ function haspRenderSlots(rowDiv, cols, rowWidgets)
       let slot = $('<div></div>')
           .addClass('haspSlot')
           .attr('data-col', c)
-          .css({ 'flex': '1', 'padding': '8px', 'background': '#272727', 'border': '1px solid rgb(137 104 4)', 'border-radius': '6px',
+          .css({ 'flex': '1', 'padding': '8px', 'background': cardColor, 'border': '1px solid rgb(137 104 4)', 'border-radius': '6px',
                  'box-shadow': '1px 1px 2px 0px var(--shadow)', 'display': 'flex', 'flex-direction': 'column', 'gap': '6px', 'min-height': '70px' });
 
       slot.data('opts', widget.opts ? widget.opts : (widget.key ? haspSeedOpts(widget.key) : null));
 
       let keySel = haspSensorSelect(widget.key ? widget.key : '').addClass('haspKey');
+      let titleLabel = $('<div></div>').addClass('haspTitleLabel')
+          .css({ 'color': '#ffffff', 'font-size': '1.1em', 'white-space': 'nowrap', 'overflow': 'hidden', 'text-overflow': 'ellipsis', 'min-height': '1.3em' });
       let typeLabel = $('<span></span>').addClass('haspTypeLabel').css('color', 'var(--neutral4)');
       let keyLabel = $('<span></span>').addClass('haspKeyLabel').css({ 'color': 'var(--neutral3)', 'margin-left': 'auto', 'margin-right': '8px' });
       let setupBtn = $('<button></button>').addClass('rounded-border buttonOptions').html('Setup');
@@ -329,6 +364,7 @@ function haspRenderSlots(rowDiv, cols, rowWidgets)
          let key = keySel.val();
          typeLabel.html(opts ? haspTypeName(opts.widgettype) : '');
          keyLabel.html(key ? key : '');
+         titleLabel.text(haspCardTitle(key, opts));
          setupBtn.css('visibility', opts ? 'visible' : 'hidden');
       };
 
@@ -353,12 +389,43 @@ function haspRenderSlots(rowDiv, cols, rowWidgets)
       });
 
       refresh();
-      slot.append(keySel).append(line);
+      slot.append(titleLabel).append(keySel).append(line);
       slots.append(slot);
    }
 }
 
 // select with active sensors, sorted by type then name, filtered by #haspFilter
+
+// the title as shown on the panel: the one of the widget, otherwise the one of the sensor (like hasp.c)
+
+function haspCardTitle(key, opts)
+{
+   if (!key)
+      return '';
+
+   if (opts && opts.title)
+      return opts.title;
+
+   if (key.startsWith('TIME:'))
+      return 'Uhrzeit';
+
+   if (key.startsWith('TIMER:'))
+      return 'Timer';
+
+   if (key.startsWith('WEATHER:'))
+      return 'Wetter';
+
+   let fact = valueFacts[key];
+
+   return fact ? (fact.usrtitle ? fact.usrtitle : fact.title) : key;
+}
+
+// the weather card needs the forecast of OpenWeatherMap (sensor WEA:0x01, configuration openWeatherApiKey)
+
+function haspWeatherAvailable()
+{
+   return valueFacts['WEA:0x01'] != null && valueFacts['WEA:0x01'].state;
+}
 
 function haspSensorSelect(selected)
 {
@@ -381,6 +448,9 @@ function haspFillSensorSelect(sel, selected)
    sel.append($('<option></option>').val('').html('- leer -'));
    sel.append($('<option></option>').val('TIME:0x01').html('Uhrzeit').attr('selected', selected == 'TIME:0x01'));
    sel.append($('<option></option>').val('TIMER:0x01').html('Timer').attr('selected', selected == 'TIMER:0x01'));
+
+   if (haspWeatherAvailable() || selected == 'WEATHER:0x01')    // the card shows the forecast of WEA:0x01
+      sel.append($('<option></option>').val('WEATHER:0x01').html('Wetter').attr('selected', selected == 'WEATHER:0x01'));
 
    let jArray = [];
 
@@ -413,7 +483,7 @@ function haspFillSensorSelect(sel, selected)
 
    // keep a configured sensor even if it is not active (anymore)
 
-   if (selected != '' && valueFacts[selected] == null && !selected.startsWith('TIME:') && !selected.startsWith('TIMER:'))
+   if (selected != '' && valueFacts[selected] == null && !selected.startsWith('TIME:') && !selected.startsWith('TIMER:') && !selected.startsWith('WEATHER:'))
       sel.append($('<option></option>').val(selected).html(selected + ' (inaktiv)').attr('selected', true));
 }
 
@@ -438,6 +508,122 @@ function haspSelect(elementId, options, selected, onChange)
       sel.change(onChange);
 
    return sel;
+}
+
+// memory of the panel (tool panel) and its warnings / errors (above the pages), from the
+//  events 'hasppages' and 'haspstatus'. Internal RAM: WLAN, MQTT, tasks, ... (short below ~40 KB),
+//  PSRAM: the LVGL objects of the pages and the fonts (firmware patch, see openHASP/README.md)
+
+function haspRenderStatus()
+{
+   let mem = haspPages.memory || {};
+   let kb = function(b) { return (b / 1024).toFixed(0) + ' KB'; };
+   let mb = function(b) { return (b / 1024 / 1024).toFixed(2) + ' MB'; };
+   let warnColor = 'var(--peakColor)';
+   let box = $('#haspMemory').empty();
+
+   let row = function(label, value, title, warn) {
+      box.append($('<div></div>')
+                 .css({ 'display': 'flex', 'justify-content': 'space-between', 'gap': '6px' })
+                 .attr('title', title)
+                 .append($('<span></span>').html(label).css('color', 'var(--neutral4)'))
+                 .append($('<span></span>').html(value).css('color', warn ? warnColor : '')));
+   };
+
+   box.append($('<div></div>')
+              .addClass('labelB1')
+              .css({ 'display': 'flex', 'justify-content': 'space-between', 'align-items': 'center' })
+              .append($('<span></span>').html('Speicher Panel'))
+              .append($('<button></button>')
+                      .addClass('rounded-border buttonOptions mdi mdi-refresh')
+                      .attr('title', 'Aktuelle Werte beim Panel anfordern')
+                      .click(function() { socket.send({ "event": "hasppages", "object": { "action": "statusupdate" } }); })));
+
+   if (!mem.at) {
+      box.append($('<div></div>').css('color', 'var(--neutral4)').html('noch keine Werte'));
+      return haspRenderLog();
+   }
+
+   if (mem.heapFree != null)
+      row('RAM frei', kb(mem.heapFree), 'Freier interner RAM (WLAN, MQTT, Tasks), knapp unter etwa 40 KB', mem.heapFree < 40 * 1024);
+   if (mem.heapMaxBlock != null)
+      row('größter Block', kb(mem.heapMaxBlock), 'Größter zusammenhängender freier Block im internen RAM', mem.heapMaxBlock < 20 * 1024);
+   if (mem.heapFrag != null)
+      row('Fragmentierung', mem.heapFrag + ' %', 'Fragmentierung des internen RAM', mem.heapFrag > 50);
+
+   if (mem.psramSize != null) {
+      let used = mem.psramSize - mem.psramFree;
+      row('PSRAM frei', mb(mem.psramFree), 'Freier externer RAM (PSRAM: Objekte der Seiten, Schriften), belegt ' + mb(used) + ' von ' + mb(mem.psramSize),
+          mem.psramFree < mem.psramSize / 10);
+      box.append($('<div></div>')
+                 .css({ 'height': '6px', 'background': 'var(--neutral2)', 'border-radius': '3px', 'margin': '2px 0 4px 0' })
+                 .append($('<div></div>')
+                         .css({ 'height': '100%', 'border-radius': '3px', 'background': 'var(--blue)',
+                                'width': Math.min(100, Math.round(used * 100 / mem.psramSize)) + '%' })));
+   }
+   else
+      box.append($('<div></div>').css({ 'color': 'var(--neutral4)', 'white-space': 'normal' })
+                 .html('PSRAM: Firmware ohne Patch von homectld'));
+
+   let up = mem.uptime != null ? mem.uptime : 0;
+   let upText = up >= 86400 ? Math.floor(up / 86400) + ' d' : up >= 3600 ? Math.floor(up / 3600) + ' h' : Math.floor(up / 60) + ' min';
+
+   box.append($('<div></div>')
+              .css({ 'color': 'var(--neutral4)', 'font-size': 'smaller', 'margin-top': '2px' })
+              .html('Stand ' + new Date(mem.at * 1000).toLocaleTimeString() + ', läuft seit ' + upText));
+
+   haspRenderLog();
+}
+
+function haspRenderLog()
+{
+   let log = haspPages.log || [];
+   let box = $('#haspLog').empty();
+
+   if (!log.length)
+      return;
+
+   let div = $('<div></div>')
+       .addClass('rounded-border inputTableConfig')
+       .css({ 'display': 'block', 'margin': '8px 0' });
+
+   div.append($('<div></div>')
+              .css({ 'display': 'flex', 'align-items': 'center', 'gap': '8px', 'width': '100%', 'box-sizing': 'border-box' })
+              .append($('<span></span>').addClass('labelB1').html('Meldungen des Panels (' + log.length + ')'))
+              .append($('<button></button>')
+                      .addClass('rounded-border buttonOptions')
+                      .css('margin-left', 'auto')
+                      .html('Leeren')
+                      .attr('title', 'Liste leeren (nur in homectld, das Panel ist nicht betroffen)')
+                      .click(function() { socket.send({ "event": "hasppages", "object": { "action": "clearlog" } }); })));
+
+   let list = $('<div></div>').css({ 'max-height': '160px', 'overflow-y': 'auto', 'width': '100%', 'font-family': 'monospace', 'font-size': 'smaller' });
+
+   for (let i = log.length - 1; i >= 0; i--) {         // newest first
+      let e = log[i];
+      list.append($('<div></div>')
+                  .css({ 'white-space': 'normal', 'word-break': 'break-all', 'color': e.level == 'error' ? 'var(--peakColor)' : '#e0a030' })
+                  .text(new Date(e.time * 1000).toLocaleTimeString() + '  ' + e.tag + ': ' + e.text));
+   }
+
+   box.append(div.append(list));
+}
+
+// upload the panel files (the list comes with the event 'hasppages': <confDir>/hasp/*.cmd and mdi.ttf)
+
+function haspUploadFiles()
+{
+   let files = haspPages.uploadFiles || [];
+
+   if (!files.length) {
+      showInfoDialog({ 'message': 'Keine Dateien zum Hochladen gefunden (/etc/homectld/hasp/*.cmd, MDI Schrift)', 'status': -1 });
+      return;
+   }
+
+   confirmDialog(function() { socket.send({ "event": "hasppages", "object": { "action": "upload" } }); },
+                 'Diese Dateien auf das Panel laden?<br/><ul><li>' + files.join('</li><li>') + '</li></ul>' +
+                 'Das Display ist währenddessen aus, danach startet das Panel neu.',
+                 'Hochladen', 'Abbrechen');
 }
 
 // screenshot of the panel in a dialog: the image comes from the web server of the panel
@@ -504,7 +690,25 @@ function haspAddPage()
    haspRenderPage(id, { 'title': 'Seite ' + ($('.haspPage').length + 1), 'layout': [3, 3], 'widgets': {} });
 }
 
-window.storeHaspPages = function()
+// 'An Panel senden' sends the stored pages - with unsaved changes ask to save them first
+//   (saving sends them anyway)
+
+function haspSendStored()
+{
+   if (haspSavedState == null || (JSON.stringify(haspCollectPages()) == haspSavedState && !haspDeletedPages.length)) {
+      socket.send({ "event": "hasppages", "object": { "action": "send" } });
+      return;
+   }
+
+   confirmDialog(function() { storeHaspPages(); },
+                 'Es gibt ungespeicherte Änderungen, gesendet wird nur der gespeicherte Stand.<br/><br/>' +
+                 'Änderungen speichern und an das Panel senden?',
+                 'Speichern und senden', 'Abbrechen');
+}
+
+// the pages of the UI as object for 'storehasppages' (without the deleted ones)
+
+function haspCollectPages()
 {
    let jsonObj = {};
    let order = 0;
@@ -526,6 +730,7 @@ window.storeHaspPages = function()
 
       jsonObj[id] = {
          'title': $('#haspTitle_' + id).val(),
+         'cardColor': $('#haspCardColor_' + id).val(),
          'layout': layout,
          'order': order++,
          'widgets': widgets
@@ -534,8 +739,17 @@ window.storeHaspPages = function()
 
    jsonObj['config'] = { 'idleShort': parseInt($('#haspIdleShort').val()) || 0, 'idleLong': parseInt($('#haspIdleLong').val()) || 0 };
 
+   return jsonObj;
+}
+
+window.storeHaspPages = function()
+{
+   let jsonObj = haspCollectPages();
+   haspSavedState = JSON.stringify(jsonObj);
+
    for (let i = 0; i < haspDeletedPages.length; i++)
       jsonObj[haspDeletedPages[i]] = { 'action': 'delete' };
 
    socket.send({ "event": "storehasppages", "object": jsonObj });
+   haspDeletedPages = [];
 }

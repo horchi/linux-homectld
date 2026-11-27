@@ -414,6 +414,21 @@ function widgetSetup(key, hasp)
                                          )))
 
                   .append($('<div></div>')
+                          .attr('id', 'divFontSize')
+                          .append($('<span></span>')
+                                  .html('Schriftgröße'))
+                          .append($('<span></span>')
+                                  .append($('<select></select>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('id', 'fontsize')
+                                          .attr('title', 'Größe des Werts bzw. Texts in Pixel, Standard = Vorgabe des Widgets.\n' +
+                                                (hasp ? 'Panel: 12, 16, 24 und 32 sind in der Firmware enthalten, andere Größen rendert FreeType und brauchen zusätzlich RAM'
+                                                      : 'Dashboard: Value, Text und Symbol-Value'))
+                                          .append([0, 12, 16, 24, 32, 40, 48].map(function(s) {
+                                             return $('<option></option>').val(s).html(s ? s + ' px' : 'Standard').attr('selected', (widget.fontsize || 0) == s);
+                                          })))))
+
+                  .append($('<div></div>')
                           .attr('id', 'divLinefeed')
                           .append($('<span></span>')
                                   .html('Art'))
@@ -518,6 +533,7 @@ function widgetSetup(key, hasp)
       $("#divFillRect").css("display", [15].includes(wType) ? 'flex' : 'none');
       $("#divSpin").css("display", [0,9,12].includes(wType) ? 'flex' : 'none');
       $("#divInvert").css("display", [16].includes(wType) ? 'flex' : 'none');
+      $("#divFontSize").css("display", (hasp ? [2,3,4,5,6,7,9,12,15,16] : [2,3,7,9,12]).includes(wType) ? 'flex' : 'none');
       $("#divMinutes").css("display", [17].includes(wType) ? 'flex' : 'none');
       $("#divSteps").css("display", [17].includes(wType) ? 'flex' : 'none');
       $("#divRange").css("display", [1,5,6,13].includes(wType) ? 'flex' : 'none');
@@ -563,7 +579,7 @@ function widgetSetup(key, hasp)
          // settings without meaning for the HASP panel
 
          ['#divRescale', '#divScalestep', ...(wType == 16 ? [] : ['#divBarWidth']), '#divImgon', '#divImgoff', '#divPeak', '#divPeakMin', '#divShowValue',
-          '#divLinefeed', '#divButtons', '#divRange', '#divBarUnit', '#divBarAgg', '#divColorCondition'].forEach(function(id) { $(id).css('display', 'none'); });
+          '#divLinefeed', '#divButtons', '#divRange', '#divBarUnit', '#divBarAgg'].forEach(function(id) { $(id).css('display', 'none'); });
          $('#widthfactor, #heightfactor').parent().parent().css('display', 'none');   // the rows 'Breite' and 'Höhe'
       }
 
@@ -778,6 +794,7 @@ function widgetSetup(key, hasp)
             widget.range = $("#range").val();
             widget.barunit = $("#barunit").val();
             widget.baragg = $("#baragg").val();
+            widget.fontsize = parseInt($("#fontsize").val()) || 0;
 
             if (widget.widgettype == 18)
                htmlWidgetSetupStore(widget);
@@ -818,6 +835,7 @@ function widgetSetup(key, hasp)
             widget.range = $("#range").val();
             widget.barunit = $("#barunit").val();
             widget.baragg = $("#baragg").val();
+            widget.fontsize = parseInt($("#fontsize").val()) || 0;
 
             var json = {};
 
@@ -878,6 +896,7 @@ function widgetSetup(key, hasp)
             json[key]["fillrect"] = $("#fillrect").is(':checked');
             json[key]["spin"] = $("#spin").is(':checked');
             json[key]["invert"] = $("#invert").is(':checked');
+            json[key]["fontsize"] = parseInt($("#fontsize").val()) || 0;
             if ($("#minutes").length)
                json[key]["minutes"] = parseInt($("#minutes").val()) || 10;
             if ($("#steps").length)

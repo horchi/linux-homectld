@@ -44,6 +44,8 @@
 #DENON = 1
 # P4: Froeling S 3200 (P4) via serial interface to MQTT, service p4mqttd (see p4mqttd/README.md)
 #P4 = 1
+# HASP: openHASP touch panel - setup page 'HASP Panel' and scripts for the panel (doc/hasp.md)
+#HASP = 1
 
 # MQTT services in the sub directories
 
@@ -137,3 +139,16 @@ DOMAIN = womo.lan
 #KENWOOD_REMOTE_PORT = /dev/ttyACM0
 # Kenwood remote: WLAN MAC of the kenwood ESP32
 #KENWOOD_MAC = b0:cb:d8:98:6b:40
+
+# -------------------------
+# Parameter for openHASP / CrowPanel Advance 5.0 (ESP32-S3, openHASP/)
+
+# 'make upload' erases the whole flash (incl. WLAN / MQTT settings of the panel), only for the first time;
+#   the firmware has its own OTA via the web server of the panel, the password is the web password
+
+# HASP: serial port (USB) of the panel for 'make upload' / 'make monitor'
+#HASP_PORT = /dev/ttyUSB0
+# HASP: IP of the panel for 'make upload-ota' (first upload via USB)
+#HASP_OTA_HOST = 192.168.200.114
+# HASP: web password of the panel (empty = none)
+#HASP_OTA_PWD =

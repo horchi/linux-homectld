@@ -101,6 +101,12 @@ ifdef DEVEL_INSTANCE
    DEFINES += -DDEVEL_INSTANCE
 endif
 
+# openHASP touch panel (Make.user): setup page 'HASP Panel', MQTT topics of the panel, scripts for the panel
+
+ifdef HASP
+   DEFINES += -DHASP_PANEL
+endif
+
 # build rules
 
 $(TARGET) : $(OBJS) $(LIBHORCHI)
@@ -130,7 +136,7 @@ linstall: $(TARGET) $(MODULES)
 # distribution's version is too old), the optional parts according to the switches in Make.user
 
 install-dependencies:
-	@WOMO=$(WOMO) MOPEKA=$(MOPEKA) THETFORD=$(THETFORD) GARMIN=$(GARMIN) GPS=$(GPS) VDR=$(VDR) SRC_DIR=$(SRC_DIR) bash contrib/install-dependencies.sh
+	@WOMO=$(WOMO) MOPEKA=$(MOPEKA) THETFORD=$(THETFORD) GARMIN=$(GARMIN) GPS=$(GPS) VDR=$(VDR) HASP=$(HASP) SRC_DIR=$(SRC_DIR) bash contrib/install-dependencies.sh
 
 # initial setup of the local database (database, user and grants, the tables are created by the daemon)
 
@@ -269,6 +275,13 @@ install-config:
 	if test -f ./etc/configs/defaultDashboards.json; then \
 	   install --mode=644 -D ./etc/configs/defaultDashboards.json $(CONFDEST)/; \
 	fi
+   ifdef HASP
+	for f in openHASP/data-files/idle_*.cmd openHASP/data-files/mqtt_on.cmd; do \
+	   if ! test -f $(CONFDEST)/hasp/$$(basename $$f); then \
+	      install --mode=644 -D $$f $(CONFDEST)/hasp/$$(basename $$f); \
+	   fi; \
+	done
+   endif
 	mkdir -p $(DESTDIR)/etc/rsyslog.d
 	cat contrib/rsyslog.conf | sed s:"<TARGET>":$(TARGET):g | install --mode=644 -C -D /dev/stdin $(DESTDIR)/etc/rsyslog.d/10-$(TARGET).conf; \
 	mkdir -p $(DESTDIR)/etc/logrotate.d

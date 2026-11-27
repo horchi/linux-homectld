@@ -48,6 +48,7 @@ const char* HomeCtl::widgetTypes[] =
    "Balance",
    "Timer",
    "HTML",
+   "Weather",
    0
 };
 
@@ -2799,6 +2800,9 @@ int HomeCtl::readConfiguration(bool initial)
 
    getConfigItem("haspMqttTopic", haspMqttTopic, "hasp/plates");
 
+   if (!haspAvailable)           // make switch HASP not set -> no panel connection (all hasp* functions check the topic)
+      haspMqttTopic.clear();
+
    if (!haspMqttTopic.empty())
    {
       mqttSensorTopics.push_back("hasp/+/LWT");       // openHASP panel online/offline -> resend pages
@@ -2954,6 +2958,7 @@ int HomeCtl::meanwhile()
    performLightRules();
    homeMaticCheckRequests();
    performMqttRequests();
+   haspCheckUpload();        // openHASP panel: result of the upload thread, messages after sending the pages
    sceneProcess();
    performJobs();
    performLmcUpdates();

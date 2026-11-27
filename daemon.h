@@ -9,6 +9,8 @@
 #pragma once
 
 #include <queue>
+#include <deque>
+#include <atomic>
 #include <set>
 #include <jansson.h>
 
@@ -37,6 +39,15 @@
    inline constexpr bool develInstance {true};
 #else
    inline constexpr bool develInstance {false};
+#endif
+
+// openHASP touch panel (make switch HASP in Make.user): without it the setup page 'HASP Panel'
+//   and its config items are not offered and the panel topics are not subscribed
+
+#ifdef HASP_PANEL
+   inline constexpr bool haspAvailable {true};
+#else
+   inline constexpr bool haspAvailable {false};
 #endif
 
 extern char dbHost[];
@@ -527,6 +538,14 @@ class HomeCtl : public cWebInterface, public Service
       int storeConfig(json_t* obj, long client);
       int storeDashboards(json_t* obj, long client);
       int performHaspPages(json_t* obj, long client);
+      int haspUploadFiles(long client);
+      bool haspFontOutdated();
+      std::vector<std::pair<std::string,std::string>> haspUploadFileList();
+      void haspUploadThread(std::string ip, std::vector<std::pair<std::string,std::string>> files, std::set<uint32_t> codepoints);
+      void haspCheckUpload();
+      void haspCheckPageChange();
+      void haspCheckSendResult();
+      void haspStatus2Json(json_t* obj);
       int storeHaspPages(json_t* obj, long client);
       int htmlWidgets2Json(json_t* obj);
       int storeHtmlWidgets(json_t* obj, long client);
@@ -625,6 +644,7 @@ class HomeCtl : public cWebInterface, public Service
          hwtChoice,         // the choices of the valuefact as button matrix (btnmatrix), touch selects
          hwtBalance,        // horizontal bar with zero in the middle (charge / discharge, feed in / consumption)
          hwtTimer,          // countdown running on the panel (firmware custom/timer), alarm by the board buzzer
+         hwtWeather,        // current weather and the next days (forecast JSON of WEA:0x01)
          hwtCount
       };
 
@@ -639,6 +659,7 @@ class HomeCtl : public cWebInterface, public Service
          std::string symbolOn;
          std::string colorOff;     // colors for state off/on (SymbolValue)
          std::string colorOn;
+         std::string colorCondition;   // option 'colorCondition' ("30<#ff0000,..."), see haspConditionColor()
          int extraId {0};          // additional label (Level: percent)
          int size {0};             // Level: glyph size
          int top {0};              // Level: glyph top (y inside the card)
@@ -657,9 +678,61 @@ class HomeCtl : public cWebInterface, public Service
          bool invert {false};      // Balance: mirror the direction (positive values to the left)
          std::string colorNeg;     // Balance: colors of the negative / positive side
          std::string colorPos;
+         int infoId {0};           // Weather: label min / max / rain of today (0 if the card is too small)
+         int dayId {0};            // Weather: first object of the day columns (3 per day: name, symbol, temperatures)
+         int days {0};             // Weather: number of day columns
       };
 
       std::string haspPanelIp;     // from the panel's statusupdate (WEBIF: screenshot link)
+
+      // upload of the panel files (scripts and MDI font) in a thread, see haspUploadFiles()
+
+      struct HaspUpload
+      {
+         std::atomic<bool> active {false};
+         std::atomic<bool> done {false};
+         int status {success};
+         std::string message;
+         long client {0};
+         std::set<uint32_t> codepoints;     // the MDI symbols of the uploaded font
+      };
+
+      HaspUpload haspUpload;
+
+      // memory of the panel (statusupdate, psram* and heapMaxBlock with our firmware patch)
+
+      struct HaspMemory
+      {
+         long heapFree {na};
+         long heapFrag {na};
+         long heapMaxBlock {na};
+         long psramFree {na};
+         long psramSize {na};
+         long uptime {na};
+         time_t at {0};
+      };
+
+      // warnings and errors of the panel (firmware patch: state topic 'log'), the last haspMaxLog
+
+      struct HaspLogEntry
+      {
+         time_t time {0};
+         std::string level;           // "error" / "warning"
+         std::string tag;             // e.g. "ATTR", "MQTT RCV"
+         std::string text;
+      };
+
+      static constexpr size_t haspMaxLog {50};
+      HaspMemory haspMemory;
+      std::deque<HaspLogEntry> haspLog;
+      time_t haspPagesSentAt {0};      // collect the messages of the panel some seconds after sending the pages ..
+      long haspPagesSentClient {0};    // .. and report them to this WEBIF client (0: none, e.g. resend on 'online')
+      size_t haspLogTotal {0};         // number of messages received so far ..
+      size_t haspLogAtSend {0};        // .. and at the time the pages were sent
+      std::string haspCardColor;       // card color of the page currently built (option 'Kachelfarbe')
+      time_t haspPageChangeAt {0};     // 'page 1' to the panel at this time (some seconds after the pages)
+      uint64_t haspPageChangedAt {0};  // [ms] last page change reported by the panel (swipe detection)
+
       static const char* haspWidgetTypeNames[];
       static int haspWidgetTypes2Json(json_t* obj);
       int haspSendPages();
@@ -667,12 +740,14 @@ class HomeCtl : public cWebInterface, public Service
       int haspPublishJsonl(json_t* jObj);
       int haspBuildPage(int pageNo, const std::vector<int>& layout, json_t* jWidgets, int nextPage, int prevPage);
       int haspBuildWidget(int pageNo, int row, int col, int x, int y, int w, int h, const char* key, json_t* jOpts);
+      static std::string haspCardColorOf(const char* opts);
       static std::vector<int> haspLayoutOf(const char* opts, int rows, int cols);
       static HaspWidgetType haspTypeOfDashboardType(int dashboardWidgetType);
       int haspLoadMdiCodepoints();
       int haspPublishSensor(const SensorData& sensor);      // value/state of one sensor -> panel
       int haspDispatchState(const char* topic, const char* message);   // touch events of the panel -> homectld
       int haspPublishAllValues();                            // all sensors on the panel
+      void haspPublishWeather(const HaspObjRef& ref, const SensorData& sensor);   // card 'Weather'
 
       // GPS tour recording (gpstour.c)
 
@@ -928,6 +1003,7 @@ class HomeCtl : public cWebInterface, public Service
 
       std::string haspMqttTopic;                          // base topic, e.g. hasp/plates
       std::map<std::string,uint32_t> mdiCodepoints;       // "fridge-outline" -> 0xF028F
+      std::set<uint32_t> haspUsedCodepoints;              // MDI symbols of the sent pages (subset font for the panel)
       std::map<std::string,std::vector<HaspObjRef>> haspObjects;   // "TYPE:0xADDR" -> panel objects
       std::map<std::string,std::string> haspLastSent;             // "p1b12.val" -> last value sent (avoid repeats)
       std::vector<std::string> haspPending;                        // batched "p1b12.val=23" commands

@@ -1,3 +1,39 @@
+diff --git a/include/lv_conf_v7.h b/include/lv_conf_v7.h
+index 20ad2966..d2c59b73 100644
+--- a/include/lv_conf_v7.h
++++ b/include/lv_conf_v7.h
+@@ -115,7 +115,7 @@ typedef int16_t lv_coord_t;
+  /* Automatically defrag. on free. Defrag. means joining the adjacent free cells. */
+ #  define LV_MEM_AUTO_DEFRAG  1
+ #else       /*LV_MEM_CUSTOM*/
+-#define LV_MEM_CUSTOM_INCLUDE <stdlib.h>   /*Header for the dynamic memory function*/
++#define LV_MEM_CUSTOM_INCLUDE "hasp_mem.h" /*Header for the dynamic memory function (hasp_malloc: PSRAM if available)*/
+ #define LV_MEM_CUSTOM_ALLOC   hasp_malloc  /*Wrapper to malloc*/
+ #define LV_MEM_CUSTOM_FREE    hasp_free    /*Wrapper to free*/
+ #endif     /*LV_MEM_CUSTOM*/
+diff --git a/lib/lv_lib_freetype/lv_freetype.c b/lib/lv_lib_freetype/lv_freetype.c
+index d404d440..dbc66c3d 100644
+--- a/lib/lv_lib_freetype/lv_freetype.c
++++ b/lib/lv_lib_freetype/lv_freetype.c
+@@ -476,12 +476,12 @@ static bool lv_ft_font_init_cache(lv_ft_info_t* info)
+     font->underline_position  = FT_MulFix(scale, face_size->face->underline_position) >> 6;
+     font->underline_thickness = thickness < 1 ? 1 : thickness;
+ 
+-    LV_LOG_WARN("Ascender:   %d", face_size->face->size->metrics.ascender);
+-    LV_LOG_WARN("Descender:  %d", face_size->face->size->metrics.descender);
+-    LV_LOG_WARN("Lineheight: %d", font->line_height);
+-    LV_LOG_WARN("Baseline:   %d", font->base_line);
+-    LV_LOG_WARN("Underline:  %d", font->underline_position);
+-    LV_LOG_WARN("Underline:  %d", font->underline_thickness);
++    LV_LOG_INFO("Ascender:   %d", face_size->face->size->metrics.ascender);
++    LV_LOG_INFO("Descender:  %d", face_size->face->size->metrics.descender);
++    LV_LOG_INFO("Lineheight: %d", font->line_height);
++    LV_LOG_INFO("Baseline:   %d", font->base_line);
++    LV_LOG_INFO("Underline:  %d", font->underline_position);
++    LV_LOG_INFO("Underline:  %d", font->underline_thickness);
+ 
+     /* return to user */
+     info->font = font;
 diff --git a/platformio.ini b/platformio.ini
 index d1d6683e..62a0c68d 100644
 --- a/platformio.ini
@@ -198,3 +234,227 @@ index 9fca83f2..a7a0e07a 100644
      static bool cb_backlight(const ledc_cb_param_t *param, void *user_arg);
      void end_backlight_fade();
  };
+diff --git a/src/hasp/hasp_dispatch.cpp b/src/hasp/hasp_dispatch.cpp
+index 7a51e29c..5c86382d 100644
+--- a/src/hasp/hasp_dispatch.cpp
++++ b/src/hasp/hasp_dispatch.cpp
+@@ -1448,7 +1448,7 @@ void dispatch_statusupdate(const char*, const char*, uint8_t source)
+ {
+ #if HASP_USE_MQTT > 0
+ 
+-    char data[400];
++    char data[512];
+     char topic[16];
+     {
+         char buffer[128];
+@@ -1470,6 +1470,14 @@ void dispatch_statusupdate(const char*, const char*, uint8_t source)
+                    haspDevice.get_free_heap(), haspDevice.get_heap_fragmentation(), haspDevice.get_core_version());
+         strcat(data, buffer);
+ 
++#if defined(ARDUINO_ARCH_ESP32)
++        if(psramFound()) {
++            snprintf_P(buffer, sizeof(buffer), PSTR("\"heapMaxBlock\":%u,\"psramFree\":%u,\"psramSize\":%u,"),
++                       haspDevice.get_free_max_block(), ESP.getFreePsram(), ESP.getPsramSize());
++            strcat(data, buffer);
++        }
++#endif
++
+         snprintf_P(buffer, sizeof(buffer), PSTR("\"canUpdate\":\"false\",\"page\":%u,\"numPages\":%u,"),
+                    haspPages.get(), haspPages.count());
+         strcat(data, buffer);
+diff --git a/src/hasp_debug.cpp b/src/hasp_debug.cpp
+index c249ece5..8ca6c770 100644
+--- a/src/hasp_debug.cpp
++++ b/src/hasp_debug.cpp
+@@ -428,6 +428,10 @@ void debugPrintPrefix(uint8_t tag, int level, Print* _logOutput)
+     char buffer[10];
+     debug_get_tag(tag, buffer);
+ 
++#if HASP_USE_MQTT > 0
++    if(debugMqttLogPrefix(tag, level, _logOutput, buffer)) return;
++#endif
++
+ #if HASP_USE_SYSLOG > 0
+     if(debugSyslogPrefix(tag, level, _logOutput, buffer)) {
+         debugPrintHaspMemory(level, _logOutput);
+diff --git a/src/hasp_debug.h b/src/hasp_debug.h
+index ea77d54a..719cfade 100644
+--- a/src/hasp_debug.h
++++ b/src/hasp_debug.h
+@@ -146,6 +146,8 @@ void debugPrintHaspHeader(Print* output);
+ void debugPrintTag(uint8_t tag, Print* _logOutput);
+ void debugPrintPrefix(uint8_t tag, int level, Print* _logOutput);
+ bool debugSyslogPrefix(uint8_t tag, int level, Print* _logOutput, const char* processname);
++bool debugMqttLogPrefix(uint8_t tag, int level, Print* _logOutput, const char* tagname);
++bool debugMqttLogSuffix(Print* _logOutput);
+ 
+ #ifdef __cplusplus
+ }
+diff --git a/src/log/hasp_debug.cpp b/src/log/hasp_debug.cpp
+index cbca09c6..5eb70573 100644
+--- a/src/log/hasp_debug.cpp
++++ b/src/log/hasp_debug.cpp
+@@ -46,6 +46,101 @@
+ #define SERIAL_SPEED 115200
+ #endif
+ 
++#if HASP_USE_MQTT > 0
++#include "mqtt/hasp_mqtt.h"
++
++/* Warnings and errors to the MQTT state topic 'log' (e.g. homectld shows them in its web interface,
++ * no USB connection needed). Log slot 2 (the slot of syslog, used only while no syslog host is set).
++ * One line is collected at a time: lines of other tasks meanwhile and the log of the publish itself
++ * are dropped, a repeated line is sent at most every 10 s. */
++
++class MqttLogOutput : public Print {
++  public:
++    size_t write(uint8_t c) override
++    {
++        if(active && owner == xTaskGetCurrentTaskHandle() && len < sizeof(text) - 1) text[len++] = (char)c;
++        return 1;
++    }
++
++    char text[192];
++    char last[192] = "";
++    char payload[512];
++    size_t len          = 0;
++    bool active         = false; // a line is collected
++    bool busy           = false; // the line is published
++    int level           = 0;
++    char tag[10]        = "";
++    TaskHandle_t owner  = NULL;
++    uint32_t lastSentMs = 0;
++};
++
++static MqttLogOutput mqttLogOutput;
++static portMUX_TYPE mqttLogMux = portMUX_INITIALIZER_UNLOCKED;
++
++bool debugMqttLogPrefix(uint8_t tag, int level, Print* _logOutput, const char* tagname)
++{
++    if(_logOutput != &mqttLogOutput) return false;
++
++    portENTER_CRITICAL(&mqttLogMux);
++    bool isFree = !mqttLogOutput.active && !mqttLogOutput.busy;
++    if(isFree) {
++        mqttLogOutput.active = true;
++        mqttLogOutput.owner  = xTaskGetCurrentTaskHandle();
++    }
++    portEXIT_CRITICAL(&mqttLogMux);
++
++    if(isFree) {
++        mqttLogOutput.len   = 0;
++        mqttLogOutput.level = level;
++        strncpy(mqttLogOutput.tag, tagname, sizeof(mqttLogOutput.tag) - 1);
++        mqttLogOutput.tag[sizeof(mqttLogOutput.tag) - 1] = 0;
++    }
++
++    return true;
++}
++
++bool debugMqttLogSuffix(Print* _logOutput)
++{
++    if(_logOutput != &mqttLogOutput) return false;
++    if(!mqttLogOutput.active || mqttLogOutput.owner != xTaskGetCurrentTaskHandle()) return true;
++
++    MqttLogOutput& o = mqttLogOutput;
++    o.busy           = true;
++    o.active         = false;
++    o.text[o.len]    = 0;
++
++    while(o.len && (o.text[o.len - 1] == ' ' || o.text[o.len - 1] == '\r' || o.text[o.len - 1] == '\n'))
++        o.text[--o.len] = 0;
++
++    bool repeated = strcmp(o.text, o.last) == 0 && millis() - o.lastSentMs < 10000;
++
++    if(o.len && !repeated && mqttIsConnected()) {
++        size_t n = snprintf_P(o.payload, sizeof(o.payload), PSTR("{\"level\":\"%s\",\"tag\":\"%s\",\"text\":\""),
++                              o.level <= LOG_LEVEL_ERROR ? "error" : "warning", o.tag);
++
++        for(const char* c = o.text; *c && n < sizeof(o.payload) - 8; c++) { // JSON string
++            if(*c == '"' || *c == '\\') {
++                o.payload[n++] = '\\';
++                o.payload[n++] = *c;
++            } else if((uint8_t)*c < 0x20) {
++                o.payload[n++] = ' ';
++            } else {
++                o.payload[n++] = *c;
++            }
++        }
++
++        strcpy(o.payload + n, "\"}");
++        mqtt_send_state("log", o.payload);
++        strcpy(o.last, o.text);
++        o.lastSentMs = millis();
++    }
++
++    o.owner = NULL;
++    o.busy  = false;
++    return true;
++}
++#endif // HASP_USE_MQTT
++
+ #if HASP_USE_SYSLOG > 0
+ 
+ #ifndef SYSLOG_SERVER
+@@ -347,6 +442,10 @@ bool debugSyslogPrefix(uint8_t tag, int level, Print* _logOutput, const char* pr
+ 
+ void debugPrintSuffix(uint8_t tag, int level, Print* _logOutput)
+ {
++#if HASP_USE_MQTT > 0
++    if(debugMqttLogSuffix(_logOutput)) return;
++#endif
++
+ #if HASP_USE_SYSLOG > 0
+     if(syslogClient && _logOutput == syslogClient) {
+         syslogClient->endPacket();
+@@ -412,6 +511,9 @@ void debugSetup(JsonObject settings)
+     Log.unregisterOutput(0);
+     Log.unregisterOutput(1);
+     Log.unregisterOutput(3);
++#if HASP_USE_MQTT > 0
++    Log.registerOutput(2, &mqttLogOutput, LOG_LEVEL_WARNING, true); // replaced by syslog if a host is set
++#endif
+ 
+ #if HASP_USE_CONFIG > 0
+     if(!settings[FPSTR(FP_CONFIG_BAUD)].isNull()) {
+diff --git a/src/mqtt/hasp_mqtt_esp.cpp b/src/mqtt/hasp_mqtt_esp.cpp
+index 7d076d15..a435dfb3 100644
+--- a/src/mqtt/hasp_mqtt_esp.cpp
++++ b/src/mqtt/hasp_mqtt_esp.cpp
+@@ -210,12 +210,15 @@ void mqtt_enqueue_message(const char* topic, const char* payload, size_t payload
+ 
+     {
+         size_t attempt = 0;
+-        while(xQueueSend(queue, &data, (TickType_t)0) == errQUEUE_FULL && attempt < 100) {
++        bool queued    = false;
++        while(!(queued = xQueueSend(queue, &data, (TickType_t)0) == pdTRUE) && attempt < 100) {
+             delay(5);
+             attempt++;
+         };
+-        if(attempt >= 100) {
+-            LOG_ERROR(TAG_MQTT_RCV, D_ERROR_OUT_OF_MEMORY);
++        if(!queued) { // the GUI is busy (e.g. building pages), the message is lost
++            LOG_ERROR(TAG_MQTT_RCV, F("Queue full, message lost: %s"), topic);
++            hasp_free(data.topic);
++            hasp_free(data.payload);
+         }
+     }
+ }
+@@ -486,7 +489,7 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
+ 
+ void mqttSetup()
+ {
+-    queue = xQueueCreate(64, sizeof(mqtt_message_t));
++    queue = xQueueCreate(256, sizeof(mqtt_message_t)); // only pointers, the messages are in the PSRAM
+     // esp_crt_bundle_set(rootca_crt_bundle_start, rootca_crt_bundle_end-rootca_crt_bundle_start);
+     //    arduino_esp_crt_bundle_set(rootca_crt_bundle_start);
+     mqttStart();
+@@ -500,7 +503,7 @@ IRAM_ATTR void mqttLoop(void)
+ 
+     mqtt_message_t data;
+     while(xQueueReceive(queue, &data, (TickType_t)0)) {
+-        LOG_WARNING(TAG_MQTT, F("[%d] QUE %s => %s"), uxQueueMessagesWaiting(queue), data.topic, data.payload);
++        LOG_VERBOSE(TAG_MQTT, F("[%d] QUE %s => %s"), uxQueueMessagesWaiting(queue), data.topic, data.payload);
+         size_t length = strlen(data.payload);
+         dispatch_topic_payload(data.topic, data.payload, length > 0, TAG_MQTT);
+         hasp_free(data.topic);

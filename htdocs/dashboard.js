@@ -696,51 +696,44 @@ function widgetColor(widget)
 
 function getWidgetColor(widget, colorCondition, defaultColor, value)
 {
+   // 'colorCondition': comma separated '<val><op><color>', op one of <>, <=, >=, <, >, =, ~
+   //   (~: the text contains val); compared is 'val op value', e.g. '30<red' -> red if 30 < value.
+   //   The first matching item wins (same logic as haspConditionColor() in hasp.c for the panel)
+
    if (colorCondition == null || colorCondition == '') {
       if (defaultColor != null)
          return defaultColor;
       return widgetColor({});
    }
-   else {
-      let conditions = colorCondition.split(",");
-      for (c = 0; c < conditions.length; ++c) {
-         if (conditions[c].indexOf('=') != -1) {
-            let [val,col] = conditions[c].split("=");
-            if (value == val)
-               return col;
-         }
-         else if (conditions[c].indexOf('~') != -1) {   // ~ für string enthalten in
-            let [val,col] = conditions[c].split("~");
-            if (value.indexOf(val) != -1)
-               return col;
-         }
-         else if (conditions[c].indexOf('<') != -1) {1
-            let [val,col] = conditions[c].split("<");
-            if (val < value)
-               return col;
-         }
-         else if (conditions[c].indexOf('>') != -1) {
-            let [val,col] = conditions[c].split(">");
-            if (val > value)
-               return col;
-         }
-         else if (conditions[c].indexOf('<=') != -1) {1
-            let [val,col] = conditions[c].split("<=");
-            if (val <= value)
-               return col;
-         }
-         else if (conditions[c].indexOf('>=') != -1) {
-            let [val,col] = conditions[c].split(">=");
-            if (val >= value)
-               return col;
-         }
-         else if (conditions[c].indexOf('<>') != -1) {
-            let [val,col] = conditions[c].split("<>");
-            if (val != value)
-               return col;
-         }
+
+   let ops = ['<>', '<=', '>=', '<', '>', '=', '~'];
+   let conditions = colorCondition.split(',');
+
+   for (let c = 0; c < conditions.length; ++c) {
+      let op = ops.find(function(o) { return conditions[c].indexOf(o) != -1; });
+
+      if (!op)
+         continue;
+
+      let [val, col] = conditions[c].split(op).map(function(s) { return s.trim(); });
+      let match = false;
+
+      if (op == '~')
+         match = String(value).indexOf(val) != -1;
+      else {
+         let numeric = val != '' && !isNaN(val) && value !== '' && !isNaN(value);
+         let a = numeric ? parseFloat(val) : val;
+         let b = numeric ? parseFloat(value) : String(value);
+
+         match = op == '=' ? a == b : op == '<>' ? a != b : op == '<' ? a < b
+            : op == '>' ? a > b : op == '<=' ? a <= b : a >= b;
       }
+
+      if (match)
+         return col;
    }
+
+   return defaultColor != null ? defaultColor : widgetColor({});
 }
 
 // battery symbol by the charge [%]: green, yellow (< 60 %), orange (< 30 %), red (< 15 %)
@@ -1432,6 +1425,15 @@ function initWidget(key, widget, fact)
          }
          break;
       }
+   }
+
+   // font size of the value / text (widget dialog 'Schriftgröße', 0 = default of the CSS)
+
+   if (widget.fontsize > 0) {
+      if ([2,3,7].includes(widget.widgettype))
+         $('#widget' + fact.type + fact.address).css('font-size', widget.fontsize + 'px');
+      else if ([9,12].includes(widget.widgettype))
+         $('#value' + fact.type + fact.address).css('font-size', widget.fontsize + 'px');
    }
 }
 

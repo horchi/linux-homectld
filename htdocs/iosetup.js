@@ -1490,7 +1490,7 @@ function sensorRulesSetup(type, address)
    for (const k in valueFacts) {
       let f = valueFacts[k];
 
-      if (!f.state || !(f.type == 'DZL' || f.type == 'DZLG' || f.type.startsWith('MCPO') || f.type == 'SCN' ||
+      if (!f.state || !(f.type == 'DZL' || f.type == 'DZLG' || f.type.startsWith('MCPO') || f.type == 'SCN' || f.type == 'HASP' ||
                         (f.type == 'GPIO' && f.settings && f.settings.fct == 'out')))
          continue;
 

@@ -2898,13 +2898,11 @@ int P4Mqttd::publishUserDefined()
       std::string text;
    };
 
-   std::string timeText {l2pTime(currentState.time, "%A, %d. %b. %Y %H:%M:%S")};
-
    const Ud uds[] =
    {
       { Fs::udState, "Heizungsstatus",     "zst", (long)currentState.state, currentState.stateinfo },
       { Fs::udMode,  "Betriebsart Kessel", "txt", (long)currentState.mode,  currentState.modeinfo },
-      { Fs::udTime,  "Uhrzeit",            "txt", (long)currentState.time,  timeText }
+      { Fs::udTime,  "Uhrzeit",            "txt", (long)currentState.time,  "" }   // the time_t only, the homectld formats the text
    };
 
    for (const auto& u : uds)

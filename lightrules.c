@@ -9,7 +9,7 @@
  *  Light rules
  *
  *  Switches and motion sensors of deCONZ (DZS) switch lights (DZL, DZLG),
- *  outputs and scenes (SCN), configured without LUA in the setup dialog of the sensor, stored in
+ *  outputs, scenes (SCN) and the display of the HASP panel (HASP), configured without LUA in the setup dialog of the sensor, stored in
  *  its SETTINGS:
  *
  *  { "rules": [ { "trigger": "button",              button | motion

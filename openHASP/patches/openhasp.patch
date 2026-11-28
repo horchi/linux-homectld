@@ -1,5 +1,5 @@
 diff --git a/include/lv_conf_v7.h b/include/lv_conf_v7.h
-index 20ad2966..d2c59b73 100644
+index 20ad296..d2c59b7 100644
 --- a/include/lv_conf_v7.h
 +++ b/include/lv_conf_v7.h
 @@ -115,7 +115,7 @@ typedef int16_t lv_coord_t;
@@ -12,7 +12,7 @@ index 20ad2966..d2c59b73 100644
  #define LV_MEM_CUSTOM_FREE    hasp_free    /*Wrapper to free*/
  #endif     /*LV_MEM_CUSTOM*/
 diff --git a/lib/lv_lib_freetype/lv_freetype.c b/lib/lv_lib_freetype/lv_freetype.c
-index d404d440..dbc66c3d 100644
+index d404d44..dbc66c3 100644
 --- a/lib/lv_lib_freetype/lv_freetype.c
 +++ b/lib/lv_lib_freetype/lv_freetype.c
 @@ -476,12 +476,12 @@ static bool lv_ft_font_init_cache(lv_ft_info_t* info)
@@ -35,7 +35,7 @@ index d404d440..dbc66c3d 100644
      /* return to user */
      info->font = font;
 diff --git a/platformio.ini b/platformio.ini
-index d1d6683e..62a0c68d 100644
+index d1d6683..7527413 100644
 --- a/platformio.ini
 +++ b/platformio.ini
 @@ -75,7 +75,7 @@ build_flags =
@@ -43,12 +43,12 @@ index d1d6683e..62a0c68d 100644
      -D HASP_VER_MAJ=0
      -D HASP_VER_MIN=7
 -    -D HASP_VER_REV=0.1
-+    -D HASP_VER_REV=0.2
++    -D HASP_VER_REV=0.1-homectld.3
      ;-D HASP_VER_REV=0-rc15
      ;-D HASP_VER_REV=4-rc1
      ${override.build_flags}
 diff --git a/src/dev/device.h b/src/dev/device.h
-index c6ec426f..579b94ce 100644
+index c6ec426..579b94c 100644
 --- a/src/dev/device.h
 +++ b/src/dev/device.h
 @@ -98,6 +98,8 @@ class BaseDevice {
@@ -61,7 +61,7 @@ index c6ec426f..579b94ce 100644
      {
          return 0;
 diff --git a/src/dev/esp32/esp32.cpp b/src/dev/esp32/esp32.cpp
-index ca0c7ee4..e8ad1aa8 100644
+index ca0c7ee..e8ad1aa 100644
 --- a/src/dev/esp32/esp32.cpp
 +++ b/src/dev/esp32/esp32.cpp
 @@ -19,6 +19,42 @@
@@ -204,7 +204,7 @@ index ca0c7ee4..e8ad1aa8 100644
  #if !defined(CONFIG_IDF_TARGET_ESP32S2)
          uint32_t duty = _backlight_power ? map(_backlight_level, 0, 255, 0, 1023) : 0;
 diff --git a/src/dev/esp32/esp32.h b/src/dev/esp32/esp32.h
-index 9fca83f2..a7a0e07a 100644
+index 9fca83f..a7a0e07 100644
 --- a/src/dev/esp32/esp32.h
 +++ b/src/dev/esp32/esp32.h
 @@ -36,6 +36,7 @@ class Esp32Device : public BaseDevice {
@@ -235,7 +235,7 @@ index 9fca83f2..a7a0e07a 100644
      void end_backlight_fade();
  };
 diff --git a/src/hasp/hasp_dispatch.cpp b/src/hasp/hasp_dispatch.cpp
-index 7a51e29c..5c86382d 100644
+index 7a51e29..5c86382 100644
 --- a/src/hasp/hasp_dispatch.cpp
 +++ b/src/hasp/hasp_dispatch.cpp
 @@ -1448,7 +1448,7 @@ void dispatch_statusupdate(const char*, const char*, uint8_t source)
@@ -263,7 +263,7 @@ index 7a51e29c..5c86382d 100644
                     haspPages.get(), haspPages.count());
          strcat(data, buffer);
 diff --git a/src/hasp_debug.cpp b/src/hasp_debug.cpp
-index c249ece5..8ca6c770 100644
+index c249ece..8ca6c77 100644
 --- a/src/hasp_debug.cpp
 +++ b/src/hasp_debug.cpp
 @@ -428,6 +428,10 @@ void debugPrintPrefix(uint8_t tag, int level, Print* _logOutput)
@@ -278,7 +278,7 @@ index c249ece5..8ca6c770 100644
      if(debugSyslogPrefix(tag, level, _logOutput, buffer)) {
          debugPrintHaspMemory(level, _logOutput);
 diff --git a/src/hasp_debug.h b/src/hasp_debug.h
-index ea77d54a..719cfade 100644
+index ea77d54..719cfad 100644
 --- a/src/hasp_debug.h
 +++ b/src/hasp_debug.h
 @@ -146,6 +146,8 @@ void debugPrintHaspHeader(Print* output);
@@ -290,8 +290,35 @@ index ea77d54a..719cfade 100644
  
  #ifdef __cplusplus
  }
+diff --git a/src/hasp_oobe.cpp b/src/hasp_oobe.cpp
+index 1e9cb93..5bd3a68 100644
+--- a/src/hasp_oobe.cpp
++++ b/src/hasp_oobe.cpp
+@@ -11,6 +11,9 @@
+ #include "hasp/hasp_dispatch.h"
+ #include "hasp/hasp_object.h"
+ #include "dev/device.h"
++#if defined(HASP_USE_CUSTOM) && HASP_USE_CUSTOM > 0
++#include "custom/my_custom.h"
++#endif
+ 
+ static bool oobeAutoCalibrate = true;
+ 
+@@ -311,6 +314,12 @@ bool oobeSetup()
+     char pass[32];
+ 
+     if(wifiShowAP(ssid, pass)) {
++#if defined(HASP_USE_CUSTOM) && HASP_USE_CUSTOM > 0
++        // homectld: own setup screen with WLAN, hostname and MQTT server (custom/my_custom.cpp)
++        haspDevice.set_backlight_level(255);
++        custom_setup_oobe();
++        return true;
++#endif
+         WiFi.scanNetworks(true);
+         haspDevice.set_backlight_level(255);
+         oobeSetupQR(ssid, pass);
 diff --git a/src/log/hasp_debug.cpp b/src/log/hasp_debug.cpp
-index cbca09c6..5eb70573 100644
+index cbca09c..5eb7057 100644
 --- a/src/log/hasp_debug.cpp
 +++ b/src/log/hasp_debug.cpp
 @@ -46,6 +46,101 @@
@@ -418,7 +445,7 @@ index cbca09c6..5eb70573 100644
  #if HASP_USE_CONFIG > 0
      if(!settings[FPSTR(FP_CONFIG_BAUD)].isNull()) {
 diff --git a/src/mqtt/hasp_mqtt_esp.cpp b/src/mqtt/hasp_mqtt_esp.cpp
-index 7d076d15..a435dfb3 100644
+index 7d076d1..a435dfb 100644
 --- a/src/mqtt/hasp_mqtt_esp.cpp
 +++ b/src/mqtt/hasp_mqtt_esp.cpp
 @@ -210,12 +210,15 @@ void mqtt_enqueue_message(const char* topic, const char* payload, size_t payload

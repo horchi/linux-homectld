@@ -35,7 +35,11 @@ Nur `overlay/` und `patches/` sind im homectld-Repo versioniert, der openHASP-Kl
 Änderungen an der Firmware werden in `src/` gemacht und mit `./export.sh` zurück nach `overlay/` und
 `patches/` geschrieben, dann committet. `./build.sh --reset` verwirft Änderungen in `src/` und stellt
 den Stand aus `overlay/` + `patches/` wieder her. Die Version steht in `platformio.ini`
-(`HASP_VER_REV`, im Patch), der Dateiname der Images trägt sie zusammen mit dem Upstream-Commit.
+(`HASP_VER_REV`, im Patch) und besteht aus zwei Teilen: openHASP-Version des Upstream-Stands und unsere
+Anpassung, z.B. `0.7.0.1-homectld.3` = openHASP 0.7.0.1 (Commit aus `upstream.conf`), homectld-Anpassung 3.
+Bei einer Änderung an `overlay/` / `patches/` die homectld-Nummer erhöhen, bei einem neuen Upstream-Stand den
+openHASP-Teil übernehmen. Der Dateiname der Images trägt die Version zusammen mit dem Upstream-Commit.
+Bisher: homectld.2 Summer, Timer, PSRAM, Log per MQTT (als 0.7.0.2 gebaut); homectld.3 Einrichtungsbildschirm.
 
 Ergebnis landet in `src/build_output/firmware/` und wird nach `firmware/` kopiert.
 
@@ -122,6 +126,14 @@ Eigene Kommandos der Firmware (`HASP_USE_CUSTOM=1` in der Umgebung), erreichbar 
   `state/timer` `{"state":"alarm",...}`; jedes Timer-Kommando während des Alarms beendet ihn.
   Zustandswechsel kommen auf `state/timer` (`running`, `stopped`, `alarm`).
 
+* `custom/setup` - Einrichtungsbildschirm (eigener LVGL-Screen, unabhängig von den Seiten): WLAN aus der
+  Netzsuche, Passwort, Hostname und MQTT-Server mit Bildschirmtastatur. Vorbelegt mit der aktuellen
+  Einstellung (das WLAN-Passwort ist nicht lesbar, bleibt die Maske stehen, bleibt das WLAN unverändert).
+  *Speichern* prüft die WLAN-Verbindung (blockiert bis ~8 s), speichert und startet neu. Ist kein WLAN
+  eingerichtet (frisch geflasht), erscheint er statt des openHASP-Einrichtungsbildschirms (OOBE, Patch in
+  `hasp_oobe.cpp`), dann ohne *Abbrechen*, mit Hinweis auf den Access Point `HASP-xxxxxx` / `haspadmin`.
+  Seit homectld.3.
+
 Der homectld baut daraus das Widget *Timer* (Pseudo-Sensor TIMER:0x01) und sendet nach den Objekten
 `custom/timer config ...`; die Buttons tragen `action` (`{"down":"custom/timer add 60"}` usw.), das Label
 `{"up":"custom/timer toggle","long":"custom/timer reset"}`. Objekte mit `action` melden ihre Touch-Events
@@ -141,6 +153,27 @@ Mehr stellt openHASP ohne MQTT nicht bereit (Uptime, RSSI, Heap gibt es nur auf 
 
 Hochladen: `./upload.sh <ip>` (pages.jsonl und alle *.cmd), aktivieren ohne Neustart mit
 `clearpage all` und `run L:/pages.jsonl` (Konsole, Telnet oder MQTT command/clearpage, command/run).
+
+## Startseiten (data-files/welcome/)
+
+Seiten für ein neues Panel, bis homectld seine Seiten sendet (er löscht vorher Seite 1..12 per `clearpage`):
+`pages.jsonl` liegt im Flash und wird beim Booten geladen, ohne MQTT. Seite 1 *Willkommen* mit dem Knopf
+*Einrichten* (Einrichtungsbildschirm der Firmware, `custom/setup`), Seite 2 was homectld ist, mit Hostname,
+Hardware-ID und Firmware des Panels; Wischen wechselt. Eigene Seiten brauchen keine neue Firmware, nur
+eine andere `pages.jsonl` (und ggf. Bilder / Schrift) im Flash.
+
+* `welcome.py` erzeugt `pages.jsonl` und `mdi.ttf` (Teilmenge der MDI-Schrift mit den Symbolen der Seiten;
+  homectld überschreibt sie beim *Dateien hochladen*). Als Modul für eigene Seiten nutzbar: `Pages`,
+  `page_welcome()`, `page_homectld()` (z.B. als zusätzliche Seite hinter eigenen), `setup_button()`, `make_font()`.
+* `img2bin.py <bild> <out.bin> [breite höhe]` wandelt ein Bild in das LVGL-7-Binärformat für ein `img`-Objekt
+  (`"src":"L:/out.bin"`, RGB565, mit Alpha falls vorhanden; die Bild-Decoder der Firmware sind aus). Große
+  Motive als Bild, da die Firmware MDI-Symbole nur bis 120 px zeichnet.
+* `online.cmd` ohne die Objekte der System-Info-Seite (zeigt nur kurz Hostname und IP).
+
+    ./upload.sh <ip> data-files/welcome/{pages.jsonl,online.cmd,mdi.ttf} data-files/mqtt_on.cmd
+
+Ausprobieren ohne Neustart über Telnet (`nc <ip> 23`): `clearpage 1`, `clearpage 2`, `run L:/pages.jsonl`
+(nach einer neuen `mdi.ttf` neu starten); Kontrolle per Screenshot `http://<ip>/screenshot?q=0` (BMP).
 
 ## MQTT-Demo (mqttdemo/mqtt-demo.jsonl, mqtt-demo.sh)
 

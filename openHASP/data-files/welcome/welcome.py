@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+# Start pages of the panel until homectld sends its pages (it clears page 1..12 before):
+# loaded by openHASP from /pages.jsonl at boot, no MQTT needed.
+#   page 1  welcome with the button for the setup screen (WLAN, hostname, MQTT server, custom/setup)
+#   page 2  what homectld is, hostname and version of the panel
+# Usage: ./welcome.py  -> pages.jsonl next to this script
+# Own pages: import this module, build with Pages() and the page functions (page_homectld() can be
+# combined with own pages), symbols need a font with the code points (make_font()).
+
+import json
+import os
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.normpath(os.path.join(HERE, "../../.."))
+MDI_TTF = os.path.join(REPO, "htdocs/mds/fonts/materialdesignicons-webfont.ttf")
+
+# MDI code points (htdocs/mds/css/materialdesignicons.min.css), as raw character into the text (> FFFF)
+HOME_AUTOMATION = 0xF07D1
+WIFI_COG        = 0xF16BE
+SYMBOLS         = [HOME_AUTOMATION, WIFI_COG]
+
+BLUE = "#2177AD"         # 'on' color of the homectld dashboard
+
+
+def I(cp):
+    return chr(cp)
+
+
+class Pages:
+    def __init__(self):
+        self.out = []
+
+    def o(self, **kw):
+        self.out.append(kw)
+
+    def comment(self, text):
+        self.out.append({"comment": text, "skip": True})   # without skip openHASP creates an empty object
+
+    def write(self, path):
+        with open(path, "w") as f:
+            for line in self.out:
+                f.write(json.dumps(line, ensure_ascii=False, separators=(",", ":")) + "\n")
+
+
+def page_base(p, page, nxt, prv, **style):
+    # the page itself must stay clickable, otherwise it does not get the swipe
+    p.o(page=page, id=0, swipe=True, next=nxt, prev=prv, **({"bg_color": "#000000", "bg_grad_dir": 0} | style))
+
+
+def setup_button(p, page, oid, x, y, size=64, color="#606060"):
+    # small symbol button for the setup screen of the firmware (custom/setup, firmware >= 0.7.0.1-homectld.3)
+    p.o(page=page, id=oid, obj="btn", x=x, y=y, w=size, h=size, text=I(WIFI_COG), text_font=f"mdi_{size * 5 // 8}",
+        text_color=color, bg_opa=0, border_width=0, shadow_width=0, radius=size // 2, action={"up": "custom/setup"})
+
+
+def page_welcome(p, page, nxt, prv):
+    page_base(p, page, nxt, prv, bg_color="#0a1e30", bg_grad_color="#000000", bg_grad_dir=1)
+    p.o(page=page, id=1, obj="label", x=0, y=40, w=800, h=130, text=I(HOME_AUTOMATION), align="center",
+        text_font="mdi_120", text_color=BLUE, click=False)
+    p.o(page=page, id=2, obj="label", x=0, y=175, w=800, h=110, text="Willkommen", align="center",
+        text_font=96, text_color="#ffffff", click=False)
+    p.o(page=page, id=3, obj="label", x=0, y=290, w=800, h=40, text="warte auf WLAN und homectld ...",
+        align="center", text_font=24, text_color="#808080", click=False)
+    p.o(page=page, id=4, obj="btn", x=250, y=370, w=300, h=64, text="Einrichten", text_font=32,
+        text_color="#ffffff", bg_color=BLUE, bg_grad_dir=0, border_width=0, radius=8, action={"up": "custom/setup"})
+
+
+def page_homectld(p, page, nxt, prv, setup_hint="Knopf 'Einrichten' auf der ersten Seite"):
+    # '%hostname%', '%version%', '%mac%' are replaced by openHASP when the text is set
+    page_base(p, page, nxt, prv)
+    p.o(page=page, id=1, obj="label", x=30, y=24, w=90, h=90, text=I(HOME_AUTOMATION), text_font="mdi_72",
+        text_color=BLUE, click=False)
+    p.o(page=page, id=2, obj="label", x=120, y=34, w=640, h=70, text="homectld", text_font=64,
+        text_color="#ffffff", click=False)
+    p.o(page=page, id=3, obj="label", x=40, y=130, w=720, h=180, mode="break", text_font=24, text_color="#d0d0d0",
+        click=False, text=
+        "Dieses Display ist ein Bedienteil für homectld, die Steuerung für Haus und Wohnmobil.\n"
+        "Sobald es im WLAN ist und den MQTT-Server erreicht, schickt homectld seine Seiten "
+        "und hält die Werte aktuell.\n"
+        "WLAN, Hostname und MQTT-Server: " + setup_hint + ".")
+    rows = [("Hostname", "%hostname%"), ("Hardware-ID", "%mac%"), ("Firmware", "openHASP %version%")]
+    for i, (name, value) in enumerate(rows):
+        y = 330 + i * 40
+        p.o(page=page, id=10 + i, obj="label", x=40, y=y, w=200, h=32, text=name + ":", text_font=24,
+            text_color="#808080", click=False)
+        p.o(page=page, id=20 + i, obj="label", x=240, y=y, w=520, h=32, text=value, text_font=24,
+            text_color="#ffffff", click=False)
+
+
+def make_font(path, codepoints):
+    # subset of the MDI font with the symbols of the pages (the complete one is too big for the panel)
+    subprocess.run([sys.executable, "-m", "fontTools.subset", MDI_TTF,
+                    "--unicodes=" + ",".join("%X" % c for c in sorted(set(codepoints))),
+                    "--output-file=" + path, "--no-hinting"], check=True, stderr=subprocess.DEVNULL)
+
+
+if __name__ == "__main__":
+    p = Pages()
+    p.comment("Start pages until homectld sends its pages (generated by welcome.py, homectld clears page 1..12 before).")
+    p.comment("Fonts: other sizes than 12/16/24/32 are rendered by FreeType from the embedded openhasp.ttf, "
+              "symbols from /mdi.ttf (mdi_<size>, max. 120 px).")
+    page_welcome(p, 1, 2, 2)
+    page_homectld(p, 2, 1, 1)
+    p.write(os.path.join(HERE, "pages.jsonl"))
+    make_font(os.path.join(HERE, "mdi.ttf"), SYMBOLS)
+    print("pages.jsonl, mdi.ttf written")

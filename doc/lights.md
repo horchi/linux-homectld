@@ -46,7 +46,8 @@ and the checkbox per range.
   with the lowest brightness and get brighter, else darker from 50 % on and brighter below; holding again within
   5 s after the release dims in the other direction; still holding at the end (lowest brightness / 100 %) it dims
   back after a short pause (1 s), back and forth until the release (at most 60 s)
-- targets: one or more lights, groups or outputs
+- targets: one or more lights, groups, outputs, scenes or the display of the HASP panel (`HASP:0x01`, e.g. a motion
+  sensor wakes the panel; off / *Aus nach* switches its display off)
 - optional brightness [%] and transition [s] (fading time)
 - optional off timer *Aus nach* [s], restarted by each event, switches off only what the rule switched on
 - optional time range (fixed or sun times), e.g. motion switches the light only at night

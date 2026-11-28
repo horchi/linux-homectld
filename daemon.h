@@ -737,6 +737,7 @@ class HomeCtl : public cWebInterface, public Service
       std::string haspIdleState;       // state/idle of the panel: off (display on), short (dimmed), long (display off)
       int haspCurrentPage {0};         // state/page of the panel, 0 = unknown
       time_t haspLastActivity {0};     // last touch / page change / wake (return to page 1, config 'haspHomeAfter')
+      time_t haspWakeSentAt {0};       // last 'idle off' to the panel
 
       static const char* haspWidgetTypeNames[];
       static int haspWidgetTypes2Json(json_t* obj);

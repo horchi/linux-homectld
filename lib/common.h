@@ -463,6 +463,7 @@ std::string num2Str(int num);
 std::string num2Str(double num);
 double round2(double d);
 std::string l2pTime(time_t t, const char* fmt = "%d.%m.%Y %T") __attribute__ ((format(strftime, 2, 0)));
+std::string l2pTimeDe(time_t t);
 char* eos(char* s);
 const char* toElapsed(int seconds, char* buf);
 // #to-be-implemented: splitToInts(const char* string, char c, int& i1, int& i2);

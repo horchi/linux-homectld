@@ -1164,6 +1164,28 @@ std::string l2pTime(time_t t, const char* fmt)
    return std::string(txt);
 }
 
+//***************************************************************************
+// Long to Pretty Time - german, independent of the locale
+//   'Samstag, 28. November 2026 14:05:03' (strftime %A / %B would need a
+//   german LC_TIME, which neither a daemon without setlocale() nor every host has)
+//***************************************************************************
+
+std::string l2pTimeDe(time_t t)
+{
+   static const char* const months[] { "Januar", "Februar", "März", "April", "Mai", "Juni", "Juli",
+                                       "August", "September", "Oktober", "November", "Dezember" };
+   tm tmp {};
+   char txt[100] {};
+
+   localtime_r(&t, &tmp);
+
+   snprintf(txt, sizeof(txt), "%s, %d. %s %d %02d:%02d:%02d",
+            toWeekdayName((tmp.tm_wday + 6) % 7), tmp.tm_mday, months[tmp.tm_mon], tmp.tm_year + 1900,
+            tmp.tm_hour, tmp.tm_min, tmp.tm_sec);
+
+   return std::string(txt);
+}
+
 const char* toElapsed(int seconds, char* buf)
 {
    char* p = buf;

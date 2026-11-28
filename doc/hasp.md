@@ -50,7 +50,7 @@ small wall or vehicle display. The pages of the panel are configured in the WEBI
   default -1,1,5, up to 6) plus Start-Stop; it runs
   in the panel firmware and keeps running without WLAN,
   the board buzzer beeps for a minute when the time is up, any touch on the card stops it; a touch on the
-  time starts/stops, a long press resets to the configured minutes; needs the custom firmware >= 0.7.0.2,
+  time starts/stops, a long press resets to the configured minutes; needs the custom firmware >= 0.7.0.1-homectld.2 (built as 0.7.0.2 at first),
   see openHASP/README.md)
   and **Weather** (pseudo sensor *Wetter* in the sensor list, offered when the forecast sensor `WEA:0x01` of
   OpenWeatherMap is active: symbol, temperature and description of the current weather, below today's
@@ -68,9 +68,12 @@ small wall or vehicle display. The pages of the panel are configured in the WEBI
   back to page 1; use is a touch of an object (button, choice, timer, ...), a page change or a wake up - a touch of
   the background is not reported by the panel. 0 = off
 - sensor **`HASP:0x01`** (*Panel Display*, IO Setup, section *HASP Panel*, activate it there): the display of
-  the panel as an actor for the dashboard (Symbol widget), the scenes and LUA. State on = display on
+  the panel as an actor for the dashboard (Symbol widget), the scenes, the light rules (e.g. a motion sensor
+  wakes the panel) and a Symbol on the panel itself. State on = display on
   (idle `off`), off when dimmed or dark, invalid while the panel is offline; switching on wakes the panel
-  (`idle off`, the idle cycle restarts), switching off turns the display off (`idle long`), a click toggles
+  (`idle off`, the idle cycle restarts), switching off turns the display off (`idle long`), a click toggles.
+  After switching off a touch wakes the panel: the firmware keeps the state 'long' then, homectld sends
+  `idle off` when the panel reports the backlight on
 - the idle times of the panel (*Leerlauf*, seconds) are set on the same page: after the short one the
   panel dims, after the long one the display goes off (what exactly happens is defined by the scripts
   `idle_short.cmd` / `idle_long.cmd` / `idle_off.cmd` on the panel). They are stored as the configuration

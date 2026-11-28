@@ -5850,7 +5850,13 @@ int HomeCtl::dispatchOther(const char* topic, const char* message)
    }
    else if (sensors[type][address].kind == "text")
    {
-      changed = sensors[type][address].setText(getStringFromJson(jData, "text", ""), newTime);
+      if (type == "P4UD" && address == 0x03)   // clock of the S 3200, p4mqttd sends the time_t only, formatted here
+      {
+         long t {getLongFromJson(jData, "value", 0)};
+         changed = sensors[type][address].setText(t > 0 ? l2pTimeDe((time_t)t).c_str() : "", newTime);
+      }
+      else
+         changed = sensors[type][address].setText(getStringFromJson(jData, "text", ""), newTime);
    }
    else // ??
    {

@@ -6,6 +6,8 @@
 //   custom/beep  [on_ms [off_ms [count]]]        beep pattern, default 200 ms once
 //   custom/timer config <page> <label> <bar> <button> <default_sec>
 //                set <sec> | add <sec> | start | stop | toggle | reset | ack | state
+//   custom/setup                                  setup screen (WLAN, hostname, MQTT server), also shown
+//                                                 instead of the openHASP OOBE screen when no WLAN is set
 //
 // The timer runs on the panel itself, buttons use the 'action' attribute to call these commands
 // locally; state changes are published on state/timer.
@@ -36,6 +38,9 @@ void custom_get_sensors(JsonDocument& doc);
 
 /* Receive custom topic & payload messages */
 void custom_topic_payload(const char* topic, const char* payload, uint8_t source);
+
+/* Setup screen instead of the OOBE screen (no WLAN configured, the pages are not set up) */
+void custom_setup_oobe();
 
 /* Get notified when a state message is sent out */
 void custom_state_subtopic(const char* subtopic, const char* payload);

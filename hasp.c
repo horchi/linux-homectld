@@ -1699,6 +1699,9 @@ int HomeCtl::haspPublish(const char* command, const char* payload)
 
    std::string topic {haspMqttTopic + "/command/" + command};
 
+   if (strcmp(command, "idle") == 0 && strcmp(payload, "off") == 0)
+      haspWakeSentAt = time(0);            // see '/backlight' in haspDispatchState()
+
    tell(eloMqtt, "-> (%s) [%s]", topic.c_str(), payload);
 
    return mqttWriter->write(topic.c_str(), payload);
@@ -3415,6 +3418,28 @@ int HomeCtl::haspDispatchState(const char* topic, const char* message)
       return done;
    }
 
+   // the display was switched off by 'idle long' (HASP:0x01 off): the firmware keeps an offset on the
+   //   idle time (hasp_set_sleep_state()), a touch switches the backlight on but the state stays 'long'
+   //   and the idle cycle stops - only 'idle off' resets the offset. A touch reports 'backlight on'
+   //   (first touch handler) -> wake it properly (not again right after our own 'idle off')
+
+   if (obj && strcmp(obj, "/backlight") == 0)
+   {
+      json_t* jLight {jsonLoad(message, 0, true)};
+      bool on {jLight && strcmp(getStringFromJson(jLight, "state", ""), "on") == 0};
+
+      if (jLight)
+         json_decref(jLight);
+
+      if (on && haspIdleState == "long" && time(0) > haspWakeSentAt + 5)
+      {
+         tell(eloDetail, "HASP: Backlight on while idle 'long' (touch), wake the panel");
+         haspPublish("idle", "off");
+      }
+
+      return done;
+   }
+
    if (obj && strcmp(obj, "/idle") == 0)            // off (display on) / short (dimmed) / long (display off)
    {
       std::string idle {message};
@@ -3522,7 +3547,7 @@ int HomeCtl::haspDispatchState(const char* topic, const char* message)
          // topic (e.g. KENWOOD, VICTRON, TASMOTA) are switched via the topic, the others via toggleIo()
 
          const char* cmdTopic {lookupCommandTopic(type.c_str(), address)};
-         bool controllable {!isEmpty(cmdTopic) || type == "SC" || type == "DZL" || type == "DZLG" || type == "HMB" ||
+         bool controllable {!isEmpty(cmdTopic) || type == "SC" || type == "SCN" || type == "HASP" || type == "DZL" || type == "DZLG" || type == "HMB" ||
                             (type == "GPIO" && sensors.count(type) && sensors[type].count(address) && sensors[type][address].fct == "out")};
 
          if (controllable && val != na)

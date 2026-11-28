@@ -119,6 +119,7 @@ int HomeCtl::mqttHaPublishSensor(SensorData& sensor, bool forceConfig)
             sensor.unit = "°C";
          else if (sensor.unit == "Heizungsstatus" ||
                   sensor.unit == "zst" ||
+                  sensor.unit == "btn" ||
                   sensor.unit == "txt")
             sensor.unit = "";
 

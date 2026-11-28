@@ -54,7 +54,7 @@ free@home counts the position the other way round (0 = open), homectld converts 
 
 ## Sensors
 
-- wall switches (switch / dimming sensor): the button events like deCONZ for the light rules -
+- wall switches (switch / dimming sensor, unit `btn`): the button events like deCONZ for the light rules -
   short *on* `1002`, short *off* `2002`, long *up* `1001` / release `1003`, long *down* `2001` / release `2003`.
   A wall switch bound to an actor in free@home switches it anyway (the SysAP), a rule is in addition.
 - movement detector: motion (unit `mov`), for the light rules

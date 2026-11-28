@@ -253,6 +253,7 @@ const char* FreeAtHome::unitOf(uint functionId)
 {
    switch (functionId)
    {
+      case 0x00: case 0x01: return "btn";                  // wall switches, button events
       case 0x09: case 0x61: case 0x62: return "%";
       case 0x11: return "mov";
       case 0x41: return "lx";

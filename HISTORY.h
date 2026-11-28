@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.89"
+#define _VERSION     "0.1.90"
 #define VERSION_DATE "28.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,10 @@
 
 /*
  * ------------------------------------
+
+2026-11-28: version 0.1.90
+    - change: widget defaults: symbols of the blinds (FHB, HMB) and the rain alarm (FHS)
+    - change: switches of deCONZ / free@home with unit 'btn', default widget symbol
 
 2026-11-28: version 0.1.89
     - change: setup: password fields masked (MQTT, free@home)

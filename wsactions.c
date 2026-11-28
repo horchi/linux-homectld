@@ -3705,7 +3705,7 @@ int HomeCtl::sensor2Json(json_t* obj, const char* type, uint address)
 
       const std::string& unit {sensors[type][address].unit};
 
-      if (strcmp(type, "DZS") == 0 && !unit.empty() && unit != "lx")
+      if (strcmp(type, "DZS") == 0 && isDeconzMeasuring(unit))
          timeout = deconzMaxAge;
    }
    else if (strncmp(type, "P4", 2) == 0)

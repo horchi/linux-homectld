@@ -411,6 +411,8 @@ class HomeCtl : public cWebInterface, public Service
       int deconzCheckOutdated();
       int mqttCheckOutdated();
       static constexpr time_t deconzMaxAge {3 * 60 * 60};      // [s] measuring sensors without data that long are invalid
+      // measuring sensor of deCONZ: with unit, not the brightness (sent with a motion only), not the switches (button events)
+      static bool isDeconzMeasuring(const std::string& unit) { return !unit.empty() && unit != "lx" && unit != "btn"; }
       int homeMaticServiceAction(const SensorData& sensor, double value, bool noStop);
       int homeMatic2Json(json_t* obj);
       int performHomeMatic(json_t* obj, long client);

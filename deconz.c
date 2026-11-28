@@ -350,6 +350,8 @@ int Deconz::processDevices(json_t* jData, const std::string& kind)
             unit = "hPa";
          else if (dzType == "ZHALightLevel")
             unit = "lx";
+         else if (dzType == "ZHASwitch")
+            unit = "btn";                     // button events (1002, ...) - no measured value
       }
       else if (kind == "light")
       {

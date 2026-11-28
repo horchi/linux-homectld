@@ -3357,7 +3357,7 @@ int HomeCtl::deconzCheckOutdated()
    {
       // not the brightness - the motion sensors send it only with a motion
 
-      if (!sensor.valid() || sensor.unit.empty() || sensor.unit == "lx" || !sensor.last() || sensor.last() >= now - deconzMaxAge)
+      if (!sensor.valid() || !isDeconzMeasuring(sensor.unit) || !sensor.last() || sensor.last() >= now - deconzMaxAge)
          continue;
 
       tell(eloAlways, "Info: deCONZ sensor 'DZS:0x%02x' (%s) without data since %s, invalid", address,
@@ -4368,6 +4368,13 @@ int HomeCtl::addValueFact(int addr, const char* type, int factor, const char* na
       tableValueFacts->setValue("TITLE", title);
    }
 
+   // the unit of the deCONZ / free@home sensors comes by the device type (e.g. 'btn' of the switches,
+   //  added later) - taken only if the fact has none, the unit can be changed in the IO setup
+
+   if ((strncmp(type, "DZ", 2) == 0 || strncmp(type, "FH", 2) == 0) && !isEmpty(unit)
+       && isEmpty(tableValueFacts->getStrValue("UNIT")))
+      tableValueFacts->setValue("UNIT", unit);
+
    // the default widget options of the sensors of the S 3200 (p4mqttd) follow the version of the service,
    //  the user changes the widgets, not the 'parameter'
 
@@ -4943,7 +4950,7 @@ int HomeCtl::dispatchDeconz()
 
       // data of a measuring sensor too old at the init -> invalid (e.g. empty battery)
 
-      if (at > 0 && !sensor->unit.empty() && at < time(0) - deconzMaxAge)
+      if (at > 0 && isDeconzMeasuring(sensor->unit) && at < time(0) - deconzMaxAge)
          sensor->invalidate(at);
 
       // send update to WS

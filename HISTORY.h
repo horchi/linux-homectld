@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.84"
+#define _VERSION     "0.1.85"
 #define VERSION_DATE "28.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,10 @@
 
 /*
  * ------------------------------------
+
+2026-11-28: version 0.1.85
+    - added: dashboard setup dialog: symbol of the dashboard in the title
+    - added: dashboard setup dialog: radius of the widgets per dashboard
 
 2026-11-28: version 0.1.84
     - added: HASP panel: back to page 1 after a configurable time without use

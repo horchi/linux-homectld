@@ -3512,6 +3512,7 @@ table.tableMultiCol td
     margin: 2px;
     background-color: var(--widgetBackground);
     padding: 1px;
+    border-radius: var(--widgetRadius, 0px);      /* per dashboard (setup dialog 'Radius Widgets') */
 }
 
 .widget

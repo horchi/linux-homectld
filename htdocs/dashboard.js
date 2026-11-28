@@ -261,6 +261,9 @@ function initDashboard(update = false)
    let dashOptions = dashboards[actDashboard] ? dashboards[actDashboard].options : null;
    layout = dashOptions && dashOptions.layout == 'grid' ? 'grid' : 'flex';
 
+   if (dashOptions && parseInt(dashOptions.widgetRadius) > 0)          // rounded corners of the widgets
+      $('#widgetContainer').css('--widgetRadius', parseInt(dashOptions.widgetRadius) + 'px');
+
    if (layout == 'flex') {
       $('#widgetContainer').css('display', 'flex');
       $('#widgetContainer').css('flex-wrap', 'wrap');

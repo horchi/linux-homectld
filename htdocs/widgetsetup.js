@@ -1009,6 +1009,18 @@ function dashboardSetup(did)
                   .append($('<div></div>')
                           .css('display', 'flex')
                           .append($('<span></span>')
+                                  .html('Radius Widgets'))
+                          .append($('<span></span>')
+                                  .append($('<input></input>')
+                                          .addClass('rounded-border inputSetting')
+                                          .attr('type', 'number').attr('min', 0).attr('max', 50).attr('step', 1)
+                                          .attr('id', 'widgetRadius')
+                                          .attr('title', 'Runde Ecken der Widgets dieses Dashboards [px], 0 = eckig')
+                                          .val(dashboards[dashboardId].options.widgetRadius || 0)
+                                         )))
+                  .append($('<div></div>')
+                          .css('display', 'flex')
+                          .append($('<span></span>')
                                   .html('Gruppe'))
                           .append($('<span></span>')
                                   .append($('<input></input>')
@@ -1025,9 +1037,23 @@ function dashboardSetup(did)
       closeOnEscape: true,
       hide: "fade",
       width: "auto",
-      title: "Dashbord - " + dashboards[dashboardId].title,
+      title: "Dashboard" + (dashboards[dashboardId].title ? " - " + dashboards[dashboardId].title : ""),
       open: function() {
          $(".ui-dialog-buttonpane button:contains('Dashboard löschen')").attr('style','color:#ff5757');
+
+         // the symbol of the dashboard in front of the title, follows the input 'Symbol'
+
+         let $title = $(this).parent().find('.ui-dialog-title');
+         let showTitle = function() {
+            let symbol = ($('#dashSymbol').val() || '').trim();
+            let title = ($('#dashTitle').val() || '').trim();
+            $title.empty()
+               .append(symbol != '' ? $('<span></span>').addClass(symbol.replace(':', ' ')).css('margin-right', '6px') : null)
+               .append($('<span></span>').text('Dashboard' + (title != '' ? ' - ' + title : '')));
+         };
+
+         showTitle();
+         $('#dashSymbol, #dashTitle').on('input', showTitle);
 
          if (!dashboards[dashboardId].options.heightfactor)
             dashboards[dashboardId].options.heightfactor = 1;
@@ -1053,6 +1079,7 @@ function dashboardSetup(did)
          },
          'Ok': function () {
             dashboards[dashboardId].options = {};
+            dashboards[dashboardId].options.widgetRadius = Math.max(0, parseInt($("#widgetRadius").val()) || 0);
             dashboards[dashboardId].options.heightfactor = $("#heightfactor").val();
             dashboards[dashboardId].options.heightfactorKiosk = $("#heightfactorKiosk").val();
             dashboards[dashboardId].options.widthfactorKiosk = $("#widthfactorKiosk").val();

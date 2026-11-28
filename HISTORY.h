@@ -5,8 +5,8 @@
  *
  */
 
-#define _VERSION     "0.1.83"
-#define VERSION_DATE "27.11.2026"
+#define _VERSION     "0.1.84"
+#define VERSION_DATE "28.11.2026"
 
 #ifdef GIT_REV
 #  define VERSION _VERSION "-GIT" GIT_REV
@@ -16,6 +16,15 @@
 
 /*
  * ------------------------------------
+
+2026-11-28: version 0.1.84
+    - added: HASP panel: back to page 1 after a configurable time without use
+    - added: HASP panel: alive state (online / offline) and display state on the setup page
+    - added: HASP panel: sensor HASP:0x01 to wake / switch off the display (dashboard, scenes)
+    - added: scenes: step 'goto' (Springe zu)
+    - added: HTML widgets: field 'active', parameter '-' in the widget setup = empty
+    - change: HTML widget 'Heizung S 3200': heating circuits only with active sensors
+    - bugfix: chart page / list page: scroll position jumped on page change and redraw
 
 2026-11-27: version 0.1.83
     - change: HASP panel: make switch HASP, file upload (scripts, MDI subset), crash fixes, font size, color condition, swipe, card color

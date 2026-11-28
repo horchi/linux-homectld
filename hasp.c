@@ -937,6 +937,10 @@ int HomeCtl::haspPages2Json(json_t* obj)
    json_object_set_new(obj, "idleShort", json_integer(idleShort));
    json_object_set_new(obj, "idleLong", json_integer(idleLong));
 
+   int homeAfter {0};
+   getConfigItem("haspHomeAfter", homeAfter, 0);
+   json_object_set_new(obj, "homeAfter", json_integer(homeAfter));
+
    haspStatus2Json(obj);
 
    return done;
@@ -950,6 +954,17 @@ int HomeCtl::haspPages2Json(json_t* obj)
 
 void HomeCtl::haspStatus2Json(json_t* obj)
 {
+   // alive: LWT of the panel (online / offline), missing = not known yet
+
+   if (haspOnline != na)
+   {
+      json_object_set_new(obj, "online", json_boolean(haspOnline == 1));
+      json_object_set_new(obj, "onlineChangedAt", json_integer(haspOnlineChangedAt));
+   }
+
+   if (!haspIdleState.empty())
+      json_object_set_new(obj, "idle", json_string(haspIdleState.c_str()));
+
    json_t* oMemory {json_object()};
    json_object_set_new(obj, "memory", oMemory);
 
@@ -1311,6 +1326,7 @@ void HomeCtl::haspCheckSendResult()
 void HomeCtl::haspCheckUpload()
 {
    haspCheckPageChange();
+   haspCheckHomePage();
    haspCheckSendResult();
 
    if (!haspUpload.done)
@@ -1341,6 +1357,110 @@ void HomeCtl::haspCheckUpload()
       haspPublish("idle", "off");         // no reboot -> display on again (and restart the idle cycle)
 
    replyResult(haspUpload.status, haspUpload.client, "%s", haspUpload.message.c_str());
+}
+
+//***************************************************************************
+// Check Home Page
+//   back to page 1 after 'haspHomeAfter' seconds without use: no touch of an object,
+//   no page change and no wake up (the panel reports touches of the background not)
+//***************************************************************************
+
+void HomeCtl::haspCheckHomePage()
+{
+   if (haspOnline != 1 || haspCurrentPage <= 1 || haspPageChangeAt)
+      return;
+
+   int homeAfter {0};
+   getConfigItem("haspHomeAfter", homeAfter, 0);
+
+   if (homeAfter <= 0 || time(0) < haspLastActivity + homeAfter)
+      return;
+
+   tell(eloDetail, "HASP: No use for %d seconds, back to page 1 (was %d)", homeAfter, haspCurrentPage);
+   haspCurrentPage = 1;                  // confirmed by the panel (state/page)
+   haspPublish("page", "1");
+}
+
+//***************************************************************************
+// Dispatch LWT (online / offline of the panel)
+//***************************************************************************
+
+void HomeCtl::haspDispatchLwt(const char* message)
+{
+   int online {strcasecmp(message, "online") == 0};
+
+   if (online != haspOnline)
+   {
+      tell(eloAlways, "HASP: Panel %s", online ? "online" : "offline");
+      haspOnline = online;
+      haspOnlineChangedAt = time(0);
+
+      if (!online)
+      {
+         haspIdleState.clear();
+         haspCurrentPage = 0;
+      }
+
+      haspUpdateSensor();
+
+      json_t* oJson {json_object()};
+      haspStatus2Json(oJson);
+      pushOutMessage(oJson, "haspstatus");
+   }
+
+   // (re)connected -> it lost all pages sent via MQTT, send them again
+
+   if (online)
+   {
+      haspLastActivity = time(0);
+      haspSendPages();
+   }
+}
+
+//***************************************************************************
+// Sensor HASP:0x01 (display of the panel)
+//   state: display on (idle 'off'), off when dimmed or dark; invalid while the
+//   panel is offline. Switching on wakes the panel (idle off, the idle cycle
+//   restarts), off switches the display off (idle long) - for the dashboard
+//   and the scenes
+//***************************************************************************
+
+void HomeCtl::haspUpdateSensor()
+{
+   if (!sensors.count("HASP") || !sensors["HASP"].count(1))
+      return;
+
+   SensorData& sensor {sensors["HASP"][1]};
+
+   if (haspOnline == 1)
+   {
+      sensor.setState(haspIdleState.empty() || haspIdleState == "off");
+      sensor.setText(haspIdleState == "long" ? "aus" : haspIdleState == "short" ? "gedimmt" : "an");
+   }
+   else
+   {
+      sensor.invalidate(time(0));
+      sensor.text = haspOnline == 0 ? "offline" : "";
+   }
+
+   json_t* ojData {json_object()};
+   sensor2Json(ojData, "HASP", 1);
+   sensorValue2Json(ojData, "HASP", 1);
+
+   if (sensor.text.empty())
+      json_object_set_new(ojData, "text", json_string(""));
+
+   jsonSensorList["HASP:0x01"] = ojData;
+   pushDataUpdate("update", 0L);
+}
+
+int HomeCtl::haspToggleDisplay(int state)
+{
+   bool on {state == na ? !sensors["HASP"][1].state : state != 0};
+
+   tell(eloAlways, "HASP: Display %s", on ? "on (wake up)" : "off");
+
+   return haspPublish("idle", on ? "off" : "long");
 }
 
 //***************************************************************************
@@ -1391,6 +1511,7 @@ int HomeCtl::storeHaspPages(json_t* obj, long client)
          {
             setConfigItem("haspIdleShort", (long)std::max(getIntFromJson(jPage, "idleShort", 0), 0));
             setConfigItem("haspIdleLong", (long)std::max(getIntFromJson(jPage, "idleLong", 0), 0));
+            setConfigItem("haspHomeAfter", (long)std::max(getIntFromJson(jPage, "homeAfter", 0), 0));
             continue;
          }
 
@@ -3237,6 +3358,16 @@ int HomeCtl::haspDispatchState(const char* topic, const char* message)
          haspMemory.uptime = getIntFromJson(jStatus, "uptime", na);
          haspMemory.at = time(0);
 
+         // the idle state is reported (state/idle) only on a change -> after our start it comes from here
+
+         std::string idle {getStringFromJson(jStatus, "idle", "")};
+
+         if (!idle.empty() && idle != haspIdleState)
+         {
+            haspIdleState = idle;
+            haspUpdateSensor();
+         }
+
          json_decref(jStatus);
 
          json_t* oJson {json_object()};
@@ -3279,6 +3410,29 @@ int HomeCtl::haspDispatchState(const char* topic, const char* message)
    if (obj && strcmp(obj, "/page") == 0)            // page change (e.g. by a swipe), see the 'up' below
    {
       haspPageChangedAt = cTimeMs::Now();
+      haspCurrentPage = atoi(message);
+      haspLastActivity = time(0);
+      return done;
+   }
+
+   if (obj && strcmp(obj, "/idle") == 0)            // off (display on) / short (dimmed) / long (display off)
+   {
+      std::string idle {message};
+
+      if (idle == "off" && haspIdleState != "off")   // woken by a touch or by us
+         haspLastActivity = time(0);
+
+      if (idle != haspIdleState)
+      {
+         tell(eloDetail, "HASP: Panel idle state '%s'", idle.c_str());
+         haspIdleState = idle;
+         haspUpdateSensor();
+
+         json_t* oJson {json_object()};
+         haspStatus2Json(oJson);
+         pushOutMessage(oJson, "haspstatus");
+      }
+
       return done;
    }
 
@@ -3294,6 +3448,8 @@ int HomeCtl::haspDispatchState(const char* topic, const char* message)
    std::string text {getStringFromJson(jData, "text", "")};   // btnmatrix: the text of the pressed button
    int val {getIntFromJson(jData, "val", na)};
    json_decref(jData);
+
+   haspLastActivity = time(0);              // any touch of an object (return to page 1)
 
    if (event != "up")
       return done;

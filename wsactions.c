@@ -3655,6 +3655,8 @@ int HomeCtl::sensor2Json(json_t* obj, const char* type, uint address)
       ;
    else if (strcmp(type, "SCN") == 0)
       ;                                  // scenes get data only when started / ended - always valid
+   else if (strcmp(type, "HASP") == 0)
+      ;                                  // valid while the panel is online (LWT, haspUpdateSensor())
    else if (strcmp(type, "WEA") == 0)
       ; // valid ist bereits korrekt gesetzt
    else if (strcmp(type, "SUN") == 0)

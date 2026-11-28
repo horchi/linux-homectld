@@ -14,7 +14,11 @@ function drawCharts(dataObject)
 {
    var root = document.getElementById("chartContainer");
 
+   pageScrollHold();                    // the rebuild below clamps the scroll position (main.js)
+
    if (!root) {
+      pageScrollTrack('chart', '#chartContainer');
+
       $('#container').removeClass('hidden');
       $('#dashboardMenu').removeClass('hidden');
       $('#dashboardMenu').html('');
@@ -229,6 +233,12 @@ function drawCharts(dataObject)
    if (lanes.length)
       setupStatusLanes(data, yAxes, lanes, { gridColor: gridColor, mutedColor: mutedColor, background: cssVar('--neutral1', '#454545') });
 
+   // vertical line at the position of the tooltip (mouse over), through the plot and the status lanes
+
+   var lanesHeight = lanes.length ? data.options.scales.xAxes[0].ticks.padding - 8 : 0;
+
+   data.plugins = (data.plugins || []).concat([chartCrosshairPlugin(mutedColor, lanesHeight)]);    // main.js
+
    data.options.scales.yAxes = yAxes;
    var end = new Date();
    end.setFullYear(theChartStart.getFullYear(), theChartStart.getMonth(), theChartStart.getDate()+theChartRange);
@@ -259,6 +269,8 @@ function drawCharts(dataObject)
    window.onresize = function() {
       $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('dashboardMenu') - getTotalHeightOf('footer') - 15);
    };
+
+   pageScrollRestore('chart');
 }
 
 //***************************************************************************

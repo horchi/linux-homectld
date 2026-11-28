@@ -709,6 +709,9 @@ int HomeCtl::init()
 
    addValueFact(1, "CV", 1, "Calc Sensor 1", "", "");
    addValueFact(1, "SCN", 1, "Szene 1", "", "", urControl);
+
+   if (haspAvailable)
+      addValueFact(1, "HASP", 1, "Panel Display", "", "Panel Display", urControl);   // wake / switch off the openHASP panel (hasp.c)
    addValueFact(2, "WEA", 1, "Windy App by Spot ID", "", "");
    addValueFact(3, "WEA", 1, "Windy App Map", "", "");
    addValueFact(4, "WEA", 1, "Windy App by GPS", "", "");
@@ -923,7 +926,7 @@ int HomeCtl::initSensorByFact(const myString& type, uint address)
    if (!fact->getValue("PARAMETER")->isEmpty())
       sensors[type][address].parameter = fact->getStrValue("PARAMETER");
 
-   if (type == "GPIO" || type == "DZL" || type == "DZLG" || type == "SCN")
+   if (type == "GPIO" || type == "DZL" || type == "DZLG" || type == "SCN" || type == "HASP")
       sensors[type][address].kind = "status";
 
    if (type == "SCN" && !sensors[type][address].valid())
@@ -6417,6 +6420,8 @@ int HomeCtl::toggleIo(uint addr, const char* type, int state, int bri, int trans
       callScript(addr, "toggle");
    else if (strcmp(type, "SCN") == 0)
       sceneToggle(addr, state);          // start, a click on a running scene aborts it
+   else if (strcmp(type, "HASP") == 0)
+      haspToggleDisplay(state);          // display of the openHASP panel: on wakes it, off switches it off
    else if (strcmp(type, "DZL") == 0 || strcmp(type, "DZLG") == 0)
    {
       lightCommands.erase(lightKey(type, addr));   // by hand, no check

@@ -25,6 +25,8 @@ function initList()
       return;
    }
 
+   pageScrollHold();                    // own scroll position of the page (main.js)
+
    $('#container').removeClass('hidden').empty()
       .append($('<div></div>').addClass('listPage')
               .append(listStateBox())
@@ -60,6 +62,9 @@ function initList()
 
    resize();
    window.onresize = resize;
+
+   pageScrollTrack('list', '#listContainer');
+   pageScrollRestore('list');
 }
 
 // daemon state
@@ -138,6 +143,8 @@ function listGroupIcon(title)
 
 function listRender()
 {
+   pageScrollHold();                    // the rows are rebuilt, keep the scroll position
+
    let groups = listGroups();
    let $list = $('#listContainer').empty();
    let count = 0;
@@ -162,6 +169,7 @@ function listRender()
    $('#listCount').text(count + ' Sensoren');
    listKeys = keys.join(',');
    updateList();
+   pageScrollRestore('list');
 }
 
 function listRow(key)

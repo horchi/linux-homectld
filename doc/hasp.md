@@ -57,10 +57,20 @@ small wall or vehicle display. The pages of the panel are configured in the WEBI
   max / min and the rain probability (from 10 %); wide cards (one or two per row) show the next days as
   columns with symbol and max / min. The title is the place of the forecast unless one is set. All weather
   symbols are part of the font subset, a new card needs *Dateien hochladen* once)
-- the pages are sent after saving, with the button *An Panel senden* and automatically whenever the panel
-  comes online (openHASP forgets objects received via MQTT on reboot); further buttons: *Panel wecken*
-  (display on, the idle cycle restarts), *Panel neu starten* and *Screenshot* (the screenshot page of the
-  panel's web server, the IP is taken from the panel's status report)
+- *Speichern & senden* stores the pages and sends them to the panel (also without a change, e.g. after a
+  reboot of the panel); they are sent automatically whenever the panel comes online (openHASP forgets objects
+  received via MQTT on reboot); further buttons: *Panel wecken* (display on, the idle cycle restarts),
+  *Panel neu starten* and *Screenshot* (the screenshot page of the panel's web server, the IP is taken from the
+  panel's status report)
+- the dot at the top of the tool panel shows whether the panel is alive: green online, red offline (its LWT
+  topic `hasp/<node>/LWT`), gray not known yet; when online the state of the display is added (an, gedimmt, aus)
+- *zu Seite 1* (seconds, configuration item *haspHomeAfter*): after this time without use the panel switches
+  back to page 1; use is a touch of an object (button, choice, timer, ...), a page change or a wake up - a touch of
+  the background is not reported by the panel. 0 = off
+- sensor **`HASP:0x01`** (*Panel Display*, IO Setup, section *HASP Panel*, activate it there): the display of
+  the panel as an actor for the dashboard (Symbol widget), the scenes and LUA. State on = display on
+  (idle `off`), off when dimmed or dark, invalid while the panel is offline; switching on wakes the panel
+  (`idle off`, the idle cycle restarts), switching off turns the display off (`idle long`), a click toggles
 - the idle times of the panel (*Leerlauf*, seconds) are set on the same page: after the short one the
   panel dims, after the long one the display goes off (what exactly happens is defined by the scripts
   `idle_short.cmd` / `idle_long.cmd` / `idle_off.cmd` on the panel). They are stored as the configuration
@@ -72,7 +82,7 @@ small wall or vehicle display. The pages of the panel are configured in the WEBI
   only with the firmware from `openHASP/`). The internal RAM is shown in red below about 40 KB
 - *Meldungen des Panels* above the pages: the last 50 warnings / errors the panel sends on `<topic>/state/log`
   (firmware from `openHASP/`, no USB needed), also in the journal (`HASP: Panel warning: ...`). Messages
-  within 15 s after *Speichern* / *An Panel senden* (e.g. unknown attributes, lost MQTT messages) are shown
+  within 15 s after *Speichern & senden* (e.g. unknown attributes, lost MQTT messages) are shown
   as error dialog to the browser that sent the pages
 
 [← Back to the overview](../README.md)

@@ -281,12 +281,7 @@ int HomeCtl::performMqttRequests()
       else if (strstr(tp.c_str(), "hasp/") && strstr(tp.c_str(), "/state/"))
          haspDispatchState(tp.c_str(), message.memory);
       else if (strstr(tp.c_str(), "hasp/") && strstr(tp.c_str(), "/LWT"))
-      {
-         // openHASP panel (re)connected -> it lost all pages sent via MQTT, send them again
-
-         if (strcasecmp(message.memory, "online") == 0)
-            haspSendPages();
-      }
+         haspDispatchLwt(message.memory);          // online -> send the pages again
       else if (strstr(tp.c_str(), "2mqtt/command") || strstr(tp.c_str(), "2mqtt/nodered"))
       {
          json_t* jData = jsonLoad(message.memory);

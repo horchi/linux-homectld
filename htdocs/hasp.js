@@ -16,7 +16,6 @@
 
 var haspPages = {};          // filled by event 'hasppages'
 var haspDeletedPages = [];   // ids removed in the UI, sent with 'action: delete' on save
-var haspSavedState = null;   // the pages as stored (JSON of haspCollectPages()) -> unsaved changes on 'An Panel senden'
 var haspNewPageId = -1;      // negative ids -> new pages
 var haspMaxRows = 4;
 var haspMaxCols = 3;
@@ -136,12 +135,11 @@ function initHaspSetup()
 
    $("#controlContainer")
       .empty()
-      .append(toolButton('content-save', 'Speichern', 'Seiten speichern und an das Panel senden',
+      .append($('<div></div>').attr('id', 'haspAlive'))
+      .append(toolButton('content-save', 'Speichern & senden', 'Seiten speichern und an das Panel senden (auch ohne Änderung, z.B. nach einem Neustart des Panels)',
                          function() { storeHaspPages(); }))
       .append($('<div></div>')
               .addClass('button-group-spacing'))
-      .append(toolButton('send', 'An Panel senden', 'Den gespeicherten Stand erneut an das Panel senden (z.B. nach einem Neustart des Panels), speichert nicht',
-                         function() { haspSendStored(); }))
       .append(toolButton('lightbulb-on-outline', 'Panel wecken', 'Display einschalten und den Leerlauf-Zyklus (Dimmen / Aus) neu starten (sendet idle off)',
                          function() { socket.send({ "event": "hasppages", "object": { "action": "wake" } }); }))
       .append(toolButton('camera', 'Screenshot', 'Aktuelles Bild des Panels anzeigen (vom Web-Server des Panels)',
@@ -179,6 +177,16 @@ function initHaspSetup()
                       .css('width', '70px')
                       .val(haspPages.idleLong != null ? haspPages.idleLong : 0))
               .append($('<span></span>').html('Display aus [s]')))
+      .append($('<div></div>')
+              .css({ 'display': 'flex', 'gap': '6px', 'align-items': 'center', 'margin-bottom': '8px' })
+              .append($('<input></input>')
+                      .attr('id', 'haspHomeAfter')
+                      .attr('type', 'number').attr('min', 0).attr('step', 1)
+                      .attr('title', 'nach dieser Zeit ohne Bedienung (Berührung eines Objekts, Seitenwechsel, Wecken) zurück auf Seite 1, 0 = aus')
+                      .addClass('rounded-border input')
+                      .css('width', '70px')
+                      .val(haspPages.homeAfter != null ? haspPages.homeAfter : 0))
+              .append($('<span></span>').html('zu Seite 1 [s]')))
       .append($('<div></div>')
               .addClass('labelB1')
               .html('Filter'))
@@ -224,7 +232,6 @@ function initHaspSetup()
    for (let i = 0; i < ids.length; i++)
       haspRenderPage(ids[i], pages[ids[i]]);
 
-   haspSavedState = JSON.stringify(haspCollectPages());
    haspRenderStatus();
 
    $("#container").height($(window).height() - getTotalHeightOf('menu') - getTotalHeightOf('footer') - sab - 10);
@@ -514,8 +521,29 @@ function haspSelect(elementId, options, selected, onChange)
 //  events 'hasppages' and 'haspstatus'. Internal RAM: WLAN, MQTT, tasks, ... (short below ~40 KB),
 //  PSRAM: the LVGL objects of the pages and the fonts (firmware patch, see openHASP/README.md)
 
+// alive: green dot online, red offline (LWT of the panel), gray not known yet; plus the display state
+
+function haspRenderAlive()
+{
+   let online = haspPages.online;
+   let color = online === true ? 'var(--green)' : online === false ? 'var(--red)' : 'var(--neutral4)';
+   let text = online === true ? 'Panel online' : online === false ? 'Panel offline' : 'Panel unbekannt';
+   let idle = { 'off': 'Display an', 'short': 'gedimmt', 'long': 'Display aus' }[haspPages.idle];
+   let since = haspPages.onlineChangedAt ? ' seit ' + new Date(haspPages.onlineChangedAt * 1000).toLocaleString() : '';
+
+   $('#haspAlive').empty()
+      .css({ 'display': 'flex', 'gap': '6px', 'align-items': 'center', 'margin-bottom': '8px' })
+      .attr('title', (online == null ? 'Noch keine Meldung (LWT) des Panels' : text + since) +
+            (online === true && idle ? ', ' + idle : ''))
+      .append($('<span></span>').css({ 'width': '10px', 'height': '10px', 'border-radius': '50%',
+                                       'flex': '0 0 auto', 'background': color }))
+      .append($('<span></span>').html(text + (online === true && idle ? ' <span style="color: var(--neutral4)">(' + idle + ')</span>' : '')));
+}
+
 function haspRenderStatus()
 {
+   haspRenderAlive();
+
    let mem = haspPages.memory || {};
    let kb = function(b) { return (b / 1024).toFixed(0) + ' KB'; };
    let mb = function(b) { return (b / 1024 / 1024).toFixed(2) + ' MB'; };
@@ -690,22 +718,6 @@ function haspAddPage()
    haspRenderPage(id, { 'title': 'Seite ' + ($('.haspPage').length + 1), 'layout': [3, 3], 'widgets': {} });
 }
 
-// 'An Panel senden' sends the stored pages - with unsaved changes ask to save them first
-//   (saving sends them anyway)
-
-function haspSendStored()
-{
-   if (haspSavedState == null || (JSON.stringify(haspCollectPages()) == haspSavedState && !haspDeletedPages.length)) {
-      socket.send({ "event": "hasppages", "object": { "action": "send" } });
-      return;
-   }
-
-   confirmDialog(function() { storeHaspPages(); },
-                 'Es gibt ungespeicherte Änderungen, gesendet wird nur der gespeicherte Stand.<br/><br/>' +
-                 'Änderungen speichern und an das Panel senden?',
-                 'Speichern und senden', 'Abbrechen');
-}
-
 // the pages of the UI as object for 'storehasppages' (without the deleted ones)
 
 function haspCollectPages()
@@ -737,7 +749,8 @@ function haspCollectPages()
       };
    });
 
-   jsonObj['config'] = { 'idleShort': parseInt($('#haspIdleShort').val()) || 0, 'idleLong': parseInt($('#haspIdleLong').val()) || 0 };
+   jsonObj['config'] = { 'idleShort': parseInt($('#haspIdleShort').val()) || 0, 'idleLong': parseInt($('#haspIdleLong').val()) || 0,
+                         'homeAfter': parseInt($('#haspHomeAfter').val()) || 0 };
 
    return jsonObj;
 }
@@ -745,7 +758,6 @@ function haspCollectPages()
 window.storeHaspPages = function()
 {
    let jsonObj = haspCollectPages();
-   haspSavedState = JSON.stringify(jsonObj);
 
    for (let i = 0; i < haspDeletedPages.length; i++)
       jsonObj[haspDeletedPages[i]] = { 'action': 'delete' };

@@ -1881,10 +1881,10 @@ async function sensorCvSetup(type, address)
 
 //***************************************************************************
 // Scene Setup (sensor type 'SCN', the steps are performed by the daemon, scenes.c)
-//   settings: { "steps": [ { "do": "set|wait|waitfor|stop|scene", ..., "if": { key, op, value } } ] }
+//   settings: { "steps": [ { "do": "set|wait|waitfor|stop|goto|scene|shell", ..., "if": { key, op, value } } ] }
 //***************************************************************************
 
-const scnStepTypes = { 'set': 'Setzen', 'wait': 'Warten', 'waitfor': 'Warten bis', 'stop': 'Beenden', 'scene': 'Szene', 'shell': 'Befehl' };
+const scnStepTypes = { 'set': 'Setzen', 'wait': 'Warten', 'waitfor': 'Warten bis', 'stop': 'Beenden', 'goto': 'Springe zu', 'scene': 'Szene', 'shell': 'Befehl' };
 const scnOps = ['==', '!=', '<', '>', '<=', '>='];
 
 function scnSelect(options, selected, onChange)
@@ -2012,6 +2012,8 @@ function scnNewStep(type, old)
       step.key = '';
    else if (type == 'shell')
       step.cmd = '';
+   else if (type == 'goto')
+      step.step = '';
 
    if (old && old.if)
       step.if = old.if;
@@ -2085,6 +2087,14 @@ function scnRender()
          main.append($('<span></span>').addClass('scnNote').text('s,'));
          main.append(scnSwitch('scnContinue_' + i, step.continue === true, 'bei Timeout weitermachen',
                                function(on) { step.continue = on; }));
+      }
+      else if (step.do == 'goto') {
+         main.append($('<span></span>').addClass('scnNote').text('Schritt'));
+         main.append($('<input>').attr('type', 'number').attr('min', i + 2).attr('max', scnModel.length).attr('step', 1)
+                     .attr('title', 'Nummer des Schritts, mit dem es weitergeht (nur ein späterer Schritt) - meist mit "nur wenn". Beim Verschieben von Schritten anpassen!')
+                     .addClass('rounded-border inputSetting scnInput scnShort')
+                     .val(step.step)
+                     .on('input', function() { let n = parseInt($(this).val()); step.step = isNaN(n) ? '' : n; }));
       }
       else if (step.do == 'shell') {
          main.append($('<input>').attr('type', 'text').attr('placeholder', '/usr/sbin/etherwake -i eno1 00:11:22:33:44:55 (Programm nur aus der Whitelist)')
@@ -2234,6 +2244,8 @@ function scnCollect()
          err = 'kein Befehl';
       else if (s.do == 'scene' && s.id === '')
          err = 'keine Szene gewählt';
+      else if (s.do == 'goto' && !(s.step > i + 1 && s.step <= scnModel.length))
+         err = 'Sprungziel muss ein späterer Schritt sein (' + (i + 2) + ' bis ' + scnModel.length + ')';
       else if (s.if && !s.if.key)
          err = 'Bedingung ohne Sensor';
 

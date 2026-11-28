@@ -21,6 +21,7 @@
  *                                  "timeout": 30, "continue": false },
  *               { "do": "set",     "key": "DZL:0x03", "value": 20, "if": { "key": "DZL:0x03", "op": ">", "value": 20 } },
  *               { "do": "scene",   "id": 2, "mode": "start" },
+ *               { "do": "goto",    "step": 9, "if": { "key": "DENON:0x01", "op": "==", "value": true } },
  *               { "do": "stop" } ] }
  *
  *  do 'set'      set a sensor / actor ('key' = "<type>:<address>"), the 'value':
@@ -32,6 +33,8 @@
  *  do 'waitfor'  wait until the condition (key, op, value) is true, at most 'timeout' seconds
  *                  (default 30), then abort the scene (or go on with 'continue': true)
  *  do 'stop'     end the scene
+ *  do 'goto'     go on with the step 'step' (number of the step, 1 = first, only forward), with
+ *                  'if' a branch, e.g. "something on -> the steps switching off"
  *  do 'scene'    start (default) or stop ('mode') the scene 'id' (address of the SCN sensor)
  *  do 'shell'    run the command 'cmd' (e.g. "/usr/sbin/etherwake -i eno1 00:1e:06:43:48:8e") in the
  *                  background, the scene goes on at once; the output is logged. Not by a shell: the
@@ -361,6 +364,7 @@ std::string HomeCtl::sceneDescribe(json_t* step)
    if (what == "wait")    return "warte " + std::to_string((int)json_number_value(json_object_get(step, "sec"))) + " s";
    if (what == "scene")   return std::string(getStringFromJson(step, "mode", "start")) == "stop" ? "Szene beenden" : "Szene starten";
    if (what == "shell")   return std::string("Befehl ") + getStringFromJson(step, "cmd", "");
+   if (what == "goto")    return "springe zu Schritt " + std::to_string(getIntFromJson(step, "step", 0));
 
    return what;
 }
@@ -813,6 +817,22 @@ void HomeCtl::sceneRunSteps(uint address)
       {
          sceneFinish(address, "beendet bei Schritt " + std::to_string(run.index+1), "stopped", stepNo);
          return;
+      }
+      else if (what == "goto")
+      {
+         // only forward - a jump back could loop without a pause and block the daemon
+
+         int target {getIntFromJson(step, "step", na)};
+
+         if (target == na || target <= stepNo || target > (int)count)
+         {
+            sceneFinish(address, "Fehler bei " + progress + "ungültiges Sprungziel (nur ein späterer Schritt)", "error", stepNo);
+            return;
+         }
+
+         tell(eloDetail, "Scene: SCN:0x%02x step %d, go on with step %d", address, stepNo, target);
+         run.waitSince = 0;
+         run.index = target - 1;
       }
       else if (what == "scene")
       {

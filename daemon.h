@@ -732,6 +732,11 @@ class HomeCtl : public cWebInterface, public Service
       std::string haspCardColor;       // card color of the page currently built (option 'Kachelfarbe')
       time_t haspPageChangeAt {0};     // 'page 1' to the panel at this time (some seconds after the pages)
       uint64_t haspPageChangedAt {0};  // [ms] last page change reported by the panel (swipe detection)
+      int haspOnline {na};             // LWT of the panel: 1 online, 0 offline, na not known yet (WEBIF: alive dot)
+      time_t haspOnlineChangedAt {0};
+      std::string haspIdleState;       // state/idle of the panel: off (display on), short (dimmed), long (display off)
+      int haspCurrentPage {0};         // state/page of the panel, 0 = unknown
+      time_t haspLastActivity {0};     // last touch / page change / wake (return to page 1, config 'haspHomeAfter')
 
       static const char* haspWidgetTypeNames[];
       static int haspWidgetTypes2Json(json_t* obj);
@@ -748,6 +753,10 @@ class HomeCtl : public cWebInterface, public Service
       int haspDispatchState(const char* topic, const char* message);   // touch events of the panel -> homectld
       int haspPublishAllValues();                            // all sensors on the panel
       void haspPublishWeather(const HaspObjRef& ref, const SensorData& sensor);   // card 'Weather'
+      void haspCheckHomePage();
+      void haspDispatchLwt(const char* message);             // online / offline of the panel                              // back to page 1 after 'haspHomeAfter' seconds without use
+      void haspUpdateSensor();                               // the actor HASP:0x01 (display on / off, wake)
+      int haspToggleDisplay(int state);                      // toggleIo() of HASP:0x01
 
       // GPS tour recording (gpstour.c)
 

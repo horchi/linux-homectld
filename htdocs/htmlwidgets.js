@@ -13,11 +13,14 @@
  *  Template (kind 'html'):
  *    {{W1:0x01}}              value of the sensor
  *    {{W1:0x01.unit}}         field of the sensor: value, state, text, unit, title, valid, battery,
- *                             last, peakmax, peakmin, color, key (state e.g. motion of a motion sensor)
+ *                             last, peakmax, peakmin, color, key, active (state e.g. motion of a motion sensor;
+ *                             active: the sensor exists and is active in the IO setup, e.g. to hide an element)
  *    {{W1:0x01|1}}            value with 1 decimal
  *    {{DZL:0x03 ? an : aus}}  'an' if the field (default value) is set (not 0 / false / empty)
  *    {{p.temp}}               parameter of the widget, a sensor key as parameter works like
- *                             the key itself ({{p.temp.unit}}, {{p.temp|1}}), else its text
+ *                             the key itself ({{p.temp.unit}}, {{p.temp|1}}), else its text;
+ *                             '-' in the widget setup = parameter empty (the default of the snippet
+ *                             is not used, a template hides the element of an empty parameter)
  *    {{p.vl - p.rl|1}}        calculation: + - * / and ( ), numbers, refs (no eval, see htmlWidgetEval())
  *    {{p.temp > 25 ? warm : ok}}  comparison: > < >= <= == != (text compare with ==, != : {{p.x == 'auf' ? ..}})
  *    {{DZS:0x23.changed|ago}} 'vor 3 min'; fields age / changed are the seconds since the last update / change
@@ -183,6 +186,7 @@ function htmlWidgetField(key, field, ctx)
 
    switch (field) {
       case 'key':     return key;
+      case 'active':  return !!(fact && fact.state);      // exists and is active (IO setup)
       case 'title':   return factTitle(key);
       case 'unit':    return fact ? fact.unit : '';
       case 'last':    return sensor && sensor.last ? new Date(sensor.last * 1000).toLocaleTimeString(dateLocale) : '';
@@ -453,6 +457,12 @@ function htmlWidgetPlaceholder(expr, ctx)
 function htmlWidgetRender(snippet, widgetParams, wid = 'hw')
 {
    let params = Object.assign({}, snippet.parameters || {}, widgetParams || {});
+
+   for (let name in params) {             // '-' switches a parameter off (empty instead of the default)
+      if (String(params[name] ?? '').trim() == '-')
+         params[name] = '';
+   }
+
    let ctx = { 'params': params, 'deps': new Set(), 'wid': wid, 'usesTime': false };
    let html = (snippet.code || '').replace(/\{\{([^{}]+)\}\}/g, function(all, expr) {
       return htmlWidgetPlaceholder(expr.trim(), ctx);
@@ -745,7 +755,7 @@ function htmlWidgetSetupParams(widget)
           .attr('type', 'search')
           .attr('list', isSensor ? 'htmlSensorKeys' : null)
           .attr('placeholder', snippet.parameters[name])
-          .attr('title', 'Leer: Vorgabe des Snippets \'' + snippet.parameters[name] + '\'')
+          .attr('title', 'Leer: Vorgabe des Snippets \'' + snippet.parameters[name] + '\', \'-\': Parameter aus (leer, das Template blendet sein Element dann meist aus)')
           .data('name', name)
           .val(params[name] ?? '');
 
@@ -945,7 +955,8 @@ async function initHtmlWidgetsPage()
                        .click(function() { deleteHtmlWidget(); })))
        .append($('<div></div>').addClass('htmlWidgetHelp')
                .html('<b>Platzhalter:</b> <code>{{W1:0x01}}</code> Wert, <code>{{W1:0x01|1}}</code> eine Nachkommastelle, ' +
-                     '<code>{{W1:0x01.unit}}</code> Feld (value, state, text, unit, title, valid, battery, last, age, changed, peakmax, peakmin; state z. B. Bewegung), ' +
+                     '<code>{{W1:0x01.unit}}</code> Feld (value, state, text, unit, title, valid, battery, last, age, changed, peakmax, peakmin, active; state z. B. Bewegung, ' +
+                     'active: Sensor vorhanden und aktiv, z. B. <code>{{p.temp.active ? : hide}}</code> zum Ausblenden), ' +
                      '<code>{{DZL:0x03 ? an : aus}}</code> Bedingung, <code>{{p.temp}}</code> Parameter (ein Sensor-Key als Parameter wirkt wie der Key), ' +
                      '<code>{{w.id}}</code> eindeutige ID des Widgets für eigene IDs (<code>id="{{w.id}}-temp"</code>)<br>' +
                      '<b>Ausdrücke:</b> <code>{{p.vl - p.rl|1}}</code> rechnen (+ - * / und Klammern), ' +
@@ -956,7 +967,8 @@ async function initHtmlWidgetsPage()
                      '<code>data-chart="W1:0x01"</code> Chart, <code>data-forecast="WEA:0x01"</code> Wettervorhersage, statt des Keys auch <code>p.&lt;name&gt;</code><br>' +
                      '<b>Blass:</b> das Widget, wenn alle seine Sensoren ungültig sind (z. B. Gerät offline), ' +
                      'ein Element mit <code>data-valid="p.temp"</code>, wenn dieser Sensor ungültig ist<br>' +
-                     'Die Parameter sind die Vorgaben, im Widget-Setup des Dashboards je Widget überschreibbar. ' +
+                     'Die Parameter sind die Vorgaben, im Widget-Setup des Dashboards je Widget überschreibbar ' +
+                     '(leer = Vorgabe, <code>-</code> = Parameter leer, z. B. um ein Element auszublenden: <code>{{p.temp.key ? : hide}}</code>). ' +
                      'Die Farben des Themes als <code>var(--fontColor)</code>, <code>var(--green)</code>, ... und MDI Symbole als <code>&lt;span class="mdi mdi-lightbulb"&gt;</code>.'));
 
    // preview

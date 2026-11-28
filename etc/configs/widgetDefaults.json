@@ -42,6 +42,7 @@
     { "type": "^P4.*",        "title": "P4 Daemon",             "symbol": "mdi:mdi-fire" },
     { "type": "^WEA",         "title": "Wetter",                "symbol": "mdi:mdi-weather-partly-cloudy" },
     { "type": "^SUN",         "title": "Sonne",                 "symbol": "mdi:mdi-white-balance-sunny" },
+    { "type": "^HASP$",       "title": "HASP Panel",            "symbol": "mdi:mdi-tablet-dashboard" },
     { "type": "^DHT",         "title": "Wetter",                "symbol": "mdi:mdi-weather-partly-cloudy" },
     { "type": "^CV",          "title": "Calculated Values",     "symbol": "mdi:mdi-calculator-variant-outline" },
     { "type": "^PA",          "title": "Parameter",             "symbol": "mdi:mdi-tune-variant" },
@@ -118,6 +119,7 @@
     { "type": "CV",     "unit": "°C",   "widgettype": "MeterLevel",  "showpeak": true },
     { "type": "CV",     "unit": "*",    "widgettype": "Symbol",      "showpeak": true },
     { "type": "SCN",    "unit": "*",    "widgettype": "Symbol",      "showpeak": true },
+    { "type": "HASP",   "unit": "*",    "widgettype": "Symbol" },
     { "type": "TPMS",   "unit": "*",    "widgettype": "Value" }
   ],
 
@@ -139,6 +141,7 @@
     { "type": ["TPMS"], "unit": ["bar"],            "symbol": "mdi:mdi-car-tire-alert" },
     { "unit": ["bar"],                              "symbol": "mdi:mdi-gauge" },
     { "type": ["DZLG"],                  "on": "mdi:mdi-lightbulb-group", "off": "mdi:mdi-lightbulb-group-outline" },
+    { "type": ["HASP"],                  "on": "mdi:mdi-tablet-dashboard", "off": "mdi:mdi-tablet" },
     {                                    "on": "mdi:mdi-toggle-switch-outline", "off": "mdi:mdi-toggle-switch-off-outline" }
   ]
 }

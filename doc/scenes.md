@@ -38,6 +38,7 @@ dim the lights. Scenes are sensors of the type **SCN** and are shown on the dash
 | **Warten** (`wait`) | seconds | pause |
 | **Warten bis** (`waitfor`) | condition, timeout, *bei Timeout weitermachen* | waits until the condition is true; after the timeout (default 30 s) the scene is aborted, or goes on if *weitermachen* is set |
 | **Beenden** (`stop`) | - | ends the scene (useful with a condition: *nur wenn ...*) |
+| **Springe zu** (`goto`) | step number | goes on with that step, only forward (a later step); with *nur wenn ...* a branch. The number is not adjusted when steps are moved |
 | **Szene** (`scene`) | scene, *starten* / *abbrechen* | starts or aborts another scene |
 | **Befehl** (`shell`) | command line | runs a program from the whitelist in the background (e.g. `/usr/sbin/etherwake -i eno1 00:1e:06:43:48:8e`), the scene goes on at once; the output is logged in the journal (timeout 15 s) - see *Commands* below |
 
@@ -65,6 +66,18 @@ Example - movie evening (the sensors are chosen in the dialog):
 6. Setzen: Denon source, `TV`
 7. Setzen: light, 10
 
+Example - one symbol for on and off (*Springe zu* as branch): if something is on, everything is switched off,
+otherwise on:
+
+1. Springe zu: 7 - nur wenn Denon power *an*
+2. Springe zu: 7 - nur wenn Samsung TV power *an*
+3. Setzen: Denon power, *an*
+4. Setzen: Samsung TV power, *an*
+5. Warten bis: Samsung TV power == *an*, max. 30 s
+6. Beenden
+7. Setzen: Denon power, *aus*
+8. Setzen: Samsung TV power, *aus*
+
 ## Stored format
 
 The steps are stored as JSON in the settings of the sensor (*JSON* in the dialog shows the same):
@@ -83,12 +96,13 @@ The steps are stored as JSON in the settings of the sensor (*JSON* in the dialog
 
 | Field | Meaning |
 |-------|---------|
-| `do` | `set`, `wait`, `waitfor`, `stop`, `scene`, `shell` |
+| `do` | `set`, `wait`, `waitfor`, `stop`, `goto`, `scene`, `shell` |
 | `key` | sensor as `<type>:<address>` (`SAMTV:0x04`) |
 | `value` | `set`: missing or `"toggle"` toggles, `true` / `false` (or `"on"` / `"off"`) the state, number a level, text a choice; condition: bool, number or text |
 | `action` | `set`: `"color"` (`hue` 0-360, `saturation`, `bri` in %) or `"ct"` (`ct` in mired, `bri`) for color lights |
 | `continue` | `set`: a failing step (e.g. unknown sensor) doesn't abort the scene; `waitfor`: go on after the timeout |
 | `sec` | `wait`: seconds |
+| `step` | `goto`: number of the step to go on with (1 = first), only a later one |
 | `op`, `value`, `timeout` | `waitfor`: condition and timeout in seconds (default 30) |
 | `cmd` | `shell`: command line, the program with its absolute path and the arguments |
 | `id`, `mode` | `scene`: address of the `SCN` sensor, `"start"` (default) or `"stop"` |

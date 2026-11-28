@@ -95,6 +95,7 @@ std::list<HomeCtl::ConfigItemDef> HomeCtl::configuration
    { "haspIdleShort",             ctInteger, "0", "N", false, "HASP Panel", "Leerlauf kurz [s]", "Nach dieser Zeit ohne Berührung dunkelt das Panel ab (Skript idle_short.cmd im Panel), 0 = aus. Wird mit den Seiten an das Panel gesendet (config/gui), beide Zeiten 0 = die Einstellung des Panels bleibt unverändert", "doc/hasp.md#pages-and-widgets" },
    { "haspFontCodepoints",        ctString,  "",             "N", true,  "HASP Panel", "", "" },   // MDI symbols of the last font upload (hint 'new symbols')
    { "haspIdleLong",              ctInteger, "0", "N", false, "HASP Panel", "Leerlauf lang [s]", "Nach dieser Zeit ohne Berührung schaltet das Panel das Display aus (Skript idle_long.cmd im Panel), 0 = aus", "doc/hasp.md#pages-and-widgets" },
+   { "haspHomeAfter",             ctInteger, "0", "N", false, "HASP Panel", "Zurück zu Seite 1 [s]", "Nach dieser Zeit ohne Bedienung (Berührung eines Objekts, Seitenwechsel, Wecken) schaltet das Panel auf Seite 1 zurück, 0 = aus", "doc/hasp.md#pages-and-widgets" },
 
    // mail
 

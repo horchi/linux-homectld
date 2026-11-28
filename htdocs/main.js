@@ -720,6 +720,43 @@ function hideInfoDialog()
 
 var progressDialog = null;
 
+//***************************************************************************
+// Scroll position of a page (charts, list)
+//   #container is shared by all pages: without its own position a page takes the one of the
+//   previous page (e.g. a scrolled dashboard), and a rebuild of its content (shorter for a
+//   moment) clamps it. pageScrollTrack() when the page is built (selector: an element only
+//   this page has), pageScrollHold() before a rebuild, pageScrollRestore() after it
+//***************************************************************************
+
+var pageScrollTops = {};                // { page: top }
+var pageScrollRestoreUntil = 0;
+
+function pageScrollTrack(page, selector)
+{
+   $('#container').off('scroll.page').on('scroll.page', function() {
+      if (Date.now() >= pageScrollRestoreUntil && currentPage == page && $(selector).length)
+         pageScrollTops[page] = $(this).scrollTop();
+   });
+}
+
+function pageScrollHold()
+{
+   pageScrollRestoreUntil = Date.now() + 500;      // no scroll events of the rebuild / clamping
+}
+
+function pageScrollRestore(page)
+{
+   let restore = function() {
+      if (currentPage == page)
+         $('#container').scrollTop(pageScrollTops[page] || 0);
+   };
+
+   pageScrollHold();
+   restore();
+   requestAnimationFrame(restore);                 // the content may size itself after the first layout
+   setTimeout(restore, 300);
+}
+
 async function hideProgressDialog()
 {
    if (progressDialog != null) {
@@ -975,6 +1012,9 @@ function dispatchMessage(message)
    else if (event == "haspstatus") {           // memory and messages of the panel (no rebuild of the page)
       haspPages.memory = jMessage.object.memory;
       haspPages.log = jMessage.object.log;
+      haspPages.online = jMessage.object.online;       // alive (LWT), missing = not known yet
+      haspPages.onlineChangedAt = jMessage.object.onlineChangedAt;
+      haspPages.idle = jMessage.object.idle;
 
       if (currentPage == "hasp")
          haspRenderStatus();
@@ -2808,6 +2848,35 @@ function drawBarChartWidget(dataObject)
 // Chart Dialog
 //***************************************************************************
 
+// Chart.js plugin: vertical line at the position of the tooltip (mouse over) - charts page and chart
+//   dialog; extraHeight: the line goes this far below the plot (status lanes of the charts page)
+
+function chartCrosshairPlugin(color, extraHeight = 0)
+{
+   return {
+      afterDraw: function(chart) {
+         let active = chart.tooltip && chart.tooltip._active;
+
+         if (!active || !active.length)
+            return;
+
+         let c = chart.ctx;
+         let area = chart.chartArea;
+         let x = active[0]._view.x;
+
+         c.save();
+         c.beginPath();
+         c.moveTo(x, area.top);
+         c.lineTo(x, area.bottom + extraHeight);
+         c.lineWidth = 1;
+         c.strokeStyle = color;
+         c.setLineDash([4, 3]);
+         c.stroke();
+         c.restore();
+      }
+   };
+}
+
 function drawChartDialog(dataObject)
 {
    let root = document.querySelector('dialog')
@@ -3024,6 +3093,7 @@ function drawChartDialog(dataObject)
                                   + '<span>&Oslash; <b>' + fmt(avg) + '</b></span>');
    }
 
+   data.plugins = (data.plugins || []).concat([chartCrosshairPlugin(mutedColor)]);
    theChart = new Chart(canvas, data);
 }
 

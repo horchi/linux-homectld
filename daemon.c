@@ -2995,7 +2995,14 @@ int HomeCtl::meanwhile()
    if (valueFactsChanged)
    {
       valueFactsChanged = false;
-      json_t* oJson {json_object()};
+
+      // the types first - a new type (e.g. the first free@home channels) needs its section in the IO setup
+
+      json_t* oJson {json_array()};
+      valueTypes2Json(oJson);
+      pushOutMessage(oJson, "valuetypes");
+
+      oJson = json_object();
       valueFacts2Json(oJson, false);
       pushOutMessage(oJson, "valuefacts");
    }

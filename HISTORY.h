@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.87"
+#define _VERSION     "0.1.88"
 #define VERSION_DATE "28.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,10 @@
 
 /*
  * ------------------------------------
+
+2026-11-28: version 0.1.88
+    - bugfix: IO setup: sections of free@home empty ('@' in the title)
+    - bugfix: IO setup: section of a new sensor type missing until reload
 
 2026-11-28: version 0.1.87
     - added: free@home (Busch-Jaeger) via the Local API of the SysAP 2.0, make switch FREEATHOME

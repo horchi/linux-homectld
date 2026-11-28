@@ -96,7 +96,7 @@ function initSensorSetup()
    let sections = [];
 
    for (var i = 0; i < valueTypes.length; i++)
-      sections.push(CSS.escape('io' + valueTypes[i].title.replace(/\s+/g, '')));
+      sections.push(ioSectionId(valueTypes[i]));
 
    if (!sections.includes(activeSection))
       activeSection = sections.length ? sections[0] : '';
@@ -165,8 +165,7 @@ function initSensorSetup()
               .addClass('hidden rounded-border ioGpio'));
 
    for (var i = 0; i < valueTypes.length; i++) {
-      var section = 'io' + valueTypes[i].title.replace(/\s+/g, '');
-      section = CSS.escape(section);
+      var section = ioSectionId(valueTypes[i]);
 
       if (!$("#"+'btn_' + section).length) {
          $("#controlContainer").append($('<div></div>')
@@ -192,6 +191,14 @@ function initSensorSetup()
    };
 
    showTable(activeSection);
+}
+
+// the id of the section (table body / button) of a value type: from its title, letters and digits only -
+//   the id is used unescaped in selectors ('#' + id), a '@' (free@home) or '.' would break them
+
+function ioSectionId(valueType)
+{
+   return 'io' + valueType.title.replace(/[^\p{L}\p{N}_-]/gu, '');
 }
 
 var filterActive = localStorage.getItem(storagePrefix + 'ioFilterActive') == '1';    // the filter of the sensor setup, kept in the browser
@@ -341,8 +348,7 @@ function showTable(section)
 
       for (var i = 0; i < valueTypes.length; i++) {
          if (valueTypes[i].type == item.type) {
-            sectionId = 'io' + valueTypes[i].title.replace(/\s+/g, '');
-            sectionId = CSS.escape(sectionId);
+            sectionId = ioSectionId(valueTypes[i]);
          }
       }
 

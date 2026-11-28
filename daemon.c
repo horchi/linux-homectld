@@ -548,6 +548,7 @@ int HomeCtl::init()
    int status {success};
 
    initLocale();
+   registerActorTypes();           // capabilities / backends of the sensor types (actors.c), before any sensor
 
    // initialize the dictionary
 
@@ -573,6 +574,7 @@ int HomeCtl::init()
    }
 
    deconz.init(this);
+   freeAtHome.init(this);
    lightRuleTimersLoad();          // the off timers of the light rules before the stop / crash
    actorTimesLoad();               // the time control catches up the limits missed meanwhile
 
@@ -683,6 +685,9 @@ int HomeCtl::init()
 
    if (!isEmpty(deconz.getHttpUrl()) && !isEmpty(deconz.getApiKey()))
       deconz.initWsClient();
+
+   if (freeAtHome.configured())
+      freeAtHome.initWsClient();      // the configuration of the SysAP is read when connected (dispatchFreeAtHome())
    // deconz.initDevices();
 
    if (!isEmpty(deconz.getHttpUrl()) && isEmpty(deconz.getApiKey()))
@@ -873,6 +878,7 @@ int HomeCtl::exit()
    actorTimesStore();
    lmcExit();
    deconz.exit();
+   freeAtHome.exit();
    mqttDisconnect();
    exitDb();
 
@@ -926,7 +932,7 @@ int HomeCtl::initSensorByFact(const myString& type, uint address)
    if (!fact->getValue("PARAMETER")->isEmpty())
       sensors[type][address].parameter = fact->getStrValue("PARAMETER");
 
-   if (type == "GPIO" || type == "DZL" || type == "DZLG" || type == "SCN" || type == "HASP")
+   if (type == "GPIO" || isLight(type) || type == "SCN" || type == "HASP")
       sensors[type][address].kind = "status";
 
    if (type == "SCN" && !sensors[type][address].valid())
@@ -1471,6 +1477,7 @@ int HomeCtl::initDb()
    // ------------------------
 
    if (deconz.initDb(connection) != success) return fail;
+   if (freeAtHome.initDb(connection) != success) return fail;
 
    tableTableStatistics = new cDbTable(connection, "information_schema.TABLES", true /*read-only*/);
    if (tableTableStatistics->open() != success) return fail;
@@ -2580,6 +2587,7 @@ int HomeCtl::loadDefaultDashboards()
 int HomeCtl::exitDb()
 {
    deconz.exitDb();
+   freeAtHome.exitDb();
 
    delete tableTableStatistics;    tableTableStatistics = nullptr;
    delete tableSamples;            tableSamples = nullptr;
@@ -2726,12 +2734,12 @@ int HomeCtl::readConfiguration(bool initial)
          gpsReceiverPublishConfig();
    }
 
-   // DECONZ
+   // DECONZ - without the make switch DECONZ no URL -> no connection, no setup page 'Zigbee'
 
    std::string deconzUrl;
    getConfigItem("deconzHttpUrl", deconzUrl, "");
 
-   if (!deconzUrl.empty())
+   if (deconzAvailable && !deconzUrl.empty())
    {
       deconz.setHttpUrl(deconzUrl.c_str());
       std::string deconzKey;
@@ -2739,6 +2747,22 @@ int HomeCtl::readConfiguration(bool initial)
 
       if (!deconzKey.empty())
          deconz.setApiKey(deconzKey.c_str());
+   }
+
+   // free@home - without the make switch FREEATHOME no access -> no connection
+
+   if (freeAtHomeAvailable)
+   {
+      std::string fahHost, fahUser, fahPassword;
+      getConfigItem("fahHost", fahHost, "");
+      getConfigItem("fahUser", fahUser, "");
+      getConfigItem("fahPassword", fahPassword, "");
+
+      if (!freeAtHome.wsRunning())             // a change needs a restart (the websocket keeps its access)
+         freeAtHome.setAccess(fahHost.c_str(), fahUser.c_str(), fahPassword.c_str());
+
+      if (!initial && freeAtHome.configured() && !freeAtHome.wsRunning())
+         freeAtHome.initWsClient();
    }
 
    getConfigItem("instanceName", instanceName);
@@ -2957,6 +2981,7 @@ int HomeCtl::meanwhile()
 
    dispatchClientRequest();
    dispatchDeconz();
+   dispatchFreeAtHome();
    zigbeeService();
    performLightRules();
    homeMaticCheckRequests();
@@ -3431,7 +3456,7 @@ int HomeCtl::process(bool force, bool signal)
       ulong address {(ulong)tableValueFacts->getIntValue("ADDRESS")};
       bool gpioOut {type == "GPIO" && sensors[type][address].fct == "out"};
 
-      if (type == "DZL" || type == "DZLG" || type == "HMB")
+      if (isActor(type))
       {
          if (sensors[type][address].active && checkedAt < now && !tableValueFacts->getValue("SETTINGS")->isEmpty())
          {
@@ -4319,15 +4344,15 @@ int HomeCtl::addValueFact(int addr, const char* type, int factor, const char* na
    if (!isEmpty(choices))
       tableValueFacts->setValue("CHOICES", choices);
 
-   // the capabilities of the deCONZ lights (switch / dim / color) are taken from deCONZ on every start
+   // the capabilities of the lights (switch / dim / color) are taken from deCONZ / free@home on every start
 
-   if (strcmp(type, "DZL") == 0)
+   if (isSingleLight(type))
       tableValueFacts->setValue("OPTIONS", options);
 
    // the names of the deCONZ devices (renamed in Phoscon), of the weather sensors (delivered by the daemon)
    //  and of the sensors of the S 3200 (p4mqttd, e.g. 'Heizkreis 02 Pumpe') - the own title (usrtitle) stays
 
-   bool takeName {strncmp(type, "DZ", 2) == 0 || strcmp(type, "WEA") == 0 || (isP4MqttdType(type) && !isEmpty(title))};
+   bool takeName {strncmp(type, "DZ", 2) == 0 || strncmp(type, "FH", 2) == 0 || strcmp(type, "WEA") == 0 || (isP4MqttdType(type) && !isEmpty(title))};
 
    if (takeName)
    {
@@ -4828,7 +4853,7 @@ int HomeCtl::dispatchDeconz()
       int hue {getIntFromJson(oData, "hue", 0)};
       int sat {getIntFromJson(oData, "sat", 0)};
 
-      bool isLight {strcmp(type, "DZL") == 0 || strcmp(type, "DZLG") == 0};
+      bool light {isLight(type)};
       if (getObjectFromJson(oData, "state"))
          sensor->setState(state, now);
       else if (getObjectFromJson(oData, "value"))
@@ -4857,7 +4882,7 @@ int HomeCtl::dispatchDeconz()
       //  brightness while dimming down (e.g. 249 -> 79), kept as its brightness (symbol, color dialog dark);
       //  taken anyway if none is known yet (start)
 
-      if (getObjectFromJson(oData, "bri") && (!isLight || sensor->state || sensor->value <= 0))
+      if (getObjectFromJson(oData, "bri") && (!light || sensor->state || sensor->value <= 0))
          sensor->setValue(bri);
 
       if (getObjectFromJson(oData, "hue") && sensor->hue != hue)
@@ -4929,8 +4954,14 @@ int HomeCtl::dispatchDeconz()
             json_object_set_new(ojData, "hue", json_integer(sensor->hue));
             json_object_set_new(ojData, "sat", json_integer(sensor->sat));
          }
-         else if (getObjectFromJson(oData, "value") || getObjectFromJson(oData, "presence") || getObjectFromJson(oData, "btnevent"))
-            json_object_set_new(ojData, "value", json_real(sensor->value));    // switches: the button event
+         else if (!light)
+         {
+            // switches: the button event; always the value - the WEBIF replaces the data of the sensor,
+            //  without it (e.g. the init of a motion sensor, only 'lastupdated' / 'battery') the
+            //  symbol was shown as 'on' until the next update
+
+            json_object_set_new(ojData, "value", json_real(sensor->value));
+         }
 
          if (sensor->battery != na)
             json_object_set_new(ojData, "battery", json_integer(sensor->battery));
@@ -4951,6 +4982,151 @@ int HomeCtl::dispatchDeconz()
    }
 
    return success;
+}
+
+//***************************************************************************
+// Dispatch free@home
+//   the messages of the websocket (FreeAtHome), the configuration is read after each connect
+//   and when devices are added / removed
+//***************************************************************************
+
+int HomeCtl::dispatchFreeAtHome()
+{
+   if (!freeAtHomeAvailable)
+      return done;
+
+   std::vector<std::string> messages;
+
+   {
+      cMyMutexLock lock(&FreeAtHome::messagesInMutex);
+
+      while (!FreeAtHome::messagesIn.empty())
+      {
+         messages.push_back(FreeAtHome::messagesIn.front());
+         FreeAtHome::messagesIn.pop();
+      }
+   }
+
+   for (const auto& msg : messages)
+   {
+      std::vector<FreeAtHome::Update> updates;
+
+      if (msg == "WS CONNECTED")
+      {
+         int status {freeAtHome.readConfiguration(updates)};
+         freeAtHomeReady = freeAtHomeReady || status == success;    // the time control may catch up missed limits now
+      }
+      else
+      {
+         bool reread {false};
+         freeAtHome.processMessage(msg.c_str(), updates, reread);
+
+         if (reread)
+         {
+            tell(eloAlways, "FREEATHOME: Devices added / removed, reading the configuration");
+            freeAtHome.readConfiguration(updates);
+         }
+      }
+
+      for (const auto& u : updates)
+         freeAtHomeApply(u);
+   }
+
+   return done;
+}
+
+void HomeCtl::freeAtHomeApply(const FreeAtHome::Update& u)
+{
+   SensorData* sensor {getSensor(u.type.c_str(), u.address)};
+
+   if (!sensor)
+      return;
+
+   time_t now {time(0)};
+   bool light {isLight(u.type)};
+
+   if (u.state != na)
+   {
+      sensor->setState(u.state, now);
+
+      if (!light)
+         sensor->value = (double)sensor->state;     // motion, rain - the symbol widgets show 'value'
+
+      if (!light && !u.init && sensor->unit == "mov")
+         lightRuleEvents.push_back({ u.type, u.address, na, u.state });
+   }
+
+   // the brightness of a light only while it is on (a dimmer may report 0 when off), keep it as its brightness
+
+   if (u.bri != na && (sensor->state || sensor->value <= 0))
+      sensor->setValue(u.bri, now);
+
+   if (u.ct != na && sensor->ct != u.ct)
+   {
+      sensor->ct = u.ct;
+      sensor->colorMode = "ct";
+      sensor->markChanged(now);
+   }
+
+   if (u.ctMin != na)
+   {
+      sensor->ctMin = u.ctMin;
+      sensor->ctMax = u.ctMax;
+   }
+
+   if (u.level != na)
+   {
+      sensor->setValue(u.level, now);
+      sensor->state = u.level > 0;
+   }
+
+   if (u.moving != na)
+   {
+      sensor->working = u.moving > 0;
+
+      if (u.moving == 1)
+         sensor->lastDir = dirOpen;
+      else if (u.moving == 2)
+         sensor->lastDir = dirClose;
+
+      sensor->markChanged(now);
+   }
+
+   if (u.btnevent != na)
+   {
+      sensor->setValue(u.btnevent, now);
+
+      if (!u.init)
+         lightRuleEvents.push_back({ u.type, u.address, u.btnevent, na });
+   }
+
+   if (u.hasValue)
+      sensor->setValue(u.value, now);
+
+   // update to the WEBIF - always the value (the WEBIF replaces the data of the sensor)
+
+   json_t* ojData {json_object()};
+   sensor2Json(ojData, u.type.c_str(), u.address);
+
+   if (light)
+   {
+      json_object_set_new(ojData, "value", json_integer(sensor->state));
+      json_object_set_new(ojData, "score", json_integer(sensor->value));
+      json_object_set_new(ojData, "hue", json_integer(sensor->hue));
+      json_object_set_new(ojData, "sat", json_integer(sensor->sat));
+   }
+   else
+      json_object_set_new(ojData, "value", json_real(sensor->value));
+
+   char* tuple {};
+   asprintf(&tuple, "%s:0x%02x", u.type.c_str(), u.address);
+   jsonSensorList[tuple] = ojData;
+   free(tuple);
+
+   pushDataUpdate("update", 0L);
+
+   mqttHaPublish(*sensor);
+   mqttNodeRedPublishSensor(*sensor);
 }
 
 //***************************************************************************
@@ -6379,7 +6555,9 @@ int HomeCtl::getConfigTimeRangeItem(const char* name, std::vector<Range>& ranges
 
 int HomeCtl::toggleColorTemperature(uint addr, const char* type, int ct, int bri)
 {
-   if (strcmp(type, "DZL") != 0 || !valueFactRowOf(type, addr))
+   const ActorType* at {actorType(type)};
+
+   if (!at || !at->light || !isSingleLight(type) || !valueFactRowOf(type, addr))
       return fail;
 
    const SensorData& sensor {sensors[type][addr]};
@@ -6387,7 +6565,7 @@ int HomeCtl::toggleColorTemperature(uint addr, const char* type, int ct, int bri
    if (sensor.ctMin > 0 && sensor.ctMax > sensor.ctMin)
       ct = std::max(sensor.ctMin, std::min(ct, sensor.ctMax));
 
-   return deconz.colorTemperature(type, addr, ct, bri);
+   return at->light->colorTemperature(type, addr, ct, bri);
 }
 
 int HomeCtl::toggleColor(uint addr, const char* type, int hue, int sat, int bri)
@@ -6397,8 +6575,10 @@ int HomeCtl::toggleColor(uint addr, const char* type, int hue, int sat, int bri)
    if (!fact)
       return fail;
 
-   if (strcmp(type, "DZL") == 0)
-      deconz.color(type, addr, hue, sat, bri);
+   const ActorType* at {actorType(type)};
+
+   if (at && at->light && isSingleLight(type))
+      at->light->color(type, addr, hue, sat, bri);
 
    return success;
 }
@@ -6428,22 +6608,23 @@ int HomeCtl::toggleIo(uint addr, const char* type, int state, int bri, int trans
       sceneToggle(addr, state);          // start, a click on a running scene aborts it
    else if (strcmp(type, "HASP") == 0)
       haspToggleDisplay(state);          // display of the openHASP panel: on wakes it, off switches it off
-   else if (strcmp(type, "DZL") == 0 || strcmp(type, "DZLG") == 0)
+   else if (isLight(type))
    {
+      const ActorType* at {actorType(type)};
       lightCommands.erase(lightKey(type, addr));   // by hand, no check
 
       tell(eloAlways, "Light '%s:0x%02x' (%s) switched %s by hand (was %s)%s", type, addr, sensors[type][addr].title.c_str(),
            newState ? "on" : "off", sensors[type][addr].state ? "on" : "off",
            newState && bri != na ? (", brightness " + std::to_string(bri) + "%").c_str() : "");
 
-      // a light takes the new state at once (the event of deCONZ follows), a next toggle before
+      // a light takes the new state at once (the event of the backend follows), a next toggle before
       //  this event (e.g. a fast second tap) sent the same state again and seemed not to react;
-      //  a group is toggled by deCONZ itself ('toggle')
+      //  a group is toggled by the backend itself ('toggle')
 
-      if (deconz.toggle(type, addr, newState, bri, transitiontime) == success && strcmp(type, "DZL") == 0)
+      if (at->light && at->light->toggle(type, addr, newState, bri, transitiontime) == success && isSingleLight(type))
          sensors[type][addr].state = newState && !(bri != na && bri < 5);
    }
-   else if (strcmp(type, "HMB") == 0)
+   else if (isBlind(type))
    {
       double value {sensors[type][addr].value};
       tell(eloDebug, "Debug: toggleIo - last direction = '%s', level was %d",
@@ -6459,7 +6640,9 @@ int HomeCtl::toggleIo(uint addr, const char* type, int state, int bri, int trans
       tell(eloDebug, "Debug: toggleIo - sending level %d", (int)sensors[type][addr].value);
 
       sensors[type][addr].state = newState;
-      mqttNodeRedPublishAction(sensors[type][addr], value);
+
+      if (actorType(type)->blind)
+         actorType(type)->blind->blindMove(type, addr, (int)value, false);
    }
    else if (!commandTopicsMap[type].empty())  //  if (myString(type).starts_with("MCPO"))
    {

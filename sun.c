@@ -358,15 +358,15 @@ int HomeCtl::sunResolve(const char* ref, int offset, uint& hhmm, const SunTimes*
 }
 
 //***************************************************************************
-// Time Control of Actors (DZL, DZLG, HMB)
+// Time Control of Actors (lights and blinds - isActor(), e.g. DZL, DZLG, HMB)
 //   unlike GPIO (state forced inside the range) an actor is switched only at the
 //   limits of its ranges, switching by hand stays as it is until the next limit;
 //   start or end of a range may be empty (e.g. only 'off' at 23:00)
 //
 //   SETTINGS: { "timesEnabled": true, "times": [ ... ],
-//               "bri": 80,                         DZL / DZLG, brightness on switch on (optional)
+//               "bri": 80,                         lights, brightness on switch on (optional)
 //               "times": [ { ...,
-//                            "levelIn": 0, "levelOut": 100,   HMB, position at the start / end of the range
+//                            "levelIn": 0, "levelOut": 100,   blinds, position at the start / end of the range
 //                                                  (without it the former "levelIn" / "levelOut" of
 //                                                  the actor, else 0 / 100)
 //                            "enabled": false } ] }   range switched off, stays configured (optional)
@@ -478,7 +478,7 @@ int HomeCtl::actorTimesDue(const char* type, uint address, json_t* oSettings, ti
          action.in = in;
          action.at = dueAt;
 
-         if (strcmp(type, "HMB") == 0)
+         if (isBlind(type))
             action.level = actorRangeLevel(jRange, oSettings, in);
          else if (in)
             action.bri = getIntFromJson(oSettings, "bri", na);
@@ -496,23 +496,22 @@ int HomeCtl::actorTimeAction(const ActorTimeAction& action)
 
    tell(eloAlways, "Time control: '%s:0x%02x' (%s) %s", type, action.address,
         sensors[type][action.address].title.c_str(),
-        action.type == "HMB" ? ("to " + std::to_string(action.level) + "%").c_str() : action.in ? "on" : "off");
+        isBlind(type) ? ("to " + std::to_string(action.level) + "%").c_str() : action.in ? "on" : "off");
 
-   if (action.type == "HMB")
+   if (isBlind(type))
    {
-      shadeEnd(action.address);      // the time control has priority
-
+      shadeEnd(type, action.address);      // the time control has priority
 
       // LEVEL also if the blind is moving (toggleIo() would send STOP then)
 
-      if (!valueFactRowOf(type, action.address))
+      if (!valueFactRowOf(type, action.address) || !actorType(type)->blind)
          return fail;
 
       sensors[type][action.address].state = action.level == 100;
-      return mqttNodeRedPublishAction(sensors[type][action.address], action.level, false, true);
+      return actorType(type)->blind->blindMove(type, action.address, action.level, true);
    }
 
-   // DZL / DZLG - explicit state, a group would be toggled by toggleIo()
+   // lights - explicit state, a group would be toggled by toggleIo()
 
    int bri {action.bri > 0 ? std::min(action.bri, 100) : na};
    return lightCommand(type, action.address, action.in, bri, na);
@@ -591,17 +590,18 @@ bool HomeCtl::actorTimesReady(time_t now)
    if (!actorTimesCatchUp)
       return true;
 
-   bool deconzOk {isEmpty(deconz.getHttpUrl()) || isEmpty(deconz.getApiKey()) || deconzReady};
+   bool deconzOk {!deconzAvailable || isEmpty(deconz.getHttpUrl()) || isEmpty(deconz.getApiKey()) || deconzReady};
+   bool fahOk {!freeAtHomeAvailable || !freeAtHome.configured() || freeAtHomeReady};
    bool mqttOk {mqttWriter && mqttWriter->isConnected()};
 
-   if (deconzOk && mqttOk)
+   if (deconzOk && fahOk && mqttOk)
       return true;
 
    if (now - actorTimesStartedAt < actorTimesReadyWait)
       return false;
 
-   tell(eloAlways, "Time control: Not ready after %ld s (deCONZ %s, MQTT %s), going on",
-        (long)(now - actorTimesStartedAt), deconzOk ? "ok" : "not ready", mqttOk ? "ok" : "not connected");
+   tell(eloAlways, "Time control: Not ready after %ld s (deCONZ %s, free@home %s, MQTT %s), going on",
+        (long)(now - actorTimesStartedAt), deconzOk ? "ok" : "not ready", fahOk ? "ok" : "not ready", mqttOk ? "ok" : "not connected");
 
    return true;
 }
@@ -617,7 +617,7 @@ bool HomeCtl::actorTimesReady(time_t now)
 //     "note": "Handbetrieb",                                      why there is no automatic action (optional)
 //     "timers": [ ... ] }                                         running off timers of light rules (see below)
 //
-//   actors (DZL, DZLG, HMB) switch at each limit, GPIO (out) are forced to the state of
+//   actors (lights, blinds - isActor()) switch at each limit, GPIO (out) are forced to the state of
 //   their ranges (in auto mode) - for them the next change of this state is 'next'
 //***************************************************************************
 
@@ -651,7 +651,7 @@ int HomeCtl::nextTimeActions2Json(const char* type, uint address, json_t* obj)
    free(key);
    json_object_set_new(obj, "timers", jTimers);
 
-   bool actor {strcmp(type, "DZL") == 0 || strcmp(type, "DZLG") == 0 || strcmp(type, "HMB") == 0};
+   bool actor {isActor(type)};
    bool output {strcmp(type, "GPIO") == 0 && sensors[type][address].fct == "out"};
    cDbRow* fact {(actor || output) ? valueFactRowOf(type, address) : nullptr};
 
@@ -715,7 +715,7 @@ int HomeCtl::nextTimeActions2Json(const char* type, uint address, json_t* obj)
       json_object_set_new(jAction, "at", json_integer(at));
       json_object_set_new(jAction, "in", json_boolean(in));
 
-      if (strcmp(type, "HMB") == 0)
+      if (isBlind(type))
          json_object_set_new(jAction, "level", json_integer(actorRangeLevel(jR, oSettings, in)));
       else if (actor && in && getIntFromJson(oSettings, "bri", na) > 0)
          json_object_set_new(jAction, "bri", json_integer(getIntFromJson(oSettings, "bri", na)));

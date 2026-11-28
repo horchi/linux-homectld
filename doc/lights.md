@@ -2,9 +2,10 @@
 
 # Light and Blind Control
 
-Lights and groups of deCONZ (`DZL`, `DZLG`), HomeMatic blinds (`HMB`) and the outputs (`DO`, `GPIO`) can be
-switched by time and by switches / motion sensors, configured in the WEBIF, no NodeRed and no Lua needed.
-The setup of deCONZ itself is described in [deCONZ](deconz.md).
+Lights and groups of deCONZ (`DZL`, `DZLG`), lights and blinds of free@home (`FHL`, `FHB`), HomeMatic blinds (`HMB`)
+and the outputs (`DO`, `GPIO`) can be switched by time and by switches / motion sensors (deCONZ `DZS`,
+free@home `FHS`), configured in the WEBIF, no NodeRed and no Lua needed.
+The setup of deCONZ / free@home itself is described in [deCONZ](deconz.md) and [free@home](freeathome.md).
 
 ## Sun times
 

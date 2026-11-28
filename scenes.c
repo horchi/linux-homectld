@@ -549,7 +549,7 @@ int HomeCtl::sceneSet(json_t* step, std::string& error)
 
    if (kind == vkNumber)
    {
-      if (number <= 0 && (type == "DZL" || type == "DZLG"))
+      if (number <= 0 && isLight(type))
          return toggleIo(address, type.c_str(), 0);
 
       return toggleIo(address, type.c_str(), true, (int)number);

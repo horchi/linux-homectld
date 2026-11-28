@@ -8,7 +8,7 @@
  *
  *  Light rules
  *
- *  Switches and motion sensors of deCONZ (DZS) switch lights (DZL, DZLG),
+ *  Switches and motion sensors (acRuleSource, e.g. DZS) switch lights (acLight, e.g. DZL, DZLG),
  *  outputs, scenes (SCN) and the display of the HASP panel (HASP), configured without LUA in the setup dialog of the sensor, stored in
  *  its SETTINGS:
  *
@@ -55,9 +55,9 @@
  *  its 'duration' of 60 s, the next motion is reported after the blind time of the sensor;
  *  IKEA: once, presence for 180 s), the timer started by the first motion elapsed during it.
  *
- *  Commands to deCONZ lights (DZL) of the rules and the time control are checked: a command
- *  lost on the air (APSDE-DATA.confirm 0xA7 / 0xE9) leaves the light in its state, deCONZ
- *  reports the real state (latest after its next poll). Differs the state of the light 5 s
+ *  Commands to lights with acChecked (DZL) of the rules and the time control are checked: a command
+ *  lost on the air (deCONZ: APSDE-DATA.confirm 0xA7 / 0xE9) leaves the light in its state, the
+ *  backend reports the real state (deCONZ latest after its next poll). Differs the state of the light 5 s
  *  (plus transition) to 80 s after the command, it is repeated, twice at most. The same
  *  command to the same light within 2 s is sent once (off timer and 'follow' at the same time).
  *  Switching by the WEBIF ends the check.
@@ -106,15 +106,20 @@ std::string HomeCtl::lightKey(const char* type, uint address)
 }
 
 //***************************************************************************
-// Light Command (deCONZ, explicit state, transition in 1/10 s)
+// Light Command (light backend, explicit state, transition in 1/10 s)
 //***************************************************************************
 
 int HomeCtl::lightCommand(const char* type, uint address, bool on, int bri, int transition)
 {
    time_t now {time(0)};
    std::string key {lightKey(type, address)};
+   const ActorType* at {actorType(type)};
+   bool checked {hasCap(type, acChecked)};
 
-   if (strcmp(type, "DZL") == 0)
+   if (!at || !at->light)
+      return fail;
+
+   if (checked)
    {
       auto it {lightCommands.find(key)};
 
@@ -125,11 +130,11 @@ int HomeCtl::lightCommand(const char* type, uint address, bool on, int bri, int 
       }
    }
 
-   int status {deconz.toggle(type, address, on, on ? bri : na, transition, true)};
+   int status {at->light->toggle(type, address, on, on ? bri : na, transition, true)};
 
    // only lights have a reliable state (a group is 'on' if any of its lights is on)
 
-   if (strcmp(type, "DZL") == 0)
+   if (checked)
    {
       if (status == success)
          lightCommands[key] = { on, bri, transition, now, 0 };
@@ -151,8 +156,17 @@ int HomeCtl::lightCheckCommands()
    for (auto it = lightCommands.begin(); it != lightCommands.end(); )
    {
       LightCommand& cmd {it->second};
-      uint address {(uint)strtoul(it->first.c_str() + 4, nullptr, 0)};
-      const SensorData& sensor {sensors["DZL"][address]};
+      std::string type;
+      uint address {0};
+      const ActorType* at {parseTarget(it->first, type, address) ? actorType(type) : nullptr};
+
+      if (!at || !at->light)
+      {
+         it = lightCommands.erase(it);
+         continue;
+      }
+
+      const SensorData& sensor {sensors[type][address]};
       time_t elapsed {now - cmd.sentAt};
 
       if (sensor.state == cmd.on)
@@ -185,7 +199,7 @@ int HomeCtl::lightCheckCommands()
       tell(eloAlways, "Light '%s' (%s) is still %s, repeating '%s' (%d)", it->first.c_str(), sensor.title.c_str(),
            sensor.state ? "on" : "off", cmd.on ? "on" : "off", cmd.retries);
 
-      if (deconz.toggle("DZL", address, cmd.on, cmd.on ? cmd.bri : na, cmd.transition, true) != success)
+      if (at->light->toggle(type.c_str(), address, cmd.on, cmd.on ? cmd.bri : na, cmd.transition, true) != success)
       {
          it = lightCommands.erase(it);
          continue;
@@ -207,9 +221,9 @@ int HomeCtl::lightTargetSwitch(const std::string& target, bool on, int bri, int 
 
    tell(eloDetail, "Light rule: '%s' %s", target.c_str(), on ? "on" : "off");
 
-   // deCONZ with explicit state (a group would be toggled by toggleIo()), transition in 1/10 s
+   // lights with explicit state (a group would be toggled by toggleIo()), transition in 1/10 s
 
-   if (type == "DZL" || type == "DZLG")
+   if (isLight(type))
       return lightCommand(type.c_str(), address, on, bri > 0 ? std::min(bri, 100) : na,
                           transition > 0 ? transition * 10 : na);
 
@@ -514,8 +528,10 @@ int HomeCtl::lightRuleDimSend(const std::vector<std::string>& targets, int dir, 
       std::string type;
       uint address {0};
 
-      if (parseTarget(t, type, address) && (type == "DZL" || type == "DZLG"))
-         deconz.dim(type.c_str(), address, dir * 254, transitionTime, switchOn);
+      const ActorType* at {parseTarget(t, type, address) ? actorType(type) : nullptr};
+
+      if (at && at->light)
+         at->light->dim(type.c_str(), address, dir * 254, transitionTime, switchOn);
    }
 
    return done;
@@ -523,7 +539,7 @@ int HomeCtl::lightRuleDimSend(const std::vector<std::string>& targets, int dir, 
 
 //***************************************************************************
 // Light Rule Dim At End
-//   all lights (DZL, DZLG) of the targets which are on report the end of the direction
+//   all lights (acLight) of the targets which are on report the end of the direction
 //   (down: lowest brightness, up: 100 %) - only the end itself, the values while dimming
 //   come delayed / not at all; only values reported after 'since' (an older one is the
 //   brightness before, e.g. 100 % of a light switched on with the lowest one)
@@ -538,7 +554,7 @@ bool HomeCtl::lightRuleDimAtEnd(const std::vector<std::string>& targets, int dir
       std::string type;
       uint address {0};
 
-      if (!parseTarget(t, type, address) || (type != "DZL" && type != "DZLG") || !lightTargetState(t))
+      if (!parseTarget(t, type, address) || !isLight(type) || !lightTargetState(t))
          continue;
 
       const auto& sensor {sensors[type][address]};
@@ -608,8 +624,10 @@ int HomeCtl::lightRuleDimStop(const char* key, const std::vector<std::string>& t
       std::string type;
       uint address {0};
 
-      if (parseTarget(t, type, address) && (type == "DZL" || type == "DZLG"))
-         deconz.dim(type.c_str(), address, 0, na);
+      const ActorType* at {parseTarget(t, type, address) ? actorType(type) : nullptr};
+
+      if (at && at->light)
+         at->light->dim(type.c_str(), address, 0, na);
    }
 
    it->second.active = false;

@@ -471,7 +471,7 @@ function lightRuleItem(rule, source) {   // title 'Bewegung → Folgen', rows Ge
 
 function timeRangeItem(t, fact) {        // time control: rows An / Aus (blind: Zu / Auf), Gültig, Helligkeit / Position
    let st = fact.settings;
-   let blind = fact.type == 'HMB';
+   let blind = fact.blind == true;
    let rows = [];
 
    rows.push([blind ? 'Zu' : 'An', timeRefText(t.start, t.startOffset)]);
@@ -483,7 +483,7 @@ function timeRangeItem(t, fact) {        // time control: rows An / Aus (blind: 
    if (blind)
       rows.push(['Position', 'Zu ' + (t.levelIn != null ? t.levelIn : st.levelIn != null ? st.levelIn : 0) + ' % / Auf ' +
                  (t.levelOut != null ? t.levelOut : st.levelOut != null ? st.levelOut : 100) + ' %']);
-   else if ((fact.type == 'DZL' || fact.type == 'DZLG') && st.bri)
+   else if (fact.light && st.bri)
       rows.push(['Helligkeit', st.bri + ' %']);
 
    return { 'title': 'Zeitsteuerung' + (st.timesEnabled === false || t.enabled === false ? ' (ausgeschaltet)' : ''), 'rows': rows };
@@ -496,7 +496,7 @@ function lightRulesFor(key) {         // rules of a sensor, or the rules switchi
    if (!fact)
       return items;
 
-   if (fact.type == 'HMB' && fact.settings && fact.settings.shade && fact.settings.shade.enabled) {
+   if (fact.blind && fact.settings && fact.settings.shade && fact.settings.shade.enabled) {
       let sh = fact.settings.shade;
       let rows = [];
 
@@ -512,13 +512,13 @@ function lightRulesFor(key) {         // rules of a sensor, or the rules switchi
       items.push({ 'title': 'Beschattung', 'rows': rows });
    }
 
-   if (fact.type == 'DZS')
+   if (fact.ruleSource)
       return (fact.settings && Array.isArray(fact.settings.rules) ? fact.settings.rules : []).map(r => lightRuleItem(r));
 
    for (const k in valueFacts) {
       let f = valueFacts[k];
 
-      if (f.type != 'DZS' || !f.settings || !Array.isArray(f.settings.rules))
+      if (!f.ruleSource || !f.settings || !Array.isArray(f.settings.rules))
          continue;
 
       for (const r of f.settings.rules)
@@ -1508,7 +1508,7 @@ function prepareSetupMenu()
             addSetupMenuButton('HTML Widgets', 'htmlwidgets', null, 'mdi-code-tags');
             addSetupMenuButton('MQTT Konverter', 'mqttconverters', null, 'mdi-swap-horizontal');
 
-            if (!isEmpty(config.deconzHttpUrl))
+            if (config.deconzAvailable == '1' && !isEmpty(config.deconzHttpUrl))   // make switch DECONZ (Make.user)
                addSetupMenuButton('Zigbee', 'zigbee', null, 'mdi-zigbee');
          }
 

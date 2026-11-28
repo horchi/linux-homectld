@@ -85,7 +85,7 @@ int HomeCtl::mqttHaPublishSensor(SensorData& sensor, bool forceConfig)
 
    MemoryStruct message;
    std::string sName {sensor.name};
-   IoType iot {sensor.type == "DZL" ? iotLight : iotSensor};
+   IoType iot {isSingleLight(sensor.type) ? iotLight : iotSensor};
 
    sName = strReplace("ß", "ss", sName);
    sName = strReplace("ü", "ue", sName);

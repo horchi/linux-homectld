@@ -583,7 +583,7 @@ function widgetSetup(key, hasp)
          $('#widthfactor, #heightfactor').parent().parent().css('display', 'none');   // the rows 'Breite' and 'Höhe'
       }
 
-      if (!hasp && item && item.type == 'HMB' && [0,9,12].includes(wType)) {
+      if (!hasp && item && item.blind && [0,9,12].includes(wType)) {
          // blinds on the dashboard: always the shutter symbol with the position (updateBlindSymbol()),
          //   the color mixed between 'zu' (0 %) and 'auf' (100 %) - no choice of the symbol
 

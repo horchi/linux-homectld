@@ -26,6 +26,7 @@ If you like the project and want to support it
 
 - GPIO of Raspberry Pi or Odroid (tested with Odroid N2+)
 - Deconz https://www.dresden-elektronik.de/funk/software/deconz.html (lights, groups, switches, motion and other Zigbee sensors) - see [deCONZ](doc/deconz.md)
+- Busch-Jaeger free@home via the Local API of the SysAP 2.0 (lights, blinds, wall switches, motion, weather station) - see [free@home](doc/freeathome.md)
 - OpenWeatherMap https://openweathermap.org/
 - NodeRed - interface from and to NodeRed
 - Growatt PV Inverter via https://github.com/OpenInverterGateway/OpenInverterGateway
@@ -77,6 +78,7 @@ If you like the project and want to support it
 | [Widget Defaults](doc/widget-defaults.md) | default widget type, scale, colors and symbols of new widgets, titles / symbols of the sensor groups, own rules in the user file |
 | [Hardware and Interfaces](doc/hardware.md) | One Wire, i2c bus, BMS, RTL-433, CI bus, GPIO, hardware of the pool control |
 | [deCONZ (Zigbee)](doc/deconz.md) | setup, API key, lights / groups / sensors, battery, invalid sensors |
+| [free@home](doc/freeathome.md) | Busch-Jaeger free@home via the SysAP Local API: setup, lights, blinds, wall switches, sensors |
 | [Light and Blind Control](doc/lights.md) | deCONZ lights / groups / switches / motion sensors, outputs, blinds: sun times, time control, rules, shading |
 | [Fröling S 3200](doc/p4.md) | heating control via the service p4mqttd: sensors, page with service menu / errors / pellets / schema, mails, taking over the data of the p4d |
 | [HomeMatic](doc/homematic.md) | blind actuators via CUL stick (hmmqtt) or Node-RED / CCU |

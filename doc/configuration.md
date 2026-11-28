@@ -9,7 +9,7 @@ of the item in a dialog. The items are stored in the table `config` of the datab
 stored (*Speichern*), except where a restart of homectld is mentioned. The defaults are the ones of a fresh installation.
 
 The settings of some categories are explained with their topic, they are only listed here:
-[GPS](gps.md), [Garmin](garmin.md), [HASP Panel](hasp.md), [deCONZ](deconz.md).
+[GPS](gps.md), [Garmin](garmin.md), [HASP Panel](hasp.md), [deCONZ](deconz.md), [free@home](freeathome.md).
 
 ## Daemon
 
@@ -118,7 +118,12 @@ Mails are sent by a script, the receivers are comma separated lists.
 
 ## DECONZ
 
-*deCONZ HTTP URL* and *deCONZ API key*, see [deCONZ setup](deconz.md#setup).
+*deCONZ HTTP URL* and *deCONZ API key*, see [deCONZ setup](deconz.md#setup) (make switch `DECONZ`).
+
+## free@home
+
+*SysAP Adresse*, *Benutzer* and *Passwort* of the Local API, see [free@home setup](freeathome.md#setup)
+(make switch `FREEATHOME`, a change needs a restart of homectld).
 
 ## HomeMatic
 

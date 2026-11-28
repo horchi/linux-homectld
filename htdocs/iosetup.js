@@ -438,7 +438,7 @@ function showTable(section)
       let hasSetup = item.type.startsWith('MCPO') || item.type.startsWith('MCPI') ||
           item.type == 'SC' || item.type == 'SCN' || item.type == 'GPIO' ||
           item.type == 'CV' || item.type == 'AI' ||
-          item.type == 'DZL' || item.type == 'DZLG' || item.type == 'HMB' || item.type == 'DZS' ||
+          item.light || item.blind || item.ruleSource ||
           item.type.startsWith('ADS');
       let deletable = item.type != 'WEA' && item.type != 'BMS' && item.type != 'MOPEKA'
           && item.type != 'VIC' && !item.type.startsWith('VOTRO');
@@ -487,6 +487,8 @@ function updateSensorSetupValue()
 function sensorSetupDialog(type, address)
 {
    function doProceed() {
+      let fact = valueFacts[toKey(type, parseInt(address))] || {};   // capabilities: light, blind, ruleSource
+
       showTable(activeSection);
 
       if (type == 'GPIO')
@@ -503,9 +505,9 @@ function sensorSetupDialog(type, address)
          sensorScSetup(type, address);
       else if (type == 'SCN')
          sensorScnSetup(type, address);
-      else if (type == 'DZL' || type == 'DZLG' || type == 'HMB')
+      else if (fact.light || fact.blind)
          sensorActorSetup(type, address);
-      else if (type == 'DZS')
+      else if (fact.ruleSource)
          sensorRulesSetup(type, address);
    }
 
@@ -1118,7 +1120,7 @@ async function sensorDoSetup(type, address)
 }
 
 //***************************************************************************
-// Time control of the actors (DZL, DZLG, HMB)
+// Time control of the actors (lights and blinds - fact.light, fact.blind)
 //   switched only at the limits of the ranges (see sun.c), a limit may be empty
 //***************************************************************************
 
@@ -1132,7 +1134,7 @@ function sensorActorSetup(type, address)
    }
 
    let settings = valueFacts[key].settings ? valueFacts[key].settings : {};
-   let blind = type == 'HMB';
+   let blind = valueFacts[key].blind == true;
    let labels = blind ? ['Zu', 'Auf'] : ['An', 'Aus'];
    let form = document.createElement("div");
 
@@ -1490,7 +1492,7 @@ function sensorRulesSetup(type, address)
    for (const k in valueFacts) {
       let f = valueFacts[k];
 
-      if (!f.state || !(f.type == 'DZL' || f.type == 'DZLG' || f.type.startsWith('MCPO') || f.type == 'SCN' || f.type == 'HASP' ||
+      if (!f.state || !(f.light || f.type.startsWith('MCPO') || f.type == 'SCN' || f.type == 'HASP' ||
                         (f.type == 'GPIO' && f.settings && f.settings.fct == 'out')))
          continue;
 

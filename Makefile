@@ -33,7 +33,7 @@ GIT_REV      = $(shell git describe --always 2>/dev/null)
 
 LIBHORCHI    = lib/libhorchi.a
 
-OBJS         = main.o daemon.o wsactions.o hass.o hasp.o gpstour.o sun.o shade.o lightrules.o scenes.o hmservice.o p4service.o mqttconv.o zigbee.o activities.o websock.o webservice.o deconz.o lmc.o lmccom.o
+OBJS         = main.o daemon.o wsactions.o hass.o hasp.o gpstour.o sun.o shade.o lightrules.o actors.o freeathome.o scenes.o hmservice.o p4service.o mqttconv.o zigbee.o activities.o websock.o webservice.o deconz.o lmc.o lmccom.o
 OBJS        += growatt.o
 OBJS        += config.o p4fill.o vdr.o
 OBJS        := $(addprefix $(OBJDIR)/,$(OBJS))
@@ -105,6 +105,18 @@ endif
 
 ifdef HASP
    DEFINES += -DHASP_PANEL
+endif
+
+# deCONZ / Zigbee (Make.user): config items, setup page 'Zigbee', connection to deCONZ, the types DZL, DZLG, DZS
+
+ifdef DECONZ
+   DEFINES += -DDECONZ_ZIGBEE
+endif
+
+# free@home (Make.user): config items, connection to the SysAP 2.0 (Local API), the types FHL, FHB, FHS
+
+ifdef FREEATHOME
+   DEFINES += -DFREEATHOME_SYSAP
 endif
 
 # build rules

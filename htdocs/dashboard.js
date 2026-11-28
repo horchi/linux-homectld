@@ -2296,7 +2296,7 @@ function showLightDimDialog(key)
 {
    let fact = valueFacts[key] || {};
    let sensor = allSensors[key] || {};
-   let blind = fact.type == 'HMB';
+   let blind = fact.blind == true;
    let bri = 100;
 
    if (blind)
@@ -2341,7 +2341,7 @@ function bindSymbolPress(button, fact, key)
             return;
          // long press: color (color lights) resp. brightness (dimmable lights) resp.
          //   position (blinds) dialog
-         if ((fact.options & 0x06) || fact.type == 'HMB') {
+         if ((fact.options & 0x06) || fact.blind) {
             lightClickTimeout = setTimeout(function(event) {
                lightClickTimeout = lightClickPosX = lightClickPosY = null;
                if (fact.options & 0x04)
@@ -3173,7 +3173,7 @@ function showNextActions(obj)
    if (!$('#sensorRulesNext').length)
       return;
 
-   let blind = obj.type == 'HMB';
+   let blind = (valueFacts[toKey(obj.type, obj.address)] || {}).blind == true;
 
    let actionText = function(a) {
       let text = blind ? (a.in ? 'Zu' : 'Auf') : (a.in ? 'An' : 'Aus');
@@ -3294,7 +3294,7 @@ function widgetSymbolOf(fact, widget, sensor)
    // blinds (HMB): 'on' = open (position > 0 %), always the shutter symbol (the dashboard draws the position
    //   over it, updateBlindSymbol()), the color between 'Farbe' (0 % = zu) and 'Farbe An' (100 % = auf)
 
-   let blind = fact.type == 'HMB';
+   let blind = fact.blind == true;
    let state = sensor.valid && (!blind ? sensor.value != 0 : sensor.value > 0);
    let image = '';
    let classes = '';
@@ -3416,7 +3416,7 @@ function updateWidget(sensor, refresh, widget)
       if (classes != '')                                             // MDI symbol, no <img> element
          $("#widget" + fact.type + fact.address).remove();
 
-      if (fact.type == 'HMB' && sensor.image == null)                 // blind: shutter at the position
+      if (fact.blind && sensor.image == null)                 // blind: shutter at the position
          updateBlindSymbol(fact, sensor, widgetDiv);
       else if (image != '') {
          // the image gets the size of an MDI symbol (60 % of the widget) instead of the whole button,
@@ -3440,7 +3440,7 @@ function updateWidget(sensor, refresh, widget)
       // scene / script running: a turning arc in the 'on' color around the symbol (class 'widget-working' in base.css),
       //   not for blinds, they pulse while moving ('blindMoving')
 
-      let working = sensor.working == true && fact.type != 'HMB';
+      let working = sensor.working == true && !fact.blind;
       $("#button" + fact.type + fact.address).toggleClass('widget-working', working);
 
       if (working)

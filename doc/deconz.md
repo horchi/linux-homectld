@@ -21,6 +21,9 @@ The sensors appear in *Setup -> IO Setup* in the sections *DECONZ Lampen*, *DECO
 
 ## Setup
 
+0. make switch `DECONZ = 1` in `Make.user` (or `make config`), `make install`: only then the configuration
+   items *DECONZ* and the setup page *Zigbee* are offered, homectld connects to deCONZ and the types `DZL`,
+   `DZLG` and `DZS` are lights / sources of the light rules
 1. Install and start deCONZ (package or docker container).
    For the stick use the path below `/dev/serial/by-id/`, it doesn't change with other USB devices.
 2. WEBIF *Setup -> Konfiguration -> DECONZ*: set *deCONZ HTTP URL* to host and port of the REST API of deCONZ,

@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.86"
+#define _VERSION     "0.1.87"
 #define VERSION_DATE "28.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,9 @@
 
 /*
  * ------------------------------------
+
+2026-11-28: version 0.1.87
+    - added: free@home (Busch-Jaeger) via the Local API of the SysAP 2.0, make switch FREEATHOME
 
 2026-11-28: version 0.1.86
     - bugfix: S 3200: date / time of the heating (P4UD:0x03) in English, now formatted by homectld

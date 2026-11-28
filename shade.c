@@ -6,7 +6,7 @@
  * This code is distributed under the terms and conditions of the
  * GNU GENERAL PUBLIC LICENSE. See the file COPYING for details.
  *
- *  Shading of the blinds (HMB)
+ *  Shading of the blinds (isBlind(), e.g. HMB)
  *
  *  In summer the blinds are moved to a shading position while the sun shines on
  *  the window, configured without LUA in the dialog 'Zeitsteuerung' of the blind,
@@ -121,14 +121,18 @@ bool HomeCtl::shadeConditions(json_t* jShade, std::string& text)
 // Shade Move
 //***************************************************************************
 
-int HomeCtl::shadeMove(uint address, int level, const char* why)
+int HomeCtl::shadeMove(const char* type, uint address, int level, const char* why)
 {
-   SensorData& sensor {sensors["HMB"][address]};
+   SensorData& sensor {sensors[type][address]};
+   const ActorType* at {actorType(type)};
 
-   tell(eloAlways, "Shading: 'HMB:0x%02x' (%s) to %d%% (%s)", address, sensor.title.c_str(), level, why);
+   tell(eloAlways, "Shading: '%s:0x%02x' (%s) to %d%% (%s)", type, address, sensor.title.c_str(), level, why);
+
+   if (!at || !at->blind)
+      return fail;
 
    sensor.state = level == 100;
-   return mqttNodeRedPublishAction(sensor, level, false, true);   // LEVEL also if moving
+   return at->blind->blindMove(type, address, level, true);   // LEVEL also if moving
 }
 
 //***************************************************************************
@@ -141,91 +145,96 @@ int HomeCtl::shadeUpdate()
    time_t now {time(0)};
    time_t today {midnightOf(now)};
 
-   if (!sensors.count("HMB"))
-      return done;
-
-   for (auto& [address, sensor] : sensors["HMB"])
+   for (auto& [typeName, typeSensors] : sensors)
    {
-      ShadeState& state {shadeStates[address]};
-      cDbRow* fact {valueFactRowOf("HMB", address)};
-      json_t* oSettings {fact && fact->hasValue("STATE", "A") && !fact->getValue("SETTINGS")->isEmpty() ?
-                         jsonLoad(fact->getStrValue("SETTINGS"), 0, true) : nullptr};
-      json_t* jShade {oSettings ? getObjectFromJson(oSettings, "shade") : nullptr};
-
-      if (!jShade || !getBoolFromJson(jShade, "enabled", false))
-      {
-         if (state.phase != spIdle)
-            tell(eloAlways, "Shading: 'HMB:0x%02x' (%s) disabled", address, sensor.title.c_str());
-
-         state = {};                                     // no shading configured -> no state text
-
-         if (oSettings)
-            json_decref(oSettings);
-
+      if (!isBlind(typeName))
          continue;
-      }
 
-      int level {getIntFromJson(jShade, "level", 30)};
-      time_t delayOn {getIntFromJson(jShade, "delayOn", 10) * tmeSecondsPerMinute};
-      time_t delayOff {getIntFromJson(jShade, "delayOff", 20) * tmeSecondsPerMinute};
-      std::string why;
-      bool cond {shadeConditions(jShade, why)};
+      const char* type {typeName.c_str()};
 
-      json_decref(oSettings);
-
-      if (state.suspendedDay && state.suspendedDay != today)
-         state.suspendedDay = 0;                            // a new day
-
-      if (state.phase == spIdle)
+      for (auto& [address, sensor] : typeSensors)
       {
-         state.lostSince = 0;
-         state.condSince = cond ? (state.condSince ? state.condSince : now) : 0;
+         ShadeState& state {shadeStates[lightKey(type, address)]};
+         cDbRow* fact {valueFactRowOf(type, address)};
+         json_t* oSettings {fact && fact->hasValue("STATE", "A") && !fact->getValue("SETTINGS")->isEmpty() ?
+                            jsonLoad(fact->getStrValue("SETTINGS"), 0, true) : nullptr};
+         json_t* jShade {oSettings ? getObjectFromJson(oSettings, "shade") : nullptr};
 
-         if (state.suspendedDay)
-            state.text = "für heute ausgesetzt (von Hand gefahren) – " + why;
-         else if (!cond)
-            state.text = "bereit – " + why;
-         else if (now - state.condSince < delayOn)
-            state.text = "wartet (" + std::to_string((delayOn - (now - state.condSince) + 59) / 60) + " min) – " + why;
-         else if (sensor.value <= level + 1)
-            state.text = "Rolladen steht schon tiefer – " + why;
-         else
+         if (!jShade || !getBoolFromJson(jShade, "enabled", false))
          {
-            state.phase = spActive;
-            state.levelBefore = lround(sensor.value);
-            state.movedAt = now;
-            state.text = "aktiv – " + why;
-            shadeMove(address, level, why.c_str());
+            if (state.phase != spIdle)
+               tell(eloAlways, "Shading: '%s:0x%02x' (%s) disabled", type, address, sensor.title.c_str());
+
+            state = {};                                     // no shading configured -> no state text
+
+            if (oSettings)
+               json_decref(oSettings);
+
+            continue;
          }
 
-         continue;
+         int level {getIntFromJson(jShade, "level", 30)};
+         time_t delayOn {getIntFromJson(jShade, "delayOn", 10) * tmeSecondsPerMinute};
+         time_t delayOff {getIntFromJson(jShade, "delayOff", 20) * tmeSecondsPerMinute};
+         std::string why;
+         bool cond {shadeConditions(jShade, why)};
+
+         json_decref(oSettings);
+
+         if (state.suspendedDay && state.suspendedDay != today)
+            state.suspendedDay = 0;                            // a new day
+
+         if (state.phase == spIdle)
+         {
+            state.lostSince = 0;
+            state.condSince = cond ? (state.condSince ? state.condSince : now) : 0;
+
+            if (state.suspendedDay)
+               state.text = "für heute ausgesetzt (von Hand gefahren) – " + why;
+            else if (!cond)
+               state.text = "bereit – " + why;
+            else if (now - state.condSince < delayOn)
+               state.text = "wartet (" + std::to_string((delayOn - (now - state.condSince) + 59) / 60) + " min) – " + why;
+            else if (sensor.value <= level + 1)
+               state.text = "Rolladen steht schon tiefer – " + why;
+            else
+            {
+               state.phase = spActive;
+               state.levelBefore = lround(sensor.value);
+               state.movedAt = now;
+               state.text = "aktiv – " + why;
+               shadeMove(type, address, level, why.c_str());
+            }
+
+            continue;
+         }
+
+         // active: moved by hand? (the blind needs some time to get there)
+
+         if (!sensor.working && now - state.movedAt > 2 * tmeSecondsPerMinute && fabs(sensor.value - level) > 2)
+         {
+            tell(eloAlways, "Shading: '%s:0x%02x' (%s) moved by hand, suspended for today", type, address, sensor.title.c_str());
+            state = {};
+            state.suspendedDay = today;
+            state.text = "für heute ausgesetzt (von Hand gefahren)";
+            continue;
+         }
+
+         state.lostSince = cond ? 0 : (state.lostSince ? state.lostSince : now);
+
+         if (state.lostSince && now - state.lostSince >= delayOff)
+         {
+            int before {state.levelBefore};
+            state = {};
+            state.text = "beendet – " + why;
+            shadeMove(type, address, before, ("Ende, " + why).c_str());
+            continue;
+         }
+
+         state.text = "aktiv seit " + l2pTime(state.movedAt, "%H:%M") + ", vorher " + std::to_string(state.levelBefore) + " %" +
+            (state.lostSince ? " – endet in " + std::to_string((delayOff - (now - state.lostSince) + 59) / 60) + " min" : "") +
+            " – " + why;
       }
-
-      // active: moved by hand? (the blind needs some time to get there)
-
-      if (!sensor.working && now - state.movedAt > 2 * tmeSecondsPerMinute && fabs(sensor.value - level) > 2)
-      {
-         tell(eloAlways, "Shading: 'HMB:0x%02x' (%s) moved by hand, suspended for today", address, sensor.title.c_str());
-         state = {};
-         state.suspendedDay = today;
-         state.text = "für heute ausgesetzt (von Hand gefahren)";
-         continue;
-      }
-
-      state.lostSince = cond ? 0 : (state.lostSince ? state.lostSince : now);
-
-      if (state.lostSince && now - state.lostSince >= delayOff)
-      {
-         int before {state.levelBefore};
-         state = {};
-         state.text = "beendet – " + why;
-         shadeMove(address, before, ("Ende, " + why).c_str());
-         continue;
-      }
-
-      state.text = "aktiv seit " + l2pTime(state.movedAt, "%H:%M") + ", vorher " + std::to_string(state.levelBefore) + " %" +
-         (state.lostSince ? " – endet in " + std::to_string((delayOff - (now - state.lostSince) + 59) / 60) + " min" : "") +
-         " – " + why;
    }
 
    return done;
@@ -235,11 +244,24 @@ int HomeCtl::shadeUpdate()
 // Shade End (by the time control - the night has priority)
 //***************************************************************************
 
-void HomeCtl::shadeEnd(uint address)
+void HomeCtl::shadeEnd(const char* type, uint address)
 {
-   if (shadeStates.count(address) && shadeStates[address].phase != spIdle)
+   auto it {shadeStates.find(lightKey(type, address))};
+
+   if (it != shadeStates.end() && it->second.phase != spIdle)
    {
-      tell(eloAlways, "Shading: 'HMB:0x%02x' ended by the time control", address);
-      shadeStates[address] = {};
+      tell(eloAlways, "Shading: '%s:0x%02x' ended by the time control", type, address);
+      it->second = {};
    }
+}
+
+//***************************************************************************
+// Shade State Of (nullptr if none)
+//***************************************************************************
+
+const HomeCtl::ShadeState* HomeCtl::shadeStateOf(const char* type, uint address)
+{
+   auto it {shadeStates.find(lightKey(type, address))};
+
+   return it != shadeStates.end() ? &it->second : nullptr;
 }

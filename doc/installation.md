@@ -91,6 +91,7 @@ make config
     management system, Votronic, Victron (VE.Direct) and I2C sensors (see [hardware](hardware.md))
   - `HOMEMATIC` ([homematic](homematic.md)), `P4` ([p4mqttd](p4.md)), `GPS` ([gps](gps.md)), `GARMIN` ([garmin](garmin.md)),
     `SAMSUNGTV`, `DENON`, `MOPEKA`, `THETFORD`, `VDR`
+  - `DECONZ` ([deCONZ](deconz.md)), `FREEATHOME` ([free@home](freeathome.md)): the interfaces of the daemon itself
   - `WOMO`: the motorhome / standalone server setup ([standalone server](standalone-server.md))
 - second dialog: the personalization, e.g. `MQTT_HOST`, `SUBNET`, `WIFI_SSID` / `WIFI_PWD` (ESP32 sketches);
   an empty value leaves the setting unset

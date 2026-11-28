@@ -46,6 +46,10 @@
 #P4 = 1
 # HASP: openHASP touch panel - setup page 'HASP Panel' and scripts for the panel (doc/hasp.md)
 #HASP = 1
+# deCONZ: Zigbee lights, groups and sensors via ConBee / RaspBee - config, setup page 'Zigbee' (doc/deconz.md)
+#DECONZ = 1
+# free@home: Busch-Jaeger free@home via the Local API of the SysAP 2.0 - lights, blinds, sensors (doc/freeathome.md)
+#FREEATHOME = 1
 
 # MQTT services in the sub directories
 

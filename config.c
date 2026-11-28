@@ -110,6 +110,12 @@ std::list<HomeCtl::ConfigItemDef> HomeCtl::configuration
    { "deconzHttpUrl",             ctString,  "",                   "N", false, "DECONZ", "deCONZ HTTP URL", "", "doc/deconz.md#setup" },
    { "deconzApiKey",              ctString,  "",                   "N", false, "DECONZ", "deCONZ API key", "", "doc/deconz.md#setup" },
 
+   // free@home
+
+   { "fahHost",                   ctString,  "",                   "N", false, "free@home", "SysAP Adresse", "Host oder IP des System Access Point 2.0, optional mit Port; https, mit 'http://' davor ohne TLS (Neustart nötig)", "doc/freeathome.md#setup" },
+   { "fahUser",                   ctString,  "",                   "N", false, "free@home", "Benutzer", "Benutzer der Local API (SysAP App: free@home Einstellungen -> Local API)", "doc/freeathome.md#setup" },
+   { "fahPassword",               ctString,  "",                   "N", false, "free@home", "Passwort", "Passwort des Benutzers der Local API", "doc/freeathome.md#setup" },
+
    // homematic
 
    { "homeMaticBridge",           ctChoice,  "Aus",                "N", false, "HomeMatic", "Anbindung", "Rollläden (HMB) über HomeMatic BidCos-RF – Aus; Node-RED: Brücke zur HomeMatic CCU; hmmqtt: eigener Dienst mit CUL-Funkstick, ohne CCU und Node-RED (Seite Setup -> HomeMatic)", "doc/homematic.md#homematic" },

@@ -25,7 +25,9 @@
 #include "service.h"
 
 #include "websock.h"
+#include "actors.h"
 #include "deconz.h"
+#include "freeathome.h"
 #include "lmccom.h"
 #include "lib/gpio.h"
 
@@ -48,6 +50,25 @@
    inline constexpr bool haspAvailable {true};
 #else
    inline constexpr bool haspAvailable {false};
+#endif
+
+// deCONZ / Zigbee (make switch DECONZ in Make.user): without it the config items of deCONZ and the
+//   setup page 'Zigbee' are not offered, there is no connection to deCONZ and its types (DZL, DZLG,
+//   DZS) are no actors / sources of the light rules
+
+#ifdef DECONZ_ZIGBEE
+   inline constexpr bool deconzAvailable {true};
+#else
+   inline constexpr bool deconzAvailable {false};
+#endif
+
+// free@home (make switch FREEATHOME in Make.user): without it the config items of free@home are not
+//   offered, there is no connection to the SysAP and its types (FHL, FHB, FHS) are no actors
+
+#ifdef FREEATHOME_SYSAP
+   inline constexpr bool freeAtHomeAvailable {true};
+#else
+   inline constexpr bool freeAtHomeAvailable {false};
 #endif
 
 extern char dbHost[];
@@ -834,15 +855,46 @@ class HomeCtl : public cWebInterface, public Service
          std::string text;               // state for the info dialog
       };
 
-      std::map<uint,ShadeState> shadeStates;   // HMB address -> state
+      std::map<std::string,ShadeState> shadeStates;   // "HMB:0x02" -> state
 
       SensorData* sensorOfKey(const char* key);
       bool shadeConditions(json_t* jShade, std::string& text);
-      int shadeMove(uint address, int level, const char* why);
+      int shadeMove(const char* type, uint address, int level, const char* why);
       int shadeUpdate();
-      void shadeEnd(uint address);
+      void shadeEnd(const char* type, uint address);
+      const ShadeState* shadeStateOf(const char* type, uint address);
 
-      // time control of actors (sun.c) - DZL, DZLG, HMB switch at the limits of their time ranges
+      // actor types (actors.h) - the capabilities and the backend of the sensor types
+
+      class HomeMaticBlinds : public BlindBackend       // HMB via Node-RED (CCU) or hmmqtt (CUL)
+      {
+         public:
+            explicit HomeMaticBlinds(HomeCtl* parent) : ctl(parent) {}
+            int blindMove(const char* type, uint address, int level, bool noStop) override;
+         private:
+            HomeCtl* ctl {};
+      };
+
+      HomeMaticBlinds homeMaticBlinds {this};
+      std::map<std::string,ActorType> actorTypes;
+
+      void registerActorTypes();
+      const ActorType* actorType(const char* type) const;
+      const ActorType* actorType(const std::string& type) const { return actorType(type.c_str()); }
+      bool hasCap(const char* type, uint caps) const;   // one of 'caps'
+      bool hasCap(const std::string& type, uint caps) const { return hasCap(type.c_str(), caps); }
+      bool isLight(const char* type) const              { return hasCap(type, acLight); }
+      bool isBlind(const char* type) const              { return hasCap(type, acBlind); }
+      bool isActor(const char* type) const              { return hasCap(type, acLight | acBlind); }   // time control
+      bool isRuleSource(const char* type) const         { return hasCap(type, acRuleSource); }
+      bool isSingleLight(const char* type) const        { return isLight(type) && !hasCap(type, acGroup); }
+      bool isLight(const std::string& type) const       { return isLight(type.c_str()); }
+      bool isBlind(const std::string& type) const       { return isBlind(type.c_str()); }
+      bool isActor(const std::string& type) const       { return isActor(type.c_str()); }
+      bool isRuleSource(const std::string& type) const  { return isRuleSource(type.c_str()); }
+      bool isSingleLight(const std::string& type) const { return isSingleLight(type.c_str()); }
+
+      // time control of actors (sun.c) - lights and blinds (acLight, acBlind) switch at the limits of their time ranges
 
       struct ActorTimeAction
       {
@@ -1259,6 +1311,10 @@ class HomeCtl : public cWebInterface, public Service
       LmcCom* lmc {};
 
       Deconz deconz;
+      FreeAtHome freeAtHome;
+      bool freeAtHomeReady {false};                         // configuration read after the websocket connected
+      int dispatchFreeAtHome();
+      void freeAtHomeApply(const FreeAtHome::Update& u);
       bool homeMaticInterface {false};                      // homeMaticBridge != 'Aus'
       std::string homeMaticBridge {"Aus"};                  // Aus | Node-RED (CCU) | hmmqtt (CUL)
       std::string homeMaticTopic {"homematic"};             // MQTT base topic of hmmqtt

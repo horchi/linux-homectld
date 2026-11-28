@@ -469,6 +469,22 @@ Table deconzl
 }
 
 // ----------------------------------------------------------------
+// Table fahchannels - free@home channels (address of the sensors FHL, FHB, FHS)
+// ----------------------------------------------------------------
+
+Table fahchannels
+{
+   ADDRESS              ""  address              UInt         4 Primary|Autoinc,
+
+   INSSP                ""  inssp                Int         10 Meta,
+   UPDSP                ""  updsp                Int         10 Meta,
+
+   TYPE     "FHL|FHB|FHS"   type                 Ascii        8 Data,
+   UUID  "serial/channel"   uuid                 Ascii       50 Data,
+   NAME                 ""  name                 Ascii      100 Data,
+}
+
+// ----------------------------------------------------------------
 // System Tables
 // ----------------------------------------------------------------
 

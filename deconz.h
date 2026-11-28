@@ -11,6 +11,7 @@
 #include <atomic>
 
 #include "lib/common.h"
+#include "actors.h"
 
 class HomeCtl;
 
@@ -18,12 +19,12 @@ class HomeCtl;
 // Class Deconz
 //***************************************************************************
 
-class Deconz
+class Deconz : public LightBackend
 {
    public:
 
       Deconz();
-      ~Deconz();
+      ~Deconz() override;
 
       int init(HomeCtl* parent);
       int exit();
@@ -54,10 +55,10 @@ class Deconz
       bool wsRunning() const { return syncThread != 0; }
       static bool wsConnected() { return connected; }
 
-      int toggle(const char* type, uint address, bool state, int bri = na, int transitiontime = na, bool explicitState = false);
-      int color(const char* type, uint address, int hue, int saturation, int bri);
-      int colorTemperature(const char* type, uint address, int ct, int bri);   // white mode, ct [mired]
-      int dim(const char* type, uint address, int inc, int transitiontime, bool switchOn = false);   // bri_inc -254..254, 0 stops
+      int toggle(const char* type, uint address, bool state, int bri = na, int transitiontime = na, bool explicitState = false) override;
+      int color(const char* type, uint address, int hue, int saturation, int bri) override;
+      int colorTemperature(const char* type, uint address, int ct, int bri) override;   // white mode, ct [mired]
+      int dim(const char* type, uint address, int inc, int transitiontime, bool switchOn = false) override;   // bri_inc -254..254, 0 stops
 
       static cMyMutex messagesInMutex;
       static std::queue<std::string> messagesIn;

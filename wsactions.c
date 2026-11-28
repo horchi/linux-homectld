@@ -1880,12 +1880,12 @@ int HomeCtl::storeSensorSetup(json_t* obj, long client)
       status = storeIoSettings(obj, client);
    else if (type == "SCN")
       status = storeIoSettings(obj, client);
-   else if (type == "DZL" || type == "DZLG" || type == "HMB")     // time control
+   else if (isActor(type))                                          // time control (lights, blinds)
       status = storeIoSettings(obj, client);
-   else if (type == "DZS")                                          // light rules
+   else if (isRuleSource(type))                                     // light rules
       status = storeIoSettings(obj, client);
    else
-      return replyResult(fail, client, "Ignoring config request, only supported for 'AI', 'GPIO', 'W1', 'SC', 'SCN', 'CV', 'DZL', 'DZLG', 'DZS' and 'HMB' sensors");
+      return replyResult(fail, client, "Ignoring config request, only supported for 'AI', 'GPIO', 'W1', 'SC', 'SCN', 'CV' sensors, lights, blinds and sources of light rules");
 
    if (status == success)
    {
@@ -2647,7 +2647,15 @@ int HomeCtl::config2Json(json_t* obj)
    tableConfig->setValue("OWNER", myName());
 
    for (bool f = selectAllConfig->find(); f; f = selectAllConfig->fetch())
+   {
+      if (!deconzAvailable && tableConfig->hasValue("CATEGORY", "DECONZ"))     // make switch DECONZ not set
+         continue;
+
+      if (!freeAtHomeAvailable && tableConfig->hasValue("CATEGORY", "free@home"))   // make switch FREEATHOME not set
+         continue;
+
       json_object_set_new(obj, tableConfig->getStrValue("NAME"), json_string(tableConfig->getStrValue("VALUE")));
+   }
 
    selectAllConfig->freeResult();
 
@@ -2658,6 +2666,10 @@ int HomeCtl::config2Json(json_t* obj)
    // not a config item - the setup page 'HASP Panel' is offered with the make switch HASP
 
    json_object_set_new(obj, "haspAvailable", json_string(haspAvailable ? "1" : "0"));
+
+   // not a config item - the setup page 'Zigbee' is offered with the make switch DECONZ
+
+   json_object_set_new(obj, "deconzAvailable", json_string(deconzAvailable ? "1" : "0"));
 
    return done;
 }
@@ -2692,6 +2704,12 @@ int HomeCtl::configDetails2Json(json_t* obj)
          continue;
 
       if (!haspAvailable && tableConfig->hasValue("CATEGORY", "HASP Panel"))   // make switch HASP not set
+         continue;
+
+      if (!deconzAvailable && tableConfig->hasValue("CATEGORY", "DECONZ"))     // make switch DECONZ not set
+         continue;
+
+      if (!freeAtHomeAvailable && tableConfig->hasValue("CATEGORY", "free@home"))   // make switch FREEATHOME not set
          continue;
 
       items.push_back({tableConfig->getStrValue("NAME"),
@@ -3093,6 +3111,12 @@ int HomeCtl::configChoice2json(json_t* obj, const char* name)
          if (!haspAvailable && category == "HASP Panel")
             continue;
 
+         if (!deconzAvailable && category == "DECONZ")
+            continue;
+
+         if (!freeAtHomeAvailable && category == "free@home")
+            continue;
+
          if (std::find(categories.begin(), categories.end(), category) == categories.end())
             categories.push_back(category);
       }
@@ -3214,8 +3238,18 @@ int HomeCtl::valueFacts2Json(json_t* obj, bool filterActive)
          json_object_set_new(oData, "mode", json_integer(sensors[type][address].mode));
       }
 
-      // #TODO check actor properties if dimmable ...
-      json_object_set_new(oData, "dim", json_boolean(type == "DZL" || type == "HMB"));
+      // capabilities of the type (actors.h) - the WEBIF asks them instead of the type
+
+      json_object_set_new(oData, "dim", json_boolean(isSingleLight(type) || isBlind(type)));
+
+      if (isLight(type))
+         json_object_set_new(oData, "light", json_true());
+      if (hasCap(type, acGroup))
+         json_object_set_new(oData, "lightGroup", json_true());
+      if (isBlind(type))
+         json_object_set_new(oData, "blind", json_true());
+      if (isRuleSource(type))
+         json_object_set_new(oData, "ruleSource", json_true());
 
       if (type == "AI" || type.starts_with("ADS"))
       {
@@ -3661,8 +3695,10 @@ int HomeCtl::sensor2Json(json_t* obj, const char* type, uint address)
       ; // valid ist bereits korrekt gesetzt
    else if (strcmp(type, "SUN") == 0)
       sun2Json(obj);   // updated only once a day
-   else if (strcmp(type, "HMB") == 0)
+   else if (isBlind(type))
       ;
+   else if (strncmp(type, "FH", 2) == 0)
+      ;                                  // free@home: data by events only (websocket), always valid
    else if (strcmp(type, "DZS") == 0 || strncmp(type, "DZL", 3) == 0)
    {
       // measuring sensors - deconzCheckOutdated()
@@ -3694,10 +3730,12 @@ int HomeCtl::sensor2Json(json_t* obj, const char* type, uint address)
 
    // state of the shading of a blind (shade.c)
 
-   if (strcmp(type, "HMB") == 0 && shadeStates.count(address) && !shadeStates[address].text.empty())
+   const ShadeState* shade {isBlind(type) ? shadeStateOf(type, address) : nullptr};
+
+   if (shade && !shade->text.empty())
    {
-      json_object_set_new(obj, "shade", json_string(shadeStates[address].text.c_str()));
-      json_object_set_new(obj, "shadeActive", json_boolean(shadeStates[address].phase != spIdle));
+      json_object_set_new(obj, "shade", json_string(shade->text.c_str()));
+      json_object_set_new(obj, "shadeActive", json_boolean(shade->phase != spIdle));
    }
 
    // running off timer of a light rule (lightrules.c) switching this sensor
@@ -3721,9 +3759,9 @@ int HomeCtl::sensor2Json(json_t* obj, const char* type, uint address)
    if (!sensors[type][address].color.empty())
       json_object_set_new(obj, "color", json_string(sensors[type][address].color.c_str()));
 
-   // white mode of the color lights (deCONZ): color mode, color temperature and its range [mired]
+   // white mode of the color lights: color mode, color temperature and its range [mired]
 
-   if (strcmp(type, "DZL") == 0 && sensors[type][address].ctMin > 0)
+   if (isSingleLight(type) && sensors[type][address].ctMin > 0)
    {
       json_object_set_new(obj, "ctmin", json_integer(sensors[type][address].ctMin));
       json_object_set_new(obj, "ctmax", json_integer(sensors[type][address].ctMax));

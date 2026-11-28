@@ -79,7 +79,7 @@ std::list<HomeCtl::ConfigItemDef> HomeCtl::configuration
 
    { "mqttUrl",                   ctString,  "tcp://localhost:1883",   "N", false, "MQTT", "MQTT Broker Url", "URL der MQTT Instanz Beispiel: 'tcp://127.0.0.1:1883'", "doc/configuration.md#mqtt" },
    { "mqttUser",                  ctString,  "",                       "N", false, "MQTT", "User", "", "doc/configuration.md#mqtt" },
-   { "mqttPassword",              ctString,  "",                       "N", false, "MQTT", "Password", "", "doc/configuration.md#mqtt" },
+   { "mqttPassword",              ctPassword, "",                      "N", false, "MQTT", "Password", "", "doc/configuration.md#mqtt" },
    { "mqttSensorTopics",          ctStringSet, INSTANCE "2mqtt/w1/#",  "N", false, "MQTT", "Zusätzliche sensor Topics", "Diese Topics werden gelesen und als Sensor Daten verwendet", "doc/mqtt-converter.md#how-it-works" },
    { "arduinoTopic",              ctString,  INSTANCE "2mqtt/arduino", "N", false, "MQTT", "MQTT Topic des Arduino Interface", "", "doc/configuration.md#mqtt" },
    { "arduinoInterval",           ctInteger, "10",                     "N", false, "MQTT", "Intervall der Arduino Messungen", "[s]", "doc/configuration.md#mqtt" },
@@ -114,7 +114,7 @@ std::list<HomeCtl::ConfigItemDef> HomeCtl::configuration
 
    { "fahHost",                   ctString,  "",                   "N", false, "free@home", "SysAP Adresse", "Host oder IP des System Access Point 2.0, optional mit Port; https, mit 'http://' davor ohne TLS (Neustart nötig)", "doc/freeathome.md#setup" },
    { "fahUser",                   ctString,  "",                   "N", false, "free@home", "Benutzer", "Benutzer der Local API (SysAP App: free@home Einstellungen -> Local API)", "doc/freeathome.md#setup" },
-   { "fahPassword",               ctString,  "",                   "N", false, "free@home", "Passwort", "Passwort des Benutzers der Local API", "doc/freeathome.md#setup" },
+   { "fahPassword",               ctPassword, "",                  "N", false, "free@home", "Passwort", "Passwort des Benutzers der Local API", "doc/freeathome.md#setup" },
 
    // homematic
 

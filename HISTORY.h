@@ -5,7 +5,7 @@
  *
  */
 
-#define _VERSION     "0.1.88"
+#define _VERSION     "0.1.89"
 #define VERSION_DATE "28.11.2026"
 
 #ifdef GIT_REV
@@ -16,6 +16,9 @@
 
 /*
  * ------------------------------------
+
+2026-11-28: version 0.1.89
+    - change: setup: password fields masked (MQTT, free@home)
 
 2026-11-28: version 0.1.88
     - bugfix: IO setup: sections of free@home empty ('@' in the title)

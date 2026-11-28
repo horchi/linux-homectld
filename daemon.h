@@ -315,8 +315,9 @@ class HomeCtl : public cWebInterface, public Service
          ctText,
          ctComboChoice,   // text input with the values stored before as suggestions (by label), see comboHistoryAdd()
          ctStringSet,     // list of strings, stored comma separated, see getConfigItem(name, std::vector<std::string>&)
-         ctButton         // no value, a button of the setup page which sends a message to the daemon: the value (taken
+         ctButton,        // no value, a button of the setup page which sends a message to the daemon: the value (taken
                           //   from the definition) is JSON {"event":"..","object":{..},"confirm":"..","progress":<s>}
+         ctPassword       // string, masked input in the WEBIF
       };
 
       // ORD of config items created at runtime (sensor and user defined options),

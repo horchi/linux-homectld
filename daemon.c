@@ -802,6 +802,7 @@ int HomeCtl::init()
             // Alle textbasierten und restlichen Auswahllisten nutzen std::string
 
             case ConfigItemType::ctString:
+            case ConfigItemType::ctPassword:
             case ConfigItemType::ctText:
             case ConfigItemType::ctChoice:
             case ConfigItemType::ctComboChoice:

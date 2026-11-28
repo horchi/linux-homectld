@@ -288,6 +288,28 @@ function initConfig(configdetails = null)
                             .val(parseFloat(config[item.name].replace(',', '.')))));
          break;
 
+      case 12:    // ctPassword - masked, the eye shows it
+         $(itemsDiv)
+            .append($('<span></span>')
+                    .css({'display': 'flex', 'align-items': 'center', 'gap': '4px'})
+                    .append($('<input></input>')
+                            .attr('id', 'input_' + item.name)
+                            .attr('type', 'password')
+                            .attr('autocomplete', 'new-password')
+                            .addClass('rounded-border input')
+                            .val(config[item.name]))
+                    .append($('<span></span>')
+                            .addClass('mdi mdi-eye-outline')
+                            .css({'cursor': 'pointer', 'font-size': 'larger'})
+                            .attr('title', 'Anzeigen')
+                            .click(function() {
+                               let input = $(this).prev('input');
+                               let show = input.attr('type') == 'password';
+                               input.attr('type', show ? 'text' : 'password');
+                               $(this).toggleClass('mdi-eye-outline', !show).toggleClass('mdi-eye-off-outline', show);
+                            })));
+         break;
+
       case 2:     // ctString
          $(itemsDiv)
             .append($('<span></span>')
@@ -587,7 +609,8 @@ function addEditConfigItem(name = null)
       { type: 7, title: 'BitSelect' },     // ctBitSelect
       { type: 8, title: 'Text' },          // ctText
       { type: 9, title: 'ComboChoice' },   // ctComboChoice
-      { type: 10, title: 'StringSet' }     // ctStringSet
+      { type: 10, title: 'StringSet' },    // ctStringSet
+      { type: 12, title: 'Password' }      // ctPassword
    ];
 
    // Prüfen, ob wir im Bearbeitungsmodus sind
@@ -719,7 +742,8 @@ function addConfigItem(name = null)
       { type: 7, title: 'BitSelect' },     // ctBitSelect
       { type: 8, title: 'Text' },          // ctText
       { type: 9, title: 'ComboChoice' },   // ctComboChoice
-      { type: 10, title: 'StringSet' }     // ctStringSet
+      { type: 10, title: 'StringSet' },    // ctStringSet
+      { type: 12, title: 'Password' }      // ctPassword
    ];
 
    let typeSel = null;
